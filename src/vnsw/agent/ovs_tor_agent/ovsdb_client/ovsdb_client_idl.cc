@@ -25,6 +25,7 @@ extern "C" {
 #include <unicast_mac_remote_ovsdb.h>
 #include <vm_interface_ksync.h>
 #include <vn_ovsdb.h>
+#include <vrf_ovsdb.h>
 
 SandeshTraceBufferPtr OvsdbTraceBuf(SandeshTraceBufferCreate("Ovsdb", 5000));
 SandeshTraceBufferPtr OvsdbPktTraceBuf(SandeshTraceBufferCreate("Ovsdb Pkt", 5000));
@@ -126,7 +127,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     for (int i = 0; i < OVSDB_TYPE_COUNT; i++) {
         callback_[i] = NULL;
     }
-    route_peer_.reset(manager->Allocate(IpAddress()));
+    route_peer_.reset(manager->Allocate(session_->remote_ip()));
     vm_interface_table_.reset(new VMInterfaceKSyncObject(this,
                 (DBTable *)agent->interface_table()));
     physical_switch_table_.reset(new PhysicalSwitchTable(this));

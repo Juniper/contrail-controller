@@ -186,7 +186,16 @@ int VlanKSyncEntry::del_count_;
 class VlanKSyncObject : public KSyncDBObject {
 public:
     VlanKSyncObject(DBTableBase *table) : KSyncDBObject(table),
-                                          is_empty_count_(0) {}
+                                          is_empty_count_(0) {
+        evm_.reset(new EventManager());
+        // set timer value to -1, and trigger timer callback explicitly
+        // set 1 entry processing per iteration
+        InitStaleEntryCleanup(*(evm_->io_service()), -1, -1, 1);
+    }
+
+    virtual ~VlanKSyncObject() {
+        evm_->Shutdown();
+    }
 
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
         const VlanKSyncEntry *vlan = static_cast<const VlanKSyncEntry *>(entry);
@@ -217,6 +226,7 @@ public:
 
 private:
     static VlanKSyncObject *singleton_;
+    auto_ptr<EventManager> evm_;
     DISALLOW_COPY_AND_ASSIGN(VlanKSyncObject);
 
 };
@@ -584,6 +594,44 @@ TEST_F(DBKSyncTest, Vlan_object_delete_with_dup_entries) {
 
     EXPECT_EQ(adc_notification, 2);
     EXPECT_EQ(del_notification, 2);
+}
+
+TEST_F(DBKSyncTest, create_stale_vlan_entry_to_non_stale) {
+    // Create a stale entry for vlan 10
+    VlanKSyncEntry vlan_key(10);
+    VlanKSyncObject::GetKSyncObject()->CreateStale(&vlan_key);
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 0);
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    task_util::WaitForIdle();
+    EXPECT_EQ(adc_notification, 1);
+    EXPECT_EQ(del_notification, 0);
+
+    // Triggers delete of stale entry
+    TestTriggerStaleEntryCleanupCb(VlanKSyncObject::GetKSyncObject());
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetChangeCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 0);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    task_util::WaitForIdle();
+    EXPECT_EQ(adc_notification, 1);
+    EXPECT_EQ(del_notification, 1);
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
 }
 
 int main(int argc, char **argv) {

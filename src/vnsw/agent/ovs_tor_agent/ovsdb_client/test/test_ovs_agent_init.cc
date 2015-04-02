@@ -128,7 +128,7 @@ void TestOvsAgentInit::CreateModules() {
         start_ovsdb_server();
         ovsdb_client_.reset(new OVSDB::OvsdbClientTcp(agent(),
                     IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
-                    IpAddress(Ip4Address::from_string("127.0.0.1")), 0, true,
+                    IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
                     ovs_peer_manager()));
         agent()->set_ovsdb_client(ovsdb_client_.get());
     }

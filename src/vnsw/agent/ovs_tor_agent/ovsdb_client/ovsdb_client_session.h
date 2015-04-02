@@ -20,8 +20,6 @@ namespace OVSDB {
 class OvsdbClientIdl;
 class OvsdbClientSession {
 public:
-    static const uint32_t SendMonitorReqWait = 10000;       // in msec
-
     struct OvsdbSessionEvent {
         TcpSession::Event event;
     };
@@ -38,6 +36,7 @@ public:
     virtual int keepalive_interval() = 0;
 
     virtual KSyncObjectManager *ksync_obj_manager() = 0;
+    virtual Ip4Address remote_ip() { return Ip4Address(); }
     virtual Ip4Address tsn_ip() = 0;
     virtual void SendMsg(u_int8_t *buf, std::size_t len) = 0;
     void MessageProcess(const u_int8_t *buf, std::size_t len);
@@ -45,11 +44,7 @@ public:
     void OnClose();
     OvsdbClientIdl *client_idl();
 
-    bool SendMonitorReqTimerCb();
-
 protected:
-    uint32_t monitor_wait_; // time to wait before sending monitor request
-
     // ovsdb io task ID.
     static int ovsdb_io_task_id_;
 

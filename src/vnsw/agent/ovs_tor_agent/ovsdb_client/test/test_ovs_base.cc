@@ -109,22 +109,22 @@ TEST_F(OvsBaseTest, physical_port) {
     PhysicalPortTable *table =
         tcp_session_->client_idl()->physical_port_table();
 
-    PhysicalPortEntry key(table, "ge-0/0/0");
+    PhysicalPortEntry key(table, "test-router", "ge-0/0/0");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key) != NULL));
 
-    PhysicalPortEntry key1(table, "ge-0/0/1");
+    PhysicalPortEntry key1(table, "test-router", "ge-0/0/1");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key1) != NULL));
 
-    PhysicalPortEntry key2(table, "ge-0/0/2");
+    PhysicalPortEntry key2(table, "test-router", "ge-0/0/2");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key2) != NULL));
 
-    PhysicalPortEntry key3(table, "ge-0/0/3");
+    PhysicalPortEntry key3(table, "test-router", "ge-0/0/3");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key3) != NULL));
 
-    PhysicalPortEntry key4(table, "ge-0/0/4");
+    PhysicalPortEntry key4(table, "test-router", "ge-0/0/4");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key4) != NULL));
 
-    PhysicalPortEntry key5(table, "ge-0/0/47");
+    PhysicalPortEntry key5(table, "test-router", "ge-0/0/47");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key5) != NULL));
 
     OvsdbPhysicalPortReq *req = new OvsdbPhysicalPortReq();

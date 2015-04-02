@@ -17,9 +17,13 @@ class VrfOvsdbObject;
 
 class UnicastMacRemoteTable : public OvsdbDBObject {
 public:
+    UnicastMacRemoteTable(OvsdbClientIdl *idl,
+                          const std::string &logical_switch_name);
     UnicastMacRemoteTable(OvsdbClientIdl *idl, AgentRouteTable *table,
                           const std::string &logical_switch_name);
     virtual ~UnicastMacRemoteTable();
+
+    virtual void OvsdbRegisterDBTable(DBTable *tbl);
 
     void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
 
@@ -96,37 +100,6 @@ private:
     OvsdbDupIdlList dup_list_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteEntry);
 };
-
-class VrfOvsdbObject {
-public:
-    struct VrfState : DBState {
-        std::string logical_switch_name_;
-        UnicastMacRemoteTable *l2_table;
-    };
-    typedef std::map<std::string, VrfState *> LogicalSwitchMap;
-
-    VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table);
-    virtual ~VrfOvsdbObject();
-
-    void OvsdbRouteNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
-
-    void DeleteTable(void);
-
-    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
-    void VrfWalkDone(DBTableBase *partition);
-    void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
-    const LogicalSwitchMap &logical_switch_map() const;
-
-private:
-    OvsdbClientIdlPtr client_idl_;
-    DBTable *table_;
-    bool deleted_;
-    DBTableWalker::WalkId walkid_;
-    LogicalSwitchMap logical_switch_map_;
-    DBTableBase::ListenerId vrf_listener_id_;
-    DISALLOW_COPY_AND_ASSIGN(VrfOvsdbObject);
-};
-
 };
 
 #endif //SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_UNICAST_MAC_REMOTE_OVSDB_H_

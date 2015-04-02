@@ -8,6 +8,7 @@
 #include <tbb/mutex.h>
 #include <tbb/recursive_mutex.h>
 #include <base/queue_task.h>
+#include <base/timer.h>
 #include <sandesh/sandesh_trace.h>
 /////////////////////////////////////////////////////////////////////////////
 // Back-Ref management needs two trees,
@@ -87,6 +88,11 @@ public:
     // Destructor
     virtual ~KSyncObject();
 
+    // Initialise stale entry cleanup state machine.
+    void InitStaleEntryCleanup(boost::asio::io_service &ios,
+                               uint32_t cleanup_time, uint32_t cleanup_intvl,
+                               uint16_t entries_per_intvl);
+
     // Notify an event to KSyncEvent state-machine
     void NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     // Call Notify event with mutex lock held
@@ -102,6 +108,11 @@ public:
 
     // Create an entry
     KSyncEntry *Create(const KSyncEntry *key);
+    // Create a Stale entry, which needs to be cleanedup as part for
+    // stale entry cleanup (timer).
+    // Derived class can choose to create this entry to manage stale
+    // states in Kernel
+    KSyncEntry *CreateStale(const KSyncEntry *key);
     // Called on change to ksync_entry. Will resulting in sync of the entry
     void Change(KSyncEntry *entry);
     // Delete a KSyncEntry
@@ -130,18 +141,25 @@ public:
 protected:
     // Create an entry with default state. Used internally
     KSyncEntry *CreateImpl(const KSyncEntry *key);
+    // Clear Stale Entry flag
+    void ClearStale(KSyncEntry *entry);
     // Big lock on the tree
     // TODO: Make this more fine granular
     tbb::recursive_mutex  lock_;
 
 private:
     friend class KSyncEntry;
+    friend void TestTriggerStaleEntryCleanupCb(KSyncObject *obj);
+
     // Free indication of an KSyncElement. 
     // Removes from tree and free index if allocated earlier
     void FreeInd(KSyncEntry *entry, uint32_t index);
     void NetlinkAckInternal(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
 
     bool IsIndexValid() const { return need_index_; }
+
+    // timer Callback to trigger delete of stale entries.
+    bool StaleEntryCleanupCb();
 
     //Callback to do cleanup when DEL ACK is received.
     virtual void CleanupOnDel(KSyncEntry *kentry) {}
@@ -158,6 +176,15 @@ private:
     KSyncIndexTable index_table_;
     // scheduled for deletion
     bool delete_scheduled_;
+
+    // stale entry tree
+    std::set<KSyncEntry::KSyncEntryPtr> stale_entry_tree_;
+
+    // Stale Entry Cleanup Timer
+    Timer *stale_entry_cleanup_timer_;
+
+    uint32_t stale_entry_cleanup_intvl_;
+    uint16_t stale_entries_per_intvl_;
 
     DISALLOW_COPY_AND_ASSIGN(KSyncObject);
 };
