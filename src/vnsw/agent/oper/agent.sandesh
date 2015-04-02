@@ -930,6 +930,16 @@ traceobject sandesh OperInterface {
     1: InterfaceInfo intf_info;
 }
 
+struct OperConfigInfo {
+    1: string name;
+    2: string uuid;
+    3: string message;
+}
+
+traceobject sandesh OperConfig {
+    1: OperConfigInfo info;
+}
+
 traceobject sandesh OperRoute {
     1: RouteInfo route_info;
 }
