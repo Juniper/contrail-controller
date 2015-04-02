@@ -1421,6 +1421,10 @@ class OpServer(object):
             if 'flat' in req.keys() or any(filters.values()):
                 flat = True
 
+            period = 3600
+            if 'period' in req.keys():
+                period = int(req.period)
+
             uve_name = uve_tbl + ':' + name
             if name.find('*') != -1:
                 flat = True
@@ -1429,7 +1433,8 @@ class OpServer(object):
                 if filters['kfilt'] is None:
                     filters['kfilt'] = [name]
                 for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
-                                                          filters, is_alarm):
+                                                          filters, is_alarm,
+                                                          period):
                     if first:
                         yield u'' + json.dumps(gen)
                         first = False
@@ -1438,7 +1443,8 @@ class OpServer(object):
                 yield u']}'
             else:
                 rsp = self._uve_server.get_uve(uve_name, flat, filters,
-                                               is_alarm=is_alarm)
+                                               is_alarm=is_alarm,
+                                               period=period)
                 yield json.dumps(rsp)
     # end _uve_alarm_http_get
 

@@ -220,7 +220,7 @@ class UVEServer(object):
             uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
         return uves
         
-    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False):
+    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False, period=3600):
         filters = filters or {}
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
@@ -358,7 +358,7 @@ class UVEServer(object):
                     for t,q in qmap.iteritems():
                         try:
                             q["query"]["end_time"] = OpServerUtils.utc_timestamp_usec()
-                            q["query"]["start_time"] = qdict["end_time"] - (3600 * 1000000)
+                            q["query"]["start_time"] = qdict["end_time"] - (period * 1000000)
                             json_str = json.dumps(q["query"])
                             resp = OpServerUtils.post_url_http(url, json_str, True)
                             if resp is not None:
@@ -410,13 +410,13 @@ class UVEServer(object):
         return re.compile(regex)
     # end get_uve_regex
 
-    def multi_uve_get(self, table, flat, filters=None, is_alarm=False):
+    def multi_uve_get(self, table, flat, filters=None, is_alarm=False, period=3600):
         # get_uve_list cannot handle attribute names very efficiently,
         # so we don't pass them here
         uve_list = self.get_uve_list(table, filters, False, is_alarm)
         for uve_name in uve_list:
             uve_val = self.get_uve(
-                table + ':' + uve_name, flat, filters, True, is_alarm)
+                table + ':' + uve_name, flat, filters, True, is_alarm, period)
             if uve_val == {}:
                 continue
             else:
