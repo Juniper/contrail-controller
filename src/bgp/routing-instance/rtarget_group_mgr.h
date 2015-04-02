@@ -86,15 +86,17 @@ private:
 //
 class RTargetState : public DBState {
 public:
-    const RtGroup::InterestedPeerList &GetList() const {
-        return list_;
-    }
-
-    RtGroup::InterestedPeerList *GetMutableList() {
-        return &list_;
-    }
+    void AddInterestedPeer(RTargetGroupMgr *mgr, RtGroup *rtgroup,
+        RTargetRoute *rt, RtGroup::InterestedPeerList::const_iterator it);
+    void DeleteInterestedPeer(RTargetGroupMgr *mgr, RtGroup *rtgroup,
+        RTargetRoute *rt, RtGroup::InterestedPeerList::iterator it);
 
 private:
+    friend class RTargetGroupMgr;
+
+    const RtGroup::InterestedPeerList *GetList() const { return &list_; }
+    RtGroup::InterestedPeerList *GetMutableList() { return &list_; }
+
     RtGroup::InterestedPeerList list_;
 };
 
@@ -239,7 +241,7 @@ private:
                         const VpnRouteState::RTargetList *future);
     void RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
                          DBTableBase::ListenerId id, RTargetState *dbstate,
-                         RtGroup::InterestedPeerList &current);
+                         const RtGroup::InterestedPeerList *future);
     void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt,
                                        DBTableBase::ListenerId id);
     BgpServer *server() { return server_; }
