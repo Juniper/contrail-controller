@@ -11,7 +11,9 @@ env = CfgmEnv.Clone()
 sources = [
     'setup.py',
     'requirements.txt',
+    'run_tests.sh',
     'test-requirements.txt',
+    '.testr.conf',
     'MANIFEST.in',
     'svc_monitor/__init__.py',
     'svc_monitor/svc_monitor.py',
@@ -66,23 +68,6 @@ def BuildPyTestSetup(env, target, source):
     file.close()
     return
 
-def GeneratePyTestSetup(env, targets, source):
-    """
-    Generate a setup.cfg file that contains a list of directories
-    where dependent packages can be found. The fact that package directory
-    list is being given as a source automatically adds them as dependencies.
-    """
-    target = env.File('setup.cfg')
-    return env.Command(target=target, source=source, action=BuildPyTestSetup);
-
-env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
-test_sources += env.PythonTestSetup(source=packages)
-
-test = env.Command(None, test_sources,
-                   cd_cmd + 'python setup.py test')
-
-env.Alias('controller/src/config/svc_monitor:test', test)
-
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources,
                               cd_cmd + 'python setup.py install %s' %
@@ -94,3 +79,26 @@ env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
     '/contrail-svc-monitor', 'contrail-svc-monitor.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-svc-monitor.ini')) 
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+# unit test
+test_cmd = env.Command('test.log', sdist_gen,
+          'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
+
+test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
+                '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+                '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
+                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
+                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
+                '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('controller/src/config/svc_monitor:test', test_cmd)

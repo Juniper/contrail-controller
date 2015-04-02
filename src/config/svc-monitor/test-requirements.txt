@@ -1,11 +1,14 @@
+python-subunit
+testrepository
 mock
 kazoo
 bitarray
 geventhttpclient
 psutil
 bottle
-vnc_api         # move this back to requirements.txt
-cfgm_common     # move this back to requirements.txt
-sandesh_common  # move this back to requirements.txt
-sandesh         # move this back to requirements.txt
-discoveryclient # move this back to requirements.txt
+../../../debug/config/common/dist/cfgm_common-0.1dev.tar.gz
+../../../debug/api-lib/dist/vnc_api-0.1dev.tar.gz
+../../../debug/discovery/client/dist/discoveryclient-0.1dev.tar.gz
+../../../debug/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
+../../../debug/sandesh/common/dist/sandesh-common-0.1dev.tar.gz
+../../../debug/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz

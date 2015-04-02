@@ -3,6 +3,17 @@
 #
 
 import setuptools, re
+import os
+
+class RunTestsCommand(setuptools.Command):
+    description = "Test command to run testr in virtualenv"
+    user_options = []
+    def initialize_options(self):
+        self.cwd = None
+    def finalize_options(self):
+        self.cwd = os.getcwd()
+    def run(self):
+        os.system('./run_tests.sh -V')
 
 def requirements(filename):
     with open(filename) as f:
@@ -25,7 +36,6 @@ setuptools.setup(
     long_description="VNC Service Monitor",
 
     install_requires=requirements('requirements.txt'),
-    tests_require=requirements('test-requirements.txt'),
 
     test_suite='svc_monitor.tests',
 
@@ -34,5 +44,8 @@ setuptools.setup(
         'console_scripts' : [
             'contrail-svc-monitor = svc_monitor.svc_monitor:server_main',
         ],
+    },
+    cmdclass={
+       'run_tests': RunTestsCommand,
     },
 )

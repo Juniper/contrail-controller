@@ -113,7 +113,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         st_obj['id_perms'] = 'fake-id-perms'
         st_props = {}
         st_props['flavor'] = 'm1.medium'
-        st_props['image'] = 'nat-image'
+        st_props['image_name'] = 'nat-image'
         st_props['service_virtualization_type'] = 'virtual-machine'
         st_props['service_type'] = 'firewall'
         st_props['ordered_interfaces'] = True
