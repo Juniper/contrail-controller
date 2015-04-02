@@ -161,18 +161,19 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             }
         }
 
-        if (attr->ext_community() != NULL) {
-            // Handle route-target filtering
-            rtinstance_->server()->rtarget_group_mgr()->GetRibOutInterestedPeers
-                (ribout, attr->ext_community(), peerset, &new_peerset);
-            if (new_peerset.empty()) return NULL;
-        }
-
         if (ribout->peer_type() == BgpProto::IBGP) {
             // Split horizon check.
             const IPeer *peer = path->GetPeer();
             if (peer && peer->PeerType() == BgpProto::IBGP)
                 return NULL;
+
+            // Handle route-target filtering.
+            if (attr->ext_community() != NULL) {
+                server()->rtarget_group_mgr()->GetRibOutInterestedPeers(
+                    ribout, attr->ext_community(), peerset, &new_peerset);
+                if (new_peerset.empty())
+                    return NULL;
+            }
 
             BgpAttr *clone = new BgpAttr(*attr);
 
@@ -196,6 +197,14 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             if (attr->as_path() &&
                 attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
                 return NULL;
+            }
+
+            // Handle route-target filtering.
+            if (attr->ext_community() != NULL) {
+                server()->rtarget_group_mgr()->GetRibOutInterestedPeers(
+                    ribout, attr->ext_community(), peerset, &new_peerset);
+                if (new_peerset.empty())
+                    return NULL;
             }
 
             BgpAttr *clone = new BgpAttr(*attr);
