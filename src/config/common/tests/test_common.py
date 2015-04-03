@@ -49,7 +49,13 @@ sys.path.append('../../../../build/production/config/api-server/vnc_cfg_api_serv
 import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
     from vnc_cfg_api_server import vnc_cfg_api_server
-
+try:
+    import to_bgp
+except ImportError:
+    from schema_transformer import to_bgp
+import svc_monitor
+if not hasattr(svc_monitor, 'main'):
+    from svc_monitor import svc_monitor
 
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
@@ -131,10 +137,6 @@ def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
 #end launch_api_server
 
 def launch_svc_monitor(api_server_ip, api_server_port):
-    import svc_monitor
-    if not hasattr(svc_monitor, 'main'):
-        from svc_monitor import svc_monitor
-
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
@@ -159,10 +161,6 @@ def kill_schema_transformer(glet):
     to_bgp.transformer.reset()
 
 def launch_schema_transformer(api_server_ip, api_server_port):
-    try:
-        import to_bgp
-    except ImportError:
-        from schema_transformer import to_bgp
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
