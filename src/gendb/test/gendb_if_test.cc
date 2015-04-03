@@ -15,6 +15,7 @@
 #include "base/string_util.h"
 
 #include "testing/gunit.h"
+#include "gendb/gendb_if.h"
 
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
     boost::uuids::uuid, uint8_t, uint16_t, double> DbTestVarVariant;
@@ -332,23 +333,15 @@ public:
         const DbPerfTest *test_;
         std::string &result_;
     };
-    static const std::string tstring_;
-    static const uint64_t tu64_;
-    static const uint32_t tu32_;
-    static const boost::uuids::uuid tuuid_;
-    static const uint8_t tu8_;
-    static const uint16_t tu16_;
-    static const double tdouble_;
 };
 
-const std::string DbPerfTest::tstring_("Test");
-const uint64_t DbPerfTest::tu64_(123456789ULL);
-const uint32_t DbPerfTest::tu32_(123456789);
-const boost::uuids::uuid DbPerfTest::tuuid_ = boost::uuids::random_generator()();
-const uint8_t DbPerfTest::tu8_(128);
-const uint16_t DbPerfTest::tu16_(65535);
-const double DbPerfTest::tdouble_(1.0);
-
+static const std::string tstring_("Test");
+static const uint64_t tu64_(123456789ULL);
+static const uint32_t tu32_(123456789);
+static const boost::uuids::uuid tuuid_ = boost::uuids::random_generator()();
+static const uint8_t tu8_(128);
+static const uint16_t tu16_(65535);
+static const double tdouble_(1.0);
 
 TEST_F(DbPerfTest, DISABLED_VariantVector) {
     for (int i = 0; i < 100000; i++) {
@@ -527,6 +520,82 @@ TEST_F(DbPerfTest, DISABLED_StructEncode) {
             }
         }
     }
+}
+
+class GenDbTest : public ::testing::Test {
+};
+
+TEST_F(GenDbTest, NewColSizeSql) {
+    // SQL - string
+    GenDb::NewCol tstring_col(tstring_, tstring_);
+    EXPECT_EQ(tstring_.length() + tstring_.length(), tstring_col.GetSize());
+    // SQL - uint64_t
+    GenDb::NewCol tu64_col(tstring_, tu64_);
+    EXPECT_EQ(tstring_.length() + sizeof(tu64_), tu64_col.GetSize());
+    // SQL - uint32_t
+    GenDb::NewCol tu32_col(tstring_, tu32_);
+    EXPECT_EQ(tstring_.length() + sizeof(tu32_), tu32_col.GetSize());
+    // SQL - boost::uuids::uuid
+    GenDb::NewCol tuuid_col(tstring_, tuuid_);
+    EXPECT_EQ(tstring_.length() + tuuid_.size(), tuuid_col.GetSize());
+    // SQL - uint8_t
+    GenDb::NewCol tu8_col(tstring_, tu8_);
+    EXPECT_EQ(tstring_.length() + sizeof(tu8_), tu8_col.GetSize());
+    // SQL - uint16_t
+    GenDb::NewCol tu16_col(tstring_, tu16_);
+    EXPECT_EQ(tstring_.length() + sizeof(tu16_), tu16_col.GetSize());
+    // SQL - double
+    GenDb::NewCol tdouble_col(tstring_, tdouble_);
+    EXPECT_EQ(tstring_.length() + sizeof(tdouble_), tdouble_col.GetSize());
+}
+
+static void PopulateDbDataValueVec(GenDb::DbDataValueVec *dbv, size_t *vsize) {
+    dbv->push_back(tstring_);
+    size_t size = tstring_.length();
+    dbv->push_back(tu64_);
+    size += sizeof(tu64_);
+    dbv->push_back(tu32_);
+    size += sizeof(tu32_);
+    dbv->push_back(tuuid_);
+    size += tuuid_.size();
+    dbv->push_back(tu8_);
+    size += sizeof(tu8_);
+    dbv->push_back(tu16_);
+    size += sizeof(tu16_);
+    dbv->push_back(tdouble_);
+    size += sizeof(tdouble_);
+    *vsize += size;
+}
+
+static GenDb::NewCol* CreateNewColNoSql(size_t *csize) {
+    size_t size(0);
+    GenDb::DbDataValueVec *name(new GenDb::DbDataValueVec);
+    PopulateDbDataValueVec(name, csize);
+    GenDb::DbDataValueVec *value(new GenDb::DbDataValueVec);
+    PopulateDbDataValueVec(value, csize);
+    GenDb::NewCol *nosql_col(new GenDb::NewCol(name, value));
+    return nosql_col;
+}
+
+TEST_F(GenDbTest, NewColSizeNoSql) {
+    size_t expected_size(0);
+    boost::scoped_ptr<GenDb::NewCol> col(CreateNewColNoSql(&expected_size));
+    EXPECT_EQ(expected_size, col->GetSize());
+}
+
+TEST_F(GenDbTest, ColListSize) {
+    GenDb::ColList colList;
+    colList.cfname_ = "TestColList";
+    size_t expected_size(0);
+    PopulateDbDataValueVec(&colList.rowkey_, &expected_size);
+    // SQL - string
+    GenDb::NewCol *tstring_col(new GenDb::NewCol(tstring_, tstring_));
+    expected_size += 2 * tstring_.length();
+    colList.columns_.push_back(tstring_col);
+    // No SQL
+    GenDb::NewCol *nosql_col(CreateNewColNoSql(&expected_size));
+    colList.columns_.push_back(nosql_col);
+    EXPECT_EQ(expected_size, colList.GetSize());
 }
 
 int main(int argc, char **argv) {

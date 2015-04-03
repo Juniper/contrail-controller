@@ -45,20 +45,20 @@ bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
 const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kDbQueueWaterMarkInfo =
     boost::assign::tuple_list_of
-        (150000, SandeshLevel::SYS_EMERG, true)
-        (100000, SandeshLevel::SYS_ERR, true)
-        (50000, SandeshLevel::SYS_DEBUG, true)
-        (125000, SandeshLevel::SYS_ERR, false)
-        (75000, SandeshLevel::SYS_DEBUG, false)
-        (25000, SandeshLevel::INVALID, false);
+        (150 * 1024 * 1024, SandeshLevel::SYS_EMERG, true)
+        (100 * 1024 * 1024, SandeshLevel::SYS_ERR, true)
+        (50 * 1024 * 1024, SandeshLevel::SYS_DEBUG, true)
+        (125 * 1024 * 1024, SandeshLevel::SYS_ERR, false)
+        (75 * 1024 * 1024, SandeshLevel::SYS_DEBUG, false)
+        (25 * 1024 * 1024, SandeshLevel::INVALID, false);
 const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo =
     boost::assign::tuple_list_of
-        (150000, SandeshLevel::SYS_EMERG, true)
-        (100000, SandeshLevel::SYS_ERR, true)
-        (50000, SandeshLevel::SYS_DEBUG, true)
-        (125000, SandeshLevel::SYS_ERR, false)
-        (75000, SandeshLevel::SYS_DEBUG, false)
-        (25000, SandeshLevel::INVALID, false);
+        (150 * 1024 * 1024, SandeshLevel::SYS_EMERG, true)
+        (100 * 1024 * 1024, SandeshLevel::SYS_ERR, true)
+        (50 * 1024 * 1024, SandeshLevel::SYS_DEBUG, true)
+        (125 * 1024 * 1024, SandeshLevel::SYS_ERR, false)
+        (75 * 1024 * 1024, SandeshLevel::SYS_DEBUG, false)
+        (25 * 1024 * 1024, SandeshLevel::INVALID, false);
 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,

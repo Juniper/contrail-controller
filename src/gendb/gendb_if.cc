@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/foreach.hpp>
+
 #include "gendb_if.h"
 #include "cdb_if.h"
 
@@ -15,3 +17,26 @@ GenDbIf *GenDbIf::GenDbIfImpl(GenDbIf::DbErrorHandler hdlr,
         name, only_sync));
 }
 
+size_t NewCol::GetSize() const {
+    DbDataValueTypeSizeVisitor size_visitor;
+    // Name
+    std::for_each(name->begin(), name->end(),
+        boost::apply_visitor(size_visitor));
+    // Value
+    std::for_each(value->begin(), value->end(),
+        boost::apply_visitor(size_visitor));
+    return size_visitor.GetSize();
+}
+
+size_t ColList::GetSize() const {
+    DbDataValueTypeSizeVisitor size_visitor;
+    // Rowkey
+    std::for_each(rowkey_.begin(), rowkey_.end(),
+        boost::apply_visitor(size_visitor));
+    size_t size = size_visitor.GetSize();
+    // Columns
+    BOOST_FOREACH(const NewCol &col, columns_) {
+        size += col.GetSize();
+    }
+    return size;
+}
