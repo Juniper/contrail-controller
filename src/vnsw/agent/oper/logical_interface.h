@@ -33,9 +33,6 @@ class LogicalInterface : public Interface {
     virtual bool OnChange(const InterfaceTable *table,
                           const LogicalInterfaceData *data);
 
-    virtual bool Copy(const InterfaceTable *table,
-                      const LogicalInterfaceData *data) = 0;
-
     const std::string &display_name() const { return display_name_; }
     Interface *physical_interface() const;
     VmInterface *vm_interface() const;
@@ -97,14 +94,14 @@ struct VlanLogicalInterfaceData : public LogicalInterfaceData {
 class VlanLogicalInterface : public LogicalInterface {
  public:
     explicit VlanLogicalInterface(const boost::uuids::uuid &uuid,
-                                  const std::string &name);
+                                  const std::string &name, uint16_t vlan);
     virtual ~VlanLogicalInterface();
     virtual DBEntryBase::KeyPtr GetDBRequestKey() const;
 
-    bool Copy(const InterfaceTable *table, const LogicalInterfaceData *d);
     uint16_t vlan() const { return vlan_; }
 
  private:
+    // IMP: vlan_ cannot be changed
     uint16_t vlan_;
     DISALLOW_COPY_AND_ASSIGN(VlanLogicalInterface);
 };

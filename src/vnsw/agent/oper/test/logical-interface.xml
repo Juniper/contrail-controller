@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <test_suite name="logical-interface">
-<test name="test1">
+<test name="test1" verbose="0">
     <physical-router uuid="1" name="router-1"/>
     <physical-interface uuid="1" name="p-intf-1" device="router-1" />
 
@@ -17,7 +17,14 @@
     <validate name="validate-1">
         <vm-interface name="tap1" uuid="1" present="1" active="1" />
         <logical-interface name="l-intf-1" uuid="1" port="p-intf-1" vmi="1"
-         present="1" />
+         present="no" />
+    </validate>
+
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" vmi="tap1"
+     vlan="1"/>
+    <validate name="validate-1">
+        <logical-interface name="l-intf-1" uuid="1" port="p-intf-1" vmi="1"
+         vlan="1" present="1" />
     </validate>
 
     <vmi-vrf uuid="1" name="tap1-vm1"  del="1"/>
@@ -52,9 +59,9 @@
 <test name="test2">
     <physical-router uuid="1" name="router-1"/>
     <physical-interface uuid="1" name="p-intf-1" device="router-1" />
-    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" />
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" vlan="10"/>
     <validate name="validate-3">
-        <logical-interface name="l-intf-1" uuid="1" present="1" />
+        <logical-interface name="l-intf-1" uuid="1" vlan="10" present="1" />
     </validate>
 
     <link left="physical-interface" left-name="p-intf-1"
