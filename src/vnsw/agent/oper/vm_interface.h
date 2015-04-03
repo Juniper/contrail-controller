@@ -377,6 +377,9 @@ public:
     const Ip4Address& subnet() const { return subnet_;}
     const uint8_t subnet_plen() const { return subnet_plen_;}
     const MacAddress& GetVifMac(const Agent*) const;
+    const boost::uuids::uuid &logical_interface() const {
+        return logical_interface_;
+    }
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
@@ -681,6 +684,8 @@ private:
     Ip4Address subnet_;
     uint8_t subnet_plen_;
     int ethernet_tag_;
+    // Logical interface uuid to which the interface belongs
+    boost::uuids::uuid logical_interface_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -785,24 +790,7 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
 
 // Definition for structures when request queued from IFMap config.
 struct VmInterfaceConfigData : public VmInterfaceData {
-    VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
-        VmInterfaceData(agent, node, CONFIG, Interface::TRANSPORT_INVALID),
-        addr_(0), ip6_addr_(), vm_mac_(""),
-        cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
-        fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
-        layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
-        dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
-        local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
-        mirror_direction_(Interface::UNKNOWN), sg_list_(),
-        floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-        allowed_address_pair_list_(),
-        device_type_(VmInterface::DEVICE_TYPE_INVALID),
-        vmi_type_(VmInterface::VMI_TYPE_INVALID),
-        physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
-        rx_vlan_id_(VmInterface::kInvalidVlanId),
-        tx_vlan_id_(VmInterface::kInvalidVlanId) {
-    }
-
+    VmInterfaceConfigData(Agent *agent, IFMapNode *node);
     virtual ~VmInterfaceConfigData() { }
     virtual VmInterface *OnAdd(const InterfaceTable *table,
                                const VmInterfaceKey *key) const;
@@ -852,6 +840,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint8_t subnet_plen_;
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
+    boost::uuids::uuid logical_interface_;
 };
 
 // Definition for structures when request queued from Nova

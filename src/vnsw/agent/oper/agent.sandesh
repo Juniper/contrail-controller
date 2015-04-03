@@ -86,6 +86,7 @@ struct ItfSandeshData {
    42: optional string vrf_assign_acl_uuid (link="AclReq"); //VRF assign acl
    43: optional string vmi_type;
    44: string transport;
+   45: string logical_interface_uuid;
 }
 
 struct VnIpamData {
