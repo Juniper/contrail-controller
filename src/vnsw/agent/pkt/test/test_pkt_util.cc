@@ -186,3 +186,29 @@ void TxTcpMplsPacket(int ifindex, const char *out_sip,
     delete pkt;
 }
 
+void TxIpIcmpErrorPacket(int ifindex, const char *sip, const char *dip,
+                         int proto, uint16_t sport, uint16_t dport,
+                         int hash_id, int vrf, int icmp_err) {
+    PktGen *pkt = new PktGen();
+
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, vrf) ;
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
+    pkt->AddIpHdr(dip, sip, 1);
+    pkt->AddIcmpHdr(icmp_err, 0);
+
+    pkt->AddIpHdr(sip, dip, proto);
+    if (proto == IPPROTO_ICMP) {
+        pkt->AddIcmpHdr(ICMP_ECHO, sport);
+    } else if (proto == IPPROTO_TCP) {
+        pkt->AddTcpHdr(sport, dport, false, false, true, 64);
+    } else if (proto == IPPROTO_UDP) {
+        pkt->AddUdpHdr(sport, dport, 64);
+    }
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
+                                                             pkt->GetBuffLen(),
+                                                             pkt->GetBuffLen());
+    delete pkt;
+}

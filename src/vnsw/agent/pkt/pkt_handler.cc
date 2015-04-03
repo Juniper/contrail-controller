@@ -273,6 +273,22 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
         if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->un.echo.id);
+        } else if ((pkt_info->agent_hdr.cmd == AGENT_TRAP_FLOW_MISS ||
+                    pkt_info->agent_hdr.cmd == AGENT_TRAP_ECMP_RESOLVE) &&
+                    (icmp->type == ICMP_DEST_UNREACH ||
+                     icmp->type == ICMP_TIME_EXCEEDED)) {
+            //Agent has to look at inner payload
+            //and recalculate the parameter
+            ParseIpPacket(pkt_info, pkt_type, pkt + sizeof(icmphdr));
+            //Swap the key parameter, which would be used as key
+            uint32_t src_ip = pkt_info->ip_saddr;
+            pkt_info->ip_saddr = pkt_info->ip_daddr;
+            pkt_info->ip_daddr = src_ip;
+            if (pkt_info->ip_proto != IPPROTO_ICMP) {
+                uint16_t port = pkt_info->sport;
+                pkt_info->sport = pkt_info->dport;
+                pkt_info->dport = port;
+            }
         } else {
             pkt_info->sport = 0;
         }

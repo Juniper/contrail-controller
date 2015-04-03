@@ -245,8 +245,16 @@ public:
         struct icmphdr *icmp = (struct icmphdr *)(buff + len);
         icmp->type = 0;
         icmp->un.echo.id = 0;
-        len += sizeof(icmphdr) + len;
+        len += sizeof(icmphdr);
     };
+
+    void AddIcmpHdr(uint8_t type, uint16_t id) {
+        struct icmphdr *icmp = (struct icmphdr *)(buff + len);
+        icmp->type = type;
+        icmp->un.echo.id = htons(id);
+        len += sizeof(icmphdr);
+    };
+
 
     void AddGreHdr(uint16_t proto) {
         GreHdr *gre = (GreHdr *)(buff + len);

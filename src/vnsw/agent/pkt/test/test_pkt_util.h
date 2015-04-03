@@ -55,5 +55,7 @@ extern void TxTcpMplsPacket(int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
                                uint16_t dport, bool ack, int hash_id = 1);
-
+void TxIpIcmpErrorPacket(int ifindex, const char *sip, const char *dip,
+                         int proto, uint16_t sport, uint16_t dport,
+                         int hash_id, int vrf, int icmp_err);
 #endif // __TEST_PKT_UTIL_H__

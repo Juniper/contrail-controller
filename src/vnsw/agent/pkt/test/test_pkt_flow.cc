@@ -3452,6 +3452,62 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, FlowIcmpError_1) {
+    //Send a ICMP error packet with payload
+    //of icmp, verify flow is setup properly
+    TxIpIcmpErrorPacket(flow1->id(), vm1_ip, vm2_ip, IPPROTO_ICMP, 1000, 0,
+                         10, flow1->vrf()->vrf_id(), ICMP_DEST_UNREACH);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    uint32_t nh_id = flow0->flow_key_nh()->id();
+    uint32_t rev_nh_id = flow1->flow_key_nh()->id();
+
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, vm2_ip, IPPROTO_ICMP, 1000, 0, nh_id);
+    EXPECT_TRUE(fe != NULL);
+
+    FlowEntry *rfe = FlowGet(vrf_id, vm2_ip, vm1_ip, IPPROTO_ICMP, 1000, 0, rev_nh_id);
+    EXPECT_TRUE(rfe != NULL);
+}
+
+TEST_F(FlowTest, FlowIcmpError_2) {
+    //Send a ICMP error packet with payload
+    //of UDP, verify flow is setup properly
+    TxIpIcmpErrorPacket(flow1->id(), vm1_ip, vm2_ip, IPPROTO_UDP, 10, 20,
+                         11, flow1->vrf()->vrf_id(), ICMP_DEST_UNREACH);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    uint32_t nh_id = flow0->flow_key_nh()->id();
+    uint32_t rev_nh_id = flow1->flow_key_nh()->id();
+
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, vm2_ip, IPPROTO_UDP, 10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL);
+
+    FlowEntry *rfe = FlowGet(vrf_id, vm2_ip, vm1_ip, IPPROTO_UDP, 20, 10,
+                             rev_nh_id);
+    EXPECT_TRUE(rfe != NULL);
+}
+
+TEST_F(FlowTest, FlowIcmpError_3) {
+    //Send a ICMP error packet with payload
+    //of TCP, verify flow is setup properly
+    TxIpIcmpErrorPacket(flow1->id(), vm1_ip, vm2_ip, IPPROTO_TCP, 10, 20,
+                         12, flow1->vrf()->vrf_id(), ICMP_TIME_EXCEEDED);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    uint32_t nh_id = flow0->flow_key_nh()->id();
+    uint32_t rev_nh_id = flow1->flow_key_nh()->id();
+
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, vm2_ip, IPPROTO_TCP,  10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL);
+
+    FlowEntry *rfe = FlowGet(vrf_id, vm2_ip, vm1_ip, IPPROTO_TCP, 20, 10,
+                             rev_nh_id);
+    EXPECT_TRUE(rfe != NULL);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
