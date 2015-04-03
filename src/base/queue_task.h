@@ -12,6 +12,7 @@
 #ifndef __QUEUE_TASK_H__
 #define __QUEUE_TASK_H__
 
+#include <algorithm>
 #include <vector>
 
 #include <tbb/atomic.h>
@@ -20,6 +21,26 @@
 #include <tbb/spin_rw_mutex.h>
 
 #include <base/task.h>
+
+// WaterMarkInfo
+typedef boost::function<void (size_t)> WaterMarkCallback;
+
+struct WaterMarkInfo {
+    WaterMarkInfo(size_t count, WaterMarkCallback cb) :
+        count_(count),
+        cb_(cb) {
+    }
+    friend inline bool operator<(const WaterMarkInfo& lhs,
+        const WaterMarkInfo& rhs);
+    size_t count_;
+    WaterMarkCallback cb_;
+};
+
+inline bool operator<(const WaterMarkInfo& lhs, const WaterMarkInfo& rhs) {
+    return lhs.count_ < rhs.count_;
+}
+
+typedef std::vector<WaterMarkInfo> WaterMarkInfos;
 
 template <typename QueueEntryT, typename QueueT>
 class QueueTaskRunner : public Task {
@@ -35,7 +56,7 @@ public:
         }
         return RunQueue();
         // No more client callbacks after updating
-        // queue running_ and current_runner_ in RunQueue to 
+        // queue running_ and current_runner_ in RunQueue to
         // avoid client callbacks running concurrently
     }
 
@@ -96,16 +117,6 @@ public:
     typedef boost::function<bool (void)> StartRunnerFunc;
     typedef boost::function<void (bool)> TaskExitCallback;
     typedef boost::function<bool ()> TaskEntryCallback;
-    typedef boost::function<void (size_t)> WaterMarkCallback;
-
-    struct WaterMarkInfo {
-        WaterMarkInfo(size_t count, WaterMarkCallback cb) :
-            count_(count),
-            cb_(cb) {
-        }
-        size_t count_;
-        WaterMarkCallback cb_;
-    };
 
     WorkQueue(int taskId, int taskInstance, Callback callback,
               size_t size = kMaxSize,
@@ -130,6 +141,8 @@ public:
         shutdown_scheduled_(false),
         delete_entries_on_shutdown_(true) {
         count_ = 0;
+        hwater_index_ = -1;
+        lwater_index_ = -1;
     }
 
     // Concurrency - should be called from a task whose policy
@@ -187,42 +200,52 @@ public:
         return bounded_;
     }
 
-    void SetHighWaterMark(std::vector<WaterMarkInfo> &high_water) {
+    void SetHighWaterMark(const WaterMarkInfos &high_water) {
         tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        hwater_index_ = -1;
         high_water_ = high_water;
+        std::sort(high_water_.begin(), high_water_.end());
     }
 
-    void SetHighWaterMark(WaterMarkInfo hwm_info) {
+    void SetHighWaterMark(const WaterMarkInfo& hwm_info) {
         tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        hwater_index_ = -1;
         high_water_.push_back(hwm_info);
+        std::sort(high_water_.begin(), high_water_.end());
     }
 
     void ResetHighWaterMark() {
         tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        hwater_index_ = -1;
         high_water_.clear();
     }
 
-    std::vector<WaterMarkInfo> GetHighWaterMark() const {
+    WaterMarkInfos GetHighWaterMark() const {
         tbb::spin_rw_mutex::scoped_lock read_lock(hwater_mutex_, false);
         return high_water_;
     }
 
-    void SetLowWaterMark(std::vector<WaterMarkInfo> &low_water) {
+    void SetLowWaterMark(const WaterMarkInfos &low_water) {
         tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        lwater_index_ = -1;
         low_water_ = low_water;
-    }
+        std::sort(low_water_.begin(), low_water_.end());
+     }
 
-    void SetLowWaterMark(WaterMarkInfo lwm_info) {
+    void SetLowWaterMark(const WaterMarkInfo& lwm_info) {
         tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        lwater_index_ = -1;
         low_water_.push_back(lwm_info);
-    }
+        std::sort(low_water_.begin(), low_water_.end());
+     }
 
     void ResetLowWaterMark() {
         tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        lwater_index_ = -1;
         low_water_.clear();
     }
 
-    std::vector<WaterMarkInfo> GetLowWaterMark() const {
+    WaterMarkInfos GetLowWaterMark() const {
         tbb::spin_rw_mutex::scoped_lock read_lock(lwater_mutex_, false);
         return low_water_;
     }
@@ -240,8 +263,8 @@ public:
         bool success = queue_.try_pop(*entry);
         if (success) {
             dequeues_++;
-            size_t ocount = count_.fetch_and_decrement();
-            ProcessLowWaterMarks(ocount);
+            size_t ncount(AtomicDecrementQueueCount(entry));
+            ProcessLowWaterMarks(ncount);
         }
         return success;
     }
@@ -351,45 +374,97 @@ private:
         deleted_ = true;
     }
 
-    void ProcessWaterMarks(std::vector<WaterMarkInfo> &wm,
-                           size_t count) {
-        // Are we crossing any water marks ?
-        for (size_t i = 0; i < wm.size(); i++) {
-            if (count == wm[i].count_) {
-                wm[i].cb_(count);
-                break;
-            }
-        }
+    size_t AtomicIncrementQueueCount(QueueEntryT *entry) {
+        return count_.fetch_and_increment() + 1;
+    }
+
+    size_t AtomicDecrementQueueCount(QueueEntryT *entry) {
+        return count_.fetch_and_decrement() - 1;
     }
 
     void ProcessHighWaterMarks(size_t count) {
         tbb::spin_rw_mutex::scoped_lock read_lock(hwater_mutex_, false);
-        ProcessWaterMarks(high_water_, count);
+        if (high_water_.size() == 0) {
+            return;
+        }
+        // Are we crossing any new high water marks ? Assumption here is that
+        // the vector is sorted in ascending order of the high water
+        // mark counts. Upper bound finds first element that is greater than
+        // count.
+        WaterMarkInfos::const_iterator ubound(std::upper_bound(
+            high_water_.begin(), high_water_.end(),
+            WaterMarkInfo(count, NULL)));
+        // If the first element is greater than count, then we have not
+        // yet crossed any water marks
+        if (ubound == high_water_.begin()) {
+            hwater_index_ = -1;
+            lwater_index_ = -1;
+            return;
+        }
+        int nhwater_index(ubound - high_water_.begin() - 1);
+        if (hwater_index_ == nhwater_index) {
+            return;
+        }
+        // Update the high and low water indexes
+        hwater_index_ = nhwater_index;
+        lwater_index_ = nhwater_index + 1;
+        const WaterMarkInfo &wm_info(high_water_[hwater_index_]);
+        assert(count >= wm_info.count_);
+        wm_info.cb_(count);
     }
 
     void ProcessLowWaterMarks(size_t count) {
         tbb::spin_rw_mutex::scoped_lock read_lock(lwater_mutex_, false);
-        ProcessWaterMarks(low_water_, count);
+        if (low_water_.size() == 0) {
+            return;
+        }
+        // Return if we have not crossed any high water marks
+        if (hwater_index_ == -1) {
+            return;
+        }
+        // Are we crossing any new low water marks ? Assumption here is that
+        // the vector is sorted in ascending order of the low water
+        // mark counts. Lower bound finds first element that is not less than
+        // count.
+        WaterMarkInfos::const_iterator lbound(std::lower_bound(
+            low_water_.begin(), low_water_.end(),
+            WaterMarkInfo(count, NULL)));
+        // If no element is not less than count we have not yet crossed
+        // any low water marks
+        if (lbound == low_water_.end()) {
+            return;
+        }
+        int nlwater_index(lbound - low_water_.begin());
+        if (lwater_index_ == nlwater_index) {
+            return;
+        }
+        // Update the high and low water indexes
+        lwater_index_ = nlwater_index;
+        hwater_index_ = nlwater_index - 1;
+        const WaterMarkInfo &wm_info(low_water_[lwater_index_]);
+        assert(count <= wm_info.count_);
+        wm_info.cb_(count);
     }
 
     bool EnqueueInternal(QueueEntryT entry) {
-        queue_.push(entry);
         enqueues_++;
+        size_t ncount(AtomicIncrementQueueCount(&entry));
+        queue_.push(entry);
         MayBeStartRunner();
-        size_t ocount = count_.fetch_and_increment();
-        ProcessHighWaterMarks(ocount);
-        return ocount < (size_ - 1);
+        ProcessHighWaterMarks(ncount);
+        return ncount < size_;
     }
 
     bool EnqueueBounded(QueueEntryT entry) {
-        if (count_ < size_ - 1) {
+        size_t ncount(AtomicIncrementQueueCount(&entry));
+        if (ncount < size_) {
             enqueues_++;
             queue_.push(entry);
             MayBeStartRunner();
-            size_t ocount = count_.fetch_and_increment();
-            ProcessHighWaterMarks(ocount);
+            ProcessHighWaterMarks(ncount);
             return true;
         }
+        AtomicDecrementQueueCount(&entry);
         drops_++;
         return false;
     }
@@ -444,13 +519,18 @@ private:
     bool bounded_;
     bool shutdown_scheduled_;
     bool delete_entries_on_shutdown_;
-    std::vector<WaterMarkInfo> high_water_; // When queue count goes above
-    std::vector<WaterMarkInfo> low_water_; // When queue count goes below 
+    // Watermarks
+    // Sorted in ascending order
+    WaterMarkInfos high_water_; // When queue count goes above
+    WaterMarkInfos low_water_; // When queue count goes below
     tbb::spin_rw_mutex hwater_mutex_;
     tbb::spin_rw_mutex lwater_mutex_;
+    tbb::atomic<int> hwater_index_;
+    tbb::atomic<int> lwater_index_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;
+    friend class QueueTaskWaterMarkTest;
     friend class QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> >;
 
     DISALLOW_COPY_AND_ASSIGN(WorkQueue);

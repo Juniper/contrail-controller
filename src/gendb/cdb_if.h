@@ -230,7 +230,9 @@ private:
     void UpdateCfReadStats(const std::string &cf_name);
     void UpdateCfReadFailStats(const std::string &cf_name);
 
+    static const size_t kQueueSize = 200 * 1024 * 1024; // 200 MB
     typedef WorkQueue<CdbIfColList> CdbIfQueue;
+    friend class WorkQueue<CdbIfColList>;
     typedef boost::tuple<bool, size_t, DbQueueWaterMarkCb>
         DbQueueWaterMarkInfo;
     void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
@@ -270,6 +272,14 @@ CdbIf::CdbIfStats::Errors operator+(const CdbIf::CdbIfStats::Errors &a,
     const CdbIf::CdbIfStats::Errors &b);
 CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,
     const CdbIf::CdbIfStats::Errors &b);
+
+template<>
+size_t CdbIf::CdbIfQueue::AtomicIncrementQueueCount(
+    CdbIf::CdbIfColList *entry);
+
+template<>
+size_t CdbIf::CdbIfQueue::AtomicDecrementQueueCount(
+    CdbIf::CdbIfColList *entry);
 
 template<>
 struct WorkQueueDelete<CdbIf::CdbIfColList> {

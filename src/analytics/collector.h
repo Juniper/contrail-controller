@@ -42,6 +42,12 @@ class SandeshStateMachine;
 class Collector : public SandeshServer {
 public:
     const static std::string kDbTask;
+    const static int kQSizeHighWaterMarkEmerg;
+    const static int kQSizeHighWaterMarkError;
+    const static int kQSizeHighWaterMarkDebug;
+    const static int kQSizeLowWaterMarkError;
+    const static int kQSizeLowWaterMarkDebug;
+    const static int kQSizeLowWaterMarkNoDrop;
 
     typedef boost::function<bool(const VizMsg*, bool, DbHandler *)> VizCallback;
 
