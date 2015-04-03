@@ -3763,6 +3763,18 @@ class DBInterface(object):
 
     #end port_delete
 
+    def _port_fixed_ips_is_present(self, check, against):
+        # filters = {'fixed_ips': {'ip_address': ['20.0.0.5', '20.0.0.6']}}
+        # check = {'ip_address': ['20.0.0.5', '20.0.0.6']}
+        # against = [{'subnet_id': 'uuid', 'ip_address': u'20.0.0.5'}]
+        for addr in check['ip_address']:
+            for item in against:
+                if item['ip_address'] == addr:
+                    return True
+
+        return False
+    #end _port_fixed_ips_is_present
+
     def port_list(self, context=None, filters=None):
         project_obj = None
         ret_q_ports = []
@@ -3775,35 +3787,34 @@ class DBInterface(object):
 
         if not 'device_id' in filters:
             # Listing from back references
-            if not filters:
-                # TODO once vmi is linked to project in schema, use project_id
-                # to limit scope of list
-                if not context['is_admin']:
-                    project_id = str(uuid.UUID(context['tenant']))
-                else:
-                    project_id = None
+            # TODO once vmi is linked to project in schema, use project_id
+            # to limit scope of list
+            if not context['is_admin']:
+                project_id = str(uuid.UUID(context['tenant']))
+            else:
+                project_id = None
 
-                if self._list_optimization_enabled:
-                    ret_q_ports = self._port_list_project(project_id)
-                else:
-                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list)
-                    port_iip_gevent = gevent.spawn(self._instance_ip_list)
-                    port_vm_gevent = gevent.spawn(self._virtual_machine_list)
-                    port_net_gevent = gevent.spawn(self._virtual_network_list,
-                                                   parent_id=project_id,
-                                                   detail=True)
+            if self._list_optimization_enabled:
+                ret_q_ports = self._port_list_project(project_id)
+            else:
+                all_port_gevent = gevent.spawn(self._virtual_machine_interface_list)
+                port_iip_gevent = gevent.spawn(self._instance_ip_list)
+                port_vm_gevent = gevent.spawn(self._virtual_machine_list)
+                port_net_gevent = gevent.spawn(self._virtual_network_list,
+                                               parent_id=project_id,
+                                               detail=True)
 
-                    gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
+                gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
 
-                    all_port_objs = all_port_gevent.value
-                    port_iip_objs = port_iip_gevent.value
-                    port_net_objs = port_net_gevent.value
-                    port_vm_objs = port_vm_gevent.value
+                all_port_objs = all_port_gevent.value
+                port_iip_objs = port_iip_gevent.value
+                port_net_objs = port_net_gevent.value
+                port_vm_objs = port_vm_gevent.value
 
-                    ret_q_ports = self._port_list(port_net_objs, all_port_objs,
-                                                  port_iip_objs, port_vm_objs)
+                ret_q_ports = self._port_list(port_net_objs, all_port_objs,
+                                              port_iip_objs, port_vm_objs)
 
-            elif 'tenant_id' in filters:
+            if 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
                                                              filters['tenant_id'])
             elif 'name' in filters:
@@ -3828,6 +3839,10 @@ class DBInterface(object):
             for port_obj in ret_q_ports:
                 if not self._filters_is_present(filters, 'name',
                                                 port_obj['name']):
+                    continue
+                if ('fixed_ips' in filters and
+                   not self._port_fixed_ips_is_present(filters['fixed_ips'],
+                                                       port_obj['fixed_ips'])):
                     continue
                 ret_list.append(port_obj)
             return ret_list
