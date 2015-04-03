@@ -26,6 +26,20 @@ struct Disk {
     3: u64 write_MB;
 }
 
+struct network_info {
+    1: optional u64 tx_bytes
+    2: optional u64 tx_packets
+    3: optional u64 rx_bytes
+    4: optional u64 rx_packets
+    5: optional string interface_name
+}
+
+struct resource_info {
+    1: optional double cpu_usage_percentage
+    2: optional double mem_usage_mb
+    3: optional double mem_usage_percent
+}
+
 struct ServerMonitoringInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
@@ -34,8 +48,10 @@ struct ServerMonitoringInfo {
     6: optional IpmiChassis_status_info chassis_state
     7: optional list<Disk> disk_usage_stats (tags=".disk_name")
     8: optional list<Disk> disk_usage_state
-    9: optional double cpu_usage
-    10: optional double mem_usage
+    9: optional list<resource_info> resource_info_stats (tags="")
+    10: optional resource_info resource_info_state
+    11: optional list<network_info> network_info_stats (tags=".interface_name")
+    12: optional list<network_info> network_info_state
 }
 
 uve sandesh ServerMonitoringInfoTrace {
