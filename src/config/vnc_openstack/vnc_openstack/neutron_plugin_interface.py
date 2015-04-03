@@ -197,7 +197,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = network['filters']
-        fields = network['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -272,8 +271,6 @@ class NeutronPluginInterface(object):
         Subnet get request
         """
 
-        fields = subnet['fields']
-
         try:
             cfgdb = self._get_user_cfgdb(context)
             subnet_info = cfgdb.subnet_read(subnet['id'])
@@ -328,7 +325,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = subnet['filters']
-        fields = subnet['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -379,8 +375,6 @@ class NeutronPluginInterface(object):
         """
         Port get request
         """
-
-        fields = port['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -436,7 +430,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = port['filters']
-        fields = port['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -487,8 +480,6 @@ class NeutronPluginInterface(object):
         """
         Floating IP get request
         """
-
-        fields = floatingip['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -545,7 +536,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = floatingip['filters']
-        fields = floatingip['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -596,8 +586,6 @@ class NeutronPluginInterface(object):
         """
         Security group get request
         """
-
-        fields = sg['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -653,7 +641,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = sg['filters']
-        fields = sg['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -684,8 +671,6 @@ class NeutronPluginInterface(object):
         """
         Security group rule get request
         """
-
-        fields = sg_rule['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -729,7 +714,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = sg_rule['filters']
-        fields = sg_rule['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -763,8 +747,6 @@ class NeutronPluginInterface(object):
         """
         Router get request
         """
-
-        fields = router['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -821,7 +803,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = router['filters']
-        fields = router['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -915,8 +896,6 @@ class NeutronPluginInterface(object):
         IPAM get request
         """
 
-        fields = ipam['fields']
-
         try:
             cfgdb = self._get_user_cfgdb(context)
             ipam_info = cfgdb.ipam_read(ipam['id'])
@@ -972,7 +951,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = ipam['filters']
-        fields = ipam['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -1023,8 +1001,6 @@ class NeutronPluginInterface(object):
         """
         Policy get request
         """
-
-        fields = policy['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -1081,7 +1057,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = policy['filters']
-        fields = policy['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -1131,8 +1106,6 @@ class NeutronPluginInterface(object):
         """
         Route table get request
         """
-
-        fields = route_table['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -1189,7 +1162,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = route_table['filters']
-        fields = route_table['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -1240,8 +1212,6 @@ class NeutronPluginInterface(object):
         Service instance get request
         """
 
-        fields = svc_instance['fields']
-
         try:
             cfgdb = self._get_user_cfgdb(context)
             si_info = cfgdb.svc_instance_read(svc_instance['id'])
@@ -1283,7 +1253,6 @@ class NeutronPluginInterface(object):
         """
 
         filters = svc_instance['filters']
-        fields = svc_instance['fields']
 
         try:
             cfgdb = self._get_user_cfgdb(context)
