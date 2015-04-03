@@ -274,6 +274,11 @@ class VirtualNetworkST(DictST):
         for ri in self.obj.get_routing_instances() or []:
             ri_name = ri['to'][-1]
             if ri_name not in self.rinst:
+                if ri_name.startswith('service-'):
+                    sc_id = ri_name[8:44]
+                    self.locate_routing_instance(ri_name, sc_id)
+                    continue
+
                 self.locate_routing_instance(ri_name)
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
@@ -525,6 +530,19 @@ class VirtualNetworkST(DictST):
                                  self._route_target)
     # end get_route_target
 
+    def _ri_needs_external_rt(self, ri_name, sc_id):
+        if sc_id is None:
+            return False
+        sc = ServiceChain.get(sc_id)
+        if sc is None:
+            return False
+        if self.name == sc.left_vn:
+            return ri_name.endswith(sc.service_list[0].replace(':', '_'))
+        elif self.name == sc.right_vn:
+            return ri_name.endswith(sc.service_list[-1].replace(':', '_'))
+        return False
+    # end _ri_needs_external_rt
+
     def locate_routing_instance_no_target(self, rinst_name):
         """ locate a routing instance but do not allocate a route target """
         if rinst_name in self.rinst:
@@ -569,7 +587,12 @@ class VirtualNetworkST(DictST):
 
         rt_key = "target:%s:%d" % (self.get_autonomous_system(), rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key)
-        inst_tgt_data = InstanceTargetType()
+        if is_default:
+            inst_tgt_data = InstanceTargetType()
+        elif self._ri_needs_external_rt(rinst_name, service_chain):
+            inst_tgt_data = InstanceTargetType(import_export="export")
+        else:
+            inst_tgt_data = None
 
         try:
             try:
@@ -580,32 +603,23 @@ class VirtualNetworkST(DictST):
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
                     rinst_obj = None
                 else:
-                    rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                    rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
                     rinst_obj.set_routing_instance_is_default(is_default)
-                    for rt in self.rt_list:
-                        rtgt_obj = RouteTarget(rt)
-                        if is_default:
-                            inst_tgt_data = InstanceTargetType()
-                        else:
-                            inst_tgt_data = InstanceTargetType(
-                                import_export="export")
-                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
-
+                    if inst_tgt_data:
+                        for rt in self.rt_list:
+                            rtgt_obj = RouteTarget(rt)
+                            rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
                 rinst_obj = None
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
-                rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
                 rinst_obj.set_routing_instance_is_default(is_default)
-                for rt in self.rt_list:
-                    rtgt_obj = RouteTarget(rt)
-                    if is_default:
-                        inst_tgt_data = InstanceTargetType()
-                    else:
-                        inst_tgt_data = InstanceTargetType(
-                            import_export="export")
-                    rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                if inst_tgt_data:
+                    for rt in self.rt_list:
+                        rtgt_obj = RouteTarget(rt)
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except (BadRequest, HttpError) as e:
             _sandesh._logger.error(
@@ -691,10 +705,9 @@ class VirtualNetworkST(DictST):
             RouteTargetST.locate(rt)
         ri.update_route_target_list(rt_add, rt_del)
         for ri_obj in self.rinst.values():
-            if ri == ri_obj:
-                continue
-            ri_obj.update_route_target_list(rt_add, rt_del,
-                                            import_export='export')
+            if self._ri_needs_external_rt(ri_obj.name, ri_obj.service_chain):
+                ri_obj.update_route_target_list(rt_add, rt_del,
+                                                import_export='export')
         for (prefix, nexthop) in self.route_table.items():
             left_ri = self._get_routing_instance_from_route(nexthop)
             if left_ri is not None:
