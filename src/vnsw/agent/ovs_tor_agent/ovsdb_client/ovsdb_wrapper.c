@@ -603,12 +603,21 @@ ovsdb_wrapper_mcast_mac_remote_logical_switch(struct ovsdb_idl_row *row)
     return NULL;
 }
 
-struct ovsdb_idl_row *
-ovsdb_wrapper_mcast_mac_remote_physical_locator_set(struct ovsdb_idl_row *row)
+char *
+ovsdb_wrapper_mcast_mac_remote_dst_ip(struct ovsdb_idl_row *row)
 {
     struct vteprec_mcast_macs_remote *mcast =
         row ? CONTAINER_OF(row, struct vteprec_mcast_macs_remote, header_) : NULL;
-    return &(mcast->locator_set->header_);
+
+    if (mcast == NULL || mcast->locator_set == NULL)
+        return "";
+
+    size_t n_locators = mcast->locator_set->n_locators;
+    if (n_locators == 0)
+        return "";
+
+    // Pick up first locator
+    return mcast->locator_set->locators[0]->dst_ip;
 }
 
 /* logical binding stats */
