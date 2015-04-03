@@ -82,6 +82,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
     const boost::uuids::uuid &vn_uuid() const { return vn_uuid_; }
     VnEntry *vn() const { return vn_.get(); }
     int vxlan_id() const { return vxlan_id_; }
+    const IpAddress &tor_ip() const {return tor_ip_;}
 
     bool Copy(PhysicalDeviceVnTable *table, const PhysicalDeviceVnData *data);
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -95,6 +96,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
     PhysicalDeviceRef device_;
     VnEntryRef vn_;
     int vxlan_id_;
+    IpAddress tor_ip_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVn);
 };
 
