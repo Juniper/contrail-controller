@@ -8,6 +8,7 @@
 #include <boost/assign/list_of.hpp>
 
 #include "base/lifetime.h"
+#include "base/set_util.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
@@ -320,7 +321,7 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
 
     InstanceTargetRemove(rtinstance);
     InstanceVnIndexRemove(rtinstance);
-    rtinstance->UpdateConfig(server_, config);
+    rtinstance->UpdateConfig(config);
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
 
@@ -435,7 +436,7 @@ private:
 RoutingInstance::RoutingInstance(string name, BgpServer *server,
                                  RoutingInstanceMgr *mgr,
                                  const BgpInstanceConfig *config)
-    : name_(name), index_(-1), mgr_(mgr), config_(config),
+    : name_(name), index_(-1), server_(server), mgr_(mgr), config_(config),
       is_default_(false), virtual_network_index_(0),
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
@@ -513,8 +514,7 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
         static_route_mgr()->ProcessStaticRouteConfig();
 }
 
-void RoutingInstance::UpdateConfig(BgpServer *server,
-        const BgpInstanceConfig *cfg) {
+void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     CHECK_CONCURRENCY("bgp::Config");
 
     // This is a noop in production code. However unit tests may pass a
@@ -550,133 +550,29 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
     if (IsDefaultRoutingInstance())
         return;
 
-    // Do a diff walk of Routing Instance config and Routing Instance.
-    BgpInstanceConfig::RouteTargetList::const_iterator cfg_it =
-        cfg->import_list().begin();
-    RoutingInstance::RouteTargetList::const_iterator rt_it = import_.begin();
-    RoutingInstance::RouteTargetList::const_iterator rt_next_it = rt_it;
+    RouteTargetList future_import;
+    vector<string> add_import_rt, remove_import_rt;
+    BOOST_FOREACH(const string &rtarget_str, cfg->import_list()) {
+        future_import.insert(RouteTarget::FromString(rtarget_str));
+    }
+    set_synchronize(&import_, &future_import,
+        boost::bind(&RoutingInstance::AddRouteTarget, this, true,
+            &add_import_rt, _1),
+        boost::bind(&RoutingInstance::DeleteRouteTarget, this, true,
+            &remove_import_rt, _1));
 
-    BgpTable *inet_table = GetTable(Address::INET);
-    RoutePathReplicator *inetvpn_replicator =
-        server->replicator(Address::INETVPN);
-
-    BgpTable *inet6_table = GetTable(Address::INET6);
-    RoutePathReplicator *inet6vpn_replicator =
-        server->replicator(Address::INET6VPN);
-
-    BgpTable *evpn_table = GetTable(Address::EVPN);
-    RoutePathReplicator *evpn_replicator =
-        server->replicator(Address::EVPN);
-    BgpTable *ermvpn_table = GetTable(Address::ERMVPN);
-    RoutePathReplicator *ermvpn_replicator =
-        server->replicator(Address::ERMVPN);
+    RouteTargetList future_export;
+    vector<string> add_export_rt, remove_export_rt;
+    BOOST_FOREACH(const string &rtarget_str, cfg->export_list()) {
+        future_export.insert(RouteTarget::FromString(rtarget_str));
+    }
+    set_synchronize(&export_, &future_export,
+        boost::bind(&RoutingInstance::AddRouteTarget, this, false,
+            &add_export_rt, _1),
+        boost::bind(&RoutingInstance::DeleteRouteTarget, this, false,
+            &remove_export_rt, _1));
 
     RoutingInstanceInfo info = GetDataCollection("");
-    vector<string> add_import_rt, remove_import_rt;
-    vector<string> add_export_rt, remove_export_rt;
-    while ((cfg_it != cfg->import_list().end()) &&  (rt_it != import_.end())) {
-        RouteTarget cfg_rtarget(RouteTarget::FromString(*cfg_it));
-        if (cfg_rtarget.GetExtCommunity() < rt_it->GetExtCommunity()) {
-            // If present in config and not in Routing Instance,
-            //   a. Add to import list
-            //   b. Add the table to import from the RouteTarget
-            import_.insert(cfg_rtarget);
-            add_import_rt.push_back(*cfg_it);
-            inetvpn_replicator->Join(inet_table, cfg_rtarget, true);
-            ermvpn_replicator->Join(ermvpn_table, cfg_rtarget, true);
-            evpn_replicator->Join(evpn_table, cfg_rtarget, true);
-            inet6vpn_replicator->Join(inet6_table, cfg_rtarget, true);
-            cfg_it++;
-        } else if (cfg_rtarget.GetExtCommunity() > rt_it->GetExtCommunity()) {
-            // If not present in config but present in Routing Instance,
-            //   a. Remove to import list
-            //   b. Leave the Import RtGroup
-            rt_next_it++;
-            remove_import_rt.push_back(rt_it->ToString());
-            inetvpn_replicator->Leave(inet_table, *rt_it, true);
-            ermvpn_replicator->Leave(ermvpn_table, *rt_it, true);
-            evpn_replicator->Leave(evpn_table, *rt_it, true);
-            inet6vpn_replicator->Leave(inet6_table, *rt_it, true);
-            import_.erase(rt_it);
-            rt_it = rt_next_it;
-        } else {
-            // Present in both, Nop
-            rt_it++;
-            cfg_it++;
-        }
-        rt_next_it = rt_it;
-    }
-
-    // Walk through the entire left over config list and add to import list
-    for (; cfg_it != cfg->import_list().end(); ++cfg_it) {
-        RouteTarget cfg_rtarget(RouteTarget::FromString(*cfg_it));
-        import_.insert(cfg_rtarget);
-        add_import_rt.push_back(*cfg_it);
-        inetvpn_replicator->Join(inet_table, cfg_rtarget, true);
-        ermvpn_replicator->Join(ermvpn_table, cfg_rtarget, true);
-        evpn_replicator->Join(evpn_table, cfg_rtarget, true);
-        inet6vpn_replicator->Join(inet6_table, cfg_rtarget, true);
-    }
-
-    // Walk through the entire left over RoutingInstance import list and purge
-    for (rt_next_it = rt_it; rt_it != import_.end(); rt_it = rt_next_it) {
-        rt_next_it++;
-        remove_import_rt.push_back(rt_it->ToString());
-        inetvpn_replicator->Leave(inet_table, *rt_it, true);
-        ermvpn_replicator->Leave(ermvpn_table, *rt_it, true);
-        evpn_replicator->Leave(evpn_table, *rt_it, true);
-        inet6vpn_replicator->Leave(inet6_table, *rt_it, true);
-        import_.erase(rt_it);
-    }
-
-    // Same step for Export_rt config
-    cfg_it = cfg->export_list().begin();
-    rt_next_it = rt_it = export_.begin();
-
-    while ((cfg_it != cfg->export_list().end()) &&  (rt_it != export_.end())) {
-        RouteTarget cfg_rtarget(RouteTarget::FromString(*cfg_it));
-        if (cfg_rtarget.GetExtCommunity() < rt_it->GetExtCommunity()) {
-            export_.insert(cfg_rtarget);
-            add_export_rt.push_back(*cfg_it);
-            inetvpn_replicator->Join(inet_table, cfg_rtarget, false);
-            ermvpn_replicator->Join(ermvpn_table, cfg_rtarget, false);
-            inet6vpn_replicator->Join(inet6_table, cfg_rtarget, false);
-            evpn_replicator->Join(evpn_table, cfg_rtarget, false);
-            cfg_it++;
-        } else if (cfg_rtarget.GetExtCommunity() > rt_it->GetExtCommunity()) {
-            rt_next_it++;
-            remove_export_rt.push_back(rt_it->ToString());
-            inetvpn_replicator->Leave(inet_table, *rt_it, false);
-            ermvpn_replicator->Leave(ermvpn_table, *rt_it, false);
-            evpn_replicator->Leave(evpn_table, *rt_it, false);
-            inet6vpn_replicator->Leave(inet6_table, *rt_it, false);
-            export_.erase(rt_it);
-            rt_it = rt_next_it;
-        } else {
-            rt_it++;
-            cfg_it++;
-        }
-        rt_next_it = rt_it;
-    }
-    for (; cfg_it != cfg->export_list().end(); ++cfg_it) {
-        RouteTarget cfg_rtarget(RouteTarget::FromString(*cfg_it));
-        export_.insert(cfg_rtarget);
-        add_export_rt.push_back(*cfg_it);
-        inetvpn_replicator->Join(inet_table, cfg_rtarget, false);
-        ermvpn_replicator->Join(ermvpn_table, cfg_rtarget, false);
-        evpn_replicator->Join(evpn_table, cfg_rtarget, false);
-        inet6vpn_replicator->Join(inet6_table, cfg_rtarget, false);
-    }
-    for (rt_next_it = rt_it; rt_it != export_.end(); rt_it = rt_next_it) {
-        rt_next_it++;
-        remove_export_rt.push_back(rt_it->ToString());
-        inetvpn_replicator->Leave(inet_table, *rt_it, false);
-        ermvpn_replicator->Leave(ermvpn_table, *rt_it, false);
-        evpn_replicator->Leave(evpn_table, *rt_it, false);
-        inet6vpn_replicator->Leave(inet6_table, *rt_it, false);
-        export_.erase(rt_it);
-    }
-
     if (add_import_rt.size())
         info.set_add_import_rt(add_import_rt);
     if (remove_import_rt.size())
@@ -689,17 +585,16 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
         add_export_rt.size() || remove_export_rt.size())
         ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
-    //
-    // Service Chain update
-    //
+    // Service chain update.
     if (!config_->service_chain_list().empty()) {
         const ServiceChainConfig &cfg =
                 config_->service_chain_list().front();
-        server->service_chain_mgr()->LocateServiceChain(this, cfg);
+        server_->service_chain_mgr()->LocateServiceChain(this, cfg);
     } else {
-        server->service_chain_mgr()->StopServiceChain(this);
+        server_->service_chain_mgr()->StopServiceChain(this);
     }
 
+    // Static route update.
     if (static_route_mgr())
         static_route_mgr()->UpdateStaticRouteConfig();
 }
@@ -793,6 +688,62 @@ void RoutingInstance::ClearFamilyRouteTarget(Address::Family vrf_family,
         BOOST_FOREACH(RouteTarget rt, export_) {
             replicator->Leave(table, rt, false);
         }
+    }
+}
+
+void RoutingInstance::AddRouteTarget(bool import,
+    vector<string> *change_list, RouteTargetList::const_iterator it) {
+    BgpTable *ermvpn_table = GetTable(Address::ERMVPN);
+    RoutePathReplicator *ermvpn_replicator =
+        server_->replicator(Address::ERMVPN);
+    BgpTable *evpn_table = GetTable(Address::EVPN);
+    RoutePathReplicator *evpn_replicator =
+        server_->replicator(Address::EVPN);
+    BgpTable *inet_table = GetTable(Address::INET);
+    RoutePathReplicator *inetvpn_replicator =
+        server_->replicator(Address::INETVPN);
+    BgpTable *inet6_table = GetTable(Address::INET6);
+    RoutePathReplicator *inet6vpn_replicator =
+        server_->replicator(Address::INET6VPN);
+
+    change_list->push_back(it->ToString());
+    if (import) {
+        import_.insert(*it);
+    } else {
+        export_.insert(*it);
+    }
+
+    ermvpn_replicator->Join(ermvpn_table, *it, import);
+    evpn_replicator->Join(evpn_table, *it, import);
+    inetvpn_replicator->Join(inet_table, *it, import);
+    inet6vpn_replicator->Join(inet6_table, *it, import);
+}
+
+void RoutingInstance::DeleteRouteTarget(bool import,
+    vector<string> *change_list, RouteTargetList::iterator it) {
+    BgpTable *ermvpn_table = GetTable(Address::ERMVPN);
+    RoutePathReplicator *ermvpn_replicator =
+        server_->replicator(Address::ERMVPN);
+    BgpTable *evpn_table = GetTable(Address::EVPN);
+    RoutePathReplicator *evpn_replicator =
+        server_->replicator(Address::EVPN);
+    BgpTable *inet_table = GetTable(Address::INET);
+    RoutePathReplicator *inetvpn_replicator =
+        server_->replicator(Address::INETVPN);
+    BgpTable *inet6_table = GetTable(Address::INET6);
+    RoutePathReplicator *inet6vpn_replicator =
+        server_->replicator(Address::INET6VPN);
+
+    ermvpn_replicator->Leave(ermvpn_table, *it, import);
+    evpn_replicator->Leave(evpn_table, *it, import);
+    inetvpn_replicator->Leave(inet_table, *it, import);
+    inet6vpn_replicator->Leave(inet6_table, *it, import);
+
+    change_list->push_back(it->ToString());
+    if (import) {
+        import_.erase(it);
+    } else {
+        export_.erase(it);
     }
 }
 

@@ -55,7 +55,7 @@ public:
     }
 
     void ProcessConfig(BgpServer *server);
-    void UpdateConfig(BgpServer *server, const BgpInstanceConfig *config);
+    void UpdateConfig(const BgpInstanceConfig *config);
     void ClearConfig();
 
     static std::string GetTableName(std::string instance_name,
@@ -117,6 +117,11 @@ public:
 private:
     class DeleteActor;
 
+    void AddRouteTarget(bool import, std::vector<std::string> *change_list,
+        RouteTargetList::const_iterator it);
+    void DeleteRouteTarget(bool import, std::vector<std::string> *change_list,
+        RouteTargetList::iterator it);
+
     // Cleanup all the state prior to deletion.
     void Shutdown();
 
@@ -133,6 +138,7 @@ private:
     RouteTableList vrf_tables_;
     RouteTargetList import_;
     RouteTargetList export_;
+    BgpServer *server_;
     RoutingInstanceMgr *mgr_;
     const BgpInstanceConfig *config_;
     bool is_default_;
