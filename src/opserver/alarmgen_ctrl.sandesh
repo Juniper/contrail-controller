@@ -51,6 +51,8 @@ struct UVEAlarmInfo {
     1: string                      type
     2: list<AlarmElement>          description
     3: bool                        ack
+    4: u64                         timestamp
+    5: byte                        severity
 }
 
 struct UVEAlarms {
