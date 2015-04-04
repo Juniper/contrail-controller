@@ -383,13 +383,22 @@ void RibOutUpdates::UpdateSend(Message *message, const RibPeerSet &dst,
         IPeerUpdate *peer = iter.Next();
         size_t msgsize;
         const uint8_t *data = message->GetData(peer, &msgsize);
+        if (Sandesh::LoggingLevel() >= Sandesh::LoggingUtLevel()) {
+            BGP_LOG_PEER(Message, peer, Sandesh::LoggingUtLevel(),
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                "Update size " << msgsize <<
+                " reach " << message->num_reach_routes() <<
+                " unreach " << message->num_unreach_routes());
+        }
         bool more = peer->SendUpdate(data, msgsize);
         if (!more) {
             blocked->set(ix_current);
         }
-        IPeer *tmp = dynamic_cast<IPeer *>(peer);
-        if (!tmp) continue;
-        IPeerDebugStats *stats = tmp->peer_stats();
+        IPeer *ipeer = dynamic_cast<IPeer *>(peer);
+        if (!ipeer) {
+            continue;
+        }
+        IPeerDebugStats *stats = ipeer->peer_stats();
         if (stats) {
             stats->UpdateTxReachRoute(message->num_reach_routes());
             stats->UpdateTxUnreachRoute(message->num_unreach_routes());

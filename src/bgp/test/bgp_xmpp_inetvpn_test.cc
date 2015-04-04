@@ -250,6 +250,13 @@ protected:
         TASK_UTIL_EXPECT_TRUE(agent->RouteLookup(net, prefix) == NULL);
     }
 
+    const BgpPeer *VerifyPeerExists(BgpServerTestPtr s1, BgpServerTestPtr s2) {
+        const char *master = BgpConfigManager::kMasterInstance;
+        string name = string(master) + ":" + s2->localname();
+        TASK_UTIL_EXPECT_TRUE(s1->FindMatchingPeer(master, name) != NULL);
+        return s1->FindMatchingPeer(master, name);
+    }
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -506,6 +513,33 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAdd) {
         VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
+
+    // Unregister to blue instance
+    agent_a_->Unsubscribe("blue");
+    agent_b_->Unsubscribe("blue");
+
+    // Verify update counters on X and Y.
+    const BgpPeer *peer_xy = VerifyPeerExists(bs_x_, bs_y_);
+    const BgpPeer *peer_yx = VerifyPeerExists(bs_y_, bs_x_);
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_route_reach(), peer_yx->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_route_reach(), peer_yx->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_route_unreach(), peer_yx->get_tx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_route_unreach(), peer_yx->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_end_of_rib(), peer_yx->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_end_of_rib(), peer_yx->get_rx_end_of_rib());
+
+    // Verify reach/unreach and end-of-rib counts.
+    // 1 route-target and kRouteCount inet-vpn routes.
+    // 2 end-of-ribs - one for route-target and one for inet-vpn.
+    TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
 
     // Close the sessions.
     agent_a_->SessionDown();

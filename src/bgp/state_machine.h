@@ -130,7 +130,8 @@ public:
     void OnSessionEvent(TcpSession *session, TcpSession::Event event);
     bool PassiveOpen(BgpSession *session);
 
-    void OnMessage(BgpSession *session, BgpProto::BgpMessage *msg);
+    void OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
+        size_t msgsize = 0);
     void OnMessageError(BgpSession *session, const ParseErrorContext *context);
 
     void SendNotificationAndClose(BgpSession *session,

@@ -320,10 +320,8 @@ struct EvBgpNotification : sc::event<EvBgpNotification> {
 };
 
 struct EvBgpUpdate : sc::event<EvBgpUpdate> {
-    EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg)
-        : session(session), msg(msg) {
-        BGP_LOG_PEER(Message, session->Peer(), Sandesh::LoggingUtLevel(),
-                     BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN, "Update");
+    EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg,
+        size_t msgsize) : session(session), msg(msg), msgsize(msgsize) {
     }
     static const char *Name() {
         return "EvBgpUpdate";
@@ -331,6 +329,7 @@ struct EvBgpUpdate : sc::event<EvBgpUpdate> {
 
     BgpSession *session;
     boost::shared_ptr<const BgpProto::Update> msg;
+    size_t msgsize;
 };
 
 struct EvBgpUpdateError : sc::event<EvBgpUpdateError> {
@@ -1061,7 +1060,7 @@ struct Established : sc::state<Established, StateMachine> {
     sc::result react(const EvBgpUpdate &event) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->StartHoldTimer();
-        state_machine->peer()->ProcessUpdate(event.msg.get());
+        state_machine->peer()->ProcessUpdate(event.msg.get(), event.msgsize);
         return discard_event();
     }
 };
@@ -1093,7 +1092,9 @@ StateMachine::StateMachine(BgpPeer *peer)
       hold_time_(GetConfiguredHoldTime()),
       idle_hold_time_(0),
       attempts_(0),
-      state_(IDLE) {
+      deleted_(false),
+      state_(IDLE),
+      last_state_(IDLE) {
     seed_ = peer_->bgp_identifier();
     initiate();
 }
@@ -1441,7 +1442,8 @@ bool StateMachine::PassiveOpen(BgpSession *session) {
 //
 // Handle incoming message on the session.
 //
-void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
+void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
+    size_t msgsize) {
     switch (msg->type) {
     case BgpProto::OPEN: {
         BgpProto::OpenMessage *open_msg =
@@ -1486,7 +1488,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
             Enqueue(fsm::EvBgpUpdateError(session, subcode, data));
             peer->inc_update_error();
         } else {
-            Enqueue(fsm::EvBgpUpdate(session, update));
+            Enqueue(fsm::EvBgpUpdate(session, update, msgsize));
             msg = NULL;
         }
         break;
