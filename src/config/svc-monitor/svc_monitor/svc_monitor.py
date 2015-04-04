@@ -65,6 +65,14 @@ class SvcMonitor(object):
     data + methods used/referred to by ssrc and arc greenlets
     """
     _REACTION_MAP = {
+        "service_appliance_set": {
+            'self': [],
+            'service_appliance': []
+        },
+        "service_appliance": {
+            'self': ['service_appliance_set'],
+            'service_appliance_set': []
+        },
         "loadbalancer_pool": {
             'self': [],
             'virtual_ip': [],
