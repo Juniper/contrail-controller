@@ -142,8 +142,10 @@ public:
 
     VrfTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), db_(db),
-        walkid_(DBTableWalker::kInvalidWalkerId), shutdown_walk_(NULL) { };
-    virtual ~VrfTable() { };
+        walkid_(DBTableWalker::kInvalidWalkerId),
+        route_delete_walker_(NULL),
+        vrf_delete_walker_(NULL) { };
+    virtual ~VrfTable();
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
@@ -198,8 +200,6 @@ public:
 
     void DeleteRoutes();
     void Shutdown();
-    void reset_shutdown_walk() { shutdown_walk_ = NULL; }
-    AgentRouteWalker *shutdown_walk() const { return shutdown_walk_; }
 private:
     friend class VrfEntry;
 
@@ -210,7 +210,8 @@ private:
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
     std::set<std::string> static_vrf_set_;
-    AgentRouteWalker *shutdown_walk_;
+    AgentRouteWalker *route_delete_walker_;
+    AgentRouteWalker *vrf_delete_walker_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };
 
