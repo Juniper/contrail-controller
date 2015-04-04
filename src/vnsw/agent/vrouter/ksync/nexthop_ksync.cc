@@ -433,16 +433,25 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         InterfaceKSyncObject *interface_object =
             ksync_obj_->ksync()->interface_ksync_obj();
         ArpNH *arp_nh = static_cast<ArpNH *>(e);
-        dmac_ = arp_nh->GetMac();
+        if (dmac_ != arp_nh->GetMac()) {
+            dmac_ = arp_nh->GetMac();
+            ret = true;
+        }
+
         if (valid_) {
             InterfaceKSyncEntry if_ksync(interface_object,
                                          arp_nh->GetInterface());
-            interface_ = interface_object->GetReference(&if_ksync);
+            if (interface_ != interface_object->GetReference(&if_ksync)) {
+                interface_ = interface_object->GetReference(&if_ksync);
+                ret = true;
+            }
         } else {
-            interface_ = NULL;
-            dmac_.Zero();
+            if (interface_ != NULL) {
+                interface_ = NULL;
+                dmac_.Zero();
+                ret = true;
+            }
         }
-        ret = true;
         break;
     }
 
@@ -474,11 +483,16 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         // Invalid nexthop, no valid interface or mac info
         // present, just return
         if (valid_ == false) {
-            interface_ = NULL;
-            dmac_.Zero();
+            if (interface_ != NULL) {
+                interface_ = NULL;
+                dmac_.Zero();
+                ret = true;
+            }
             break;
         }
 
+        KSyncEntryPtr interface = NULL;
+        MacAddress dmac;
         const TunnelNH *tun_nh = static_cast<TunnelNH *>(e);
         const NextHop *active_nh = tun_nh->GetRt()->GetActiveNextHop();
         if (active_nh->GetType() == NextHop::ARP) {
@@ -486,8 +500,8 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             InterfaceKSyncObject *interface_object =
                 ksync_obj_->ksync()->interface_ksync_obj();
             InterfaceKSyncEntry if_ksync(interface_object, arp_nh->GetInterface());
-            interface_ = interface_object->GetReference(&if_ksync);
-            dmac_ = arp_nh->GetMac();
+            interface = interface_object->GetReference(&if_ksync);
+            dmac = arp_nh->GetMac();
         } else if (active_nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *intf_nh = 
                 static_cast<const InterfaceNH *>(active_nh);
@@ -495,8 +509,16 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             InterfaceKSyncObject *interface_object =
                 ksync_obj_->ksync()->interface_ksync_obj();
             InterfaceKSyncEntry if_ksync(interface_object, oper_intf);
-            interface_ = interface_object->GetReference(&if_ksync);
-            dmac_ = oper_intf->mac();
+            interface = interface_object->GetReference(&if_ksync);
+            dmac = oper_intf->mac();
+        }
+        if (dmac != dmac_) {
+            dmac_ = dmac;
+            ret = true;
+        }
+        if (interface_ != interface) {
+            interface_ = interface;
+            ret = true;
         }
         break;
     }
@@ -506,10 +528,17 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         // Invalid nexthop, no valid interface or mac info
         // present, just return
         if (valid_ == false || (vrf_id_ == (uint32_t)-1)) {
-            interface_ = NULL;
-            dmac_.Zero();
+            if (interface_ != NULL) {
+                interface_ = NULL;
+                dmac_.Zero();
+                ret = true;
+            }
             break;
         }
+
+        KSyncEntryPtr interface = NULL;
+        MacAddress dmac;
+        bool valid = valid_;
 
         const MirrorNH *mirror_nh = static_cast<MirrorNH *>(e);
         const NextHop *active_nh = mirror_nh->GetRt()->GetActiveNextHop();
@@ -519,21 +548,33 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
                 ksync_obj_->ksync()->interface_ksync_obj();
             InterfaceKSyncEntry if_ksync(interface_object,
                                          arp_nh->GetInterface());
-            interface_ = interface_object->GetReference(&if_ksync);
-            dmac_ = arp_nh->GetMac();
+            interface = interface_object->GetReference(&if_ksync);
+            dmac = arp_nh->GetMac();
         } else if (active_nh->GetType() == NextHop::RECEIVE) {
             const ReceiveNH *rcv_nh = static_cast<const ReceiveNH *>(active_nh);
             InterfaceKSyncObject *interface_object =
                 ksync_obj_->ksync()->interface_ksync_obj();
             InterfaceKSyncEntry if_ksync(interface_object,
                                          rcv_nh->GetInterface());
-            interface_ = interface_object->GetReference(&if_ksync);
+            interface = interface_object->GetReference(&if_ksync);
             Agent *agent = ksync_obj_->ksync()->agent();
-            dmac_ = agent->vhost_interface()->mac();
+            dmac = agent->vhost_interface()->mac();
         } else if (active_nh->GetType() == NextHop::DISCARD) {
-            valid_ = false;
-            interface_ = NULL;
-            dmac_.Zero();
+            valid = false;
+            interface = NULL;
+        }
+
+        if (valid_ != valid) {
+            valid_ = valid;
+            ret = true;
+        }
+        if (dmac_ != dmac) {
+            dmac_ = dmac;
+            ret = true;
+        }
+        if (interface_ != interface) {
+            interface_ = interface;
+            ret = true;
         }
         break;
     }

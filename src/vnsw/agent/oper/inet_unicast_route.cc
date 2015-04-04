@@ -732,7 +732,7 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
 
 bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                          const AgentRoute *rt) {
-    bool ret = true;
+    bool ret = false;
 
     ArpNHKey key(vrf_name_, addr_, policy_);
     NextHop *nh = 
@@ -751,6 +751,24 @@ bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
+
+    if (nh) {
+        const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
+        if (path->arp_mac() != arp_nh->GetMac()) {
+            path->set_arp_mac(arp_nh->GetMac());
+            ret = true;
+        }
+
+        if (path->arp_interface() != arp_nh->GetInterface()) {
+            path->set_arp_interface(arp_nh->GetInterface());
+            ret = true;
+        }
+
+        if (path->arp_valid() != arp_nh->IsValid()) {
+            path->set_arp_valid(arp_nh->IsValid());
+            ret = true;
+        }
+    }
 
     return ret;
 }

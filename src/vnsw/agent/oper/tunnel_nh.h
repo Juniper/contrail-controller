@@ -43,6 +43,8 @@ private:
     Ip4Address dip_;
     TunnelType tunnel_type_;
     DependencyRef<NextHop, AgentRoute> arp_rt_;
+    InterfaceConstRef interface_;
+    MacAddress dmac_;
     DISALLOW_COPY_AND_ASSIGN(TunnelNH);
 };
 
@@ -55,7 +57,7 @@ public:
                 const uint16_t sport, const Ip4Address &dip,
                 const uint16_t dport) :
         NextHopKey(NextHop::MIRROR, false), vrf_key_(vrf_name), sip_(sip),
-        dip_(dip), sport_(sport), dport_(dport) { 
+        dip_(dip), sport_(sport), dport_(dport){
     };
     virtual ~MirrorNHKey() { };
 
@@ -84,7 +86,8 @@ public:
     MirrorNH(VrfEntry *vrf, const Ip4Address &sip, uint16_t sport,
              const Ip4Address &dip, uint16_t dport):
         NextHop(NextHop::MIRROR, false, false), vrf_(vrf), sip_(sip),
-        sport_(sport), dip_(dip), dport_(dport), arp_rt_(this) { };
+        sport_(sport), dip_(dip), dport_(dport), arp_rt_(this),
+        interface_(NULL), dmac_(){ };
     virtual ~MirrorNH() { };
 
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
@@ -113,6 +116,8 @@ private:
     Ip4Address dip_;
     uint16_t dport_;
     DependencyRef<NextHop, AgentRoute> arp_rt_;
+    InterfaceConstRef interface_;
+    MacAddress dmac_;
     DISALLOW_COPY_AND_ASSIGN(MirrorNH);
 };
 #endif
