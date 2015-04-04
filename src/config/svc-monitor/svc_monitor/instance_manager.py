@@ -59,7 +59,7 @@ class InstanceManager(object):
                 return sg_obj
 
         self.logger.log_error(
-            "Security group not found %s" % (sg.fq_name.join(':')))
+            "Security group not found %s" % (sg_fq_name.join(':')))
         return None
 
     def _get_instance_name(self, si, inst_count):
