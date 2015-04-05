@@ -113,8 +113,7 @@ void ovsdb_wrapper_delete_mcast_mac_remote(struct ovsdb_idl_row *row);
 char *ovsdb_wrapper_mcast_mac_remote_mac(struct ovsdb_idl_row *row);
 char *
 ovsdb_wrapper_mcast_mac_remote_logical_switch(struct ovsdb_idl_row *row);
-struct ovsdb_idl_row *
-ovsdb_wrapper_mcast_mac_remote_physical_locator_set(struct ovsdb_idl_row *row);
+char *ovsdb_wrapper_mcast_mac_remote_dst_ip(struct ovsdb_idl_row *row);
 
 /* logical binding stats */
 void ovsdb_wrapper_get_logical_binding_stats(struct ovsdb_idl_row *row,
