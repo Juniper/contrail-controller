@@ -79,6 +79,7 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
         vm_interface_.reset(interface);
         ret = true;
     }
+    vm_uuid_ = data->vm_interface_;
 
     PhysicalDevice *dev = table->agent()->physical_device_table()->
                           Find(data->device_uuid_);
@@ -309,22 +310,12 @@ bool InterfaceTable::LogicalInterfaceProcessConfig(IFMapNode *node,
         return true;
     }
 
-    IFMapNode *adj_node = agent()->cfg_listener()->FindAdjacentIFMapNode
-        (agent(), node, "virtual-machine-interface");
-    if (adj_node != NULL) {
-        DBRequest vmi_req;
-        if (VmiIFNodeToReq(adj_node, vmi_req)) {
-            Enqueue(&vmi_req);
-        }
-    }
-
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.data.reset(BuildData(agent(), node, u, port));
 
     if (req.data.get() != NULL) {
         Enqueue(&req);
     }
-    VmInterface::LogicalPortSync(this, node);
     return false;
 }
 
