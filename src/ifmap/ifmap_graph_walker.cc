@@ -6,6 +6,7 @@
 
 #include <boost/bind.hpp>
 #include "base/logging.h"
+#include "base/task_trigger.h"
 #include "db/db_graph.h"
 #include "db/db_table.h"
 #include "ifmap/ifmap_client.h"
@@ -65,10 +66,10 @@ private:
 IFMapGraphWalker::IFMapGraphWalker(DBGraph *graph, IFMapExporter *exporter)
     : graph_(graph),
       exporter_(exporter),
-      work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
-                  boost::bind(&IFMapGraphWalker::Worker, this, _1)) {
-    work_queue_.SetExitCallback(
-        boost::bind(&IFMapGraphWalker::WorkBatchEnd, this, _1));
+      link_delete_walk_trigger_(new TaskTrigger(
+                        boost::bind(&IFMapGraphWalker::LinkDeleteWalk, this),
+                        TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)),
+      walk_client_index_(BitSet::npos) {
     traversal_white_list_.reset(new IFMapTypenameWhiteList());
     AddNodesToWhitelist();
     AddLinksToWhitelist();
@@ -117,9 +118,8 @@ void IFMapGraphWalker::LinkAdd(IFMapNode *lnode, const BitSet &lhs,
 }
 
 void IFMapGraphWalker::LinkRemove(const BitSet &bset) {
-    QueueEntry entry;
-    entry.set = bset;
-    work_queue_.Enqueue(entry);
+    link_delete_clients_.Set(bset);     // link_delete_clients_ | bset
+    link_delete_walk_trigger_->Set();
 }
 
 // Check if the neighbor or link to neighbor should be filtered. Returns true 
@@ -138,11 +138,20 @@ void IFMapGraphWalker::RecomputeInterest(DBGraphVertex *vertex, int bit) {
     state->nmask_set(bit);
 }
 
-bool IFMapGraphWalker::Worker(QueueEntry work_entry) {
-    const BitSet &bset = work_entry.set;
+bool IFMapGraphWalker::LinkDeleteWalk() {
     IFMapServer *server = exporter_->server();
-    for (size_t i = bset.find_first(); i != BitSet::npos;
-         i = bset.find_next(i)) {
+
+    size_t i;
+    // Get the index of the client we want to start with.
+    if (walk_client_index_ == BitSet::npos) {
+        i = link_delete_clients_.find_first();
+    } else {
+        // walk_client_index_ was the last client that we finished processing.
+        i = link_delete_clients_.find_next(walk_client_index_);
+    }
+    int count = 0;
+    BitSet done_set;
+    while (i != BitSet::npos) {
         IFMapClient *client = server->GetClient(i);
         if (client == NULL) {
             continue;
@@ -157,9 +166,28 @@ bool IFMapGraphWalker::Worker(QueueEntry work_entry) {
                 boost::bind(&IFMapGraphWalker::RecomputeInterest, this, _1, i),
                 0, *traversal_white_list_.get());
         }
+        done_set.set(i);
+        if (++count == kMaxLinkDeleteWalks) {
+            // client 'i' has been processed. If 'i' is the last bit set, we
+            // will return true below. Else we will return false and there is
+            // atleast one more bit left to process.
+            break;
+        }
+        i = link_delete_clients_.find_next(i);
     }
-    rm_mask_ |= work_entry.set;
-    return true;
+    // Remove the subset of clients that we have finished processing.
+    link_delete_clients_.Reset(done_set);
+    rm_mask_ |= done_set;
+
+    LinkDeleteWalkBatchEnd();
+
+    if (link_delete_clients_.empty()) {
+        walk_client_index_ = BitSet::npos;
+        return true;
+    } else {
+        walk_client_index_ = i;
+        return false;
+    }
 }
 
 void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
@@ -194,9 +222,10 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
     }
 }
 
-// Cleanup all graph nodes that a bit set in the remove mask (rm_mask_) but
-// where not visited by the walker.
-void IFMapGraphWalker::WorkBatchEnd(bool done) {
+// Cleanup all graph nodes that have a bit set in the remove mask (rm_mask_) but
+// were not visited by the walker because there were not reachable after the
+// link delete.
+void IFMapGraphWalker::LinkDeleteWalkBatchEnd() {
     for (DBGraph::vertex_iterator iter = graph_->vertex_list_begin();
          iter != graph_->vertex_list_end(); ++iter) {
         DBGraphVertex *vertex = iter.operator->();

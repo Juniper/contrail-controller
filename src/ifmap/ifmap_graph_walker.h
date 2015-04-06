@@ -13,6 +13,7 @@ class DBGraphEdge;
 class DBGraphVertex;
 class IFMapExporter;
 class IFMapNode;
+class TaskTrigger;
 struct IFMapTypenameFilter;
 struct IFMapTypenameWhiteList;
 
@@ -32,12 +33,7 @@ public:
     bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
 
 private:
-    struct QueueEntry {
-        BitSet set;
-    };
-
-    bool Worker(QueueEntry entry);
-    void WorkBatchEnd(bool done);
+    static const int kMaxLinkDeleteWalks = 1;
 
     void ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode, const BitSet &bset);
     void JoinVertex(DBGraphVertex *vertex, const BitSet &bset);
@@ -45,12 +41,16 @@ private:
     void CleanupInterest(DBGraphVertex *vertex);
     void AddNodesToWhitelist();
     void AddLinksToWhitelist();
+    bool LinkDeleteWalk();
+    void LinkDeleteWalkBatchEnd();
 
     DBGraph *graph_;
     IFMapExporter *exporter_;
-    WorkQueue<QueueEntry> work_queue_;
+    boost::scoped_ptr<TaskTrigger> link_delete_walk_trigger_;
     std::auto_ptr<IFMapTypenameWhiteList> traversal_white_list_;
     BitSet rm_mask_;
+    BitSet link_delete_clients_;
+    size_t walk_client_index_;
 };
 
 #endif /* defined(__ctrlplane__ifmap_graph_walker__) */
