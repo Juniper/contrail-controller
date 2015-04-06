@@ -615,7 +615,6 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
             info.set_identifier(event.msg->from);
             if (state_machine->IsAuthEnabled()) {
                 event.session->AsyncReadStart();
-                state_machine->StartHoldTimer();
                 state_machine->SendConnectionInfo(&info, event.Name(),
                                                   "Open Confirm");
                 return transit<OpenConfirm>();
@@ -678,7 +677,6 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
 struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvAdminDown>,
-        sc::custom_reaction<EvXmppKeepalive>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvHoldTimerExpired>,
         sc::custom_reaction<EvStreamFeatureRequest>, //received by client
@@ -711,19 +709,6 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         }
         state_machine->set_state(OPENCONFIRM);
         state_machine->set_openconfirm_state(OPENCONFIRM_INIT);
-    }
-
-    sc::result react(const EvXmppKeepalive &event) {
-        XmppStateMachine *state_machine = &context<XmppStateMachine>();
-        SM_LOG(state_machine, "EvXmppKeepalive in (OpenConfirm) State");
-        if (state_machine->IsAuthEnabled()) {
-            state_machine->SendConnectionInfo(event.Name(), "Discard");
-            return discard_event();
-        } else {
-            state_machine->StartHoldTimer();
-            state_machine->SendConnectionInfo(event.Name(), "Established");
-            return transit<XmppStreamEstablished>();
-        }
     }
 
     sc::result react(const EvTcpClose &event) {
@@ -780,11 +765,13 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
             state_machine->ResetSession();
             state_machine->SendConnectionInfo(&info,
                 "Send Start Tls Failed", "Idle");
-            return transit<Idle>();
+            return transit<Active>();
         } else {
             state_machine->StartHoldTimer();
-            state_machine->SendConnectionInfo(&info, "Sent Start Tls", "");
-            state_machine->set_openconfirm_state(OPENCONFIRM_FEATURE_NEGOTIATION);
+            state_machine->SendConnectionInfo(&info, "Sent Start Tls",
+                               "OpenConfirm Feature Negotiation");
+            state_machine->set_openconfirm_state(
+                       OPENCONFIRM_FEATURE_NEGOTIATION);
             return discard_event();
         }
     }
@@ -793,23 +780,21 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     sc::result react(const EvTlsProceed &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvTlsProceed in (OpenConfirm) State");
-        XmppConnection *connection = state_machine->connection();
         XmppSession *session = state_machine->session();
-        // Trigger Ssl Handshake, bind to XmppSession or XmppConnection
         state_machine->StartHoldTimer();
-        session->TriggerSslHandShake(
-            boost::bind(&XmppConnection::ProcessSslHandShakeResponse,
-                        connection, _1, _2));
-        XmppConnectionInfo info;
-        info.set_identifier(event.msg->from);
-        state_machine->SendConnectionInfo(&info,
-            "Trigger Client Ssl Handshake", "");
+        // Trigger Ssl Handshake on client side
+        session->TriggerSslHandShake(state_machine->HandShakeCbHandler());
+        state_machine->SendConnectionInfo(event.Name(),
+            "Trigger Client Ssl Handshake");
         return discard_event();
     }
 
     //received by server
     sc::result react(const EvStartTls &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        if (event.session != state_machine->session()) {
+            return discard_event();
+        }
         SM_LOG(state_machine, "EvStartTls in (OpenConfirm) State");
         XmppConnection *connection = state_machine->connection();
         XmppSession *session = state_machine->session();
@@ -823,11 +808,11 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
             return transit<Idle>();
         } else {
             state_machine->StartHoldTimer();
-            state_machine->SendConnectionInfo(&info, "Sent Start Tls", "");
+            state_machine->SendConnectionInfo(&info, "Sent Proceed Tls", "");
             // Trigger Ssl Handshake on server side
-            session->TriggerSslHandShake(
-                boost::bind(&XmppConnection::ProcessSslHandShakeResponse,
-                            connection, _1, _2));
+            session->TriggerSslHandShake(state_machine->HandShakeCbHandler());
+            state_machine->SendConnectionInfo(event.Name(),
+                "Trigger Server Ssl Handshake");
             return discard_event();
         }
     }
@@ -861,15 +846,18 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
             if (!connection->SendOpen(session)) {
                 connection->SendClose(session);
                 state_machine->ResetSession();
-                state_machine->SendConnectionInfo(event.Name(), "Idle");
-                return transit<Idle>();
+                XmppConnectionInfo info;
+                info.set_close_reason("Open send failed in OpenConfirm State");
+                state_machine->SendConnectionInfo(&info, event.Name(), "Active");
+                return transit<Active>();
             } else {
                state_machine->SendConnectionInfo(event.Name(), "Open Sent");
             }
         }
         // both server and client
         state_machine->StartHoldTimer();
-        state_machine->SendConnectionInfo(event.Name(), "");
+        state_machine->SendConnectionInfo(event.Name(),
+            "OpenConfirm Feature Negotiation Success");
         return discard_event();
     }
 
@@ -881,8 +869,13 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
        SM_LOG(state_machine, "EvTlsHandShakeFailure in (TLSHandShake) State");
        // Do not send stream close as error occured at TLS layer
        state_machine->ResetSession();
-       state_machine->SendConnectionInfo(event.Name(), "Idle");
-       return transit<Idle>();
+       if (state_machine->IsActiveChannel()) { // client
+           state_machine->SendConnectionInfo(event.Name(), "Active");
+           return transit<Active>();
+       } else {
+           state_machine->SendConnectionInfo(event.Name(), "Idle");
+           return transit<Idle>();
+       }
     }
 
     //event on server and client
@@ -1126,6 +1119,8 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
       auth_enabled_(auth_enabled),
       state_(xmsm::IDLE),
       openconfirm_state_(xmsm::OPENCONFIRM_INIT) {
+      handshake_cb_ = boost::bind(
+          &XmppConnection::ProcessSslHandShakeResponse, connection, _1, _2);
 }
 
 XmppStateMachine::~XmppStateMachine() {
@@ -1503,7 +1498,7 @@ bool XmppStateMachine::DequeueEvent(
 
     set_last_event(TYPE_NAME(*event));
     in_dequeue_ = true;
-    XMPP_UTDEBUG(XmppStateMachineDequeueEvent, TYPE_NAME(*event), 
+    XMPP_UTDEBUG(XmppStateMachineDequeueEvent, ChannelType(), TYPE_NAME(*event),
                  StateName(), this->connection()->endpoint().address().to_string());
     process_event(*event);
     event.reset();

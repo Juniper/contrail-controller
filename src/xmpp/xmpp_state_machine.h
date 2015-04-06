@@ -111,6 +111,12 @@ public:
     // Calculate Timer value for active to connect transition.
     int GetConnectTime() const;
 
+    void SetHandShakeCbHandler(SslHandShakeCallbackHandler cb) {
+        handshake_cb_ = cb;
+    }
+
+    SslHandShakeCallbackHandler HandShakeCbHandler() { return handshake_cb_; }
+
     std::string StateName() const;
     std::string LastStateName() const;
     std::string LastStateChangeAt() const;
@@ -185,6 +191,7 @@ private:
     uint64_t state_since_;
     std::string last_event_;
     uint64_t last_event_at_;
+    SslHandShakeCallbackHandler handshake_cb_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppStateMachine);
 };
