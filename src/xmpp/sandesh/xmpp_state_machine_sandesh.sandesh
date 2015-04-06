@@ -164,8 +164,9 @@ systemlog sandesh XmppStateMachineTimerExpire {
 systemlog sandesh XmppStateMachineDequeueEvent {
    1: "RECV Processing ";
    2: string f1;
-   3: " In State ";
-   4: string f2;
-   5: "from ";
-   6: string f3;
+   3: string f2;
+   4: " In State ";
+   5: string f3;
+   6: "from ";
+   7: string f4;
 }

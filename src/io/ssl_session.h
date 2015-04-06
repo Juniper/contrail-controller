@@ -10,6 +10,8 @@
 
 class SslSession;
 typedef boost::intrusive_ptr<SslSession> SslSessionPtr;
+typedef boost::function<void(SslSessionPtr,
+    const boost::system::error_code& error)> SslHandShakeCallbackHandler;
 
 class SslSession : public TcpSession {
 public:
@@ -28,8 +30,6 @@ public:
     virtual void Accepted();
 
     // Trigger delayed SslHandShake
-    typedef boost::function<void(SslSessionPtr,
-        const boost::system::error_code& error)> SslHandShakeCallbackHandler;
     void TriggerSslHandShake(SslHandShakeCallbackHandler);
 
     // Additional states to determine the trigger of SSL handshake
@@ -48,6 +48,11 @@ public:
 
     bool IsSslHandShakeSuccessLocked() {
         return ssl_handshake_success_;
+    }
+
+    bool IsSslHandShakeInProgress() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return ssl_handshake_in_progress_;
     }
 
 protected:
