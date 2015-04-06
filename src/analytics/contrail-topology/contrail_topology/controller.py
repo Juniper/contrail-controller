@@ -73,7 +73,9 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
-                self.link[pr].append({
+                if pl['lldpRemLocalPortNum'] in ifm and\
+                    pl['lldpRemPortId'].isdigit():
+                    self.link[pr].append({
                         'remote_system_name': pl['lldpRemSysName'],
                         'local_interface_name': ifm[pl['lldpRemLocalPortNum']],
                         'remote_interface_name': pl['lldpRemPortDesc'],
@@ -81,7 +83,7 @@ class Controller(object):
                         'remote_interface_index': int(pl['lldpRemPortId']),
                         'type': 1
                         })
-                lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
+                    lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
             vrouter_neighbors = []
             if 'fdbPortIfIndexTable' in d['PRouterEntry']:
