@@ -34,7 +34,8 @@ subdirs = [
            'storage',
            'xml',
            'xmpp',
-           'libpartition'
+           'libpartition',
+           'nodemgr'
            ]
 
 if sys.platform != 'darwin':
