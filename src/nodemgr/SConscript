@@ -1,0 +1,49 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('BuildEnv')
+OpEnv = BuildEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        OpEnv.Install(Dir("."), '#controller/src/nodemgr/' + file))
+
+local_sources = [
+           '__init__.py',
+           'AnalyticsNodemgr.py',
+           'ControlNodemgr.py',
+           'ConfigNodemgr.py',
+           'VrouterNodemgr.py',
+           'DatabaseNodemgr.py',
+           'EventManager.py',
+           'vrouter_process_stat.py',
+           'process_stat.py',
+           'EventListenerProtocolNodeMgr.py',
+           'main.py'
+          ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(OpEnv.Install(Dir("nodemgr"), file))
+
+sdist_depends = [setup_sources_rules, local_sources_rules]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
+
+OpEnv.Depends(sdist_gen, sdist_depends)
+
+OpEnv.Default(sdist_gen)
+
+OpEnv.Alias("src:nodemgr", sdist_gen)
