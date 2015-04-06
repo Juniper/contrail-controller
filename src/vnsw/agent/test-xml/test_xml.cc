@@ -205,8 +205,10 @@ bool AgentUtXmlTest::Load() {
     if (read(fd, data, s.st_size) < s.st_size) {
         cout << "Error <" << strerror(errno) << "> reading file "
             << file_name_ << endl;
+        close(fd);
         return false;
     }
+    close(fd);
     data[s.st_size] = '\0';
 
     xml_parse_result result = doc_.load(data);
