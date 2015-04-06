@@ -21,6 +21,7 @@
             "controller/src/config"
         ],
         "scons_test_targets" : [
+            "controller/src/config/svc_monitor:test",
             "controller/src/api-lib:test",
             "controller/src/config/api-server:test"
         ],
