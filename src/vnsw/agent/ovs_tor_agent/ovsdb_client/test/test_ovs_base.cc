@@ -45,6 +45,7 @@
 #include "ovs_tor_agent/ovsdb_client/physical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/vrf_ovsdb.h"
 #include "test_ovs_agent_init.h"
 
 #include <ovsdb_types.h>
@@ -131,6 +132,12 @@ TEST_F(OvsBaseTest, physical_port) {
     req->HandleRequest();
     client->WaitForIdle();
     req->Release();
+}
+
+TEST_F(OvsBaseTest, VrfAuditRead) {
+    VrfOvsdbObject *table = tcp_session_->client_idl()->vrf_ovsdb();
+    VrfOvsdbEntry vrf_key(table, UuidToString(MakeUuid(1)));
+    WAIT_FOR(1000, 10000, (table->Find(&vrf_key) != NULL));
 }
 
 TEST_F(OvsBaseTest, connection_close) {

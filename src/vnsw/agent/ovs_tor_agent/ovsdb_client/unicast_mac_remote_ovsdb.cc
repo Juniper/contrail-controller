@@ -278,9 +278,7 @@ UnicastMacRemoteTable::UnicastMacRemoteTable(OvsdbClientIdl *idl,
 }
 
 UnicastMacRemoteTable::~UnicastMacRemoteTable() {
-    // explicit unregister required before removing the reference, to assure
-    // pointer sanity.
-    UnregisterDb(GetDBTable());
+    // Table unregister will be done by Destructor of KSyncDBObject
     table_delete_ref_.Reset(NULL);
 }
 
