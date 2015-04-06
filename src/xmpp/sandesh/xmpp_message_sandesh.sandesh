@@ -77,21 +77,12 @@ systemlog sandesh XmppRxOpenMessage {
 
 systemlog sandesh XmppRxStreamTlsRequired {
     1: "Received Tls Feature Required ";
-    2: string f1;
-    3: " To: ";
-    4: string f2;
 }
 
 systemlog sandesh XmppRxStreamStartTls {
     1: "Received Start Tls ";
-    2: string f1;
-    3: " To: ";
-    4: string f2;
 }
 
 systemlog sandesh XmppRxStreamProceed {
     1: "Received Proceed Tls ";
-    2: string f1;
-    3: " To: ";
-    4: string f2;
 }

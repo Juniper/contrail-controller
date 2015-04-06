@@ -343,39 +343,29 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
                 new XmppStanza::XmppStreamMessage();
             strm->strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
             strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_FEATURE_REQUEST;
-            impl->ReadNode(ns);
-            strm->to = XmppProto::GetTo(impl);
-            strm->from = XmppProto::GetFrom(impl);
 
             ret = strm;
 
-            XMPP_UTDEBUG(XmppRxStreamTlsRequired, strm->from, strm->to);
+            XMPP_UTDEBUG(XmppRxStreamTlsRequired);
 
         } else if (ts.find(sXMPP_STREAM_STARTTLS_O) != string::npos) {
             XmppStanza::XmppStreamMessage *strm =
                 new XmppStanza::XmppStreamMessage();
             strm->strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
             strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_START;
-            impl->ReadNode(ns);
-            strm->to = XmppProto::GetTo(impl);
-            strm->from = XmppProto::GetFrom(impl);
-
             ret = strm;
 
-            XMPP_UTDEBUG(XmppRxStreamStartTls, strm->from, strm->to);
+            XMPP_UTDEBUG(XmppRxStreamStartTls);
 
         } else if (ts.find(sXMPP_STREAM_PROCEED_O) != string::npos) {
             XmppStanza::XmppStreamMessage *strm =
                 new XmppStanza::XmppStreamMessage();
             strm->strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
             strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_PROCEED;
-            impl->ReadNode(ns);
-            strm->to = XmppProto::GetTo(impl);
-            strm->from = XmppProto::GetFrom(impl);
 
             ret = strm;
 
-            XMPP_UTDEBUG(XmppRxStreamProceed, strm->from, strm->to);
+            XMPP_UTDEBUG(XmppRxStreamProceed);
         }
         goto done;
 
