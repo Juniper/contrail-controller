@@ -168,6 +168,7 @@ class SnatInstanceManager(unittest.TestCase):
         self.netns_manager.create_service(st, si)
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
+        self.assertEqual(si.vn_info[1]['net-id'], 'fake-vn-uuid')
 
     def test_snat_instance_delete(self):
         def create_fake_virtual_machine(fq_name_str):
