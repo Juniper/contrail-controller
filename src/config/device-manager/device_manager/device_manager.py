@@ -202,22 +202,6 @@ class DeviceManager(object):
             for fq_name, uuid in bgp_list:
                 BgpRouterDM.locate(uuid)
 
-        ok, ip_list = self._cassandra._cassandra_instance_ip_list()
-        if not ok:
-            self.config_log('instance ip list returned error: %s' %
-                            ip_list)
-        else:
-            for fq_name, uuid in ip_list:
-                InstanceIpDM.locate(uuid)
-
-        ok, fip_list = self._cassandra._cassandra_floating_ip_list()
-        if not ok:
-            self.config_log('floating ip list returned error: %s' %
-                            fip_list)
-        else:
-            for fq_name, uuid in fip_list:
-                FloatingIpDM.locate(uuid)
-
         ok, pr_list = self._cassandra._cassandra_physical_router_list()
         if not ok:
             self.config_log('physical router list returned error: %s' %
@@ -239,6 +223,27 @@ class DeviceManager(object):
                         vmi_set |= set([li.virtual_machine_interface])
                 for vmi_id in vmi_set:
                     vmi = VirtualMachineInterfaceDM.locate(vmi_id)
+
+            ok, ip_list = self._cassandra._cassandra_instance_ip_list()
+            if not ok:
+                self.config_log('instance ip list returned error: %s' %
+                            ip_list)
+            else:
+                for fq_name, uuid in ip_list:
+                    InstanceIpDM.locate(uuid)
+
+            ok, fip_list = self._cassandra._cassandra_floating_ip_list()
+            if not ok:
+                self.config_log('floating ip list returned error: %s' %
+                            fip_list)
+            else:
+                for fq_name, uuid in fip_list:
+                    FloatingIpDM.locate(uuid)
+
+            for fq_name, uuid in vn_list:
+                vn = VirtualNetworkDM.locate(uuid)
+                if vn is not None:
+                    vn.update_instance_ip_map()
 
             for pr in PhysicalRouterDM.values():
                 pr.push_config()

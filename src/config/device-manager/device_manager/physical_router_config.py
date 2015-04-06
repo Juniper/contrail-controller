@@ -272,15 +272,16 @@ class PhysicalRouterConfig(object):
         services_config = None
         if fip_map is not None:
             services_config = self.services_config or etree.Element("services")
-            service_name = ri_name + "-fip-nat"
+            service_name = ri_name + "-nat"
+            service_name = service_name.replace('__contrail__', '')
             service_set = etree.SubElement(services_config, "service-set")
             etree.SubElement(service_set, "name").text = service_name
             rule_count = len(fip_map)
             for rule_id in range(0, rule_count):
                 nat_rule = etree.SubElement(service_set, "nat-rules")
-                etree.SubElement(nat_rule, "name").text = service_name + "-snat-rule-" + str(rule_id)
+                etree.SubElement(nat_rule, "name").text = service_name + "-sn-" + str(rule_id)
                 nat_rule = etree.SubElement(service_set, "nat-rules")
-                etree.SubElement(nat_rule, "name").text = service_name + "-dnat-rule-" + str(rule_id)
+                etree.SubElement(nat_rule, "name").text = service_name + "-dn-" + str(rule_id)
             next_hop_service = etree.SubElement(service_set, "next-hop-service")
             etree.SubElement(next_hop_service , "inside-service-interface").text = interfaces[0]
             etree.SubElement(next_hop_service , "outside-service-interface").text = interfaces[1]
@@ -291,7 +292,7 @@ class PhysicalRouterConfig(object):
             for pip, fip_vn in fip_map.items():
                 fip = fip_vn["floating_ip"]
                 rule = etree.SubElement(nat, "rule")
-                etree.SubElement(rule, "name").text = service_name + "-snat-rule-" + str(rule_id)
+                etree.SubElement(rule, "name").text = service_name + "-sn-" + str(rule_id)
                 etree.SubElement(rule, "match-condition").text = "input"
                 term = etree.SubElement(rule, "term")
                 etree.SubElement(term, "name").text = "t1"
@@ -305,7 +306,7 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(translation_type, "basic-nat44")
 
                 rule = etree.SubElement(nat, "rule")
-                etree.SubElement(rule, "name").text = service_name + "-dnat-rule-" + str(rule_id)
+                etree.SubElement(rule, "name").text = service_name + "-dn-" + str(rule_id)
                 etree.SubElement(rule, "match-condition").text = "output"
                 term = etree.SubElement(rule, "term")
                 etree.SubElement(term, "name").text = "t1"

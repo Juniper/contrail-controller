@@ -333,13 +333,13 @@ class FloatingIpDM(DBBase):
         self.virtual_machine_interface = None
         self.floating_ip_address = None
         self.update(obj_dict)
-        self.public_network = self.get_pool_public_network(self.get_parent_uuid(obj_dict))
     # end __init__
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.floating_ip_address = obj.get("floating_ip_address")
+        self.public_network = self.get_pool_public_network(self.get_parent_uuid(obj))
         self.update_single_ref('virtual_machine_interface', obj)
     # end update
 
@@ -473,12 +473,15 @@ class VirtualNetworkDM(DBBase):
                                              subnet['subnet']['ip_prefix_len'])
                                   )
                 self.gateways.add(subnet['default_gateway'])
+        self.update_instance_ip_map()
     # end update
 
     def update_instance_ip_map(self):
         self.instance_ip_map = {}
         for vmi_uuid in self.virtual_machine_interfaces:
             vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi is None:
+                continue
             if vmi.floating_ip is not None and vmi.instance_ip is not None:
                 fip = FloatingIpDM.get(vmi.floating_ip)
                 inst_ip  = InstanceIpDM.get(vmi.instance_ip)
