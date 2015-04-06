@@ -737,6 +737,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             it++;
         }
         data.set_fip_list(fip_list);
+        data.set_logical_interface_uuid(to_string(vintf->logical_interface()));
 
         // Add Service VLAN list
         std::vector<ServiceVlanSandeshList> vlan_list;
