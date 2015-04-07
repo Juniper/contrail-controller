@@ -336,6 +336,13 @@ std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vrf));
 }
 
+VrfTable::~VrfTable() {
+    if (route_delete_walker_)
+        delete route_delete_walker_;
+    if (vrf_delete_walker_)
+        delete vrf_delete_walker_;
+}
+
 DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     VrfData *data = static_cast<VrfData *>(req->data.get());
@@ -722,8 +729,6 @@ public:
     }
 
     static void WalkDone(RouteDeleteWalker *walker) {
-        walker->agent()->vrf_table()->reset_shutdown_walk();
-        delete walker;
         walk_done_++;
     }
 
@@ -734,13 +739,15 @@ uint32_t RouteDeleteWalker::walk_start_;
 uint32_t RouteDeleteWalker::walk_done_;
 
 void VrfTable::DeleteRoutes() {
-    assert(shutdown_walk_ == NULL);
-    RouteDeleteWalker *walker = new RouteDeleteWalker(agent());
-    shutdown_walk_ = walker;
-    walker->WalkDoneCallback
-        (boost::bind(&RouteDeleteWalker::WalkDone, walker));
-    walker->walk_start_++;
-    walker->StartVrfWalk();
+    if (route_delete_walker_ == NULL) {
+        route_delete_walker_ = new RouteDeleteWalker(agent());
+    }
+    RouteDeleteWalker *route_delete_walker =
+        static_cast<RouteDeleteWalker *>(route_delete_walker_);
+    route_delete_walker->WalkDoneCallback
+        (boost::bind(&RouteDeleteWalker::WalkDone, route_delete_walker));
+    route_delete_walker->walk_start_++;
+    route_delete_walker->StartVrfWalk();
 }
 
 class VrfDeleteWalker : public AgentRouteWalker {
@@ -765,16 +772,19 @@ public:
     }
 
     static void WalkDone(VrfDeleteWalker *walker) { 
-        delete walker;
     }
 
 private:
 };
 
 void VrfTable::Shutdown() {
-    delete shutdown_walk_;
-    VrfDeleteWalker *walker = new VrfDeleteWalker(agent());
-    shutdown_walk_ = walker;
-    walker->WalkDoneCallback (boost::bind(&VrfDeleteWalker::WalkDone, walker));
-    walker->StartVrfWalk();
+    if (vrf_delete_walker_ == NULL) {
+        vrf_delete_walker_ = new VrfDeleteWalker(agent());
+    }
+    VrfDeleteWalker *vrf_delete_walker =
+        static_cast<VrfDeleteWalker *>(vrf_delete_walker_);
+    vrf_delete_walker->WalkDoneCallback(boost::bind
+                                        (&VrfDeleteWalker::WalkDone,
+                                         vrf_delete_walker));
+    vrf_delete_walker->StartVrfWalk();
 }
