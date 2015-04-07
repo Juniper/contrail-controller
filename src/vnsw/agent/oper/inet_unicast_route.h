@@ -165,7 +165,8 @@ public:
     virtual void ProcessDelete(AgentRoute *rt) { 
         tree_.Remove(static_cast<InetUnicastRouteEntry *>(rt));
     }
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context);
     InetUnicastRouteEntry *FindRouteUsingKey(InetUnicastRouteEntry &key) {
         return FindLPM(key);
     }
