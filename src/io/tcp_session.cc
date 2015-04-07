@@ -47,6 +47,7 @@ TcpSession::TcpSession(
     TcpServer *server, Socket *socket, bool async_read_ready)
     : server_(server),
       socket_(socket),
+      io_strand_(*server->event_manager()->io_service()),
       read_on_connect_(async_read_ready),
       buffer_size_(kDefaultBufferSize),
       established_(false),
@@ -114,14 +115,19 @@ void TcpSession::ReleaseBufferLocked(Buffer buffer) {
     assert(false);
 }
 
-void TcpSession::AsyncReadStart() {
-    mutable_buffer buffer = AllocateBuffer();
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (!established_) {
-        ReleaseBufferLocked(buffer);
+
+void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
+    mutable_buffer buffer = session->AllocateBuffer();
+    tbb::mutex::scoped_lock lock(session->mutex_);
+    if (!session->established_) {
+        session->ReleaseBufferLocked(buffer);
         return;
     }
-    AsyncReadSome(buffer);
+    session->AsyncReadSome(buffer);
+}
+
+void TcpSession::AsyncReadStart() {
+    io_strand_.post(boost::bind(&AsyncReadStartInternal, TcpSessionPtr(this)));
 }
 
 void TcpSession::DeferWriter() {

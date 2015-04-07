@@ -11,6 +11,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -145,6 +146,7 @@ public:
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
+    static void AsyncReadStartInternal(TcpSessionPtr session);
     static void AsyncReadHandler(TcpSessionPtr session,
                                  boost::asio::mutable_buffer buffer,
                                  const boost::system::error_code &error,
@@ -186,6 +188,7 @@ private:
     friend void intrusive_ptr_add_ref(TcpSession *session);
     friend void intrusive_ptr_release(TcpSession *session);
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
+    typedef boost::asio::strand Strand;
 
     static void WriteReadyInternal(TcpSessionPtr session,
                                    const boost::system::error_code &error,
@@ -208,6 +211,7 @@ private:
 
     TcpServerPtr server_;
     boost::scoped_ptr<Socket> socket_;
+    Strand io_strand_;
     bool read_on_connect_;
     int buffer_size_;
 
