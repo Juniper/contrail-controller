@@ -78,7 +78,8 @@ static void ValidateSandeshResponse(Sandesh *sandesh, uint32_t expect_count,
     }
 
     ItfResp *resp = dynamic_cast<ItfResp *>(sandesh);
-    EXPECT_TRUE(resp != NULL);
+    if (resp == NULL)
+        return;
 
     const std::vector<ItfSandeshData> itf_list = resp->get_itf_list();
     EXPECT_EQ(itf_list.size(), expect_count);
@@ -105,7 +106,7 @@ string MakePageRequest(const string &name, int start, int end) {
 }
 
 void DoPageRequest(const string &req_str, int expect_count, bool expect_err) {
-    SandeshDBEntryIndex *req = new SandeshDBEntryIndex();
+    PageReq *req = new PageReq();
     req->set_key(req_str);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
                                                expect_count, expect_err));
@@ -170,9 +171,9 @@ TEST_F(AgentSandeshTest, test_all) {
     DoInterfaceSandesh(-1, -1, table_->Size());
 }
 
-// Start=1, end=10. Should give 9 entries
+// Start=1, end=10. Should give 10 entries
 TEST_F(AgentSandeshTest, test_1_10) {
-    DoPageRequest(table_->name(), 1, 10, 10-1);
+    DoPageRequest(table_->name(), 1, 10, 10);
 }
 
 // Start=0, end=100. Should give full table

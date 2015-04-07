@@ -724,11 +724,13 @@ void BridgeRouteReq::HandleRequest() const {
 
     AgentSandeshPtr sand(new AgentBridgeRtSandesh(vrf, context(), "",
                                                   get_stale()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    sand->DoSandesh(sand);
 }
 
-AgentSandesh *BridgeAgentRouteTable::GetAgentSandesh(const std::string &context) {
-    return new AgentBridgeRtSandesh(vrf_entry(), context, "", true);
+AgentSandeshPtr BridgeAgentRouteTable::GetAgentSandesh
+(const AgentSandeshArguments *args, const std::string &context) {
+    return AgentSandeshPtr(new AgentBridgeRtSandesh(vrf_entry(), context, "",
+                                                    true));
 }
 
 bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
@@ -773,5 +775,5 @@ void Layer2RouteReq::HandleRequest() const {
 
     AgentSandeshPtr sand(new AgentLayer2RtSandesh(vrf, context(), "",
                                                   get_stale()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    sand->DoSandesh(sand);
 }

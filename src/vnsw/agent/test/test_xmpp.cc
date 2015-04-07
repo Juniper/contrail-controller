@@ -345,7 +345,7 @@ protected:
         node.append_attribute("id") = node_str.c_str();
         item.Encode(&node);
 
-        int count = bgp_peer.get()->Count();
+        uint32_t count = bgp_peer.get()->Count();
         SendDocument(xdoc, peer);
         WAIT_FOR(1000, 100, (bgp_peer.get()->Count() > count));
         client->WaitForIdle();
@@ -365,7 +365,7 @@ protected:
         xml_node xitems = MessageHeader(&xdoc, vrf);
         xml_node node = xitems.append_child("retract");
         node.append_attribute("id") = str;
-        int count = bgp_peer.get()->Count();
+        uint32_t count = bgp_peer.get()->Count();
         SendDocument(xdoc, peer);
         WAIT_FOR(1000, 100, (bgp_peer.get()->Count() > count));
         client->WaitForIdle();
