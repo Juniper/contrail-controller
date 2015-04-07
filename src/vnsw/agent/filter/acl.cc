@@ -666,12 +666,13 @@ void AclTable::AclFlowCountResponse(const string acl_uuid_str,
 }
 
 void AclReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentAclSandesh(context(), get_uuid()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentAclSandesh *sand = new AgentAclSandesh(context(), get_uuid());
+    sand->DoSandesh();
 }
 
-AgentSandesh *AclTable::GetAgentSandesh(const std::string &context) {
-    return new AgentAclSandesh(context, "");
+AgentSandesh *AclTable::GetAgentSandesh(const AgentSandeshArguments *args,
+                                        const std::string &context) {
+    return new AgentAclSandesh(context, args->GetString("name"));
 }
 
 void NextAclFlowReq::HandleRequest() const {

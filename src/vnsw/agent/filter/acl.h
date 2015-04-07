@@ -150,7 +150,8 @@ public:
     virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
                              const std::string &peer_type, IFMapNode *peer,
                              DBRequest &req);
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandesh *GetAgentSandesh(const AgentSandeshArguments *args,
+                                          const std::string &context);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     TrafficAction::Action ConvertActionString(std::string action) const;
