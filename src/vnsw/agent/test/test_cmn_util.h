@@ -59,6 +59,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, const string ip6addr);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
+void IntfCfgDel(int id);
 NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
                             InterfaceNHFlags::Type type, bool is_mcast,
                             bool policy);

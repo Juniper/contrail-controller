@@ -73,9 +73,7 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
         ("physical-interface-logical-interface",
          list_of("physical-router-physical-interface"))
         ("logical-interface-virtual-machine-interface",
-         list_of("physical-interface-logical-interface"))
-        ("logical-interface-virtual-machine-interface",
-         list_of("self"));
+         list_of("physical-interface-logical-interface") ("self"));
     dep->RegisterReactionMap("logical-interface", logical_port_react);
     dep->Register("logical-interface",
                   boost::bind(&AgentOperDBTable::ConfigEventHandler, this,
