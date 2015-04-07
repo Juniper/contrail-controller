@@ -773,9 +773,11 @@ def timer_callback(monitor):
         if project.service_instances:
             continue
 
-        for vn_id in project.virtual_networks:
+        for vn_id in VirtualNetworkSM:
             vn = VirtualNetworkSM.get(vn_id)
-            if not vn or vn.virtual_machine_interfaces:
+            if not vn or vn.fq_name[:-1] != project.fq_name:
+                continue
+            if vn.virtual_machine_interfaces:
                 continue
             if vn.name in svc_info.get_shared_vn_list():
                 monitor._delete_shared_vn(vn.uuid)
