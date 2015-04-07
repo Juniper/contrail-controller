@@ -81,6 +81,37 @@ class StatsFixture(fixtures.Fixture):
             sandesh=self._sandesh_instance)
         tdata.send(sandesh=self._sandesh_instance)
 
+    def send_test_stat_double(self,nm,l1,s1,i1,d1,s2="",i2=0,d2=0):
+        self._logger.info('Sending Test Stats Double %s, %s tags %s, %i, %d' % \
+            (nm,l1,s1,i1, d1))
+        tstat = StatTest()
+        tstat.s1 = s1
+        tstat.s2 = s2
+        tstat.i1 = i1
+        tstat.i2 = i2
+        tstat.d1 = d1
+        tstat.d2 = d2
+        tdstat = StatTestDouble(l1=l1, st = [tstat])
+        tdstate = StatTestStateDouble(dst = tdstat, name = nm)
+        tdata = StatTestTraceDouble(
+            data = tdstate,
+            sandesh=self._sandesh_instance)
+        tdata.send(sandesh=self._sandesh_instance)
+
+    def send_test_obj_stat(self,nm,l1,s1,i1,d1,s2="",i2=0,d2=0):
+        self._logger.info('Sending Test Obj Stats %s, %s tags %s, %i, %d' % \
+            (nm,l1,s1,i1, d1))
+        tstat = StatTest()
+        tstat.s1 = s1
+        tstat.s2 = s2
+        tstat.i1 = i1
+        tstat.i2 = i2
+        tstat.d1 = d1
+        tstat.d2 = d2
+        tobj = StatTestObj(name = nm, l1 = l1, st = [tstat],
+                           sandesh=self._sandesh_instance)
+        tobj.send(sandesh=self._sandesh_instance)
+
     def send_test_stat_dynamic(self,nm,s1,i1,d1,s2="",i2=0,d2=0):
         self._logger.info('Sending Test Stats tags %s, %i, %f' % (s1,i1, d1))
         tstat = TestStatDynamic()

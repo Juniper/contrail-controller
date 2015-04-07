@@ -245,7 +245,7 @@ struct VrouterCpuInfo {
 struct ComputeCpuState {
     1: string                         name (key="ObjectVRouter")
     2: optional bool                  deleted
-    3: optional list<VrouterCpuInfo>  cpu_info (tags=".mem_virt,.cpu_share,.mem_res")
+    3: optional list<VrouterCpuInfo>  cpu_info (tags=".mem_virt,.cpu_share,.mem_res", aggtype="union")
 }
 
 uve sandesh ComputeCpuStateTrace {
