@@ -223,12 +223,12 @@ void Inet4McRouteReq::HandleRequest() const {
         return;
     }
 
-    AgentSandeshPtr sand(new AgentInet4McRtSandesh(vrf, context(), "",
-                                                   get_stale()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentInet4McRtSandesh *sand = new AgentInet4McRtSandesh(vrf, context(), "",
+                                                            get_stale());
+    sand->DoSandesh();
 }
 
 AgentSandesh *Inet4MulticastAgentRouteTable::GetAgentSandesh
-(const std::string &context) {
+(const AgentSandeshArguments *args, const std::string &context) {
     return new AgentInet4McRtSandesh(vrf_entry(), context, "", true);
 }

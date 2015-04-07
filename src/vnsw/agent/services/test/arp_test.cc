@@ -916,7 +916,6 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithSg1) {
     AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
     client->WaitForIdle();
 
-    VmInterface *vintf8 = VmInterfaceGet(8);
     VmInterface *vintf9 = VmInterfaceGet(9);
 
     AddSg("sg1", 1);

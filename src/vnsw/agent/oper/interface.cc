@@ -951,26 +951,35 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     ItfResp *resp = static_cast<ItfResp *>(sresp);
 
-    if (name.empty() || name_ == name) {
-        ItfSandeshData data;
-        SetItfSandeshData(data);
-        std::vector<ItfSandeshData> &list =
-                const_cast<std::vector<ItfSandeshData>&>(resp->get_itf_list());
-        list.push_back(data);
+    ItfSandeshData data;
+    SetItfSandeshData(data);
+    std::vector<ItfSandeshData> &list =
+            const_cast<std::vector<ItfSandeshData>&>(resp->get_itf_list());
+    list.push_back(data);
 
-        return true;
-    }
-
-    return false;
+    return true;
 }
 
 void ItfReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentIntfSandesh(context(), get_name()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentIntfSandesh *sand = new AgentIntfSandesh(context(), get_type(),
+                                                  get_name(), get_uuid(),
+                                                  get_vn(), get_mac(),
+                                                  get_ipv4_address(),
+                                                  get_ipv6_address(),
+                                                  get_parent_uuid());
+    sand->DoSandesh();
 }
 
-AgentSandesh *InterfaceTable::GetAgentSandesh(const std::string &context) {
-    return new AgentIntfSandesh(context, "");
+AgentSandesh *InterfaceTable::GetAgentSandesh(const AgentSandeshArguments *args,
+                                              const std::string &context) {
+    return new AgentIntfSandesh(context, args->GetString("type"),
+                                args->GetString("name"),
+                                args->GetString("uuid"),
+                                args->GetString("vn"),
+                                args->GetString("mac"),
+                                args->GetString("ipv4"),
+                                args->GetString("ipv6"),
+                                args->GetString("parent_uuid"));
 }
 
 void Interface::SendTrace(Trace event) const {
