@@ -589,7 +589,8 @@ public:
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         cdbif_->cdbq_.reset(new CdbIfQueue(
             scheduler->GetTaskId(task_id_), cdbif_->task_instance_,
-            boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1)));
+            boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1),
+            CdbIf::kQueueSize));
         cdbif_->cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, cdbif_));
         cdbif_->cdbq_->SetExitCallback(boost::bind(&CdbIf::Db_BatchAddColumn,
@@ -743,7 +744,7 @@ int CdbIf::Db_GetPort() const {
 
 void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
     DbQueueWaterMarkInfo &wmi) {
-    CdbIfQueue::WaterMarkInfo wm(wmi.get<1>(), wmi.get<2>());
+    WaterMarkInfo wm(wmi.get<1>(), wmi.get<2>());
     if (wmi.get<0>()) {
         queue->SetHighWaterMark(wm);
     } else {
@@ -1772,4 +1773,20 @@ void CdbIf::CdbIfStats::Errors::Get(DbErrors *db_errors) const {
     db_errors->set_write_column_fails(write_column_fails);
     db_errors->set_write_batch_column_fails(write_batch_column_fails);
     db_errors->set_read_column_fails(read_column_fails);
+}
+
+template<>
+size_t CdbIf::CdbIfQueue::AtomicIncrementQueueCount(
+    CdbIf::CdbIfColList *colList) {
+    GenDb::ColList *gcolList(colList->gendb_cl);
+    size_t size(gcolList->GetSize());
+    return count_.fetch_and_add(size) + size;
+}
+
+template<>
+size_t CdbIf::CdbIfQueue::AtomicDecrementQueueCount(
+    CdbIf::CdbIfColList *colList) {
+    GenDb::ColList *gcolList(colList->gendb_cl);
+    size_t size(gcolList->GetSize());
+    return count_.fetch_and_add(0-size) - size;
 }

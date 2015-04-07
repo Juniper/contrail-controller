@@ -36,6 +36,30 @@ enum DbDataValueType {
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
+class DbDataValueTypeSizeVisitor : public boost::static_visitor<> {
+ public:
+    DbDataValueTypeSizeVisitor() :
+        size_(0) {
+    }
+    template<typename T>
+    void operator()(const T &t) {
+        size_ += sizeof(t);
+    }
+    void operator()(const std::string &str) {
+        size_ += str.length();
+    }
+    void operator()(const boost::blank &blank) {
+        size_ += 0;
+    }
+    void operator()(const boost::uuids::uuid &uuid) {
+        size_ += uuid.size();
+    }
+    size_t GetSize() const {
+        return size_;
+    }
+    size_t size_;
+};
+
 struct NewCf {
     enum ColumnFamilyType {
         COLUMN_FAMILY_INVALID = 0,
@@ -89,6 +113,8 @@ struct NewCol {
                 *rhs.value == *value);
     }
 
+    size_t GetSize() const;
+
     NewCf::ColumnFamilyType cftype_;
     boost::scoped_ptr<DbDataValueVec> name;
     boost::scoped_ptr<DbDataValueVec> value;
@@ -103,6 +129,8 @@ struct ColList {
 
     ~ColList() {
     }
+
+    size_t GetSize() const;
 
     std::string cfname_; /* column family name */
     DbDataValueVec rowkey_; /* rowkey-value */
