@@ -18,8 +18,23 @@ struct StatTestState {
     4: optional string l1
 }
 
+struct StatTestDouble {
+    1: string l1
+    7: list<StatTest> st (tags="dst.l1:.s2,.d1,name:.s1,.i1:.i2")
+}
+
+struct StatTestStateDouble {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    4: optional StatTestDouble dst (tags="")
+}
+
 uve sandesh StatTestTrace {
     1: StatTestState data
+}
+
+uve sandesh StatTestTraceDouble {
+    1: StatTestStateDouble data
 }
 
 struct TestStatDynamic {
@@ -39,4 +54,10 @@ struct TestStateDynamic {
 
 uve sandesh TestStateDynamicTrace {
     1: TestStateDynamic data
+}
+
+objectlog sandesh StatTestObj {
+    1: string name (key="ObjectCollectorInfo")
+    2: string l1
+    3: list<StatTest> st (tags=".i1:.i2,.s2,.d1,l1,name:.s1")
 }
