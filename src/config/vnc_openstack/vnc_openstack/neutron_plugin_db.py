@@ -2628,12 +2628,8 @@ class DBInterface(object):
         if filters and 'id' in filters:
             # required subnets are specified,
             # just read in corresponding net_ids
-            net_ids = []
-            for subnet_id in filters['id']:
-                subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
-                net_id = subnet_key.split()[0]
-                net_ids.append(net_id)
-
+            subnet_keys = self._subnet_vnc_read_mapping(id=filters['id'])
+            net_ids = [sk.split()[0] for sk in subnet_keys]
             all_net_objs.extend(self._virtual_network_list(obj_uuids=net_ids,
                                                            detail=True))
         else:

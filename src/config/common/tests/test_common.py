@@ -48,7 +48,6 @@ import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
     from vnc_cfg_api_server import vnc_cfg_api_server
 
-
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
     for (section, var, val) in conf_sections:
@@ -162,9 +161,6 @@ def launch_schema_transformer(api_server_ip, api_server_port):
 # end launch_schema_transformer
 
 def launch_device_manager(api_server_ip, api_server_port):
-    import device_manager
-    if not hasattr(device_manager, 'main'):
-        from device_manager import device_manager
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
