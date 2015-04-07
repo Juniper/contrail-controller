@@ -33,6 +33,24 @@
 #include <string>
 #include "collector_uve_types.h"
 #include "db_handler.h"
+#include "base/logging.h"
+#include "base/task.h"
+#include "base/parse_object.h"
+#include <base/connection_info.h>
+#include "io/event_manager.h"
+#include "base/sandesh/process_info_types.h"
+
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_constants.h>
+#include <sandesh/sandesh_ctrl_types.h>
+#include <sandesh/sandesh_uve_types.h>
+#include <sandesh/sandesh_statistics.h>
+#include <sandesh/sandesh_session.h>
+#include <sandesh/sandesh_connection.h>
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 class DbHandler;
 class OpServerProxy;
@@ -98,6 +116,8 @@ public:
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
     void SendGeneratorStatistics();
+    void TestDatabaseConnection();
+    void TestDbConnErrHandler();
 
     static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
         ds_client_ = ds;
@@ -107,11 +127,13 @@ public:
         return ds_client_;
     }
 
+    std::string DbGlobalName(bool dup=false);
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
+    ConnectionStatus::type dbConnStatus_;
     void SetQueueWaterMarkInfo(QueueType::type type,
         Sandesh::QueueWaterMarkInfo &wm);
     void ResetQueueWaterMarkInfo(QueueType::type type);

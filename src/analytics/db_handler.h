@@ -148,6 +148,7 @@ public:
     void ResetDbQueueWaterMarkInfo();
     std::string GetHost() const;
     int GetPort() const;
+    std::string GetName() const;
 
 private:
     bool CreateTables();
