@@ -486,10 +486,10 @@ TEST_F(KStateSandeshTest, InterfaceTest_MultiResponse) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 4));
+    WAIT_FOR(1000, 1000, (response_count_ >= 4));
 
     //verify the response
-    EXPECT_EQ(4U, type_specific_response_count_);
+    EXPECT_LE(4U, type_specific_response_count_);
     EXPECT_EQ((50U + num_ifs) , num_entries_);
 
     //cleanup
