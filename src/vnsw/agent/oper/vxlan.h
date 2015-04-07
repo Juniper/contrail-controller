@@ -89,7 +89,8 @@ public:
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual void OnZeroRefcount(AgentDBEntry *e);
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandesh *GetAgentSandesh(const AgentSandeshArguments *args,
+                                          const std::string &context);
 
     void Process(DBRequest &req);
 

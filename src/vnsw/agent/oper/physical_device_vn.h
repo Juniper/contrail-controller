@@ -127,7 +127,8 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     virtual bool Resync(DBEntry *entry, const DBRequest *req);
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandesh *GetAgentSandesh(const AgentSandeshArguments *args,
+                                          const std::string &context);
 
     void ProcessConfig(const boost::uuids::uuid &dev,
                        const boost::uuids::uuid &vn);

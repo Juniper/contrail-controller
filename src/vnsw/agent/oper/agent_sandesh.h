@@ -13,7 +13,7 @@
 
 class VrfEntry;
 class DBEntryBase;
-class SandeshPageReq;
+class PageReqData;
 
 /////////////////////////////////////////////////////////////////////////////
 // Class to encode/decode the arguments used in pagination links
@@ -29,8 +29,10 @@ public:
     bool Add(const std::string &key, const std::string &val);
     bool Add(const std::string &key, int val);
     bool Del(const std::string &key);
-    bool Get(const std::string &key, std::string *val);
-    bool Get(const std::string &key, int *val);
+    bool Get(const std::string &key, std::string *val) const;
+    std::string GetString(const std::string &key) const;
+    bool Get(const std::string &key, int *val) const;
+    int GetInt(const std::string &key) const;
 
     int Encode(std::string *str);
     int Decode(const std::string &str);
@@ -87,29 +89,44 @@ class AgentSandesh {
 public:
     static const uint8_t entries_per_sandesh = 100;
     static const uint16_t kEntriesPerPage = 100;
+    AgentSandesh(const std::string &context, const std::string &name) :
+        name_(name), resp_(NULL), count_(0), total_entries_(0),
+        context_(context), walkid_(DBTableWalker::kInvalidWalkerId) {
+    }
+    AgentSandesh(const std::string &context) :
+        name_(""), resp_(NULL), count_(0), context_(context),
+        walkid_(DBTableWalker::kInvalidWalkerId) {
+    }
 
-    AgentSandesh(std::string context,
-                 std::string name) : name_(name), resp_(NULL),
-                   count_(0), context_(context),
-                   walkid_(DBTableWalker::kInvalidWalkerId) {}
     virtual ~AgentSandesh() {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *) { }
+
+    // Check if a DBEntry passes filter
+    virtual bool Filter(const DBEntryBase *entry) { return true; }
+    // Convert from filter to arguments. Arguments will be converted to string
+    // and passed in next/prev pagination links
+    virtual bool FilterToArgs(AgentSandeshArguments *args) {
+        args->Add("name", name_);
+        return true;
+    }
 
     void DoSandesh();
     void DoSandesh(int start, int count);
+    void MakeSandeshPageReq(PageReqData *req, DBTable *table, int first,
+                            int last, int end, int count, int page_size);
 
 protected:
     std::string name_; // name coming in the sandesh request
     SandeshResponse *resp_;
 private:
-    bool EntrySandesh(DBEntryBase *entry);
-    void SandeshDone(AgentSandeshPtr ptr);
+    bool EntrySandesh(DBEntryBase *entry, int first, int last);
+    void SandeshDone(AgentSandeshPtr ptr, int first, int page_size);
     void SetResp();
     virtual DBTable *AgentGetTable() = 0;
     virtual void Alloc() = 0;
     virtual bool UpdateResp(DBEntryBase *entry);
 
-    uint32_t count_;
+    int count_;
+    int total_entries_;
     std::string context_;
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(AgentSandesh);
@@ -122,7 +139,6 @@ class AgentVnSandesh : public AgentSandesh {
 public:
     AgentVnSandesh(std::string context, std::string name)
         : AgentSandesh(context, name) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -133,7 +149,6 @@ class AgentSgSandesh : public AgentSandesh {
 public:
     AgentSgSandesh(std::string context, std::string name)
         : AgentSandesh(context, name) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -144,7 +159,6 @@ class AgentVmSandesh : public AgentSandesh {
 public:
     AgentVmSandesh(std::string context, std::string uuid)
         : AgentSandesh(context, uuid) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -153,19 +167,40 @@ private:
 
 class AgentIntfSandesh : public AgentSandesh {
 public:
-    AgentIntfSandesh(std::string context, std::string name)
-        : AgentSandesh(context, name) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
+    AgentIntfSandesh(const std::string &context, const std::string &type,
+                     const std::string &name, const std::string &u,
+                     const std::string &vn, const std::string &mac,
+                     const std::string &v4, const std::string &v6,
+                     const std::string &parent);
+    ~AgentIntfSandesh() { }
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
 
 private:
+    friend class ItfReq;
     DBTable *AgentGetTable();
     void Alloc();
+
+    // Filters
+    std::string type_;
+    std::string name_;
+    std::string uuid_str_;
+    std::string vn_;
+    std::string mac_str_;
+    std::string v4_str_;
+    std::string v6_str_;
+    std::string parent_uuid_str_;
+
+    boost::uuids::uuid uuid_;
+    MacAddress mac_;
+    Ip4Address v4_;
+    Ip6Address v6_;
+    boost::uuids::uuid parent_uuid_;
 };
 
 class AgentNhSandesh : public AgentSandesh {
 public:
     AgentNhSandesh(std::string context) : AgentSandesh(context, "") {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -175,7 +210,6 @@ private:
 class AgentMplsSandesh : public AgentSandesh {
 public:
     AgentMplsSandesh(std::string context) : AgentSandesh(context, "") {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -186,7 +220,6 @@ class AgentVrfSandesh : public AgentSandesh {
 public:
     AgentVrfSandesh(std::string context, std::string name)
         : AgentSandesh(context, name) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -205,7 +238,6 @@ public:
         stale_(stale) {
         dump_table_ = false;
     }
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -224,7 +256,6 @@ public:
     AgentInet4McRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
                           bool stale) 
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -240,7 +271,6 @@ public:
     AgentLayer2RtSandesh(VrfEntry *vrf, std::string context, std::string name,
                          bool stale)
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -256,7 +286,6 @@ public:
     AgentBridgeRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
                          bool stale) 
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -272,7 +301,6 @@ public:
     AgentEvpnRtSandesh(VrfEntry *vrf, std::string context, std::string name,
                        bool stale)
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -295,7 +323,6 @@ public:
             stale_(stale) {
         dump_table_ = false;
     }
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -313,7 +340,6 @@ class AgentAclSandesh : public AgentSandesh {
 public:
     AgentAclSandesh(std::string context, std::string name)
         : AgentSandesh(context, name) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -324,7 +350,6 @@ private:
 class AgentMirrorSandesh : public AgentSandesh {
 public:
     AgentMirrorSandesh(std::string context) : AgentSandesh(context, "") {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -335,7 +360,6 @@ class AgentVrfAssignSandesh : public AgentSandesh {
 public:
     AgentVrfAssignSandesh(std::string context, std::string uuid)
         : AgentSandesh(context, uuid) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -345,7 +369,6 @@ private:
 class AgentVxLanSandesh : public AgentSandesh {
 public:
     AgentVxLanSandesh(std::string context) : AgentSandesh(context, "") {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -356,7 +379,6 @@ class AgentServiceInstanceSandesh : public AgentSandesh {
 public:
     AgentServiceInstanceSandesh(std::string context, std::string uuid)
         : AgentSandesh(context, uuid) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();
@@ -367,7 +389,6 @@ class AgentLoadBalancerSandesh : public AgentSandesh {
 public:
     AgentLoadBalancerSandesh(std::string context, std::string uuid)
         : AgentSandesh(context, uuid) {}
-    virtual void SetSandeshPageReq(Sandesh *resp, const SandeshPageReq *);
 
 private:
     DBTable *AgentGetTable();

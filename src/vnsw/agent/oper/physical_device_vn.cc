@@ -230,10 +230,36 @@ bool PhysicalDeviceVnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 /////////////////////////////////////////////////////////////////////////////
 class AgentPhysicalDeviceVnSandesh : public AgentSandesh {
  public:
-    AgentPhysicalDeviceVnSandesh(std::string context, const std::string &name)
-        : AgentSandesh(context, name) {}
+    AgentPhysicalDeviceVnSandesh(const std::string &context,
+                                 const std::string &dev,
+                                 const std::string &vn)
+        : AgentSandesh(context, ""), dev_str_(dev), vn_str_(vn) {
+        dev_uuid_ = StringToUuid(dev);
+        vn_uuid_ = StringToUuid(vn);
+    }
 
-    void SetSandeshPageReq(Sandesh *sresp, const SandeshPageReq *req);
+    virtual bool Filter(const DBEntryBase *entry) {
+        const PhysicalDeviceVn *dev_vn =
+            static_cast<const PhysicalDeviceVn *>(entry);
+        if (dev_str_.empty() == false) {
+            if (dev_vn->device_uuid() != dev_uuid_)
+                return false;
+        }
+
+        if (vn_str_.empty() == false) {
+            if (dev_vn->vn_uuid() != vn_uuid_)
+                return false;
+        }
+
+        return true;
+    }
+
+    virtual bool FilterToArgs(AgentSandeshArguments *args) {
+        args->Add("device", dev_str_);
+        args->Add("vn", vn_str_);
+        return true;
+    }
+
  private:
     DBTable *AgentGetTable() {
         Agent *agent = Agent::GetInstance();
@@ -243,6 +269,11 @@ class AgentPhysicalDeviceVnSandesh : public AgentSandesh {
     void Alloc() {
         resp_ = new SandeshPhysicalDeviceVnListResp();
     }
+
+    std::string dev_str_;
+    boost::uuids::uuid dev_uuid_;
+    std::string vn_str_;
+    boost::uuids::uuid vn_uuid_;
 };
 
 static void SetPhysicalDeviceVnSandeshData(const PhysicalDeviceVn *entry,
@@ -267,34 +298,25 @@ bool PhysicalDeviceVn::DBEntrySandesh(Sandesh *resp, std::string &name)
     SandeshPhysicalDeviceVnListResp *port_resp =
         static_cast<SandeshPhysicalDeviceVnListResp *>(resp);
 
-    if (name.empty() || UuidToString(device_uuid_) == name) {
-        SandeshPhysicalDeviceVn data;
-        SetPhysicalDeviceVnSandeshData(this, &data);
-        std::vector<SandeshPhysicalDeviceVn> &list =
-            const_cast<std::vector<SandeshPhysicalDeviceVn>&>
-            (port_resp->get_port_list());
-        list.push_back(data);
-        return true;
-    }
-
-    return false;
+    SandeshPhysicalDeviceVn data;
+    SetPhysicalDeviceVnSandeshData(this, &data);
+    std::vector<SandeshPhysicalDeviceVn> &list =
+        const_cast<std::vector<SandeshPhysicalDeviceVn>&>
+        (port_resp->get_port_list());
+    list.push_back(data);
+    return true;
 }
 
 void SandeshPhysicalDeviceVnReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentPhysicalDeviceVnSandesh(context(),
-                                                          get_device()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentPhysicalDeviceVnSandesh *sand =
+        new AgentPhysicalDeviceVnSandesh(context(), get_device(), get_vn());
+    sand->DoSandesh();
 }
 
-AgentSandesh *PhysicalDeviceVnTable::GetAgentSandesh(const std::string &context){
-    return new AgentPhysicalDeviceVnSandesh(context, "");
-}
-
-void AgentPhysicalDeviceVnSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                                     const SandeshPageReq *req){
-    SandeshPhysicalDeviceVnListResp *resp =
-        static_cast<SandeshPhysicalDeviceVnListResp *>(sresp);
-    resp->set_req(*req);
+AgentSandesh *PhysicalDeviceVnTable::GetAgentSandesh
+(const AgentSandeshArguments *args, const std::string &context){
+    return new AgentPhysicalDeviceVnSandesh(context, args->GetString("device"),
+                                            args->GetString("vn"));
 }
 
 void PhysicalDeviceVn::SendObjectLog(AgentLogEvent::type event) const {
