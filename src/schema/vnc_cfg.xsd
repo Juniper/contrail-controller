@@ -768,6 +768,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Exclude('is-shared', ['backend']);
      Property('is-shared', 'virtual-network') -->
 
+<xsd:element name="external-ipam" type="xsd:boolean"/>
+    <xsd:annotation>
+        <xsd:documentation>
+          This flag is used in Contrail + vCenter deployment
+          to indicate that IP address assignment to VM is
+          done statically, outside of (external to) Contrail Ipam.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('external-ipam', 'virtual-network') -->
+
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
