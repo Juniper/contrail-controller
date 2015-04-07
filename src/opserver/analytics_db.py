@@ -14,11 +14,23 @@ from pycassa.columnfamily import ColumnFamily
 from pycassa.types import *
 from pycassa import *
 from sandesh.viz.constants import *
+from sandesh.viz.constants import _NO_AUTO_PURGE_TABLES, \
+        _FLOW_TABLES, _STATS_TABLES, _MSG_TABLES
 from pysandesh.util import UTCTimestampUsec
+import readline
+import code
+import urllib2
+import time
+import json
+import datetime
+import pdb
+import argparse
+import socket
+import struct
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
-                 redis_query_port, redis_password):
+                    redis_query_port, redis_password):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
         self._redis_query_port = redis_query_port
@@ -54,33 +66,39 @@ class AnalyticsDb(object):
     def _get_analytics_start_time(self):
         try:
             col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
-            row = col_family.get(SYSTEM_OBJECT_ANALYTICS,
-                                 columns=[SYSTEM_OBJECT_START_TIME])
+            row = col_family.get(SYSTEM_OBJECT_ANALYTICS)
         except Exception as e:
             self._logger.error("Exception: analytics_start_time Failure %s" % e)
-            return -1
-        else:
-            return row[SYSTEM_OBJECT_START_TIME]
+            return None
+
+        # Initialize the dictionary before returning
+        if (SYSTEM_OBJECT_START_TIME not in row):
+            return None
+        if (SYSTEM_OBJECT_FLOW_START_TIME not in row):
+            row[SYSTEM_OBJECT_FLOW_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+        if (SYSTEM_OBJECT_STAT_START_TIME not in row):
+            row[SYSTEM_OBJECT_STAT_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+        if (SYSTEM_OBJECT_MSG_START_TIME not in row):
+            row[SYSTEM_OBJECT_MSG_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+
+        return row
     # end _get_analytics_start_time
 
-    def _update_analytics_start_time(self, start_time):
+    def _update_analytics_start_time(self, start_times):
         try:
             col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
-            col_family.insert(SYSTEM_OBJECT_ANALYTICS,
-                    {SYSTEM_OBJECT_START_TIME: start_time})
+            col_family.insert(SYSTEM_OBJECT_ANALYTICS, start_times)
         except Exception as e:
             self._logger.error("Exception: update_analytics_start_time "
                 "Connection Failure %s" % e)
-            return -1
-        return None
     # end _update_analytics_start_time
 
-    def set_analytics_db_purge_status(self, purge_id, purge_input):
+    def set_analytics_db_purge_status(self, purge_id, purge_cutoff):
         try:
             redish = redis.StrictRedis(db=0, host='127.0.0.1',
                      port=self._redis_query_port, password=self._redis_password)
             redish.hset('ANALYTICS_DB_PURGE', 'status', 'running')
-            redish.hset('ANALYTICS_DB_PURGE', 'purge_input', purge_input)
+            redish.hset('ANALYTICS_DB_PURGE', 'purge_input', str(purge_cutoff))
             redish.hset('ANALYTICS_DB_PURGE', 'purge_start_time',
                         UTCTimestampUsec())
             redish.hset('ANALYTICS_DB_PURGE', 'purge_id', purge_id)
@@ -136,7 +154,7 @@ class AnalyticsDb(object):
         return None
     # end get_analytics_db_purge_status
 
-    def purge_old_data(self, purge_id, purge_time):
+    def db_purge(self, purge_cutoff, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
         if (self._pool == None):
             self.connect_db()
@@ -153,13 +171,24 @@ class AnalyticsDb(object):
             self._logger.error("Exception: Purge_id %s Failed to get "
                 "Analytics Column families %s" % (purge_id, e))
             return -1
-        excluded_table_list = ['MessageTable', 'FlowRecordTable',
-                               'MessageTableTimestamp', 'SystemObjectTable']
+
+        del_msg_uuids = [] # list of uuids of messages to be deleted
         for table in table_list:
             # purge from index tables
-            if (table not in excluded_table_list):
+            if (table not in _NO_AUTO_PURGE_TABLES):
                 self._logger.info("purge_id %s deleting old records from "
                                   "table: %s" % (purge_id, table))
+
+                # determine purge cutoff time
+                if (table in _FLOW_TABLES):
+                    purge_time = purge_cutoff['flow_cutoff']
+                elif (table in _STATS_TABLES):
+                    purge_time = purge_cutoff['stats_cutoff']
+                elif (table in _MSG_TABLES):
+                    purge_time = purge_cutoff['msg_cutoff']
+                else:
+                    purge_time = purge_cutoff['other_cutoff']
+
                 # total number of rows deleted from each table
                 per_table_deleted = 0
                 try:
@@ -170,13 +199,22 @@ class AnalyticsDb(object):
                     return -1
                 b = cf.batch()
                 try:
-                    for key, cols in cf.get_range():
+                    # get all columns only in case of one message index table
+                    if (table is MESSAGE_TABLE_SOURCE):
+                        cols_to_fetch = 1000000
+                    else:
+                        cols_to_fetch = 1
+
+                    for key, cols in cf.get_range(column_count=cols_to_fetch):
                         t2 = key[0]
                         # each row will have equivalent of 2^23 = 8388608 usecs
                         row_time = (float(t2)*pow(2, RowTimeInBits))
                         if (row_time < purge_time):
                             per_table_deleted +=1
                             total_rows_deleted +=1
+                            if (table is MESSAGE_TABLE_SOURCE):
+                                # get message table uuids to delete
+                                del_msg_uuids.append(list(cols.values()))
                             b.remove(key)
                     b.send()
                 except Exception as e:
@@ -185,18 +223,62 @@ class AnalyticsDb(object):
                     continue
                 self._logger.info("Purge_id %s deleted %d rows from table: %s"
                     % (purge_id, per_table_deleted, table))
+
+        # delete entries from message table
+        table = COLLECTOR_GLOBAL_TABLE
+        # total number of rows deleted from this table
+        per_table_deleted = 0
+        try:
+            cf = pycassa.ColumnFamily(self._pool, table)
+        except Exception as e:
+            self._logger.error("purge_id %s Failure in fetching "
+                "the columnfamily %s" % e)
+            return -1
+        b = cf.batch()
+        try:
+            for key in del_msg_uuids:
+                per_table_deleted +=1
+                total_rows_deleted +=1
+                b.remove(key)
+            b.send()
+        except Exception as e:
+            self._logger.error("Exception: Purge_id %s This table "
+                "doesnot have row time %s" % (purge_id, e))
+        self._logger.info("Purge_id %s deleted %d rows from table: %s"
+            % (purge_id, per_table_deleted, table))
+        # end deleting all relevant UUIDs from message table
+
+
         self._logger.info("Purge_id %s total rows deleted: %s"
             % (purge_id, total_rows_deleted))
         return total_rows_deleted
-    # end purge_old_data
+    # end purge_data
 
-    def db_purge(self, purge_time, purge_id):
-        total_rows_deleted = 0 # total number of rows deleted
-        if (purge_time != None):
-            total_rows_deleted = self.purge_old_data(purge_id, purge_time)
-            if (total_rows_deleted != -1):
-                self._update_analytics_start_time(int(purge_time))
-        return total_rows_deleted
-    # end db_purge
+    def get_dbusage_info(self, rest_api_port):
+        """Collects database usage information from all db nodes
+        Returns:
+        A dictionary with db node name as key and db usage in % as value
+        """
+
+        to_return = {}
+        try:
+            uve_url = "http://127.0.0.1:" + str(rest_api_port) + "/analytics/uves/database-nodes?cfilt=DatabaseUsageInfo"
+            node_dburls = json.loads(urllib2.urlopen(uve_url).read())
+
+            for node_dburl in node_dburls:
+                # calculate disk usage percentage for analytics in each cassandra node
+                db_uve_state = json.loads(urllib2.urlopen(node_dburl['href']).read())
+                db_usage_in_perc = (100*
+                        float(db_uve_state['DatabaseUsageInfo']['database_usage']['analytics_db_size_1k'])/
+                        float(db_uve_state['DatabaseUsageInfo']['database_usage']['disk_space_available_1k']))
+                to_return[node_dburl['name']] = db_usage_in_perc
+        except Exception as inst:
+            self._logger.error(type(inst))     # the exception instance
+            self._logger.error(inst.args)      # arguments stored in .args
+            self._logger.error(inst)           # __str__ allows args to be printed directly
+            self._logger.error("Could not retrieve db usage information")
+
+        return to_return
+    #end get_dbusage_info
 
 # end AnalyticsDb

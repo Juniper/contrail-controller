@@ -113,7 +113,14 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::AsciiType),
                       boost::assign::map_list_of
                       (g_viz_constants.SYSTEM_OBJECT_START_TIME,
-                       GenDb::DbDataType::Unsigned64Type)))
+                       GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_FLOW_START_TIME,
+                       GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_MSG_START_TIME,
+                       GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME,
+                       GenDb::DbDataType::Unsigned64Type)
+                      ))
         (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)

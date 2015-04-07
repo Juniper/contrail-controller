@@ -44,6 +44,9 @@ const string OBJECT_VALUE_TABLE     = "ObjectValueTable"
 const string SYSTEM_OBJECT_TABLE    = "SystemObjectTable"
 const string SYSTEM_OBJECT_ANALYTICS = "SystemObjectAnalytics"
 const string SYSTEM_OBJECT_START_TIME = "SystemObjectStartTime"
+const string SYSTEM_OBJECT_FLOW_START_TIME = "SystemObjectFlowStartTime"
+const string SYSTEM_OBJECT_STAT_START_TIME = "SystemObjectStatStartTime"
+const string SYSTEM_OBJECT_MSG_START_TIME = "SystemObjectMsgStartTime"
 
 // Master object table which contains all object tables combined
 const string OBJECT_TABLE       = "ObjectTable"
@@ -124,6 +127,44 @@ const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV3"
 const string STATS_TABLE_BY_DBL_TAG         = "StatsTableByDblTagV3"
 const string STATS_TABLE_BY_STR_TAG         = "StatsTableByStrTagV3"
 const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
+
+const list<string> _FLOW_TABLES = [
+    FLOW_TABLE_VN2VN,
+    FLOW_TABLE_VN,
+    FLOW_TABLE_VN_AND_IP,
+    FLOW_TABLE_SVN_SIP,
+    FLOW_TABLE_DVN_DIP,
+    FLOW_TABLE_PROT_SP,
+    FLOW_TABLE_PROT_DP,
+    FLOW_TABLE_VROUTER,
+]
+
+const list<string> _STATS_TABLES = [
+    STATS_TABLE_BY_STR_STR_TAG,
+    STATS_TABLE_BY_STR_U64_TAG,
+    STATS_TABLE_BY_U64_STR_TAG,
+    STATS_TABLE_BY_U64_U64_TAG,
+    STATS_TABLE_BY_DBL_TAG,
+    STATS_TABLE_BY_STR_TAG,
+    STATS_TABLE_BY_U64_TAG,
+]
+
+const list<string> _MSG_TABLES = [
+    MESSAGE_TABLE_SOURCE,
+    MESSAGE_TABLE_MODULE_ID,
+    MESSAGE_TABLE_MESSAGE_TYPE,
+    MESSAGE_TABLE_CATEGORY,
+    MESSAGE_TABLE_LEVEL,
+    MESSAGE_TABLE_KEYWORD,
+    OBJECT_TABLE
+]
+
+const list<string> _NO_AUTO_PURGE_TABLES  = [
+    MESSAGE_TABLE_TIMESTAMP,
+    COLLECTOR_GLOBAL_TABLE,
+    FLOW_TABLE,
+    SYSTEM_OBJECT_TABLE
+]
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
 enum FlowRecordFields {

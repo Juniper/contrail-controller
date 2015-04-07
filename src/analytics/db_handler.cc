@@ -169,10 +169,24 @@ bool DbHandler::CreateTables() {
         rowkey.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
         // Columns
         GenDb::NewColVec& columns = col_list->columns_;
+        columns.reserve(4);
+
         GenDb::NewCol *col(new GenDb::NewCol(
             g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec(), 0));
-        columns.reserve(1);
         columns.push_back(col);
+
+        GenDb::NewCol *flow_col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_FLOW_START_TIME, UTCTimestampUsec(), 0));
+        columns.push_back(flow_col);
+
+        GenDb::NewCol *msg_col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_MSG_START_TIME, UTCTimestampUsec(), 0));
+        columns.push_back(msg_col);
+
+        GenDb::NewCol *stat_col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME, UTCTimestampUsec(), 0));
+        columns.push_back(stat_col);
+
         if (!dbif_->Db_AddColumnSync(col_list)) {
             VIZD_ASSERT(0);
         }
