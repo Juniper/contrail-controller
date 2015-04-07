@@ -702,6 +702,11 @@ class OpServer(object):
                 '/analytics/alarms/' + uve, 'POST', self.alarm_http_post)
             bottle.route(
                 '/analytics/alarms/' + uve +'s/types', 'GET', self.alarm_http_types)
+
+        # start gevent to monitor disk usage and automatically purge
+        if (self._args.auto_db_purge):
+            gevent.spawn(self._auto_purge)
+
     # end __init__
 
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
@@ -723,6 +728,7 @@ class OpServer(object):
                                --syslog_facility LOG_USER
                                --worker_id 0
                                --redis_uve_list 127.0.0.1:6379
+                               --auto_db_purge
         '''
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
@@ -746,7 +752,14 @@ class OpServer(object):
             'use_syslog'         : False,
             'syslog_facility'    : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'dup'                : False,
-            'redis_uve_list'     : ['127.0.0.1:6379']
+            'redis_uve_list'     : ['127.0.0.1:6379'],
+            'auto_db_purge'      : True,
+            'db_purge_threshold' : 70,
+            'db_purge_level'     : 40,
+            'analytics_data_ttl' : 48,
+            'analytics_config_audit_ttl' : -1,
+            'analytics_statistics_ttl' : -1,
+            'analytics_flow_ttl' : -1
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -758,15 +771,25 @@ class OpServer(object):
             'disc_server_port'   : 5998,
         }
 
+        # read contrail-analytics-api own conf file
         config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
+
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
+
+        # update ttls
+        if (defaults['analytics_config_audit_ttl'] == -1):
+            defaults['analytics_config_audit_ttl'] = defaults['analytics_data_ttl']
+        if (defaults['analytics_statistics_ttl'] == -1):
+            defaults['analytics_statistics_ttl'] = defaults['analytics_data_ttl']
+        if (defaults['analytics_flow_ttl'] == -1):
+            defaults['analytics_flow_ttl'] = defaults['analytics_data_ttl']
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -779,6 +802,7 @@ class OpServer(object):
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         defaults.update(redis_opts)
         defaults.update(disc_opts)
+        defaults.update()
         parser.set_defaults(**defaults)
 
         parser.add_argument("--host_ip",
@@ -833,6 +857,8 @@ class OpServer(object):
         parser.add_argument("--cassandra_server_list",
             help="List of cassandra_server_ip in ip:port format",
             nargs="+")
+        parser.add_argument("--auto_db_purge", action="store_true",
+            help="Automatically purge database if disk usage cross threshold")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -1616,6 +1642,40 @@ class OpServer(object):
         return json.dumps(json_links)
     # end tables_process
 
+    def get_purge_cutoff(self, purge_input, start_times):
+        # currently not use analytics start time
+        # purge_input is assumed to be percent of time since
+        # TTL for which data has to be purged
+        purge_cutoff = {}
+        current_time = UTCTimestampUsec()
+
+        self._logger.error("start times:" + str(start_times))
+        analytics_time_range = min(
+                (current_time - start_times[SYSTEM_OBJECT_START_TIME]),
+                60*60*1000000*self._args.analytics_data_ttl)
+        flow_time_range = min(
+                (current_time - start_times[SYSTEM_OBJECT_FLOW_START_TIME]),
+                60*60*1000000*self._args.analytics_flow_ttl)
+        stat_time_range = min(
+                (current_time - start_times[SYSTEM_OBJECT_STAT_START_TIME]),
+                60*60*1000000*self._args.analytics_statistics_ttl)
+        # currently using config audit TTL for message table (to be changed)
+        msg_time_range = min(
+                (current_time - start_times[SYSTEM_OBJECT_MSG_START_TIME]),
+                60*60*1000000*self._args.analytics_config_audit_ttl)
+
+        purge_cutoff['flow_cutoff'] = int(current_time - (float(100 - purge_input)*
+                float(flow_time_range)/100.0))
+        purge_cutoff['stats_cutoff'] = int(current_time - (float(100 - purge_input)*
+                float(stat_time_range)/100.0))
+        purge_cutoff['msg_cutoff'] = int(current_time - (float(100 - purge_input)*
+                float(msg_time_range)/100.0))
+        purge_cutoff['other_cutoff'] = int(current_time - (float(100 - purge_input)*
+                float(analytics_time_range)/100.0))
+
+        return purge_cutoff
+    #end get_purge_cutoff
+
     def process_purge_request(self):
         self._post_common(bottle.request, None)
 
@@ -1627,23 +1687,22 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        analytics_start_time = self._analytics_db._get_analytics_start_time()
-        if (analytics_start_time == None):
+        start_times = self._analytics_db._get_analytics_start_time()
+        if (start_times == None):
             self._logger.info("Failed to get the analytics start time")
             response = {'status': 'failed',
                         'reason': 'Failed to get the analytics start time'}
             return bottle.HTTPResponse(
                         json.dumps(response), _ERRORS[errno.EIO],
                         {'Content-type': 'application/json'})
+        analytics_start_time = start_times[SYSTEM_OBJECT_START_TIME]
 
-        purge_input = None
+        purge_cutoff = {}
         if ("purge_input" in bottle.request.json.keys()):
             value = bottle.request.json["purge_input"]
             if (type(value) is int):
                 if ((value <= 100) and (value > 0)):
-                    current_time = UTCTimestampUsec()
-                    purge_input = analytics_start_time + (float((value)*
-                             (float(current_time) - float(analytics_start_time))))/100
+                    purge_cutoff = self.get_purge_cutoff(float(value), start_times)
                 else:
                     response = {'status': 'failed',
                         'reason': 'Valid % range is [1, 100]'}
@@ -1653,6 +1712,23 @@ class OpServer(object):
             elif (type(value) is unicode):
                 try:
                     purge_input = OpServerUtils.convert_to_utc_timestamp_usec(value)
+
+                    if (purge_input <= analytics_start_time):
+                        response = {'status': 'failed',
+                            'reason': 'purge input is less than analytics start time'}
+                        return bottle.HTTPResponse(
+                                json.dumps(response), _ERRORS[errno.EIO],
+                                {'Content-type': 'application/json'})
+
+                    # cutoff time for purging flow data
+                    purge_cutoff['flow_cutoff'] = purge_input
+                    # cutoff time for purging stats data
+                    purge_cutoff['stats_cutoff'] = purge_input
+                    # cutoff time for purging message tables
+                    purge_cutoff['msg_cutoff'] = purge_input
+                    # cutoff time for purging other tables
+                    purge_cutoff['other_cutoff'] = purge_input
+
                 except:
                     response = {'status': 'failed',
                    'reason': 'Valid time formats are: \'%Y %b %d %H:%M:%S.%f\', '
@@ -1673,13 +1749,6 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        if (purge_input <= analytics_start_time):
-            response = {'status': 'failed',
-                'reason': 'purge input is less than analytics start time'}
-            return bottle.HTTPResponse(
-                    json.dumps(response), _ERRORS[errno.EIO],
-                    {'Content-type': 'application/json'})
-
         res = self._analytics_db.get_analytics_db_purge_status(
                   self._state_server._redis_list)
 
@@ -1688,9 +1757,9 @@ class OpServer(object):
                                         socket.AF_INET, self._args.host_ip))
             purge_id = str(uuid.uuid1(purge_request_ip))
             resp = self._analytics_db.set_analytics_db_purge_status(purge_id,
-                            purge_input)
+                            purge_cutoff)
             if (resp == None):
-                gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+                gevent.spawn(self.db_purge_operation, purge_cutoff, purge_id)
                 response = {'status': 'started', 'purge_id': purge_id}
                 return bottle.HTTPResponse(json.dumps(response), 200,
                                    {'Content-type': 'application/json'})
@@ -1705,7 +1774,7 @@ class OpServer(object):
                                        {'Content-type': 'application/json'})
     # end process_purge_request
 
-    def db_purge_operation(self, purge_input, purge_id):
+    def db_purge_operation(self, purge_cutoff, purge_id):
         self._logger.info("purge_id %s START Purging!" % str(purge_id))
         purge_stat = DatabasePurgeStats()
         purge_stat.request_time = UTCTimestampUsec()
@@ -1713,8 +1782,18 @@ class OpServer(object):
         self._analytics_db.number_of_purge_requests += 1
         purge_info.number_of_purge_requests = \
             self._analytics_db.number_of_purge_requests
-        total_rows_deleted = self._analytics_db.db_purge(purge_input, purge_id)
+        total_rows_deleted = self._analytics_db.db_purge(purge_cutoff, purge_id)
         self._analytics_db.delete_db_purge_status()
+
+        if (total_rows_deleted > 0):
+            # update start times in cassandra
+            start_times = {}
+            start_times[SYSTEM_OBJECT_START_TIME] = purge_cutoff['other_cutoff']
+            start_times[SYSTEM_OBJECT_FLOW_START_TIME] = purge_cutoff['flow_cutoff']
+            start_times[SYSTEM_OBJECT_STAT_START_TIME] = purge_cutoff['stats_cutoff']
+            start_times[SYSTEM_OBJECT_MSG_START_TIME] = purge_cutoff['msg_cutoff']
+            self._analytics_db._update_analytics_start_time(start_times)
+
         end_time = UTCTimestampUsec()
         duration = end_time - purge_stat.request_time
         purge_stat.purge_id = purge_id
@@ -1732,8 +1811,52 @@ class OpServer(object):
         purge_data.send()
     #end db_purge_operation
 
+    def _auto_purge(self):
+        """ monitor dbusage continuously and purge the db accordingly """
+        # wait for 10 minutes before starting to monitor
+        gevent.sleep(10*60)
+
+        # continuously monitor and purge
+        while True:
+            trigger_purge = False
+            db_node_usage = self._analytics_db.get_dbusage_info(self._args.rest_api_port)
+            self._logger.info("node usage:" + str(db_node_usage) )
+            self._logger.info("threshold:" + str(self._args.db_purge_threshold))
+
+            # check database disk usage on each node
+            for node in db_node_usage:
+                if (int(db_node_usage[node]) > int(self._args.db_purge_threshold)):
+                    self._logger.error("Database usage of %d on %s exceeds threshold",
+                            db_node_usage[node], node)
+                    trigger_purge = True
+                    break
+                else:
+                    self._logger.info("Database usage of %d on %s does not exceed threshold",
+                            db_node_usage[node], node)
+
+            # check if there is a purge already going on
+            purge_id = str(uuid.uuid1(str(current_time)))
+            resp = self._analytics_db.get_analytics_db_purge_status(purge_id)
+            if (resp != None):
+                trigger_purge = False
+
+            if (trigger_purge):
+            # trigger purge
+                start_times = self._analytics_db._get_analytics_start_time()
+                purge_cutoff = self.get_purge_cutoff(
+                        (100.0 - float(self._args.db_purge_level)),
+                        start_times)
+                self._logger.info("Starting purge")
+                self.db_purge_operation(purge_cutoff, purge_id)
+                self._logger.info("Ending purge")
+
+            gevent.sleep(60*30) # sleep for 30 minutes
+    # end _auto_purge
+
+
+
     def _get_analytics_data_start_time(self):
-        analytics_start_time = self._analytics_db._get_analytics_start_time()
+        analytics_start_time = (self._analytics_db._get_analytics_start_time())[SYSTEM_OBJECT_START_TIME]
         response = {'analytics_data_start_time': analytics_start_time}
         return bottle.HTTPResponse(
             json.dumps(response), 200, {'Content-type': 'application/json'})
