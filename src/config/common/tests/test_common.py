@@ -47,7 +47,6 @@ import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
     from vnc_cfg_api_server import vnc_cfg_api_server
 
-
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
     for (section, var, val) in conf_sections:

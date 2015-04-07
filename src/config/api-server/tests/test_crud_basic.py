@@ -654,6 +654,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self._vnc_lib.id_to_fq_name(str(uuid.uuid4()))
 
     def test_useragent_kv_http_post(self):
+        # unikey store
         test_body = json.dumps({'operation': 'STORE',
                                 'key': 'fookey',
                                 'value': 'fooval'})
@@ -661,6 +662,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         (code, msg) = self._http_post('/useragent-kv', test_body)
         self.assertEqual(code, 200)
 
+        # unikey retrieve
         test_body = json.dumps({'operation': 'RETRIEVE',
                                 'key': 'fookey'})
         self.addDetail('useragent-kv-post-retrieve', content.json_content(test_body))
@@ -668,6 +670,24 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(code, 200)
         self.assertEqual(json.loads(msg)['value'], 'fooval')
 
+        # multikey retrieve
+        test_body = json.dumps({'operation': 'STORE',
+                                'key': 'barkey',
+                                'value': 'barval'})
+        self.addDetail('useragent-kv-post-store', content.json_content(test_body))
+        (code, msg) = self._http_post('/useragent-kv', test_body)
+        self.assertEqual(code, 200)
+        test_body = json.dumps({'operation': 'RETRIEVE',
+                                'key': ['fookey', 'barkey']})
+        self.addDetail('useragent-kv-post-multikey-retrieve',
+                       content.json_content(test_body))
+        (code, msg) = self._http_post('/useragent-kv', test_body)
+        self.assertEqual(code, 200)
+        self.assertEqual(len(json.loads(msg)['value']), 2)
+        self.assertThat(json.loads(msg)['value'], Contains('fooval'))
+        self.assertThat(json.loads(msg)['value'], Contains('barval'))
+
+        # wrong op test
         test_body = json.dumps({'operation': 'foo',
                                 'key': 'fookey'})
         self.addDetail('useragent-kv-post-wrongop', content.json_content(test_body))
