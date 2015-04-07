@@ -139,6 +139,8 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
 
     analytics->SendGeneratorStatistics();
 
+    analytics->TestDatabaseConnection();
+
     collector_info_log_timer->Cancel();
     collector_info_log_timer->Start(60*1000, boost::bind(&CollectorInfoLogTimer),
                                NULL);

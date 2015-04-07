@@ -98,6 +98,8 @@ public:
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
     void SendGeneratorStatistics();
+    void TestDatabaseConnection();
+    void TestDbConnErrHandler();
 
     static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
         ds_client_ = ds;
@@ -112,6 +114,7 @@ protected:
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
+    std::string DbGlobalName(bool dup=false);
     void SetQueueWaterMarkInfo(QueueType::type type,
         Sandesh::QueueWaterMarkInfo &wm);
     void ResetQueueWaterMarkInfo(QueueType::type type);

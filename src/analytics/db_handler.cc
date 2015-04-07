@@ -85,6 +85,9 @@ int DbHandler::GetTtlFromMap(const DbHandler::TtlMap& ttl_map,
     }
 }
 
+std::string DbHandler::GetName() const {
+    return name_;
+}
 std::string DbHandler::GetHost() const {
     return dbif_->Db_GetHost();
 }

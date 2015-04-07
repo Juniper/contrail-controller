@@ -6,10 +6,15 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/asio/ip/host_name.hpp>
+#include <boost/array.hpp>
+#include <boost/uuid/name_generator.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/parse_object.h"
+#include <base/connection_info.h>
 #include "io/event_manager.h"
 
 #include <sandesh/sandesh_types.h>
@@ -36,6 +41,12 @@ using std::map;
 using std::vector;
 using boost::shared_ptr;
 using namespace boost::assign;
+using std::pair;
+using boost::system::error_code;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
+
 
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
@@ -297,6 +308,49 @@ void Collector::DisconnectSession(SandeshSession *session) {
     LOG(INFO, "Received Disconnect: " << gen->ToString() << " Session:"
             << vsession->ToString());
     gen->DisconnectSession(vsession);
+}
+
+std::string Collector::DbGlobalName(bool dup) {
+    std::string name;
+    error_code error;
+    if (dup)
+        name = boost::asio::ip::host_name(error) + "dup" + ":" + "Global";
+    else
+        name = boost::asio::ip::host_name(error) + ":" + "Global";
+
+    return name;
+}
+
+void Collector::TestDbConnErrHandler() {
+    }
+
+void Collector::TestDatabaseConnection() {
+    boost::scoped_ptr<GenDb::GenDbIf> testdbif_; // for testing db connection
+
+    // try to instantiate a new dbif instance for testing db connection
+    testdbif_.reset( GenDb::GenDbIf::GenDbIfImpl(
+        boost::bind(&Collector::TestDbConnErrHandler, this),
+        cassandra_ips_, cassandra_ports_, 3600, db_handler_->GetName(), false));
+
+    if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_)) {
+        LOG(ERROR, "Connection to DB FAILED");
+        // some issue with establishing connection to cassandra
+        // update connection status
+        boost::system::error_code ec;
+        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+            db_handler_->GetHost(), ec));
+        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            DbGlobalName(false), ConnectionStatus::DOWN, db_endpoint, std::string());
+    } else {
+        LOG(ERROR, "Connection to DB Established/Re-Established");
+        boost::system::error_code ec;
+        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+            db_handler_->GetHost(), ec));
+        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            DbGlobalName(false), ConnectionStatus::UP, db_endpoint, std::string());
+    }
 }
 
 void Collector::SendGeneratorStatistics() {

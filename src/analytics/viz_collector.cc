@@ -182,3 +182,9 @@ void VizCollector::SendGeneratorStatistics() {
         collector_->SendGeneratorStatistics();
     }
 }
+
+void VizCollector::TestDatabaseConnection() {
+    if (collector_) {
+        collector_->TestDatabaseConnection();
+    }
+}
