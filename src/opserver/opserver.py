@@ -1271,6 +1271,7 @@ class OpServer(object):
             self._logger.error("Exception in show queries: %s" % str(err))
             return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % err)
         else:
+            bottle.response.set_header('Content-Type', 'application/json')
             return json.dumps(queries)
     # end show_queries
 
@@ -1463,6 +1464,7 @@ class OpServer(object):
         arg_line = bottle.request.url.rsplit('/', 2)[1]
         uve_type = arg_line[:-1]
 
+        bottle.response.set_header('Content-Type', 'application/json')
         ret = None
         try:
             uve_tbl = UVE_MAP[uve_type]
@@ -1470,7 +1472,6 @@ class OpServer(object):
         except Exception as e:
             return {}
         else:
-            bottle.response.set_header('Content-Type', 'application/json')
             return json.dumps(ret)
 
     def _uve_alarm_list_http_get(self, is_alarm):
@@ -1494,12 +1495,12 @@ class OpServer(object):
         else:
             uve_filters = 'flat'
 
+        bottle.response.set_header('Content-Type', 'application/json')
         try:
             uve_tbl = UVE_MAP[uve_type]
         except Exception as e:
             return {}
         else:
-            bottle.response.set_header('Content-Type', 'application/json')
             req = bottle.request.query
             try:
                 filters = OpServer._uve_filter_set(req)
@@ -1537,6 +1538,7 @@ class OpServer(object):
             bottle.request.urlparts.netloc + '/analytics/'
         analytics_links = [obj_to_dict(LinkObject(link, base_url + link))
                            for link in self._analytics_links]
+        bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(analytics_links)
     # end analytics_http_get
 
@@ -1558,6 +1560,7 @@ class OpServer(object):
                 entry['type'] = base_url + uvetype + 's/types'
             uvetype_links.append(entry)
             
+        bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(uvetype_links)
     # end _uves_alarms_http_get
 
@@ -1610,6 +1613,7 @@ class OpServer(object):
                         self._VIRTUAL_TABLES[i].display_name
             json_links.append(tbl_info)
 
+        bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(json_links)
     # end tables_process
 
@@ -1756,6 +1760,7 @@ class OpServer(object):
                     json_links.append(obj_to_dict(link))
                 break
 
+        bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(json_links)
     # end table_process
 
@@ -1765,6 +1770,7 @@ class OpServer(object):
             (code, msg) = result
             abort(code, msg)
 
+        bottle.response.set_header('Content-Type', 'application/json')
         for i in range(0, len(self._VIRTUAL_TABLES)):
             if (self._VIRTUAL_TABLES[i].name == table):
                 return json.dumps(self._VIRTUAL_TABLES[i].schema,
@@ -1783,6 +1789,7 @@ class OpServer(object):
             bottle.request.urlparts.netloc + \
             '/analytics/table/' + table + '/column-values/'
 
+        bottle.response.set_header('Content-Type', 'application/json')
         json_links = []
         for i in range(0, len(self._VIRTUAL_TABLES)):
             if (self._VIRTUAL_TABLES[i].name == table):
@@ -1847,6 +1854,7 @@ class OpServer(object):
             (code, msg) = result
             abort(code, msg)
 
+        bottle.response.set_header('Content-Type', 'application/json')
         for i in range(0, len(self._VIRTUAL_TABLES)):
             if (self._VIRTUAL_TABLES[i].name == table):
                 if self._VIRTUAL_TABLES[i].columnvalues.count(column) > 0:
