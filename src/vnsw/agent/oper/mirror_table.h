@@ -80,7 +80,8 @@ public:
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual bool Delete(DBEntry *entry, const DBRequest *request) { return true; }
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context);
     VrfEntry *FindVrfEntry(const std::string &vrf_name) const;
     static void AddMirrorEntry(const std::string &analyzer_name,
                                const std::string &vrf_name,

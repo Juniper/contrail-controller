@@ -156,7 +156,8 @@ public:
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context);
 
     // Allocate and Free label from the label_table
     uint32_t AllocLabel() {
