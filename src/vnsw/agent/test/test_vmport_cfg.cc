@@ -53,6 +53,10 @@ void DoInterfaceSandesh(std::string name) {
     client->WaitForIdle();
 }
 
+AgentIntfSandesh *CreateAgentIntfSandesh(const char *name) {
+    return new AgentIntfSandesh("", "", "vnet1", "", "", "", "", "", "");
+}
+
 class CfgTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -1287,23 +1291,23 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
-    AgentSandeshPtr sand_1(new AgentIntfSandesh("", "vnet1"));
+    AgentIntfSandesh *sand_1 = CreateAgentIntfSandesh("vnet1");
     sand_1->DoSandesh();
     client->WaitForIdle();
 
-    AgentSandeshPtr sand_2(new AgentIntfSandesh("", "eth10"));
+    AgentIntfSandesh *sand_2 = CreateAgentIntfSandesh("eth10");
     sand_2->DoSandesh();
     client->WaitForIdle();
 
-    AgentSandeshPtr sand_3(new AgentIntfSandesh("", "pkt0"));
+    AgentIntfSandesh *sand_3 = CreateAgentIntfSandesh("pkt0");
     sand_3->DoSandesh();
     client->WaitForIdle();
 
-    AgentSandeshPtr sand_4(new AgentIntfSandesh("", "vhost10"));
+    AgentIntfSandesh *sand_4 = CreateAgentIntfSandesh("vhost10");
     sand_4->DoSandesh();
     client->WaitForIdle();
 
-    AgentSandeshPtr sand_5(new AgentIntfSandesh("", "vhost10"));
+    AgentIntfSandesh *sand_5 = CreateAgentIntfSandesh("vhost10");
     sand_5->DoSandesh(0, 1);
     client->WaitForIdle();
 

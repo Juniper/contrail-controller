@@ -244,7 +244,7 @@ InetUnicastAgentRouteTable *VrfEntry::GetInet6UnicastRouteTable() const {
 bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VrfListResp *resp = static_cast<VrfListResp *>(sresp);
 
-    if (name.empty() || GetName() == name) {
+    if (name.empty() || GetName().find(name) != string::npos) {
         VrfSandeshData data;
         data.set_name(GetName());
         data.set_ucindex(vrf_id());
@@ -701,12 +701,13 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 }
 
 void VrfListReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentVrfSandesh(context(), get_name()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentVrfSandesh *sand = new AgentVrfSandesh(context(), get_name());
+    sand->DoSandesh();
 }
 
-AgentSandesh *VrfTable::GetAgentSandesh(const std::string &context) {
-    return new AgentVrfSandesh(context, "");
+AgentSandesh *VrfTable::GetAgentSandesh(const AgentSandeshArguments *args,
+                                        const std::string &context) {
+    return new AgentVrfSandesh(context, args->GetString("name"));
 }
 
 class RouteDeleteWalker : public AgentRouteWalker {

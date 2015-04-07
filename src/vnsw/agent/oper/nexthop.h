@@ -1364,7 +1364,8 @@ public:
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandesh *GetAgentSandesh(const AgentSandeshArguments *args,
+                                          const std::string &context);
 
     virtual DBEntry *Add(const DBRequest *req);
 

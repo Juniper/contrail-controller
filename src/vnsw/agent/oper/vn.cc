@@ -1019,7 +1019,7 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     VnListResp *resp = static_cast<VnListResp *>(sresp);
 
-    if (name.empty() || GetName() == name) {
+    if (name.empty() || GetName().find(name) != string::npos) {
         VnSandeshData data;
         data.set_name(GetName());
         data.set_uuid(UuidToString(GetUuid()));
@@ -1165,12 +1165,13 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 void VnListReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentVnSandesh(context(), get_name()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentVnSandesh *sand = new AgentVnSandesh(context(), get_name());
+    sand->DoSandesh();
 }
 
-AgentSandesh *VnTable::GetAgentSandesh(const std::string &context) {
-    return new AgentVnSandesh(context, "");
+AgentSandesh *VnTable::GetAgentSandesh(const AgentSandeshArguments *args,
+                                       const std::string &context) {
+    return new AgentVnSandesh(context, args->GetString("name"));
 }
 
 void DomainConfig::RegisterIpamCb(Callback cb) {

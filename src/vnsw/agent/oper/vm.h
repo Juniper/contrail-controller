@@ -71,7 +71,8 @@ public:
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandesh *GetAgentSandesh(const AgentSandeshArguments *args,
+                                          const std::string &context);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VmTable *GetInstance() {return vm_table_;}

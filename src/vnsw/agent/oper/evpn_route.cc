@@ -354,13 +354,13 @@ void EvpnRouteReq::HandleRequest() const {
         return;
     }
 
-    AgentSandeshPtr sand(new AgentEvpnRtSandesh(vrf, context(), "",
-                                                get_stale()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    AgentEvpnRtSandesh *sand = new AgentEvpnRtSandesh(vrf, context(), "",
+                                                      get_stale());
+    sand->DoSandesh();
 }
 
 AgentSandesh *EvpnAgentRouteTable::GetAgentSandesh
-(const std::string &context) {
+(const AgentSandeshArguments *args, const std::string &context) {
     return new AgentEvpnRtSandesh(vrf_entry(), context, "", true);
 }
 
