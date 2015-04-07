@@ -86,14 +86,7 @@ VizCollector::~VizCollector() {
 }
 
 std::string VizCollector::DbGlobalName(bool dup) {
-    std::string name;
-    error_code error;
-    if (dup)
-        name = boost::asio::ip::host_name(error) + "dup" + ":" + "Global";
-    else
-        name = boost::asio::ip::host_name(error) + ":" + "Global";
-
-    return name;
+    return collector_->DbGlobalName(dup);
 }
 
 bool VizCollector::SendRemote(const string& destination,
@@ -180,5 +173,11 @@ void VizCollector::SendProtobufCollectorStatistics() {
 void VizCollector::SendGeneratorStatistics() {
     if (collector_) {
         collector_->SendGeneratorStatistics();
+    }
+}
+
+void VizCollector::TestDatabaseConnection() {
+    if (collector_) {
+        collector_->TestDatabaseConnection();
     }
 }
