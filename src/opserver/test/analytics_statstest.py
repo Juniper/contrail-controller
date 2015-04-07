@@ -309,6 +309,95 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_04_overflowsamples
 
+    #@unittest.skip('Get samples from objectlog stats')
+    def test_05_statprefix_obj(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it sends test object stats to the collector
+        and checks if they can be accessed from QE, using prefix-suffix indexes
+        '''
+        logging.info("*** test_05_statprefix_obj ***")
+        if StatsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+
+        generator_obj = self.useFixture(
+            StatsFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        logging.info("Starting stat gen " + str(UTCTimestampUsec()))
+
+        generator_obj.send_test_obj_stat("t010","lxxx","samp1",1,1);
+        generator_obj.send_test_obj_stat("t010","lyyy","samp1",2,2);
+        generator_obj.send_test_obj_stat("t010","lyyy","samp3",2,2,"",5);
+        generator_obj.send_test_obj_stat("t011","lyyy","samp2",1,1.1,"",7);
+        generator_obj.send_test_obj_stat("t011","lxxx","samp2",2,1.2);
+        generator_obj.send_test_obj_stat("t011","lxxx","samp2",2,1.2,"",9);
+
+        logging.info("Checking Objectlog Stats str-str " + str(UTCTimestampUsec()))
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestObj.st","-2m",
+            select_fields = [ "UUID", "st.s1", "st.i1", "st.d1" ],
+            where_clause = 'name|st.s1=t010|samp1', num = 2, check_rows =
+            [{ "st.s1":"samp1", "st.i1":2, "st.d1":2},
+             { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
+
+        return True
+    # end test_05_statprefix_obj 
+
+    #@unittest.skip('Send stats with 2nd level of hierarchy')
+    def test_06_statprefix_double(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it sends test 2nd-level stats to the collector
+        and checks if they can be accessed from QE, using prefix-suffix indexes
+        '''
+        logging.info("*** test_06_statprefix_double ***")
+        if StatsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+
+        generator_obj = self.useFixture(
+            StatsFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        logging.info("Starting stat gen " + str(UTCTimestampUsec()))
+
+        generator_obj.send_test_stat_double("t010","lxxx","samp1",1,1);
+        generator_obj.send_test_stat_double("t010","lyyy","samp1",2,3);
+        generator_obj.send_test_stat_double("t010","lyyy","samp3",2,3,"misc2",5);
+        generator_obj.send_test_stat_double("t011","lyyy","samp2",1,1.1,"misc1",7);
+        generator_obj.send_test_stat_double("t011","lxxx","samp2",2,1.2);
+        generator_obj.send_test_stat_double("t011","lxxx","samp2",2,1.2,"",9);
+
+        logging.info("Checking 2nd-level Stats str-double" + str(UTCTimestampUsec()))
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestStateDouble.dst.st","-2m",
+            select_fields = [ "UUID", "dst.st.s1", "dst.st.i1", "dst.l1" ],
+            where_clause = 'dst.l1|dst.st.s2=lyyy|misc1', num = 1, check_rows =
+            [{ "dst.st.s1":"samp2", "dst.st.i1":1, "dst.l1":"lyyy"}]);
+
+        return True
+    # end test_06_statprefix_double
+
     @retry(delay=1, tries=5)
     def verify_ipfix(self, vns, uexp):
         logging.info("Trying to verify IPFIX...")
