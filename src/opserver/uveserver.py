@@ -20,15 +20,17 @@ import re
 from gevent.coros import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.connection_info import ConnectionState
+from sandesh.viz.constants import _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger, redis_password=None):
+    def __init__(self, redis_uve_server, logger, api_port=None, redis_password=None):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_list = []
         self._logger = logger
         self._sem = BoundedSemaphore(1)
         self._redis = None
+        self._api_port = api_port
         self._redis_password = redis_password
         if self._local_redis_uve:
             self._redis = redis.StrictRedis(self._local_redis_uve[0],
@@ -350,25 +352,7 @@ class UVEServer(object):
                                 (key, typ, attr, source, mdule, state[
                                 key][typ][attr][dsource])
                         state[key][typ][attr][dsource] = snhdict[attr]
-                
-                if len(qmap):
-                    url = OpServerUtils.opserver_query_url(
-                        self._local_redis_uve[0],
-                        str(8081))
-                    for t,q in qmap.iteritems():
-                        try:
-                            q["query"]["end_time"] = OpServerUtils.utc_timestamp_usec()
-                            q["query"]["start_time"] = qdict["end_time"] - (3600 * 1000000)
-                            json_str = json.dumps(q["query"])
-                            resp = OpServerUtils.post_url_http(url, json_str, True)
-                            if resp is not None:
-                                edict = json.loads(resp)
-                                edict = edict['value']
-                                statdict[q["type"]][q["attr"]].append(
-                                    {t: edict})
-                        except Exception as e:
-                            print "Stats Query Exception:" + str(e)
-                        
+
                 if sfilter is None and mfilter is None:
                     for ptyp in redish.smembers("PTYPES:" + key):
                         afilter = None
@@ -392,9 +376,9 @@ class UVEServer(object):
             else:
                 self._logger.debug("Computed %s" % key)
 
-        for k, v in statdict.iteritems():
-            if k in rsp:
-                mp = dict(v.items() + rsp[k].items())
+        for k, v in statdict.iteritems():               
+            if k in rsp:                
+                mp = dict(v.items() + rsp[k].items())           
                 statdict[k] = mp
 
         return dict(rsp.items() + statdict.items())
