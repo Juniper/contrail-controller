@@ -651,11 +651,13 @@ void ServiceInstance::CalculateProperties(
 void ServiceInstanceReq::HandleRequest() const {
     AgentSandeshPtr sand(new AgentServiceInstanceSandesh(context(),
                                                          get_uuid()));
-    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+    sand->DoSandesh(sand);
 }
 
-AgentSandesh *ServiceInstanceTable::GetAgentSandesh(const std::string &context){
-    return new AgentServiceInstanceSandesh(context, "");
+AgentSandeshPtr ServiceInstanceTable::GetAgentSandesh
+(const AgentSandeshArguments *args, const std::string &context){
+    return AgentSandeshPtr
+        (new AgentServiceInstanceSandesh(context, args->GetString("name")));
 }
 
 /*

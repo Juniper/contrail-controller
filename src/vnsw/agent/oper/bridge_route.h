@@ -19,7 +19,8 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::BRIDGE;
     }
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 

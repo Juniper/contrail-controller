@@ -124,8 +124,9 @@ public:
     //Can be used for operations resulting from deletion of route.
     virtual void PreRouteDelete(AgentRoute *entry) { }
 
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context) {
-        return NULL;
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context) {
+        return AgentSandeshPtr();
     }
     // Unresolved route tree accessors
     UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
