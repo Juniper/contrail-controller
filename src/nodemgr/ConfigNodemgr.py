@@ -32,7 +32,7 @@ from StringIO import StringIO
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import \
     NodeStatusUVE, NodeStatus
 from cfgm_common.uve.cfgm_cpuinfo.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo
+    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
 from cfgm_common.uve.cfgm_cpuinfo.process_info.constants import \
     ProcessStateNames
 
@@ -74,20 +74,7 @@ class ConfigEventManager(EventManager):
         self.send_nodemgr_process_status_base(ProcessStateNames, ProcessState, ProcessStatus, NodeStatus, NodeStatusUVE)
 
     def get_process_state(self, fail_status_bits):
-        if fail_status_bits:
-            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
-            description = ""
-            if fail_status_bits & self.FAIL_STATUS_DISK_SPACE:
-                description += "Disk for analytics db is too low, cassandra stopped."
-            if fail_status_bits & self.FAIL_STATUS_SERVER_PORT:
-                if description != "":
-                    description += " "
-                description += "Cassandra state detected DOWN."
-            if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
-                if description != "":
-                    description += " "
-                description += "NTP state unsynchronized."
-        else:
-            state = ProcessStateNames[ProcessState.FUNCTIONAL]
-            description = ''
-        return state, description
+        return self.get_process_state_base(fail_status_bits, ProcessStateNames, ProcessState)
+
+    def send_disk_usage_info(self):
+        self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
