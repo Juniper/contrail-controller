@@ -953,8 +953,8 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     } else {
         send_ready_ = true;
     }
+
     peer_stats_->proto_stats_[1].update++;
-    inc_tx_route_update();
     if (!send_ready_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Send blocked");
@@ -1057,8 +1057,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
     // Check as path loop and neighbor-as 
     const BgpAttr *path_attr = attr.get(); 
     uint32_t flags = 0;
-
-    inc_rx_route_update();
 
     if (path_attr->as_path() != NULL) {
         // Check whether neighbor has appended its AS to the AS_PATH
@@ -1665,10 +1663,10 @@ static void FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
 
 static void FillRouteUpdateStats(const IPeerDebugStats::UpdateStats &stats,
                                  PeerUpdateStats &rt_stats) {
-    rt_stats.total = stats.total;
     rt_stats.reach = stats.reach;
     rt_stats.unreach = stats.unreach;
     rt_stats.end_of_rib = stats.end_of_rib;
+    rt_stats.total = stats.reach + stats.unreach + stats.end_of_rib;
 }
 
 static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
@@ -1769,11 +1767,11 @@ void BgpPeer::inc_rx_keepalive() {
     peer_stats_->proto_stats_[0].keepalive++;
 }
 
-size_t BgpPeer::get_rx_keepalive() {
+size_t BgpPeer::get_rx_keepalive() const {
     return peer_stats_->proto_stats_[0].keepalive;
 }
 
-size_t BgpPeer::get_tr_keepalive() {
+size_t BgpPeer::get_tx_keepalive() const {
     return peer_stats_->proto_stats_[1].keepalive;
 }
 
@@ -1785,7 +1783,7 @@ void BgpPeer::inc_rx_notification() {
     peer_stats_->proto_stats_[0].notification++;
 }
 
-size_t BgpPeer::get_rx_notification() {
+size_t BgpPeer::get_rx_notification() const {
     return peer_stats_->proto_stats_[0].notification;
 }
 
@@ -1803,14 +1801,6 @@ void BgpPeer::inc_tx_end_of_rib() {
 
 size_t BgpPeer::get_tx_end_of_rib() const {
     return peer_stats_->update_stats_[1].end_of_rib;
-}
-
-void BgpPeer::inc_rx_route_update() {
-    peer_stats_->update_stats_[0].total++;
-}
-
-void BgpPeer::inc_tx_route_update() {
-    peer_stats_->update_stats_[1].total++;
 }
 
 void BgpPeer::inc_rx_route_reach(uint32_t count) {
@@ -1833,12 +1823,20 @@ size_t BgpPeer::get_rx_route_unreach() const {
     return peer_stats_->update_stats_[0].unreach;
 }
 
-void BgpPeer::inc_tx_route_unreach() {
-    peer_stats_->update_stats_[1].unreach++;
-}
-
 size_t BgpPeer::get_tx_route_unreach() const {
     return peer_stats_->update_stats_[1].unreach;
+}
+
+size_t BgpPeer::get_rx_route_total() const {
+    return peer_stats_->update_stats_[0].reach +
+        peer_stats_->update_stats_[0].unreach +
+        peer_stats_->update_stats_[0].end_of_rib;
+}
+
+size_t BgpPeer::get_tx_route_total() const {
+    return peer_stats_->update_stats_[1].reach +
+        peer_stats_->update_stats_[1].unreach +
+        peer_stats_->update_stats_[1].end_of_rib;
 }
 
 void BgpPeer::inc_connect_error() {
@@ -1861,23 +1859,23 @@ void BgpPeer::inc_update_error() {
     peer_stats_->error_stats_.update_error++;
 }
 
-size_t BgpPeer::get_connect_error() {
+size_t BgpPeer::get_connect_error() const {
     return peer_stats_->error_stats_.connect_error;
 }
 
-size_t BgpPeer::get_connect_timer_expired() {
+size_t BgpPeer::get_connect_timer_expired() const {
     return peer_stats_->error_stats_.connect_timer;
 }
 
-size_t BgpPeer::get_hold_timer_expired() {
+size_t BgpPeer::get_hold_timer_expired() const {
     return peer_stats_->error_stats_.hold_timer;
 }
 
-size_t BgpPeer::get_open_error() {
+size_t BgpPeer::get_open_error() const {
     return peer_stats_->error_stats_.open_error;
 }
 
-size_t BgpPeer::get_update_error() {
+size_t BgpPeer::get_update_error() const {
     return peer_stats_->error_stats_.update_error;
 }
 

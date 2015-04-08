@@ -358,9 +358,9 @@ void BgpAuthenticationTest::VerifyPeers(int line, BgpServerAuthTestMock *cn1,
     // Make sure that a few keepalives are exchanged.
     if (kacount) {
         TASK_UTIL_EXPECT_TRUE(peer1->get_rx_keepalive() > kacount);
-        TASK_UTIL_EXPECT_TRUE(peer1->get_tr_keepalive() > kacount);
+        TASK_UTIL_EXPECT_TRUE(peer1->get_tx_keepalive() > kacount);
         TASK_UTIL_EXPECT_TRUE(peer2->get_rx_keepalive() > kacount);
-        TASK_UTIL_EXPECT_TRUE(peer2->get_tr_keepalive() > kacount);
+        TASK_UTIL_EXPECT_TRUE(peer2->get_tx_keepalive() > kacount);
     }
 }
 
@@ -846,16 +846,16 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     vector<autogen::AuthenticationKeyItem> keys2;
     SetKeys(0, key_string2, 0, &keys2);
     AddPeering(cn2_, cn1_, uuid, keys2);
-    size_t old_p12_tr_count = peer12->get_tr_keepalive();
-    size_t old_p21_tr_count = peer21->get_tr_keepalive();
+    size_t old_p12_tr_count = peer12->get_tx_keepalive();
+    size_t old_p21_tr_count = peer21->get_tx_keepalive();
     size_t old_p12_rx_count = peer12->get_rx_keepalive();
     size_t old_p21_rx_count = peer21->get_rx_keepalive();
     // Note, we are not using flap_count(), since its 90s by default and
     // changing it within the test could make it flaky.
     TASK_UTIL_EXPECT_TRUE(
-        peer12->get_tr_keepalive() > (old_p12_tr_count + 10));
+        peer12->get_tx_keepalive() > (old_p12_tr_count + 10));
     TASK_UTIL_EXPECT_TRUE(
-        peer21->get_tr_keepalive() > (old_p21_tr_count + 10));
+        peer21->get_tx_keepalive() > (old_p21_tr_count + 10));
     TASK_UTIL_EXPECT_TRUE(peer12->get_rx_keepalive() == old_p12_rx_count);
     TASK_UTIL_EXPECT_TRUE(peer21->get_rx_keepalive() == old_p21_rx_count);
 
@@ -869,15 +869,15 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
 
     // Change the key on CN1 to key_string2. Peering should come down.
     AddPeering(cn1_, cn2_, uuid, keys2);
-    old_p12_tr_count = peer12->get_tr_keepalive();
-    old_p21_tr_count = peer21->get_tr_keepalive();
+    old_p12_tr_count = peer12->get_tx_keepalive();
+    old_p21_tr_count = peer21->get_tx_keepalive();
     old_p12_rx_count = peer12->get_rx_keepalive();
     old_p21_rx_count = peer21->get_rx_keepalive();
     // Transmit counters go up but receive counters do not.
     TASK_UTIL_EXPECT_TRUE(
-        peer12->get_tr_keepalive() > (old_p12_tr_count + 10));
+        peer12->get_tx_keepalive() > (old_p12_tr_count + 10));
     TASK_UTIL_EXPECT_TRUE(
-        peer21->get_tr_keepalive() > (old_p21_tr_count + 10));
+        peer21->get_tx_keepalive() > (old_p21_tr_count + 10));
     TASK_UTIL_EXPECT_TRUE(peer12->get_rx_keepalive() == old_p12_rx_count);
     TASK_UTIL_EXPECT_TRUE(peer21->get_rx_keepalive() == old_p21_rx_count);
 
@@ -920,12 +920,12 @@ TEST_F(BgpAuthenticationTest, NoKeyToKeyWithDelay) {
 
     size_t old_p12_rx_count = peer12->get_rx_keepalive();
     size_t old_p21_rx_count = peer21->get_rx_keepalive();
-    size_t old_p12_tr_count = peer12->get_tr_keepalive();
-    size_t old_p21_tr_count = peer21->get_tr_keepalive();
+    size_t old_p12_tr_count = peer12->get_tx_keepalive();
+    size_t old_p21_tr_count = peer21->get_tx_keepalive();
     // Although both sides are transmitting keepalives, none will be received
     // by either end.
-    TASK_UTIL_EXPECT_TRUE(peer12->get_tr_keepalive() > (old_p12_tr_count + 20));
-    TASK_UTIL_EXPECT_TRUE(peer21->get_tr_keepalive() > (old_p21_tr_count + 20));
+    TASK_UTIL_EXPECT_TRUE(peer12->get_tx_keepalive() > (old_p12_tr_count + 20));
+    TASK_UTIL_EXPECT_TRUE(peer21->get_tx_keepalive() > (old_p21_tr_count + 20));
     TASK_UTIL_EXPECT_EQ(peer12->get_rx_keepalive(), old_p12_rx_count);
     TASK_UTIL_EXPECT_EQ(peer21->get_rx_keepalive(), old_p21_rx_count);
 
@@ -1075,16 +1075,16 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
 
     // Verify that keepalives are not received since both sides dont have the
     // same key.
-    size_t old_p12_tr_count = peer12->get_tr_keepalive();
-    size_t old_p21_tr_count = peer21->get_tr_keepalive();
+    size_t old_p12_tr_count = peer12->get_tx_keepalive();
+    size_t old_p21_tr_count = peer21->get_tx_keepalive();
     size_t old_p12_rx_count = peer12->get_rx_keepalive();
     size_t old_p21_rx_count = peer21->get_rx_keepalive();
     // Note, we are not using flap_count(), since its 90s by default and
     // changing it within the test could make it flaky.
     TASK_UTIL_EXPECT_TRUE(
-        peer12->get_tr_keepalive() > (old_p12_tr_count + 10));
+        peer12->get_tx_keepalive() > (old_p12_tr_count + 10));
     TASK_UTIL_EXPECT_TRUE(
-        peer21->get_tr_keepalive() > (old_p21_tr_count + 10));
+        peer21->get_tx_keepalive() > (old_p21_tr_count + 10));
     TASK_UTIL_EXPECT_TRUE(peer12->get_rx_keepalive() == old_p12_rx_count);
     TASK_UTIL_EXPECT_TRUE(peer21->get_rx_keepalive() == old_p21_rx_count);
 
