@@ -1,5 +1,7 @@
 import testscenarios
 import testtools
+import fake_neutron
+
 from vnc_openstack.neutron_plugin_db import DBInterface
 
 load_tests = testscenarios.load_tests_apply_scenarios

@@ -16,6 +16,7 @@ import time
 import errno
 import re
 import copy
+import uuid
 from lxml import etree
 from xml.sax.saxutils import escape, unescape
 try:

@@ -622,7 +622,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
 
 class ResourceApiDriver(vnc_plugin_base.ResourceApi):
-    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh,
+                 propagate_map_exceptions=False):
         if api_server_ip == '0.0.0.0':
             self._vnc_api_ip = '127.0.0.1'
         else:

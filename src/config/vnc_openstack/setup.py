@@ -2,7 +2,21 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from setuptools import setup, find_packages
+import os
+
+from setuptools import setup, find_packages, Command
+
+
+class RunTestsCommand(Command):
+    description = "Test command to run testr in virtualenv"
+    user_options = []
+    def initialize_options(self):
+        self.cwd = None
+    def finalize_options(self):
+        self.cwd = os.getcwd()
+    def run(self):
+        os.system('./run_tests.sh -V')
+
 
 setup(
     name='vnc_openstack',
@@ -23,5 +37,8 @@ setup(
         ],
     },
     install_requires=[
-    ]
+    ],
+    cmdclass={
+       'run_tests': RunTestsCommand,
+    },
 )

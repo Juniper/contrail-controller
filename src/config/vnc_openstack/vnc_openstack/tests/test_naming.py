@@ -3,14 +3,15 @@ import json
 import uuid
 import logging
 
-sys.path.append('../common/tests')
 from testtools.matchers import Equals, Contains, Not
 from testtools import content, content_type
 
 from vnc_api.vnc_api import *
 
+sys.path.append('../common/tests')
 from test_utils import *
 import test_common
+
 import test_case
 
 logger = logging.getLogger(__name__)
@@ -20,15 +21,18 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         proj_obj = Project(proj_name)
         self.addDetail('creating-project', content.text_content(proj_name))
         self._vnc_lib.project_create(proj_obj)
-        default_sg_obj = SecurityGroup('default', parent_obj=proj_obj)
-        self._vnc_lib.security_group_create(default_sg_obj)
+        #default_sg_obj = SecurityGroup('default', parent_obj=proj_obj)
+        #import pdb; pdb.et_trace()
+        #self._vnc_lib.security_group_create(default_sg_obj)
         return proj_obj
     # end _create_project
         
     def _create_resource(self, res_type, proj_id, name=None, extra_res_fields=None):
         context = {'operation': 'CREATE',
                    'user_id': '',
-                   'roles': ''}
+                   'is_admin': False,
+                   'roles': '',
+                   'tenant_id': proj_id}
         if name:
             res_name = name
         else:
@@ -46,7 +50,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
 
     def _create_subnet(self, proj_id, name=None):
         net_name, net_q = self._create_resource('network', proj_id)
-        return self._create_resource('subnet', proj_id, name, extra_res_fields={'network_id': net_q['id'], 'cidr': '1.0.0.0/24'})
+        return self._create_resource('subnet', proj_id, name, extra_res_fields={'network_id': net_q['id'], 'cidr': '1.0.0.0/24', 'ip_version': 4})
 
     def _create_port(self, proj_id, name=None):
         #net_name, net_q = self._create_resource('network', proj_id)
@@ -71,7 +75,8 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
                    'userid': '',
                    'roles': '',
                    'is_admin': False,
-                   'tenant': tenant_id}
+                   'tenant': tenant_id,
+                   'tenant_id': tenant_id}
 
         data = {'filters':{}, 'fields': None}
         if name:
