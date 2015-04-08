@@ -651,6 +651,7 @@ class VncServerCassandraClient(VncCassandraClient):
     # Useragent datastore keyspace + tables (used by neutron plugin currently)
     _USERAGENT_KEYSPACE_NAME = 'useragent'
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
+    _MAX_COL = 10000000
 
     @classmethod
     def get_db_info(cls):
@@ -889,9 +890,8 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def walk(self, fn):
         walk_results = []
-        for obj_uuid, _ in self._obj_uuid_cf.get_range():
-            obj_cols_iter = self._obj_uuid_cf.xget(obj_uuid)
-            obj_cols = dict((k, v) for k, v in obj_cols_iter)
+        for obj_uuid, obj_cols in self._obj_uuid_cf.get_range(
+                                       column_count=self._MAX_COL):
             result = fn(obj_uuid, obj_cols)
             if result:
                 walk_results.append(result)
@@ -1340,7 +1340,11 @@ class VncDbClient(object):
         obj_type = None
         try:
             obj_type = json.loads(obj_cols['type'])
-            (ok, obj_dicts) = self._cassandra_db.read(obj_type, [obj_uuid])
+            obj_class = self.get_resource_class(obj_type)
+            props_n_refs = list(obj_class.prop_fields) + \
+                           list(obj_class.ref_fields)
+            (ok, obj_dicts) = self._cassandra_db.read(obj_type, [obj_uuid],
+                                                      field_names=props_n_refs)
             obj_dict = obj_dicts[0]
 
             # TODO remove backward compat (use RT instead of VN->LR ref)
