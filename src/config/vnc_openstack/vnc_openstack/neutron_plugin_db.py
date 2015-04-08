@@ -3070,7 +3070,14 @@ class DBInterface(object):
             bottle.abort(400, json.dumps(exc_info))
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
+        si_name = None
+        si_key = 'si_' + router_obj.uuid
+        try:
+            si_name = self._vnc_lib.kv_retrieve(key=si_key)
+        except NoIdError:
+            si_name = 'si_' + router_obj.uuid + '_' + str(uuid.uuid4())
+            self._vnc_lib.kv_store(si_key, si_name)
+
         si_fq_name = project_obj.get_fq_name() + [si_name]
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
@@ -3146,13 +3153,20 @@ class DBInterface(object):
         project_obj = self._project_read(proj_id=router_obj.parent_uuid)
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
-        si_fq_name = project_obj.get_fq_name() + [si_name]
+        si_name = None
+        si_key = 'si_' + router_obj.uuid
         try:
-            si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            si_uuid = si_obj.uuid
+            si_name = self._vnc_lib.kv_retrieve(key=si_key)
         except NoIdError:
-            si_obj = None
+            pass
+        if si_name:
+            si_fq_name = project_obj.get_fq_name() + [si_name]
+            try:
+                si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
+                si_uuid = si_obj.uuid
+            except NoIdError:
+                si_obj = None
+            self._vnc_lib.kv_delete(si_key)
 
         # Get route table for default route it it exists
         rt_name = 'rt_' + router_obj.uuid
