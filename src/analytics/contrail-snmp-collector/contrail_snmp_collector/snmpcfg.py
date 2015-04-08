@@ -79,16 +79,17 @@ Mibs = LldpTable, ArpTable
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
         defaults = {
-            'collectors'      : ['127.0.0.1:8086'],
-            'log_local'       : False,
-            'log_level'       : SandeshLevel.SYS_DEBUG,
-            'log_category'    : '',
-            'log_file'        : Sandesh._DEFAULT_LOG_FILE,
-            'use_syslog'      : False,
-            'syslog_facility' : Sandesh._DEFAULT_SYSLOG_FACILITY,
-            'scan_frequency'  : 600,
-            'http_server_port': 5920,
-            'zookeeper'       : '127.0.0.1:2181',
+            'collectors'          : ['127.0.0.1:8086'],
+            'log_local'           : False,
+            'log_level'           : SandeshLevel.SYS_DEBUG,
+            'log_category'        : '',
+            'log_file'            : Sandesh._DEFAULT_LOG_FILE,
+            'use_syslog'          : False,
+            'syslog_facility'     : Sandesh._DEFAULT_SYSLOG_FACILITY,
+            'scan_frequency'      : 600,
+            'fast_scan_frequency' : 60,
+            'http_server_port'    : 5920,
+            'zookeeper'           : '127.0.0.1:2181',
         }
         ksopts = {
             'auth_host': '127.0.0.1',
@@ -147,7 +148,9 @@ Mibs = LldpTable, ArpTable
         parser.add_argument("--syslog_facility",
             help="Syslog facility to receive log lines")
         parser.add_argument("--scan_frequency", type=int,
-            help="Time between snmp poll")
+            help="Time between snmp full poll")
+        parser.add_argument("--fast_scan_frequency", type=int,
+            help="Time between snmp interface status poll")
         parser.add_argument("--http_server_port", type=int,
             help="introspect server port")
         parser.add_argument("--auth_host",
@@ -245,6 +248,9 @@ Mibs = LldpTable, ArpTable
 
     def syslog_facility(self):
         return self._args.syslog_facility
+
+    def fast_scan_freq(self):
+        return self._args.fast_scan_frequency
 
     def frequency(self):
         return self._args.scan_frequency

@@ -62,6 +62,32 @@ class Controller(object):
         for vr in self.analytic_api.list_prouters():
             self.prouters.append(PRouter(vr, self.analytic_api.get_prouter(vr)))
 
+    def _is_linkup(self, prouter, ifindex):
+        if 'PRouterEntry' in prouter.data and \
+            'ifIndexOperStatusTable' in prouter.data['PRouterEntry']:
+                status = filter(lambda x: x['ifIndex'] == ifindex,
+                        prouter.data['PRouterEntry']['ifIndexOperStatusTable'])
+                if status and status[0]['ifOperStatus'] == 1:
+                    return True
+        return False
+
+    def _add_link(self, prouter, remote_system_name, local_interface_name,
+                  remote_interface_name, local_interface_index,
+                  remote_interface_index, link_type):
+        d = dict(remote_system_name=remote_system_name,
+                 local_interface_name=local_interface_name,
+                 remote_interface_name=remote_interface_name,
+                 local_interface_index=local_interface_index,
+                 remote_interface_index=remote_interface_index,
+                 type=link_type)
+        if self._is_linkup(prouter, local_interface_index):
+            if prouter.name in self.link:
+                self.link[prouter.name].append(d)
+            else:
+                self.link[prouter.name] = [d]
+            return True
+        return False
+
     def compute(self):
         self.link = {}
         for prouter in self.constnt_schdlr.work_items():
@@ -73,21 +99,24 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
-                if pl['lldpRemLocalPortNum'] in ifm and\
-                    pl['lldpRemPortId'].isdigit():
-                    self.link[pr].append({
-                        'remote_system_name': pl['lldpRemSysName'],
-                        'local_interface_name': ifm[pl['lldpRemLocalPortNum']],
-                        'remote_interface_name': pl['lldpRemPortDesc'],
-                        'local_interface_index': pl['lldpRemLocalPortNum'],
-                        'remote_interface_index': int(pl['lldpRemPortId']),
-                        'type': 1
-                        })
-                    lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
+                if pl['lldpRemLocalPortNum'] in ifm and \
+                        pl['lldpRemPortId'].isdigit():
+                    if self._add_link(
+                            prouter=prouter,
+                            remote_system_name=pl['lldpRemSysName'],
+                            local_interface_name=ifm[pl['lldpRemLocalPortNum']],
+                            remote_interface_name=pl['lldpRemPortDesc'],
+                            local_interface_index=pl['lldpRemLocalPortNum'],
+                            remote_interface_index=int(pl['lldpRemPortId']),
+                            link_type=1):
+                        lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
             vrouter_neighbors = []
             if 'fdbPortIfIndexTable' in d['PRouterEntry']:
-                dot1d2snmp = map (lambda x: (x['dot1dBasePortIfIndex'], x['snmpIfIndex']), d['PRouterEntry']['fdbPortIfIndexTable'])
+                dot1d2snmp = map (lambda x: (
+                            x['dot1dBasePortIfIndex'],
+                            x['snmpIfIndex']),
+                        d['PRouterEntry']['fdbPortIfIndexTable'])
                 dot1d2snmp_dict = dict(dot1d2snmp)
                 if 'fdbPortTable' in d['PRouterEntry']:
                     for mac_entry in d['PRouterEntry']['fdbPortTable']:
@@ -101,15 +130,17 @@ class Controller(object):
                             is_lldp_int = any(ifm[snmpport] == lldp_int for lldp_int in lldp_ints)
                             if is_lldp_int:
                                 continue
-                            self.link[pr].append({
-                                'remote_system_name': vrouter_mac_entry['vrname'],
-                                'local_interface_name': ifm[snmpport],
-                                'remote_interface_name': vrouter_mac_entry['ifname'],
-                                'local_interface_index': snmpport,
-                                'remote_interface_index': 1, #dont know TODO:FIX
-                                'type': 2
-                                    })
-                            vrouter_neighbors.append(vrouter_mac_entry['vrname'])
+                            if self._add_link(
+                                    prouter=prouter,
+                                    remote_system_name=vrouter_mac_entry['vrname'],
+                                    local_interface_name=ifm[snmpport],
+                                    remote_interface_name=vrouter_mac_entry[
+                                                'ifname'],
+                                    local_interface_index=snmpport,
+                                    remote_interface_index=1, #dont know TODO:FIX
+                                    link_type=2):
+                                vrouter_neighbors.append(
+                                        vrouter_mac_entry['vrname'])
             for arp in d['PRouterEntry']['arpTable']:
                 if arp['ip'] in self.vrouter_ips:
                     if arp['mac'] in map(lambda x: x['mac_address'],
@@ -125,14 +156,15 @@ class Controller(object):
                         is_lldp_int = any(ifm[arp['localIfIndex']] == lldp_int for lldp_int in lldp_ints)
                         if is_lldp_int:
                             continue
-                        self.link[pr].append({
-                            'remote_system_name': self.vrouter_ips[vr_name],
-                            'local_interface_name': ifm[arp['localIfIndex']],
-                            'remote_interface_name': vr['if'][-1]['name'],#TODO
-                            'local_interface_index': arp['localIfIndex'],
-                            'remote_interface_index': 1, #dont know TODO:FIX
-                            'type': 2
-                                })
+                        if self._add_link(
+                                prouter=prouter,
+                                remote_system_name=self.vrouter_ips[vr_name],
+                                local_interface_name=ifm[arp['localIfIndex']],
+                                remote_interface_name=vr['if'][-1]['name'],#TODO
+                                local_interface_index=arp['localIfIndex'],
+                                remote_interface_index=1, #dont know TODO:FIX
+                                link_type=2):
+                            pass
 
     def send_uve(self):
         self.uve.send(self.link)
