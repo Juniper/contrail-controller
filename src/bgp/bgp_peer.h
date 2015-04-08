@@ -80,7 +80,7 @@ public:
                           const std::string &data = std::string());
 
     // thread: io::ReaderTask
-    void ProcessUpdate(const BgpProto::Update *msg);
+    void ProcessUpdate(const BgpProto::Update *msg, size_t msgsize = 0);
 
     // thread: io::ReaderTask
     virtual bool ReceiveMsg(BgpSession *session, const u_int8_t *msg,
@@ -187,20 +187,33 @@ public:
     void inc_rx_update();
     void inc_rx_notification();
 
+    void inc_rx_end_of_rib();
+    void inc_rx_route_reach(uint32_t count);
+    void inc_rx_route_unreach(uint32_t count);
     void inc_rx_route_update();
-    void inc_rx_route_reach();
-    void inc_rx_route_unreach();
+
+    void inc_tx_end_of_rib();
+    void inc_tx_route_unreach();
     void inc_tx_route_update();
 
     size_t get_rx_keepalive();
     size_t get_rx_notification();
     size_t get_tr_keepalive();
 
+    size_t get_rx_end_of_rib() const;
+    size_t get_rx_route_reach() const;
+    size_t get_rx_route_unreach() const;
+
+    size_t get_tx_end_of_rib() const;
+    size_t get_tx_route_reach() const;
+    size_t get_tx_route_unreach() const;
+
     void inc_connect_error();
     void inc_connect_timer_expired();
     void inc_hold_timer_expired();
     void inc_open_error();
     void inc_update_error();
+
     size_t get_connect_error();
     size_t get_connect_timer_expired();
     size_t get_hold_timer_expired();
@@ -243,6 +256,7 @@ private:
     void StopKeepaliveTimerUnlocked();
     bool KeepaliveTimerExpired();
  
+    void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
     void SendEndOfRIB(Address::Family family);
     void StartEndOfRibTimer();
     bool EndOfRibTimerExpired();

@@ -15,6 +15,7 @@ struct PeerUpdateStats {
     1: u32 total;
     2: u32 reach;
     3: u32 unreach;
+    4: u32 end_of_rib;
 }
 
 struct PeerSocketStats {

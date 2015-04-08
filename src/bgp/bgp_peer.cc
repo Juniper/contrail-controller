@@ -261,6 +261,19 @@ private:
     BgpPeer *peer_;
 };
 
+void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
+    inc_rx_end_of_rib();
+    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
+        "EndOfRib marker family " << Address::FamilyToString(family) <<
+        " size " << msgsize);
+
+    if (family != Address::RTARGET)
+        return;
+    end_of_rib_timer_->Cancel();
+    RegisterToVpnTables(true);
+}
+
 void BgpPeer::SendEndOfRIB(Address::Family family) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
 
@@ -275,9 +288,14 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
     BgpMpNlri *nlri = new BgpMpNlri(BgpAttribute::MPUnreachNlri, afi, safi);
     update.path_attributes.push_back(nlri);
     uint8_t data[256];
-    int result = BgpProto::Encode(&update, data, sizeof(data));
-    assert(result > BgpProto::kMinMessageSize);
-    session_->Send(data, result, NULL);
+    int msgsize = BgpProto::Encode(&update, data, sizeof(data));
+    assert(msgsize > BgpProto::kMinMessageSize);
+    session_->Send(data, msgsize, NULL);
+    inc_tx_end_of_rib();
+    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+        "EndOfRib marker family " << Address::FamilyToString(family) <<
+        " size " << msgsize);
 }
 
 void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table, 
@@ -926,10 +944,6 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
         return true;
 
     if (!SkipUpdateSend()) {
-        if (Sandesh::LoggingLevel() >= Sandesh::LoggingUtLevel()) {
-            BGP_LOG_PEER(Message, this, Sandesh::LoggingUtLevel(),
-                         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT, "Update");
-        }
         send_ready_ = session_->Send(msg, msgsize, NULL);
         if (send_ready_) {
             StartKeepaliveTimerUnlocked();
@@ -1038,7 +1052,7 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
     return false;
 }
 
-void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
+void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
     BgpAttrPtr attr = server_->attr_db()->Locate(msg->path_attributes);
     // Check as path loop and neighbor-as 
     const BgpAttr *path_attr = attr.get(); 
@@ -1059,6 +1073,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         }
     }
 
+    uint32_t reach_count = 0, unreach_count = 0;
     RoutingInstance *instance = GetRoutingInstance();
     if (msg->nlri.size() || msg->withdrawn_routes.size()) {
         InetTable *table =
@@ -1069,6 +1084,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             return;
         }
 
+        unreach_count += msg->withdrawn_routes.size();
         for (vector<BgpProtoPrefix *>::const_iterator it =
              msg->withdrawn_routes.begin(); it != msg->withdrawn_routes.end();
              ++it) {
@@ -1086,9 +1102,9 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             req.data.reset(NULL);
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
-            inc_rx_route_unreach();
         }
 
+        reach_count += msg->nlri.size();
         for (vector<BgpProtoPrefix *>::const_iterator it = msg->nlri.begin();
              it != msg->nlri.end(); ++it) {
             Ip4Prefix prefix;
@@ -1105,7 +1121,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             req.data.reset(new InetTable::RequestData(attr, flags, 0));
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
-            inc_rx_route_reach();
         }
     }
 
@@ -1115,16 +1130,19 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         DBRequest::DBOperation oper;
         if ((*ait)->code == BgpAttribute::MPReachNlri) {
             oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            inc_rx_route_reach();
         } else if ((*ait)->code == BgpAttribute::MPUnreachNlri) {
             oper = DBRequest::DB_ENTRY_DELETE;
-            inc_rx_route_unreach();
         } else {
             continue;
         }
 
         BgpMpNlri *nlri = static_cast<BgpMpNlri *>(*ait);
-        if (!nlri) continue;
+        assert(nlri);
+        if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+            reach_count += nlri->nlri.size();
+        } else {
+            unreach_count += nlri->nlri.size();
+        }
 
         Address::Family family = BgpAf::AfiSafiToFamily(nlri->afi, nlri->safi);
         if (!IsFamilyNegotiated(family)) {
@@ -1133,6 +1151,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                          "AFI "<< nlri->afi << " SAFI " << (int) nlri->safi <<
                          " not allowed");
             continue;
+        }
+
+        // Handle EndOfRib marker.
+        if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
+            ReceiveEndOfRIB(family, msgsize);
+            return;
         }
 
         if ((*ait)->code == BgpAttribute::MPReachNlri)
@@ -1298,13 +1322,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 static_cast<RTargetTable *>(instance->GetTable(family));
             assert(table);
 
-            // Check for End-Of-RIB message.
-            if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
-                end_of_rib_timer_->Cancel();
-                RegisterToVpnTables(true);
-                return;
-            }
-
             vector<BgpProtoPrefix *>::const_iterator it;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
                 RTargetPrefix prefix;
@@ -1331,6 +1348,15 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         default:
             continue;
         }
+    }
+
+    inc_rx_route_reach(reach_count);
+    inc_rx_route_unreach(unreach_count);
+    if (Sandesh::LoggingLevel() >= Sandesh::LoggingUtLevel()) {
+        BGP_LOG_PEER(Message, this, Sandesh::LoggingUtLevel(),
+            BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
+            "Update size " << msgsize <<
+            " reach " << reach_count << " unreach " << unreach_count);
     }
 }
 
@@ -1530,7 +1556,7 @@ bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
     if (minfo->type != BgpProto::KEEPALIVE)
         BGP_TRACE_PEER_PACKET(this, msg, size, Sandesh::LoggingUtLevel());
 
-    state_machine_->OnMessage(session, minfo);
+    state_machine_->OnMessage(session, minfo, size);
     return true;
 }
 
@@ -1642,6 +1668,7 @@ static void FillRouteUpdateStats(const IPeerDebugStats::UpdateStats &stats,
     rt_stats.total = stats.total;
     rt_stats.reach = stats.reach;
     rt_stats.unreach = stats.unreach;
+    rt_stats.end_of_rib = stats.end_of_rib;
 }
 
 static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
@@ -1762,6 +1789,22 @@ size_t BgpPeer::get_rx_notification() {
     return peer_stats_->proto_stats_[0].notification;
 }
 
+void BgpPeer::inc_rx_end_of_rib() {
+    peer_stats_->update_stats_[0].end_of_rib++;
+}
+
+size_t BgpPeer::get_rx_end_of_rib() const {
+    return peer_stats_->update_stats_[0].end_of_rib;
+}
+
+void BgpPeer::inc_tx_end_of_rib() {
+    peer_stats_->update_stats_[1].end_of_rib++;
+}
+
+size_t BgpPeer::get_tx_end_of_rib() const {
+    return peer_stats_->update_stats_[1].end_of_rib;
+}
+
 void BgpPeer::inc_rx_route_update() {
     peer_stats_->update_stats_[0].total++;
 }
@@ -1770,12 +1813,32 @@ void BgpPeer::inc_tx_route_update() {
     peer_stats_->update_stats_[1].total++;
 }
 
-void BgpPeer::inc_rx_route_reach() {
-    peer_stats_->update_stats_[0].reach++;
+void BgpPeer::inc_rx_route_reach(uint32_t count) {
+    peer_stats_->update_stats_[0].reach += count;
 }
 
-void BgpPeer::inc_rx_route_unreach() {
-    peer_stats_->update_stats_[0].unreach++;
+size_t BgpPeer::get_rx_route_reach() const {
+    return peer_stats_->update_stats_[0].reach;
+}
+
+size_t BgpPeer::get_tx_route_reach() const {
+    return peer_stats_->update_stats_[1].reach;
+}
+
+void BgpPeer::inc_rx_route_unreach(uint32_t count) {
+    peer_stats_->update_stats_[0].unreach += count;
+}
+
+size_t BgpPeer::get_rx_route_unreach() const {
+    return peer_stats_->update_stats_[0].unreach;
+}
+
+void BgpPeer::inc_tx_route_unreach() {
+    peer_stats_->update_stats_[1].unreach++;
+}
+
+size_t BgpPeer::get_tx_route_unreach() const {
+    return peer_stats_->update_stats_[1].unreach;
 }
 
 void BgpPeer::inc_connect_error() {
