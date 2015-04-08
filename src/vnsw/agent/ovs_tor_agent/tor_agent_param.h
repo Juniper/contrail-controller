@@ -18,6 +18,7 @@ class TorAgentParam : public AgentParam  {
     };
 
     struct TorInfo {
+        TorInfo() : keepalive_interval_(-1) {}
         std::string type_;
         Ip4Address ip_;
         Ip4Address tsn_ip_;
@@ -25,6 +26,9 @@ class TorAgentParam : public AgentParam  {
         // Protocol to connect to ToR
         std::string protocol_;
         int port_;
+        // keepalive interval in milli seconds, -1 for unconfigured
+        // 0 for no keep alive
+        int keepalive_interval_;
     };
 
     explicit TorAgentParam(Agent *agent);
@@ -38,6 +42,7 @@ class TorAgentParam : public AgentParam  {
     Ip4Address tor_ip() const { return tor_info_.ip_; }
     Ip4Address tsn_ip() const { return tor_info_.tsn_ip_; }
     int tor_port() const { return tor_info_.port_; }
+    int keepalive_interval() const { return tor_info_.keepalive_interval_; }
 
  private:
     virtual void InitFromConfig();
