@@ -77,6 +77,18 @@ class LldpLocSysNameTable(SnmpTable):
     def py_obj(self):
         return self.name
 
+class IfOperStatusIfTable(SnmpTable):
+    def table_names(self):
+        return 'ifOperStatus'
+
+    def ifOperStatus_translator(self, snmp_dict):
+        self.data = {}
+        for x in snmp_dict['vars']:
+            self.data[x.iid] = self.normalize(x)
+
+    def py_obj(self):
+        return self.data
+
 class IpMib(SnmpTable):
     def table_names(self):
         return 'ipAdEntIfIndex'
@@ -314,6 +326,11 @@ class SnmpSession(netsnmp.Session):
         if 'LldpTable' in self.snmpTables:
             return self.snmpTables['LldpTable'].get_name()
         t = LldpLocSysNameTable(self)
+        t.snmp_get()
+        return t.py_obj()
+
+    def get_if_status(self):
+        t =  IfOperStatusIfTable(self)
         t.snmp_get()
         return t.py_obj()
 

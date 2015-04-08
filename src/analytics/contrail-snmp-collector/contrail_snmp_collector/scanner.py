@@ -15,14 +15,21 @@ class Controller(object):
         self.out_file = d['out']
         self.netdevices = d['netdev']
         self.instance = d['instance']
+        self.restict = False
+        if 'restict' in d and 'ifOperStatus' in d['restict']:
+            self.restict = True
         self._cfg.input.close()
 
     def task(self, netdev, sessions):
         print('@task(%d):started...' % self.instance)
         ses = SnmpSession(netdev)
-        ses.scan_device()
-        gevent.sleep(0)
-        data = ses.get_data()
+        if self.restict:
+            data = dict(name=netdev.name, ifOperStatus=ses.get_if_status())
+            gevent.sleep(0)
+        else:
+            ses.scan_device()
+            gevent.sleep(0)
+            data = ses.get_data()
         sessions.put_nowait({data['name']: {
                 'name': netdev.name,
                 'snmp': data,
