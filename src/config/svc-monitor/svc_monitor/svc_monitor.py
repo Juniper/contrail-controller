@@ -259,7 +259,10 @@ class SvcMonitor(object):
     #end _check_store_si_info
 
     def _restart_svc(self, si_fq_str):
-        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
+        try:
+            si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
+        except NoIdError:
+            return
         st_list = si_obj.get_service_template_refs()
         if st_list is not None:
             fq_name = st_list[0]['to']
