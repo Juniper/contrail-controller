@@ -21,6 +21,56 @@ class Controller(object):
         self.last = set()
         self._sem = None
         self._config.set_cb(self.notify)
+        self._state = 'full_scan' # replace it w/ fsm
+        self._factor = 10 # replace it w/ fsm
+        self._curr_idx = 0 # replace it w/ fsm
+        self._if_data = None # replace it w/ fsm
+        self._if_ccnt = 0 # replace it w/ fsm
+        self._if_ccnt_max = 3 # replace it w/ fsm
+
+    def _make_if_cdata(self, data):
+        if_cdata = {}
+        for dev in data:
+            if 'snmp' in data[dev]:
+                if 'ifMib' in data[dev]['snmp']:
+                    if 'ifTable' in data[dev]['snmp']['ifMib']:
+                        if_cdata[dev] = dict(map(lambda x: (
+                                x['ifDescr'], x['ifOperStatus']), filter(
+                                        lambda x: 'ifOperStatus' in x and \
+                                        'ifDescr' in x, data[dev]['snmp'][
+                                                'ifMib']['ifTable'])))
+        return if_cdata
+
+    def _chk_if_change(self, data):
+        if_cdata = self._make_if_cdata(data)
+        if if_cdata == self._if_data:
+            return False
+        self._if_ccnt += 1
+        if self._if_ccnt == self._if_ccnt_max:
+            self._if_data = if_cdata
+            self._if_ccnt = 0
+            return True
+        return False
+
+    def _extra_call_params(self):
+        if self._state != 'full_scan':
+            return dict(restrict='ifOperStatus')
+        return {}
+
+    def _analyze(self, data):
+        chngd = self._chk_if_change(data)
+        if self._state != 'full_scan':
+            self._curr_idx += 1
+            if self._curr_idx == self._factor or chngd:
+                self._state = 'full_scan'
+            ret = False, self._sleep_time/self._factor
+        else:
+            self._state = 'fast_scan'
+            self._curr_idx = 0
+            ret = True, self._sleep_time
+        self._logger.debug('@do_work(analyze):State %s(%d)->%s!' % (self._state,
+                    len(data), str(ret)))
+        return ret
 
     def notify(self, svc, msg='', up=True, servers=''):
         self.uve.conn_state_notify(svc, msg, up, servers)
@@ -41,11 +91,14 @@ class Controller(object):
         output_file = os.path.join(cdir, 'out.data')
         return cdir, input_file, output_file
 
-    def _create_input(self, input_file, output_file, devices, i):
+    def _create_input(self, input_file, output_file, devices, i, restrict=None):
         with open(input_file, 'wb') as f:
-            pickle.dump(dict(out=output_file,
+            data = dict(out=output_file,
                         netdev=devices,
-                        instance=i), f)
+                        instance=i)
+            if restrict:
+                data['restrict'] = restrict
+            pickle.dump(data, f)
             f.flush()
 
     def _run_scanner(self, input_file, output_file, i):
@@ -80,20 +133,26 @@ class Controller(object):
 
     def do_work(self, i, devices):
         self._logger.debug('@do_work(%d):started (%d)...' % (i, len(devices)))
+        sleep_time = self._sleep_time
         if devices:
             with self._sem:
                 self._work_set = devices
                 cdir, input_file, output_file = self._setup_io()
-                self._create_input(input_file, output_file, devices, i)
-                self._send_uve(self._run_scanner(input_file, output_file, i))
-                gevent.sleep(0)
+                self._create_input(input_file, output_file, devices,
+                                   i, **self._extra_call_params())
+                data = self._run_scanner(input_file, output_file, i)
                 self._cleanup_io(cdir, input_file, output_file)
+                do_send, sleep_time = self._analyze(data)
+                if do_send:
+                    self._send_uve(data)
+                    gevent.sleep(0)
                 del self._work_set
         self._logger.debug('@do_work(%d):Processed %d!' % (i, len(devices)))
+        return sleep_time
 
     def find_fix_name(self, cfg_name, snmp_name):
         if snmp_name != cfg_name:
-            self._logger.debug('@do_work: snmp name %s differs from ' \
+            self._logger.debug('@find_fix_name: snmp name %s differs from ' \
                     'configured name %s, fixed for this run' % (
                             snmp_name, cfg_name))
             for d in self._work_set:
@@ -112,12 +171,12 @@ class Controller(object):
         while self._keep_running:
             self._logger.debug('@run: ittr(%d)' % i)
             if constnt_schdlr.schedule(self._config.devices()):
-                self.do_work(i, constnt_schdlr.work_items())
+                sleep_time = self.do_work(i, constnt_schdlr.work_items())
                 self._logger.debug('done work %s' % str(
                             map(lambda x: x.name,
                             constnt_schdlr.work_items())))
                 i += 1
-                gevent.sleep(self._sleep_time)
+                gevent.sleep(sleep_time)
             else:
                 gevent.sleep(1)
         constnt_schdlr.finish()
