@@ -640,7 +640,11 @@ class NetworkNamespaceManager(InstanceManager):
             si_refs = vm_obj.get_service_instance_refs()
             if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
                 vm_obj.set_service_instance(si_obj)
-                self._vnc_lib.virtual_machine_update(vm_obj)
+                try:
+                    self._vnc_lib.virtual_machine_update(vm_obj)
+                except NoIdError:
+                    self.logger.log("Info: VM %s disappeared. Abort." % (instance_name))
+                    return
                 self.logger.log("Info: VM %s updated with SI %s" %
                     (instance_name, si_obj.get_fq_name_str()))
 
@@ -662,11 +666,20 @@ class NetworkNamespaceManager(InstanceManager):
                     si_obj, local_preference=int(local_preference),
                     user_visible=user_visible,
                     ha_mode=si_props.get_ha_mode())
+                if not vmi_obj:
+                    self.logger.log("Error: Cannot create VMI for VM %s. Abort." %
+                                    instance_name)
+                    return
                 if vmi_obj.get_virtual_machine_refs() is None:
                     vmi_obj.set_virtual_machine(vm_obj)
-                    self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-                    self.logger.log("Info: VMI %s updated with VM %s" %
-                                    (vmi_obj.get_fq_name_str(), instance_name))
+                    try:
+                        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+                        self.logger.log("Info: VMI %s updated with VM %s" %
+                                        (vmi_obj.get_fq_name_str(), instance_name))
+                    except NoIdError:
+                        self.logger.log("Info: VMI %s of VM %s disappeared. Abort." %
+                                        (vmi_obj.get_fq_name_str(), instance_name))
+                        return
 
             # Associate instance on the scheduled vrouter
             chosen_vr_fq_name = None
@@ -709,25 +722,46 @@ class NetworkNamespaceManager(InstanceManager):
             vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
         except NoIdError:
             raise KeyError
+
         for vmi in vm_obj.get_virtual_machine_interface_back_refs() or []:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                id=vmi['uuid'])
-            for ip in vmi_obj.get_instance_ip_back_refs() or []:
-                iip_obj = self._vnc_lib.instance_ip_read(id=ip['uuid'])
-                iip_obj.del_virtual_machine_interface(vmi_obj)
-                vmi_refs = iip_obj.get_virtual_machine_interface_refs()
-                if not vmi_refs:
-                    self._vnc_lib.instance_ip_delete(id=ip['uuid'])
-                else:
-                    self._vnc_lib.instance_ip_update(iip_obj)
-            self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
+            try:
+                vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                    id=vmi['uuid'])
+                for ip in vmi_obj.get_instance_ip_back_refs() or []:
+                    try:
+                        iip_obj = self._vnc_lib.instance_ip_read(id=ip['uuid'])
+                        iip_obj.del_virtual_machine_interface(vmi_obj)
+                        if not iip_obj.get_virtual_machine_interface_refs():
+                            try:
+                                self._vnc_lib.instance_ip_delete(id=ip['uuid'])
+                            except RefsExistError:
+                                import ipdb; ipdb.set_trace()
+                        else:
+                            self._vnc_lib.instance_ip_update(iip_obj)
+                    except NoIdError:
+                        continue
+            except NoIdError:
+                continue
+            try:
+                self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
+            except NoIdError:
+                continue
+
         for vr in vm_obj.get_virtual_router_back_refs() or []:
-            vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
-            vr_obj.del_virtual_machine(vm_obj)
-            self._vnc_lib.virtual_router_update(vr_obj)
-            self.logger.log("UPDATE: Svc VM %s deleted from VR %s" %
-                (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
-        self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
+            try:
+                vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
+                vr_obj.del_virtual_machine(vm_obj)
+                self._vnc_lib.virtual_router_update(vr_obj)
+                self.logger.log("UPDATE: Svc VM %s deleted from VR %s" %
+                    (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
+            except NoIdError:
+                continue
+        try:
+            self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
+        except NoIdError:
+            pass
+        except RefsExistError:
+            import ipdb; ipdb.set_trace()
 
     def check_service(self, si_obj, proj_name=None):
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
@@ -770,18 +804,25 @@ class NetworkNamespaceManager(InstanceManager):
             vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj,
                                         user_visible=False)
 
+        si_entry = {}
+        si_entry['left-vn'] = vn_name
+        si_entry[vn_name] = vn_id
+
         if vn_fq_name_str != ':'.join(vn_fq_name):
             left_if = ServiceInstanceInterfaceType(
                 virtual_network=':'.join(vn_fq_name))
             si_props.insert_interface_list(idx, left_if)
             si_obj.set_service_instance_properties(si_props)
-            self._vnc_lib.service_instance_update(si_obj)
-            self.logger.log("Info: SI %s updated with left vn %s" %
-                             (si_obj.get_fq_name_str(), vn_fq_name_str))
+            try:
+                self._vnc_lib.service_instance_update(si_obj)
+                self.logger.log("Info: SI %s updated with left vn %s" %
+                                (si_obj.get_fq_name_str(), vn_fq_name_str))
+            except NoIdError:
+                self.logger.log("Error: SI %s disappear. Abort." %
+                                si_obj.get_fq_name_str())
+                si_entry['state'] = 'deleting'
+                vn_id = None
 
-        si_entry = {}
-        si_entry['left-vn'] = vn_name
-        si_entry[vn_name] = vn_id
         self.db.service_instance_insert(si_obj.get_fq_name_str(), si_entry)
 
         return vn_id

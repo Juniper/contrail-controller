@@ -328,6 +328,9 @@ class VncIfmapClient(VncIfmapClientGen):
 
         self._publish_with_trace('delete', del_str, async=False)
 
+        if self_imid not in self._id_to_metas:
+            return
+
         # del meta from cache and del id if this was last meta
         if meta_name:
             prop_name = meta_name.replace('contrail:', '')
@@ -356,6 +359,8 @@ class VncIfmapClient(VncIfmapClientGen):
 
         # del meta,id2 from cache and del id if this was last meta
         def _id_to_metas_delete(id1, id2, meta_name):
+            if id1 not in self._id_to_metas.keys():
+                return
             if meta_name not in self._id_to_metas[id1]:
                 return
             if not self._id_to_metas[id1][meta_name]:
@@ -1242,6 +1247,10 @@ class VncKombuClient(object):
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
                 r_class.dbe_create_notification(obj_info, obj_dict)
+        except NoIdError:
+            err_msg = "Failed to invoke type specific dbe_create_notification for %s %s" %\
+                      (obj_info['type'], ':'.join(obj_dict['fq_name']))
+            return
         except Exception as e:
             err_msg = "Failed to invoke type specific dbe_create_notification %s" %(str(e))
             self._db_client_mgr.config_log_error(err_msg)
@@ -1261,7 +1270,11 @@ class VncKombuClient(object):
     # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
-        (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+        try:
+            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+        except NoIdError:
+            return
+
         if not ok:
             raise Exception(result)
 
@@ -1462,9 +1475,14 @@ class VncDbClient(object):
 
         proj_id = self.fq_name_to_uuid('project',
                                        ['default-domain', 'default-project'])
-        (ok, proj_dict) = self.dbe_read('project', {'uuid':proj_id})
-        if not ok:
+        try:
+            (ok, proj_dict) = self.dbe_read('project', {'uuid':proj_id})
+        except NoIdError:
             return
+
+        if not ok:
+            raise Exception(result)
+
         quota = QuotaType()
 
         proj_dict['quota'] = default_quota
@@ -1678,7 +1696,7 @@ class VncDbClient(object):
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
         except ResourceExistsError as e:
-            return (409, str(e))
+            return (False, str(e))
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
@@ -1686,7 +1704,7 @@ class VncDbClient(object):
         (ok, result) = method(parent_type, obj_dict['fq_name'])
         if not ok:
             self.dbe_release(obj_type, obj_dict['fq_name'])
-            return False, result
+            return (False, result)
 
         (my_imid, parent_imid) = result
         obj_ids = {
@@ -1733,10 +1751,7 @@ class VncDbClient(object):
         method_name = obj_type.replace('-', '_')
         method = getattr(
             self._cassandra_db, "_cassandra_%s_read" % (method_name))
-        try:
-            (ok, cassandra_result) = method([obj_ids['uuid']], obj_fields)
-        except NoIdError as e:
-            return (False, str(e))
+        (ok, cassandra_result) = method([obj_ids['uuid']], obj_fields)
 
         return (ok, cassandra_result[0])
     # end dbe_read

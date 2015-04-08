@@ -1374,9 +1374,8 @@ class VncApiServer(VncApiServerGen):
         try:
             obj_uuid = self._db_conn.fq_name_to_uuid(
                 obj_type, obj_dict['fq_name'])
-            bottle.abort(
-                409, '' + pformat(obj_dict['fq_name']) +
-                ' already exists with uuid: ' + obj_uuid)
+            return (False, (409, pformat(obj_dict['fq_name']) +
+                ' already exists with uuid: ' + obj_uuid))
         except NoIdError:
             pass
 
@@ -1402,9 +1401,8 @@ class VncApiServer(VncApiServerGen):
         if uuid_in_req:
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
-                bottle.abort(
-                    409, uuid_in_req + ' already exists with fq_name: ' +
-                    pformat(fq_name))
+                return (False, (409, uuid_in_req + ' already exists with fq_name: ' +
+                        pformat(fq_name)))
             except NoIdError:
                 pass
             apiConfig.identifier_uuid = uuid_in_req
