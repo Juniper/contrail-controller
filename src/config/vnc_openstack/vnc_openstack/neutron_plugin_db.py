@@ -743,7 +743,7 @@ class DBInterface(object):
         return resp_dict['network-policys']
     #end _policy_list_project
 
-    def _logical_router_list(self, parent_id=None, back_ref_id=None, 
+    def _logical_router_list(self, parent_id=None, back_ref_id=None,
                              obj_uuids=None, fields=None):
         rtr_obj = self._vnc_lib.logical_routers_list(parent_id=parent_id,
                                                      back_ref_id=back_ref_id,
@@ -3070,7 +3070,16 @@ class DBInterface(object):
             bottle.abort(400, json.dumps(exc_info))
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
+        si_name = None
+        si_key = 'si_' + router_obj.uuid
+        try:
+            si_name = self._vnc_lib.kv_retrieve(key=si_key)
+
+            # (safchain): already set, so nothing to do
+            return
+        except NoIdError:
+            si_name = 'si_' + router_obj.uuid + '_' + str(uuid.uuid4())
+
         si_fq_name = project_obj.get_fq_name() + [si_name]
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
@@ -3107,7 +3116,10 @@ class DBInterface(object):
         si_obj.set_service_instance_properties(si_prop_obj)
         si_obj.set_service_template(st_obj)
         if si_created:
-            si_uuid = self._vnc_lib.service_instance_create(si_obj)
+            try:
+                si_uuid = self._vnc_lib.service_instance_create(si_obj)
+            except RefsExistError:
+                self._vnc_lib.service_instance_update(si_obj)
         else:
             self._vnc_lib.service_instance_update(si_obj)
 
@@ -3120,7 +3132,10 @@ class DBInterface(object):
             rt_created = True
         rt_obj.set_routes(RouteTableType.factory([route_obj]))
         if rt_created:
-            rt_uuid = self._vnc_lib.route_table_create(rt_obj)
+            try:
+                rt_uuid = self._vnc_lib.route_table_create(rt_obj)
+            except RefsExistError:
+                self._vnc_lib.route_table_update(rt_obj)
         else:
             self._vnc_lib.route_table_update(rt_obj)
 
@@ -3139,20 +3154,32 @@ class DBInterface(object):
 
         # Add logical gateway virtual network
         router_obj.set_service_instance(si_obj)
-	router_obj.set_virtual_network(ext_net_obj)
+        router_obj.set_virtual_network(ext_net_obj)
         self._vnc_lib.logical_router_update(router_obj)
+
+        if si_created:
+            self._vnc_lib.kv_store(si_key, si_name)
 
     def _router_clear_external_gateway(self, router_obj):
         project_obj = self._project_read(proj_id=router_obj.parent_uuid)
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
-        si_fq_name = project_obj.get_fq_name() + [si_name]
+        si_name = None
+        si_key = 'si_' + router_obj.uuid
         try:
-            si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            si_uuid = si_obj.uuid
+            si_name = self._vnc_lib.kv_retrieve(key=si_key)
+            self._vnc_lib.kv_delete(si_key)
         except NoIdError:
-            si_obj = None
+            pass
+
+        si_obj = None
+        if si_name:
+            si_fq_name = project_obj.get_fq_name() + [si_name]
+            try:
+                si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
+                si_uuid = si_obj.uuid
+            except NoIdError:
+                si_obj = None
 
         # Get route table for default route it it exists
         rt_name = 'rt_' + router_obj.uuid
@@ -3171,11 +3198,14 @@ class DBInterface(object):
                 try:
                     net_obj = self._vnc_lib.virtual_network_read(
                         id=net_ref['uuid'])
+                    net_obj.del_route_table(rt_obj)
+                    self._vnc_lib.virtual_network_update(net_obj)
                 except NoIdError:
                     continue
-                net_obj.del_route_table(rt_obj)
-                self._vnc_lib.virtual_network_update(net_obj)
-            self._vnc_lib.route_table_delete(id=rt_obj.uuid)
+            try:
+                self._vnc_lib.route_table_delete(id=rt_obj.uuid)
+            except NoIdError:
+                pass
 
         # Clear logical gateway virtual network
         router_obj.set_virtual_network_list([])
@@ -3184,7 +3214,10 @@ class DBInterface(object):
 
         # Delete service instance
         if si_obj:
-            self._vnc_lib.service_instance_delete(id=si_uuid)
+            try:
+                self._vnc_lib.service_instance_delete(id=si_uuid)
+            except NoIdError:
+                pass
 
     def _set_snat_routing_table(self, router_obj, network_id):
         project_obj = self._project_read(proj_id=router_obj.parent_uuid)

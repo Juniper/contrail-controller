@@ -328,6 +328,9 @@ class VncIfmapClient(VncIfmapClientGen):
 
         self._publish_with_trace('delete', del_str, async=False)
 
+        if self_imid not in self._id_to_metas:
+            return
+
         # del meta from cache and del id if this was last meta
         if meta_name:
             prop_name = meta_name.replace('contrail:', '')
@@ -356,6 +359,8 @@ class VncIfmapClient(VncIfmapClientGen):
 
         # del meta,id2 from cache and del id if this was last meta
         def _id_to_metas_delete(id1, id2, meta_name):
+            if id1 not in self._id_to_metas.keys():
+                return
             if meta_name not in self._id_to_metas[id1]:
                 return
             if not self._id_to_metas[id1][meta_name]:
@@ -1242,6 +1247,10 @@ class VncKombuClient(object):
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
                 r_class.dbe_create_notification(obj_info, obj_dict)
+        except NoIdError:
+            err_msg = "Failed to invoke type specific dbe_create_notification for %s %s" %\
+                      (obj_info['type'], ':'.join(obj_dict['fq_name']))
+            return
         except Exception as e:
             err_msg = "Failed to invoke type specific dbe_create_notification %s" %(str(e))
             self._db_client_mgr.config_log_error(err_msg)
@@ -1263,7 +1272,7 @@ class VncKombuClient(object):
     def _dbe_update_notification(self, obj_info):
         (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
         if not ok:
-            raise Exception(result)
+            return
 
         new_obj_dict = result
 
@@ -1678,7 +1687,7 @@ class VncDbClient(object):
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
         except ResourceExistsError as e:
-            return (409, str(e))
+            return (False, (409, str(e)))
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
@@ -1686,7 +1695,7 @@ class VncDbClient(object):
         (ok, result) = method(parent_type, obj_dict['fq_name'])
         if not ok:
             self.dbe_release(obj_type, obj_dict['fq_name'])
-            return False, result
+            return (False, result)
 
         (my_imid, parent_imid) = result
         obj_ids = {
@@ -1794,7 +1803,10 @@ class VncDbClient(object):
         method_name = obj_type.replace('-', '_')
         method = getattr(
             self._cassandra_db, "_cassandra_%s_delete" % (method_name))
-        (ok, cassandra_result) = method(obj_ids['uuid'])
+        try:
+            (ok, cassandra_result) = method(obj_ids['uuid'])
+        except pycassa.NotFoundException:
+            raise NoIdError(obj_ids['uuid'])
 
         # publish to ifmap via redis
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)

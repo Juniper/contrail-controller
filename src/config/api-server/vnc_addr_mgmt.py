@@ -386,9 +386,14 @@ class AddrMgmt(object):
                         dns_nameservers=nameservers,
                         alloc_pool_list=allocation_pools,
                         addr_from_start=addr_start)
-                    self._subnet_objs[vn_fq_name_str][subnet_name] = \
-                         subnet_obj
-                    ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+                    # The subnet could be remove by another thread
+                    if vn_fq_name_str in self._subnet_objs.keys():
+                        self._subnet_objs[vn_fq_name_str][subnet_name] = \
+                            subnet_obj
+                        ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+                    else:
+                        del subnet_obj
+
     # end _create_subnet_objs
 
     def net_create_req(self, obj_dict):

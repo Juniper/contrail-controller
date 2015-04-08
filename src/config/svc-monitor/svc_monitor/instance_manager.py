@@ -91,18 +91,14 @@ class InstanceManager(object):
         return vm_entry
 
     def _allocate_iip(self, proj_obj, vn_obj, iip_name):
+        iip_obj = InstanceIp(name=iip_name)
+        iip_obj.add_virtual_network(vn_obj)
         try:
-            iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
-        except NoIdError:
-            iip_obj = None
-
-        # allocate ip
-        if not iip_obj:
-            iip_obj = InstanceIp(name=iip_name)
-            iip_obj.add_virtual_network(vn_obj)
+            self._vnc_lib.instance_ip_create(iip_obj)
+        except RefsExistError:
             try:
-                self._vnc_lib.instance_ip_create(iip_obj)
-            except Exception as e:
+                iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
+            except NoIdError:
                 return None
 
         return iip_obj
@@ -193,13 +189,24 @@ class InstanceManager(object):
                 vmi_updated = True
 
         if vmi_create:
-            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-        elif vmi_updated:
-            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+            try:
+                self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            except RefsExistError:
+                # The VMI was already created => update it
+                vmi_create = False
+        if not vmi_create and vmi_updated:
+            try:
+                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+            except NoIdError:
+                # The VMI was delete, abort
+                return
 
         # instance ip
         if 'iip-id' in nic:
-            iip_obj = self._vnc_lib.instance_ip_read(id=nic['iip-id'])
+            try:
+                iip_obj = self._vnc_lib.instance_ip_read(id=nic['iip-id'])
+            except NoIdError:
+                return
         elif nic['shared-ip']:
             iip_name = si_obj.name + '-' + nic['type']
             iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
@@ -208,6 +215,10 @@ class InstanceManager(object):
             iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
 
         if not iip_obj:
+            try:
+                self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+            except NoIdError:
+                pass
             self.logger.log(
                 "Error: Instance IP not allocated for %s %s"
                 % (instance_name, proj_obj.name))
@@ -236,7 +247,10 @@ class InstanceManager(object):
                 iip_obj.set_instance_ip_mode(u'active-standby')
 
             iip_obj.add_virtual_machine_interface(vmi_obj)
-            self._vnc_lib.instance_ip_update(iip_obj)
+            try:
+                self._vnc_lib.instance_ip_update(iip_obj)
+            except NoIdError:
+                return
 
         return vmi_obj
 
@@ -257,7 +271,10 @@ class InstanceManager(object):
         subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
         subnet_data = VnSubnetsType([subnet_info])
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        self._vnc_lib.virtual_network_create(vn_obj)
+        try:
+            self._vnc_lib.virtual_network_create(vn_obj)
+        except RefsExistError:
+            self._vnc_lib.virtual_network_update(vn_obj)
 
         return vn_obj.uuid
 
@@ -630,17 +647,29 @@ class NetworkNamespaceManager(InstanceManager):
             # Create a virtual machine
             instance_name = self._get_instance_name(si_obj, inst_count)
             try:
-                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[instance_name])
-                self.logger.log("Info: VM %s already exists" % (instance_name))
-            except NoIdError:
                 vm_obj = VirtualMachine(instance_name)
                 self._vnc_lib.virtual_machine_create(vm_obj)
                 self.logger.log("Info: VM %s created" % (instance_name))
+            except RefsExistError:
+                try:
+                    vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[instance_name])
+                    self.logger.log("Info: VM %s already exists" % (instance_name))
+                except NoIdError:
+                    self.logger.log("Info: VM %s disappeared." % instance_name)
+                    return
 
             si_refs = vm_obj.get_service_instance_refs()
             if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
                 vm_obj.set_service_instance(si_obj)
-                self._vnc_lib.virtual_machine_update(vm_obj)
+                try:
+                    self._vnc_lib.virtual_machine_update(vm_obj)
+                except NoIdError:
+                    self.logger.log("Info: VM or SI %s disappeared. Clean VM and abort." % (instance_name))
+                    try:
+                        self.delete_service(vm_obj.uuid)
+                    except NoIdError:
+                        return
+                    return
                 self.logger.log("Info: VM %s updated with SI %s" %
                     (instance_name, si_obj.get_fq_name_str()))
 
@@ -662,11 +691,20 @@ class NetworkNamespaceManager(InstanceManager):
                     si_obj, local_preference=int(local_preference),
                     user_visible=user_visible,
                     ha_mode=si_props.get_ha_mode())
+                if not vmi_obj:
+                    self.logger.log("Error: Cannot create VMI for VM %s. Abort." %
+                                    instance_name)
+                    return
                 if vmi_obj.get_virtual_machine_refs() is None:
                     vmi_obj.set_virtual_machine(vm_obj)
-                    self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-                    self.logger.log("Info: VMI %s updated with VM %s" %
-                                    (vmi_obj.get_fq_name_str(), instance_name))
+                    try:
+                        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+                        self.logger.log("Info: VMI %s updated with VM %s" %
+                                        (vmi_obj.get_fq_name_str(), instance_name))
+                    except NoIdError:
+                        self.logger.log("Info: VMI %s of VM %s disappeared. Abort." %
+                                        (vmi_obj.get_fq_name_str(), instance_name))
+                        return
 
             # Associate instance on the scheduled vrouter
             chosen_vr_fq_name = None
@@ -709,25 +747,46 @@ class NetworkNamespaceManager(InstanceManager):
             vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
         except NoIdError:
             raise KeyError
-        for vmi in vm_obj.get_virtual_machine_interface_back_refs() or []:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                id=vmi['uuid'])
-            for ip in vmi_obj.get_instance_ip_back_refs() or []:
-                iip_obj = self._vnc_lib.instance_ip_read(id=ip['uuid'])
-                iip_obj.del_virtual_machine_interface(vmi_obj)
-                vmi_refs = iip_obj.get_virtual_machine_interface_refs()
-                if not vmi_refs:
-                    self._vnc_lib.instance_ip_delete(id=ip['uuid'])
-                else:
-                    self._vnc_lib.instance_ip_update(iip_obj)
-            self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
-        for vr in vm_obj.get_virtual_router_back_refs() or []:
-            vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
-            vr_obj.del_virtual_machine(vm_obj)
-            self._vnc_lib.virtual_router_update(vr_obj)
-            self.logger.log("UPDATE: Svc VM %s deleted from VR %s" %
-                (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
-        self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
+
+        try:
+            for vmi in vm_obj.get_virtual_machine_interface_back_refs() or []:
+                try:
+                    vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                        id=vmi['uuid'])
+                    for ip in vmi_obj.get_instance_ip_back_refs() or []:
+                        try:
+                            iip_obj = self._vnc_lib.instance_ip_read(id=ip['uuid'])
+                            iip_obj.del_virtual_machine_interface(vmi_obj)
+                            if not iip_obj.get_virtual_machine_interface_refs():
+                                self._vnc_lib.instance_ip_delete(id=ip['uuid'])
+                            else:
+                                self._vnc_lib.instance_ip_update(iip_obj)
+                        except NoIdError:
+                            continue
+                    self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
+                except NoIdError:
+                    continue
+
+            for vr in vm_obj.get_virtual_router_back_refs() or []:
+                try:
+                    vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
+                    vr_obj.del_virtual_machine(vm_obj)
+                    self._vnc_lib.virtual_router_update(vr_obj)
+                    self.logger.log("UPDATE: Svc VM %s deleted from VR %s" %
+                        (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
+                except NoIdError:
+                    continue
+        except NoIdError:
+            pass
+
+        try:
+            self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
+        except NoIdError:
+            pass
+        except RefsExistError:
+            self.logger.log("Cannot delete VM %s. Stills have some back references." % vm_obj.uuid)
+            return
+
 
     def check_service(self, si_obj, proj_name=None):
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
@@ -760,7 +819,7 @@ class NetworkNamespaceManager(InstanceManager):
     def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str, idx):
         # SNAT NetNS use a dedicated network (non shared vn)
         vn_name = '%s_%s' % (svc_info.get_snat_left_network_prefix_name(),
-                             si_obj.name)
+                             si_obj.uuid)
         vn_fq_name = proj_obj.get_fq_name() + [vn_name]
         try:
             vn_id = self._vnc_lib.fq_name_to_id('virtual-network',
@@ -770,18 +829,25 @@ class NetworkNamespaceManager(InstanceManager):
             vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj,
                                         user_visible=False)
 
+        si_entry = {}
+        si_entry['left-vn'] = vn_name
+        si_entry[vn_name] = vn_id
+
         if vn_fq_name_str != ':'.join(vn_fq_name):
             left_if = ServiceInstanceInterfaceType(
                 virtual_network=':'.join(vn_fq_name))
             si_props.insert_interface_list(idx, left_if)
             si_obj.set_service_instance_properties(si_props)
-            self._vnc_lib.service_instance_update(si_obj)
-            self.logger.log("Info: SI %s updated with left vn %s" %
-                             (si_obj.get_fq_name_str(), vn_fq_name_str))
+            try:
+                self._vnc_lib.service_instance_update(si_obj)
+                self.logger.log("Info: SI %s updated with left vn %s" %
+                                (si_obj.get_fq_name_str(), vn_fq_name_str))
+            except NoIdError:
+                self.logger.log("Error: SI %s disappear. Abort." %
+                                si_obj.get_fq_name_str())
+                si_entry['state'] = 'deleting'
+                vn_id = None
 
-        si_entry = {}
-        si_entry['left-vn'] = vn_name
-        si_entry[vn_name] = vn_id
         self.db.service_instance_insert(si_obj.get_fq_name_str(), si_entry)
 
         return vn_id
@@ -799,7 +865,8 @@ class NetworkNamespaceManager(InstanceManager):
             iip_back_refs = vmi_obj.get_instance_ip_back_refs()
             vn_refs = vmi_obj.get_virtual_network_refs()
             return iip_back_refs[0]['uuid'], vn_refs[0]['uuid']
-        except NoIdError:
+        except (NoIdError, TypeError) as e:
+            self.logger.log("Error: CWPATCH SI: %s - %s ." % (si_obj.uuid,  str(e)))
             return None, None
 
     def _get_local_prefs(self, si_obj, max_instances):
