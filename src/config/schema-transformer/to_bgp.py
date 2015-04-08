@@ -615,7 +615,6 @@ class VirtualNetworkST(DictST):
                 "HTTP error while creating routing instance: %d, %s",
                 he.status_code, he.content)
             return None
-
         if rinst_obj.name == self._default_ri_name:
             self._route_target = rtgt_num
 
@@ -648,7 +647,11 @@ class VirtualNetworkST(DictST):
             uve_msg.send(sandesh=_sandesh)
 
         # refresh the ri object because it could have changed
-        ri.obj = _vnc_lib.routing_instance_read(id=ri.obj.uuid)
+        try:
+            ri.obj = _vnc_lib.routing_instance_read(id=ri.obj.uuid)
+        except NoIdError:
+            return
+
         vmi_refs = ri.obj.get_virtual_machine_interface_back_refs()
         if vmi_refs:
             for vmi in vmi_refs:
@@ -809,6 +812,8 @@ class VirtualNetworkST(DictST):
                                              [self.get_route_target()]),
                                          import_export="import")
         static_route_entries = left_ri.obj.get_static_route_entries()
+        if not static_route_entries:
+            return
         for static_route in static_route_entries.get_route() or []:
             if static_route.prefix != prefix:
                 continue
@@ -1623,8 +1628,11 @@ class ServiceChain(DictST):
                 if vm_refs is None:
                     return None
                 for service_vm in vm_refs:
-                    vm_obj = _vnc_lib.virtual_machine_read(
-                        id=service_vm['uuid'])
+                    try:
+                        vm_obj = _vnc_lib.virtual_machine_read(
+                            id=service_vm['uuid'])
+                    except NoIdError:
+                        return None
                     if transparent:
                         result = self.process_transparent_service(
                             vm_obj, sc_ip_address, service_ri1, service_ri2)
@@ -1751,10 +1759,6 @@ class ServiceChain(DictST):
     # end process_in_network_service
 
     def destroy(self):
-        if not self.created:
-            return
-
-        self.created = False
         vn1_obj = VirtualNetworkST.get(self.left_vn)
         vn2_obj = VirtualNetworkST.get(self.right_vn)
 
@@ -1771,6 +1775,7 @@ class ServiceChain(DictST):
                 if service_ri2 is not None:
                     vn2_obj.delete_routing_instance(service_ri2)
                     del vn2_obj.rinst[service_name2]
+        self.created = False
         # end for service
     # end destroy
 
