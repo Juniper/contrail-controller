@@ -12,7 +12,7 @@ from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          LldpRemManAddrEntry, LldpRemoteSystemsData, \
          dot1qTpFdbPortTable, dot1dBasePortIfIndexTable, \
          LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, \
-         PRouterFlowUVE
+         PRouterFlowUVE, IfIndexOperStatusTable
 from opserver.sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
@@ -150,6 +150,16 @@ class SnmpUve(object):
                 r[k] = d[k]
         return r
 
+    def send_ifstatus_update(self, data):
+        for dev in data:
+            ifIndexOperStatusTable = []
+            for ifidx in data[dev]:
+                ifIndexOperStatusTable.append(IfIndexOperStatusTable(
+                            ifIndex=ifidx, ifOperStatus=data[dev][ifidx][0]))
+            PRouterUVE(data=PRouterEntry(
+                    name=dev,
+                    ifIndexOperStatusTable=ifIndexOperStatusTable)).send()
+        
     def send_flow_uve(self, data):
         if data['name']:
             PRouterFlowUVE(data=PRouterFlowEntry(**data)).send()

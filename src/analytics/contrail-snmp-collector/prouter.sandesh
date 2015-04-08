@@ -103,6 +103,7 @@ struct LldpLocManAddrEntry {
     2: string lldpLocManAddrOID
     3: i32 lldpLocManAddrSubtype
     4: i32 lldpLocManAddrOIDLen
+    5: optional i32 lldpLocManAddrIfId
 }
 
 struct LldpLocalSystemData {
@@ -168,6 +169,11 @@ struct dot1dBasePortIfIndexTable {
     2: i32 snmpIfIndex
 }
 
+struct IfIndexOperStatusTable {
+    1: u32 ifIndex
+    2: u32 ifOperStatus
+}
+
 struct PRouterEntry {
     1: string name (key="ObjectPRouter")
     2: optional bool deleted
@@ -179,6 +185,7 @@ struct PRouterEntry {
     8: optional list<IpMib> ipMib
     9: optional list<dot1qTpFdbPortTable> fdbPortTable
     10: optional list<dot1dBasePortIfIndexTable> fdbPortIfIndexTable
+    11: optional list<IfIndexOperStatusTable> ifIndexOperStatusTable
 }
 
 uve sandesh PRouterUVE {
