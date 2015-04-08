@@ -900,7 +900,7 @@ const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Physical Router Fabric Usage',
       'stat_type' : 'fabric_message'
-      'stat_attr' : 'edges',
+      'stat_attr' : 'edges.class_stats.transmit_counts',
       'obj_table' : 'NONE',
       'attributes': [
           { 'name' : 'edges.src_type',                                 'datatype' : 'string', 'index' : true},
