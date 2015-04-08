@@ -25,14 +25,15 @@ from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT
+    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
 from database.sandesh.database.ttypes import \
-    NodeStatusUVE, NodeStatus
+    NodeStatusUVE, NodeStatus, DatabaseUsageStats,\
+    DatabaseUsageInfo, DatabaseUsage
 from database.sandesh.database.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo
+    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
 from database.sandesh.database.process_info.constants import \
     ProcessStateNames
 
@@ -88,8 +89,6 @@ class DatabaseEventManager(EventManager):
         except:
             min_disk = 0
         if (disk_space_total/(1024*1024) < min_disk):
-            from sandesh_common.vns.constants import SERVICE_CONTRAIL_DATABASE
-
             cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
             (ret_value, error_value) = Popen(cmd_str, shell=True, stdout=PIPE).communicate()
             prog.fail_status_bits |= prog.FAIL_STATUS_DISK_SPACE
@@ -101,28 +100,9 @@ class DatabaseEventManager(EventManager):
         self.send_nodemgr_process_status_base(ProcessStateNames, ProcessState, ProcessStatus, NodeStatus, NodeStatusUVE)
 
     def get_process_state(self, fail_status_bits):
-        if fail_status_bits:
-            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
-            description = ""
-            if fail_status_bits & self.FAIL_STATUS_DISK_SPACE:
-                description += "Disk for analytics db is too low, cassandra stopped."
-            if fail_status_bits & self.FAIL_STATUS_SERVER_PORT:
-                if description != "":
-                    description += " "
-                description += "Cassandra state detected DOWN."
-            if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
-                if description != "":
-                    description += " "
-                description += "NTP state unsynchronized."
-        else:
-            state = ProcessStateNames[ProcessState.FUNCTIONAL]
-            description = ''
-        return state, description
+        return self.get_process_state_base(fail_status_bits, ProcessStateNames, ProcessState)
 
     def database_periodic(self):
-        from database.sandesh.database.ttypes import \
-            DatabaseUsageStats, DatabaseUsageInfo, DatabaseUsage
-
         (linux_dist, x, y) = platform.linux_distribution()
         if (linux_dist == 'Ubuntu'):
             (disk_space_used, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2 \`/ContrailAnalytics | grep %` && echo $3 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
@@ -157,6 +137,9 @@ class DatabaseEventManager(EventManager):
         self.send_nodemgr_process_status()
 
     # end database_periodic
+
+    def send_disk_usage_info(self):
+        self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
 
     def runforever(self, test=False):
         prev_current_time = int(time.time())

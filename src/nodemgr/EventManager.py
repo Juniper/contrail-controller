@@ -246,6 +246,58 @@ class EventManager:
             sys.stderr.write('Sending UVE:' + str(node_status_uve))
             node_status_uve.send()
 
+    def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus, DiskPartitionUsageStats):
+        partition = subprocess.Popen("df -T -t ext2 -t ext3 -t ext4 -t xfs",
+              shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        disk_usage_infos = []
+        for line in partition.stdout:
+            if 'Filesystem' in line:
+                continue
+            partition_name = line.rsplit()[0]
+            partition_type = line.rsplit()[1]
+            partition_space_used_1k = line.rsplit()[3]
+            partition_space_available_1k = line.rsplit()[4]
+            disk_usage_stat = DiskPartitionUsageStats()
+            try:
+                disk_usage_stat.partition_type = str(partition_type)
+                disk_usage_stat.partition_name = str(partition_name)
+                disk_usage_stat.partition_space_used_1k = int(partition_space_used_1k)
+                disk_usage_stat.partition_space_available_1k = int(partition_space_available_1k)
+            except ValueError:
+                sys.stderr.write("Failed to get local disk space usage" + "\n")
+        disk_usage_infos.append(disk_usage_stat)
+
+        # send node UVE
+        node_status = NodeStatus(name = socket.gethostname(),
+                disk_usage_info = disk_usage_infos)
+        node_status_uve = NodeStatusUVE(data = node_status)
+        sys.stderr.write('Sending UVE:' + str(node_status_uve))
+        node_status_uve.send()
+    # end send_disk_usage_info
+
+    def get_process_state_base(self, fail_status_bits, ProcessStateNames, ProcessState):
+        if fail_status_bits:
+            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
+            description = self.get_failbits_nodespecific_desc(fail_status_bits)
+            if (description is ""):
+                if fail_status_bits & self.FAIL_STATUS_DISK_SPACE:
+                    description += "Disk for analytics db is too low, cassandra stopped."
+                if fail_status_bits & self.FAIL_STATUS_SERVER_PORT:
+                    if description != "":
+                        description += " "
+                    description += "Cassandra state detected DOWN."
+                if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
+                    if description != "":
+                        description += " "
+                    description += "NTP state unsynchronized."
+        else:
+            state = ProcessStateNames[ProcessState.FUNCTIONAL]
+            description = ''
+        return state, description
+
+    def get_failbits_nodespecific_desc(self, fail_status_bits):
+        return ""
+
     def event_process_state(self, pheaders, headers):
         self.stderr.write("process:" + pheaders['processname'] + "," + "groupname:" + pheaders['groupname'] + "," + "eventname:" + headers['eventname'] + '\n')
         pname = pheaders['processname']
@@ -284,6 +336,8 @@ class EventManager:
         self.tick_count += 1
         # send other core file
         self.send_all_core_file()
+        # send disk usage info periodically
+        self.send_disk_usage_info()
         # typical ntp sync time is about 3, 4 min - first time, we scan only after 5 min
         if self.tick_count > 5:
             self.check_ntp_status()
