@@ -51,9 +51,14 @@ else
 end
 
 sub_del(_values)
-redis.call('rename', _values, _del)
+
 redis.call('zrem', _uves, key)
 redis.call('srem', _origins, sm..":"..typ)
 redis.call('srem', _table, key..":"..sm..":"..typ)
-redis.call('lpush',_deleted, _del)
+
+local lttt = redis.call('exists', _values)
+if lttt == 1 then
+    redis.call('rename', _values, _del)
+    redis.call('lpush',_deleted, _del)
+end
 return true
