@@ -597,9 +597,8 @@ class VncApiServer(VncApiServerGen):
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
             (read_ok, read_result) = self._db_conn.dbe_read(obj_type, request.json)
             if not read_ok:
-                (code, msg) = read_result
-                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
-                bottle.abort(code, msg)
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
+                bottle.abort(404, read_result)
 
             obj_dict = read_result
             if operation == 'ADD':
@@ -1316,7 +1315,10 @@ class VncApiServer(VncApiServerGen):
         Validate parent allows write access. Implicitly trust
         parent info in the object since coming from our DB.
         """
-        obj_dict = self._db_conn.uuid_to_obj_dict(uuid)
+        try:
+            obj_dict = self._db_conn.uuid_to_obj_dict(uuid)
+        except NoIdError:
+            return (True, (404, '%s %s not found!' % (obj_type, uuid)))
         parent_fq_name = json.loads(obj_dict['fq_name'])[:-1]
         try:
             parent_uuid = self._db_conn.fq_name_to_uuid(
@@ -1374,9 +1376,8 @@ class VncApiServer(VncApiServerGen):
         try:
             obj_uuid = self._db_conn.fq_name_to_uuid(
                 obj_type, obj_dict['fq_name'])
-            bottle.abort(
-                409, '' + pformat(obj_dict['fq_name']) +
-                ' already exists with uuid: ' + obj_uuid)
+            return (False, (409, pformat(obj_dict['fq_name']) +
+                ' already exists with uuid: ' + obj_uuid))
         except NoIdError:
             pass
 
@@ -1402,9 +1403,8 @@ class VncApiServer(VncApiServerGen):
         if uuid_in_req:
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
-                bottle.abort(
-                    409, uuid_in_req + ' already exists with fq_name: ' +
-                    pformat(fq_name))
+                return (False, (409, uuid_in_req + ' already exists with fq_name: ' +
+                        pformat(fq_name)))
             except NoIdError:
                 pass
             apiConfig.identifier_uuid = uuid_in_req

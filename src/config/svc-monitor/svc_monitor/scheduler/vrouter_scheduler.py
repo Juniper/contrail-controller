@@ -134,10 +134,13 @@ class VRouterScheduler(object):
 
     def _bind_vrouter(self, vm_uuid, vr_fq_name):
         """Bind the virtual machine to the vrouter which has been chosen."""
-        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
-        vr_obj = self._vnc_lib.virtual_router_read(fq_name=vr_fq_name)
-        vr_obj.add_virtual_machine(vm_obj)
-        self._vnc_lib.virtual_router_update(vr_obj)
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+            vr_obj = self._vnc_lib.virtual_router_read(fq_name=vr_fq_name)
+            vr_obj.add_virtual_machine(vm_obj)
+            self._vnc_lib.virtual_router_update(vr_obj)
+        except NoIdError:
+            return
 
 
 class RandomScheduler(VRouterScheduler):

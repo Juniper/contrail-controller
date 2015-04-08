@@ -259,7 +259,10 @@ class SvcMonitor(object):
     #end _check_store_si_info
 
     def _restart_svc(self, si_fq_str):
-        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
+        try:
+            si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
+        except NoIdError:
+            return
         st_list = si_obj.get_service_template_refs()
         if st_list is not None:
             fq_name = st_list[0]['to']
@@ -304,11 +307,68 @@ class SvcMonitor(object):
             self.logger.log("Deleting VN %s %s" % (proj_name, vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
         except RefsExistError:
-            self._svc_err_logger.error("Delete failed refs exist VN %s %s" %
-                                       (proj_name, vn_uuid))
+            return self._purge_virtual_network_and_back_refs(vn_uuid, proj_name)
         except NoIdError:
             return True
         return False
+
+    def _purge_virtual_network_and_back_refs(self, vn_uuid, proj_name):
+        """ This method list all VMI back referenced by the VN, gets theirs
+        IIP back references to delete them and store in a list referenced VM.
+        Delete VMIs and the VM. And finally delete the VN.
+        """
+
+        try:
+            vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+            vm_uuids = set()
+            for vmi_ref in vn_obj.get_virtual_machine_interface_back_refs() or []:
+                try:
+                    vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_ref['uuid'])
+                    vm_uuids |= set([vm_ref['uuid'] for vm_ref in vmi_obj.get_virtual_machine_refs() or []])
+                    for iip_ref in vmi_obj.get_instance_ip_back_refs() or []:
+                        try:
+                            self._vnc_lib.instance_ip_delete(id=iip_ref['uuid'])
+                            self._svc_err_logger.error("[%s] Deleted IIP %s" % (proj_name, vmi_obj.uuid))
+                        except NoIdError:
+                            continue
+                        except RefsExistError as e:
+                            self._svc_err_logger.error("[%s] Delete IIP %s failed refs exist: %s" %
+                                       (proj_name, iip_ref['uuid'], str(e)))
+                    self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+                    self._svc_err_logger.error("[%s] Deleted INTERFACE %s" % (proj_name, vmi_obj.uuid))
+                except NoIdError:
+                    continue
+                except RefsExistError as e:
+                    self._svc_err_logger.error("[%s] Delete VMI %s failed refs exist: %s" %
+                                       (proj_name, vmi_obj.uuid, str(e)))
+            for vm_uuid in vm_uuids:
+                try:
+                    vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+                    for vr in vm_obj.get_virtual_router_back_refs() or []:
+                        try:
+                            vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
+                            vr_obj.del_virtual_machine(vm_obj)
+                            self._vnc_lib.virtual_router_update(vr_obj)
+                        except NoIdError:
+                            self._svc_err_logger.error("[%s] VM %s was remove to the virtual router %s." %
+                                                       (proj_name, vm_obj.uuid, vr_obj.uuid))
+                            continue
+                    self._vnc_lib.virtual_machine_delete(id=vm_uuid)
+                    self._svc_err_logger.error("[%s] Deleted VM %s" % (proj_name, vmi_obj.uuid))
+                except NoIdError:
+                    continue
+                except RefsExistError as e:
+                    self._svc_err_logger.error("[%s] Delete VM %s failed refs exist: %s" %
+                                       (proj_name, vm_uuid, str(e)))
+            self._vnc_lib.virtual_network_delete(id=vn_uuid)
+            self._svc_err_logger.error("[%s] Deleted NETWORK %s" % (proj_name, vn_uuid))
+        except NoIdError:
+            return True
+        except RefsExistError as e:
+            self._svc_err_logger.error("[%s] Delete VN %s failed refs exist: %s" %
+                                       (proj_name, vn_uuid, str(e)))
+            return False
+        return True
 
     def _cleanup_si(self, si_fq_str):
         si_info = self.db.service_instance_get(si_fq_str)
@@ -330,7 +390,8 @@ class SvcMonitor(object):
                     cleaned_up = False
 
         if cleaned_up:
-            vn_name = 'snat-si-left_%s' % si_fq_str.split(':')[-1]
+            #vn_name = 'snat-si-left_%s' % si_fq_str.split(':')[-1]
+            vn_name = 'snat-si-left_%s' % si_info['uuid']
             if vn_name in si_info.keys():
                 if not self._delete_shared_vn(si_info[vn_name], proj_name):
                     cleaned_up = False
