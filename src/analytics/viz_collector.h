@@ -65,6 +65,7 @@ public:
     }
     void SendProtobufCollectorStatistics();
     void SendGeneratorStatistics();
+    void TestDatabaseConnection();
 
 private:
     std::string DbGlobalName(bool dup=false);
