@@ -13,7 +13,6 @@ import gevent
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 
-import copy
 from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
@@ -367,11 +366,43 @@ class SvcMonitor(object):
 
         self._db_resync_done.set()
 
+    def upgrade_config(self, st, si):
+        if si.params.get('interface_list'):
+            return
+        left_vn = si.params.get('left_virtual_network', None)
+        right_vn = si.params.get('right_virtual_network', None)
+        mgmt_vn = si.params.get('management_virtual_network', None)
+
+        st_if_list = st.params.get('interface_type', [])
+        itf_list = []
+        for index in range(0, len(st_if_list)):
+            st_if_type = st_if_list[index]['service_interface_type']
+            if st_if_type == svc_info.get_left_if_str():
+                itf = ServiceInstanceInterfaceType(virtual_network=left_vn)
+            elif st_if_type == svc_info.get_right_if_str():
+                itf = ServiceInstanceInterfaceType(virtual_network=right_vn)
+            elif st_if_type == svc_info.get_management_if_str():
+                itf = ServiceInstanceInterfaceType(virtual_network=mgmt_vn)
+            itf_list.append(itf)
+
+        si_obj = ServiceInstance()
+        si_obj.uuid = si.uuid
+        si_obj.fq_name = si.fq_name
+        si_props = ServiceInstanceType(**si.params)
+        si_props.set_interface_list(itf_list)
+        si_obj.set_service_instance_properties(si_props)
+        self._vnc_lib.service_instance_update(si_obj)
+        self.logger.log_notice("SI %s config upgraded for interfaces" %
+                (si_obj.get_fq_name_str()))
+
     def upgrade(self):
         for si in ServiceInstanceSM.values():
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
                 continue
+
+            self.upgrade_config(st, si)
+
             for vm_id in si.virtual_machines:
                 vm = VirtualMachineSM.get(vm_id)
                 if vm.virtualization_type:
@@ -758,7 +789,7 @@ def timer_callback(monitor):
         monitor._delete_service_instance(vm)
 
     # check status of service
-    si_id_list = copy.deepcopy(ServiceInstanceSM)
+    si_id_list = list(ServiceInstanceSM._dict.keys())
     for si_id in si_id_list:
         si = ServiceInstanceSM.get(si_id)
         if not si:
@@ -773,11 +804,9 @@ def timer_callback(monitor):
         if project.service_instances:
             continue
 
-        for vn_id in VirtualNetworkSM:
+        for vn_id in project.virtual_networks:
             vn = VirtualNetworkSM.get(vn_id)
-            if not vn or vn.fq_name[:-1] != project.fq_name:
-                continue
-            if vn.virtual_machine_interfaces:
+            if not vn or vn.virtual_machine_interfaces:
                 continue
             if vn.name in svc_info.get_shared_vn_list():
                 monitor._delete_shared_vn(vn.uuid)

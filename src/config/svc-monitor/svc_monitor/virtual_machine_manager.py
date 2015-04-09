@@ -17,8 +17,6 @@
 #
 # @author: Rudra Rugge
 
-import copy
-
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from instance_manager import InstanceManager
@@ -114,7 +112,7 @@ class VirtualMachineManager(InstanceManager):
 
         # get current vm list
         vm_list = [None] * si.max_instances
-        vm_id_list = copy.deepcopy(si.virtual_machines)
+        vm_id_list = list(si.virtual_machines)
         for vm_id in vm_id_list:
             vm = VirtualMachineSM.get(vm_id)
             if not vm:
@@ -162,7 +160,7 @@ class VirtualMachineManager(InstanceManager):
                 pass
 
     def check_service(self, si):
-        vm_id_list = copy.deepcopy(si.virtual_machines)
+        vm_id_list = list(si.virtual_machines)
         for vm_id in vm_id_list:
             vm = self._nc.oper('servers', 'get', si.proj_name, id=vm_id)
             if vm and vm.status == 'ERROR':
