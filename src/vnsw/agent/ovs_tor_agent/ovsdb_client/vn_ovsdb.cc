@@ -53,7 +53,7 @@ void VnOvsdbEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 
 bool VnOvsdbEntry::Sync(DBEntry *db_entry) {
     VnEntry *vn = static_cast<VnEntry *>(db_entry);
-    uint32_t vxlan_id = vn->vxlan_id() ? vn->vxlan_id()->vxlan_id() : 0;
+    uint32_t vxlan_id = vn->GetVxLanId();
     bool ret = false;
 
     if (vrf_.get() != vn->GetVrf()) {
@@ -118,8 +118,9 @@ OvsdbDBEntry *VnOvsdbObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
 KSyncDBObject::DBFilterResp VnOvsdbObject::DBEntryFilter(
         const DBEntry *entry) {
     const VnEntry *vn = static_cast<const VnEntry *>(entry);
-    // only accept Virtual Networks with non-NULL vrf.
-    if (vn->GetVrf() == NULL) {
+    // only accept Virtual Networks with non-NULL vrf
+    // and non zero vxlan id
+    if (vn->GetVrf() == NULL || vn->GetVxLanId() == 0) {
         return DBFilterDelete;
     }
     return DBFilterAccept;

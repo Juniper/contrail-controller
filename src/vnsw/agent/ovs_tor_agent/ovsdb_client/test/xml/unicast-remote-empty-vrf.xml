@@ -8,6 +8,10 @@
     <link name="link-1" uuid="1" left="virtual-network" left-name="vn-1"
           right="routing-instance" right-name="vrf1"/>
 
+    <validate name="validate-oper-vrf-1">
+        <vrf uuid="1" name="vrf1"/>
+    </validate>
+
     <validate name="validate-vrf-1">
         <ovs-vrf name="vrf1" uuid="1" vn-uuid="1"/>
     </validate>
@@ -17,6 +21,10 @@
 
     <validate name="validate-vrf-2">
         <ovs-vrf name="vrf1" uuid="1" vn-uuid="1" present="no"/>
+    </validate>
+
+    <validate name="validate-oper-vrf-2">
+        <vrf uuid="1" name="vrf1" present="no"/>
     </validate>
 
     <link name="link-4" uuid="1" left="virtual-network" left-name="vn-1"
