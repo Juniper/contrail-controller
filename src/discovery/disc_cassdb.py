@@ -28,7 +28,7 @@ class DiscoveryCassandraClient(object):
     # end get_db_info
 
     def __init__(self, module, cass_srv_list, reset_config=False,
-                 max_retries=5, timeout=0.5):
+                 max_retries=5, timeout=5):
         self._disco_cf_name = 'discovery'
         self._keyspace_name = 'DISCOVERY_SERVER'
         self._reset_config = reset_config
@@ -52,7 +52,7 @@ class DiscoveryCassandraClient(object):
         pool = pycassa.ConnectionPool(self._keyspace_name,
                                       server_list, max_overflow=-1,
                                       use_threadlocal=True, prefill=True,
-                                      pool_size=100, pool_timeout=20,
+                                      pool_size=100, pool_timeout=120,
                                       max_retries=max_retries, timeout=timeout)
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
