@@ -64,6 +64,9 @@ public:
         return true;
     }
 
+    virtual void AsyncReadStart() {
+    }
+
     void Close() {
         state_ = BgpSessionMock::CLOSE;
         BgpSession::Close();
@@ -172,6 +175,14 @@ protected:
         task_util::WaitForIdle();
         TimerManager::DeleteTimer(timer_);
         evm_.Shutdown();
+    }
+
+    void StopStateMachine() {
+        sm_->work_queue_.set_disable(true);
+    }
+
+    void StartStateMachine() {
+        sm_->work_queue_.set_disable(false);
     }
 
     virtual void SetUp() {
@@ -400,14 +411,18 @@ protected:
         sm_->FireOpenTimer();
     }
     void EvTcpPassiveOpen() {
+        StopStateMachine();
         BgpSessionMock *session = session_mgr_->CreatePassiveSession();
         TcpSession::Endpoint endpoint;
         peer_->AcceptSession(session);
+        StartStateMachine();
     }
     void EvTcpDuplicatePassiveOpen() {
+        StopStateMachine();
         BgpSessionMock *session = session_mgr_->CreateDuplicateSession();
         TcpSession::Endpoint endpoint;
         peer_->AcceptSession(session);
+        StartStateMachine();
     }
     void EvOpenTimerExpiredPassive() {
         EvTcpPassiveOpen();
