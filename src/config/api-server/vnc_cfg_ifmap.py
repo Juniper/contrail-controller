@@ -971,7 +971,8 @@ class VncZkClient(object):
 
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start,
-                                start_subnet, size):
+                                start_subnet, size,
+                                should_persist):
         # TODO handle subnet resizing change, ignore for now
         if subnet not in self._subnet_allocators:
             if addr_from_start is None:
@@ -998,16 +999,25 @@ class VncZkClient(object):
         return allocator.read(addr)
     # end subnet_is_addr_allocated
 
-    def subnet_alloc_req(self, subnet, addr=None):
+    def subnet_set_in_use(self, subnet, addr):
+        allocator = self._get_subnet_allocator(subnet)
+        allocator.set_in_use(addr)
+    # end subnet_set_in_use
+
+    def subnet_reset_in_use(self, subnet, addr):
+        allocator = self._get_subnet_allocator(subnet)
+        allocator.reset_in_use(addr)
+    # end subnet_reset_in_use
+
+    def subnet_reserve_req(self, subnet, addr, value):
+        allocator = self._get_subnet_allocator(subnet)
+        return allocator.reserve(addr, value)
+    # end subnet_reserve_req
+
+    def subnet_alloc_req(self, subnet, value=None):
         allocator = self._get_subnet_allocator(subnet)
         try:
-            if addr is not None:
-                if allocator.read(addr) is not None:
-                    return addr
-                else:
-                    return allocator.reserve(addr)
-            else:
-                return allocator.alloc()
+            return allocator.alloc(value=value)
         except ResourceExhaustionError:
             return None
     # end subnet_alloc_req
@@ -1476,24 +1486,38 @@ class VncDbClient(object):
         return self._zk_db.subnet_is_addr_allocated(subnet, addr)
     # end subnet_is_addr_allocated
 
-    def subnet_alloc_req(self, subnet, addr=None):
-        return self._zk_db.subnet_alloc_req(subnet, addr)
+    def subnet_set_in_use(self, subnet, addr):
+        return self._zk_db.subnet_set_in_use(subnet, addr)
+    # end subnet_set_in_use
+
+    def subnet_reset_in_use(self, subnet, addr):
+        return self._zk_db.subnet_reset_in_use(subnet, addr)
+    #end subnet_reset_in_use
+
+    def subnet_alloc_req(self, subnet, value=None):
+        return self._zk_db.subnet_alloc_req(subnet, value)
     # end subnet_alloc_req
 
+    def subnet_reserve_req(self, subnet, addr=None, value=None):
+        return self._zk_db.subnet_reserve_req(subnet, addr, value)
+    # end subnet_reserve_req
+
     def subnet_free_req(self, subnet, addr):
-        self._zk_db.subnet_free_req(subnet, addr)
+        return self._zk_db.subnet_free_req(subnet, addr)
     # end subnet_free_req
 
     def subnet_create_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start,
-                                start_subnet, size):
-        self._zk_db.create_subnet_allocator(subnet, subnet_alloc_list,
-                                            addr_from_start,
-                                            start_subnet, size)
+                                start_subnet, size,
+                                should_persist):
+        return self._zk_db.create_subnet_allocator(subnet, subnet_alloc_list,
+                                                   addr_from_start,
+                                                   start_subnet, size,
+                                                   should_persist)
     # end subnet_create_allocator
 
     def subnet_delete_allocator(self, subnet):
-        self._zk_db.delete_subnet_allocator(subnet)
+        return self._zk_db.delete_subnet_allocator(subnet)
     # end subnet_delete_allocator
 
     def uuid_vnlist(self):
