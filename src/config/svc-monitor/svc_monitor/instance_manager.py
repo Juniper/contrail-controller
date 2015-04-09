@@ -176,11 +176,46 @@ class InstanceManager(object):
 
         return vn_obj.uuid
 
+    def _upgrade_config(self, st, si):
+        left_vn = si.params.get('left_virtual_network', None)
+        right_vn = si.params.get('right_virtual_network', None)
+        mgmt_vn = si.params.get('management_virtual_network', None)
+
+        st_if_list = st.params.get('interface_type', [])
+        itf_list = []
+        for index in range(0, len(st_if_list)):
+            st_if_type = st_if_list[index]['service_interface_type']
+            if st_if_type == svc_info.get_left_if_str():
+                itf = ServiceInstanceInterfaceType(virtual_network=left_vn)
+            elif st_if_type == svc_info.get_right_if_str():
+                itf = ServiceInstanceInterfaceType(virtual_network=right_vn)
+            elif st_if_type == svc_info.get_management_if_str():
+                itf = ServiceInstanceInterfaceType(virtual_network=mgmt_vn)
+            itf_list.append(itf)
+
+        si_obj = ServiceInstance()
+        si_obj.uuid = si.uuid
+        si_obj.fq_name = si.fq_name
+        si_props = ServiceInstanceType(**si.params)
+        si_props.set_interface_list(itf_list)
+        si_obj.set_service_instance_properties(si_props)
+        self._vnc_lib.service_instance_update(si_obj)
+        self.logger.log_notice("SI %s config upgraded for interfaces" %
+                (si_obj.get_fq_name_str()))
+
     def validate_network_config(self, st, si):
-        config_complete = True
-        st_if_list = st.params.get('interface_type')
-        si_if_list = si.params.get('interface_list')
+        if not si.params.get('interface_list'):
+            self._upgrade_config(st, si)
+
+        st_if_list = st.params.get('interface_type', [])
+        si_if_list = si.params.get('interface_list', [])
+        if not (len(st_if_list) or len(si_if_list)):
+            self.logger.log_notice("Interface list empty for ST %s SI %s" %
+                (st.fq_name, si.fq_name))
+            return False
+
         si.vn_info = []
+        config_complete = True
         for index in range(0, len(st_if_list)):
             vn_id = None
             try:

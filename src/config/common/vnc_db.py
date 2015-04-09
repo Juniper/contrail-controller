@@ -89,6 +89,23 @@ class DBBase(object):
             ref_set.discard(ref)
     # end delete_ref
 
+    def add_to_parent(self, obj_dict):
+        self.parent_type = obj_dict.get('parent_type')
+        self.parent_id = obj_dict.get('parent_uuid')
+        if not self.parent_type or not self.parent_id:
+            return
+        p_obj = self._OBJ_TYPE_MAP[self.parent_type].get(self.parent_id)
+        if p_obj is not None:
+            p_obj.add_ref(self.obj_type, self.uuid)
+    # end
+
+    def remove_from_parent(self):
+        if not self.parent_type or not self.parent_id:
+            return
+        p_obj = self._OBJ_TYPE_MAP[self.parent_type].get(self.parent_id)
+        if p_obj is not None:
+            p_obj.delete_ref(self.obj_type, self.uuid)
+
     def update_single_ref(self, ref_type, obj):
         refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
         if refs:
@@ -110,6 +127,19 @@ class DBBase(object):
             ref_obj.add_ref(self.obj_type, self.uuid)
         setattr(self, ref_type, new_id)
     # end update_single_ref
+
+    def set_children(self, ref_type, obj):
+        refs = obj.get(ref_type+'s')
+        new_refs = set()
+        for ref in refs or []:
+            try:
+                new_id = ref['uuid']
+            except KeyError:
+                fq_name = ref['to']
+                new_id = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
+            new_refs.add(new_id)
+        setattr(self, ref_type+'s', new_refs)
+    # end
 
     def update_multiple_refs(self, ref_type, obj):
         refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')

@@ -13,7 +13,6 @@ import gevent
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 
-import copy
 from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
@@ -372,6 +371,7 @@ class SvcMonitor(object):
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
                 continue
+
             for vm_id in si.virtual_machines:
                 vm = VirtualMachineSM.get(vm_id)
                 if vm.virtualization_type:
@@ -758,7 +758,7 @@ def timer_callback(monitor):
         monitor._delete_service_instance(vm)
 
     # check status of service
-    si_id_list = copy.deepcopy(ServiceInstanceSM)
+    si_id_list = list(ServiceInstanceSM._dict.keys())
     for si_id in si_id_list:
         si = ServiceInstanceSM.get(si_id)
         if not si:
@@ -773,11 +773,9 @@ def timer_callback(monitor):
         if project.service_instances:
             continue
 
-        for vn_id in VirtualNetworkSM:
+        for vn_id in project.virtual_networks:
             vn = VirtualNetworkSM.get(vn_id)
-            if not vn or vn.fq_name[:-1] != project.fq_name:
-                continue
-            if vn.virtual_machine_interfaces:
+            if not vn or vn.virtual_machine_interfaces:
                 continue
             if vn.name in svc_info.get_shared_vn_list():
                 monitor._delete_shared_vn(vn.uuid)

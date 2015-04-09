@@ -406,7 +406,8 @@ class VirtualNetworkSM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        self.add_to_parent(obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -415,6 +416,7 @@ class VirtualNetworkSM(DBBase):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
+        return obj
     # end update
 
     @classmethod
@@ -423,6 +425,7 @@ class VirtualNetworkSM(DBBase):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 
@@ -608,7 +611,8 @@ class ProjectSM(DBBase):
         self.uuid = uuid
         self.service_instances = set()
         self.virtual_networks = set()
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        self.set_children('virtual_network', obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -617,7 +621,7 @@ class ProjectSM(DBBase):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('service_instance', obj)
-        self.update_multiple_refs('virtual_network', obj)
+        return obj
     # end update
 
     @classmethod
@@ -626,7 +630,6 @@ class ProjectSM(DBBase):
             return
         obj = cls._dict[uuid]
         self.update_multiple_refs('service_instance', {})
-        self.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
     # end delete
 # end ProjectSM
