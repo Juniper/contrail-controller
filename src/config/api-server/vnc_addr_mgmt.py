@@ -169,7 +169,8 @@ class Subnet(object):
                  gw=None, service_address=None, enable_dhcp=True,
                  dns_nameservers=None,
                  alloc_pool_list=None,
-                 addr_from_start=False):
+                 addr_from_start=False,
+                 should_persist=True):
 
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
@@ -245,11 +246,15 @@ class Subnet(object):
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
                                               addr_from_start,
                                               network.first,
-                                              network.size)
+                                              network.size,
+                                              should_persist=should_persist)
 
         # reserve excluded addresses
         for addr in exclude:
-            self._db_conn.subnet_alloc_req(name, int(addr))
+            if should_persist:
+                self._db_conn.subnet_reserve_req(name, int(addr), 'system-reserved')
+            else:
+                self._db_conn.subnet_set_in_use(name, int(addr))
 
         self._name = name
         self._network = network
@@ -276,19 +281,43 @@ class Subnet(object):
         return self._exclude
     # end get_exclude
 
+    # ip address management helper routines.
+    # ip_set/reset_in_use do not persist to DB just internal bitmap maintenance
+    # (for e.g. for notify context)
+    # ip_reserve/alloc/free persist to DB
     def is_ip_allocated(self, ipaddr):
         ip = IPAddress(ipaddr)
         addr = int(ip)
         return self._db_conn.subnet_is_addr_allocated(self._name, addr)
     # end is_ip_allocated
 
-    def ip_alloc(self, ipaddr=None):
-        req = None
+    def ip_set_in_use(self, ipaddr):
+        ip = IPAddress(ipaddr)
+        addr = int(ip)
+        return self._db_conn.subnet_set_in_use(self._name, addr)
+    # end ip_set_in_use
+
+    def ip_reset_in_use(self, ipaddr):
+        ip = IPAddress(ipaddr)
+        addr = int(ip)
+        return self._db_conn.subnet_reset_in_use(self._name, addr)
+    # end ip_reset_in_use
+
+    def ip_reserve(self, ipaddr, value):
+        ip = IPAddress(ipaddr)
+        req = int(ip)
+
+        addr = self._db_conn.subnet_reserve_req(self._name, req, value)
+        if addr:
+            return str(IPAddress(addr))
+        return None
+    # end ip_reserve
+
+    def ip_alloc(self, ipaddr=None, value=None):
         if ipaddr:
-            ip = IPAddress(ipaddr)
-            req = int(ip)
+            return self.ip_reserve(ipaddr, value)
     
-        addr = self._db_conn.subnet_alloc_req(self._name, req)
+        addr = self._db_conn.subnet_alloc_req(self._name, value)
         if addr:
             return str(IPAddress(addr))
         return None
@@ -390,7 +419,7 @@ class AddrMgmt(object):
         return subnet_dicts
     # end _get_subnet_dicts
 
-    def _create_subnet_objs(self, vn_fq_name_str, vn_dict):
+    def _create_subnet_objs(self, vn_fq_name_str, vn_dict, should_persist):
         self._subnet_objs[vn_fq_name_str] = {}
         # create subnet for each new subnet
         refs = vn_dict.get('network_ipam_refs', None)
@@ -417,7 +446,8 @@ class AddrMgmt(object):
                         enable_dhcp=dhcp_config,
                         dns_nameservers=nameservers,
                         alloc_pool_list=allocation_pools,
-                        addr_from_start=addr_start)
+                        addr_from_start=addr_start,
+                        should_persist=should_persist)
                     self._subnet_objs[vn_fq_name_str][subnet_name] = \
                          subnet_obj
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
@@ -432,7 +462,7 @@ class AddrMgmt(object):
         self._get_db_conn()
         vn_fq_name_str = ':'.join(obj_dict['fq_name'])
 
-        self._create_subnet_objs(vn_fq_name_str, obj_dict)
+        self._create_subnet_objs(vn_fq_name_str, obj_dict, should_persist=True)
     # end net_create_req
 
     def net_create_notify(self, obj_ids, obj_dict):
@@ -452,7 +482,7 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        self._create_subnet_objs(vn_fq_name_str, vn_dict)
+        self._create_subnet_objs(vn_fq_name_str, vn_dict, should_persist=False)
     # end net_create_notify
 
     def net_update_req(self, vn_fq_name, db_vn_dict, req_vn_dict, obj_uuid=None):
@@ -493,7 +523,7 @@ class AddrMgmt(object):
                     if cmp(req_alloc_list[index], db_alloc_list[index]):
                         raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
-        self._create_subnet_objs(vn_fq_name_str, req_vn_dict)
+        self._create_subnet_objs(vn_fq_name_str, req_vn_dict, should_persist=True)
     # end net_update_req
 
     def net_update_notify(self, obj_ids):
@@ -513,7 +543,7 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        self._create_subnet_objs(vn_fq_name_str, vn_dict)
+        self._create_subnet_objs(vn_fq_name_str, vn_dict, should_persist=False)
     # end net_update_notify
 
     # purge all subnets associated with a virtual network
@@ -776,7 +806,7 @@ class AddrMgmt(object):
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
     def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None, asked_ip_addr=None, 
-                     asked_ip_version=4):
+                     asked_ip_version=4, alloc_id=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
         subnet_dicts = self._get_subnet_dicts(vn_fq_name, vn_dict)
 
@@ -808,7 +838,8 @@ class AddrMgmt(object):
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
-                                    addr_from_start = subnet_dict['addr_start'])
+                                    addr_from_start = subnet_dict['addr_start'],
+                                    should_persist=False)
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if asked_ip_version != subnet_obj.get_version():
@@ -819,10 +850,21 @@ class AddrMgmt(object):
                 return asked_ip_addr
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
+
+            # if user requests ip-addr and that can't be reserved due to
+            # existing object(iip/fip) using it, return an exception with
+            # the info. client can determine if its error or not
+            if asked_ip_addr:
+                return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
+                                             value=alloc_id)
+
             try:
-                ip_addr = subnet_obj.ip_alloc(ipaddr=asked_ip_addr)
+                ip_addr = subnet_obj.ip_alloc(ipaddr=None,
+                                              value=alloc_id)
             except Exception as e:
                 # ignore exception if it not a last subnet
+                self.config_log("Error: %s in ip_alloc_req" %(str(e)),
+                                level=SandeshLevel.SYS_DEBUG)
                 if current_count < subnet_count:
                     continue
                 else:
@@ -856,13 +898,14 @@ class AddrMgmt(object):
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
-                                    addr_from_start = subnet_dict['addr_start'])
+                                    addr_from_start = subnet_dict['addr_start'],
+                                    should_persist=False)
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if not subnet_obj.ip_belongs(ip_addr):
                 continue
 
-            ip_addr = subnet_obj.ip_alloc(ipaddr=ip_addr)
+            ip_addr = subnet_obj.ip_set_in_use(ipaddr=ip_addr)
             break
     # end ip_alloc_notify
 
@@ -892,7 +935,8 @@ class AddrMgmt(object):
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
-                                    addr_from_start = subnet_dict['addr_start'])
+                                    addr_from_start = subnet_dict['addr_start'],
+                                    should_persist=False)
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
@@ -927,7 +971,8 @@ class AddrMgmt(object):
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
-                                    addr_from_start = subnet_dict['addr_start'])
+                                    addr_from_start = subnet_dict['addr_start'],
+                                    should_persist=False)
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
@@ -941,7 +986,7 @@ class AddrMgmt(object):
             subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
                                     IPAddress(ip_addr)):
-                subnet_obj.ip_free(IPAddress(ip_addr))
+                subnet_obj.ip_reset_in_use(ip_addr)
                 break
     # end ip_free_notify
 
