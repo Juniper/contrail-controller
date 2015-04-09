@@ -11,6 +11,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -125,7 +126,7 @@ public:
     void set_read_on_connect(bool read) { read_on_connect_ = read; }
     void SessionEstablished(Endpoint remote, Direction direction);
 
-    void AsyncReadStart();
+    virtual void AsyncReadStart();
 
     const io::SocketStats &GetSocketStats() const { return stats_; }
     void GetRxSocketStats(SocketIOStats &socket_stats) const;
@@ -155,6 +156,7 @@ private:
     friend void intrusive_ptr_release(TcpSession *session);
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
+    typedef boost::asio::strand Strand;
 
     static void AsyncReadHandler(TcpSessionPtr session,
                                  boost::asio::mutable_buffer buffer,
@@ -163,6 +165,7 @@ private:
     static void AsyncWriteHandler(TcpSessionPtr session,
                                   const boost::system::error_code &error);
 
+    void AsyncReadStartInternal(TcpSessionPtr session);
     void ReleaseBufferLocked(Buffer buffer);
     void CloseInternal(bool call_observer, bool notify_server = true);
     void SetEstablished(Endpoint remote, Direction dir);
@@ -182,6 +185,7 @@ private:
 
     TcpServerPtr server_;
     boost::scoped_ptr<Socket> socket_;
+    boost::scoped_ptr<Strand> io_strand_;
     bool read_on_connect_;
     int buffer_size_;
 
