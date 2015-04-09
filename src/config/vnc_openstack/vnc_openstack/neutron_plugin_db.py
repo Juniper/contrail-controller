@@ -3475,14 +3475,31 @@ class DBInterface(object):
     # end _create_instance_ip
 
     def _port_create_instance_ip(self, net_obj, port_obj, port_q, ip_family="v4"):
-        created_iip_ids = []
         fixed_ips = port_q.get('fixed_ips')
         if fixed_ips is None:
             return
+
+        # 1. find existing ips on port
+        # 2. add new ips on port from update body
+        # 3. delete old/stale ips on port
+        stale_ip_ids = {}
+        for iip in getattr(port_obj, 'instance_ip_back_refs', []):
+            iip_obj = self._instance_ip_read(instance_ip_id=iip['uuid'])
+            ip_addr = iip_obj.get_instance_ip_address()
+            stale_ip_ids[ip_addr] = iip['uuid']
+
+        created_iip_ids = []
         for fixed_ip in fixed_ips:
             try:
                 ip_addr = fixed_ip.get('ip_address')
                 if ip_addr is not None:
+                    try:
+                        # this ip survives to next gen
+                        del stale_ip_ids[ip_addr]
+                        continue
+                    except KeyError:
+                        pass
+
                     if (IPAddress(fixed_ip['ip_address']).version == 4):
                         ip_family="v4"
                     elif (IPAddress(fixed_ip['ip_address']).version == 6):
@@ -3497,9 +3514,8 @@ class DBInterface(object):
                     self._instance_ip_delete(instance_ip_id=iip_id)
                 raise e
 
-        for iip in getattr(port_obj, 'instance_ip_back_refs', []):
-            if iip['uuid'] not in created_iip_ids:
-                iip_obj = self._instance_ip_delete(instance_ip_id=iip['uuid'])
+        for stale_ip, stale_id in stale_ip_ids.items():
+            self._instance_ip_delete(instance_ip_id=stale_id)
     # end _port_create_instance_ip
 
     # port api handlers
