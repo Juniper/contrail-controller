@@ -504,11 +504,11 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
             //
             TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_keepalive() >
                                   verify_keepalives_count);
-            TASK_UTIL_EXPECT_TRUE(peer_a->get_tr_keepalive() >
+            TASK_UTIL_EXPECT_TRUE(peer_a->get_tx_keepalive() >
                                   verify_keepalives_count);
             TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_keepalive() >
                                   verify_keepalives_count);
-            TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() >
+            TASK_UTIL_EXPECT_TRUE(peer_b->get_tx_keepalive() >
                                   verify_keepalives_count);
         }
     }
@@ -712,16 +712,16 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey3"));
     rx_ka_a = peer_a->get_rx_keepalive();
     rx_ka_b = peer_b->get_rx_keepalive();
-    uint32_t tx_ka_a = peer_a->get_tr_keepalive();
-    uint32_t tx_ka_b = peer_b->get_tr_keepalive();
+    uint32_t tx_ka_a = peer_a->get_tx_keepalive();
+    uint32_t tx_ka_b = peer_b->get_tx_keepalive();
     // Sleep for sometime to give the counters enough time.
     usleep(100000); // 100ms
 
     // Both sides should not receive any keepalives since TCP should be
     // dropping the segments due to Md5 mismatch. But, the transmit counters
     // should keep going up.
-    TASK_UTIL_EXPECT_TRUE(peer_a->get_tr_keepalive() > (tx_ka_a + 10));
-    TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > (tx_ka_b + 10));
+    TASK_UTIL_EXPECT_TRUE(peer_a->get_tx_keepalive() > (tx_ka_a + 10));
+    TASK_UTIL_EXPECT_TRUE(peer_b->get_tx_keepalive() > (tx_ka_b + 10));
     EXPECT_EQ(peer_a->get_rx_keepalive(), rx_ka_a);
     EXPECT_EQ(peer_b->get_rx_keepalive(), rx_ka_b);
 
@@ -1492,9 +1492,9 @@ TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         TASK_UTIL_EXPECT_EQ(0, peer_a->get_rx_keepalive());
-        TASK_UTIL_EXPECT_EQ(0, peer_a->get_tr_keepalive());
+        TASK_UTIL_EXPECT_EQ(0, peer_a->get_tx_keepalive());
         TASK_UTIL_EXPECT_EQ(0, peer_b->get_rx_keepalive());
-        TASK_UTIL_EXPECT_EQ(0, peer_b->get_tr_keepalive());
+        TASK_UTIL_EXPECT_EQ(0, peer_b->get_tx_keepalive());
     }
 
     StateMachineTest::set_keepalive_time_msecs(0);

@@ -533,13 +533,19 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAdd) {
         peer_xy->get_rx_end_of_rib(), peer_yx->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
         peer_xy->get_tx_end_of_rib(), peer_yx->get_rx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_route_total(), peer_yx->get_tx_route_total());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_route_total(), peer_yx->get_rx_route_total());
 
-    // Verify reach/unreach and end-of-rib counts.
+    // Verify reach/unreach, end-of-rib and total counts.
     // 1 route-target and kRouteCount inet-vpn routes.
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(
+        2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
 
     // Close the sessions.
     agent_a_->SessionDown();

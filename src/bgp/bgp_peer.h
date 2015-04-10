@@ -190,23 +190,22 @@ public:
     void inc_rx_end_of_rib();
     void inc_rx_route_reach(uint32_t count);
     void inc_rx_route_unreach(uint32_t count);
-    void inc_rx_route_update();
 
     void inc_tx_end_of_rib();
-    void inc_tx_route_unreach();
-    void inc_tx_route_update();
 
-    size_t get_rx_keepalive();
-    size_t get_rx_notification();
-    size_t get_tr_keepalive();
+    size_t get_rx_keepalive() const;
+    size_t get_rx_notification() const;
+    size_t get_tx_keepalive() const;
 
     size_t get_rx_end_of_rib() const;
     size_t get_rx_route_reach() const;
     size_t get_rx_route_unreach() const;
+    size_t get_rx_route_total() const;
 
     size_t get_tx_end_of_rib() const;
     size_t get_tx_route_reach() const;
     size_t get_tx_route_unreach() const;
+    size_t get_tx_route_total() const;
 
     void inc_connect_error();
     void inc_connect_timer_expired();
@@ -214,11 +213,11 @@ public:
     void inc_open_error();
     void inc_update_error();
 
-    size_t get_connect_error();
-    size_t get_connect_timer_expired();
-    size_t get_hold_timer_expired();
-    size_t get_open_error();
-    size_t get_update_error();
+    size_t get_connect_error() const;
+    size_t get_connect_timer_expired() const;
+    size_t get_hold_timer_expired() const;
+    size_t get_open_error() const;
+    size_t get_update_error() const;
 
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 

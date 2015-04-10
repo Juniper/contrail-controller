@@ -68,7 +68,7 @@ public:
         UpdateStats() : end_of_rib(0), total(0), reach(0), unreach(0) {
         }
         uint32_t end_of_rib;
-        uint32_t total;  // Total valid update messages
+        uint32_t total;
         uint32_t reach;
         uint32_t unreach;
     };
