@@ -174,7 +174,7 @@ class PhysicalRouterDM(DBBase):
                 if ri_obj is None:
                     continue
                 if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
-                    vrf_name = ':'.join(vn_obj.fq_name)
+                    vrf_name = vn_obj.get_vrf_name()
                     export_set = copy.copy(ri_obj.export_targets)
                     import_set = copy.copy(ri_obj.import_targets)
                     for ri2_id in ri_obj.routing_instances:
@@ -195,8 +195,7 @@ class PhysicalRouterDM(DBBase):
                     break
 
             if export_set is not None and self.is_bare_metal_service_enabled() and len(vn_obj.instance_ip_map) > 0:
-                vrf_name = ':'.join(vn_obj.fq_name)
-                vrf_name = vrf_name + '_public_nat'
+                vrf_name = vrf_name[:123] + '-nat'
                 interfaces = []
                 service_ports = self.bare_metal_service.get('service_port')
                 interfaces.append(service_ports[0] + "." + str(service_port_id))
@@ -333,13 +332,13 @@ class FloatingIpDM(DBBase):
         self.virtual_machine_interface = None
         self.floating_ip_address = None
         self.update(obj_dict)
-        self.public_network = self.get_pool_public_network(self.get_parent_uuid(obj_dict))
     # end __init__
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.floating_ip_address = obj.get("floating_ip_address")
+        self.public_network = self.get_pool_public_network(self.get_parent_uuid(obj))
         self.update_single_ref('virtual_machine_interface', obj)
     # end update
 
@@ -475,10 +474,18 @@ class VirtualNetworkDM(DBBase):
                 self.gateways.add(subnet['default_gateway'])
     # end update
 
+    def get_vrf_name(self):
+        vrf_name = '__contrail__' + self.uuid + '_' + self.fq_name[-1]
+        #mx has limitation for vrf name, allowed max 127 chars
+        return vrf_name[:127]
+    #end
+
     def update_instance_ip_map(self):
         self.instance_ip_map = {}
         for vmi_uuid in self.virtual_machine_interfaces:
             vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi is None:
+                continue
             if vmi.floating_ip is not None and vmi.instance_ip is not None:
                 fip = FloatingIpDM.get(vmi.floating_ip)
                 inst_ip  = InstanceIpDM.get(vmi.instance_ip)
@@ -487,7 +494,9 @@ class VirtualNetworkDM(DBBase):
                 instance_ip = inst_ip.instance_ip_address
                 floating_ip = fip.floating_ip_address
                 public_vn = VirtualNetworkDM.get(fip.public_network)
-                public_vrf_name = "__contrail__" + '_'.join(public_vn.fq_name)
+                if public_vn is None:
+                    continue
+                public_vrf_name = public_vn.get_vrf_name()
                 self.instance_ip_map[instance_ip] = {'floating_ip': floating_ip,
                                                      'vrf_name': public_vrf_name}
     # end update_instance_ip_map

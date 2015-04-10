@@ -82,9 +82,9 @@ class PhysicalRouterConfig(object):
                                                       e.message))
     # end send_config
 
-    def add_routing_instance(self, name, import_targets, export_targets,
+    def add_routing_instance(self, ri_name, import_targets, export_targets,
                              prefixes=[], gateways=[], router_external=False, interfaces=[], vni=None, fip_map=None):
-        self.routing_instances[name] = {'import_targets': import_targets,
+        self.routing_instances[ri_name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
                                         'prefixes': prefixes,
                                         'gateways': gateways,
@@ -97,7 +97,6 @@ class PhysicalRouterConfig(object):
         policy_config = self.policy_config or etree.Element("policy-options")
         firewall_config = None
         ri = etree.SubElement(ri_config, "instance", operation="replace")
-        ri_name = "__contrail__" + name.replace(':', '_')
         etree.SubElement(ri, "name").text = ri_name
         if vni is not None:
             etree.SubElement(ri, "instance-type").text = "virtual-switch"
@@ -272,15 +271,17 @@ class PhysicalRouterConfig(object):
         services_config = None
         if fip_map is not None:
             services_config = self.services_config or etree.Element("services")
-            service_name = ri_name + "-fip-nat"
+            service_name = 'sv-' + ri_name
+            #mx has limitation for service-set and nat-rule name length, allowed max 63 chars
+            service_name = service_name[:56]
             service_set = etree.SubElement(services_config, "service-set")
             etree.SubElement(service_set, "name").text = service_name
             rule_count = len(fip_map)
             for rule_id in range(0, rule_count):
                 nat_rule = etree.SubElement(service_set, "nat-rules")
-                etree.SubElement(nat_rule, "name").text = service_name + "-snat-rule-" + str(rule_id)
+                etree.SubElement(nat_rule, "name").text = service_name + "-sn-" + str(rule_id)
                 nat_rule = etree.SubElement(service_set, "nat-rules")
-                etree.SubElement(nat_rule, "name").text = service_name + "-dnat-rule-" + str(rule_id)
+                etree.SubElement(nat_rule, "name").text = service_name + "-dn-" + str(rule_id)
             next_hop_service = etree.SubElement(service_set, "next-hop-service")
             etree.SubElement(next_hop_service , "inside-service-interface").text = interfaces[0]
             etree.SubElement(next_hop_service , "outside-service-interface").text = interfaces[1]
@@ -291,8 +292,8 @@ class PhysicalRouterConfig(object):
             for pip, fip_vn in fip_map.items():
                 fip = fip_vn["floating_ip"]
                 rule = etree.SubElement(nat, "rule")
-                etree.SubElement(rule, "name").text = service_name + "-snat-rule-" + str(rule_id)
-                etree.SubElement(rule, "match-condition").text = "input"
+                etree.SubElement(rule, "name").text = service_name + "-sn-" + str(rule_id)
+                etree.SubElement(rule, "match-direction").text = "input"
                 term = etree.SubElement(rule, "term")
                 etree.SubElement(term, "name").text = "t1"
                 from_ = etree.SubElement(term, "from")
@@ -305,8 +306,8 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(translation_type, "basic-nat44")
 
                 rule = etree.SubElement(nat, "rule")
-                etree.SubElement(rule, "name").text = service_name + "-dnat-rule-" + str(rule_id)
-                etree.SubElement(rule, "match-condition").text = "output"
+                etree.SubElement(rule, "name").text = service_name + "-dn-" + str(rule_id)
+                etree.SubElement(rule, "match-direction").text = "output"
                 term = etree.SubElement(rule, "term")
                 etree.SubElement(term, "name").text = "t1"
                 from_ = etree.SubElement(term, "from")
