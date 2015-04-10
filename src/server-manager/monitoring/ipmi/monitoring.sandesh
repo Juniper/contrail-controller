@@ -54,7 +54,7 @@ struct ServerMonitoringInfo {
     12: optional list<network_info> network_info_state
 }
 
-uve sandesh ServerMonitoringInfoTrace {
+uve sandesh ServerMonitoringInfoUve {
     1: ServerMonitoringInfo             data
 }
 
