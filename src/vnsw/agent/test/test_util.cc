@@ -443,14 +443,16 @@ void IntfCfgAdd(PortInfo *input, int id) {
 	       input[id].ip6addr);
 }
 
-void IntfCfgDel(PortInfo *input, int id) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-    CfgIntKey *key = new CfgIntKey(MakeUuid(input[id].intf_id));
-    req.key.reset(key);
+void IntfCfgDel(int id) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new CfgIntKey(MakeUuid(id)));
     req.data.reset(NULL);
     Agent::GetInstance()->interface_config_table()->Enqueue(&req);
     usleep(1000);
+}
+
+void IntfCfgDel(PortInfo *input, int id) {
+    IntfCfgDel(input[id].intf_id);
 }
 
 bool VrfFind(const char *name, bool ret_del) {
