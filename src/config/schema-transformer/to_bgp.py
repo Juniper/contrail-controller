@@ -28,18 +28,18 @@ import uuid
 from lxml import etree
 import re
 from cfgm_common import vnc_cpu_info
-import pycassa
-from pycassa.system_manager import *
-from pycassa.pool import AllServersUnavailable
+from pycassa import NotFoundException
 
 import cfgm_common as common
 from cfgm_common.exceptions import *
 from cfgm_common.imid import *
 from cfgm_common import svc_info
-
+from cfgm_common.vnc_db import DBBase
+from cfgm_common.vnc_cassandra import VncCassandraClient
 from vnc_api.vnc_api import *
 
 from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -58,8 +58,7 @@ import jsonpickle
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
-    NodeStatus
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
 from cStringIO import StringIO
 
 _BGP_RTGT_MAX_ID = 1 << 24
@@ -89,56 +88,6 @@ _vnc_lib = None
 # zookeeper client connection
 _zookeeper_client = None
 
-
-def _ports_eq(lhs, rhs):
-    return lhs.start_port == rhs.start_port and lhs.end_port == rhs.end_port
-# end _ports_eq
-PortType.__eq__ = _ports_eq
-
-
-class DictST(object):
-
-    class __metaclass__(type):
-
-        def __iter__(cls):
-            for i in cls._dict:
-                yield i
-        # end __iter__
-
-        def values(cls):
-            for i in cls._dict.values():
-                yield i
-        # end values
-
-        def items(cls):
-            for i in cls._dict.items():
-                yield i
-        # end items
-    # end __metaclass__
-
-    @classmethod
-    def get(cls, name):
-        if name in cls._dict:
-            return cls._dict[name]
-        return None
-    # end get
-
-    @classmethod
-    def locate(cls, name, *args):
-        if name not in cls._dict:
-            try:
-                cls._dict[name] = cls(name, *args)
-            except NoIdError as e:
-                _sandesh._logger.error("Exception %s while creating %s for %s",
-                                       e, cls.__name__, name)
-                return None
-        return cls._dict[name]
-    # end locate
-
-    @classmethod
-    def reset(cls):
-        cls._dict = {}
-# end DictST
 
 def get_si_vns(si_obj, si_props):
     left_vn = None
@@ -213,7 +162,7 @@ def _access_control_list_update(acl_obj, name, obj, entries):
 # schema transformer
 
 
-class VirtualNetworkST(DictST):
+class VirtualNetworkST(DBBase):
     _dict = {}
     _rt_cf = None
     _sc_ip_cf = None
@@ -484,7 +433,7 @@ class VirtualNetworkST(DictST):
     def allocate_service_chain_ip(self, sc_name):
         try:
             sc_ip_address = self._sc_ip_cf.get(sc_name)['ip_address']
-        except pycassa.NotFoundException:
+        except NotFoundException:
             try:
                 sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
                     self.obj, count=1)[0]
@@ -502,7 +451,7 @@ class VirtualNetworkST(DictST):
             sc_ip_address = self._sc_ip_cf.get(sc_name)['ip_address']
             self._sc_ip_cf.remove(sc_name)
             _vnc_lib.virtual_network_ip_free(self.obj, [sc_ip_address])
-        except (NoIdError, pycassa.NotFoundException):
+        except (NoIdError, NotFoundException):
             pass
     # end free_service_chain_ip
 
@@ -524,7 +473,7 @@ class VirtualNetworkST(DictST):
             db_sc = vlan_ia.read(vlan)
             if (db_sc is None) or (db_sc != service_chain):
                 alloc_new = True
-        except (KeyError, pycassa.NotFoundException):
+        except (KeyError, NotFoundException):
             alloc_new = True
 
         if alloc_new:
@@ -545,7 +494,7 @@ class VirtualNetworkST(DictST):
             vlan_ia.delete(vlan)
             if vlan_ia.empty():
                 del cls._sc_vlan_allocator_dict[service_vm]
-        except (KeyError, pycassa.NotFoundException):
+        except (KeyError, NotFoundException):
             pass
     # end free_service_chain_vlan
 
@@ -597,11 +546,11 @@ class VirtualNetworkST(DictST):
             rtgt_num = int(self._rt_cf.get(rinst_fq_name_str)['rtgt_num'])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
                 old_rtgt = rtgt_num
-                raise pycassa.NotFoundException
+                raise NotFoundException
             rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
             if (rtgt_ri_fq_name_str != rinst_fq_name_str):
                 alloc_new = True
-        except pycassa.NotFoundException:
+        except NotFoundException:
             alloc_new = True
 
         if (alloc_new):
@@ -1174,7 +1123,7 @@ class VirtualNetworkST(DictST):
 # end class VirtualNetworkST
 
 
-class RouteTargetST(DictST):
+class RouteTargetST(DBBase):
     _dict = {}
 
     def __init__(self, rt_key, obj=None):
@@ -1198,7 +1147,7 @@ class RouteTargetST(DictST):
 # transformer
 
 
-class NetworkPolicyST(DictST):
+class NetworkPolicyST(DBBase):
     _dict = {}
 
     def __init__(self, name):
@@ -1211,12 +1160,6 @@ class NetworkPolicyST(DictST):
         self.policies = set()
     # end __init__
 
-    @classmethod
-    def delete(cls, name):
-        if name in cls._dict:
-            del cls._dict[name]
-    # end delete
-    
     def add_rules(self, entries):
         network_set = self.networks_back_ref | self.analyzer_vn_set
         if entries is None:
@@ -1242,7 +1185,7 @@ class NetworkPolicyST(DictST):
 # end class NetworkPolicyST
 
 
-class RouteTableST(DictST):
+class RouteTableST(DBBase):
     _dict = {}
 
     def __init__(self, name):
@@ -1252,18 +1195,13 @@ class RouteTableST(DictST):
         self.routes = None
     # end __init__
 
-    @classmethod
-    def delete(cls, name):
-        if name in cls._dict:
-            del cls._dict[name]
-    # end delete
 # end RouteTableST
 
 # a struct to store attributes related to Security Group needed by schema
 # transformer
 
 
-class SecurityGroupST(DictST):
+class SecurityGroupST(DBBase):
     _dict = {}
     _sg_id_allocator = None
 
@@ -1552,7 +1490,7 @@ class RoutingInstanceST(object):
             rtgt = int(rt_cf.get(ri_fq_name_str)['rtgt_num'])
             rt_cf.remove(ri_fq_name_str)
             VirtualNetworkST._rt_allocator.delete(rtgt)
-        except pycassa.NotFoundException:
+        except NotFoundException:
             pass
 
         service_chain = self.service_chain
@@ -1590,7 +1528,7 @@ class RoutingInstanceST(object):
 # end class RoutingInstanceST
 
 
-class ServiceChain(DictST):
+class ServiceChain(DBBase):
     _dict = {}
     
     @classmethod
@@ -1610,7 +1548,7 @@ class ServiceChain(DictST):
                 chain.present_stale = True
                 chain.created_stale = chain.created
                 cls._dict[name] = chain
-        except pycassa.NotFoundException:
+        except NotFoundException:
             pass
     # end init
     
@@ -1970,7 +1908,7 @@ class ServiceChain(DictST):
         del self._dict[self.name]
         try:
             self._service_chain_uuid_cf.remove(self.name)
-        except pycassa.NotFoundException:
+        except NotFoundException:
             pass
     # end delete
     
@@ -2057,7 +1995,7 @@ class AclRuleListST(object):
 # end AclRuleListST
 
 
-class BgpRouterST(DictST):
+class BgpRouterST(DBBase):
     _dict = {}
     _ibgp_auto_mesh = None
     def __init__(self, name, params):
@@ -2073,12 +2011,6 @@ class BgpRouterST(DictST):
             if self._ibgp_auto_mesh is None:
                 self._ibgp_auto_mesh = True
     # end __init__
-
-    @classmethod
-    def delete(cls, name):
-        if name in cls._dict:
-            del cls._dict[name]
-    # end delete
 
     def set_params(self, params):
         if self.vendor == 'contrail':
@@ -2154,7 +2086,7 @@ class BgpRouterST(DictST):
 # end class BgpRouterST
 
 
-class VirtualMachineInterfaceST(DictST):
+class VirtualMachineInterfaceST(DBBase):
     _dict = {}
     _vn_dict = {}
     _service_vmi_list = []
@@ -2466,43 +2398,27 @@ class VirtualMachineInterfaceST(DictST):
 # end VirtualMachineInterfaceST
 
 
-class InstanceIpST(DictST):
+class InstanceIpST(DBBase):
     _dict = {}
 
     def __init__(self, name, address):
         self.name = name
         self.address = address
     # end __init
-
-    @classmethod
-    def delete(cls, name):
-        ip = cls.get(name)
-        if ip is None:
-            return
-        del cls._dict[name]
-    # end delete
 # end InstanceIpST
 
 
-class FloatingIpST(DictST):
+class FloatingIpST(DBBase):
     _dict = {}
 
     def __init__(self, name, address):
         self.name = name
         self.address = address
     # end __init
-
-    @classmethod
-    def delete(cls, name):
-        ip = cls.get(name)
-        if ip is None:
-            return
-        del cls._dict[name]
-    # end delete
 # end FloatingIpST
 
 
-class VirtualMachineST(DictST):
+class VirtualMachineST(DBBase):
     _dict = {}
     _si_dict = {}
     def __init__(self, name, si):
@@ -2573,7 +2489,7 @@ class VirtualMachineST(DictST):
 # end VirtualMachineST
 
 
-class LogicalRouterST(DictST):
+class LogicalRouterST(DBBase):
     _dict = {}
 
     def __init__(self, name):
@@ -2707,13 +2623,11 @@ class SchemaTransformer(object):
             self._keyspace = SchemaTransformer._KEYSPACE
 
         self._fabric_rt_inst_obj = None
-        self._cassandra_init()
 
         # reset zookeeper config
         if self._args.reset_config:
             _zookeeper_client.delete_node(self._zk_path_pfx + "/id", True)
 
-        ServiceChain.init()
         VirtualNetworkST._vn_id_allocator = IndexAllocator(_zookeeper_client,
             self._zk_path_pfx+_VN_ID_ALLOC_PATH,
             _VN_MAX_ID)
@@ -2764,6 +2678,9 @@ class SchemaTransformer(object):
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
 
+        self._cassandra_init()
+        DBBase.init(self, _sandesh.logger(), self._cassandra)
+        ServiceChain.init()
         self.reinit()
         self.ifmap_search_done = False
         # create cpu_info object to send periodic updates
@@ -2773,6 +2690,10 @@ class SchemaTransformer(object):
         self._cpu_info = cpu_info
 
     # end __init__
+
+    def config_log(self, msg, level):
+        _sandesh.logger().log(SandeshLogger.get_py_logger_level(level),
+                              msg)
 
     # Clean up stale objects
     def reinit(self):
@@ -3566,105 +3487,27 @@ class SchemaTransformer(object):
             vmi.recreate_vrf_assign_table()
     # end process_poll_result
 
-    def _log_exceptions(self, func):
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except AllServersUnavailable:
-                ConnectionState.update(conn_type=ConnectionType.DATABASE,
-                    name='Cassandra', status=ConnectionStatus.DOWN,
-                    message='', server_addrs=self._args.cassandra_server_list)
-                raise
-        return wrapper
-    # end _log_exceptions
-
     def _cassandra_init(self):
-        result_dict = {}
+        keyspaces = {
+            self._keyspace: [(self._RT_CF, None),
+                             (self._SC_IP_CF, None),
+                             (self._SERVICE_CHAIN_CF, None),
+                             (self._SERVICE_CHAIN_UUID_CF, None)]}
+        cass_server_list = self._args.cassandra_server_list
+        if self._args.reset_config
+            cass_reset_config = [self._keyspace]
+        else:
+            cass_reset_config = []
+        self._cassandra = VncCassandraClient(
+            cass_server_list, self._args.cluster_id, keyspaces,
+            self.config_log, reset_config=cass_reset_config)
 
-        server_idx = 0
-        num_dbnodes = len(self._args.cassandra_server_list)
-        connected = False
-        # Update connection info
-        ConnectionState.update(conn_type=ConnectionType.DATABASE,
-            name='Database', status=ConnectionStatus.INIT,
-            message='', server_addrs=self._args.cassandra_server_list)
-
-        while not connected:
-            try:
-                cass_server = self._args.cassandra_server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
-                connected = True
-            except Exception as e:
-                # Update connection info
-                ConnectionState.update(conn_type=ConnectionType.DATABASE,
-                    name='Database', status=ConnectionStatus.DOWN,
-                    message='', server_addrs=[cass_server])
-                server_idx = (server_idx + 1) % num_dbnodes
-                time.sleep(3)
-
-        # Update connection info
-        ConnectionState.update(conn_type=ConnectionType.DATABASE,
-            name='Database', status=ConnectionStatus.UP,
-            message='', server_addrs=self._args.cassandra_server_list)
-
-        if self._args.reset_config:
-            try:
-                sys_mgr.drop_keyspace(self._keyspace)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                print "Warning! " + str(e)
-
-        try:
-            sys_mgr.create_keyspace(
-                self._keyspace, SIMPLE_STRATEGY,
-                {'replication_factor': str(num_dbnodes)})
-        except pycassa.cassandra.ttypes.InvalidRequestException as e:
-            # TODO verify only EEXISTS
-            print "Warning! " + str(e)
-
-        column_families = [self._RT_CF, self._SC_IP_CF, self._SERVICE_CHAIN_CF,
-                           self._SERVICE_CHAIN_UUID_CF]
-        conn_pool = pycassa.ConnectionPool(
-            self._keyspace,
-            server_list=self._args.cassandra_server_list,
-            max_overflow=10,
-            use_threadlocal=True,
-            prefill=True,
-            pool_size=10,
-            pool_timeout=30,
-            max_retries=-1,
-            timeout=0.5)
-
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        gc_grace_sec = CASSANDRA_DEFAULT_GC_GRACE_SECONDS
-
-        for cf in column_families:
-            try:
-                sys_mgr.create_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                print "Warning! " + str(e)
-                sys_mgr.alter_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
-            result_dict[cf] = pycassa.ColumnFamily(
-                conn_pool, cf,
-                read_consistency_level=rd_consistency,
-                write_consistency_level=wr_consistency)
-
-        VirtualNetworkST._rt_cf = result_dict[self._RT_CF]
-        VirtualNetworkST._sc_ip_cf = result_dict[self._SC_IP_CF]
-        VirtualNetworkST._service_chain_cf = result_dict[
+        VirtualNetworkST._rt_cf = self._cassandra._cf_dict[self._RT_CF]
+        VirtualNetworkST._sc_ip_cf = self._cassandra._cf_dict[self._SC_IP_CF]
+        VirtualNetworkST._service_chain_cf = self._cassandra._cf_dict[
             self._SERVICE_CHAIN_CF]
-        ServiceChain._service_chain_uuid_cf = result_dict[
+        ServiceChain._service_chain_uuid_cf = self._cassandra._cf_dict[
             self._SERVICE_CHAIN_UUID_CF]
-
-        pycassa.ColumnFamily.get = self._log_exceptions(pycassa.ColumnFamily.get)
-        pycassa.ColumnFamily.xget = self._log_exceptions(pycassa.ColumnFamily.xget)
-        pycassa.ColumnFamily.get_range = self._log_exceptions(pycassa.ColumnFamily.get_range)
-        pycassa.ColumnFamily.insert = self._log_exceptions(pycassa.ColumnFamily.insert)
-        pycassa.ColumnFamily.remove = self._log_exceptions(pycassa.ColumnFamily.remove)
-        pycassa.batch.Mutator.send = self._log_exceptions(pycassa.batch.Mutator.send)
-
     # end _cassandra_init
 
     def sandesh_ri_build(self, vn_name, ri_name):
