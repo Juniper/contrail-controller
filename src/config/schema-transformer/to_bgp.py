@@ -1139,7 +1139,7 @@ class RouteTargetST(DictST):
     def delete(cls, rt_key):
         if rt_key not in cls._dict:
             return
-        _vnc_lib.route_target_delete(self.obj)
+        _vnc_lib.route_target_delete(fq_name_str=rt_key)
         del cls._dict[rt_key]
     # end delete
 # end RoutTargetST
@@ -1681,13 +1681,30 @@ class ServiceChain(DictST):
                 service_ri1.update_route_target_list(rt_list,
                                                      import_export='export')
 
-            tmp_vm_obj = VirtualMachineST('', service)
-            mode = tmp_vm_obj.get_service_mode()
+            try:
+                si_obj = _vnc_lib.service_instance_read(
+                    fq_name_str=service, fields=['virtual_machine_back_refs'])
+                vm_refs = si_obj.get_virtual_machine_back_refs()
+            except NoIdError:
+                _sandesh._logger.error("NoIdError while reading service instance "
+                                       + service)
+                return None
+            if not vm_refs:
+                _sandesh._logger.error("No vm refs for service instance "
+                                       + service)
+                return None
+            vm_name = ':'.join(vm_refs[0]['to'])
+            vm_obj = VirtualMachineST.get(vm_name)
+            if vm_obj is None:
+                _sandesh._logger.error("VM %s not found" % vm_name)
+                return None
+            mode = vm_obj.get_service_mode()
             if mode is None:
+                _sandesh._logger.error("service mode not found: %s" % vm_name)
                 return None
             nat_service = (mode == "in-network-nat")
             transparent = (mode not in ["in-network", "in-network-nat"])
-            _sandesh._logger.error("service chain %s: creating %s chain",
+            _sandesh._logger.info("service chain %s: creating %s chain",
                                    self.name, mode)
 
             if transparent:
@@ -1700,28 +1717,18 @@ class ServiceChain(DictST):
                     service_ri2.add_service_info(vn1_obj, service,
                                                  sc_ip_address)
 
-            if service_instance:
-                try:
-                    vm_refs = service_instance.get_virtual_machine_back_refs()
-                except NoIdError:
-                    _sandesh._logger.error("service chain %s: NoIdError on "
-                                           "service_instance, disappear?",
-                                           self.name)
+            for service_vm in vm_refs:
+                vm_obj = VirtualMachineST.get(':'.join(service_vm['to']))
+                if transparent:
+                    result = self.process_transparent_service(
+                        service_vm['uuid'], vm_obj, sc_ip_address, service_ri1,
+                        service_ri2)
+                else:
+                    result = self.process_in_network_service(
+                        vm_obj, service, vn1_obj, vn2_obj, service_ri1,
+                        service_ri2, nat_service)
+                if not result:
                     return None
-                if vm_refs is None:
-                    return None
-                for service_vm in vm_refs:
-                    vm_obj = _vnc_lib.virtual_machine_read(
-                        id=service_vm['uuid'])
-                    if transparent:
-                        result = self.process_transparent_service(
-                            vm_obj, sc_ip_address, service_ri1, service_ri2)
-                    else:
-                        result = self.process_in_network_service(
-                            vm_obj, service, vn1_obj, vn2_obj, service_ri1,
-                            service_ri2, nat_service)
-                    if not result:
-                        return None
             _vnc_lib.routing_instance_update(service_ri1.obj)
             _vnc_lib.routing_instance_update(service_ri2.obj)
 
@@ -1790,15 +1797,16 @@ class ServiceChain(DictST):
                 _vnc_lib.virtual_machine_interface_update(if_obj)
         return interface_type
 
-    def process_transparent_service(self, vm_obj, sc_ip_address, service_ri1,
-                                    service_ri2):
+    def process_transparent_service(self, vm_uuid, vm_obj, sc_ip_address,
+                                    service_ri1, service_ri2):
         found = set()
         vlan = VirtualNetworkST.allocate_service_chain_vlan(
-            vm_obj.uuid, self.name)
-        for interface in (vm_obj.get_virtual_machine_interfaces() or
-                          vm_obj.get_virtual_machine_interface_back_refs()
-                          or []):
-            found.add(self.add_pbf_rule(interface['uuid'], service_ri1,
+            vm_uuid, self.name)
+        for interface_name in vm_obj.interfaces:
+            interface = VirtualMachineST.get(interface_name)
+            if interface_name is None:
+                return False
+            found.add(self.add_pbf_rule(interface.uuid, service_ri1,
                                         service_ri2, sc_ip_address, vlan))
         return 'left' in found and 'right' in found
     # end process_transparent_service
@@ -1807,12 +1815,11 @@ class ServiceChain(DictST):
                                    service_ri1, service_ri2, nat_service):
         left_found = False
         right_found = False
-        for interface in (vm_obj.get_virtual_machine_interfaces() or
-                          vm_obj.get_virtual_machine_interface_back_refs()
-                          or []):
-            if_obj = VirtualMachineInterfaceST.get(':'.join(interface['to']))
+        for interface in vm_obj.interfaces:
+            if_obj = VirtualMachineInterfaceST.get(interface)
             if (if_obj is None or
                 if_obj.service_interface_type not in ['left', 'right']):
+                _sandesh._logger.error("No interface found " + interface)
                 continue
             ip_addr = if_obj.get_any_instance_ip_address()
             if ip_addr is None:
@@ -2114,7 +2121,7 @@ class VirtualMachineInterfaceST(DictST):
         if smode != 'transparent':
             return
         for service_chain in ServiceChain.values():
-            if si_obj.get_fq_name_str() not in service_chain.service_list:
+            if vm_obj.service_instance not in service_chain.service_list:
                 continue
             if not service_chain.created:
                 continue
@@ -2126,7 +2133,7 @@ class VirtualMachineInterfaceST(DictST):
                 vn_obj = VirtualNetworkST.locate(service_chain.right_vn)
 
             service_name = vn_obj.get_service_name(service_chain.name,
-                                                   si_obj.get_fq_name_str())
+                                                   vm_obj.service_instance)
             service_ri = vn_obj.locate_routing_instance(
                 service_name, service_chain.name)
             sc_ip_address = vn1_obj.allocate_service_chain_ip(
@@ -2256,15 +2263,14 @@ class VirtualMachineInterfaceST(DictST):
         vm_obj = VirtualMachineST.get(self.virtual_machine)
         if vm_obj is None:
             _sandesh._logger.error(
-                "virtual machine %s not found: %s",
-                self.virtual_machine, str(e))
+                "virtual machine %s not found", self.virtual_machine)
             return
         smode = vm_obj.get_service_mode()
         if smode not in ['in-network', 'in-network-nat']:
             return
 
         policy_rule_count = 0
-        si_name = si_obj.get_fq_name_str()
+        si_name = vm_obj.service_instance
         for policy_name in vn.policies:
             policy = NetworkPolicyST.get(policy_name)
             if policy is None:
@@ -2335,7 +2341,7 @@ class InstanceIpST(DictST):
         ip = cls.get(name)
         if ip is None:
             return
-        del cls[name]
+        del cls._dict[name]
     # end delete
 # end InstanceIpST
 
