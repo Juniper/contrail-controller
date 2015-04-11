@@ -52,13 +52,16 @@ TcpSession::TcpSession(
       established_(false),
       closed_(false),
       direction_(ACTIVE),
-      writer_(new TcpMessageWriter(this)) {
+      writer_(new TcpMessageWriter(this)),
+      name_("-") {
     refcount_ = 0;
     if (reader_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         reader_task_id_ = scheduler->GetTaskId("io::ReaderTask");
     }
-    name_ = "-";
+    if (server_) {
+        io_strand_.reset(new Strand(*server->event_manager()->io_service()));
+    }
 }
 
 TcpSession::~TcpSession() {
@@ -114,7 +117,7 @@ void TcpSession::ReleaseBufferLocked(Buffer buffer) {
     assert(false);
 }
 
-void TcpSession::AsyncReadStart() {
+void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
     mutable_buffer buffer = AllocateBuffer();
     tbb::mutex::scoped_lock lock(mutex_);
     if (!established_) {
@@ -122,6 +125,13 @@ void TcpSession::AsyncReadStart() {
         return;
     }
     AsyncReadSome(buffer);
+}
+
+void TcpSession::AsyncReadStart() {
+    if (io_strand_) {
+        io_strand_->post(boost::bind(
+            &TcpSession::AsyncReadStartInternal, this, TcpSessionPtr(this)));
+    }
 }
 
 void TcpSession::DeferWriter() {
