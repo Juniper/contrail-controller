@@ -126,6 +126,11 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     Interface *intf = key->AllocEntry(this, data);
     if (intf == NULL)
         return NULL;
+    if (intf->type_ == Interface::VM_INTERFACE) {
+        vmi_count_++;
+    } else  if (intf->type_ == Interface::LOGICAL) {
+        li_count_++;
+    }
 
     intf->id_ = index_table_.Insert(intf);
 
@@ -337,8 +342,14 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
 }
 
 Interface::~Interface() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     if (id_ != kInvalidIndex) {
-        static_cast<InterfaceTable *>(get_table())->FreeInterfaceId(id_);
+        table->FreeInterfaceId(id_);
+        if (type_ == VM_INTERFACE) {
+            table->decr_vmi_count();
+        } else if (type_ == LOGICAL) {
+            table->decr_li_count();
+        }
     }
 }
 
