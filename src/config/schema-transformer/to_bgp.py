@@ -1139,7 +1139,7 @@ class RouteTargetST(DictST):
     def delete(cls, rt_key):
         if rt_key not in cls._dict:
             return
-        _vnc_lib.route_target_delete(fq_name_str=rt_key)
+        _vnc_lib.route_target_delete(fq_name=[rt_key])
         del cls._dict[rt_key]
     # end delete
 # end RoutTargetST
@@ -2359,7 +2359,7 @@ class FloatingIpST(DictST):
         ip = cls.get(name)
         if ip is None:
             return
-        del cls[name]
+        del cls._dict[name]
     # end delete
 # end FloatingIpST
 
@@ -2381,7 +2381,7 @@ class VirtualMachineST(DictST):
         vm = cls.get(name)
         if vm is None:
             return
-        del cls[name]
+        del cls._dict[name]
     # end delete
 
     def add_interface(self, interface):
