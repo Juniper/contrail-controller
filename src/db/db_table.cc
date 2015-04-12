@@ -12,6 +12,7 @@
 #include "base/compiler.h"
 #include "base/logging.h"
 #include "base/task_annotations.h"
+#include "base/time_util.h"
 #include "db/db.h"
 #include "db/db_partition.h"
 #include "db/db_table.h"
@@ -129,7 +130,8 @@ private:
 };
 
 DBTableBase::DBTableBase(DB *db, const string &name)
-        : db_(db), name_(name), info_(new ListenerInfo()) {
+        : db_(db), name_(name), info_(new ListenerInfo()), enqueue_count_(0),
+          input_count_(0), notify_count_(0) {
 }
 
 DBTableBase::~DBTableBase() {
@@ -151,6 +153,7 @@ void DBTableBase::Unregister(ListenerId listener) {
 bool DBTableBase::Enqueue(DBRequest *req) {
     DBTablePartBase *tpart = GetTablePartition(req->key.get());
     DBPartition *partition = db_->GetPartition(tpart->index());
+    enqueue_count_++;
     return partition->EnqueueRequest(tpart, NULL, req);
 }
 
@@ -161,6 +164,7 @@ void DBTableBase::EnqueueRemove(DBEntryBase *db_entry) {
 }
 
 void DBTableBase::RunNotify(DBTablePartBase *tpart, DBEntryBase *entry) {
+    notify_count_++;
     info_->RunNotify(tpart, entry);
 }
 

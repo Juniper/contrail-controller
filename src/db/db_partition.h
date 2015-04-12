@@ -36,6 +36,9 @@ public:
     bool IsDBQueueEmpty() const;
     void SetQueueDisable(bool disable);
 
+    long request_queue_len() const;
+    uint64_t total_request_count() const;
+    uint64_t max_request_queue_len() const;
 private:
     class WorkQueue;
     class QueueRunner;

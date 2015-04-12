@@ -315,6 +315,7 @@ bool InterfaceTable::LogicalInterfaceProcessConfig(IFMapNode *node,
     req.data.reset(BuildData(agent(), node, u, port));
 
     if (req.data.get() != NULL) {
+        li_ifnode_to_req_++;
         Enqueue(&req);
     }
     return false;

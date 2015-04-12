@@ -5,6 +5,7 @@
 #include <tbb/mutex.h>
 
 #include "base/logging.h"
+#include "base/time_util.h"
 #include "db/db.h"
 #include "db/db_entry.h"
 #include "db/db_partition.h"
@@ -87,6 +88,7 @@ DBTablePartition::DBTablePartition(DBTable *table, int index)
 
 void DBTablePartition::Process(DBClient *client, DBRequest *req) {
     DBTable *table = static_cast<DBTable *>(parent());
+    table->incr_input_count();
     table->Input(this, client, req);
 }
 
