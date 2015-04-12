@@ -35,6 +35,7 @@
 #include <oper/loadbalancer.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <oper/agent_profile.h>
 #include <oper/agent_sandesh.h>
 #include <nexthop_server/nexthop_manager.h>
 
@@ -182,6 +183,7 @@ void OperDB::CreateDBTables(DB *db) {
         DBTableCreate<PhysicalDeviceVnTable>(db, agent_, this,
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
+    profile_.reset(new AgentProfile(agent_, false));
 }
 
 void OperDB::Init() {

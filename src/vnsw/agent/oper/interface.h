@@ -286,7 +286,8 @@ public:
 
     InterfaceTable(DB *db, const std::string &name) :
         AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
-        walkid_(DBTableWalker::kInvalidWalkerId), index_table_() { 
+        walkid_(DBTableWalker::kInvalidWalkerId), index_table_(),
+        vmi_count_(0), li_count_(0), active_vmi_count_(0) {
     }
     virtual ~InterfaceTable() { }
 
@@ -365,6 +366,20 @@ public:
     Agent *agent() const { return agent_; }
     OperDB *operdb() const { return operdb_; }
 
+    uint32_t vmi_count() const { return vmi_count_; }
+    void incr_vmi_count() { vmi_count_++; }
+    void decr_vmi_count() { vmi_count_--; }
+
+    uint32_t li_count() const { return li_count_; }
+    void incr_li_count() { li_count_++; }
+    void decr_li_count() { li_count_--; }
+
+    uint32_t active_vmi_count() const { return active_vmi_count_; }
+    void incr_active_vmi_count() { active_vmi_count_++; }
+    void decr_active_vmi_count() { active_vmi_count_--; }
+
+    uint32_t vmi_ifnode_to_req() const { return vmi_ifnode_to_req_; }
+    uint32_t li_ifnode_to_req() const { return li_ifnode_to_req_; }
 private:
     bool L2VmInterfaceWalk(DBTablePartBase *partition,
                            DBEntryBase *entry);
@@ -383,6 +398,14 @@ private:
     VmiToVmiTypeMap vmi_to_vmitype_map_;
     // Tree of physical-device-vn entries created by VMIs
     VmiToPhysicalDeviceVnTree vmi_to_physical_device_vn_tree_;
+    // Count of type of interfaces
+    uint32_t vmi_count_;
+    uint32_t li_count_;
+    // Count of active vm-interfaces
+    uint32_t active_vmi_count_;
+    uint32_t vmi_ifnode_to_req_;
+    uint32_t li_ifnode_to_req_;
+
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

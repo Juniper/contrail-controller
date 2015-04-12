@@ -19,6 +19,7 @@ class MulticastHandler;
 class InstanceManager;
 class NexthopManager;
 class AgentSandeshManager;
+class AgentProfile;
 
 class OperDB {
 public:
@@ -66,6 +67,7 @@ private:
     std::auto_ptr<DomainConfig> domain_config_;
     std::auto_ptr<NexthopManager> nexthop_manager_;
     std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
+    std::auto_ptr<AgentProfile> profile_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

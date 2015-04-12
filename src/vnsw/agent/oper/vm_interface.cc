@@ -888,6 +888,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
         CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, dev);
     }
     UpdatePhysicalDeviceVnEntry(u, dev, data->vn_uuid_, vn_node);
+    vmi_ifnode_to_req_++;
     return true;
 }
 
@@ -1079,6 +1080,11 @@ bool VmInterface::Resync(const InterfaceTable *table,
     ipv6_active_ = IsIpv6Active();
     l2_active_ = IsL2Active();
     if (ipv4_active_ != old_ipv4_active) {
+        InterfaceTable *intf_table = static_cast<InterfaceTable *>(get_table());
+        if (ipv4_active_)
+            intf_table->incr_active_vmi_count();
+        else
+            intf_table->decr_active_vmi_count();
         ret = true;
     }
 

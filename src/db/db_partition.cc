@@ -47,6 +47,8 @@ public:
     explicit WorkQueue(int partition_id) 
         : db_partition_id_(partition_id), disable_(false), running_(false) {
         request_count_ = 0;
+        max_request_queue_len_ = 0;
+        total_request_count_ = 0;
     }
     ~WorkQueue() {
         for (RequestQueue::iterator iter = request_queue_.unsafe_begin();
@@ -61,7 +63,12 @@ public:
     bool EnqueueRequest(RequestQueueEntry *req_entry) {
         request_queue_.push(req_entry);
         MaybeStartRunner();
-        return request_count_.fetch_and_increment() < (kThreshold - 1);
+        uint32_t max = request_count_.fetch_and_increment();
+        if (max > max_request_queue_len_)
+            max_request_queue_len_ = max;
+        total_request_count_++;
+        return max < (kThreshold - 1);
+
     }
 
     bool DequeueRequest(RequestQueueEntry **req_entry) {
@@ -110,10 +117,24 @@ public:
     bool disable() { return disable_; }
     void set_disable(bool disable) { disable_ = disable; }
 
+    long request_queue_len() const {
+        return request_count_;
+    }
+
+    uint64_t total_request_count() const {
+        return total_request_count_;
+    }
+
+    uint64_t max_request_queue_len() const {
+        return max_request_queue_len_;
+    }
+
 private:
     RequestQueue request_queue_;
     TablePartList change_list_;
     atomic<long> request_count_;
+    uint64_t total_request_count_;
+    uint64_t max_request_queue_len_;
     RemoveQueue remove_queue_;
     tbb::mutex mutex_;
     int db_partition_id_;
