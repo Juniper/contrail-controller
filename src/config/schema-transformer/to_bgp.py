@@ -1803,8 +1803,8 @@ class ServiceChain(DictST):
         vlan = VirtualNetworkST.allocate_service_chain_vlan(
             vm_uuid, self.name)
         for interface_name in vm_obj.interfaces:
-            interface = VirtualMachineST.get(interface_name)
-            if interface_name is None:
+            interface = VirtualMachineInterfaceST.get(interface_name)
+            if interface is None:
                 return False
             found.add(self.add_pbf_rule(interface.uuid, service_ri1,
                                         service_ri2, sc_ip_address, vlan))
@@ -2952,7 +2952,7 @@ class SchemaTransformer(object):
     def add_virtual_machine_service_instance(self, idents, meta):
         vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
-        vm = VirtualMachineST.locate(si_name, si_name)
+        vm = VirtualMachineST.locate(vm_name, si_name)
         for sc in ServiceChain._dict.values():
             if si_name in sc.service_list:
                 if VirtualNetworkST.get(sc.left_vn) is not None:
