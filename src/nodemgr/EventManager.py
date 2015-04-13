@@ -103,11 +103,12 @@ class EventManager:
 
     def get_collector_list(self, Config):
         try:
-            self.collector_addr = Config.get("COLLECTOR", "server_list")
+            collector_list = Config.get("COLLECTOR", "server_list")
             try:
-                self.collector_addr = self.collector_addr[:self.collector_addr.index('#')].strip()
+                collector_list = collector_list[:collector_list.index('#')].strip()
             except:
-                self.collector_addr.strip()
+                collector_list.strip()
+            self.collector_addr = collector_list.split()
         except NoOptionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
 
