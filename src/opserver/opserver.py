@@ -550,7 +550,7 @@ class OpServer(object):
             mgr = hook.HookManager(
                 namespace='contrail.analytics.alarms',
                 name=uv,
-                invoke_on_load=False,
+                invoke_on_load=True,
                 invoke_args=()
             )
             self._ALARM_TYPES[uv] = {}
