@@ -564,18 +564,18 @@ class EventManager:
                     disk_usage_obj.disk_avail = arr1[3]
                     disk_usage.append(disk_usage_obj)
 
-                elif line.find('sd') != -1:
-                    # replace multiple spaces to single
-                    # space here
-                    result = re.sub(
-                        '\s+', ' ', line).strip()
-                    arr1 = result.split()
-                    disk_usage_obj = diskUsage()
-                    disk_usage_obj.disk = arr1[0]
-                    disk_usage_obj.disk_size = arr1[1]
-                    disk_usage_obj.disk_used = arr1[2]
-                    disk_usage_obj.disk_avail = arr1[3]
-                    disk_usage.append(disk_usage_obj)
+            elif line.find('sd') != -1:
+                # replace multiple spaces to single
+                # space here
+                result = re.sub(
+                    '\s+', ' ', line).strip()
+                arr1 = result.split()
+                disk_usage_obj = diskUsage()
+                disk_usage_obj.disk = arr1[0]
+                disk_usage_obj.disk_size = arr1[1]
+                disk_usage_obj.disk_used = arr1[2]
+                disk_usage_obj.disk_avail = arr1[3]
+                disk_usage.append(disk_usage_obj)
 
 # create a dictionary of disk_name: model_num + serial_num
         new_dict = dict()
