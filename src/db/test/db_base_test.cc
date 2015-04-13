@@ -110,7 +110,16 @@ public:
         }
         return NULL;
     }
-    
+
+    Vlan *upper_bound(const DBEntryBase *key) {
+        const Vlan *vlan = static_cast<const Vlan *>(key);
+        Tree::iterator it = tree_.upper_bound(*vlan);
+        if (it != tree_.end()) {
+            return (it.operator->());
+        }
+        return NULL;
+    }
+
     virtual DBEntryBase *GetFirst() {
         Tree::iterator it = tree_.begin();
         if (it == tree_.end()) {

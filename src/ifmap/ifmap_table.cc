@@ -27,6 +27,13 @@ IFMapNode *IFMapTable::FindNode(const std::string &name) {
     return static_cast<IFMapNode *>(Find(key.get()));
 }
 
+IFMapNode *IFMapTable::FindNextNode(const std::string &name) {
+    IFMapTable::RequestKey reqkey;
+    reqkey.id_name = name;
+    auto_ptr<DBEntry> key(AllocEntry(&reqkey));
+    return static_cast<IFMapNode *>(FindNext(key.get()));
+}
+
 IFMapTable *IFMapTable::FindTable(DB *db, const std::string &element_type) {
     string idtype = element_type;
     boost::replace_all(idtype, "-", "_");
