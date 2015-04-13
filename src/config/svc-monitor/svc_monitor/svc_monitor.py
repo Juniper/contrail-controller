@@ -773,7 +773,8 @@ def timer_callback(monitor):
         if project.service_instances:
             continue
 
-        for vn_id in project.virtual_networks:
+        vn_id_list = list(project.virtual_networks):
+        for vn_id in vn_id_list:
             vn = VirtualNetworkSM.get(vn_id)
             if not vn or vn.virtual_machine_interfaces:
                 continue
