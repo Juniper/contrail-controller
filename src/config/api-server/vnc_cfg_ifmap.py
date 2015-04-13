@@ -850,15 +850,19 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def useragent_kv_retrieve(self, key):
         if key:
-            try:
-                columns = self._useragent_kv_cf.get(key)
-            except pycassa.NotFoundException:
-                raise NoUserAgentKey
-            return columns['value']
+            if isinstance(key, list):
+                rows = self._useragent_kv_cf.multiget(key)
+                return [rows[row].get('value') for row in rows]
+            else:
+                try:
+                    columns = self._useragent_kv_cf.get(key)
+                except pycassa.NotFoundException:
+                    raise NoUserAgentKey
+                return columns.get('value')
         else:  # no key specified, return entire contents
             kv_list = []
             for ua_key, ua_cols in self._useragent_kv_cf.get_range():
-                kv_list.append({'key': ua_key, 'value': ua_cols['value']})
+                kv_list.append({'key': ua_key, 'value': ua_cols.get('value')})
             return kv_list
     # end useragent_kv_retrieve
 
