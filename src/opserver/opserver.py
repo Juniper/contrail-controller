@@ -510,7 +510,7 @@ class OpServer(object):
         self._state_server = OpStateServer(self._logger, self._args.redis_password)
         self._uve_server = UVEServer(('127.0.0.1',
                                       self._args.redis_server_port),
-                                     self._logger, self._args.rest_api_port,
+                                     self._logger,
                                      self._args.redis_password)
 
         self._LEVEL_LIST = []
@@ -550,7 +550,7 @@ class OpServer(object):
             mgr = hook.HookManager(
                 namespace='contrail.analytics.alarms',
                 name=uv,
-                invoke_on_load=False,
+                invoke_on_load=True,
                 invoke_args=()
             )
             self._ALARM_TYPES[uv] = {}

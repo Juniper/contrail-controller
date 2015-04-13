@@ -13,13 +13,13 @@ class PartialSysinfo(AlarmBase):
         sname = smap[tab]
         if not uve_data.has_key(sname):
             err_list.append(("%s != None" % sname,"None"))
-            return self.__class__.__name__, 4, err_list
+            return self.__class__.__name__, AlarmBase.SYS_WARN, err_list
 
         if not uve_data[sname].has_key("build_info"):
             err_list.append(("%s.build_info != None" % sname,"None"))
-            return self.__class__.__name__, 4, err_list
+            return self.__class__.__name__, AlarmBase.SYS_WARN, err_list
 		
-        return self.__class__.__name__, 4, err_list 
+        return self.__class__.__name__, AlarmBase.SYS_WARN, err_list 
 
 class PartialSysinfoCompute(PartialSysinfo):
     """Basic System Information is absent for this node in VrouterAgent.build_info"""

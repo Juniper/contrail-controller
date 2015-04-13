@@ -5,6 +5,9 @@ class AlarmBase(object):
     """
     __metaclass__ = abc.ABCMeta
 
+    SYS_EMERG, SYS_ALERT, SYS_CRIT, SYS_ERR,\
+        SYS_WARN, SYS_NOTICE, SYS_INFO, SYS_DEBUG = range(8)
+
     def __init__(self):
         pass
 
@@ -17,6 +20,6 @@ class AlarmBase(object):
         :param uve_data: dict of dict 
             1st level dict has the UVE Type as key
             2nd level dict has the UVE Attr as key 
-        :returns: tuple with alarm name and list of errors as 
-            <string rule>,<string contents>
+        :returns: tuple with alarm name, severity and list of errors as 
+            <string rule>,<severity>,<string contents>
         """
