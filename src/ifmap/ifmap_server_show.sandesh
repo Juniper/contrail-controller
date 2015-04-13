@@ -23,6 +23,7 @@ struct IFMapNodeShowInfo {
 // Show all the nodes in the IFMap db
 request sandesh IFMapTableShowReq {
     1: string table_name;
+    2: string search_string;
 }
 
 response sandesh IFMapTableShowResp {
@@ -49,6 +50,7 @@ struct IFMapLinkShowInfo {
 
 // Show all the nodes in the IFMap link table
 request sandesh IFMapLinkTableShowReq {
+    1: string search_string;
 }
 
 response sandesh IFMapLinkTableShowResp {
