@@ -6,6 +6,7 @@ from ConfigParser import NoOptionError
 import sys
 import socket
 import time
+import subprocess
 from subprocess import Popen, PIPE
 import supervisor.xmlrpc
 import xmlrpclib
