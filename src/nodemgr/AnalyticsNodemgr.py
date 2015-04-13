@@ -53,15 +53,9 @@ class AnalyticsEventManager(EventManager):
         Config = self.read_config_data(config_file)
         self.get_collector_list(Config)
         _disc = self.get_discovery_client(Config)
-        try:
-            from opserver.sandesh.analytics.ttypes import *
-            sandesh_pkg_dir = 'opserver.sandesh'
-        except:
-            from analytics.ttypes import *
-            sandesh_pkg_dir = 'analytics'
         sandesh_global.init_generator(self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8104, [sandesh_pkg_dir],_disc)
+            self.module_id, 8104, ['analytics'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 
