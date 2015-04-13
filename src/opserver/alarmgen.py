@@ -158,16 +158,16 @@ class Controller(object):
         oldset = self._partset
         self._partset = newset
 
-        self._logger.info('Partition List : new %s old %s' % \
+        self._logger.error('Partition List : new %s old %s' % \
             (str(newset),str(oldset)))
         
         for addpart in (newset-oldset):
-            self._logger.info('Partition Add : %s' % addpart)
+            self._logger.error('Partition Add : %s' % addpart)
             self.partition_change(addpart, True)
         
         for delpart in (oldset-newset):
-            self._logger.info('Partition Del : %s' % delpart)
-            self.partition_change(delpart, True)
+            self._logger.error('Partition Del : %s' % delpart)
+            self.partition_change(delpart, False)
 
     def start_libpart(self, ag_list):
         if not self._conf.zk_list():

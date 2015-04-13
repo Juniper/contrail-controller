@@ -20,17 +20,15 @@ import re
 from gevent.coros import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.connection_info import ConnectionState
-from sandesh.viz.constants import _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger, api_port=None, redis_password=None):
+    def __init__(self, redis_uve_server, logger, redis_password=None):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_list = []
         self._logger = logger
         self._sem = BoundedSemaphore(1)
         self._redis = None
-        self._api_port = api_port
         self._redis_password = redis_password
         if self._local_redis_uve:
             self._redis = redis.StrictRedis(self._local_redis_uve[0],
@@ -327,18 +325,6 @@ class UVEServer(object):
                                 elif elem["rtype"] == "hash":
                                     elist = redish.hgetall(elem["href"])
                                     edict = elist
-                                elif elem["rtype"] == "query":
-                                    if sfilter is None and mfilter is None and not multi:
-                                        qdict = {}
-                                        qdict["table"] = elem["aggtype"]
-                                        qdict["select_fields"] = elem["select"]
-                                        qdict["where"] =[[{"name":"name",
-                                            "value":key.split(":",1)[1],
-                                            "op":1}]]
-                                        qmap[elem["aggtype"]] = {"query":qdict,
-                                            "type":typ, "attr":attr}
-                                    # For the stats query case, defer processing
-                                    continue
 
                                 statdict[typ][attr].append(
                                     {elem["aggtype"]: edict})
