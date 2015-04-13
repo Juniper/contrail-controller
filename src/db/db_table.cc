@@ -256,6 +256,13 @@ DBEntry *DBTable::Find(const DBRequestKey *key) {
     return tbl_partition->Find(key);
 }
 
+DBEntry *DBTable::FindNext(const DBEntry *entry) {
+    size_t id = HashToPartition(Hash(entry));
+    DBTablePartition *tbl_partition =
+        static_cast<DBTablePartition *>(GetTablePartition(id));
+    return tbl_partition->upper_bound(entry);
+}
+
 size_t DBTable::Size() const {
     size_t total = 0;
     for (vector<DBTablePartition *>::const_iterator iter = partitions_.begin();

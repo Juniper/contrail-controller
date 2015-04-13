@@ -38,6 +38,7 @@ public:
     // Table creation.
     DBTableBase *CreateTable(const std::string &name);
     DBTableBase *FindTable(const std::string &name);
+    iterator FindTableIter(const std::string &name);
     void RemoveTable(DBTableBase *tbl_base);
 
     // Table walker

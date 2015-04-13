@@ -23,10 +23,13 @@ struct IFMapNodeShowInfo {
 // Show all the nodes in the IFMap db
 request sandesh IFMapTableShowReq {
     1: string table_name;
+    2: string search_string;
 }
 
 response sandesh IFMapTableShowResp {
     1: list<IFMapNodeShowInfo> ifmap_db;
+    2: optional string next_batch (link="IFMapTableShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing link table - IFMapLink **/
@@ -49,10 +52,14 @@ struct IFMapLinkShowInfo {
 
 // Show all the nodes in the IFMap link table
 request sandesh IFMapLinkTableShowReq {
+    1: string search_string;
 }
 
 response sandesh IFMapLinkTableShowResp {
-    1: list<IFMapLinkShowInfo> ifmap_db;
+    1: u32 table_size;
+    2: list<IFMapLinkShowInfo> ifmap_db;
+    3: optional string next_batch (link="IFMapLinkTableShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing the internal Update Queue **/
