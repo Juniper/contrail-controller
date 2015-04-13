@@ -51,6 +51,7 @@ private:
     VrfEntryRef vrf_;
     uint32_t vxlan_id_;
     const LogicalSwitchEntry *logical_switch_;
+    std::string vn_name_;
     DISALLOW_COPY_AND_ASSIGN(MulticastMacLocalEntry);
 };
 

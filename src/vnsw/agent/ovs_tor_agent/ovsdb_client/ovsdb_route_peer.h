@@ -23,6 +23,7 @@ class OvsPeer : public Peer {
     void DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan, const MacAddress &mac);
     void AddOvsPeerMulticastRoute(const VrfEntry *vrf,
                                   uint32_t vxlan_id,
+                                  const std::string &vn_name_,
                                   const Ip4Address &tsn_ip,
                                   const Ip4Address &tor_ip);
     void DeleteOvsPeerMulticastRoute(const VrfEntry *vrf, uint32_t vxlan_id);

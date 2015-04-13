@@ -51,7 +51,7 @@ bool MulticastMacLocalEntry::Add() {
     vrf_ = vn_entry->vrf();
     OVSDB_TRACE(Trace, "Adding multicast Route VN uuid " + logical_switch_name_);
     vxlan_id_ = logical_switch_->vxlan_id();
-    table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
+    table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_, vn_name_,
                                             table_->client_idl()->tsn_ip(),
                                             logical_switch_->tor_ip().to_v4());
     return true;
@@ -87,6 +87,10 @@ KSyncEntry *MulticastMacLocalEntry::UnresolvedReference() {
                 logical_switch_name_ + " due to unavailable VN ");
         return vn_entry;
     }
+
+    //Expectation is that vn_name will not change for resolved entries.
+    if (vn_name_.empty())
+        vn_name_ = vn_entry->name();
     return NULL;
 }
 
