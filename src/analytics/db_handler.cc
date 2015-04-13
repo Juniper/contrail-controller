@@ -640,6 +640,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     const DbHandler::Var& sv = stag.second;
     GenDb::DbDataValue pg,sg;
 
+    bool bad_suffix = false;
     switch (pv.type) {
         case DbHandler::STRING : {
                 pg = pv.str;
@@ -652,9 +653,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 } else if (sv.type==DbHandler::INVALID) {
                     cfname = g_viz_constants.STATS_TABLE_BY_STR_TAG;
                 } else {
-                    tbb::mutex::scoped_lock lock(smutex_);
-                    stable_stats_.Update(statName + ":" + statAttr, true, true);
-                    return false;
+                    bad_suffix = true;
                 }
             }
             break;
@@ -669,9 +668,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 } else if (sv.type==DbHandler::INVALID) {
                     cfname = g_viz_constants.STATS_TABLE_BY_U64_TAG;
                 } else {
-                    tbb::mutex::scoped_lock lock(smutex_);
-                    stable_stats_.Update(statName + ":" + statAttr, true, true);
-                    return false;
+                    bad_suffix = true;
                 }
             }
             break;
@@ -680,18 +677,26 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 if (sv.type==DbHandler::INVALID) {
                     cfname = g_viz_constants.STATS_TABLE_BY_DBL_TAG;
                 } else {
-                    tbb::mutex::scoped_lock lock(smutex_);
-                    stable_stats_.Update(statName + ":" + statAttr, true, true);
-                    return false;
+                    bad_suffix = true;
                 }
             }
             break;
         default:
             tbb::mutex::scoped_lock lock(smutex_);
             stable_stats_.Update(statName + ":" + statAttr, true, true);
+            DB_LOG(ERROR, "Bad Prefix Tag " << statName <<
+                    ", " << statAttr <<  " tag " << ptag.first <<
+                    ":" << stag.first << " jsonline " << jsonline);
             return false;
     }
-
+    if (bad_suffix) {
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.Update(statName + ":" + statAttr, true, true);
+        DB_LOG(ERROR, "Bad Suffix Tag " << statName <<
+                ", " << statAttr <<  " tag " << ptag.first <<
+                ":" << stag.first << " jsonline " << jsonline);
+        return false;
+    }
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     
