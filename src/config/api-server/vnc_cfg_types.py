@@ -85,7 +85,8 @@ class FloatingIpServer(FloatingIpServerGen):
                                'resource': 'floating_ip_back_refs',
                                'obj_type': 'floating-ip',
                                'user_visibility': user_visibility,
-                               'proj_uuid': proj_uuid}
+                               'proj_uuid': proj_uuid,
+                               'child_refs': False}
         (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
 

@@ -2,10 +2,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import copy
 from netaddr import *
 from vnc_quota import *
 from pprint import pformat
-from copy import deepcopy
 import json
 import cfgm_common.exceptions
 try:
