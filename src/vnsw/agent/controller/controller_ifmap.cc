@@ -29,13 +29,16 @@ uint64_t AgentIfMapXmppChannel::seq_number_;
 AgentIfMapXmppChannel::AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
                                              uint8_t cnt) : channel_(channel), 
                                              xs_idx_(cnt), agent_(agent) {
-    channel_->RegisterReceive(xmps::CONFIG, 
-                              boost::bind(&AgentIfMapXmppChannel::ReceiveInternal,
-                                          this, _1));
 }
 
 AgentIfMapXmppChannel::~AgentIfMapXmppChannel() {
     channel_->UnRegisterReceive(xmps::CONFIG);
+}
+
+void AgentIfMapXmppChannel::RegisterCallback() {
+    channel_->RegisterReceive(xmps::CONFIG,
+                              boost::bind(&AgentIfMapXmppChannel::ReceiveInternal,
+                                          this, _1));
 }
 
 uint64_t AgentIfMapXmppChannel::NewSeqNumber() {

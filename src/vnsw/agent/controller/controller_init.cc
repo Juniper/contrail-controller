@@ -103,6 +103,7 @@ void VNController::XmppServerConnect() {
             agent_->set_ifmap_xmpp_channel(ifmap_peer, count);
             agent_->set_controller_ifmap_xmpp_client(client, count);
             agent_->set_controller_ifmap_xmpp_init(xmpp, count);
+            ifmap_peer->RegisterCallback();
         }
         count++;
     }
@@ -290,12 +291,16 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
 
 	//cleanup AgentXmppChannel
 	agent_->ResetAgentMcastLabelRange(idx);
-	delete agent_->controller_xmpp_channel(idx);
+    AgentXmppChannel *bgp_peer_channel =
+        agent_->controller_xmpp_channel(idx);
 	agent_->set_controller_xmpp_channel(NULL, idx);
+    delete bgp_peer_channel;
 
 	//cleanup AgentIfmapXmppChannel
-	delete agent_->ifmap_xmpp_channel(idx);
+    AgentIfMapXmppChannel *ifmap_peer =
+        agent_->ifmap_xmpp_channel(idx);
 	agent_->set_ifmap_xmpp_channel(NULL, idx);
+    delete ifmap_peer;
 
 	agent_->controller_ifmap_xmpp_init(idx)->Reset();
 	delete agent_->controller_ifmap_xmpp_init(idx);

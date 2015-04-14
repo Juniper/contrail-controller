@@ -27,6 +27,7 @@ public:
         return identifier_;
     }
 
+    void RegisterCallback();
     virtual std::string ToString() const;
     virtual bool SendUpdate(const std::string &msg);
     void ReceiveConfigMessage(std::auto_ptr<XmlBase> impl);
