@@ -2,10 +2,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import copy
 from netaddr import *
 from vnc_quota import *
 from pprint import pformat
-from copy import deepcopy
 import json
 import cfgm_common.exceptions
 try:
@@ -583,7 +583,8 @@ class AddrMgmt(object):
 
         quota_count = len(subnets) - 1
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid,
+                                                                 db_conn)
         if not ok:
             return (False, 'Internal error : ' + pformat(proj_dict))
 

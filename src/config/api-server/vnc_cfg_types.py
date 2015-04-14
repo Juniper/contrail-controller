@@ -940,7 +940,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
         (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
         if not ok:
             return (False, (500, 'Bad Security Group error : ' + pformat(sec_dict)))
-        (ok, proj_dict) = vnc_quota.QuotaHelper.get_project_dict(
+        (ok, proj_dict) = vnc_quota.QuotaHelper.get_project_dict_for_quota(
             sec_dict['parent_uuid'], db_conn)
         if not ok:
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
