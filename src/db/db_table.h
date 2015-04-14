@@ -96,11 +96,26 @@ public:
     size_t GetListenerCount() const;
     void FillListeners(std::vector<ShowTableListener> *listeners) const;
 
+    uint64_t enqueue_count() const { return enqueue_count_; }
+    void incr_enqueue_count() { enqueue_count_++; }
+    void reset_enqueue_count() { enqueue_count_ = 0; }
+
+    uint64_t input_count() const { return input_count_; }
+    void incr_input_count() { input_count_++; }
+    void reset_input_count() { input_count_ = 0; }
+
+    uint64_t notify_count() const { return enqueue_count_; }
+    void incr_notify_count() { notify_count_++; }
+    void reset_notify_count() { enqueue_count_ = 0; }
+
 private:
     class ListenerInfo;
     DB *db_;
     std::string name_;
     std::auto_ptr<ListenerInfo> info_;
+    uint64_t enqueue_count_;
+    uint64_t input_count_;
+    uint64_t notify_count_;
 };
 
 // An implementation of DBTableBase that uses boost::set as data-store
