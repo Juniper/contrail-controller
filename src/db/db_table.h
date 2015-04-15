@@ -81,6 +81,9 @@ public:
 
     void RunNotify(DBTablePartBase *tpart, DBEntryBase *entry);
 
+    // manage db state count for a listner
+    void AddToDBStateCount(ListenerId listener, int count);
+
     // Calculate the size across all partitions.
     virtual size_t Size() const { return 0; }
 
