@@ -390,9 +390,9 @@ class VncProvisioner(object):
         if pr is None:
             bgp_router, pr = self.create_router('a2-mx-80', '10.84.7.253')
         pr.set_virtual_network(vn1_obj)
-        bare_metal_service = BaremetalService()
-        bare_metal_service.service_port.append("si-0/0/0")
-        pr.set_physical_router_bare_metal_service(bare_metal_service)
+        junos_service_ports = JunosServicePorts()
+        junos_service_ports.service_port.append("si-0/0/0")
+        pr.set_physical_router_junos_service_ports(junos_service_ports)
         pr.physical_router_vendor_name = 'juniper'
         pr.physical_router_product_name = 'mx'
         pr.physical_router_vnc_managed = True
