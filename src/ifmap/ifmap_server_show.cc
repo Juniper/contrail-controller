@@ -137,20 +137,27 @@ public:
     static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
                           int stage, int instNum,
                           RequestPipeline::InstData *data);
-    static void TableToBuffer(IFMapTable *table, ShowData *show_data,
-                              IFMapServer *server);
+    static void TableToBuffer(const IFMapTableShowReq *request, IFMapTable *table,
+                              ShowData *show_data, IFMapServer *server);
     static bool BufferAllTables(const RequestPipeline::PipeSpec ps,
                                 RequestPipeline::InstData *data);
     static bool BufferSomeTables(const RequestPipeline::PipeSpec ps,
                                  RequestPipeline::InstData *data);
 };
 
-void ShowIFMapTable::TableToBuffer(IFMapTable *table, ShowData *show_data,
-        IFMapServer *server) {
+void ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
+        IFMapTable *table, ShowData *show_data, IFMapServer *server) {
+    string search_string = request->get_search_string();
     for (int i = 0; i < IFMapTable::kPartitionCount; i++) {
         DBTablePartBase *partition = table->GetTablePartition(i);
         DBEntryBase *src = partition->GetFirst();
         while (src) {
+            IFMapNode *src_node = static_cast<IFMapNode *>(src);
+            if (!search_string.empty() &&
+                (src_node->ToString().find(search_string) == string::npos)) {
+                src = partition->GetNext(src);
+                continue;
+            }
             IFMapNodeShowInfo dest;
             IFMapNodeCopier copyNode(&dest, src, server);
             show_data->send_buffer.push_back(dest);
@@ -171,7 +178,7 @@ bool ShowIFMapTable::BufferSomeTables(const RequestPipeline::PipeSpec ps,
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(table->Size());
-        TableToBuffer(table, show_data, sctx->ifmap_server());
+        TableToBuffer(request, table, show_data, sctx->ifmap_server());
     } else {
         IFMAP_WARN(IFMapTblNotFound, "Cant show/find table ",
                    request->get_table_name());
@@ -207,7 +214,7 @@ bool ShowIFMapTable::BufferAllTables(const RequestPipeline::PipeSpec ps,
             break;
         }
         IFMapTable *table = static_cast<IFMapTable *>(iter->second);
-        TableToBuffer(table, show_data, sctx->ifmap_server());
+        TableToBuffer(request, table, show_data, sctx->ifmap_server());
     }
 
     return true;
@@ -322,6 +329,7 @@ public:
         return static_cast<RequestPipeline::InstData *>(new TrackerData);
     }
 
+    static bool SkipLink(DBEntryBase *src, const string &search_string);
     static void CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
                          IFMapServer *server);
     static bool BufferStage(const Sandesh *sr,
@@ -331,6 +339,22 @@ public:
                           int stage, int instNum,
                           RequestPipeline::InstData *data);
 };
+
+bool ShowIFMapLinkTable::SkipLink(DBEntryBase *src, const string &search_string) {
+    IFMapLink *link = static_cast<IFMapLink *>(src);
+    IFMapNode *left = link->left();
+    IFMapNode *right = link->right();
+    if (search_string.empty()) {
+        return false;
+    }
+    // If we do not find the search string in the names of either of the 2 ends,
+    // skip the link
+    if ((!left || (left->ToString().find(search_string) == string::npos)) &&
+        (!right || (right->ToString().find(search_string) == string::npos))) {
+        return true;
+    }
+    return false;
+}
 
 void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
                                   IFMapServer *server) {
@@ -390,6 +414,10 @@ bool ShowIFMapLinkTable::BufferStage(const Sandesh *sr,
         DBTablePartBase *partition = table->GetTablePartition(0);
         DBEntryBase *src = partition->GetFirst();
         while (src) {
+            if (SkipLink(src, request->get_search_string())) {
+                src = partition->GetNext(src);
+                continue;
+            }
             IFMapLinkShowInfo dest;
             CopyNode(&dest, src, sctx->ifmap_server());
             show_data->send_buffer.push_back(dest);
