@@ -37,6 +37,13 @@ bool ValidateIPAddressString(std::string ip_address_str,
 IpAddress PrefixToIpNetmask(uint32_t prefix_len);
 uint32_t NetmaskToPrefix(uint32_t netmask);
 
+IpAddress PrefixToIp6Netmask(uint32_t plen);
+void VectorToIp(const std::vector<int8_t> &ip, int family, IpAddress *sip,
+                IpAddress *dip);
+void CharArrayToIp(const unsigned char *ip, int size, int family,
+                   IpAddress *sip, IpAddress *dip);
+void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size);
+
 bool ValidateServerEndpoints(std::vector<std::string> list,
                              std::string *error_msg);
 

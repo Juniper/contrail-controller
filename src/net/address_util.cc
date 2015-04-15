@@ -79,6 +79,61 @@ uint32_t NetmaskToPrefix(uint32_t netmask) {
     return count;
 }
 
+IpAddress PrefixToIp6Netmask(uint32_t plen) {
+    if (plen == 0) {
+        return IpAddress(Ip6Address());
+    }
+
+    if (plen == 128) {
+        boost::system::error_code ec;
+        Ip6Address all_fs = Ip6Address::from_string
+            ("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec);
+        return IpAddress(all_fs);
+    }
+
+    boost::array<uint8_t, 16> bytes;
+
+    int index = (int) (plen / 8);
+    int remain_mask = plen % 8;
+
+    for (int i = 0; i < index; i++) {
+        bytes.at(i) = 0xff;
+    }
+
+    switch (remain_mask) {
+        case 0:
+            bytes.at(index++) = 0;
+            break;
+        case 1:
+            bytes.at(index++) = 0x80;
+            break;
+        case 2:
+            bytes.at(index++) = 0xc0;
+            break;
+        case 3:
+            bytes.at(index++) = 0xe0;
+            break;
+        case 4:
+            bytes.at(index++) = 0xf0;
+            break;
+        case 5:
+            bytes.at(index++) = 0xf8;
+            break;
+        case 6:
+            bytes.at(index++) = 0xfc;
+            break;
+        case 7:
+            bytes.at(index++) = 0xfe;
+            break;
+    }
+
+    for (int i = index; i < 16; ++i) {
+        bytes.at(i) = 0;
+    }
+
+    return IpAddress(Ip6Address(bytes));
+}
+
 // Validate a list of <ip-address>:<port> endpoints.
 bool ValidateServerEndpoints(std::vector<std::string> list,
                              std::string *error_msg) {
@@ -137,4 +192,75 @@ std::string GetVNFromRoutingInstance(const std::string &vn) {
     boost::split(tokens, vn, boost::is_any_of(":"), boost::token_compress_on);
     if (tokens.size() < 3) return "";
     return tokens[0] + ":" + tokens[1] + ":" + tokens[2];
+}
+
+/* The sandesh data-structure used for communicating flows between agent and
+ * vrouter represents source and destination IP (both v4 and v6) as a vector
+ * of bytes. The below API is used to convert source and destination IP from
+ * vector to either Ip4Address or Ip6Address based on family.
+ */
+void VectorToIp(const std::vector<int8_t> &ip, int family, IpAddress *sip,
+                IpAddress *dip) {
+    if (family == Address::INET) {
+        assert(ip.size() >= 8);
+        boost::array<unsigned char, 4> sbytes;
+        boost::array<unsigned char, 4> dbytes;
+        for (int i = 0; i < 4; i++) {
+            sbytes[i] = ip.at(i);
+            dbytes[i] = ip.at((i + 4));
+        }
+        *sip = Ip4Address(sbytes);
+        *dip = Ip4Address(dbytes);
+    } else {
+        boost::array<unsigned char, 16> sbytes;
+        boost::array<unsigned char, 16> dbytes;
+        assert(ip.size() >= 32);
+        for (int i = 0; i < 16; i++) {
+            sbytes[i] = ip.at(i);
+            dbytes[i] = ip.at((i + 16));
+        }
+        *sip = Ip6Address(sbytes);
+        *dip = Ip6Address(dbytes);
+    }
+}
+
+/* The flow data-structure represented by vrouter has source and destination IP
+ * address as single char array for both V4 and V6. The below API is used to
+ * convert Source IP and destination IP from char array to either Ip4Address
+ * or Ip6Address based on family.
+ */
+void  CharArrayToIp(const unsigned char *ip, int size, int family,
+                    IpAddress *sip, IpAddress *dip) {
+    if (family == Address::INET) {
+        assert(size >= 8);
+        boost::array<unsigned char, 4> sbytes;
+        boost::array<unsigned char, 4> dbytes;
+        for (int i = 0; i < 4; i++) {
+            sbytes[i] = ip[i];
+            dbytes[i] = ip[i + 4];
+        }
+        *sip = Ip4Address(sbytes);
+        *dip = Ip4Address(dbytes);
+    } else {
+        assert(size >= 32);
+        boost::array<unsigned char, 16> sbytes;
+        boost::array<unsigned char, 16> dbytes;
+        for (int i = 0; i < 16; i++) {
+            sbytes[i] = ip[i];
+            dbytes[i] = ip[i + 16];
+        }
+        *sip = Ip6Address(sbytes);
+        *dip = Ip6Address(dbytes);
+    }
+}
+
+void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
+    uint32_t *words;
+    if (size != 2)
+        return;
+    words = (uint32_t *) (addr.to_bytes().c_array());
+    arr[0] = (((uint64_t)words[0] << 32) & 0xFFFFFFFF00000000U) |
+             ((uint64_t)words[1] & 0x00000000FFFFFFFFU);
+    arr[1] = (((uint64_t)words[2] << 32) & 0xFFFFFFFF00000000U) |
+             ((uint64_t)words[3] & 0x00000000FFFFFFFFU);
 }

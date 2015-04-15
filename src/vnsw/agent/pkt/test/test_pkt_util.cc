@@ -284,7 +284,7 @@ void MakeIp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IP);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);

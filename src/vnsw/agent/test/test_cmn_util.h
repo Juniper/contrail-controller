@@ -420,4 +420,9 @@ void DisableRpf(const std::string &vn_name, int vn_id);
 void AddInterfaceVrfAssignRule(const char *intf_name, int intf_id,
                                const char *sip, const char *dip, int proto,
                                const char *vrf, const char *ignore_acl);
+bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const PathPreference &path_preference);
 #endif // vnsw_agent_test_cmn_util_h

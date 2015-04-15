@@ -17,6 +17,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 
+#include <net/address_util.h>
 #include <cmn/agent_cmn.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
@@ -154,18 +155,17 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);
     const FlowKey *fe_key = &flow_entry_->key();
-    if (flow_entry_->key().family == Address::INET) {
-        req.set_fr_flow_sip(htonl(fe_key->src_addr.to_v4().to_ulong()));
-        req.set_fr_flow_dip(htonl(fe_key->dst_addr.to_v4().to_ulong()));
-    } else {
-        // TODO : IPV6
-        req.set_fr_flow_sip(0);
-        req.set_fr_flow_dip(0);
-    }
+    req.set_fr_flow_ip(ksync_obj_->IpToVector(fe_key->src_addr,
+                                              fe_key->dst_addr,
+                                              flow_entry_->key().family));
     req.set_fr_flow_proto(fe_key->protocol);
     req.set_fr_flow_sport(htons(fe_key->src_port));
     req.set_fr_flow_dport(htons(fe_key->dst_port));
     req.set_fr_flow_nh_id(fe_key->nh);
+    if (flow_entry_->key().family == Address::INET)
+        req.set_fr_family(AF_INET);
+    else
+        req.set_fr_family(AF_INET6);
     req.set_fr_flow_vrf(flow_entry_->data().vrf);
     uint16_t flags = 0;
 
@@ -562,15 +562,14 @@ bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
         return false;
     }
     key->nh = kflow->fe_key.flow4_nh_id;
-    // TODO : IPv6
-    key->src_addr = Ip4Address(ntohl(kflow->fe_key.flow4_sip));
-    key->dst_addr = Ip4Address(ntohl(kflow->fe_key.flow4_dip));
+    Address::Family family = (kflow->fe_key.flow_family == AF_INET)?
+                              Address::INET : Address::INET6;
+    CharArrayToIp(kflow->fe_key.flow_ip, sizeof(kflow->fe_key.flow_ip),
+                  family, &key->src_addr, &key->dst_addr);
     key->src_port = ntohs(kflow->fe_key.flow4_sport);
     key->dst_port = ntohs(kflow->fe_key.flow4_dport);
     key->protocol = kflow->fe_key.flow4_proto;
-    //TODO : Pick family from kernel flow entry, once
-    //family field is present in vr flow entry
-    key->family   = Address::INET;
+    key->family = family;
     return true;
 }
 
@@ -615,13 +614,16 @@ bool FlowTableKSyncObject::AuditProcess() {
 
         vflow_entry = GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            // TODO : IPv6
-            FlowKey key(vflow_entry->fe_key.flow4_nh_id,
-                        Ip4Address(ntohl(vflow_entry->fe_key.flow4_sip)),
-                        Ip4Address(ntohl(vflow_entry->fe_key.flow4_dip)),
-                        vflow_entry->fe_key.flow4_proto,
-                        ntohs(vflow_entry->fe_key.flow4_sport),
-                        ntohs(vflow_entry->fe_key.flow4_dport));
+            int family = (vflow_entry->fe_key.flow_family == AF_INET)?
+                Address::INET : Address::INET6;
+            IpAddress sip, dip;
+            CharArrayToIp(vflow_entry->fe_key.flow_ip,
+                          sizeof(vflow_entry->fe_key.flow_ip), family, &sip,
+                          &dip);
+            FlowKey key(vflow_entry->fe_key.flow_nh_id, sip, dip,
+                        vflow_entry->fe_key.flow_proto,
+                        ntohs(vflow_entry->fe_key.flow_sport),
+                        ntohs(vflow_entry->fe_key.flow_dport));
             FlowEntry *flow_p = ksync_->agent()->pkt()->flow_table()->
                                 Find(key);
             if (flow_p == NULL) {
@@ -817,6 +819,30 @@ void FlowTableKSyncObject::MapFlowMem() {
     flow_table_entries_count_ = flow_table_size_ / sizeof(vr_flow_entry);
     ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
     return;
+}
+
+std::vector<int8_t> FlowTableKSyncObject::IpToVector(const IpAddress &sip,
+                                                     const IpAddress &dip,
+                                                     Address::Family family) {
+    if (family == Address::INET) {
+        boost::array<unsigned char, 4> sbytes = sip.to_v4().to_bytes();
+        boost::array<unsigned char, 4> dbytes = dip.to_v4().to_bytes();
+        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
+        std::vector<int8_t>::iterator it = ip_vect.begin();
+
+        ip_vect.insert(it + 4, dbytes.begin(), dbytes.end());
+        assert(ip_vect.size() == 8);
+        return ip_vect;
+    } else {
+        boost::array<unsigned char, 16> sbytes = sip.to_v6().to_bytes();
+        boost::array<unsigned char, 16> dbytes = dip.to_v6().to_bytes();
+        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
+        std::vector<int8_t>::iterator it = ip_vect.begin();
+
+        ip_vect.insert(it + 16, dbytes.begin(), dbytes.end());
+        assert(ip_vect.size() == 32);
+        return ip_vect;
+    }
 }
 
 void FlowTableKSyncObject::Init() {

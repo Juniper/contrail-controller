@@ -34,7 +34,7 @@ public:
             FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
                        msg->agent_hdr.ifindex, msg->agent_hdr.vrf,
                        msg->ether_type, 0, "Flow : Non-IP packet. Dropping",
-                       msg->l3_forwarding);
+                       msg->l3_forwarding, 0, 0, 0, 0);
             return false;
         }
         return true;
