@@ -29,6 +29,8 @@ void DBEntryBase::SetState(DBTableBase *tbl_base, ListenerId listener,
         res.first->second = state;
     } else {
         assert(!IsDeleted());
+        // Account for state addition for this listener.
+        tbl_base->AddToDBStateCount(listener, 1);
     }
 }
 
@@ -71,7 +73,12 @@ const DBState *DBEntryBase::GetState(const DBTableBase *tbl_base,
 void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
     tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
-    state_.erase(listener);
+
+    if (state_.erase(listener) != 0) {
+        // Account for state removal for this listener.
+        tbl_base->AddToDBStateCount(listener, -1);
+    }
+
     if (state_.empty() && IsDeleted() && !is_onlist()) {
         assert(!IsOnRemoveQ());
         tbl_base->EnqueueRemove(this);
