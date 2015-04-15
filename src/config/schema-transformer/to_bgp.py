@@ -2374,6 +2374,8 @@ class VirtualMachineST(DictST):
         for vmi in VirtualMachineInterfaceST.values():
             if vmi.virtual_machine == name:
                 self.add_interface(vmi.name)
+        self.obj = _vnc_lib.virtual_machine_read(fq_name_str=name)
+        self.uuid = self.obj.uuid
     # end __init__
 
     @classmethod
