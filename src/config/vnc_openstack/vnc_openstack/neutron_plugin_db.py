@@ -3468,8 +3468,7 @@ class DBInterface(object):
         # if mac-address is specified, check against the exisitng ports
         # to see if there exists a port with the same mac-address
         if 'mac_address' in port_q:
-            ports = self._vnc_lib.virtual_machine_interfaces_list(
-                parent_id=proj_id, back_ref_id=net_id, detail=True)
+            ports = self._virtual_machine_interface_list(back_ref_id=net_id)
             for port in ports:
                 macs = port.get_virtual_machine_interface_mac_addresses()
                 for mac in macs.get_mac_address():
