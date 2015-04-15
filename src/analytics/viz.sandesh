@@ -474,35 +474,6 @@ const list<stat_table> _STAT_TEST_TABLES = [
           { 'name' : 'l1',    'datatype' : 'string', 'index' : true},
           { 'name' : 'name',  'datatype' : 'string', 'index' : true, 'suffixes': ['st.s1']},
         ]
-},
-{
-      'display_name' : 'Test Double',
-      'stat_type' : 'StatTestStateDouble',
-      'stat_attr' : 'dst.st',
-      'obj_table' : COLLECTOR_INFO_TABLE,
-      'attributes': [
-          { 'name' : 'dst.st.i1', 'datatype' : 'int', 'index' : true, 'suffixes': ['dst.st.i2']},
-          { 'name' : 'dst.st.i2', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'dst.st.d1', 'datatype' : 'double', 'index' : true},
-          { 'name' : 'dst.st.s1', 'datatype' : 'string', 'index' : false},
-          { 'name' : 'dst.st.s2', 'datatype' : 'string', 'index' : false},
-          { 'name' : 'dst.l1',    'datatype' : 'string', 'index' : true, 'suffixes': ['dst.st.s2']},
-        ]
-},
-{
-      'display_name' : 'Test Objectlog',
-      'stat_type' : 'StatTestObj',
-      'stat_attr' : 'st',
-      'obj_table' : COLLECTOR_INFO_TABLE,
-      'attributes': [
-          { 'name' : 'st.i1', 'datatype' : 'int', 'index' : true, 'suffixes': ['st.i2']},
-          { 'name' : 'st.i2', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'st.d1', 'datatype' : 'double', 'index' : true},
-          { 'name' : 'st.s1', 'datatype' : 'string', 'index' : false},
-          { 'name' : 'st.s2', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'l1',    'datatype' : 'string', 'index' : true},
-          { 'name' : 'name',  'datatype' : 'string', 'index' : true, 'suffixes': ['st.s1']},
-        ]
 }
 ]
 
@@ -656,8 +627,8 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : SERVER_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_stats.disk_name', 'datatype': 'string', 'index' : true},
-          { 'name' : 'disk_usage_stats.read_MB', 'datatype': 'int', 'index' : false},
-          { 'name' : 'disk_usage_stats.write_MB', 'datatype': 'int', 'index' : false},
+          { 'name' : 'disk_usage_stats.read_bytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'disk_usage_stats.write_bytes', 'datatype': 'int', 'index' : false},
         ]
     },
     {
@@ -681,6 +652,27 @@ const list<stat_table> _STAT_TABLES  = [
       'attributes': [
           { 'name' : 'resource_info_stats.cpu_usage_percentage', 'datatype': 'double', 'index' : false},
           { 'name' : 'resource_info_stats.mem_usage_mb', 'datatype': 'double', 'index' : false},
+          { 'name' : 'resource_info_stats.mem_usage_percent', 'datatype': 'double', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Server Monitoring File System Stats Info',
+      'stat_type' : 'ServerMonitoringInfo',
+      'stat_attr' : 'file_system_view_stats.physical_disks',
+      'obj_table' : SERVER_TABLE,
+      'attributes': [
+          { 'name' : 'file_system_view_stats.fs_name', 'datatype': 'string', 'index' : true},
+          { 'name' : 'file_system_view_stats.size_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.used_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.available_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.used_percentage', 'datatype': 'int', 'index' : true},
+          { 'name' : 'file_system_view_stats.mountpoint', 'datatype': 'string', 'index' : false},
+          { 'name' : 'file_system_view_stats.type', 'datatype': 'string', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_name', 'datatype': 'string', 'index' : true},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_size_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_used_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_available_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_used_percentage', 'datatype': 'int', 'index' : true},
         ]
     },
     {
@@ -759,7 +751,7 @@ const list<stat_table> _STAT_TABLES  = [
       'display_name' : 'QE Performance',
       'stat_type' : 'QueryPerfInfo',
       'stat_attr' : 'query_stats',
-      'obj_table' : 'NONE',
+      'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'table', 'datatype' : 'string','index' : true},
           { 'name' : 'name', 'datatype' : 'string','index' : true, 'suffixes': ['query_stats.qid']},
@@ -929,7 +921,7 @@ const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Physical Router Fabric Usage',
       'stat_type' : 'fabric_message'
-      'stat_attr' : 'edges.class_stats.transmit_counts',
+      'stat_attr' : 'edges',
       'obj_table' : 'NONE',
       'attributes': [
           { 'name' : 'edges.src_type',                                 'datatype' : 'string', 'index' : true},
@@ -994,7 +986,7 @@ const list<stat_table> _STAT_TABLES  = [
       'display_name' : 'Alarmgen UVE Key Stats',
       'stat_type' : 'AlarmgenUpdate'
       'stat_attr' : 'keys',
-      'obj_table' : 'NONE',
+      'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'instance',  'datatype' : 'string', 'index' : true },
           { 'name' : 'partition', 'datatype' : 'int',    'index' : true },
@@ -1007,7 +999,7 @@ const list<stat_table> _STAT_TABLES  = [
       'display_name' : 'Alarmgen Input Stats',
       'stat_type' : 'AlarmgenUpdate'
       'stat_attr' : 'notifs',
-      'obj_table' : 'NONE',
+      'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'instance',  'datatype' : 'string', 'index' : true },
           { 'name' : 'partition', 'datatype' : 'int',    'index' : true },
