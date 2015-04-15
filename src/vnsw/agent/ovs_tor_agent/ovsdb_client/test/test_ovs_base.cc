@@ -141,8 +141,18 @@ TEST_F(OvsBaseTest, VrfAuditRead) {
 }
 
 TEST_F(OvsBaseTest, connection_close) {
+    // Take reference to idl so that session object itself is not deleted.
+    OvsdbClientIdlPtr tcp_idl = tcp_session_->client_idl();
+
     tcp_session_->TriggerClose();
     client->WaitForIdle();
+
+    // Validate that keepalive timer has stopped, for the idl
+    WAIT_FOR(100, 10000,
+             (tcp_idl->IsKeepAliveTimerActive() == false));
+    // release idl reference
+    tcp_idl = NULL;
+
     WAIT_FOR(100, 10000,
              (tcp_session_ = static_cast<OvsdbClientTcpSession *>
               (init_->ovsdb_client()->NextSession(NULL))) != NULL);
