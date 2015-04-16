@@ -660,4 +660,10 @@ class VncApi(VncApiClientGen):
         return resource_objs
     #end resource_list
 
+    # set auth token
+    # Used for passing user token to API server via neutron for RBAC
+    def set_auth_token(self, token):
+        self._headers['X-AUTH-TOKEN'] = token
+    #end set_auth_token
+
 #end class VncApi
