@@ -81,14 +81,14 @@ void Icmpv6Proto::VrfNotify(DBEntryBase *entry) {
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
         static_cast<InetUnicastAgentRouteTable *>
-            (vrf->GetInet6UnicastRouteTable())->DeleteReq(agent_->local_peer(),
-                                                          vrf->GetName(),
-                                                          addr, 128, NULL);
+            (vrf->GetInet6UnicastRouteTable())->Delete(agent_->local_peer(),
+                                                       vrf->GetName(),
+                                                       addr, 128);
         addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
         static_cast<InetUnicastAgentRouteTable *>
-            (vrf->GetInet6UnicastRouteTable())->DeleteReq(agent_->local_peer(),
-                                                          vrf->GetName(),
-                                                          addr, 128, NULL);
+            (vrf->GetInet6UnicastRouteTable())->Delete(agent_->local_peer(),
+                                                       vrf->GetName(),
+                                                       addr, 128);
     }
 }
 
