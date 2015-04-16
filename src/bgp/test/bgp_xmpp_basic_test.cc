@@ -55,6 +55,7 @@ static const char *bgp_config_template = "\
 class BgpXmppBasicTest : public ::testing::Test {
 protected:
     static bool validate_done_;
+    bool auth_enabled_;
 
     BgpXmppBasicTest() : thread_(&evm_), xs_x_(NULL), xltm_x_(NULL) { }
 
@@ -63,7 +64,19 @@ protected:
         bs_x_->session_manager()->Initialize(0);
         LOG(DEBUG, "Created BGP server at port: " <<
             bs_x_->session_manager()->GetPort());
-        xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
+        if (auth_enabled_) {
+            XmppChannelConfig xs_cfg(false);
+            xs_cfg.auth_enabled = true;
+            xs_cfg.path_to_server_cert =
+                "controller/src/xmpp/testdata/server-build02.pem";
+            xs_cfg.path_to_pvt_key =
+                 "controller/src/xmpp/testdata/server-build02.key";
+            xs_x_ = new XmppServer(&evm_,
+                        test::XmppDocumentMock::kControlNodeJID, &xs_cfg);
+        } else {
+            xs_x_ = new XmppServer(&evm_, 
+                        test::XmppDocumentMock::kControlNodeJID);
+        }
         xs_x_->Initialize(0, false);
         LOG(DEBUG, "Created XMPP server at port: " <<
             xs_x_->GetPort());
@@ -92,13 +105,13 @@ protected:
     void CreateAgents() {
         agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
-                agent_a_addr_, "127.0.0.1"));
+                agent_a_addr_, "127.0.0.1", auth_enabled_));
         agent_b_.reset(
             new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
-                agent_b_addr_, "127.0.0.1"));
+                agent_b_addr_, "127.0.0.1", auth_enabled_));
         agent_c_.reset(
             new test::NetworkAgentMock(&evm_, "agent-c", xs_x_->GetPort(),
-                agent_c_addr_, "127.0.0.1"));
+                agent_c_addr_, "127.0.0.1", auth_enabled_));
     }
 
     void DestroyAgents() {
@@ -240,12 +253,19 @@ protected:
 bool BgpXmppBasicTest::validate_done_ = false;
 
 // Parameterize shared vs unique IP for each agent.
+typedef std::tr1::tuple<bool, bool> TestParams2;
 
 class BgpXmppBasicParamTest : public BgpXmppBasicTest,
-    public ::testing::WithParamInterface<bool> {
+    public ::testing::WithParamInterface<TestParams2> {
 protected:
     virtual void SetUp() {
-        if (GetParam()) {
+        bool agent_address_same_ = std::tr1::get<0>(GetParam());
+        auth_enabled_ = std::tr1::get<1>(GetParam());
+        LOG(DEBUG, "BgpXmppBasicParamTest Agent Address: " <<
+                   ((agent_address_same_)? "Same" : "Unique") <<
+                   "Xmpp Authentication: " <<
+                   ((auth_enabled_)? "Enabled": "Disabled"));
+        if (agent_address_same_) {
             agent_a_addr_ = "127.0.0.1";
             agent_b_addr_ = "127.0.0.1";
             agent_c_addr_ = "127.0.0.1";
@@ -941,10 +961,17 @@ TEST_P(BgpXmppBasicParamTest, IntrospectClearNonExistentConnection) {
 // Parameterize shared vs unique IP for each agent.
 
 class BgpXmppBasicParamTest2 : public BgpXmppBasicTest,
-    public ::testing::WithParamInterface<bool> {
+    public ::testing::WithParamInterface<TestParams2> {
 protected:
     virtual void SetUp() {
-        if (GetParam()) {
+        bool agent_address_same_ = std::tr1::get<0>(GetParam());
+        auth_enabled_ = std::tr1::get<1>(GetParam());
+
+        LOG(DEBUG, "BgpXmppBasicParamTest Agent Address: " <<
+                   ((agent_address_same_)? "Same" : "Unique") <<
+                   " Xmpp Authentication: " <<
+                   ((auth_enabled_)? "Enabled": "Disabled"));
+        if (agent_address_same_) {
             agent_x1_addr_ = "127.0.0.1";
             agent_x2_addr_ = "127.0.0.1";
             agent_x3_addr_ = "127.0.0.1";
@@ -963,15 +990,15 @@ protected:
     void CreateAgents() {
         agent_x1_.reset(
             new test::NetworkAgentMock(&evm_, "agent-x", xs_x_->GetPort(),
-                agent_x1_addr_, "127.0.0.1"));
+                agent_x1_addr_, "127.0.0.1", auth_enabled_));
         agent_x1_->SessionDown();
         agent_x2_.reset(
             new test::NetworkAgentMock(&evm_, "agent-x", xs_x_->GetPort(),
-                agent_x2_addr_, "127.0.0.1"));
+                agent_x2_addr_, "127.0.0.1", auth_enabled_));
         agent_x2_->SessionDown();
         agent_x3_.reset(
             new test::NetworkAgentMock(&evm_, "agent-x", xs_x_->GetPort(),
-                agent_x3_addr_, "127.0.0.1"));
+                agent_x3_addr_, "127.0.0.1", auth_enabled_));
         agent_x3_->SessionDown();
     }
 
@@ -1034,9 +1061,11 @@ TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName2) {
     DestroyAgents();
 }
 
-INSTANTIATE_TEST_CASE_P(Instance, BgpXmppBasicParamTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(Instance, BgpXmppBasicParamTest,
+     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
-INSTANTIATE_TEST_CASE_P(Instance, BgpXmppBasicParamTest2, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(Instance, BgpXmppBasicParamTest2,
+     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

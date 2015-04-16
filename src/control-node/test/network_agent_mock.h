@@ -294,7 +294,8 @@ public:
 
     NetworkAgentMock(EventManager *evm, const std::string &hostname,
                      int server_port, std::string local_address = "127.0.0.1",
-                     std::string server_address = "127.0.0.1");
+                     std::string server_address = "127.0.0.1",
+                     bool xmpp_auth_enabled = false);
     ~NetworkAgentMock();
 
     bool skip_updates_processing() { return skip_updates_processing_; }
@@ -481,6 +482,8 @@ private:
     tbb::mutex work_mutex_;
 
     tbb::interface5::condition_variable cond_var_;
+
+    bool xmpp_auth_enabled_;
 };
 
 typedef boost::shared_ptr<NetworkAgentMock> NetworkAgentMockPtr;
