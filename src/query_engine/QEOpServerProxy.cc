@@ -525,14 +525,9 @@ public:
                     uint32_t qtime = static_cast<uint32_t>(
                             (now - ret.inp.qp.query_starttm)/1000);
 
-                    QueryPerfInfo qpi;
-                    qpi.set_name(Sandesh::source());
-                    qpi.set_table(inp.inp.table);
-
                     uint64_t enqtm = atol(ret.inp.qp.terms["enqueue_time"].c_str());
                     uint32_t enq_delay = static_cast<uint32_t>(
                             (ret.inp.qp.query_starttm - enqtm)/1000);
-                    qpi.set_enq_delay(enq_delay);
 
                     QueryStats qs;
                     size_t outsize;
@@ -575,19 +570,11 @@ public:
                     qs.set_select(inp.inp.select);
                     qs.set_post(inp.inp.post);
                     qs.set_time_span(inp.inp.time_period);
-                    std::vector<QueryStats> vqs;
-                    vqs.push_back(qs);
-                    qpi.set_query_stats(vqs);
-                    QueryPerfInfoTrace::Send(qpi);
-
-                    QueryObjectData qo;
-                    qo.set_qid(ret.inp.qp.qid);
-                    qo.set_table(inp.inp.table);
-                    qo.set_ops_start_ts(enqtm);
-                    qo.set_qed_start_ts(ret.inp.qp.query_starttm);
-                    qo.set_qed_end_ts(now);
-                    qo.set_flow_query_rows(static_cast<uint32_t>(outsize));
-        		    QUERY_OBJECT_SEND(qo);
+                    qs.set_enq_delay(enq_delay);
+                    qs.set_error("None");
+                    QUERY_PERF_INFO_SEND(Sandesh::source(), // name
+                                         inp.inp.table,     // table
+                                         qs);
 
                     //g_viz_constants.COLLECTOR_GLOBAL_TABLE 
                     QE_LOG_NOQID(INFO, "Finished: QID " << ret.inp.qp.qid <<
@@ -696,8 +683,14 @@ public:
 
 
     void StartPipeline(const string qid) {
-        QueryObjectData qo;
-        qo.set_qid(qid);
+        QueryStats qs;
+        qs.set_qid(qid);
+        qs.set_rows(0);
+        qs.set_time(0);
+        qs.set_final_merge_time(0);
+        qs.set_enq_delay(0);
+
+        uint64_t now = UTCTimestampUsec();
 
         tbb::mutex::scoped_lock lock(mutex_);
 
@@ -706,8 +699,10 @@ public:
         if (c->err) {
             QE_LOG_NOQID(ERROR, "Cannot start Pipleline for " << qid <<
                 " . No Redis Connection");
-	    qo.set_error_string("No Redis Connection");
-            QUERY_OBJECT_SEND(qo);
+            qs.set_error("No Redis Connection");
+            QUERY_PERF_INFO_SEND(Sandesh::source(), // name
+                                 "__UNKNOWN__",     // table
+                                 qs);
             return;
         }
 
@@ -719,6 +714,10 @@ public:
                 QE_LOG_NOQID(ERROR, "Authentication to redis error");
                 freeReplyObject(reply);
                 redisFree(c);
+                qs.set_error("Redis Auth Failed");
+                QUERY_PERF_INFO_SEND(Sandesh::source(), // name
+                                     "__UNKNOWN__",     // table
+                                     qs);
                 return;
             }
             freeReplyObject(reply);
@@ -741,8 +740,10 @@ public:
             freeReplyObject(reply);
             redisFree(c);
             QueryError(qid, 5);
-	    qo.set_error_string("Cannot read query input");
-            QUERY_OBJECT_SEND(qo);
+            qs.set_error("Could not read query input");
+            QUERY_PERF_INFO_SEND(Sandesh::source(), // name
+                                 "__UNKNOWN__",     // table
+                                 qs);
             return;
         }
 
@@ -764,12 +765,22 @@ public:
         int ret = qosp_->qe_->QueryPrepare(qp, chunk_size, need_merge, map_output,
             where, select, post, time_period, table);
 
+        qs.set_where(where);
+        qs.set_select(select);
+        qs.set_post(post);
+        qs.set_time_span(time_period);
+        uint64_t enqtm = atol(terms["enqueue_time"].c_str());
+        uint32_t enq_delay = static_cast<uint32_t>((now - enqtm)/1000);
+        qs.set_enq_delay(enq_delay);
+
         if (ret!=0) {
             QueryError(qid, ret);
             QE_LOG_NOQID(ERROR, "Cannot start Pipleline for " << qid << 
                 ". Query Parsing Error " << ret);
-	    qo.set_error_string("Query parse error");
-            QUERY_OBJECT_SEND(qo);
+            qs.set_error("Query Parsing Error");
+            QUERY_PERF_INFO_SEND(Sandesh::source(), // name
+                                 table,             // table
+                                 qs);
             return;
         } else {
             QE_LOG_NOQID(INFO, "Chunks: " << chunk_size.size() <<
@@ -891,6 +902,14 @@ public:
             }
 
             redisReply reply = *reinterpret_cast<redisReply*>(r);
+            if (reply.type != REDIS_REPLY_STRING) {
+                QE_LOG_NOQID(ERROR,  __func__ << " Bad Redis reply on control connection: " << reply.type);
+                if (reply.type == REDIS_REPLY_ERROR) {
+                    string errstr(reply.str);
+                    QE_LOG_NOQID(ERROR,  __func__ << " Redis Error: " << reply.str);
+                    sleep(1000);
+                }
+            }
             QE_ASSERT(reply.type == REDIS_REPLY_STRING);
             string qid(reply.str);
 

@@ -39,7 +39,9 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVEAlarms, AlarmElement, UVETableAlarmReq, \
     UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace, AlarmTrace, UVEKeyInfo, \
-    UVETypeInfo, AlarmgenUpdateTrace, AlarmgenUpdate
+    UVETypeInfo, AlarmgenStatusTrace, AlarmgenStatus, AlarmgenStats, \
+    AlarmgenUpdate
+
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
@@ -352,31 +354,34 @@ class Controller(object):
             the previous time period over all partitions
             and send it out
         '''
+        s_partitions = set()
+        s_keys = set()
+        n_updates = 0
         for pk,pc in self._workers.iteritems():
+            s_partitions.add(pk)
             din, dout = pc.stats()
             for ktab,tab in dout.iteritems():
-                au = AlarmgenUpdate()
-                au.name = self._hostname
-                au.instance =  self._instance_id
-                au.table = ktab
-                au.partition = pk
-                au.keys = []
+                au_keys = []
                 for uk,uc in tab.iteritems():
+                    s_keys.add(uk)
+                    n_updates += uc
                     ukc = UVEKeyInfo()
                     ukc.key = uk
                     ukc.count = uc
-                    au.keys.append(ukc)
-                au_trace = AlarmgenUpdateTrace(data=au)
-                self._logger.debug('send key stats: %s' % (au_trace.log()))
-                au_trace.send()
+                    au_keys.append(ukc)
+                au_obj = AlarmgenUpdate(name=sandesh_global._source + ':' + \
+                        sandesh_global._node_type + ':' + \
+                        sandesh_global._module + ':' + \
+                        sandesh_global._instance_id,
+                        partition = pk,
+                        table = ktab,
+                        keys = au_keys,
+                        notifs = None)
+                self._logger.debug('send key stats: %s' % (au_obj.log()))
+                au_obj.send()
 
             for ktab,tab in din.iteritems():
-                au = AlarmgenUpdate()
-                au.name = self._hostname
-                au.instance =  self._instance_id
-                au.table = ktab
-                au.partition = pk
-                au.notifs = []
+                au_notifs = []
                 for kcoll,coll in tab.iteritems():
                     for kgen,gen in coll.iteritems():
                         for tk,tc in gen.iteritems():
@@ -385,10 +390,31 @@ class Controller(object):
                             tkc.count = tc
                             tkc.generator = kgen
                             tkc.collector = kcoll
-                            au.notifs.append(tkc)
-                au_trace = AlarmgenUpdateTrace(data=au)
-                self._logger.debug('send notif stats: %s' % (au_trace.log()))
-                au_trace.send()
+                            au_notifs.append(tkc)
+                au_obj = AlarmgenUpdate(name=sandesh_global._source + ':' + \
+                        sandesh_global._node_type + ':' + \
+                        sandesh_global._module + ':' + \
+                        sandesh_global._instance_id,
+                        partition = pk,
+                        table = ktab,
+                        keys = None,
+                        notifs = au_notifs)
+                self._logger.debug('send notif stats: %s' % (au_obj.log()))
+                au_obj.send()
+
+        au = AlarmgenStatus()
+        au.name = self._hostname
+        au.counters = []
+
+        ags = AlarmgenStats()
+        ags.instance =  self._instance_id
+        ags.partitions = len(s_partitions)
+        ags.keys = len(s_keys)
+        ags.updates = n_updates
+        au.counters.append(ags)
+        atrace = AlarmgenStatusTrace(data = au)
+        self._logger.debug('send alarmgen status : %s' % (atrace.log()))
+        atrace.send()
          
     def handle_PartitionStatusReq(self, req):
         ''' Return the entire contents of the UVE DB for the 

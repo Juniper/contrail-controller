@@ -213,7 +213,7 @@ static bool ParseDomTags(const std::string& tstr,
             string pattr = pterm.substr(found+1, string::npos);
             pugi::xml_node anode_p = elem_chain->at(idx).second.child(pattr.c_str());
             DbHandler::Var pv = ParseNode(anode_p);
-            LOG(ERROR, __func__ <<" PrefixProc for " << elem_chain->at(0).first <<
+            LOG(DEBUG, __func__ <<" PrefixProc for " << elem_chain->at(0).first <<
                 " pname " << pname << " val " << pv);
             tv.prefix = make_pair(pname, pv);
         }
@@ -504,7 +504,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     }
 
     bool is_alarm = (sandesh_type == SandeshType::ALARM) ? true : false;
-    bool uve_notif_disable = false;
 
     std::string type(rmsg->msg->GetMessageType());
     std::string source(header.get_Source());
@@ -609,12 +608,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 continue;
             }
 
-            // TODO: These two stats will be changed from UVEs to Objectlogs.
-            //       At that point, this hack can be removed.           
-            if (!strcmp(object.name(),"QueryPerfInfo") ||
-                    (!strcmp(object.name(),"AlarmgenUpdate"))) 
-                uve_notif_disable = true;
-         
             pugi::xml_node anode_p =
                 object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
            
@@ -653,7 +646,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
 
     // Publish on the Kafka bus that this UVE has changed
-    if (!uve_notif_disable && !is_alarm) {
+    if (!is_alarm) {
         osp_->UVENotif(object.name(), 
             source, node_type, module, instance_id, key);
     }

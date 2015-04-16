@@ -74,16 +74,6 @@ alarm sandesh AlarmTrace {
     1: UVEAlarms                   data
 }
 
-struct AlarmgenUpdate {
-    1: string                      name (key="ObjectCollectorInfo")
-    2: string                      instance
-    3: string                      collector
-    4: u32                         partition
-    5: string                      generator
-    6: list<UVEKeyInfo>            key_info (tags="instance,collector,partition,generator,.key")
-    7: optional bool               deleted
-}
-
 struct UVETypeInfo {
     1: string                     collector
     2: string                     generator
@@ -91,17 +81,29 @@ struct UVETypeInfo {
     4: u32                        count
 }
 
-struct AlarmgenUpdate {
-    1: string                      name (key="ObjectCollectorInfo")
-    2: string                      instance
-    3: u32                         partition
-    4: string                      table
-    5: optional list<UVEKeyInfo>   keys    (tags="instance,partition,table:.key")
-    6: optional list<UVETypeInfo>  notifs  (tags="instance,partition,table,.collector,.generator,.type")
-    7: optional bool               deleted
+objectlog sandesh AlarmgenUpdate {
+    1: string             name (key="ObjectGeneratorInfo")
+    3: u32                partition
+    4: string             table
+    5: list<UVEKeyInfo>   keys    (tags="partition,table:.key")
+    6: list<UVETypeInfo>  notifs  (tags="partition,table,.collector,.generator,.type")
 }
-uve sandesh AlarmgenUpdateTrace {
-    1: AlarmgenUpdate data
+
+struct AlarmgenStats {
+    1: string                      instance
+    2: u32                         partitions
+    3: u32                         keys
+    4: u64                         updates
+}
+
+struct AlarmgenStatus {
+    1: string                      name (key="ObjectCollectorInfo")
+    2: list<AlarmgenStats>         counters (tags="name:.instance",aggtype="union")
+    3: optional bool               deleted
+}
+
+uve sandesh AlarmgenStatusTrace {
+    1: AlarmgenStatus data
 }
 
 trace sandesh AlarmgenTrace {
