@@ -61,4 +61,6 @@
 #define rXMPP_STREAM_STARTTLS      "<starttls"
 #define rXMPP_STREAM_PROCEED       "<proceed"
 #define rXMPP_STREAM_STANZA_END    "[\\s\\t\\r\\n]*/>"
+
+#define rXMPP_STREAM_START_FEATURES "<?.*?>*[\\s\\n\\t\\r]*<(stream:stream|stream:features)"
 #endif // __XMPP_STR_H__

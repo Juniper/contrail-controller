@@ -37,6 +37,7 @@ XmppSession::XmppSession(SslServer *server, SslSocket *socket, bool async_ready)
 
     buf_.reserve(kMaxMessageSize);
     offset_ = buf_.begin();
+    stream_open_matched_ = false;
 }
 
 
@@ -151,11 +152,25 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
         if (state == xmsm::ACTIVE || state == xmsm::IDLE) {
             m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
         } else if (state == xmsm::CONNECT || state == xmsm::OPENSENT) { 
-            m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
+            // Note, these are client only states
+            if (!stream_open_matched_) {
+                m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
+                if ((m == 0) && (tag_known_)) {
+                    stream_open_matched_ = true;
+                }
+            } else {
+                m = MatchRegex(tag_known_ ? tag_to_pattern(begin_tag_.c_str()):
+                                            stream_features_patt_);
+            }
         } else if ((state == xmsm::OPENCONFIRM) && !(IsSslDisabled())) {
             if (connection->IsClient()) {
                 if (oc_state == xmsm::OPENCONFIRM_FEATURE_NEGOTIATION) {
                     m = MatchRegex(tag_known_ ? end_patt_: proceed_patt_);
+                    if ((m == 0) && (tag_known_)) {
+                        // set the flag, as we do not want OnRead function to
+                        // read any more data from basic socket.
+                        SetSslHandShakeInProgress(true);
+                    }
                 } else if (oc_state == xmsm::OPENCONFIRM_FEATURE_SUCCESS) {
                     m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
                 } else {
@@ -167,6 +182,9 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
                     m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
                 } else {
                     m = MatchRegex(tag_known_ ? end_patt_:starttls_patt_);
+                    if ((m == 0) && (tag_known_)) {
+                        SetSslHandShakeInProgress(true);
+                    }
                 }
             }
         } else if (state == xmsm::OPENCONFIRM || state == xmsm::ESTABLISHED) {
