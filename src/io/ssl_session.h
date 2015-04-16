@@ -55,6 +55,11 @@ public:
         return ssl_handshake_in_progress_;
     }
 
+    void SetSslHandShakeInProgress(bool state) {
+       tbb::mutex::scoped_lock lock(mutex_);
+       ssl_handshake_in_progress_ = state;
+    }
+
 protected:
     virtual ~SslSession();
 
@@ -70,6 +75,8 @@ private:
     std::size_t WriteSome(const uint8_t *data, std::size_t len,
                           boost::system::error_code &error);
     void AsyncWrite(const u_int8_t *data, std::size_t size);
+   
+    static void TriggerSslHandShakeInternal(SslSessionPtr, SslHandShakeCallbackHandler);
 
     virtual Task* CreateReaderTask(boost::asio::mutable_buffer, size_t);
 

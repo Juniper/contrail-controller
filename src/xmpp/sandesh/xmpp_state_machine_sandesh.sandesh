@@ -167,6 +167,10 @@ systemlog sandesh XmppStateMachineDequeueEvent {
    3: string f2;
    4: " In State ";
    5: string f3;
-   6: "from ";
+   6: "from ip ";
    7: string f4;
+   8: "from ";
+   9: string f5;
+   10: "to ";
+   11: string f6;
 }
