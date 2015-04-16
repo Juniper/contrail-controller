@@ -368,7 +368,10 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         alarm_gen1.send_vrouterinfo("myvrouter", True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter", "PartialSysinfoCompute", is_set = False))
- 
+
+        # Verify that we can give up partition ownership 
+        assert(vizd_obj.set_alarmgen_partition(0,0) == 'true')
+        assert(vizd_obj.verify_alarmgen_partition(0,'false'))
         return True
     # end test_06_alarmgen_basic
 

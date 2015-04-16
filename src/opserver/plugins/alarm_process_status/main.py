@@ -8,11 +8,11 @@ class ProcessStatus(AlarmBase):
         err_list = []
         if not uve_data.has_key("NodeStatus"):
             err_list.append(("NodeStatus != None","None"))
-            return self.__class__.__name__, 3, err_list
+            return self.__class__.__name__, AlarmBase.SYS_ERR, err_list
         
         if not uve_data["NodeStatus"].has_key("process_info"):
             err_list.append(("NodeStatus.process_info != None","None"))
-            return self.__class__.__name__, 3, err_list
+            return self.__class__.__name__, AlarmBase.SYS_ERR, err_list
         
         value = None
         try:
@@ -27,4 +27,4 @@ class ProcessStatus(AlarmBase):
         except Exception as ex:
             err_list.append((str(ex), value))
 
-        return self.__class__.__name__, 3, err_list 
+        return self.__class__.__name__, AlarmBase.SYS_ERR, err_list 
