@@ -137,6 +137,9 @@ public:
     std::string &GetComputeHostName() { return to_; }
     std::string &GetControllerHostName() { return from_; }
 
+    std::string &GetFrom() { return from_; }
+    std::string &GetTo() { return to_; }
+
     virtual void set_close_reason(const std::string &reason) = 0;
     virtual void increment_flap_count() = 0;
     virtual uint32_t flap_count() const = 0;

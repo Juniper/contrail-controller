@@ -61,6 +61,7 @@ private:
     int tag_known_;
     boost::match_results<std::string::const_iterator> res_;
     std::vector<StatsPair> stats_; // packet count
+    bool stream_open_matched_;
 
     static const boost::regex patt_;
     static const boost::regex stream_patt_;
