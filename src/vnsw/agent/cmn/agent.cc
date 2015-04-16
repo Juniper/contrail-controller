@@ -99,7 +99,8 @@ void Agent::SetAgentTaskPolicy() {
         "io::ReaderTask",
         "Agent::Uve",
         "Agent::KSync",
-        "Agent::PktFlowResponder"
+        "Agent::PktFlowResponder",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
@@ -107,7 +108,8 @@ void Agent::SetAgentTaskPolicy() {
     const char *flow_exclude_list[] = {
         "Agent::StatsCollector",
         "io::ReaderTask",
-        "Agent::PktFlowResponder"
+        "Agent::PktFlowResponder",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::FlowHandler", flow_exclude_list, 
                      sizeof(flow_exclude_list) / sizeof(char *));
@@ -118,7 +120,8 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Services",
         "Agent::StatsCollector",
         "io::ReaderTask",
-        "Agent::PktFlowResponder"
+        "Agent::PktFlowResponder",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("sandesh::RecvQueue", sandesh_exclude_list, 
                      sizeof(sandesh_exclude_list) / sizeof(char *));
@@ -131,21 +134,24 @@ void Agent::SetAgentTaskPolicy() {
         "io::ReaderTask",
         "Agent::ControllerXmpp",
         "Agent::RouteWalker",
-        "db::DBTable"
+        "db::DBTable",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("bgp::Config", xmpp_config_exclude_list, 
                      sizeof(xmpp_config_exclude_list) / sizeof(char *));
 
     const char *controller_xmpp_exclude_list[] = {
         "io::ReaderTask",
-        "db::DBTable"
+        "db::DBTable",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::ControllerXmpp", controller_xmpp_exclude_list,
                      sizeof(controller_xmpp_exclude_list) / sizeof(char *));
 
     const char *walk_cancel_exclude_list[] = {
         "Agent::ControllerXmpp",
-        "db::DBTable"
+        "db::DBTable",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::RouteWalker", walk_cancel_exclude_list,
                      sizeof(walk_cancel_exclude_list) / sizeof(char *));
@@ -154,22 +160,33 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::FlowHandler",
         "Agent::StatsCollector",
         "db::DBTable",
-        "Agent::PktFlowResponder"
+        "Agent::PktFlowResponder",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::KSync", ksync_exclude_list, 
                      sizeof(ksync_exclude_list) / sizeof(char *));
 
     const char *stats_collector_exclude_list[] = {
-        "Agent::PktFlowResponder"
+        "Agent::PktFlowResponder",
+        AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::StatsCollector", stats_collector_exclude_list,
                      sizeof(stats_collector_exclude_list) / sizeof(char *));
 
     const char *metadata_exclude_list[] = {
+        "xmpp::StateMachine",
         "http::RequestHandlerTask"
     };
     SetTaskPolicyOne("http client", metadata_exclude_list,
                      sizeof(metadata_exclude_list) / sizeof(char *));
+
+    const char *agent_init_exclude_list[] = {
+        "xmpp::StateMachine",
+        "http client",
+        "db::DBTable"
+    };
+    SetTaskPolicyOne(AGENT_INIT_TASKNAME, agent_init_exclude_list,
+                     sizeof(agent_init_exclude_list) / sizeof(char *));
 }
 
 void Agent::CreateLifetimeManager() {
@@ -543,6 +560,6 @@ bool Agent::isVmwareVcenterMode() const {
 
 void Agent::ConcurrencyCheck() {
     if (test_mode_) {
-       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync");
+       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME);
     }
 }
