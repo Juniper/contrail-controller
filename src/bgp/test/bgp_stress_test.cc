@@ -150,6 +150,7 @@ static vector<float> d_events_weight_ = boost::assign::list_of
 // npeers:     Number of BGP Peers that form session over inet and inet-vpn
 // nagents:    Number of XMPP agents that subscribe to various routing-instances
 // ntargets:   Number of import/export route-targets attached to each instance
+// xmpp-auth-enabled:  Enable authentication on Xmpp channel
 //
 
 static bool d_external_mode_ = false;
@@ -161,6 +162,7 @@ static int d_targets_ = 1;
 static int d_test_id_ = 0;
 static int d_vms_count_ = 0;
 static bool d_close_from_control_node_ = false;
+static bool d_xmpp_auth_enabled_ = false;
 static bool d_pause_after_initial_setup_ = false;
 static bool d_profile_heap_ = false;
 static bool d_no_mcast_routes_ = false;
@@ -193,6 +195,8 @@ static vector<int>  n_agents    = boost::assign::list_of(d_agents_);
 static vector<int>  n_targets   = boost::assign::list_of(d_targets_);
 static vector<bool> xmpp_close_from_control_node =
                         boost::assign::list_of(d_close_from_control_node_);
+static vector<bool> xmpp_auth_enabled =
+                        boost::assign::list_of(d_xmpp_auth_enabled_);
 
 static int d_db_walker_wait_ = 0;
 static int d_wait_for_idle_ = 30; // Seconds
@@ -521,7 +525,19 @@ void BgpStressTest::SetUp() {
     } else {
         server_.reset(new BgpServerTest(&evm_, "A0"));
     }
-    xmpp_server_test_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
+
+    if (d_xmpp_auth_enabled_) {
+        XmppChannelConfig xs_cfg(false);
+        xs_cfg.auth_enabled = true;
+        xs_cfg.path_to_server_cert =
+            "controller/src/xmpp/testdata/server-build02.pem";
+        xs_cfg.path_to_pvt_key =
+            "controller/src/xmpp/testdata/server-build02.key";
+        xmpp_server_test_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV,
+                                               &xs_cfg);
+    } else {
+        xmpp_server_test_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
+    }
 
     if (!d_external_mode_) {
         ifmap_channel_mgr_.reset(new IFMapChannelManager(xmpp_server_test_,
@@ -1844,7 +1860,8 @@ void BgpStressTest::BringUpXmppAgent(vector<int> agent_ids, bool verify_state) {
         // create an XMPP client in server A
         xmpp_agents_[agent_id] = new test::NetworkAgentMock(&evm_,
                 agent_name, d_xmpp_port_ ?: xmpp_server_test_->GetPort(),
-                prefix.ip4_addr().to_string(), d_xmpp_server_);
+                prefix.ip4_addr().to_string(), d_xmpp_server_,
+                d_xmpp_auth_enabled_);
 
         if (d_no_agent_updates_processing_) {
             xmpp_agents_[agent_id]->set_skip_updates_processing(true);
@@ -2872,6 +2889,8 @@ static void process_command_line_args(int argc, const char **argv) {
               "set xmpp server IP address")
         ("xmpp-source", value<string>()->default_value(d_xmpp_source_),
               "set xmpp connection source IP address")
+        ("xmpp-auth-enabled", bool_switch(&d_xmpp_auth_enabled_),
+             "Enable/Disable Xmpp Authentication")
         ;
 
     variables_map vm;
@@ -3182,6 +3201,9 @@ static void process_command_line_args(int argc, const char **argv) {
 
         xmpp_close_from_control_node.clear();
         xmpp_close_from_control_node.push_back(d_close_from_control_node_);
+
+        xmpp_auth_enabled.clear();
+        xmpp_auth_enabled.push_back(d_xmpp_auth_enabled_);
     }
 }
 
@@ -3217,6 +3239,7 @@ void BgpStressTest::InitParams() {
     n_agents_ = ::std::tr1::get<3>(GetParam());
     n_targets_ = ::std::tr1::get<4>(GetParam());
     xmpp_close_from_control_node_ = ::std::tr1::get<5>(GetParam());
+    xmpp_auth_enabled_ = ::std::tr1::get<6>(GetParam());
 }
 
 #define COMBINE_PARAMS \
@@ -3225,7 +3248,8 @@ void BgpStressTest::InitParams() {
             ValuesIn(GetPeerParameters()),                          \
             ValuesIn(GetAgentParameters()),                         \
             ValuesIn(GetTargetParameters()),                        \
-            ValuesIn(xmpp_close_from_control_node))
+            ValuesIn(xmpp_close_from_control_node),                \
+            ValuesIn(xmpp_auth_enabled))
 
 INSTANTIATE_TEST_CASE_P(BgpStressTestWithParams, BgpStressTest,
                         COMBINE_PARAMS);
