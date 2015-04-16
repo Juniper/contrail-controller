@@ -278,7 +278,7 @@ private:
     std::vector<bool> ribout_creation_complete_;
 };
 
-typedef std::tr1::tuple<int, int, int, int, int, bool> TestParams;
+typedef std::tr1::tuple<int, int, int, int, int, bool, bool> TestParams;
 
 class BgpStressTest : public ::testing::TestWithParam<TestParams> {
 protected:
@@ -443,6 +443,7 @@ protected:
     int n_agents_;
     int n_targets_;
     bool xmpp_close_from_control_node_;
+    bool xmpp_auth_enabled_;
     int socket_buffer_size_;
     bool sandesh_response_validation_complete_;
     boost::scoped_ptr<BgpSandeshContext> sandesh_context_;
