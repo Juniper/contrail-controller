@@ -33,7 +33,6 @@ env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
 # Generate the Python source files
 flow_pkg = env.SandeshGenPy('flow.sandesh', 'sandesh_common/', False)
 vns_pkg = env.SandeshGenPy('vns.sandesh', 'sandesh_common/', False)
-query_pkg = env.SandeshGenPy('query.sandesh', 'sandesh_common/', False)
 
 local_sources = [ 'setup.py' ]
 local_sources_rules = []
@@ -46,7 +45,7 @@ for file in init_sources:
     init_sources_rules.append(env.Install(Dir('sandesh_common'), '#controller/src/sandesh/common/' + file))
 
 sdist_depends = [local_sources_rules, init_sources_rules,
-                 flow_pkg, vns_pkg, query_pkg]
+                 flow_pkg, vns_pkg]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
