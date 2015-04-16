@@ -83,7 +83,6 @@
 #include "query_engine/qe_constants.h"
 #include "query_engine/qe_types.h"
 #include "rapidjson/document.h"
-#include "sandesh/common/query_types.h"
 #include <boost/regex.hpp>
 
 extern std::map< std::string, int > trace_enable_map;
