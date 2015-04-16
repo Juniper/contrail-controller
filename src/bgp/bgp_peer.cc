@@ -900,8 +900,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_OUT, "Open "  << openmsg.ToString());
     session->Send(data, result, NULL);
-
-    peer_stats_->proto_stats_[1].open++;
+    inc_tx_open();
 }
 
 void BgpPeer::SendKeepalive(bool from_timer) {
@@ -920,8 +919,7 @@ void BgpPeer::SendKeepalive(bool from_timer) {
     BGP_LOG_PEER(Message, this, log_level, BGP_LOG_FLAG_SYSLOG,
                  BGP_PEER_DIR_OUT, "Keepalive");
     send_ready_ = session_->Send(data, result, NULL);
-
-    peer_stats_->proto_stats_[1].keepalive++;
+    inc_tx_keepalive();
 }
 
 static bool SkipUpdateSend() {
@@ -954,7 +952,7 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
         send_ready_ = true;
     }
 
-    peer_stats_->proto_stats_[1].update++;
+    inc_tx_update();
     if (!send_ready_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Send blocked");
@@ -971,7 +969,7 @@ void BgpPeer::SendNotification(BgpSession *session,
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     session->SendNotification(code, subcode, data);
     state_machine_->set_last_notification_out(code, subcode, data);
-    peer_stats_->proto_stats_[1].notification++;
+    inc_tx_notification();
 }
 
 void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
@@ -1763,12 +1761,20 @@ void BgpPeer::inc_rx_open() {
     peer_stats_->proto_stats_[0].open++;
 }
 
+void BgpPeer::inc_tx_open() {
+    peer_stats_->proto_stats_[1].open++;
+}
+
 void BgpPeer::inc_rx_keepalive() {
     peer_stats_->proto_stats_[0].keepalive++;
 }
 
 size_t BgpPeer::get_rx_keepalive() const {
     return peer_stats_->proto_stats_[0].keepalive;
+}
+
+void BgpPeer::inc_tx_keepalive() {
+    peer_stats_->proto_stats_[1].keepalive++;
 }
 
 size_t BgpPeer::get_tx_keepalive() const {
@@ -1779,12 +1785,20 @@ void BgpPeer::inc_rx_update() {
     peer_stats_->proto_stats_[0].update++;
 }
 
+void BgpPeer::inc_tx_update() {
+    peer_stats_->proto_stats_[1].update++;
+}
+
 void BgpPeer::inc_rx_notification() {
     peer_stats_->proto_stats_[0].notification++;
 }
 
 size_t BgpPeer::get_rx_notification() const {
     return peer_stats_->proto_stats_[0].notification;
+}
+
+void BgpPeer::inc_tx_notification() {
+    peer_stats_->proto_stats_[1].notification++;
 }
 
 void BgpPeer::inc_rx_end_of_rib() {
