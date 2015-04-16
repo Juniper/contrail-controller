@@ -563,24 +563,31 @@ class AddrMgmt(object):
         if not subnets:
             return True, ""
         proj_uuid = db_vn_dict['parent_uuid']
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        # Read list of virtual networks for the given project
+        (ok, result) = db_conn.dbe_list('virtual-network', [proj_uuid])
         if not ok:
-            return (False, 'Internal error : ' + pformat(proj_dict))
+            return (False, 'Internal error : Failed to read virtual networks')
 
-        obj_type = 'subnet'
-        for network in proj_dict.get('virtual_networks', []):
-            if network['uuid'] == db_vn_dict['uuid']:
-                continue
-            ok, net_dict = db_conn.dbe_read('virtual-network', network, 
-                                            obj_fields=['network_ipam_refs'])
-            if not ok:
-                continue
+        # Read network ipam refs for all virtual networks for the given project
+        obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in result if obj_uuid != db_vn_dict['uuid']]
+        obj_fields = [u'network_ipam_refs']
+        (ok, result) = db_conn.dbe_read_multi('virtual-network', obj_ids_list, obj_fields)
+        if not ok:
+            return (False, 'Internal error : Failed to read virtual networks')
+
+        for net_dict in result:
             vn_subnets = self._vn_to_subnets(net_dict)
             if not vn_subnets:
                 continue
             subnets.extend(vn_subnets)
 
         quota_count = len(subnets) - 1
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, 'Internal error : ' + pformat(proj_dict))
+
+        obj_type = 'subnet'
         (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
                                                           quota_count)
         if not ok:
