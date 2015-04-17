@@ -66,7 +66,7 @@ public:
         return true;
     }
 
-    virtual void AsyncReadStart() {
+    virtual void AsyncReadStart(bool reader_deferred) {
     }
 
     void Close() {

@@ -520,7 +520,7 @@ void KSyncSockTcp::OnSessionEvent(TcpSession *session,
 }
 
 void KSyncSockTcp::AsyncReadStart() {
-    session_->AsyncReadStart();
+    session_->AsyncReadStart(false);
 }
 
 KSyncSockTcpSession::KSyncSockTcpSession(TcpServer *server, Socket *sock,

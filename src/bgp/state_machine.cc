@@ -1435,7 +1435,7 @@ bool StateMachine::PassiveOpen(BgpSession *session) {
     Enqueue(fsm::EvTcpPassiveOpen(session));
     session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
         this, _1, _2));
-    session->AsyncReadStart();
+    session->AsyncReadStart(false);
     return true;
 }
 

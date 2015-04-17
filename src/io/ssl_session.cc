@@ -24,9 +24,9 @@ public:
         if (session_->IsEstablished()) {
             read_fn_(buffer_);
             if (session_->IsSslDisabled()) {
-                session_->AsyncReadStart();
+                session_->AsyncReadStart(false);
             } else if (session_->IsSslHandShakeSuccess()) {
-                session_->AsyncReadStart();
+                session_->AsyncReadStart(false);
             }
         }
         return true;

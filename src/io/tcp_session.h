@@ -136,7 +136,13 @@ public:
     void set_read_on_connect(bool read) { read_on_connect_ = read; }
     void SessionEstablished(Endpoint remote, Direction direction);
 
-    virtual void AsyncReadStart();
+    virtual void AsyncReadStart(bool reader_deferred);
+    virtual void SetDeferReader(bool defer_reader);
+    // Is the reader deferred ? If reader is deferred, SetDeferReader needs
+    // to be called to undefer/restart reading.
+    bool IsReaderDeferred() const {
+        return defer_reader_;
+    }
 
     const io::SocketStats &GetSocketStats() const { return stats_; }
     void GetRxSocketStats(SocketIOStats &socket_stats) const;
@@ -153,7 +159,7 @@ protected:
     static void AsyncWriteHandler(TcpSessionPtr session,
                                   const boost::system::error_code &error);
 
-    void AsyncReadStartInternal(TcpSessionPtr session);
+    void AsyncReadStartInternal(TcpSessionPtr session, bool read_blocked);
     virtual Task* CreateReaderTask(boost::asio::mutable_buffer, size_t);
 
     virtual ~TcpSession();
@@ -233,6 +239,7 @@ private:
 
     tbb::atomic<int> refcount_;
     std::string name_;
+    tbb::atomic<bool> defer_reader_;
 
     DISALLOW_COPY_AND_ASSIGN(TcpSession);
 };

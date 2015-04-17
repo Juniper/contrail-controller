@@ -108,7 +108,7 @@ public:
     void ProcessSslHandShakeResponse(SslSessionPtr session, const boost::system::error_code& error) {
         ssl_handshake_count_++;
         if (!error) {
-            session->AsyncReadStart();
+            session->AsyncReadStart(false);
         }
     }
 
@@ -210,7 +210,7 @@ public:
     void ProcessSslHandShakeResponse(SslSessionPtr session, const boost::system::error_code& error) {
         ssl_handshake_count_++;
         if (!error) {
-            session->AsyncReadStart();
+            session->AsyncReadStart(false);
             const u_int8_t *data = (const u_int8_t *)"Encrypted Hello !";
             size_t len = 18;
             session->Send(data, len, NULL);
