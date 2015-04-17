@@ -480,6 +480,11 @@ VrfEntry *VrfTable::FindVrfFromId(size_t index) {
     return NULL;
 }
 
+VrfEntry *VrfTable::FindVrfFromIdIncludingDeletedVrf(size_t index) {
+    VrfEntry *vrf = index_table_.At(index);
+    return vrf;
+}
+
 InetUnicastAgentRouteTable *VrfTable::GetInet4UnicastRouteTable
     (const string &vrf_name) {
     return static_cast<InetUnicastAgentRouteTable *>
