@@ -172,6 +172,7 @@ TEST_F(EchoServerTest, Basic) {
     client_->EchoServer::ConnectTest(port);
     client_->SetSocketOptions();
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(client_->GetSession()->IsEstablished());
     TASK_UTIL_ASSERT_TRUE((server_->GetSession() != NULL));
 
     const char msg[] = "Test Message";
@@ -313,6 +314,52 @@ TEST_F(EchoServerTest, SendAfterClose) {
     EXPECT_FALSE(res);
     TASK_UTIL_ASSERT_TRUE((server_->GetSession() != NULL));
     TASK_UTIL_ASSERT_NE(0, server_->GetSession()->GetTotal());
+}
+
+TEST_F(EchoServerTest, DeferRead) {
+    server_->Initialize(0);
+    task_util::WaitForIdle();
+    thread_->Start();
+    int port = server_->GetPort();
+    ASSERT_LT(0, port);
+    TCP_UT_LOG_DEBUG("Server port: " << port);
+    client_->CreateSession();
+    client_->EchoServer::ConnectTest(port);
+    client_->SetSocketOptions();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(client_->GetSession()->IsEstablished());
+    TASK_UTIL_ASSERT_TRUE((server_->GetSession() != NULL));
+    // Defer reader
+    server_->GetSession()->SetDeferReader(true);
+    const char msg[] = "Test Message before Defer";
+    size_t sent = 0;
+    bool res = client_->Send((const u_int8_t *) msg, sizeof(msg), &sent);
+    EXPECT_TRUE(res);
+    EXPECT_EQ(sizeof(msg), sent);
+    TASK_UTIL_ASSERT_EQ(sizeof(msg), server_->GetSession()->GetTotal());
+    server_->GetSession()->ResetTotal();
+    // Verify read statistics
+    SocketIOStats rx_stats;
+    server_->GetSession()->GetRxSocketStats(rx_stats);
+    EXPECT_EQ(1, rx_stats.blocked_count);
+    EXPECT_EQ(sizeof(msg), rx_stats.bytes);
+    EXPECT_EQ("00:00:00", rx_stats.blocked_duration);
+    // Verify that message is not read since reader is blocked
+    size_t sent1 = 0;
+    const char msg1[] = "Test Message after Defer";
+    res = client_->Send((const u_int8_t *)msg1, sizeof(msg1), &sent1);
+    EXPECT_TRUE(res);
+    EXPECT_EQ(sizeof(msg1), sent1);
+    TASK_UTIL_ASSERT_EQ(0, server_->GetSession()->GetTotal());
+    // Undefer reader
+    server_->GetSession()->SetDeferReader(false);
+    TASK_UTIL_ASSERT_EQ(sizeof(msg1), server_->GetSession()->GetTotal());
+    // Verify read statistics
+    SocketIOStats rx_stats1;
+    server_->GetSession()->GetRxSocketStats(rx_stats1);
+    EXPECT_EQ(1, rx_stats1.blocked_count);
+    EXPECT_EQ(sizeof(msg) + sizeof(msg1), rx_stats1.bytes);
+    EXPECT_NE("00:00:00", rx_stats1.blocked_duration);
 }
 
 }  // namespace
