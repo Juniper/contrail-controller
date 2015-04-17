@@ -51,7 +51,7 @@ bool AgentRouteWalker::RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry>
           CancelRouteWalkInternal(vrf);
           break;
       case AgentRouteWalkerQueueEntry::DONE_WALK:
-          CallbackInternal(vrf);
+          CallbackInternal(vrf, data->all_walks_done_);
           break;
       default:
           assert(0);
@@ -64,7 +64,8 @@ bool AgentRouteWalker::RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry>
  */
 void AgentRouteWalker::CancelVrfWalk() {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(NULL,
-                                      AgentRouteWalkerQueueEntry::CANCEL_VRF_WALK));
+                                      AgentRouteWalkerQueueEntry::CANCEL_VRF_WALK,
+                                      false));
     work_queue_.Enqueue(data);
 }
 
@@ -86,7 +87,8 @@ void AgentRouteWalker::CancelVrfWalkInternal() {
  */
 void AgentRouteWalker::CancelRouteWalk(VrfEntry *vrf) {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(vrf,
-                                      AgentRouteWalkerQueueEntry::CANCEL_ROUTE_WALK));
+                                      AgentRouteWalkerQueueEntry::CANCEL_ROUTE_WALK,
+                                      false));
     work_queue_.Enqueue(data);
 }
 
@@ -118,7 +120,8 @@ void AgentRouteWalker::CancelRouteWalkInternal(const VrfEntry *vrf) {
  */
 void AgentRouteWalker::StartVrfWalk() {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(NULL,
-                                      AgentRouteWalkerQueueEntry::START_VRF_WALK));
+                                      AgentRouteWalkerQueueEntry::START_VRF_WALK,
+                                      false));
     work_queue_.Enqueue(data);
 }
 
@@ -150,7 +153,8 @@ void AgentRouteWalker::StartVrfWalkInternal()
  */
 void AgentRouteWalker::StartRouteWalk(VrfEntry *vrf) {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(vrf,
-                                      AgentRouteWalkerQueueEntry::START_ROUTE_WALK));
+                                      AgentRouteWalkerQueueEntry::START_ROUTE_WALK,
+                                      false));
     work_queue_.Enqueue(data);
 }
 
@@ -277,15 +281,22 @@ void AgentRouteWalker::DecrementWalkCount() {
 
 void AgentRouteWalker::Callback(VrfEntry *vrf) {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data
-        (new AgentRouteWalkerQueueEntry(vrf, AgentRouteWalkerQueueEntry::DONE_WALK));
+        (new AgentRouteWalkerQueueEntry(vrf,
+                                        AgentRouteWalkerQueueEntry::DONE_WALK,
+                                        AreAllWalksDone()));
     work_queue_.Enqueue(data);
 }
 
-void AgentRouteWalker::CallbackInternal(VrfEntry *vrf) {
+void AgentRouteWalker::CallbackInternal(VrfEntry *vrf, bool all_walks_done) {
     if (vrf) {
+        //Deletes the state on VRF
         OnRouteTableWalkCompleteForVrf(vrf);
     }
-    OnWalkComplete();
+    if (all_walks_done) {
+        //To be executed in callback where surity is there
+        //that all walks are done.
+        OnWalkComplete();
+    }
 }
 
 /*
@@ -307,10 +318,7 @@ void AgentRouteWalker::OnRouteTableWalkCompleteForVrf(VrfEntry *vrf) {
     route_walk_done_for_vrf_cb_(vrf);
 }
 
-/*
- * Check if all walks are over.
- */
-void AgentRouteWalker::OnWalkComplete() {
+bool AgentRouteWalker::AreAllWalksDone() const {
     bool walk_done = false;
     if (vrf_walkid_ == DBTableWalker::kInvalidWalkerId) {
         walk_done = true;
@@ -327,7 +335,14 @@ void AgentRouteWalker::OnWalkComplete() {
     if (walk_done && walk_count_) {
         assert(0);
     }
-    if (walk_done && !walk_count_ && walk_done_cb_) {
+    return walk_done;
+ }
+
+/*
+ * Check if all walks are over.
+ */
+void AgentRouteWalker::OnWalkComplete() {
+   if (!walk_count_ && walk_done_cb_) {
         walk_done_cb_();
     }
 }
