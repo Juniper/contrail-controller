@@ -19,6 +19,9 @@ SocketStats::SocketStats() {
     write_errors = 0;
     write_blocked = 0;
     write_blocked_duration_usecs = 0;
+    read_block_start_time = 0;
+    read_blocked = 0;
+    read_blocked_duration_usecs = 0;
 }
 
 void SocketStats::GetRxStats(SocketIOStats &socket_stats) const {
@@ -26,6 +29,15 @@ void SocketStats::GetRxStats(SocketIOStats &socket_stats) const {
     socket_stats.bytes = read_bytes;
     if (read_calls) {
         socket_stats.average_bytes = read_bytes/read_calls;
+    }
+    socket_stats.blocked_count = read_blocked;
+    socket_stats.blocked_duration = duration_usecs_to_string(
+        read_blocked_duration_usecs);
+    if (read_blocked) {
+        socket_stats.average_blocked_duration =
+                 duration_usecs_to_string(
+                     read_blocked_duration_usecs/
+                     read_blocked);
     }
     socket_stats.errors = read_errors;
 }
