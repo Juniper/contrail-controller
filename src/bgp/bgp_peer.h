@@ -123,9 +123,6 @@ public:
     // The BGP Identifier in host byte order.
     virtual uint32_t bgp_identifier() const;
 
-    // TODO: remove
-    // uint32_t remote_bgp_id() const { return remote_bgp_id_; }
-
     const AddressFamilyList &families() const {
         return family_;
     }
@@ -178,7 +175,7 @@ public:
 
     void increment_flap_count();
     void reset_flap_count();
-    uint32_t flap_count() const { return flap_count_; };
+    uint64_t flap_count() const { return flap_count_; };
 
     std::string last_flap_at() const;
 
@@ -193,24 +190,24 @@ public:
     void inc_tx_notification();
 
     void inc_rx_end_of_rib();
-    void inc_rx_route_reach(uint32_t count);
-    void inc_rx_route_unreach(uint32_t count);
+    void inc_rx_route_reach(uint64_t count);
+    void inc_rx_route_unreach(uint64_t count);
 
     void inc_tx_end_of_rib();
 
-    size_t get_rx_keepalive() const;
-    size_t get_rx_notification() const;
-    size_t get_tx_keepalive() const;
+    uint64_t get_rx_keepalive() const;
+    uint64_t get_rx_notification() const;
+    uint64_t get_tx_keepalive() const;
 
-    size_t get_rx_end_of_rib() const;
-    size_t get_rx_route_reach() const;
-    size_t get_rx_route_unreach() const;
-    size_t get_rx_route_total() const;
+    uint64_t get_rx_end_of_rib() const;
+    uint64_t get_rx_route_reach() const;
+    uint64_t get_rx_route_unreach() const;
+    uint64_t get_rx_route_total() const;
 
-    size_t get_tx_end_of_rib() const;
-    size_t get_tx_route_reach() const;
-    size_t get_tx_route_unreach() const;
-    size_t get_tx_route_total() const;
+    uint64_t get_tx_end_of_rib() const;
+    uint64_t get_tx_route_reach() const;
+    uint64_t get_tx_route_unreach() const;
+    uint64_t get_tx_route_total() const;
 
     void inc_connect_error();
     void inc_connect_timer_expired();
@@ -218,11 +215,11 @@ public:
     void inc_open_error();
     void inc_update_error();
 
-    size_t get_connect_error() const;
-    size_t get_connect_timer_expired() const;
-    size_t get_hold_timer_expired() const;
-    size_t get_open_error() const;
-    size_t get_update_error() const;
+    uint64_t get_connect_error() const;
+    uint64_t get_connect_timer_expired() const;
+    uint64_t get_hold_timer_expired() const;
+    uint64_t get_open_error() const;
+    uint64_t get_update_error() const;
 
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 
@@ -324,7 +321,7 @@ private:
     bool admin_down_;
 
     boost::scoped_ptr<StateMachine> state_machine_;
-    uint32_t membership_req_pending_;
+    uint64_t membership_req_pending_;
     bool defer_close_;
     bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
@@ -342,7 +339,7 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpPeer> instance_delete_ref_;
     mutable tbb::atomic<int> refcount_;
-    uint32_t flap_count_;
+    uint64_t flap_count_;
     uint64_t last_flap_;
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;

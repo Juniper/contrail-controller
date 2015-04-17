@@ -170,7 +170,7 @@ public:
     }
 
     // Total number of flaps
-    virtual uint32_t num_flaps() const {
+    virtual uint64_t num_flaps() const {
         return peer_->flap_count();
     }
 
@@ -209,11 +209,11 @@ public:
         }
     }
 
-    virtual void UpdateTxUnreachRoute(uint32_t count) {
+    virtual void UpdateTxUnreachRoute(uint64_t count) {
         update_stats_[1].unreach += count;
     }
 
-    virtual void UpdateTxReachRoute(uint32_t count) {
+    virtual void UpdateTxReachRoute(uint64_t count) {
         update_stats_[1].reach += count;
     }
 
@@ -1769,7 +1769,7 @@ void BgpPeer::inc_rx_keepalive() {
     peer_stats_->proto_stats_[0].keepalive++;
 }
 
-size_t BgpPeer::get_rx_keepalive() const {
+uint64_t BgpPeer::get_rx_keepalive() const {
     return peer_stats_->proto_stats_[0].keepalive;
 }
 
@@ -1777,7 +1777,7 @@ void BgpPeer::inc_tx_keepalive() {
     peer_stats_->proto_stats_[1].keepalive++;
 }
 
-size_t BgpPeer::get_tx_keepalive() const {
+uint64_t BgpPeer::get_tx_keepalive() const {
     return peer_stats_->proto_stats_[1].keepalive;
 }
 
@@ -1793,7 +1793,7 @@ void BgpPeer::inc_rx_notification() {
     peer_stats_->proto_stats_[0].notification++;
 }
 
-size_t BgpPeer::get_rx_notification() const {
+uint64_t BgpPeer::get_rx_notification() const {
     return peer_stats_->proto_stats_[0].notification;
 }
 
@@ -1805,7 +1805,7 @@ void BgpPeer::inc_rx_end_of_rib() {
     peer_stats_->update_stats_[0].end_of_rib++;
 }
 
-size_t BgpPeer::get_rx_end_of_rib() const {
+uint64_t BgpPeer::get_rx_end_of_rib() const {
     return peer_stats_->update_stats_[0].end_of_rib;
 }
 
@@ -1813,41 +1813,41 @@ void BgpPeer::inc_tx_end_of_rib() {
     peer_stats_->update_stats_[1].end_of_rib++;
 }
 
-size_t BgpPeer::get_tx_end_of_rib() const {
+uint64_t BgpPeer::get_tx_end_of_rib() const {
     return peer_stats_->update_stats_[1].end_of_rib;
 }
 
-void BgpPeer::inc_rx_route_reach(uint32_t count) {
+void BgpPeer::inc_rx_route_reach(uint64_t count) {
     peer_stats_->update_stats_[0].reach += count;
 }
 
-size_t BgpPeer::get_rx_route_reach() const {
+uint64_t BgpPeer::get_rx_route_reach() const {
     return peer_stats_->update_stats_[0].reach;
 }
 
-size_t BgpPeer::get_tx_route_reach() const {
+uint64_t BgpPeer::get_tx_route_reach() const {
     return peer_stats_->update_stats_[1].reach;
 }
 
-void BgpPeer::inc_rx_route_unreach(uint32_t count) {
+void BgpPeer::inc_rx_route_unreach(uint64_t count) {
     peer_stats_->update_stats_[0].unreach += count;
 }
 
-size_t BgpPeer::get_rx_route_unreach() const {
+uint64_t BgpPeer::get_rx_route_unreach() const {
     return peer_stats_->update_stats_[0].unreach;
 }
 
-size_t BgpPeer::get_tx_route_unreach() const {
+uint64_t BgpPeer::get_tx_route_unreach() const {
     return peer_stats_->update_stats_[1].unreach;
 }
 
-size_t BgpPeer::get_rx_route_total() const {
+uint64_t BgpPeer::get_rx_route_total() const {
     return peer_stats_->update_stats_[0].reach +
         peer_stats_->update_stats_[0].unreach +
         peer_stats_->update_stats_[0].end_of_rib;
 }
 
-size_t BgpPeer::get_tx_route_total() const {
+uint64_t BgpPeer::get_tx_route_total() const {
     return peer_stats_->update_stats_[1].reach +
         peer_stats_->update_stats_[1].unreach +
         peer_stats_->update_stats_[1].end_of_rib;
@@ -1873,23 +1873,23 @@ void BgpPeer::inc_update_error() {
     peer_stats_->error_stats_.update_error++;
 }
 
-size_t BgpPeer::get_connect_error() const {
+uint64_t BgpPeer::get_connect_error() const {
     return peer_stats_->error_stats_.connect_error;
 }
 
-size_t BgpPeer::get_connect_timer_expired() const {
+uint64_t BgpPeer::get_connect_timer_expired() const {
     return peer_stats_->error_stats_.connect_timer;
 }
 
-size_t BgpPeer::get_hold_timer_expired() const {
+uint64_t BgpPeer::get_hold_timer_expired() const {
     return peer_stats_->error_stats_.hold_timer;
 }
 
-size_t BgpPeer::get_open_error() const {
+uint64_t BgpPeer::get_open_error() const {
     return peer_stats_->error_stats_.open_error;
 }
 
-size_t BgpPeer::get_update_error() const {
+uint64_t BgpPeer::get_update_error() const {
     return peer_stats_->error_stats_.update_error;
 }
 

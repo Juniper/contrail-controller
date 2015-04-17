@@ -3,19 +3,19 @@
  */
 
 struct PeerProtoStats {
-    1: u32 total;
-    2: u32 open;
-    3: u32 keepalive;
-    4: u32 notification;
-    5: u32 update;
-    6: u32 close;
+    1: u64 total;
+    2: u64 open;
+    3: u64 keepalive;
+    4: u64 notification;
+    5: u64 update;
+    6: u64 close;
 }
 
 struct PeerUpdateStats {
-    1: u32 total;
-    2: u32 reach;
-    3: u32 unreach;
-    4: u32 end_of_rib;
+    1: u64 total;
+    2: u64 reach;
+    3: u64 unreach;
+    4: u64 end_of_rib;
 }
 
 struct PeerSocketStats {
@@ -28,10 +28,10 @@ struct PeerSocketStats {
 }
 
 struct PeerRxInet6ErrorStats {
-    1: u32 bad_inet6_xml_token_count;
-    2: u32 bad_inet6_prefix_count;
-    3: u32 bad_inet6_nexthop_count;
-    4: u32 bad_inet6_afi_safi_count;
+    1: u64 bad_inet6_xml_token_count;
+    2: u64 bad_inet6_prefix_count;
+    3: u64 bad_inet6_nexthop_count;
+    4: u64 bad_inet6_afi_safi_count;
 }
 
 struct PeerRxErrorStats {
@@ -50,7 +50,7 @@ struct PeerStateInfo {
 }
 
 struct PeerFlapInfo {
-    1: optional u32 flap_count;
+    1: optional u64 flap_count;
     2: optional u64 flap_time;
 }
 

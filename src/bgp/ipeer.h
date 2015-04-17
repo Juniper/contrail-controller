@@ -30,12 +30,12 @@ public:
         ProtoStats() : total(0), open(0), keepalive(0), notification(0),
         update(0), close(0) {
         }
-        uint32_t total;
-        uint32_t open;
-        uint32_t keepalive;
-        uint32_t notification;
-        uint32_t update;
-        uint32_t close;
+        uint64_t total;
+        uint64_t open;
+        uint64_t keepalive;
+        uint64_t notification;
+        uint64_t update;
+        uint64_t close;
     };
 
     struct ErrorStats {
@@ -46,11 +46,11 @@ public:
               open_error(0),
               update_error(0) {
         }
-        uint32_t connect_error;
-        uint32_t connect_timer;
-        uint32_t hold_timer;
-        uint32_t open_error;
-        uint32_t update_error;
+        uint64_t connect_error;
+        uint64_t connect_timer;
+        uint64_t hold_timer;
+        uint64_t open_error;
+        uint64_t update_error;
     };
 
     struct RxErrorStats {
@@ -58,19 +58,19 @@ public:
             inet6_bad_prefix_count(0), inet6_bad_nexthop_count(0),
             inet6_bad_afi_safi_count(0) {
         }
-        uint32_t inet6_bad_xml_token_count;
-        uint32_t inet6_bad_prefix_count;
-        uint32_t inet6_bad_nexthop_count;
-        uint32_t inet6_bad_afi_safi_count;
+        uint64_t inet6_bad_xml_token_count;
+        uint64_t inet6_bad_prefix_count;
+        uint64_t inet6_bad_nexthop_count;
+        uint64_t inet6_bad_afi_safi_count;
     };
 
     struct UpdateStats {
         UpdateStats() : end_of_rib(0), total(0), reach(0), unreach(0) {
         }
-        uint32_t end_of_rib;
-        uint32_t total;
-        uint32_t reach;
-        uint32_t unreach;
+        uint64_t end_of_rib;
+        uint64_t total;
+        uint64_t reach;
+        uint64_t unreach;
     };
 
     struct SocketStats {
@@ -100,7 +100,7 @@ public:
     // When was the Last
     virtual std::string last_flap() const = 0;
     // Total number of flaps
-    virtual uint32_t num_flaps() const = 0;
+    virtual uint64_t num_flaps() const = 0;
 
     virtual void GetRxProtoStats(ProtoStats *stats) const = 0;
     virtual void GetRxRouteUpdateStats(UpdateStats *stats) const = 0;
@@ -111,8 +111,8 @@ public:
     virtual void GetTxRouteUpdateStats(UpdateStats *stats) const = 0;
     virtual void GetTxSocketStats(SocketStats *stats) const = 0;
 
-    virtual void UpdateTxReachRoute(uint32_t count) = 0;
-    virtual void UpdateTxUnreachRoute(uint32_t count) = 0;
+    virtual void UpdateTxReachRoute(uint64_t count) = 0;
+    virtual void UpdateTxUnreachRoute(uint64_t count) = 0;
 };
 
 class IPeerClose {

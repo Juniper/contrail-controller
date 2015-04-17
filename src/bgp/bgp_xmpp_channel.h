@@ -42,18 +42,18 @@ public:
     };
     struct Stats {
         Stats();
-        int rt_updates;
-        int reach;
-        int unreach;
+        uint64_t rt_updates;
+        uint64_t reach;
+        uint64_t unreach;
     };
     struct ChannelStats {
         ChannelStats();
-        int instance_subscribe;
-        int instance_unsubscribe;
-        int table_subscribe;
-        int table_subscribe_complete;
-        int table_unsubscribe;
-        int table_unsubscribe_complete;
+        uint64_t instance_subscribe;
+        uint64_t instance_unsubscribe;
+        uint64_t table_subscribe;
+        uint64_t table_subscribe_complete;
+        uint64_t table_unsubscribe;
+        uint64_t table_unsubscribe_complete;
     };
 
     struct ErrorStats {
@@ -62,15 +62,15 @@ public:
         void incr_inet6_rx_bad_prefix_count();
         void incr_inet6_rx_bad_nexthop_count();
         void incr_inet6_rx_bad_afi_safi_count();
-        int get_inet6_rx_bad_xml_token_count() const;
-        int get_inet6_rx_bad_prefix_count() const;
-        int get_inet6_rx_bad_nexthop_count() const;
-        int get_inet6_rx_bad_afi_safi_count() const;
+        uint64_t get_inet6_rx_bad_xml_token_count() const;
+        uint64_t get_inet6_rx_bad_prefix_count() const;
+        uint64_t get_inet6_rx_bad_nexthop_count() const;
+        uint64_t get_inet6_rx_bad_afi_safi_count() const;
 
-        int inet6_rx_bad_xml_token_count;
-        int inet6_rx_bad_prefix_count;
-        int inet6_rx_bad_nexthop_count;
-        int inet6_rx_bad_afi_safi_count;
+        uint64_t inet6_rx_bad_xml_token_count;
+        uint64_t inet6_rx_bad_prefix_count;
+        uint64_t inet6_rx_bad_nexthop_count;
+        uint64_t inet6_rx_bad_afi_safi_count;
     };
 
     explicit BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server = NULL,

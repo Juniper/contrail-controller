@@ -75,19 +75,19 @@ void BgpXmppChannel::ErrorStats::incr_inet6_rx_bad_afi_safi_count() {
     ++inet6_rx_bad_afi_safi_count;
 }
 
-int BgpXmppChannel::ErrorStats::get_inet6_rx_bad_xml_token_count() const {
+uint64_t BgpXmppChannel::ErrorStats::get_inet6_rx_bad_xml_token_count() const {
     return inet6_rx_bad_xml_token_count;
 }
 
-int BgpXmppChannel::ErrorStats::get_inet6_rx_bad_prefix_count() const {
+uint64_t BgpXmppChannel::ErrorStats::get_inet6_rx_bad_prefix_count() const {
     return inet6_rx_bad_prefix_count;
 }
 
-int BgpXmppChannel::ErrorStats::get_inet6_rx_bad_nexthop_count() const {
+uint64_t BgpXmppChannel::ErrorStats::get_inet6_rx_bad_nexthop_count() const {
     return inet6_rx_bad_nexthop_count;
 }
 
-int BgpXmppChannel::ErrorStats::get_inet6_rx_bad_afi_safi_count() const {
+uint64_t BgpXmppChannel::ErrorStats::get_inet6_rx_bad_afi_safi_count() const {
     return inet6_rx_bad_afi_safi_count;
 }
 
@@ -232,7 +232,7 @@ public:
     }
 
     // Total number of flaps
-    virtual uint32_t num_flaps() const {
+    virtual uint64_t num_flaps() const {
         return (peer_->channel_->FlapCount());
     }
 
@@ -295,11 +295,11 @@ public:
             err_stats.get_inet6_rx_bad_afi_safi_count();
     }
 
-    virtual void UpdateTxUnreachRoute(uint32_t count) {
+    virtual void UpdateTxUnreachRoute(uint64_t count) {
         peer_->stats_[TX].unreach += count;
     }
 
-    virtual void UpdateTxReachRoute(uint32_t count) {
+    virtual void UpdateTxReachRoute(uint64_t count) {
         peer_->stats_[TX].reach += count;
     }
 

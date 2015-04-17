@@ -64,7 +64,7 @@ struct BgpNeighborResp {
     39: optional list<string> negotiated_address_families;
     40: optional u32 configured_hold_time;
     41: u32 negotiated_hold_time;
-    23: optional u32 flap_count;
+    23: optional u64 flap_count;
     24: optional string flap_time;
     37: optional list<BgpNeighborRoutingInstance> routing_instances;
     29: optional list<BgpNeighborRoutingTable> routing_tables;
