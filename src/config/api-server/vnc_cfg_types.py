@@ -1149,27 +1149,23 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
             # Read the logical interfaces in the physical interface.
             # This isnt read in the earlier DB read to avoid reading them for
             # all interfaces.
-            (ok, interface_object) = db_conn.dbe_read(
-                                            obj_type='physical-interface',
-                                            obj_ids={'uuid': physical_interface['uuid']},
-                                            obj_fields=['logical_interfaces'])
+            (ok, interface_object) = db_conn.dbe_list('logical-interface',
+                    [physical_interface['uuid']])
             if not ok:
-                return (False, (500, 'Internal error : physical interface ' +
-                                     physical_interface['uuid'] + ' not found'))
-            for logical_interface in interface_object.get('logical_interfaces', []):
-                (ok, li_object) = db_conn.dbe_read(
-                                            obj_type='logical-interface',
-                                            obj_ids={'uuid': logical_interface['uuid']},
-                                            obj_fields=['logical_interface_vlan_tag'])
-                if not ok:
-                    return (False, (500, 'Internal error : logical interface ' +
-                                         logical_interface['uuid'] + ' not found'))
+                return (False, (500, 'Internal error : Read logical interface list for ' +
+                                     physical_interface['uuid'] + ' failed'))
+            obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in interface_object]
+            obj_fields = [u'logical_interface_vlan_tag']
+            (ok, result) = db_conn.dbe_read_multi('logical-interface',
+                    obj_ids_list, obj_fields)
+            if not ok:
+                return (False, (500, 'Internal error : Logical interface read failed'))
+            for li_object in result:
                 # check vlan tags on the same physical interface
                 if 'logical_interface_vlan_tag' in li_object:
                     if vlan_tag == int(li_object['logical_interface_vlan_tag']):
                         return (False, (403, "Vlan tag already used in " +
-                                        "another interface : " +
-                                        logical_interface['uuid']))
+                                   "another interface : " + li_object['uuid']))
 
         return True, ""
     # end _check_interface_name
