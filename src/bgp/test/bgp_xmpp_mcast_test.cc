@@ -814,6 +814,42 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManager) {
     show_req->Release();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Match "".
+    result = list_of("blue.ermvpn.0")("pink.ermvpn.0");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
+    show_req = new ShowMulticastManagerReq;
+    validate_done_ = 0;
+    show_req->set_search_string("");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Match "ermvpn.0".
+    result = list_of("blue.ermvpn.0")("pink.ermvpn.0");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
+    show_req = new ShowMulticastManagerReq;
+    validate_done_ = 0;
+    show_req->set_search_string("ermvpn.0");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Match "pink".
+    result = list_of("pink.ermvpn.0");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
+    show_req = new ShowMulticastManagerReq;
+    validate_done_ = 0;
+    show_req->set_search_string("pink");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
 };
 
 TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManagerDetail) {

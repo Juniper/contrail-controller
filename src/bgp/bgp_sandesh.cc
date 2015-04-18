@@ -586,6 +586,7 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             RequestPipeline::InstData *data) {
     const ShowRouteSummaryReq *req =
         static_cast<const ShowRouteSummaryReq *>(ps.snhRequest_.get());
+    const string &search_string = req->get_search_string();
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
@@ -599,6 +600,10 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             BgpTable *table = j->second;
             if (table->Size() == 0)
                 continue;
+            if (!search_string.empty() &&
+                table->name().find(search_string) == string::npos) {
+                continue;
+            }
             ShowRouteTableSummary srt;
             srt.set_routing_table_name(table->name());
             srt.set_deleted(table->IsDeleted());
@@ -1168,12 +1173,17 @@ bool ShowRoutingInstanceSummaryHandler::CallbackS1(const Sandesh *sr,
     RequestPipeline::InstData *data) {
     const ShowRoutingInstanceSummaryReq *req =
         static_cast<const ShowRoutingInstanceSummaryReq *>(ps.snhRequest_.get());
+    const string &search_string = req->get_search_string();
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     vector<ShowRoutingInstance> ri_list;
     for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
         it != rim->end(); ++it) {
+        if (!search_string.empty() &&
+            it->name().find(search_string) == string::npos) {
+                continue;
+        }
         FillRoutingInstanceInfo(&ri_list, *it);
     }
 
@@ -1233,6 +1243,7 @@ public:
             static_cast<MulticastManagerData *>(data);
         const ShowMulticastManagerReq *req =
             static_cast<const ShowMulticastManagerReq *>(ps.snhRequest_.get());
+        const string &search_string = req->get_search_string();
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
@@ -1243,8 +1254,13 @@ public:
                 continue;
             ErmVpnTable *table =
                 static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
-            if (table)
-                FillMulticastManagerStats(mydata, table, inst_id);
+            if (!table)
+                continue;
+            if (!search_string.empty() &&
+                table->name().find(search_string) == string::npos) {
+                continue;
+            }
+            FillMulticastManagerStats(mydata, table, inst_id);
         }
 
         return true;
@@ -1275,6 +1291,7 @@ public:
             RequestPipeline::InstData *data) {
         const ShowMulticastManagerReq *req =
             static_cast<const ShowMulticastManagerReq *>(ps.snhRequest_.get());
+        const string &search_string = req->get_search_string();
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
@@ -1287,8 +1304,13 @@ public:
                 continue;
             ErmVpnTable *table =
                 static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
-            if (table)
-                FillMulticastManagerInfo(sd, mgr_list, table);
+            if (!table)
+                continue;
+            if (!search_string.empty() &&
+                table->name().find(search_string) == string::npos) {
+                continue;
+            }
+            FillMulticastManagerInfo(sd, mgr_list, table);
         }
 
 
@@ -1567,6 +1589,7 @@ public:
             RequestPipeline::InstData *data) {
         const ShowBgpInstanceConfigReq *req =
             static_cast<const ShowBgpInstanceConfigReq *>(ps.snhRequest_.get());
+        const string &search_string = req->get_search_string();
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         BgpConfigManager *bcm = bsc->bgp_server->config_manager();
@@ -1576,6 +1599,10 @@ public:
         BOOST_FOREACH(pair_t item, bcm->InstanceMapItems()) {
             ShowBgpInstanceConfig inst;
             const BgpInstanceConfig *instance = item.second;
+            if (!search_string.empty() &&
+                instance->name().find(search_string) == string::npos) {
+                continue;
+            }
             inst.set_name(instance->name());
             inst.set_virtual_network(instance->virtual_network());
             inst.set_virtual_network_index(instance->virtual_network_index());

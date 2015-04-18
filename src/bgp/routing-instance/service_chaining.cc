@@ -37,6 +37,7 @@
 
 using boost::bind;
 using boost::system::error_code;
+using std::string;
 
 int ServiceChainMgr::service_chain_task_id_ = -1;
 
@@ -739,6 +740,10 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 server()->routing_instance_mgr()->begin();
             for (; rit != server()->routing_instance_mgr()->end(); rit++) {
                 if (rit->deleted()) continue;
+                if (!req->search_string_.empty() &&
+                    rit->name().find(req->search_string_) == string::npos) {
+                    continue;
+                }
                 ShowServicechainInfo info;
                 const BgpInstanceConfig *rtc = rit->config();
                 if (!rtc->service_chain_list().empty()) {
@@ -1085,8 +1090,8 @@ void ShowServiceChainReq::HandleRequest() const {
     ServiceChainMgr *mgr =  bsc->bgp_server->service_chain_mgr();
     ShowServiceChainResp *resp = new ShowServiceChainResp;
     resp->set_context(context());
-    ServiceChainRequest  *req =
-        new ServiceChainRequest(ServiceChainRequest::SHOW_SERVICE_CHAIN, resp);
+    ServiceChainRequest *req = new ServiceChainRequest(
+        ServiceChainRequest::SHOW_SERVICE_CHAIN, resp, get_search_string());
     mgr->Enqueue(req);
 }
 
@@ -1095,8 +1100,8 @@ void ShowPendingServiceChainReq::HandleRequest() const {
     ServiceChainMgr *mgr =  bsc->bgp_server->service_chain_mgr();
     ShowPendingServiceChainResp *resp = new ShowPendingServiceChainResp;
     resp->set_context(context());
-    ServiceChainRequest  *req =
-        new ServiceChainRequest(ServiceChainRequest::SHOW_PENDING_CHAIN, resp);
+    ServiceChainRequest *req = new ServiceChainRequest(
+        ServiceChainRequest::SHOW_PENDING_CHAIN, resp , get_search_string());
     mgr->Enqueue(req);
 }
 
