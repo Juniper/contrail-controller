@@ -611,7 +611,10 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
     VrouterStatsAgent stats;
     stats.set_name(agent_->agent_name());
     cpu_stats_count_++;
-    if ((cpu_stats_count_ % 6) == 0) {
+    /* CPU stats needs to be sent every minute. We are using '% 2' below
+     * because timer is fired every 30 secs. If the timer interval is changed
+     * we need to fix the '%' value below accordingly */
+    if ((cpu_stats_count_ % 2) == 0) {
         static bool cpu_first = true;
         CpuLoadInfo cpu_load_info;
         CpuLoadData::FillCpuInfo(cpu_load_info, true);
