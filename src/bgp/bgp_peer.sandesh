@@ -216,6 +216,7 @@ response sandesh ShowRouteSummaryResp {
 }
 
 request sandesh ShowRouteSummaryReq {
+    1: string search_string;
 }
 
 //
@@ -270,6 +271,7 @@ response sandesh ShowRoutingInstanceSummaryResp {
 }
 
 request sandesh ShowRoutingInstanceSummaryReq {
+    1: string search_string;
 }
 
 struct ShowMulticastManager {
@@ -282,6 +284,7 @@ response sandesh ShowMulticastManagerResp {
 }
 
 request sandesh ShowMulticastManagerReq {
+    1: string search_string;
 }
 
 struct ShowMulticastTreeLink {
@@ -339,6 +342,7 @@ response sandesh ShowBgpInstanceConfigResp {
 }
 
 request sandesh ShowBgpInstanceConfigReq {
+    1: string search_string;
 }
 
 struct ShowBgpSessionAttributesConfig {
