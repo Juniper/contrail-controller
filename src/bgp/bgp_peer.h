@@ -187,6 +187,11 @@ public:
     void inc_rx_update();
     void inc_rx_notification();
 
+    void inc_tx_open();
+    void inc_tx_keepalive();
+    void inc_tx_update();
+    void inc_tx_notification();
+
     void inc_rx_end_of_rib();
     void inc_rx_route_reach(uint32_t count);
     void inc_rx_route_unreach(uint32_t count);
