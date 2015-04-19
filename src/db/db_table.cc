@@ -132,9 +132,11 @@ private:
 DBTableBase::DBTableBase(DB *db, const string &name)
         : db_(db), name_(name), info_(new ListenerInfo()), enqueue_count_(0),
           input_count_(0), notify_count_(0) {
+    db_->GetWalker()->RegisterTable(this);
 }
 
 DBTableBase::~DBTableBase() {
+    db_->GetWalker()->UnregisterTable(this);
 }
 
 DBTableBase::ListenerId DBTableBase::Register(ChangeCallback callback,

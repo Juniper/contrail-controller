@@ -588,6 +588,7 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
+    const DBTableWalker *walker = bsc->bgp_server->database()->GetWalker();
 
     vector<ShowRouteTableSummary> table_list;
     for (RoutingInstanceMgr::NameIterator i = rim->name_begin();
@@ -606,12 +607,9 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             srt.secondary_paths = table->GetSecondaryPathCount();
             srt.infeasible_paths = table->GetInfeasiblePathCount();
             srt.paths = srt.primary_paths + srt.secondary_paths;
-            srt.set_walk_requests(
-                table->database()->GetWalker()->walk_request_count());
-            srt.set_walk_completes(
-                table->database()->GetWalker()->walk_complete_count());
-            srt.set_walk_cancels(
-                table->database()->GetWalker()->walk_cancel_count());
+            srt.set_walk_requests(walker->walk_request_count(table));
+            srt.set_walk_completes(walker->walk_complete_count(table));
+            srt.set_walk_cancels(walker->walk_cancel_count(table));
             size_t markers = 0;
             srt.set_pending_updates(table->GetPendingRiboutsCount(&markers));
             srt.set_markers(markers);
@@ -1034,11 +1032,11 @@ public:
                                       BgpTable *table) {
         rit.set_name(table->name());
         rit.set_walk_requests(
-            table->database()->GetWalker()->walk_request_count());
+            table->database()->GetWalker()->walk_request_count(table));
         rit.set_walk_completes(
-            table->database()->GetWalker()->walk_complete_count());
+            table->database()->GetWalker()->walk_complete_count(table));
         rit.set_walk_cancels(
-            table->database()->GetWalker()->walk_cancel_count());
+            table->database()->GetWalker()->walk_cancel_count(table));
         size_t markers = 0;
         rit.set_pending_updates(table->GetPendingRiboutsCount(&markers));
         rit.set_markers(markers);

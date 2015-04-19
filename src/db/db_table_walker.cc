@@ -4,7 +4,7 @@
 
 #include "db/db_table_walker.h"
 
-#include <list>
+#include <boost/tuple/tuple.hpp>
 #include <tbb/atomic.h>
 
 #include "base/logging.h"
@@ -14,18 +14,11 @@
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
+using boost::tie;
+using std::make_pair;
+
 int DBTableWalker::walker_task_id_ = -1;
 
-DBTableWalker::DBTableWalker() {
-    if (walker_task_id_ == -1) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        // Using same task id as DBPartition
-        walker_task_id_ = scheduler->GetTaskId("db::DBTable");
-    }
-    walk_request_count_ = 0;
-    walk_complete_count_ = 0;
-    walk_cancel_count_ = 0;
-}
 class DBTableWalker::Walker {
 public:
     Walker(WalkId id, DBTableWalker *wkmgr, DBTable *table,
@@ -103,6 +96,7 @@ bool DBTableWalker::Worker::Run() {
 
     // Check whether Walker was requested to be cancelled
     if (walker_->should_stop_) {
+        walker_->wkmgr_->inc_walk_cancel_count(walker_->table_);
         goto walk_done;
     }
 
@@ -130,6 +124,7 @@ bool DBTableWalker::Worker::Run() {
         next = tbl_partition_->GetNext(entry);
         // Check whether Walker was requested to be cancelled
         if (walker_->should_stop_) {
+            walker_->wkmgr_->inc_walk_cancel_count(walker_->table_);
             break; 
         }
         if (count == GetIterationToYield()) {
@@ -154,7 +149,7 @@ walk_done:
     if (num_walkers_on_tpart == 1) {
         // Invoke Walker_Complete callback
         if (!walker_->should_stop_) {
-            walker_->wkmgr_->update_walk_complete_count(+1);
+            walker_->wkmgr_->inc_walk_complete_count(walker_->table_);
         }
         if (walker_->done_fn_ != NULL) {
             if (!walker_->should_stop_) {
@@ -183,12 +178,36 @@ DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
     }
 }
 
+DBTableWalker::DBTableWalker() {
+    if (walker_task_id_ == -1) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        // Using same task id as DBPartition
+        walker_task_id_ = scheduler->GetTaskId("db::DBTable");
+    }
+}
+
+void DBTableWalker::RegisterTable(const DBTableBase *tbl_base) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::iterator loc = stats_map_.find(tbl_base);
+    assert(loc == stats_map_.end());
+    bool result;
+    tie(loc, result) = stats_map_.insert(make_pair(tbl_base, TableStats()));
+    assert(result);
+}
+
+void DBTableWalker::UnregisterTable(const DBTableBase *tbl_base) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::iterator loc = stats_map_.find(tbl_base);
+    assert(loc != stats_map_.end());
+    stats_map_.erase(loc);
+}
+
 DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table, 
                                                const DBRequestKey *key_start, 
                                                WalkFn walkerfn , 
                                                WalkCompleteFn walk_complete) {
+    inc_walk_request_count(table);
     tbb::mutex::scoped_lock lock(walkers_mutex_);
-    walk_request_count_++;
     size_t i = walker_map_.find_first();
     if (i == walker_map_.npos) {
         i = walkers_.size();
@@ -209,7 +228,6 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
 
 void DBTableWalker::WalkCancel(WalkId id) {
     tbb::mutex::scoped_lock lock(walkers_mutex_);
-    walk_cancel_count_++;
     walkers_[id]->StopWalk();
     // Purge to be called after task has stopped
 }
@@ -233,3 +251,43 @@ void DBTableWalker::PurgeWalker(WalkId id) {
         walker_map_.set(id);
     }
 }
+
+uint64_t DBTableWalker::walk_request_count(const DBTableBase *tbl_base) const {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::const_iterator loc = stats_map_.find(tbl_base);
+    return (loc == stats_map_.end() ? 0 : loc->second.request_count);
+}
+
+uint64_t DBTableWalker::walk_complete_count(const DBTableBase *tbl_base) const {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::const_iterator loc = stats_map_.find(tbl_base);
+    return (loc == stats_map_.end() ? 0 : loc->second.complete_count);
+}
+
+uint64_t DBTableWalker::walk_cancel_count(const DBTableBase *tbl_base) const {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::const_iterator loc = stats_map_.find(tbl_base);
+    return (loc == stats_map_.end() ? 0 : loc->second.cancel_count);
+}
+
+void DBTableWalker::inc_walk_request_count(const DBTableBase *tbl_base) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::iterator loc = stats_map_.find(tbl_base);
+    assert(loc != stats_map_.end());
+    loc->second.request_count++;
+}
+
+void DBTableWalker::inc_walk_complete_count(const DBTableBase *tbl_base) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::iterator loc = stats_map_.find(tbl_base);
+    assert(loc != stats_map_.end());
+    loc->second.complete_count++;
+}
+
+void DBTableWalker::inc_walk_cancel_count(const DBTableBase *tbl_base) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    TableStatsMap::iterator loc = stats_map_.find(tbl_base);
+    assert(loc != stats_map_.end());
+    loc->second.cancel_count++;
+}
+

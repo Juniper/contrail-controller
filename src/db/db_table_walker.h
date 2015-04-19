@@ -43,16 +43,15 @@ public:
     void WalkCancel(WalkId id);
 
     DBTableWalker();
+    void RegisterTable(const DBTableBase *tbl_base);
+    void UnregisterTable(const DBTableBase *tbl_base);
 
-    uint64_t walk_request_count() { return walk_request_count_; }
-    uint64_t walk_complete_count() { return walk_complete_count_; }
-    void update_walk_complete_count(uint64_t inc) {
-        tbb::mutex::scoped_lock lock(walkers_mutex_);
-        walk_complete_count_ += inc;
-    }
-    uint64_t walk_cancel_count() { return walk_cancel_count_; }
+    uint64_t walk_request_count(const DBTableBase *tbl_base) const;
+    uint64_t walk_complete_count(const DBTableBase *tbl_base) const;
+    uint64_t walk_cancel_count(const DBTableBase *tbl_base) const;
 
 private:
+    static int walker_task_id_;
     static const int kIterationToYield = 1024;
 
     static const int GetIterationToYield() {
@@ -78,21 +77,29 @@ private:
     // A Job for walking through the DBTablePartition
     class Worker;
 
+    struct TableStats {
+        TableStats() : request_count(0), complete_count(0), cancel_count(0) {
+        }
+        uint64_t request_count;
+        uint64_t complete_count;
+        uint64_t cancel_count;
+    };
+
     typedef std::vector<Walker *> WalkerList;
     typedef boost::dynamic_bitset<> WalkerMap;
+    typedef std::map<const DBTableBase *, TableStats> TableStatsMap;
 
     // Purge the walker after the walk is completed/cancelled
     void PurgeWalker(WalkId id);
+    void inc_walk_request_count(const DBTableBase *tbl_base);
+    void inc_walk_complete_count(const DBTableBase *tbl_base);
+    void inc_walk_cancel_count(const DBTableBase *tbl_base);
 
     // List of walkers allocated
-    tbb::mutex walkers_mutex_;
+    mutable tbb::mutex walkers_mutex_;
     WalkerList walkers_;
     WalkerMap walker_map_;
-
-    uint64_t walk_request_count_;
-    uint64_t walk_complete_count_;
-    uint64_t walk_cancel_count_;
-
-    static int walker_task_id_;
+    TableStatsMap stats_map_;
 };
+
 #endif
