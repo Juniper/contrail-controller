@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 #include <boost/function.hpp>
+#include <tbb/atomic.h>
+
 #include "base/util.h"
 
 class DB;
@@ -113,6 +115,13 @@ public:
     void incr_notify_count() { notify_count_++; }
     void reset_notify_count() { notify_count_ = 0; }
 
+    uint64_t walk_request_count() const { return walk_request_count_; }
+    uint64_t walk_complete_count() const { return walk_complete_count_; }
+    uint64_t walk_cancel_count() const { return walk_cancel_count_; }
+    void incr_walk_request_count() { walk_request_count_++; }
+    void incr_walk_complete_count() { walk_complete_count_++; }
+    void incr_walk_cancel_count() { walk_cancel_count_++; }
+
 private:
     class ListenerInfo;
     DB *db_;
@@ -121,6 +130,9 @@ private:
     uint64_t enqueue_count_;
     uint64_t input_count_;
     uint64_t notify_count_;
+    tbb::atomic<uint64_t> walk_request_count_;
+    tbb::atomic<uint64_t> walk_complete_count_;
+    tbb::atomic<uint64_t> walk_cancel_count_;
 };
 
 // An implementation of DBTableBase that uses boost::set as data-store
