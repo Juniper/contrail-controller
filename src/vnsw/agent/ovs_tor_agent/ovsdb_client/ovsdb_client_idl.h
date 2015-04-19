@@ -139,6 +139,9 @@ public:
     VrfOvsdbObject *vrf_ovsdb();
     VnOvsdbObject *vn_ovsdb();
 
+    // Used by Test case
+    bool IsKeepAliveTimerActive();
+
     bool KeepAliveTimerCb();
     void TriggerDeletion();
     bool IsDeleted() const { return deleted_; }
