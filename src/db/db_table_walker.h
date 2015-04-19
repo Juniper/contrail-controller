@@ -32,6 +32,8 @@ public:
 
     static const WalkId kInvalidWalkerId = -1;
 
+    DBTableWalker();
+
     // Start a walk request on the specified table. If non null, 'key_start'
     // specifies the starting point for the walk. The walk is performed in
     // all table shards in parallel.
@@ -42,20 +44,11 @@ public:
     // the walker function itself.
     void WalkCancel(WalkId id);
 
-    DBTableWalker();
-
-    uint64_t walk_request_count() { return walk_request_count_; }
-    uint64_t walk_complete_count() { return walk_complete_count_; }
-    void update_walk_complete_count(uint64_t inc) {
-        tbb::mutex::scoped_lock lock(walkers_mutex_);
-        walk_complete_count_ += inc;
-    }
-    uint64_t walk_cancel_count() { return walk_cancel_count_; }
-
 private:
+    static int walker_task_id_;
     static const int kIterationToYield = 1024;
 
-    static const int GetIterationToYield() {
+    static int GetIterationToYield() {
         static int iter_ = kIterationToYield;
         static bool init_ = false;
 
@@ -88,11 +81,6 @@ private:
     tbb::mutex walkers_mutex_;
     WalkerList walkers_;
     WalkerMap walker_map_;
-
-    uint64_t walk_request_count_;
-    uint64_t walk_complete_count_;
-    uint64_t walk_cancel_count_;
-
-    static int walker_task_id_;
 };
+
 #endif
