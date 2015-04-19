@@ -342,6 +342,10 @@ VnOvsdbObject *OvsdbClientIdl::vn_ovsdb() {
     return vn_ovsdb_.get();
 }
 
+bool OvsdbClientIdl::IsKeepAliveTimerActive() {
+    return !keepalive_timer_->cancelled();
+}
+
 bool OvsdbClientIdl::KeepAliveTimerCb() {
     switch (connection_state_) {
     case OvsdbSessionActive:
@@ -369,10 +373,16 @@ bool OvsdbClientIdl::KeepAliveTimerCb() {
 }
 
 void OvsdbClientIdl::trigger_deletion() {
-    // idl should not be already marked as deleted
-    assert(!deleted_);
+    // if idl is already marked for delete, return from here
+    if (deleted_) {
+        return;
+    }
+
     // mark idl being set for deletion, so we don't create further txn
     deleted_ = true;
+
+    // Since IDL is scheduled for deletion cancel keepalive timer
+    keepalive_timer_->Cancel();
 
     // trigger txn failure for pending transcations
     PendingTxnMap::iterator it = pending_txn_.begin();
