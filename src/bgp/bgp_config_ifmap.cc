@@ -593,15 +593,18 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
                                   const autogen::RoutingInstance *config) {
     const autogen::ServiceChainInfo &chain =
             config->service_chain_information();
-    ServiceChainConfig item = {
-        chain.routing_instance,
-        chain.prefix,
-        chain.service_chain_address,
-        chain.service_instance,
-        chain.source_routing_instance
-    };
     BgpInstanceConfig::ServiceChainList list;
-    list.push_back(item);
+    if (config->IsPropertySet(
+        autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
+        ServiceChainConfig item = {
+            chain.routing_instance,
+            chain.prefix,
+            chain.service_chain_address,
+            chain.service_instance,
+            chain.source_routing_instance
+        };
+        list.push_back(item);
+    }
     rti->swap_service_chain_list(&list);
 }
 
