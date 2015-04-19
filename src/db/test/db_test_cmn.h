@@ -101,8 +101,7 @@ public:
             dbReq.data.reset(new VlanTableReqData("DB Test Vlan"));
             dbReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         }
-        bool retValue = itbl->Enqueue(&dbReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&dbReq);
     }
 
     void DBTestYieldListener1(DBTablePartBase *root, DBEntryBase *entry) {
@@ -499,13 +498,11 @@ TEST_F(DBTest, JWalker) {
 
 
     for (int i = 0; i < walk_count; i++) {
-        bool retValue;
         DBRequest addReq;
         addReq.key.reset(new VlanTableReqKey(i));
         addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        retValue = itbl->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&addReq);
     }
 
     LOG(DEBUG, "Verify Add notification");
@@ -556,17 +553,56 @@ TEST_F(DBTest, JWalker) {
     adc_notification = 0;
     // Delete Bulk VLANs
     for (int i = 0; i<walk_count; i++) {
-        bool retValue;
         DBRequest delReq;
         delReq.key.reset(new VlanTableReqKey(i));
         delReq.oper = DBRequest::DB_ENTRY_DELETE;
-        retValue = itbl->Enqueue(&delReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&delReq);
     }
 
     LOG(DEBUG, "Verify Delete notification");
     task_util::WaitForIdle();
     EXPECT_TRUE(del_notification == walk_count);
+}
+
+// To Test:
+// Walker Stats
+TEST_F(DBTest, WalkerStats) {
+    DBTable *table = dynamic_cast<DBTable *>(itbl);
+    if (table == NULL) {
+        return;
+    }
+    DBTableWalker::WalkId id;
+
+    walk_done_ = false;
+    TaskScheduler::GetInstance()->Stop();
+    id = db_.GetWalker()->WalkTable(table, NULL,
+        boost::bind(&DBTest::TableWalk, this, _1, _2),
+        boost::bind(&DBTest::TWalkDone, this, _1));
+    EXPECT_EQ(id, 0);
+    TaskScheduler::GetInstance()->Start();
+    task_util::WaitForIdle();
+
+    LOG(DEBUG, "Verify Walk request and complete count");
+    TASK_UTIL_EXPECT_TRUE(walk_done_);
+    TASK_UTIL_EXPECT_EQ(1, table->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(1, table->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, table->walk_cancel_count());
+
+    walk_done_ = false;
+    TaskScheduler::GetInstance()->Stop();
+    id = db_.GetWalker()->WalkTable(table, NULL,
+        boost::bind(&DBTest::TableWalk, this, _1, _2),
+        boost::bind(&DBTest::TWalkDone, this, _1));
+    EXPECT_EQ(id, 0);
+    db_.GetWalker()->WalkCancel(id);
+    TaskScheduler::GetInstance()->Start();
+    task_util::WaitForIdle();
+
+    LOG(DEBUG, "Verify Walk request and cancel count");
+    TASK_UTIL_EXPECT_FALSE(walk_done_);
+    TASK_UTIL_EXPECT_EQ(2, table->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(1, table->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, table->walk_cancel_count());
 }
 
 // To Test:
@@ -583,13 +619,11 @@ TEST_F(DBTest, Bulk) {
     del_notification = 0;
     // Create Bulk VLANs
     for (int i = 0; i<bulk_count; i++) {
-        bool retValue;
         DBRequest addReq;
         addReq.key.reset(new VlanTableReqKey(i));
         addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        retValue = itbl->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&addReq);
     }
 
     LOG(DEBUG, "Verify Add notification");
@@ -606,12 +640,10 @@ TEST_F(DBTest, Bulk) {
     adc_notification = 0;
     // Delete Bulk VLANs
     for (int i = 0; i<bulk_count; i++) {
-        bool retValue;
         DBRequest delReq;
         delReq.key.reset(new VlanTableReqKey(i));
         delReq.oper = DBRequest::DB_ENTRY_DELETE;
-        retValue = itbl->Enqueue(&delReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&delReq);
     }
 
     LOG(DEBUG, "Verify Delete notification");
@@ -654,13 +686,11 @@ TEST_F(DBTest, ReqInNotifyPath) {
 
     // Enqueue a request
     for (int i = 0; i<req_count; i++) {
-        bool retValue;
         DBRequest addReq;
         addReq.key.reset(new VlanTableReqKey(i));
         addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        retValue = itbl->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&addReq);
     }
 
     LOG(DEBUG, "Verify Add notification");
@@ -710,25 +740,21 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     // Enqueue add requests to db.test.vlan.0
     TaskScheduler::GetInstance()->Stop();
     for (int i = 0; i<req_count; i++) {
-        bool retValue;
         DBRequest addReq;
         // Ensure entries are in the same DB partition
         addReq.key.reset(new VlanTableReqKey(DB::PartitionCount() * i));
         addReq.data.reset(new VlanTableReqData("DB Test Vlan 0"));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        retValue = itbl->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&addReq);
     }
     // Enqueue add requests to db.test.vlan.1
     for (int i = 0; i<req_count; i++) {
-        bool retValue;
         DBRequest addReq;
         // Ensure entries are in the same DB partition
         addReq.key.reset(new VlanTableReqKey(DB::PartitionCount() * i));
         addReq.data.reset(new VlanTableReqData("DB Test Vlan 1"));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        retValue = itbl_1->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl_1->Enqueue(&addReq);
     }
     TaskScheduler::GetInstance()->Start();
 
@@ -740,23 +766,19 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     // Enqueue delete requests to db.test.vlan.0
     TaskScheduler::GetInstance()->Stop();
     for (int i = 0; i<req_count; i++) {
-        bool retValue;
         DBRequest addReq;
         // Ensure entries are in the same DB partition
         addReq.key.reset(new VlanTableReqKey(DB::PartitionCount() * i));
         addReq.oper = DBRequest::DB_ENTRY_DELETE;
-        retValue = itbl->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl->Enqueue(&addReq);
     }
     // Enqueue delete requests to db.test.vlan.1
     for (int i = 0; i<req_count; i++) {
-        bool retValue;
         DBRequest addReq;
         // Ensure entries are in the same DB partition
         addReq.key.reset(new VlanTableReqKey(DB::PartitionCount() * i));
         addReq.oper = DBRequest::DB_ENTRY_DELETE;
-        retValue = itbl_1->Enqueue(&addReq);
-        EXPECT_TRUE(retValue);
+        itbl_1->Enqueue(&addReq);
     }
     TaskScheduler::GetInstance()->Start();
 
