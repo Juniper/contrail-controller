@@ -374,7 +374,7 @@ TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
     client->WaitForIdle();
     EXPECT_EQ(0U, vr->compute_state_send_count());
 
-    util_.EnqueueVRouterStatsCollectorTask(5);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     EXPECT_EQ(1U, vr->compute_state_send_count());
 
@@ -382,7 +382,7 @@ TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
     client->WaitForIdle();
     EXPECT_EQ(1U, vr->compute_state_send_count());
 
-    util_.EnqueueVRouterStatsCollectorTask(5);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     EXPECT_EQ(2U, vr->compute_state_send_count());
     vr->clear_count();
@@ -427,7 +427,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 1));
 
     //Verify UVE and send count
-    EXPECT_EQ(1U, vr->vrouter_stats_msg_count());
+    EXPECT_TRUE(vr->vrouter_stats_msg_count() >= 1U);
     const VrouterStatsAgent &uve2 = vr->last_sent_stats();
     const AgentDropStats ds3 = uve2.get_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds3, ds2));
@@ -447,7 +447,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 1));
 
     //Verify UVE and send count
-    EXPECT_EQ(2U, vr->vrouter_stats_msg_count());
+    EXPECT_TRUE(vr->vrouter_stats_msg_count() >= 2U);
     const VrouterStatsAgent &uve3 = vr->last_sent_stats();
     const AgentDropStats ds4 = uve3.get_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds4, ds2));
