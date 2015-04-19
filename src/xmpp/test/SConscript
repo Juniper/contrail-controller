@@ -58,8 +58,16 @@ env.Alias('controller/xmpp:xmpp_server_standalone_test', xmpp_server_standalone_
 xmpp_server_sm_test = env.UnitTest('xmpp_server_sm_test',['xmpp_server_sm_test.cc'])
 env.Alias('controller/xmpp:xmpp_server_sm_test', xmpp_server_sm_test)
 
+xmpp_server_auth_sm_test = env.UnitTest('xmpp_server_auth_sm_test',
+                                        ['xmpp_server_auth_sm_test.cc'])
+env.Alias('controller/xmpp:xmpp_server_auth_sm_test', xmpp_server_auth_sm_test)
+
 xmpp_client_sm_test = env.UnitTest('xmpp_client_sm_test', ['xmpp_client_sm_test.cc'])
 env.Alias('controller/xmpp:xmpp_client_sm_test', xmpp_client_sm_test)
+
+xmpp_client_auth_sm_test = env.UnitTest('xmpp_client_auth_sm_test',
+                                        ['xmpp_client_auth_sm_test.cc'])
+env.Alias('controller/xmpp:xmpp_client_auth_sm_test', xmpp_client_auth_sm_test)
 
 xmpp_stream_message_client_test = env.UnitTest('xmpp_stream_message_client_test',
                                                ['xmpp_stream_message_client.cc'])
@@ -77,6 +85,8 @@ test_suite = [
     xmpp_server_sm_test,
     xmpp_server_test,
     xmpp_session_test,
+    xmpp_server_auth_sm_test,
+    xmpp_client_auth_sm_test
 ]
 
 flaky_test_suite = [
