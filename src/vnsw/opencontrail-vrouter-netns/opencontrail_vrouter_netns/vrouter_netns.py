@@ -249,6 +249,18 @@ class NetnsManager(object):
                                   'net.ipv4.conf.%s.rp_filter=2' % nic['name']]
                                  )
 
+    def _request_to_agent(self, url, method, data):
+        method = getattr(requests, method)
+        resp = method(url, data=data, headers=self.HEADERS)
+        if resp.status_code != requests.codes.ok:
+            error_str = resp.text
+            try:
+                err = json.loads(resp.text)
+                error_str = err['error']
+            except Exception:
+                pass
+            raise ValueError(error_str)
+
     def _add_port_to_agent(self, nic, display_name=None):
         if self.PORT_TYPE == "NovaVMPort":
             port_type_value = 0
@@ -262,11 +274,11 @@ class NetnsManager(object):
                    "vn-id": '', "vm-project-id": '',
                    "type": port_type_value, "mac-address": str(nic['mac'])}
         json_dump = json.dumps(payload)
-        requests.post(self.BASE_URL, data=json_dump, headers=self.HEADERS)
+        self._request_to_agent(self.BASE_URL, 'post', json_dump)
 
     def _delete_port_to_agent(self, nic):
         url = self.BASE_URL + "/" + nic['uuid']
-        requests.delete(url, data=None, headers=self.HEADERS);
+        self._request_to_agent(url, 'delete', None)
 
 
 class VRouterNetns(object):
