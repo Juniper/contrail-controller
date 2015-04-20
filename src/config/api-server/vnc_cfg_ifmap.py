@@ -1504,6 +1504,9 @@ class VncDbClient(object):
         # publish to ifmap via msgbus
         self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
 
+        # build index for sharing
+        self.build_shared_index(obj_type, obj_ids['uuid'],  obj_dict)
+
         return (ok, result)
     # end dbe_create
 
@@ -1558,6 +1561,9 @@ class VncDbClient(object):
 
         # publish to ifmap via redis
         self._msgbus.dbe_update_publish(obj_type, obj_ids)
+
+        # build index for sharing
+        self.build_shared_index(obj_type, obj_ids['uuid'],  new_obj_dict)
 
         return (ok, cassandra_result)
     # end dbe_update
@@ -1714,5 +1720,42 @@ class VncDbClient(object):
     def get_server_port(self):
         return self._api_svr_mgr.get_server_port()
     # end get_server_port
+
+    # update index if object is shared
+    def build_shared_index(self, obj_type, obj_uuid, obj_dict):
+        try:
+            perms = obj_dict['id_perms']['permissions2']
+            globally_shared = perms['globally_shared']
+            share_perms = perms['share']
+        except Exception as e:
+            return
+
+        if not globally_shared and len(share_perms) == 0:
+            return
+ 
+        if globally_shared:
+            self._cassandra_db.set_shared(obj_type, obj_uuid, '*', group = '*')
+
+        # share this object with specified tenant
+        for share_info in share_perms:
+            self._cassandra_db.set_shared(obj_type, obj_uuid,
+                share_info['tenant'], group = 'tenant',
+                rwx = share_info['tenant_access'])
+    # end build_shared_index
+
+    def get_shared_objects(self, obj_type, obj_uuid):
+        shared = []
+        # specific shared
+        l1 = self._cassandra_db.get_shared(obj_type, obj_uuid, group = 'tenant')
+        if l1:
+            shared.extend(l1)
+
+        # global shares
+        l2 = self._cassandra_db.get_shared(obj_type, '*', group = '*')
+        if l2:
+            shared.extend(l2)
+
+        return shared
+    # end get_shared_objects
 
 # end class VncDbClient
