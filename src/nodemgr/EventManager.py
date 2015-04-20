@@ -2,7 +2,7 @@ import gevent
 import json
 import ConfigParser
 from StringIO import StringIO
-from ConfigParser import NoOptionError
+from ConfigParser import NoOptionError, NoSectionError
 import sys
 import socket
 import time
@@ -73,6 +73,8 @@ class EventManager:
             self.discovery_server = Config.get("DISCOVERY", "server")
         except NoOptionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
+        except NoSectionError as e:
+            sys.stderr.write("ERROR: " + str(e) + '\n')
         #Hack becos of Configparser and the conf file format itself
         try:
             self.discovery_server[:self.discovery_server.index('#')].strip()
@@ -83,6 +85,8 @@ class EventManager:
         try:
             self.discovery_port = Config.get("DISCOVERY", "port")
         except NoOptionError as e:
+            sys.stderr.write("ERROR: " + str(e) + '\n')
+        except NoSectionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
         #Hack becos of Configparser and the conf file format itself
         try:
@@ -109,6 +113,8 @@ class EventManager:
             except:
                 self.collector_addr.strip()
         except NoOptionError as e:
+            sys.stderr.write("ERROR: " + str(e) + '\n')
+        except NoSectionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
 
     def check_ntp_status(self):
