@@ -107,24 +107,17 @@ class NeutronPluginInterface(object):
     #end _connect_to_db
 
     def _get_user_cfgdb(self, context):
+        """
+        send admin token if multi_tenancy is disabled
+        else forward user token along for RBAC if passed by neutron plugin
+        """
 
         self._connect_to_db()
 
-        if not self._multi_tenancy:
-            return self._cfgdb
-        user_id = context['user_id']
-        role = string.join(context['roles'], ",")
-        if not user_id in self._cfgdb_map:
-            self._cfgdb_map[user_id] = DBInterface(
-                self._auth_user, self._auth_passwd, self._auth_tenant,
-                self._vnc_api_ip, self._vnc_api_port,
-                user_info={'user_id': user_id, 'role': role},
-                list_optimization_enabled=self._list_optimization_enabled,
-                contrail_extensions_enabled=self._contrail_extensions_enabled,
-                apply_subnet_host_routes=self._sn_host_route)
-            self._cfgdb_map[user_id].manager = self
-
-        return self._cfgdb_map[user_id]
+        user_token = bottle.request.headers.get('X_AUTH_TOKEN')
+        if self._multi_tenancy and user_token:
+            self._cfgdb._vnc_lib.set_auth_token(user_token)
+        return self._cfgdb
 
     def _get_requests_data(self):
         ctype = bottle.request.headers['content-type']
