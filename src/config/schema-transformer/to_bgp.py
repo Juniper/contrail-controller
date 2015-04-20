@@ -929,12 +929,9 @@ class VirtualNetworkST(DictST):
             if ip:
                 action.mirror_to.set_analyzer_ip_address(ip)
             if vn_analyzer:
-                _sandesh._logger.error("Mirror: adding connection from %s-%s",
+                _sandesh._logger.error("Mirror: adding connection: %s to %s",
                                        self.name, vn_analyzer)
                 self.add_connection(vn_analyzer)
-                if vn_analyzer in VirtualNetworkST:
-                    _sandesh._logger.error("Mirror: adding reverse connection")
-                    VirtualNetworkST.get(vn_analyzer).add_connection(self.name)
             else:
                 _sandesh._logger.error("Mirror: %s: no analyzer vn for %s",
                                        self.name, analyzer_name)
@@ -2831,6 +2828,7 @@ class SchemaTransformer(object):
         vnp.build(meta)
         virtual_network.add_policy(policy_name, vnp)
         self.current_network_set |= policy.networks_back_ref
+        self.current_network_set |= policy.analyzer_vn_set
         for pol in NetworkPolicyST.values():
             if policy_name in pol.policies:
                 self.current_network_set |= pol.networks_back_ref
