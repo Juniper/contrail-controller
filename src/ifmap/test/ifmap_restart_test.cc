@@ -311,11 +311,12 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
     server_.ClientRegister(&c1);
 
     autogen::DomainLimitsType *dl = new autogen::DomainLimitsType();
-    autogen::ApiAccessListType *aal = new autogen::ApiAccessListType();
+    autogen::DisplayNameType::StringProperty *dn =
+        new autogen::DisplayNameType::StringProperty();
 
     // Create node with seq-num 1 and 2 properties
     IFMapMsgPropertyAdd("domain", "user1", "domain-limits", dl, 1);
-    IFMapMsgPropertyAdd("domain", "user1", "api-access-list", aal, 1);
+    IFMapMsgPropertyAdd("domain", "user1", "display-name", dn, 1);
     task_util::WaitForIdle();
 
     IFMapNode *idn1 = TableLookup("domain", "user1");
@@ -332,8 +333,8 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
     bool bret = domain->IsPropertySet(autogen::Domain::LIMITS);
     ASSERT_TRUE(bret == true);
     TASK_UTIL_EXPECT_TRUE(
-        domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST));
-    bret = domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST);
+        domain->IsPropertySet(autogen::Domain::DISPLAY_NAME));
+    bret = domain->IsPropertySet(autogen::Domain::DISPLAY_NAME);
     ASSERT_TRUE(bret == true);
 
     // Update the node with seq-num 2 and 1 property i.e. access-list is gone
@@ -353,15 +354,15 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 2);
 
-    // LIMITS should be set but API_ACCESS_LIST should not be
+    // LIMITS should be set but DISPLAY_NAME should not be
     domain = dynamic_cast<autogen::Domain *>(obj);
     ASSERT_TRUE(domain != NULL);
     TASK_UTIL_EXPECT_TRUE(domain->IsPropertySet(autogen::Domain::LIMITS));
     bret = domain->IsPropertySet(autogen::Domain::LIMITS);
     ASSERT_TRUE(bret == true);
     TASK_UTIL_EXPECT_FALSE(
-        domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST));
-    bret = domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST);
+        domain->IsPropertySet(autogen::Domain::DISPLAY_NAME));
+    bret = domain->IsPropertySet(autogen::Domain::DISPLAY_NAME);
     ASSERT_TRUE(bret == false);
 
     IFMapMsgPropertyDelete("domain", "user1", "domain-limits");
