@@ -48,10 +48,6 @@ optional arguments:
                         Time between snmp poll
   --http_server_port HTTP_SERVER_PORT
                         introspect server port
-  --api_serever API_SEREVER
-                        ip:port of api-server for snmp credentials
-  --disc_server_ip 127.0.0.1
-  --disc_server_port 5998
 
         '''
         # Source any specified config/ini file
@@ -75,7 +71,7 @@ optional arguments:
             'log_file'        : Sandesh._DEFAULT_LOG_FILE,
             'use_syslog'      : False,
             'syslog_facility' : Sandesh._DEFAULT_SYSLOG_FACILITY,
-            'scan_frequency'  : 600,
+            'scan_frequency'  : 60,
             'http_server_port': 5921,
             'zookeeper'       : '127.0.0.1:2181',
         }
