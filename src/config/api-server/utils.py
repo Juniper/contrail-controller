@@ -46,6 +46,7 @@ def parse_args(args_str):
         'logging_level': 'WARN',
         'logging_conf': '',
         'multi_tenancy': True,
+        'rbac': False,
         'disc_server_ip': None,
         'disc_server_port': '5998',
         'zk_server_ip': '127.0.0.1:2181',
@@ -86,6 +87,8 @@ def parse_args(args_str):
         if 'multi_tenancy' in config.options('DEFAULTS'):
             defaults['multi_tenancy'] = config.getboolean(
                 'DEFAULTS', 'multi_tenancy')
+        if 'rbac' in config.options('DEFAULTS'):
+            defaults['rbac'] = config.getboolean('DEFAULTS', 'rbac')
         if 'SECURITY' in config.sections() and\
                 'use_certs' in config.options('SECURITY'):
             if config.getboolean('SECURITY', 'use_certs'):
@@ -198,6 +201,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--multi_tenancy", action="store_true",
         help="Validate resource permissions (implies token validation)")
+    parser.add_argument(
+        "--rbac", action="store_false",
+        help="Validate API and resource permissions (implies token validation)")
     parser.add_argument(
         "--worker_id",
         help="Worker Id")
