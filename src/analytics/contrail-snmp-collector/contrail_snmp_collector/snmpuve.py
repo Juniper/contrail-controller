@@ -155,7 +155,7 @@ class SnmpUve(object):
             ifIndexOperStatusTable = []
             for ifidx in data[dev]:
                 ifIndexOperStatusTable.append(IfIndexOperStatusTable(
-                            ifIndex=ifidx, ifOperStatus=data[dev][ifidx]))
+                            ifIndex=ifidx, ifOperStatus=data[dev][ifidx][0]))
             PRouterUVE(data=PRouterEntry(
                     name=dev,
                     ifIndexOperStatusTable=ifIndexOperStatusTable)).send()
