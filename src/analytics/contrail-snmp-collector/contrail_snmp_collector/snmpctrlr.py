@@ -51,28 +51,25 @@ class Controller(object):
         self.last = set()
         self._sem = None
         self._config.set_cb(self.notify)
-        self._mnt = MaxNinTtime(self._sleep_time, self._sleep_time)
-        #                         self._fast_scan_freq)
+        self._mnt = MaxNinTtime(3, self._sleep_time)
         self._state = 'full_scan' # replace it w/ fsm
-        self._factor = 10 # replace it w/ fsm
-        self._curr_idx = 0 # replace it w/ fsm
         self._if_data = None # replace it w/ fsm
-        self._if_ccnt = 0 # replace it w/ fsm
-        self._if_ccnt_max = 3 # replace it w/ fsm
 
     def _make_if_cdata(self, data):
         if_cdata = {}
+        t = time.time()
         for dev in data:
             if 'snmp' in data[dev]:
                 if 'ifMib' in data[dev]['snmp']:
                     if 'ifTable' in data[dev]['snmp']['ifMib']:
                         if_cdata[dev] = dict(map(lambda x: (
-                                x['ifIndex'], x['ifOperStatus']), filter(
-                                        lambda x: 'ifOperStatus' in x and \
-                                        'ifDescr' in x, data[dev]['snmp'][
-                                                'ifMib']['ifTable'])))
+                                x['ifIndex'], (x['ifOperStatus'], t)),
+                                        filter(lambda x: 'ifOperStatus' in x\
+                                            and 'ifDescr' in x, data[dev][
+                                               'snmp']['ifMib']['ifTable'])))
                 elif 'ifOperStatus' in data[dev]['snmp']:
-                    if_cdata[dev] = data[dev]['snmp']['ifOperStatus']
+                    if_cdata[dev] = {k:(v, t) for k, v in data[dev]['snmp'][
+                                            'ifOperStatus'].items()}
         return if_cdata
 
     def _set_status(self, _dict, dev, intf, val):
@@ -80,38 +77,49 @@ class Controller(object):
             _dict[dev] = {}
         _dict[dev][intf] = val
 
+    def _check_and_update_ttl(self, up2down):
+        t = time.time()
+        expry = 3 * self._fast_scan_freq
+        for dev in self._if_data:
+            for intf in self._if_data[dev]:
+                if self._if_data[dev][intf][0] == 1:
+                    if t - self._if_data[dev][intf][1] > expry:
+                        self._set_status(up2down, dev, intf, 7) #no resp
+
     def _get_if_changes(self, if_cdata):
         down2up, up2down, others = {}, {}, {}
+        t = time.time()
         for dev in if_cdata:
             if dev in self._if_data:
                 for intf in if_cdata[dev]:
                     if intf in self._if_data[dev]:
-                        if if_cdata[dev][intf] != self._if_data[dev][intf]:
-                            if self._if_data[dev][intf] == 1:
+                        if if_cdata[dev][intf][0] != self._if_data[dev][
+                                intf][0]:
+                            if self._if_data[dev][intf][0] == 1:
                                 self._set_status(up2down, dev, intf,
-                                                 if_cdata[dev][intf])
-                            elif if_cdata[dev][intf] == 1:
+                                                 if_cdata[dev][intf][0])
+                            elif if_cdata[dev][intf][0] == 1:
                                 self._set_status(down2up, dev, intf,
-                                                 if_cdata[dev][intf])
+                                                 if_cdata[dev][intf][0])
                             else:
                                 self._set_status(others, dev, intf,
-                                                 if_cdata[dev][intf])
+                                                 if_cdata[dev][intf][0])
                     self._if_data[dev][intf] = if_cdata[dev][intf]
             else:
                 self._if_data[dev] = if_cdata[dev]
                 for intf in self._if_data[dev]:
-                    if self._if_data[dev][intf] == 1:
+                    if self._if_data[dev][intf][0] == 1:
                         self._set_status(down2up, dev, intf,
-                                         if_cdata[dev][intf])
+                                         if_cdata[dev][intf][0])
                     else:
                         self._set_status(others, dev, intf,
-                                         if_cdata[dev][intf])
+                                         if_cdata[dev][intf][0])
         return down2up, up2down, others
-                            
 
     def _chk_if_change(self, data):
         if_cdata = self._make_if_cdata(data)
         down2up, up2down, others = self._get_if_changes(if_cdata)
+        self._check_and_update_ttl(up2down)
         self._logger.debug('@chk_if_change: down2up(%s), up2down(%s), ' \
                 'others(%s)' % (', '.join(down2up.keys()),
                                 ', '.join(up2down.keys()),
@@ -211,7 +219,7 @@ class Controller(object):
 
     def do_work(self, i, devices):
         self._logger.debug('@do_work(%d):started (%d)...' % (i, len(devices)))
-        sleep_time = self._sleep_time / self._factor
+        sleep_time = self._fast_scan_freq
         if devices:
             with self._sem:
                 self._work_set = devices
