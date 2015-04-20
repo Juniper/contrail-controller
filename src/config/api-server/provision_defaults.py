@@ -22,6 +22,10 @@ class Defaults(DefaultsGen):
         self._common_default_perms = PermType('cloud-admin', PERMS_RWX,
                                               'cloud-admin-group', PERMS_RWX,
                                               PERMS_RWX)
+        self._common_default_perms2 = PermType2(
+                    'cloud-admin', PERMS_RWX,    # tenant, tenant-access
+                    PERMS_NONE,                  # global-access
+                    [])                          # share list
         super(Defaults, self).__init__()
     # end __init__
 # end class Defaults(object):

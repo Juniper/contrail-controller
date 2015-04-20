@@ -9,6 +9,32 @@ from provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
+   @staticmethod
+   def cprint(msg, ok, is_admin):
+        color_b = color_e = ''
+        if not ok: 
+            color_b = color.RED
+            color_e = color.END
+        elif not is_admin:
+            color_b = color.BLUE
+            color_e = color.END
+        else:
+            color_b = color.GREEN
+            color_e = color.END
+        print "%s%s%s" % (color_b, msg, color_e)
+
 class VncPermissions(object):
 
     mode_str = {PERMS_R: 'read', PERMS_W: 'write', PERMS_X: 'link'}
@@ -18,63 +44,16 @@ class VncPermissions(object):
     # end __init__
 
     @property
-    def _multi_tenancy(self):
-        return self._server_mgr._args.multi_tenancy
-    # end
-
-    @property
     def _rbac(self):
         return self._server_mgr._args.rbac
     # end
 
-    def validate_user_visible_perm(self, id_perms, is_admin):
-        return id_perms.get('user_visible', True) is not False or is_admin
+    def validate_user_visible_perm(self, id_perms2, is_admin):
+        return id_perms2.get('user_visible', True) is not False or is_admin
     # end
 
-    def validate_perms(self, request, uuid, mode=PERMS_R):
-        # retrieve object and permissions
-        try:
-            id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
-        except NoIdError:
-            return (True, '')
-
+    def validate_perms(self, request, obj_uuid, mode=PERMS_R):
         err_msg = (403, 'Permission Denied')
-
-        user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
-
-        owner = id_perms['permissions']['owner']
-        group = id_perms['permissions']['group']
-        perms = id_perms['permissions']['owner_access'] << 6 | \
-            id_perms['permissions']['group_access'] << 3 | \
-            id_perms['permissions']['other_access']
-
-        # check perms
-        mask = 0
-        if user == owner:
-            mask |= 0700
-        if group in roles:
-            mask |= 0070
-        if mask == 0:   # neither user nor group
-            mask = 07
-
-        mode_mask = mode | mode << 3 | mode << 6
-        ok = is_admin or (mask & perms & mode_mask)
-
-        if ok and mode == PERMS_W:
-            ok = self.validate_user_visible_perm(id_perms, is_admin)
-
-        return (True, '') if ok else (False, err_msg)
-    # end validate_perms
-
-    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R):
-        err_msg = (403, 'Permission Denied')
-
-        # retrieve object and permissions
-        try:
-            id_perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
-        except NoIdError:
-            return (False, err_msg)
 
         user, roles = self.get_user_roles(request)
         is_admin = 'admin' in [x.lower() for x in roles]
@@ -83,17 +62,28 @@ class VncPermissions(object):
         tenant = env.get('HTTP_X_PROJECT_ID', None)
         if tenant is None:
             return (False, err_msg)
+        elif '-' not in tenant:
+            tenant = str(uuid.UUID(tenant))
 
-        owner = id_perms2['owner']
-        perms = id_perms2['owner_access'] << 6
-        perms |= id_perms2['global_access']
+        # retrieve object and permissions
+        try:
+            id_perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
+        except NoIdError:
+            print("Missing id_perms2 in object %s" % obj_uuid)
+            return (True, '')
+
+
+        owner = id_perms2['permissions']['owner']
+        perms = id_perms2['permissions']['owner_access'] << 6
+        if id_perms2['permissions']['globally_shared']:
+            perms |= PERMS_RWX
 
         # build perms
         mask = 0
         if tenant == owner:
             mask |= 0700
 
-        share = id_perms2['share']
+        share = id_perms2['permissions']['share']
         tenants = [item['tenant'] for item in share]
         for item in share:
             if tenant == item['tenant']:
@@ -107,12 +97,18 @@ class VncPermissions(object):
         mode_mask = mode | mode << 3 | mode << 6
         ok = is_admin or (mask & perms & mode_mask)
 
+        if ok and mode == PERMS_W:
+            ok = self.validate_user_visible_perm(id_perms2, is_admin)
+
         msg = '%s %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
-            (usr=%s/own=%s/sh=%s)' \
+            (%s/%s/%s), user_visible=%s' \
             % ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
                'yes' if is_admin else 'no', mode_mask, mask, perms,
-               tenant, owner, tenants)
+               owner, tenant, tenants,
+               id_perms2.get('user_visible', True))
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+        color.cprint(msg, ok, is_admin)
 
         return (True, '') if ok else (False, err_msg)
     # end validate_perms
@@ -131,7 +127,6 @@ class VncPermissions(object):
 
     # set user/role in object dict from incoming request
     # called from post handler when object is created
-    # TODO dsetia - no longer applicable to new RBAC permissions
     def set_user_role(self, request, obj_dict):
         (user, roles) = self.get_user_roles(request)
         if user:
@@ -145,13 +140,10 @@ class VncPermissions(object):
         if app.config.auth_open:
             return (True, '')
 
-        if not self._multi_tenancy:
+        if not self._rbac:
             return (True, '')
 
-        if self._rbac:
-            return self.validate_perms_rbac(request, id, PERMS_W)
-        else:
-            return self.validate_perms(request, id, PERMS_W)
+        return self.validate_perms(request, id, PERMS_W)
     # end check_perms_write
 
     def check_perms_read(self, request, id):
@@ -159,13 +151,10 @@ class VncPermissions(object):
         if app.config.auth_open:
             return (True, '')
 
-        if not self._multi_tenancy:
+        if not self._rbac:
             return (True, '')
 
-        if self._rbac:
-            return self.validate_perms_rbac(request, id, PERMS_R)
-        else:
-            return self.validate_perms(request, id, PERMS_R)
+        return self.validate_perms(request, id, PERMS_R)
     # end check_perms_read
 
     def check_perms_link(self, request, id):
@@ -173,13 +162,8 @@ class VncPermissions(object):
         if app.config.auth_open:
             return (True, '')
 
-        if not self._multi_tenancy:
+        if not self._rbac:
             return (True, '')
 
-        if self._rbac:
-            return self.validate_perms_rbac(request, id, PERMS_X)
-        else:
-            return self.validate_perms(request, id, PERMS_X)
+        return self.validate_perms(request, id, PERMS_X)
     # end check_perms_link
-
-
