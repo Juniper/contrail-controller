@@ -288,7 +288,9 @@ class VncApiServer(VncApiServerGen):
             vnc_cfg_types.LoadbalancerMemberServer)
         self.set_resource_class('loadbalancer-pool',
             vnc_cfg_types.LoadbalancerPoolServer)
-
+        # service appliance set
+        self.set_resource_class('service-appliance-set',
+            vnc_cfg_types.ServiceApplianceSetServer)
         # TODO default-generation-setting can be from ini file
         self.get_resource_class('bgp-router').generate_default_instance = False
         self.get_resource_class(

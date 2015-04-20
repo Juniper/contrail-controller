@@ -409,6 +409,19 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
     # end http_put
 # end class VirtualMachineInterfaceServer
 
+class ServiceApplianceSetServer(ServiceApplianceSetServerGen):
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        (ok, result) = db_conn.dbe_list('loadbalancer-pool', back_ref_uuids=[id])
+        if not ok:
+            return (ok, result)
+        if len(result) > 0:
+            msg = "Service appliance set can not be updated as loadbalancer "\
+                  "pools are using it"
+            return (False, (409, msg))
+        return True, ""
+    # end http_put
+# end class ServiceApplianceSetServer
 
 class VirtualNetworkServer(VirtualNetworkServerGen):
 
