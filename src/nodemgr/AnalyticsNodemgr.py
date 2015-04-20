@@ -51,8 +51,14 @@ class AnalyticsEventManager(EventManager):
         node_type_name = NodeTypeNames[node_type]
         config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
         Config = self.read_config_data(config_file)
-        self.get_collector_list(Config)
+        if self.collector_addr == []:
+            self.read_collector_list_from_conf(Config)
+            if self.collector_addr == []:
+                self.collector_addr = ['127.0.0.1:8086']
         _disc = self.get_discovery_client(Config)
+        sys.stderr.write("Discovery server: " + self.discovery_server + "\n")
+        sys.stderr.write("Discovery port: " + str(self.discovery_port) + "\n")
+        sys.stderr.write("Collector Address List: " + str(self.collector_addr) + "\n")
         sandesh_global.init_generator(self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8104, ['analytics'], _disc)

@@ -68,7 +68,7 @@ class EventManager:
         Config.readfp(data)
         return Config
 
-    def get_discovery_server(self, Config):
+    def read_discovery_server_from_conf(self, Config):
         try:
             self.discovery_server = Config.get("DISCOVERY", "server")
         except NoOptionError as e:
@@ -81,7 +81,7 @@ class EventManager:
         except:
             self.discovery_server.strip()
 
-    def get_discovery_port(self, Config):
+    def read_discovery_port_from_conf(self, Config):
         try:
             self.discovery_port = Config.get("DISCOVERY", "port")
         except NoOptionError as e:
@@ -99,19 +99,25 @@ class EventManager:
             import discovery.client as client
         except:
             import discoveryclient.client as client
-        if self.discovery_server == socket.gethostname():
-            self.get_discovery_server(Config)
-        self.get_discovery_port(Config)
+        if self.discovery_server == '':
+            self.read_discovery_server_from_conf(Config)
+            if self.discovery_server == '':
+                self.discovery_server = socket.gethostname()
+        if self.discovery_port == -1:
+            self.read_discovery_port_from_conf(Config)
+            if self.discovery_port == -1:
+                self.discovery_port = 5998
         _disc= client.DiscoveryClient(self.discovery_server, self.discovery_port, self.module_id)
         return _disc
 
-    def get_collector_list(self, Config):
+    def read_collector_list_from_conf(self, Config):
         try:
-            self.collector_addr = Config.get("COLLECTOR", "server_list")
+            collector_list = Config.get("COLLECTOR", "server_list")
             try:
-                self.collector_addr = self.collector_addr[:self.collector_addr.index('#')].strip()
+                collector_list = collector_list[:collector_list.index('#')].strip()
             except:
-                self.collector_addr.strip()
+                collector_list.strip()
+            self.collector_addr = collector_list.split()
         except NoOptionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
         except NoSectionError as e:

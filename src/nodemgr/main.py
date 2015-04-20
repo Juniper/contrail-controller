@@ -23,14 +23,14 @@ def main(argv=sys.argv):
                         default = 'contrail-analytics',
                         help = 'Type of node which nodemgr is managing')
     parser.add_argument("--discovery_server",
-                        default = socket.gethostname(),
+                        default = '',
                         help = 'IP address of Discovery Server')
     parser.add_argument("--collectors",
                         default = '',
                         help = 'Collector addresses in format ip1:port1 ip2:port2')
     parser.add_argument("--discovery_port",
                         type = int,
-                        default = 5998,
+                        default = -1,
                         help = 'Port of Discovery Server')
     try:
         _args = parser.parse_args()
@@ -39,14 +39,11 @@ def main(argv=sys.argv):
     rule_file = _args.rules
     node_type = _args.nodetype
     discovery_server = _args.discovery_server
-    sys.stderr.write("Discovery server: " + discovery_server + "\n")
     discovery_port = _args.discovery_port
-    sys.stderr.write("Discovery port: " + str(discovery_port) + "\n")
     if _args.collectors is "":
         collector_addr = []
     else:
         collector_addr = _args.collectors.split()
-    sys.stderr.write("Collector address: " + str(collector_addr) + "\n")
     #done parsing arguments
 
     if not 'SUPERVISOR_SERVER_URL' in os.environ:
