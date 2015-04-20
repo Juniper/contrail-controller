@@ -84,8 +84,6 @@ class EtreeToDict(object):
         val = []
         for xp in xps:
             val.append(self._get_one(xp))
-        if len(val) == 1:
-            return val[0]
         return val
     #end get_all_entry
 
@@ -259,12 +257,13 @@ def get_svc_uve_status(svc_name, debug, timeout):
         if debug:
             print '{0}: NodeStatusUVE not found'.format(svc_name)
         return None, None
-    if 'process_status' not in node_status:
+    node_status = [item for item in node_status if 'process_status' in item]
+    if not len(node_status):
         if debug:
             print '{0}: ProcessStatus not present in NodeStatusUVE'.format(
                 svc_name)
         return None, None
-    process_status_info = node_status['process_status']
+    process_status_info = node_status[0]['process_status']
     if len(process_status_info) == 0:
         if debug:
             print '{0}: Empty ProcessStatus in NodeStatusUVE'.format(svc_name)
