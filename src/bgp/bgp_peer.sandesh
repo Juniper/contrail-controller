@@ -185,10 +185,6 @@ request sandesh ShowRouteReq {
     6: string start_prefix;
 }
 
-request sandesh ShowRouteReqIterate {
-    1: string route_info
-}
-
 struct ShowRouteTableSummary {
     1: string routing_table_name (link="ShowRouteReq");
     2: bool deleted;
