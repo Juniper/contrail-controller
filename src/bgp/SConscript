@@ -14,6 +14,7 @@ env.CppDisableExceptions()
 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('bgp_peer.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('bgp_peer_internal.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('bgp_log.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
