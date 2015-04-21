@@ -3,6 +3,7 @@
  */
 
 #include <vector>
+#include <tbb/atomic.h>
 #include <tbb/spin_rw_mutex.h>
 
 #include <boost/bind.hpp>
@@ -46,6 +47,16 @@ class DBTableBase::ListenerInfo {
 public:
     typedef vector<ChangeCallback> CallbackList;
     typedef vector<string> NameList;
+    typedef vector<tbb::atomic<uint64_t> > StateCountList;
+
+    explicit ListenerInfo(const string &table_name) :
+        db_state_accounting_(true) {
+        if (table_name.find("__ifmap_") != string::npos) {
+            // TODO need to have unconditional DB state accounting
+            // for now skipp DB State accounting for ifmap tables
+            db_state_accounting_ = false;
+        }
+    }
 
     DBTableBase::ListenerId Register(ChangeCallback callback,
         const string &name) {
@@ -55,6 +66,8 @@ public:
             i = callbacks_.size();
             callbacks_.push_back(callback);
             names_.push_back(name);
+            state_count_.resize(i + 1);
+            state_count_[i] = 0;
         } else {
             bmap_.reset(i);
             if (bmap_.none()) {
@@ -62,6 +75,7 @@ public:
             }
             callbacks_[i] = callback;
             names_[i] = name;
+            state_count_[i] = 0;
         }
         return i;
     }
@@ -70,10 +84,14 @@ public:
         tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
         callbacks_[listener] = NULL;
         names_[listener] = "";
+        // During Unregister Listener should have cleaned up,
+        // DB states from all the entries in this table.
+        assert(state_count_[listener] == 0);
         if ((size_t) listener == callbacks_.size() - 1) {
             while (!callbacks_.empty() && callbacks_.back() == NULL) {
                 callbacks_.pop_back();
                 names_.pop_back();
+                state_count_.pop_back();
             }
             if (bmap_.size() > callbacks_.size()) {
                 bmap_.resize(callbacks_.size());
@@ -98,6 +116,12 @@ public:
         }
     }
 
+    void AddToDBStateCount(ListenerId listener, int count) {
+        if (db_state_accounting_ && listener != DBTableBase::kInvalidId) {
+            state_count_[listener] += count;
+        }
+    }
+
     void FillListeners(vector<ShowTableListener> *listeners) const {
         tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
         ListenerId id = 0;
@@ -107,6 +131,7 @@ public:
                 ShowTableListener item;
                 item.id = id;
                 item.name = names_[id];
+                item.state_count = state_count_[id];
                 listeners->push_back(item);
             }
         }
@@ -123,15 +148,17 @@ public:
     }
 
 private:
+    bool db_state_accounting_;
     CallbackList callbacks_;
     NameList names_;
+    StateCountList state_count_;
     mutable tbb::spin_rw_mutex rw_mutex_;
     boost::dynamic_bitset<> bmap_;      // free list.
 };
 
 DBTableBase::DBTableBase(DB *db, const string &name)
-        : db_(db), name_(name), info_(new ListenerInfo()), enqueue_count_(0),
-          input_count_(0), notify_count_(0) {
+        : db_(db), name_(name), info_(new ListenerInfo(name)),
+          enqueue_count_(0), input_count_(0), notify_count_(0) {
 }
 
 DBTableBase::~DBTableBase() {
@@ -166,6 +193,10 @@ void DBTableBase::EnqueueRemove(DBEntryBase *db_entry) {
 void DBTableBase::RunNotify(DBTablePartBase *tpart, DBEntryBase *entry) {
     notify_count_++;
     info_->RunNotify(tpart, entry);
+}
+
+void DBTableBase::AddToDBStateCount(ListenerId listener, int count) {
+    info_->AddToDBStateCount(listener, count);
 }
 
 bool DBTableBase::HasListeners() const {
