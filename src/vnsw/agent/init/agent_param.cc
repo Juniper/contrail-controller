@@ -432,6 +432,10 @@ void AgentParam::ParseDefaultSection() {
     } else {
         log_flow_ = false;
     }
+
+    if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
+        log_property_file_ = "";
+    }
 }
 
 void AgentParam::ParseMetadataProxy() { 

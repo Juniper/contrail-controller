@@ -45,6 +45,8 @@ void LoggingInit(const std::string &filename,
                  const std::string &syslogFacility,
                  const std::string &ident);
 
+void LoggingInit(const std::string &propertyFile);
+
 //
 // Disable logging - For testing purposes only
 //
