@@ -16,6 +16,7 @@
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_path.h"
+#include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
