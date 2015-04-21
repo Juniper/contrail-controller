@@ -116,8 +116,9 @@ public:
 
     static bool CallbackS1Common(const ShowRouteReq *req, int inst_id,
                                  ShowRouteData* mydata);
-    static bool CallbackS2Common(const ShowRouteReq *req,
-                                 const RequestPipeline::PipeSpec ps);
+    static void CallbackS2Common(const ShowRouteReq *req,
+                                 const RequestPipeline::PipeSpec ps,
+                                 ShowRouteResp *resp);
 
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
@@ -135,8 +136,8 @@ public:
 
     static string SaveContextAndPopLast(const ShowRouteReq *req,
             vector<ShowRouteTable> *route_table_list);
-    static void ConvertReqIterateToReq(const ShowRouteReqIterate *req,
-                                       ShowRouteReq *new_req);
+    static bool ConvertReqIterateToReq(const ShowRouteReqIterate *req_iterate,
+                                       ShowRouteReq *req);
     static uint32_t GetMaxRouteCount(const ShowRouteReq *req);
 
 private:
@@ -158,56 +159,81 @@ uint32_t ShowRouteHandler::GetMaxRouteCount(const ShowRouteReq *req) {
     return route_count;
 }
 
-// Get the information from req and fill into new_req
-void ShowRouteHandler::ConvertReqIterateToReq(const ShowRouteReqIterate *req,
-                                              ShowRouteReq *new_req) {
+// Get the information from req_iterate and fill into req
+bool ShowRouteHandler::ConvertReqIterateToReq(const ShowRouteReqIterate *req_iterate,
+                                              ShowRouteReq *req) {
+    // First, set the context from the original request since we might return
+    // due to parsing errors.
+    req->set_context(req_iterate->context());
+
     // Format of route_info:
     // UserRI||UserRT||UserPfx||NextRI||NextRT||NextPfx||count||longer_match
     //
     // User* values were entered by the user and Next* values indicate 'where'
     // we need to start this iteration.
-    string route_info = req->get_route_info();
+    string route_info = req_iterate->get_route_info();
     size_t sep_size = kShowRouteIterSeparator.size();
 
     size_t pos1 = route_info.find(kShowRouteIterSeparator);
+    if (pos1 == string::npos) {
+        return false;
+    }
     string user_ri = route_info.substr(0, pos1);
 
     size_t pos2 = route_info.find(kShowRouteIterSeparator, (pos1 + sep_size));
+    if (pos2 == string::npos) {
+        return false;
+    }
     string user_rt = route_info.substr((pos1 + sep_size),
                                        pos2 - (pos1 + sep_size));
 
     size_t pos3 = route_info.find(kShowRouteIterSeparator, (pos2 + sep_size));
+    if (pos3 == string::npos) {
+        return false;
+    }
     string user_prefix = route_info.substr((pos2 + sep_size),
                                            pos3 - (pos2 + sep_size));
 
     size_t pos4 = route_info.find(kShowRouteIterSeparator, (pos3 + sep_size));
+    if (pos4 == string::npos) {
+        return false;
+    }
     string next_ri = route_info.substr((pos3 + sep_size),
                                        pos4 - (pos3 + sep_size));
 
     size_t pos5 = route_info.find(kShowRouteIterSeparator, (pos4 + sep_size));
+    if (pos5 == string::npos) {
+        return false;
+    }
     string next_rt = route_info.substr((pos4 + sep_size),
                                        pos5 - (pos4 + sep_size));
 
     size_t pos6 = route_info.find(kShowRouteIterSeparator, (pos5 + sep_size));
+    if (pos6 == string::npos) {
+        return false;
+    }
     string next_prefix = route_info.substr((pos5 + sep_size),
                                            pos6 - (pos5 + sep_size));
 
     size_t pos7 = route_info.find(kShowRouteIterSeparator, (pos6 + sep_size));
+    if (pos7 == string::npos) {
+        return false;
+    }
     string count_str = route_info.substr((pos6 + sep_size),
                                          pos7 - (pos6 + sep_size));
 
     string longer_match = route_info.substr(pos7 + sep_size);
 
-    new_req->set_routing_instance(user_ri);
-    new_req->set_routing_table(user_rt);
-    new_req->set_prefix(user_prefix);
-    new_req->set_start_routing_instance(next_ri);
-    new_req->set_start_routing_table(next_rt);
-    new_req->set_start_prefix(next_prefix);
-    new_req->set_count(atoi(count_str.c_str()));
-    new_req->set_longer_match(StringToBool(longer_match));
-    // Set the context from the original request
-    new_req->set_context(req->context());
+    req->set_routing_instance(user_ri);
+    req->set_routing_table(user_rt);
+    req->set_prefix(user_prefix);
+    req->set_start_routing_instance(next_ri);
+    req->set_start_routing_table(next_rt);
+    req->set_start_prefix(next_prefix);
+    req->set_count(atoi(count_str.c_str()));
+    req->set_longer_match(StringToBool(longer_match));
+
+    return true;
 }
 
 bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
@@ -311,10 +337,12 @@ bool ShowRouteHandler::CallbackS1Iterate(const Sandesh *sr,
         static_cast<const ShowRouteReqIterate *>(ps.snhRequest_.get());
 
     ShowRouteReq *req = new ShowRouteReq;
-    ConvertReqIterateToReq(req_iterate, req);
-    bool retval = CallbackS1Common(req, inst_id, mydata);
+    bool success = ConvertReqIterateToReq(req_iterate, req);
+    if (success) {
+        CallbackS1Common(req, inst_id, mydata);
+    }
     req->Release();
-    return retval;
+    return true;
 }
 
 bool ItemIsLess(const ShowRoute &lhs, const ShowRoute &rhs,
@@ -494,8 +522,9 @@ string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
     return next_batch;
 }
 
-bool ShowRouteHandler::CallbackS2Common(const ShowRouteReq *req,
-                                        const RequestPipeline::PipeSpec ps) {
+void ShowRouteHandler::CallbackS2Common(const ShowRouteReq *req,
+                                        const RequestPipeline::PipeSpec ps,
+                                        ShowRouteResp *resp) {
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(req->client_context());
     const RequestPipeline::StageData *sd = ps.GetStageData(0);
@@ -511,14 +540,11 @@ bool ShowRouteHandler::CallbackS2Common(const ShowRouteReq *req,
     MergeSort(route_table_list, table_lists,
               ShowRouteHandler::GetMaxRouteCount(req), bsc, "");
 
-    ShowRouteResp *resp = new ShowRouteResp;
     string next_batch = SaveContextAndPopLast(req, &route_table_list);
     resp->set_next_batch(next_batch);
+
     // Save the table in the message *after* popping the last entry above.
     resp->set_tables(route_table_list);
-    resp->set_context(req->context());
-    resp->Response();
-    return true;
 }
 
 bool ShowRouteHandler::CallbackS2(const Sandesh *sr,
@@ -527,7 +553,11 @@ bool ShowRouteHandler::CallbackS2(const Sandesh *sr,
     const ShowRouteReq *req =
         static_cast<const ShowRouteReq *>(ps.snhRequest_.get());
 
-    return CallbackS2Common(req, ps);
+    ShowRouteResp *resp = new ShowRouteResp;
+    CallbackS2Common(req, ps, resp);
+    resp->set_context(req->context());
+    resp->Response();
+    return true;
 }
 
 bool ShowRouteHandler::CallbackS2Iterate(const Sandesh *sr,
@@ -536,11 +566,16 @@ bool ShowRouteHandler::CallbackS2Iterate(const Sandesh *sr,
     const ShowRouteReqIterate *req_iterate =
         static_cast<const ShowRouteReqIterate *>(ps.snhRequest_.get());
 
+    ShowRouteResp *resp = new ShowRouteResp;
     ShowRouteReq *req = new ShowRouteReq;
-    ConvertReqIterateToReq(req_iterate, req);
-    bool retval = CallbackS2Common(req, ps);
+    bool success = ConvertReqIterateToReq(req_iterate, req);
+    if (success) {
+        CallbackS2Common(req, ps, resp);
+    }
+    resp->set_context(req->context());
+    resp->Response();
     req->Release();
-    return retval;
+    return true;
 }
 
 // handler for 'show route'
