@@ -820,7 +820,7 @@ void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
         table.set_current_state("subscribed");
         table_list.push_back(table);
     }
-    if (table_list.size()) resp->set_routing_tables(table_list);
+    resp->set_routing_tables(table_list);
 }
 
 void PeerRibMembershipManager::FillRegisteredTable(const IPeer *peer,

@@ -13,7 +13,8 @@
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_server.h"
 
-using namespace std;
+using std::string;
+using std::vector;
 
 static void ShowXmppNeighborVisitor(
     vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server,
@@ -30,6 +31,8 @@ static void ShowXmppNeighborVisitor(
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");
     resp.set_state(bx_channel->StateName());
+    resp.set_configured_address_families(vector<string>());
+    resp.set_negotiated_address_families(vector<string>());
 
     const XmppConnection *connection = bx_channel->channel()->connection();
     resp.set_configured_hold_time(connection->GetConfiguredHoldTime());
