@@ -67,10 +67,12 @@ class VRouterScheduler(object):
             az_list = self._nc.oper('availability_zones', 'list',
                                     'admin', detailed=True)
             for az in az_list:
-                if self._args.netns_availability_zone in str(az):
-                    for host in az.hosts:
-                        vr_list.append({'fq_name':
-                            ['default-global-system-config', host]})
+                az_conf_list = self._args.netns_availability_zone.split(',')
+                for az_conf in az_conf_list:
+                    if az_conf in str(az):
+                        for host in az.hosts:
+                            vr_list.append({'fq_name':
+                                ['default-global-system-config', host]})
         else:
             vr_list = self._vnc_lib.virtual_routers_list()['virtual-routers']
 
