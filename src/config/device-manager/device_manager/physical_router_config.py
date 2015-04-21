@@ -95,7 +95,6 @@ class PhysicalRouterConfig(object):
 
         ri_config = self.ri_config or etree.Element("routing-instances")
         policy_config = self.policy_config or etree.Element("policy-options")
-        firewall_config = None
         ri = etree.SubElement(ri_config, "instance", operation="replace")
         etree.SubElement(ri, "name").text = ri_name
         if vni is not None:
@@ -180,17 +179,19 @@ class PhysicalRouterConfig(object):
         etree.SubElement(then, "reject")
 
         # add firewall config for public VRF
-        forwarding_options_config = None
+        forwarding_options_config = self.forwarding_options_config
+        firewall_config = self.firewall_config
         if router_external:
             forwarding_options_config = self.forwarding_options_config or etree.Element("forwarding-options")
             fo = etree.SubElement(forwarding_options_config, "family")
             inet  = etree.SubElement(fo, "inet")
             f = etree.SubElement(inet, "filter")
-            etree.SubElement(f, "input").text = "redirect_to_" + ri_name + "_vrf"
+            #mx has limitation for filter names, allowed max 63 chars
+            etree.SubElement(f, "input").text = "redirect_to_" + ri_name[:46] + "_vrf"
 
             firewall_config = self.firewall_config or etree.Element("firewall")
             f = etree.SubElement(firewall_config, "filter")
-            etree.SubElement(f, "name").text = "redirect_to_" + ri_name + "_vrf"
+            etree.SubElement(f, "name").text = "redirect_to_" + ri_name[:46] + "_vrf"
             term = etree.SubElement(f, "term")
             etree.SubElement(term, "name").text= "t1"
             from_ = etree.SubElement(term, "from")
@@ -205,8 +206,8 @@ class PhysicalRouterConfig(object):
 
         # add L2 EVPN and BD config
         bd_config = None
-        interfaces_config = None
-        proto_config = None
+        interfaces_config = self.interfaces_config
+        proto_config = self.proto_config
         if vni is not None and self.is_family_configured(self.bgp_params, "e-vpn"):
             etree.SubElement(ri, "vtep-source-interface").text = "lo0.0"
             rt_element = etree.SubElement(ri, "vrf-target")
@@ -268,7 +269,7 @@ class PhysicalRouterConfig(object):
             intf = etree.SubElement(mpls, "interface")
             etree.SubElement(intf, "name").text = "all"
         #fip services config
-        services_config = None
+        services_config = self.services_config
         if fip_map is not None:
             services_config = self.services_config or etree.Element("services")
             service_name = 'sv-' + ri_name
