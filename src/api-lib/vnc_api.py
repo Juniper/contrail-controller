@@ -95,7 +95,8 @@ class VncApi(VncApiClientGen):
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
                  auth_token=None, auth_host=None, auth_port=None,
-                 auth_protocol = None, auth_url=None, auth_type=None):
+                 auth_protocol = None, auth_url=None, auth_type=None,
+                 wait_for_connect=False):
         # TODO allow for username/password to be present in creds file
 
         super(VncApi, self).__init__(self._obj_serializer_diff)
@@ -192,15 +193,25 @@ class VncApi(VncApiClientGen):
 
         self._create_api_server_session()
 
-        try:
-            homepage = self._request(rest.OP_GET, self._base_url,
-                                     retry_on_error=False)
-            self._cfg_root_url = self._parse_homepage(homepage)
-        except ServiceUnavailableError as e:
-            # Ignore http.code 503 here.
-            # _request_server will reconnect during requests
-            logger = logging.getLogger(__name__)
-            logger.warn("Exception: %s", str(e))
+        retry_count = 6
+        while retry_count:
+            try:
+                homepage = self._request(rest.OP_GET, self._base_url,
+                                         retry_on_error=False)
+                self._cfg_root_url = self._parse_homepage(homepage)
+            except ServiceUnavailableError as e:
+                logger = logging.getLogger(__name__)
+                logger.warn("Exception: %s", str(e))
+                if wait_for_connect:
+                    # Retry connect infinitely when http retcode 503
+                    continue
+                elif retry_count:
+                    # Retry connect 60 times when http retcode 503
+                    retry_count -= 1
+                    time.sleep(1)
+            else:
+                # connected succesfully
+                break
     #end __init__
 
     def _obj_serializer_diff(self, obj):
