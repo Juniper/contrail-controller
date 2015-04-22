@@ -106,13 +106,17 @@ bool DbHandler::DropMessage(const SandeshHeader &header,
     return drop;
 }
  
-void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level) {
+void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
+    boost::function<void (void)> cb) {
     if (drop_level_ != level) {
         DB_LOG(INFO, "DB DROP LEVEL: [" << 
             Sandesh::LevelToString(drop_level_) << "] -> [" <<
             Sandesh::LevelToString(level) << "], DB QUEUE COUNT: " << 
             queue_count);
         drop_level_ = level;
+        if (!cb.empty()) {
+            cb();
+        }
     }
 }
 
@@ -211,7 +215,7 @@ void DbHandler::UnInitUnlocked(int instance) {
 }
 
 bool DbHandler::Init(bool initial, int instance) {
-    SetDropLevel(0, SandeshLevel::INVALID);
+    SetDropLevel(0, SandeshLevel::INVALID, NULL);
     if (initial) {
         return Initialize(instance);
     } else {
@@ -286,10 +290,12 @@ bool DbHandler::Setup(int instance) {
     return true;
 }
 
-void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm) {
+void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
+    boost::function<void (void)> defer_undefer_cb) {
     dbif_->Db_SetQueueWaterMark(boost::get<2>(wm),
         boost::get<0>(wm),
-        boost::bind(&DbHandler::SetDropLevel, this, _1, boost::get<1>(wm)));
+        boost::bind(&DbHandler::SetDropLevel, this, _1, boost::get<1>(wm),
+        defer_undefer_cb));
 }
 
 void DbHandler::ResetDbQueueWaterMarkInfo() {
