@@ -428,13 +428,20 @@ class Controller(object):
         au = AlarmgenStatus()
         au.name = self._hostname
         au.counters = []
-
+        au.alarmgens = []
         ags = AlarmgenStats()
         ags.instance =  self._instance_id
         ags.partitions = len(s_partitions)
         ags.keys = len(s_keys)
         ags.updates = n_updates
         au.counters.append(ags)
+
+        agname = sandesh_global._source + ':' + \
+                        sandesh_global._node_type + ':' + \
+                        sandesh_global._module + ':' + \
+                        sandesh_global._instance_id
+        au.alarmgens.append(agname)
+ 
         atrace = AlarmgenStatusTrace(data = au)
         self._logger.debug('send alarmgen status : %s' % (atrace.log()))
         atrace.send()

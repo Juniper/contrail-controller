@@ -1370,6 +1370,8 @@ class OpServer(object):
 
     def _uve_alarm_http_post(self, is_alarm):
         (ok, result) = self._post_common(bottle.request, None)
+        base_url = bottle.request.urlparts.scheme + \
+            '://' + bottle.request.urlparts.netloc
         if not ok:
             (code, msg) = result
             abort(code, msg)
@@ -1392,7 +1394,8 @@ class OpServer(object):
                 if key.find('*') != -1:
                     for gen in self._uve_server.multi_uve_get(uve_tbl, True,
                                                               filters,
-                                                              is_alarm):
+                                                              is_alarm,
+                                                              base_url):
                         if first:
                             yield u'' + json.dumps(gen)
                             first = False
@@ -1404,7 +1407,8 @@ class OpServer(object):
             for key in filters['kfilt']:
                 uve_name = uve_tbl + ':' + key
                 rsp = self._uve_server.get_uve(uve_name, True, filters,
-                                               is_alarm=is_alarm)
+                                               is_alarm=is_alarm,
+                                               base_url=base_url)
                 if rsp != {}:
                     data = {'name': key, 'value': rsp}
                     if first:
@@ -1426,6 +1430,8 @@ class OpServer(object):
     def _uve_alarm_http_get(self, name, is_alarm):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
+        base_url = bottle.request.urlparts.scheme + \
+            '://' + bottle.request.urlparts.netloc
         if not ok:
             (code, msg) = result
             abort(code, msg)
@@ -1455,7 +1461,7 @@ class OpServer(object):
                 if filters['kfilt'] is None:
                     filters['kfilt'] = [name]
                 for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
-                                                          filters, is_alarm):
+                                                          filters, is_alarm, base_url):
                     if first:
                         yield u'' + json.dumps(gen)
                         first = False
@@ -1464,7 +1470,8 @@ class OpServer(object):
                 yield u']}'
             else:
                 rsp = self._uve_server.get_uve(uve_name, flat, filters,
-                                               is_alarm=is_alarm)
+                                               is_alarm=is_alarm,
+                                               base_url=base_url)
                 yield json.dumps(rsp)
     # end _uve_alarm_http_get
 

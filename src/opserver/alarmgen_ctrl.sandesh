@@ -99,6 +99,7 @@ struct AlarmgenStats {
 struct AlarmgenStatus {
     1: string                      name (key="ObjectCollectorInfo")
     2: list<AlarmgenStats>         counters (tags="name:.instance",aggtype="union")
+    4: list<string>                alarmgens (aggtype="union",ulink="ObjectGeneratorInfo:ModuleClientState")
     3: optional bool               deleted
 }
 

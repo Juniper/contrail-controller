@@ -20,6 +20,7 @@ import re
 from gevent.coros import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.connection_info import ConnectionState
+from sandesh.viz.constants import UVE_MAP
 
 class UVEServer(object):
 
@@ -35,6 +36,10 @@ class UVEServer(object):
                                             self._local_redis_uve[1],
                                             password=self._redis_password,
                                             db=1)
+        self._uve_reverse_map = {}
+        for h,m in UVE_MAP.iteritems():
+            self._uve_reverse_map[m] = h
+
     #end __init__
 
     def update_redis_uve_list(self, redis_uve_list):
@@ -220,7 +225,7 @@ class UVEServer(object):
             uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
         return uves
         
-    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False):
+    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False, base_url=None):
         filters = filters or {}
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
@@ -351,8 +356,8 @@ class UVEServer(object):
                             existing, state, key, ptyp, afilter)
                         state = copy.deepcopy(nstate)
 
-                pa = ParallelAggregator(state)
-                rsp = pa.aggregate(key, flat)
+                pa = ParallelAggregator(state, self._uve_reverse_map)
+                rsp = pa.aggregate(key, flat, base_url)
             except redis.exceptions.ConnectionError:
                 self._logger.error("Failed to connect to redis-uve: %s:%d" \
                                    % (redis_uve[0], redis_uve[1]))
@@ -380,13 +385,13 @@ class UVEServer(object):
         return re.compile(regex)
     # end get_uve_regex
 
-    def multi_uve_get(self, table, flat, filters=None, is_alarm=False):
+    def multi_uve_get(self, table, flat, filters=None, is_alarm=False, base_url=None):
         # get_uve_list cannot handle attribute names very efficiently,
         # so we don't pass them here
         uve_list = self.get_uve_list(table, filters, False, is_alarm)
         for uve_name in uve_list:
             uve_val = self.get_uve(
-                table + ':' + uve_name, flat, filters, True, is_alarm)
+                table + ':' + uve_name, flat, filters, True, is_alarm, base_url)
             if uve_val == {}:
                 continue
             else:
@@ -463,8 +468,9 @@ class UVEServer(object):
 
 class ParallelAggregator:
 
-    def __init__(self, state):
+    def __init__(self, state, rev_map = {}):
         self._state = state
+        self._rev_map = rev_map
 
     def _default_agg(self, oattr):
         itemset = set()
@@ -559,7 +565,7 @@ class ParallelAggregator:
                     result['list'][sname].append(elem)
                     siz += 1
         result['list']['@size'] = str(siz)
-
+        
         return result
 
     def _append_agg(self, oattr):
@@ -628,7 +634,7 @@ class ParallelAggregator:
         mod_result['list']['@size'] = str(res_size)
         return mod_result
 
-    def aggregate(self, key, flat):
+    def aggregate(self, key, flat, base_url = None):
         '''
         This function does parallel aggregation of this UVE's state.
         It aggregates across all sources and return the global state of the UVE
@@ -648,9 +654,34 @@ class ParallelAggregator:
                     elif self._is_union(self._state[key][typ][objattr]):
                         union_res = self._union_agg(
                             self._state[key][typ][objattr])
+                        conv_res = None
+                        if union_res.has_key('@ulink') and base_url and \
+                                union_res['list']['@type'] == 'string':
+                            uterms = union_res['@ulink'].split(":",1)
+
+                            # This is the linked UVE's table name
+                            m_table = uterms[0]
+
+                            if self._rev_map.has_key(m_table):
+                                h_table = self._rev_map[m_table]
+                                conv_res = []
+                                sname = ParallelAggregator.get_list_name(union_res)
+                                for el in union_res['list'][sname]:
+                                    lobj = {}
+                                    lobj['name'] = el
+                                    lobj['href'] = base_url + '/analytics/uves/' + \
+                                        h_table + '/' + el
+                                    if len(uterms) == 2:
+                                        lobj['href'] = lobj['href'] + '?cfilt=' + uterms[1]
+                                    else:
+                                        lobj['href'] = lobj['href'] + '?flat'
+                                    conv_res.append(lobj)
                         if flat:
-                            result[typ][objattr] = \
-                                OpServerUtils.uve_attr_flatten(union_res)
+                            if not conv_res:
+                                result[typ][objattr] = \
+                                        OpServerUtils.uve_attr_flatten(union_res)
+                            else:
+                                result[typ][objattr] = conv_res
                         else:
                             result[typ][objattr] = union_res
                     elif self._is_append(self._state[key][typ][objattr]):
