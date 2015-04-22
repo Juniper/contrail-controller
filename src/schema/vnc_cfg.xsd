@@ -420,6 +420,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="DestinationNetworksType">
+    <xsd:all>
+        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="IpamSubnetType">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"/>
@@ -582,6 +588,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Automatically create an iBGP mesh if set to True -->
 <!--#IFMAP-SEMANTICS-IDL
      Property('ibgp-auto-mesh', 'global-system-config') -->
+
+<xsd:element name="destination-networks" type="DestinationNetworksType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('destination-networks', 'global-system-config') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -1141,6 +1151,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="physical-router-vnc-managed" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-vnc-managed', 'physical-router') -->
+
+<xsd:element name="physical-router-dynamic-tunnel-source-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-dynamic-tunnel-source-address', 'physical-router') -->
 
 <xsd:complexType name="UserCredentials">
     <xsd:all>
