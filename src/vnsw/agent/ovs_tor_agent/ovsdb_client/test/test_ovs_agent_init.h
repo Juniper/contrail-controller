@@ -16,6 +16,8 @@ class AgentParam;
 class TestClient;
 class OvsPeerManager;
 
+void LoadAndRun(const std::string &file_name);
+
 TestClient *OvsTestInit(const char *init_file, bool ovs_init);
 
 // The class to drive agent initialization.

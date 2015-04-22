@@ -190,7 +190,7 @@ bool AgentUtXmlRemotePhysicalInterface::ToXml(xml_node *parent) {
     AddIdPerms(&n);
 
     if (device_name_ != "") {
-        LinkXmlNode(parent, NodeType(), name(), "physical-router",
+        LinkXmlNode(parent, NodeType(), fqdn, "physical-router",
                     device_name_);
     }
 

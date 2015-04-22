@@ -17,7 +17,7 @@ class UnicastMacRemoteTable;
 
 class VrfOvsdbObject : public OvsdbDBObject {
 public:
-    VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table);
+    VrfOvsdbObject(OvsdbClientIdl *idl);
     virtual ~VrfOvsdbObject();
 
     void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
