@@ -92,6 +92,9 @@ class VrouterEventManager(EventManager):
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
 
+    def get_process_stat_object(self, pname):
+        return process_stat(pname)
+
     def runforever(self, test=False):
         prev_current_time = int(time.time())
         while 1:
