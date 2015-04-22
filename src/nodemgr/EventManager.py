@@ -14,6 +14,7 @@ import xmlrpclib
 from supervisor import childutils
 from nodemgr.EventListenerProtocolNodeMgr import EventListenerProtocolNodeMgr
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
+from process_stat import process_stat
 
 class EventManager:
     rules_data = []
@@ -44,7 +45,7 @@ class EventManager:
         self.listener_nodemgr = EventListenerProtocolNodeMgr()
         self.sandesh_global = None
 
-    def add_current_process(self, process_stat):
+    def add_current_process(self):
         proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
                 transport=supervisor.xmlrpc.SupervisorTransport(None, None, serverurl=self.supervisor_serverurl))
         # Add all current processes to make sure nothing misses the radar
@@ -53,7 +54,7 @@ class EventManager:
                 proc_name = proc_info['group']+ ":" + proc_info['name']
             else:
                 proc_name = proc_info['name']
-            process_stat_ent = process_stat(proc_name)
+            process_stat_ent = self.get_process_stat_object(proc_name)
             process_stat_ent.process_state = "PROCESS_STATE_" + proc_info['statename']
             if (process_stat_ent.process_state  ==
                     'PROCESS_STATE_RUNNING'):
@@ -171,12 +172,15 @@ class EventManager:
         self.all_core_file_list = corename.split('\n')[0:-1]
         self.send_process_state_db(self.group_names)
 
+    def get_process_stat_object(self, pname):
+        return process_stat(pname)
+
     def send_process_state(self, pname, pstate, pheaders):
         # update process stats
         if pname in self.process_state_db.keys():
             proc_stat = self.process_state_db[pname]
         else:
-            proc_stat = process_stat(pname)
+            proc_stat = self.get_process_stat_object(pname)
             if not proc_stat.group in self.group_names:
                 self.group_names.append(proc_stat.group)
 

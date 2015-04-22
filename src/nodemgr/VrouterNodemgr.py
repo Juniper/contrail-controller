@@ -60,7 +60,7 @@ class VrouterEventManager(EventManager):
         self.process_state_db['openstack-nova-compute'] = os_nova_comp
 
         self.supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
-        self.add_current_process(process_stat)
+        self.add_current_process()
     #end __init__
 
     def process(self):
@@ -91,6 +91,9 @@ class VrouterEventManager(EventManager):
 
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
+
+    def get_process_stat_object(self, pname):
+        return process_stat(pname)
 
     def runforever(self, test=False):
         prev_current_time = int(time.time())
