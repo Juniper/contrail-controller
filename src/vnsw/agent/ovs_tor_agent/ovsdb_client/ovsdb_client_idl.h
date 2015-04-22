@@ -107,8 +107,11 @@ public:
 
     // Send request to start monitoring OVSDB server
     void OnEstablish();
-    // Send encode json rpc messgage to OVSDB server
+
+    // Encode and send json rpc message to OVSDB server
+    // takes ownership of jsonrpc message, and free memory
     void SendJsonRpc(struct jsonrpc_msg *msg);
+
     // Process the recevied message and trigger update to ovsdb client
     void MessageProcess(const u_int8_t *buf, std::size_t len);
     // Create a OVSDB transaction to start encoding an update
@@ -152,6 +155,8 @@ private:
     friend void intrusive_ptr_add_ref(OvsdbClientIdl *p);
     friend void intrusive_ptr_release(OvsdbClientIdl *p);
 
+    void ConnectOperDB();
+
     struct ovsdb_idl *idl_;
     struct json_parser * parser_;
     const struct vteprec_global *vtep_global_;
@@ -167,6 +172,12 @@ private:
     OvsPeerManager *manager_;
     OvsdbSessionState connection_state_;
     Timer *keepalive_timer_;
+
+    // json for the sent monitor request, used to identify response to the
+    // request, reset to NULL once response if feed to idl for processing
+    // as it free the json for monitor request id
+    struct json *monitor_request_id_;
+
     tbb::atomic<int> refcount_;
     std::auto_ptr<OvsPeer> route_peer_;
     std::auto_ptr<VMInterfaceKSyncObject> vm_interface_table_;
