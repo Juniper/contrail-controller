@@ -324,9 +324,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="EncapsulationType">
     <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="VXLAN"/>
         <xsd:enumeration value="MPLSoGRE"/>
         <xsd:enumeration value="MPLSoUDP"/>
-        <xsd:enumeration value="VXLAN"/>
     </xsd:restriction>
 </xsd:simpleType>
 
