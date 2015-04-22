@@ -382,9 +382,9 @@ class TestDM(test_case.DMTestCase):
         #MX router
         bgp_router1, pr_mx = self.create_router('mx_router', '1.1.1.1')
         pr_mx.set_virtual_network(vn1_obj)
-        bare_metal_service = BaremetalService()
-        bare_metal_service.service_port.append("ge-0/0/0")
-        pr_mx.set_physical_router_bare_metal_service(bare_metal_service)
+        junos_service_ports = JunosServicePorts()
+        junos_service_ports.service_port.append("ge-0/0/0")
+        pr_mx.set_physical_router_junos_service_ports(junos_service_ports)
 
         self._vnc_lib.physical_router_update(pr_mx)
 

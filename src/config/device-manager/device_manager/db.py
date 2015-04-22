@@ -92,7 +92,7 @@ class PhysicalRouterDM(DBBase):
         self.product = obj.get('physical_router_product_name')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.user_credentials = obj.get('physical_router_user_credentials')
-        self.bare_metal_service = obj.get('physical_router_bare_metal_service')
+        self.junos_service_ports = obj.get('physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
         self.physical_interfaces = set([pi['uuid'] for pi in
@@ -116,11 +116,11 @@ class PhysicalRouterDM(DBBase):
         del cls._dict[uuid]
     # end delete
 
-    def is_bare_metal_service_enabled(self):
-        if self.bare_metal_service is not None and self.bare_metal_service.get('service_port') is not None:
+    def is_junos_service_ports_enabled(self):
+        if self.junos_service_ports is not None and self.junos_service_ports.get('service_port') is not None:
             return True
         return False
-    #end is_bare_metal_service_enabled
+    #end is_junos_service_ports_enabled
 
     def push_config(self):
         self.config_manager.reset_bgp_config()
@@ -194,10 +194,10 @@ class PhysicalRouterDM(DBBase):
 
                     break
 
-            if export_set is not None and self.is_bare_metal_service_enabled() and len(vn_obj.instance_ip_map) > 0:
+            if export_set is not None and self.is_junos_service_ports_enabled() and len(vn_obj.instance_ip_map) > 0:
                 vrf_name = vrf_name[:123] + '-nat'
                 interfaces = []
-                service_ports = self.bare_metal_service.get('service_port')
+                service_ports = self.junos_service_ports.get('service_port')
                 interfaces.append(service_ports[0] + "." + str(service_port_id))
                 service_port_id  = service_port_id + 1
                 interfaces.append(service_ports[0] + "." + str(service_port_id))

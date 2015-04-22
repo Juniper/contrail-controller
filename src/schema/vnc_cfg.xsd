@@ -1179,14 +1179,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-snmp-credentials', 'physical-router') -->
 
-<xsd:complexType name="BaremetalService">
+<xsd:complexType name="JunosServicePorts">
          <xsd:all>
              <xsd:element name="service-port" type="xsd:string" maxOccurs="unbounded"/>
          </xsd:all>
 </xsd:complexType>
-<xsd:element name="physical-router-bare-metal-service" type='BaremetalService'/>
+<xsd:element name="physical-router-junos-service-ports" type='JunosServicePorts'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-bare-metal-service', 'physical-router') -->
+     Property('physical-router-junos-service-ports', 'physical-router') -->
 
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
