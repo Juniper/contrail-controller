@@ -14,7 +14,7 @@ from supervisor import childutils
 from nodemgr.EventListenerProtocolNodeMgr import EventListenerProtocolNodeMgr
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 
-class EventManager:
+class EventManager(object):
     rules_data = []
     group_names = []
     process_state_db = {}
@@ -43,10 +43,12 @@ class EventManager:
         self.listener_nodemgr = EventListenerProtocolNodeMgr()
         self.sandesh_global = None
 
-    def add_current_process(self, process_stat):
+    # Get all the current processes in the node
+    def get_current_process(self, process_stat):
         proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
                 transport=supervisor.xmlrpc.SupervisorTransport(None, None, serverurl=self.supervisor_serverurl))
         # Add all current processes to make sure nothing misses the radar
+        process_state_db = {}
         for proc_info in proxy.supervisor.getAllProcessInfo():
             if (proc_info['name'] != proc_info['group']):
                 proc_name = proc_info['group']+ ":" + proc_info['name']
@@ -58,8 +60,41 @@ class EventManager:
                     'PROCESS_STATE_RUNNING'):
                 process_stat_ent.start_time = str(proc_info['start']*1000000)
                 process_stat_ent.start_count += 1
-            self.process_state_db[proc_name] = process_stat_ent
-            sys.stderr.write("\nAdding:" + str(proc_info) + "\n")
+            process_state_db[proc_name] = process_stat_ent
+        return process_state_db
+    # end get_current_process
+
+    # Add the current processes in the node to db
+    def add_current_process(self, process_stat):
+        self.process_state_db = self.get_current_process(process_stat)
+    # end add_current_process
+
+    # In case the processes in the Node can change, update current processes
+    def update_current_process(self, process_stat):
+        process_state_db = self.get_current_process(process_stat)
+        old_process_set = set(self.process_state_db.keys())
+        new_process_set = set(process_state_db.keys())
+        common_process_set = new_process_set.intersection(old_process_set)
+        added_process_set = new_process_set - common_process_set
+        deleted_process_set = old_process_set - common_process_set
+        for deleted_process in deleted_process_set:
+            self.delete_process_handler(deleted_process)
+        for added_process in added_process_set:
+            self.add_process_handler(added_process, process_state_db[added_process])
+    # end update_current_process
+
+    # process is deleted, send state & remove it from db
+    def delete_process_handler(self, deleted_process):
+        self.process_state_db[deleted_process].deleted = True
+        self.send_process_state_db([self.process_state_db[deleted_process].group])
+        del self.process_state_db[deleted_process]
+    # end delete_process_handler
+
+    # new process added, update db & send state
+    def add_process_handler(self, added_process, process_info):
+        self.process_state_db[added_process] = process_info
+        self.send_process_state_db([self.process_state_db[added_process].group])
+    # end add_process_handler
 
     def read_config_data(self, config_file):
         data = StringIO('\n'.join(line.strip() for line in open(config_file)))
@@ -124,6 +159,7 @@ class EventManager:
         name = socket.gethostname()
         for group in group_names:
             process_infos = []
+            delete_status = True
             for key in self.process_state_db:
                 pstat = self.process_state_db[key]
                 if (pstat.group != group):
@@ -140,6 +176,8 @@ class EventManager:
                 process_info.core_file_list = pstat.core_file_list
                 process_infos.append(process_info)
                 name = pstat.name
+                if pstat.deleted == False:
+                    delete_status = False
 
             if not process_infos:
                 continue
@@ -147,6 +185,7 @@ class EventManager:
             # send node UVE
             node_status = NodeStatus()
             node_status.name = name
+            node_status.deleted = delete_status
             node_status.process_info = process_infos
             node_status.all_core_file_list = self.all_core_file_list
             node_status_uve = NodeStatusUVE(data = node_status)
