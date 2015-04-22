@@ -122,8 +122,11 @@ class EventManager:
         # pass the newly created environment variable to Popen subprocess
         env_home = os.environ.copy()
         env_home['HOME'] = HOME_ENV_PATH
+        # stdout and stderr are redirected.
+        # stderr not used (stdout validation is done so stderr check is
+        # is not needed)
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, \
-            stderr=subprocess.STDOUT, shell=True, env=env_home)
+            stderr=subprocess.PIPE, shell=True, env=env_home)
 
         while p.poll() is None:
             time.sleep(0.1)
@@ -136,6 +139,7 @@ class EventManager:
                 ssdlog = StorageStatsDaemonLog(message = message)
                 self.call_send(ssdlog)
                 return None
+        # stdout is used
         return p.stdout.read()
 
     def call_send(self, send_inst):
@@ -522,12 +526,14 @@ class EventManager:
         disk_list = res.splitlines()
         # osd disk list to get the mapping of osd to
         # raw disk
-        pattern = 'ceph-deploy disk list ' + \
+        # cd to /etc/ceph so that ceph-deploy command logs output to
+        # /var/log/ceph and not /root
+        pattern = 'cd /etc/ceph && ceph-deploy disk list' + \
             self._hostname
-        res1 = self.call_subprocess(pattern)
-        if res1 is None:
+        res = self.call_subprocess(pattern)
+        if res is None:
             return
-        osd_list = res1.splitlines()
+        osd_list = res.splitlines()
         # df used to get the free space of all disks
         res1 = self.call_subprocess('df -hl')
         if res1 is None:
