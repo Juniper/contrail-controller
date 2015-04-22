@@ -36,6 +36,8 @@ public:
     virtual Ip4Address tsn_ip() = 0;
     virtual void SendMsg(u_int8_t *buf, std::size_t len) = 0;
     void MessageProcess(const u_int8_t *buf, std::size_t len);
+    // Send encode json rpc messgage to OVSDB server
+    void SendJsonRpc(struct jsonrpc_msg *msg);
     void OnEstablish();
     void OnClose();
     OvsdbClientIdl *client_idl();
@@ -47,6 +49,8 @@ private:
     OvsdbClientIdlPtr client_idl_;
     Agent *agent_;
     OvsPeerManager *manager_;
+    struct json_parser * parser_;
+    tbb::atomic<bool> idl_inited_;
     Timer *monitor_req_timer_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientSession);
 };
