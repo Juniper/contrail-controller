@@ -325,18 +325,6 @@ class UVEServer(object):
                                 elif elem["rtype"] == "hash":
                                     elist = redish.hgetall(elem["href"])
                                     edict = elist
-                                elif elem["rtype"] == "query":
-                                    if sfilter is None and mfilter is None and not multi:
-                                        qdict = {}
-                                        qdict["table"] = elem["aggtype"]
-                                        qdict["select_fields"] = elem["select"]
-                                        qdict["where"] =[[{"name":"name",
-                                            "value":key.split(":",1)[1],
-                                            "op":1}]]
-                                        qmap[elem["aggtype"]] = {"query":qdict,
-                                            "type":typ, "attr":attr}
-                                    # For the stats query case, defer processing
-                                    continue
 
                                 statdict[typ][attr].append(
                                     {elem["aggtype"]: edict})
