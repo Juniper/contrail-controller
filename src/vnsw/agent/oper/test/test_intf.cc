@@ -2098,6 +2098,51 @@ TEST_F(IntfTest, IntfStaticRoute_4) {
    EXPECT_FALSE(VmPortFind(1));
 }
 
+TEST_F(IntfTest, IntfStaticRoute_5) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+   };
+
+   //Add static routes and activate interface
+   AddInterfaceRouteTable("static_route", 1, static_route, 1);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                          static_route[0].plen_));
+   InetUnicastRouteEntry *rt =
+       RouteGet("vrf1", static_route[0].addr_, static_route[0].plen_);
+   EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+   client->WaitForIdle();
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 1, "1.1.1.18");
+   client->WaitForIdle();
+   //Since 1.1.1.254 is not present, nexthop should be discard
+   EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+
+   EXPECT_TRUE(VmPortActive(input, 0));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                         static_route[0].plen_));
+   client->WaitForIdle();
+
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
 TEST_F(IntfTest, vm_interface_change_req) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
