@@ -151,8 +151,8 @@ KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
     } else {
         if (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted()) {
             // If entry is already present, it should be in TEMP state
-            // or deleted state.
-            assert(0);
+            // or deleted state to form a stale entry
+            return NULL;
         }
     }
 

@@ -21,6 +21,10 @@
 #include "test/test_init.h"
 #include <test/test_agent_init.h>
 #include "test_ovs_agent_init.h"
+#include "test-xml/test_xml.h"
+#include "test-xml/test_xml_oper.h"
+#include "test_xml_physical_device.h"
+#include "test_xml_ovsdb.h"
 
 #include <boost/filesystem/operations.hpp>
 
@@ -165,6 +169,20 @@ void TestOvsAgentInit::set_ovs_init(bool ovs_init) {
 
 void TestOvsAgentInit::KSyncShutdown() {
     ovsdb_client_->shutdown();
+}
+
+void LoadAndRun(const std::string &file_name) {
+    AgentUtXmlTest test(file_name);
+    AgentUtXmlOperInit(&test);
+    AgentUtXmlPhysicalDeviceInit(&test);
+    AgentUtXmlOvsdbInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
 }
 
 TestClient *OvsTestInit(const char *init_file, bool ovs_init) {

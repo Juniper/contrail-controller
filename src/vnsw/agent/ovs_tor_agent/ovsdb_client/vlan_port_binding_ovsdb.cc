@@ -233,8 +233,8 @@ uint16_t VlanPortBindingEntry::vlan() const {
     return vlan_;
 }
 
-VlanPortBindingTable::VlanPortBindingTable(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table, true) {
+VlanPortBindingTable::VlanPortBindingTable(OvsdbClientIdl *idl) :
+    OvsdbDBObject(idl, true) {
 }
 
 VlanPortBindingTable::~VlanPortBindingTable() {

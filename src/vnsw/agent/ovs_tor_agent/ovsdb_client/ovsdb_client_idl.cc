@@ -117,7 +117,8 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     keepalive_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Keep Alive Timer",
-                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)),
+    monitor_request_id_(NULL) {
     refcount_ = 0;
     vtep_global_= ovsdb_wrapper_vteprec_global_first(idl_);
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
@@ -131,23 +132,26 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     }
     route_peer_.reset(manager->Allocate(session_->remote_ip()));
     vm_interface_table_.reset(new VMInterfaceKSyncObject(this,
-                (DBTable *)agent->interface_table()));
+            (DBTable *)agent->interface_table()));
     physical_switch_table_.reset(new PhysicalSwitchTable(this));
-    logical_switch_table_.reset(new LogicalSwitchTable(this,
-               (DBTable *)agent->physical_device_vn_table()));
+    logical_switch_table_.reset(new LogicalSwitchTable(this));
     physical_port_table_.reset(new PhysicalPortTable(this));
     physical_locator_table_.reset(new PhysicalLocatorTable(this));
-    vlan_port_table_.reset(new VlanPortBindingTable(this,
-                (DBTable *)agent->interface_table()));
+    vlan_port_table_.reset(new VlanPortBindingTable(this));
     unicast_mac_local_ovsdb_.reset(new UnicastMacLocalOvsdb(this,
                 route_peer()));
     multicast_mac_local_ovsdb_.reset(new MulticastMacLocalOvsdb(this,
                                                                 route_peer()));
-    vrf_ovsdb_.reset(new VrfOvsdbObject(this, (DBTable *)agent->vrf_table()));
+    vrf_ovsdb_.reset(new VrfOvsdbObject(this));
     vn_ovsdb_.reset(new VnOvsdbObject(this, (DBTable *)agent->vn_table()));
 }
 
 OvsdbClientIdl::~OvsdbClientIdl() {
+    if (monitor_request_id_ != NULL) {
+        ovsdb_wrapper_json_destroy(monitor_request_id_);
+        monitor_request_id_ = NULL;
+    }
+
     TimerManager::DeleteTimer(keepalive_timer_);
     receive_queue_->Shutdown();
     delete receive_queue_;
@@ -170,8 +174,16 @@ void OvsdbClientIdl::OnEstablish() {
         OVSDB_TRACE(Trace, "IDL deleted skipping Monitor Request");
         return;
     }
+
+    struct jsonrpc_msg *monitor_request =
+        ovsdb_wrapper_idl_encode_monitor_request(idl_);
+
+    assert(monitor_request_id_ == NULL);
+    // clone and save json for monitor request
+    monitor_request_id_ = ovsdb_wrapper_jsonrpc_clone_id(monitor_request);
+
     OVSDB_TRACE(Trace, "Sending Monitor Request");
-    SendJsonRpc(ovsdb_wrapper_idl_encode_monitor_request(idl_));
+    SendJsonRpc(monitor_request);
 
     int keepalive_intv = session_->keepalive_interval();
     if (keepalive_intv < 0) {
@@ -261,9 +273,23 @@ bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
         // skip and delete the message
         if (!ovsdb_wrapper_msg_echo_req(msg->msg) &&
             !ovsdb_wrapper_msg_echo_reply(msg->msg)) {
+            bool connect_oper_db = false;
+            if (ovsdb_wrapper_idl_msg_is_monitor_response(monitor_request_id_,
+                                                          msg->msg)) {
+                // destroy saved monitor request json message
+                ovsdb_wrapper_json_destroy(monitor_request_id_);
+                monitor_request_id_ = NULL;
+                connect_oper_db = true;
+            }
             ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
             // msg->msg is freed by process method above
             msg->msg = NULL;
+
+            // after processing the response to monitor request
+            // connect to oper db.
+            if (connect_oper_db) {
+                ConnectOperDB();
+            }
         }
         connection_state_ = OvsdbSessionActive;
     }
@@ -423,5 +449,15 @@ void OvsdbClientIdl::TriggerDeletion() {
     // trigger delete table for vrf table, which internally handles
     // deletion of route table.
     vrf_ovsdb_->DeleteTable();
+}
+
+void OvsdbClientIdl::ConnectOperDB() {
+    OVSDB_TRACE(Trace, "Received Monitor Response connecting to OperDb");
+    logical_switch_table_->OvsdbRegisterDBTable(
+            (DBTable *)agent_->physical_device_vn_table());
+    vlan_port_table_->OvsdbRegisterDBTable(
+            (DBTable *)agent_->interface_table());
+    vrf_ovsdb_->OvsdbRegisterDBTable(
+            (DBTable *)agent_->vrf_table());
 }
 
