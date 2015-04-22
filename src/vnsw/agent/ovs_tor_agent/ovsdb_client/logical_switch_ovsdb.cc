@@ -244,8 +244,8 @@ void LogicalSwitchEntry::DeleteOldMcastRemoteMac() {
     }
 }
 
-LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table, true) {
+LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl) :
+    OvsdbDBObject(idl, true) {
     idl->Register(OvsdbClientIdl::OVSDB_LOGICAL_SWITCH,
                   boost::bind(&LogicalSwitchTable::OvsdbNotify, this, _1, _2));
     idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL,
