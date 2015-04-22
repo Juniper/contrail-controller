@@ -403,19 +403,16 @@ class VncIfmapClient(VncIfmapClientGen):
             del self._id_to_metas[self_imid]
     # end _delete_id_self_meta
 
-    def _delete_id_pair_meta(self, id1, id2, metadata):
+    def _delete_id_pair_meta_list(self, id1, meta_list):
         mapclient = self._mapclient
-
-        del_str = str(PublishDeleteOperation(
-                      id1=str(Identity(
-                              name=id1,
-                              type="other",
-                              other_type="extended")),
-                      id2=str(Identity(
-                              name=id2,
-                              type="other",
-                              other_type="extended")),
-                      filter=metadata))
+        del_str = ''
+        for id2, metadata in meta_list:
+            del_str += unicode(PublishDeleteOperation(
+               id1=unicode(
+                   Identity(name=id1, type="other", other_type="extended")),
+               id2=unicode(
+                   Identity(name=id2, type="other", other_type="extended")),
+               filter=metadata))
 
         self._publish_to_ifmap('delete', del_str, async=False)
 
@@ -437,17 +434,21 @@ class VncIfmapClient(VncIfmapClientGen):
             self._id_to_metas[id1][meta_name] = \
                  [{'id':m['id'], 'meta':m['meta']} \
                  for m in self._id_to_metas[id1][meta_name] if m['id'] != id2]
-
-        if metadata:
-            meta_name = metadata.replace('contrail:', '')
-            # replace with remaining refs
-            for (id_x, id_y) in [(id1, id2), (id2, id1)]:
-                _id_to_metas_delete(id_x, id_y, meta_name)
-        else: # no meta specified remove all links from id1 to id2
-            for (id_x, id_y) in [(id1, id2), (id2, id1)]:
-                meta_names = self._id_to_metas.get(id_x, {}).keys()
-                for meta_name in meta_names:
+        for id2, metadata in meta_list:
+            if metadata:
+                meta_name = metadata.replace('contrail:', '')
+                # replace with remaining refs
+                for (id_x, id_y) in [(id1, id2), (id2, id1)]:
                     _id_to_metas_delete(id_x, id_y, meta_name)
+            else: # no meta specified remove all links from id1 to id2
+                for (id_x, id_y) in [(id1, id2), (id2, id1)]:
+                    meta_names = self._id_to_metas.get(id_x, {}).keys()
+                    for meta_name in meta_names:
+                        _id_to_metas_delete(id_x, id_y, meta_name)
+    # end _delete_id_pair_meta_list
+
+    def _delete_id_pair_meta(self, id1, id2, metadata):
+        self._delete_id_pair_meta_list(id1, [(id2, metadata)])
     # end _delete_id_pair_meta
 
     def _update_id_self_meta(self, update, meta):
