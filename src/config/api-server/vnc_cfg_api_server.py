@@ -323,6 +323,7 @@ class VncApiServer(VncApiServerGen):
             'loadbalancer-healthmonitor').generate_default_instance = False
         self.get_resource_class(
             'virtual-ip').generate_default_instance = False
+        self.get_resource_class('config-node').generate_default_instance = False
         self.get_resource_class('analytics-node').generate_default_instance = False
         self.get_resource_class('database-node').generate_default_instance = False
         self.get_resource_class('physical-router').generate_default_instance = False

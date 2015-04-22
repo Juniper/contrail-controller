@@ -1458,6 +1458,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('logical-router-service-instance',
           'logical-router', 'service-instance', ['ref']) -->
 
+<xsd:element name="config-node" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-config-node"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-config-node',
+             'global-system-config', 'config-node', ['has']) -->
+
+<xsd:element name="config-node-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('config-node-ip-address', 'config-node') -->
+
 <xsd:element name="analytics-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-analytics-node"/>
 <!--#IFMAP-SEMANTICS-IDL 
