@@ -340,7 +340,7 @@ void Collector::TestDatabaseConnection() {
     // try to instantiate a new dbif instance for testing db connection
     testdbif_.reset( GenDb::GenDbIf::GenDbIfImpl(
         boost::bind(&Collector::TestDbConnErrHandler, this),
-        cassandra_ips_, cassandra_ports_, 3600, db_handler_->GetName(), false));
+        cassandra_ips_, cassandra_ports_, 3600, db_handler_->GetName(), true));
 
     if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_)) {
         if (dbConnStatus_ != ConnectionStatus::DOWN) {
@@ -354,6 +354,7 @@ void Collector::TestDatabaseConnection() {
             dbConnStatus_ = ConnectionStatus::UP;
             connect_status_change = true;
         }
+        testdbif_->Db_Uninit("analytics::DbHandler", db_task_id_);
     }
 
     if (connect_status_change)
