@@ -264,22 +264,32 @@ class VirtualNetworkST(DictST):
             self.locate_routing_instance_no_target(self._default_ri_name)
         else:
             self._default_ri_name = self.obj.name
-            self.locate_routing_instance(self._default_ri_name)
+            ri_obj = self.locate_routing_instance(self._default_ri_name)
+            # if primary RI is connected to another primary RI, we need to 
+            # also create connection between the VNs
+            for connection in ri_obj.connections:
+                remote_ri_fq_name = connection.split(':')
+                if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
+                    self.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
 
         for ri in self.obj.get_routing_instances() or []:
             ri_name = ri['to'][-1]
             if ri_name not in self.rinst:
-                if ri_name.startswith('service-'):
-                    sc_id = ri_name[8:44]
-                    self.locate_routing_instance(ri_name, sc_id)
-                    continue
-
-                self.locate_routing_instance(ri_name)
+                sc_id = self._get_service_id_from_ri(ri_name)
+                self.locate_routing_instance(ri_name, sc_id)
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
                 self.add_policy(policy.name)
         self.uve_send()
     # end __init__
+
+    @staticmethod
+    def _get_service_id_from_ri(ri_name):
+        if not ri_name.startswith('service-'):
+            return None
+        sc_id = ri_name[8:44]
+        return sc_id
+    # end _get_service_id_from_ri
 
     @classmethod
     def delete(cls, name):
@@ -1360,6 +1370,8 @@ class RoutingInstanceST(object):
         self.service_chain = service_chain
         self.route_target = route_target
         self.connections = set()
+        for ri_ref in self.obj.get_routing_instance_refs() or []:
+            self.connections.add(':'.join(ri_ref['to']))
     # end __init__
 
     def get_fq_name(self):
@@ -2558,7 +2570,17 @@ class SchemaTransformer(object):
         vn_id_list = [vn['uuid'] for vn in vn_list]
         ri_list = _vnc_lib.routing_instances_list(detail=True)
         for ri in ri_list:
+            delete = False
             if ri.parent_uuid not in vn_id_list:
+                delete = True
+            else:
+                ri_name = ri.get_fq_name_str()
+                # if the RI was for a service chain and service chain no
+                # longer exists, delete the RI
+                sc_id = VirtualNetworkST._get_service_id_from_ri(ri_name)
+                if sc_id and sc_id not in ServiceChain:
+                    delete = True
+            if delete:
                 try:
                     ri_obj = RoutingInstanceST(ri)
                     ri_obj.delete()
