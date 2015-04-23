@@ -26,11 +26,12 @@ using namespace boost::asio;
 VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
     agent_(agent), vm_uuid_(vm_uuid), mem_usage_(0),
     virt_memory_(0), virt_memory_peak_(0), vm_memory_quota_(0),
-    prev_cpu_stat_(0), cpu_usage_(0), prev_cpu_snapshot_time_(0),
-    prev_vcpu_snapshot_time_(0),
+    prev_cpu_stat_(0), cpu_usage_(0), max_memory_(0),
+    prev_cpu_snapshot_time_(0), prev_vcpu_snapshot_time_(0),
     input_(*(agent_->event_manager()->io_service())),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
-    "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0) {
+    "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0), virtual_size_(0),
+    disk_size_(0), disk_name_() {
 }
 
 VmStat::~VmStat() {
@@ -69,8 +70,8 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
     char *argv[4];
     char shell[80] = "/bin/sh";
     char option[80] = "-c";
-    char ccmd[80];
-    strncpy(ccmd, cmd.c_str(), 80);
+    char ccmd[256];
+    strncpy(ccmd, cmd.c_str(), sizeof(ccmd));
 
     argv[0] = shell;
     argv[1] = option;
@@ -126,20 +127,22 @@ void VmStat::ReadCpuStat() {
 
     //Get 'CPU time' from the output
     double cpu_stat = 0;
+    bool cpu_stat_found = false, max_memory_found = false;
     std::string cpu_stat_str;
     while (data_ >> tmp) {
         if (tmp == "time:") {
             data_ >> cpu_stat_str;
+            cpu_stat_found = true;
+        } else if (tmp == "Max") {
+            data_ >> tmp;
+            if (tmp == "memory:") {
+                data_ >> max_memory_;
+                max_memory_found = true;
+            }
+        }
+        if (cpu_stat_found && max_memory_found) {
             break;
         }
-    }
-
-    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>
-        (agent_->uve()->vrouter_uve_entry());
-    uint32_t num_of_cpu = vre->GetCpuCount();
-    if (num_of_cpu == 0) {
-        GetVcpuStat();
-        return;
     }
 
     //Remove the last character from 'cpu_stat_str'
@@ -156,7 +159,6 @@ void VmStat::ReadCpuStat() {
         cpu_usage_ = (cpu_stat - prev_cpu_stat_)/
                      difftime(now, prev_cpu_snapshot_time_);
         cpu_usage_ *= 100;
-        cpu_usage_ /= num_of_cpu;
     }
 
     prev_cpu_stat_ = cpu_stat;
@@ -250,25 +252,7 @@ void VmStat::ReadMemStat() {
 
     data_.str(" ");
     data_.clear();
-    //Send Stats
-    //We need to send same cpu info in two different UVEs
-    //(VirtualMachineStats and UveVirtualMachineAgent). One of them uses
-    //stats-oracle infra and other one does not use it. We need two because
-    //stats-oracle infra returns only SUM of cpu-info over a period of time
-    //and current value is returned using non-stats-oracle version. Using
-    //stats oracle infra we can still query the current value but it is not
-    //simple and hence we sending current value in separate UVE.
-    VirtualMachineStats vm_agent;
-    if (BuildVmStatsMsg(&vm_agent)) {
-        VmUveTable *vmt = static_cast<VmUveTable *>
-            (agent_->uve()->vm_uve_table());
-        vmt->DispatchVmStatsMsg(vm_agent);
-    }
-    UveVirtualMachineAgent vm_msg;
-    if (BuildVmMsg(&vm_msg)) {
-        agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_msg);
-    }
-    StartTimer();
+    GetDiskName();
 }
 
 bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
@@ -281,6 +265,10 @@ bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
     stats.set_rss(mem_usage_);
     stats.set_virt_memory(virt_memory_);
     stats.set_peak_virt_memory(virt_memory_peak_);
+    stats.set_max_memory_Kib(max_memory_);
+    stats.set_disk_allocated_bytes(virtual_size_);
+    stats.set_disk_used_bytes(disk_size_);
+
 
     cpu_stats_list.push_back(stats);
     uve->set_cpu_stats(cpu_stats_list);
@@ -297,6 +285,9 @@ bool VmStat::BuildVmMsg(UveVirtualMachineAgent *uve) {
     stats.set_rss(mem_usage_);
     stats.set_virt_memory(virt_memory_);
     stats.set_peak_virt_memory(virt_memory_peak_);
+    stats.set_max_memory_Kib(max_memory_);
+    stats.set_disk_allocated_bytes(virtual_size_);
+    stats.set_disk_used_bytes(disk_size_);
 
     uve->set_cpu_info(stats);
 
@@ -317,6 +308,83 @@ void VmStat::GetVcpuStat() {
 
 void VmStat::GetMemStat() {
     ReadMemStat();
+}
+
+void VmStat::GetDiskName() {
+    std::ostringstream cmd;
+    cmd << "virsh domblklist " << agent_->GetUuidStr(vm_uuid_) << " | grep "
+        << agent_->GetUuidStr(vm_uuid_);
+    ExecCmd(cmd.str(), boost::bind(&VmStat::ReadDiskName, this));
+}
+
+
+void VmStat::SendVmCpuStats() {
+    //We need to send same cpu info in two different UVEs
+    //(VirtualMachineStats and UveVirtualMachineAgent). One of them uses
+    //stats-oracle infra and other one does not use it. We need two because
+    //stats-oracle infra returns only SUM of cpu-info over a period of time
+    //and current value is returned using non-stats-oracle version. Using
+    //stats oracle infra we can still query the current value but it is not
+    //simple and hence we sending current value in separate UVE.
+    VirtualMachineStats vm_agent;
+    if (BuildVmStatsMsg(&vm_agent)) {
+        VmUveTable *vmt = static_cast<VmUveTable *>
+            (agent_->uve()->vm_uve_table());
+        vmt->DispatchVmStatsMsg(vm_agent);
+    }
+    UveVirtualMachineAgent vm_msg;
+    if (BuildVmMsg(&vm_msg)) {
+        agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_msg);
+    }
+}
+
+void VmStat::ReadDiskName() {
+    data_ >> disk_name_;
+    if (!disk_name_.empty()) {
+        GetDiskStat();
+    } else {
+        SendVmCpuStats();
+        StartTimer();
+    }
+}
+
+void VmStat::GetDiskStat() {
+    std::ostringstream cmd;
+    cmd << "virsh domblkinfo " << agent_->GetUuidStr(vm_uuid_) << " "
+        << disk_name_;
+    ExecCmd(cmd.str(), boost::bind(&VmStat::ReadDiskStat, this));
+}
+
+void VmStat::ReadDiskStat() {
+    bool disk_size_found = false, virtual_size_found = false;
+    std::string tmp;
+    std::string virtual_size_str, disk_size_str;
+    while (data_ >> tmp) {
+        if (tmp == "Capacity:") {
+            data_ >> virtual_size_str;
+            virtual_size_found = true;
+        } else if (tmp == "Allocation:") {
+            data_ >> disk_size_str;
+            disk_size_found = true;
+        }
+        if (virtual_size_found && disk_size_found) {
+            break;
+        }
+    }
+    if (virtual_size_str.size() >= 2) {
+        //Convert string to uint32_t
+        stringstream ss(virtual_size_str);
+        ss >> virtual_size_;
+    }
+
+    if (disk_size_str.size() >= 2) {
+        //Convert string to uint32_t
+        stringstream ss(disk_size_str);
+        ss >> disk_size_;
+    }
+
+    SendVmCpuStats();
+    StartTimer();
 }
 
 void VmStat::ReadMemoryQuota() {
