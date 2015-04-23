@@ -90,5 +90,5 @@ struct UveLoadbalancer {
 }
 
 uve sandesh UveLoadbalancerStatsTrace {
-    1: UveLoadbalancerStats data
+    1: UveLoadbalancer data
 }
