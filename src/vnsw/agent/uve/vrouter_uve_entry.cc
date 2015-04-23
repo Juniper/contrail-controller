@@ -408,8 +408,3 @@ void VrouterUveEntry::UpdateBitmap(uint8_t proto, uint16_t sport,
                                    uint16_t dport) {
     port_bitmap_.AddPort(proto, sport, dport);
 }
-
-uint32_t VrouterUveEntry::GetCpuCount() {
-    return prev_stats_.get_cpu_info().get_num_cpu();
-}
-

@@ -37,9 +37,13 @@ private:
     void ReadCpuStat();
     void ReadVcpuStat();
     void ReadMemStat();
+    void ReadDiskStat();
+    void ReadDiskName();
     void GetCpuStat();
     void GetVcpuStat();
     void GetMemStat();
+    void GetDiskName();
+    void GetDiskStat();
     void ReadData(const boost::system::error_code &ec, size_t read_bytes,
                   DoneCb &cb);
     void ExecCmd(std::string cmd, DoneCb cb);
@@ -49,6 +53,7 @@ private:
     void ReadPid();
     void ReadMemoryQuota();
     void GetMemoryQuota();
+    void SendVmCpuStats();
 
     Agent *agent_;
     const boost::uuids::uuid vm_uuid_;
@@ -58,6 +63,7 @@ private:
     uint32_t vm_memory_quota_;
     double   prev_cpu_stat_;
     double   cpu_usage_;
+    uint32_t max_memory_;
     time_t   prev_cpu_snapshot_time_;
     std::vector<double> prev_vcpu_usage_;
     std::vector<double> vcpu_usage_percent_;
@@ -70,6 +76,9 @@ private:
     uint32_t pid_;
     uint32_t retry_;
     DoneCb call_back_;
+    uint32_t virtual_size_;
+    uint32_t disk_size_;
+    std::string disk_name_;
     DISALLOW_COPY_AND_ASSIGN(VmStat);
 };
 #endif // vnsw_agent_vm_stat_h
