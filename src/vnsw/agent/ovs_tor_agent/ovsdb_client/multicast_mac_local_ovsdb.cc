@@ -40,18 +40,23 @@ MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
     logical_switch_(logical_switch) {
 }
 
-bool MulticastMacLocalEntry::Add() {
-    MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
+OVSDB::VnOvsdbEntry *MulticastMacLocalEntry::GetVnEntry() const {
     VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
     VnOvsdbEntry vn_key(vn_object, StringToUuid(logical_switch_name_));
     VnOvsdbEntry *vn_entry =
         static_cast<VnOvsdbEntry *>(vn_object->GetReference(&vn_key));
+    return vn_entry;
+}
 
+bool MulticastMacLocalEntry::Add() {
+    MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
+    OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
     // Take vrf reference to genrate withdraw/delete route request
     vrf_ = vn_entry->vrf();
     OVSDB_TRACE(Trace, "Adding multicast Route VN uuid " + logical_switch_name_);
     vxlan_id_ = logical_switch_->vxlan_id();
     table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
+                                            vn_entry->name(),
                                             table_->client_idl()->tsn_ip(),
                                             logical_switch_->tor_ip().to_v4());
     return true;
@@ -78,15 +83,13 @@ bool MulticastMacLocalEntry::IsLess(const KSyncEntry& entry) const {
 }
 
 KSyncEntry *MulticastMacLocalEntry::UnresolvedReference() {
-    VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
-    VnOvsdbEntry vn_key(vn_object, StringToUuid(logical_switch_name_));
-    VnOvsdbEntry *vn_entry =
-        static_cast<VnOvsdbEntry *>(vn_object->GetReference(&vn_key));
+    VnOvsdbEntry *vn_entry = GetVnEntry();
     if (!vn_entry->IsResolved()) {
         OVSDB_TRACE(Trace, "Skipping multicast route add " +
                 logical_switch_name_ + " due to unavailable VN ");
         return vn_entry;
     }
+
     return NULL;
 }
 

@@ -777,13 +777,13 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const uuid &acl_id, const string &vrf_name, 
                     const std::vector<VnIpam> &ipam,
-                    const VnData::VnIpamDataMap &vn_ipam_data,
+                    const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                     int vxlan_id, bool admin_state, bool enable_rpf) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(agent(), name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
-                              vxlan_id, vxlan_id, true, true,
+                              vn_id, vxlan_id, true, true,
                               admin_state, enable_rpf);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
