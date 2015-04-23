@@ -188,6 +188,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define METADATA_IP_ADDR ntohl(inet_addr("169.254.169.254"))
 #define METADATA_PORT 8775
 #define METADATA_NAT_PORT 80
+#define AGENT_INIT_TASKNAME "Agent::Init"
 
 #define VROUTER_SERVER_PORT 20914
 
