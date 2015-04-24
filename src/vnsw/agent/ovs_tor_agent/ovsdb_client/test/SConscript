@@ -35,7 +35,11 @@ env.Append(LIBS = [
 
 env.Library('agent_ovsdb_test_xml', 'test_xml_ovsdb.cc')
 
-env.Library('test_ovs_agent_init', 'test_ovs_agent_init.cc')
+env.Library('test_ovs_agent_init',
+            [
+                'test_ovs_agent_init.cc',
+                'test_ovs_agent_util.cc'
+            ])
 
 agent_suite = []
 flaky_agent_suite = []
@@ -43,6 +47,7 @@ test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_route', flaky_agent_suite)
 test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_base', agent_suite)
 test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_logical_switch', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_remote', agent_suite)
+AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_local', agent_suite)
 
 env.TestSuite('ovsdb_client:flaky_test', flaky_agent_suite)
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
