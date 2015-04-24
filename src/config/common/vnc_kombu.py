@@ -57,7 +57,7 @@ class VncKombuClientBase(object):
         # override this method
         return
 
-    def _reconnect(self):
+    def _reconnect(self, delete_old_q=False):
         if self._conn_lock.locked():
             # either connection-monitor or publisher should have taken
             # the lock. The one who acquired the lock would re-establish
@@ -84,6 +84,16 @@ class VncKombuClientBase(object):
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
         self._channel = self._conn.channel()
+        if delete_old_q:
+            # delete the old queue in first-connect context
+            # as db-resync would have caught up with history.
+            try:
+                bound_q = self._update_queue_obj(self._channel)
+                bound_q.delete()
+            except Exception as e:
+                msg = 'Unable to delete the old ampq queue: %s' %(str(e))
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+
         self._consumer = kombu.Consumer(self._channel,
                                        queues=self._update_queue_obj,
                                        callbacks=[self._subscribe])
@@ -130,7 +140,7 @@ class VncKombuClientBase(object):
 
 
     def _start(self):
-        self._reconnect()
+        self._reconnect(delete_old_q=True)
 
         self._publisher_greenlet = gevent.spawn(self._publisher)
         self._connection_monitor_greenlet = gevent.spawn(self._connection_watch)
