@@ -27,6 +27,7 @@ static void ShowXmppNeighborVisitor(
     resp.set_peer(bx_channel->ToString());
     resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
     resp.set_deleted(bx_channel->peer_deleted());
+    resp.set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
     resp.set_local_address(bx_channel->local_endpoint().address().to_string());
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");
@@ -61,6 +62,7 @@ static void ShowXmppNeighborSummaryVisitor(
     BgpNeighborResp resp;
     resp.set_peer(bx_channel->ToString());
     resp.set_deleted(bx_channel->peer_deleted());
+    resp.set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
     resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");

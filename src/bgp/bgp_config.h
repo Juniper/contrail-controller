@@ -168,6 +168,9 @@ public:
         address_families_ = address_families;
     }
 
+    uint64_t last_change_at() const { return last_change_at_; }
+    void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
+
     const std::vector<std::string> AuthKeysToString();
 
     int CompareTo(const BgpNeighborConfig &rhs) const;
@@ -188,6 +191,7 @@ private:
     int hold_time_;
     uint32_t local_as_;
     uint32_t local_identifier_;
+    mutable uint64_t last_change_at_;
     AuthenticationData auth_data_;
     AddressFamilyList address_families_;
 
@@ -250,6 +254,9 @@ public:
     int vxlan_id() const { return vxlan_id_; }
     void set_vxlan_id(int vxlan_id) { vxlan_id_ = vxlan_id; }
 
+    uint64_t last_change_at() const { return last_change_at_; }
+    void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
+
     const StaticRouteList &static_routes() const { return static_routes_; }
     void swap_static_routes(StaticRouteList *list) {
         std::swap(static_routes_, *list);
@@ -274,8 +281,10 @@ private:
     int virtual_network_index_;
     bool virtual_network_allow_transit_;
     int vxlan_id_;
+    mutable uint64_t last_change_at_;
     StaticRouteList static_routes_;
     ServiceChainList service_chain_list_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpInstanceConfig);
 };
 
@@ -309,6 +318,9 @@ public:
     int hold_time() const { return hold_time_; }
     void set_hold_time(int hold_time) { hold_time_ = hold_time; }
 
+    uint64_t last_change_at() const { return last_change_at_; }
+    void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
+
 private:
     std::string instance_name_;
     uint32_t autonomous_system_;
@@ -316,6 +328,8 @@ private:
     uint32_t identifier_;
     int port_;
     int hold_time_;
+    mutable uint64_t last_change_at_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);
 };
 
