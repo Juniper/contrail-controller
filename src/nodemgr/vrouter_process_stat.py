@@ -14,6 +14,7 @@ class process_stat:
         self.stop_time = ''
         self.core_file_list = []
         self.last_exit_unexpected = False
+        self.deleted = False
         self.process_state = 'PROCESS_STATE_STOPPED'
         (self.group, self.name) = self.get_vrouter_process_info(pname)
 

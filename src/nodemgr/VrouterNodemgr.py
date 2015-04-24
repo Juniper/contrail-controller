@@ -47,6 +47,9 @@ class VrouterEventManager(EventManager):
         self.module = Module.COMPUTE_NODE_MGR
         self.module_id =  ModuleNames[self.module]
 
+        self.supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
+        self.add_current_process(process_stat)
+
         os_nova_comp = process_stat('openstack-nova-compute')
         (os_nova_comp_state, error_value) = Popen("openstack-status | grep openstack-nova-compute | cut -d ':' -f2", shell=True, stdout=PIPE).communicate()
         os_nova_comp.process_state = os_nova_comp_state.strip()
@@ -58,9 +61,6 @@ class VrouterEventManager(EventManager):
             os_nova_comp.process_state = 'PROCESS_STATE_FATAL'
         sys.stderr.write('Openstack Nova Compute status:' + os_nova_comp.process_state + "\n")
         self.process_state_db['openstack-nova-compute'] = os_nova_comp
-
-        self.supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
-        self.add_current_process(process_stat)
     #end __init__
 
     def process(self):
@@ -92,6 +92,13 @@ class VrouterEventManager(EventManager):
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
 
+    # overridden delete_process_handler - ignore delete in case of openstack-nova-compute
+    def delete_process_handler(self, deleted_process):
+        if deleted_process == 'openstack-nova-compute':
+            return
+        super(VrouterEventManager, self).delete_process_handler(deleted_process)
+    # end delete_process_handler
+
     def runforever(self, test=False):
         prev_current_time = int(time.time())
         while 1:
@@ -110,6 +117,10 @@ class VrouterEventManager(EventManager):
             # check for process state change events
             if headers['eventname'].startswith("PROCESS_STATE"):
                 self.event_process_state(pheaders, headers)
+                # check for addition / deletion of processes in the node.
+                # Tor Agent process can get added / deleted based on need.
+                self.update_current_process(process_stat)
+
             # check for flag value change events
             if headers['eventname'].startswith("PROCESS_COMMUNICATION"):
                 self.event_process_communication(pdata)
