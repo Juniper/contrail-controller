@@ -121,6 +121,9 @@ public:
     // Get TOR Service Node IP
     Ip4Address tsn_ip();
 
+    // Process jsonrpc_msg for IDL, takes ownership of jsonrpc_msg
+    void MessageProcess(struct jsonrpc_msg *msg);
+
     KSyncObjectManager *ksync_obj_manager();
     OvsPeer *route_peer();
     bool deleted() { return deleted_; }
@@ -149,7 +152,6 @@ private:
     friend void intrusive_ptr_release(OvsdbClientIdl *p);
 
     struct ovsdb_idl *idl_;
-    struct json_parser * parser_;
     const struct vteprec_global *vtep_global_;
     OvsdbClientSession *session_;
     Agent *agent_;
