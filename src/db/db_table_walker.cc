@@ -4,7 +4,6 @@
 
 #include "db/db_table_walker.h"
 
-#include <list>
 #include <tbb/atomic.h>
 
 #include "base/logging.h"
@@ -16,16 +15,6 @@
 
 int DBTableWalker::walker_task_id_ = -1;
 
-DBTableWalker::DBTableWalker() {
-    if (walker_task_id_ == -1) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        // Using same task id as DBPartition
-        walker_task_id_ = scheduler->GetTaskId("db::DBTable");
-    }
-    walk_request_count_ = 0;
-    walk_complete_count_ = 0;
-    walk_cancel_count_ = 0;
-}
 class DBTableWalker::Walker {
 public:
     Walker(WalkId id, DBTableWalker *wkmgr, DBTable *table,
@@ -152,15 +141,16 @@ walk_done:
     // Check whether all other walks on the table is completed
     long num_walkers_on_tpart = walker_->status_.fetch_and_decrement();
     if (num_walkers_on_tpart == 1) {
-        // Invoke Walker_Complete callback
-        if (!walker_->should_stop_) {
-            walker_->wkmgr_->update_walk_complete_count(+1);
-        }
-        if (walker_->done_fn_ != NULL) {
-            if (!walker_->should_stop_) {
+        if (walker_->should_stop_) {
+            walker_->table_->incr_walk_cancel_count();
+        } else {
+            walker_->table_->incr_walk_complete_count();
+            // Invoke Walker_Complete callback
+            if (walker_->done_fn_ != NULL) {
                 walker_->done_fn_(walker_->table_);
             }
         }
+
         // Release the memory for walker and bitmap
         walker_->wkmgr_->PurgeWalker(walker_->id_);
     }
@@ -183,12 +173,20 @@ DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
     }
 }
 
+DBTableWalker::DBTableWalker() {
+    if (walker_task_id_ == -1) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        // Using same task id as DBPartition
+        walker_task_id_ = scheduler->GetTaskId("db::DBTable");
+    }
+}
+
 DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table, 
                                                const DBRequestKey *key_start, 
                                                WalkFn walkerfn , 
                                                WalkCompleteFn walk_complete) {
+    table->incr_walk_request_count();
     tbb::mutex::scoped_lock lock(walkers_mutex_);
-    walk_request_count_++;
     size_t i = walker_map_.find_first();
     if (i == walker_map_.npos) {
         i = walkers_.size();
@@ -209,7 +207,6 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
 
 void DBTableWalker::WalkCancel(WalkId id) {
     tbb::mutex::scoped_lock lock(walkers_mutex_);
-    walk_cancel_count_++;
     walkers_[id]->StopWalk();
     // Purge to be called after task has stopped
 }
