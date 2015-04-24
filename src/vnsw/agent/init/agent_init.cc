@@ -97,7 +97,7 @@ int AgentInit::Start() {
 
     agent_param_->PostValidateLogConfig();
 
-    int task_id = agent_->task_scheduler()->GetTaskId("db::DBTable");
+    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_INIT_TASKNAME);
     trigger_.reset(new TaskTrigger(boost::bind(&AgentInit::InitBase, this),
                                    task_id, 0));
     trigger_->Set();
@@ -335,7 +335,7 @@ static bool FlushTable(AgentDBTable *table, DBTableWalker *walker) {
 
 void AgentInit::DeleteDBEntriesBase() {
     DBTableWalker walker;
-    int task_id = agent_->task_scheduler()->GetTaskId("db::DBTable");
+    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_INIT_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&DeleteRoutesInternal, this));
 
@@ -468,7 +468,7 @@ static bool KSyncShutdownInternal(AgentInit *init) {
 }
 
 void AgentInit::Shutdown() {
-    int task_id = agent_->task_scheduler()->GetTaskId("db::DBTable");
+    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_INIT_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&IoShutdownInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&FlushFlowsInternal, this));
