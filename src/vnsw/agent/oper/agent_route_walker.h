@@ -46,12 +46,14 @@ struct AgentRouteWalkerQueueEntry {
         DONE_WALK
     };
 
-    AgentRouteWalkerQueueEntry(VrfEntry *vrf, RequestType type) :
-        vrf_ref_(vrf), type_(type) { }
+    AgentRouteWalkerQueueEntry(VrfEntry *vrf, RequestType type,
+                               bool all_walks_done) :
+        vrf_ref_(vrf), type_(type), all_walks_done_(all_walks_done) { }
     virtual ~AgentRouteWalkerQueueEntry() { }
 
     VrfEntryRef vrf_ref_;
     RequestType type_;
+    bool all_walks_done_;
 };
 
 class AgentRouteWalker {
@@ -100,11 +102,12 @@ private:
     void CancelRouteWalkInternal(const VrfEntry *vrf);
 
     void Callback(VrfEntry *vrf);
-    void CallbackInternal(VrfEntry *vrf);
+    void CallbackInternal(VrfEntry *vrf, bool all_walks_done);
     void OnWalkComplete();
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
     void IncrementWalkCount() {walk_count_++;}
+    bool AreAllWalksDone() const;
 
     Agent *agent_;
     AgentRouteWalker::WalkType walk_type_;    
