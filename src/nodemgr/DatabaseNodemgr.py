@@ -75,13 +75,13 @@ class DatabaseEventManager(EventManager):
 
         (linux_dist, x, y) = platform.linux_distribution()
         if (linux_dist == 'Ubuntu'):
-            (disk_space_used, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2 \`/ContrailAnalytics | grep %` && echo $3 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (disk_space_available, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (analytics_db_size, error_value) = Popen("set `du -skL \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+            (disk_space_used, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$3}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (disk_space_available, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$4}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (analytics_db_size, error_value) = Popen("set `du  -skL \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | awk '{s+=$1}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
         else:
-            (disk_space_used, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2 \`/ContrailAnalytics | grep %` && echo $3 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (disk_space_available, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (analytics_db_size, error_value) = Popen("set `du -skL \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+            (disk_space_used, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/conf/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$3}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (disk_space_available, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/conf/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$4}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (analytics_db_size, error_value) = Popen("set `du  -skL \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/conf/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | awk '{s+=$1}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
         disk_space_total = int(disk_space_used) + int(disk_space_available)
         try:
             min_disk_opt = Config.get("DEFAULT", "minimum_diskGB")
@@ -115,13 +115,13 @@ class DatabaseEventManager(EventManager):
     def database_periodic(self):
         (linux_dist, x, y) = platform.linux_distribution()
         if (linux_dist == 'Ubuntu'):
-            (disk_space_used, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2 \`/ContrailAnalytics | grep %` && echo $3 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (disk_space_available, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (analytics_db_size, error_value) = Popen("set `du -skL \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+            (disk_space_used, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$3}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (disk_space_available, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$4}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (analytics_db_size, error_value) = Popen("set `du  -skL \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | awk '{s+=$1}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
         else:
-            (disk_space_used, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2 \`/ContrailAnalytics | grep %` && echo $3 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (disk_space_available, error_value) = Popen("set `df -Pk \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
-            (analytics_db_size, error_value) = Popen("set `du -skL \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+            (disk_space_used, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/conf/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$3}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (disk_space_available, error_value) = Popen("set `df -Pk \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/conf/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | grep % | awk '{s+=$4}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
+            (analytics_db_size, error_value) = Popen("set `du  -skL \`sed -n  -e  '/'data_file_directories'/,/'#'/p'  /etc/cassandra/conf/cassandra.yaml | grep  '-' | cut -d '-' -f2 | sed 's/$/\/ContrailAnalytics/'\` | awk '{s+=$1}END{print s}'` && echo $1", shell=True, stdout=PIPE).communicate()
         db_stat = DatabaseUsageStats()
         db_info = DatabaseUsageInfo()
         try:
