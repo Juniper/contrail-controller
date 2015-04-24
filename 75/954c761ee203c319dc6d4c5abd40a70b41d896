@@ -1,0 +1,9 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+2: Édouard Thuleau <edouard.thuleau@cloudwatt.com>
+Approved+1: Sachin Bansal <sachin@contrailsystems.com>
+Code-Review+2: Sachin Bansal <sachin@contrailsystems.com>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Fri, 24 Apr 2015 11:06:08 -0700
+Reviewed-on: https://review.opencontrail.org/9068
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
