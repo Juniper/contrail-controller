@@ -1,9 +1,9 @@
 struct IpmiSensor {
-    1: string sensor;
-    2: string status;
-    3: u64 reading;
-    4: string unit;
-    5: string sensor_type;
+    1: string sensor
+    2: string status
+    3: u64 reading
+    4: string unit
+    5: string sensor_type
 }
 
 struct IpmiChassis_status_info {
@@ -16,14 +16,20 @@ struct IpmiChassis_status_info {
     7: string last_power_event
     8: string chassis_intrusion
     9: string front_panel_lockout
-    10: bool        drive_fault
-    11: bool        cooling_fan_fault
+    10: bool drive_fault
+    11: bool cooling_fan_fault
 }
 
 struct Disk {
-    1: string disk_name;
-    2: u64 read_MB;
-    3: u64 write_MB;
+    1: string disk_name
+    2: optional u64 read_bytes
+    3: optional u64 write_bytes
+}
+
+struct Disk_totals {
+    1: string disk_name
+    2: optional u64 total_read_bytes
+    3: optional u64 total_write_bytes
 }
 
 struct network_info {
@@ -34,24 +40,50 @@ struct network_info {
     5: optional string interface_name
 }
 
+struct network_info_totals {
+    1: optional u64 total_tx_bytes
+    2: optional u64 total_tx_packets
+    3: optional u64 total_rx_bytes
+    4: optional u64 total_rx_packets
+    5: optional string interface_name
+}
+
 struct resource_info {
     1: optional double cpu_usage_percentage
     2: optional double mem_usage_mb
     3: optional double mem_usage_percent
 }
 
+struct physical_disk_view {
+    1: string disk_name
+    2: optional u64 disk_size_kb
+    3: optional u64 disk_used_kb
+    4: optional u64 disk_available_kb
+    5: optional u32 disk_used_percentage
+}
+
+struct file_system_view {
+        1: string fs_name
+        2: optional u64 size_kb
+        3: optional u64 used_kb
+        4: optional u64 available_kb
+        5: optional u32 used_percentage
+        6: optional string mountpoint
+        7: optional string type
+        8: optional list <physical_disk_view> physical_disks (tags=".disk_name,.disk_used_percentage")
+}
+
 struct ServerMonitoringInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
     3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
-    4: optional list<IpmiSensor> sensor_state
-    6: optional IpmiChassis_status_info chassis_state
-    7: optional list<Disk> disk_usage_stats (tags=".disk_name")
-    8: optional list<Disk> disk_usage_state
-    9: optional list<resource_info> resource_info_stats (tags="")
-    10: optional resource_info resource_info_state
-    11: optional list<network_info> network_info_stats (tags=".interface_name")
-    12: optional list<network_info> network_info_state
+    4: optional IpmiChassis_status_info chassis_state
+    5: optional list<Disk> disk_usage_stats (tags=".disk_name")
+    6: optional list<Disk_totals> disk_usage_totals
+    7: optional resource_info resource_info_stats (tags="")
+    8: optional list<network_info> network_info_stats (tags=".interface_name")
+    9: optional list<network_info_totals> network_info_totals
+    10: optional list<file_system_view> file_system_view_stats (tags="name:.fs_name,.used_percentage")
 }
 
 uve sandesh ServerMonitoringInfoUve {
