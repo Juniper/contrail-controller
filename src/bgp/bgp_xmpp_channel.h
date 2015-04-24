@@ -88,7 +88,8 @@ public:
     boost::asio::ip::tcp::endpoint local_endpoint();
 
     void set_peer_deleted(); // For unit testing only.
-    bool peer_deleted();
+    bool peer_deleted() const;
+    uint64_t peer_deleted_at() const;
 
     const XmppSession *GetSession() const;
     const Stats &rx_stats() const { return stats_[RX]; }

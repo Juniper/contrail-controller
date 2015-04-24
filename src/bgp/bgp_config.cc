@@ -4,6 +4,7 @@
 #include "bgp/bgp_config.h"
 
 #include "base/string_util.h"
+#include "base/time_util.h"
 
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
@@ -139,7 +140,8 @@ BgpNeighborConfig::BgpNeighborConfig()
           port_(BgpConfigManager::kDefaultPort),
           hold_time_(0),
           local_as_(0),
-          local_identifier_(0) {
+          local_identifier_(0),
+          last_change_at_(UTCTimestampUsec()) {
 }
 
 void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
@@ -189,7 +191,8 @@ BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
           local_autonomous_system_(0),
           identifier_(0), 
           port_(0),
-          hold_time_(-1) {
+          hold_time_(-1),
+          last_change_at_(UTCTimestampUsec()) {
 }
 
 int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
@@ -205,7 +208,8 @@ BgpInstanceConfig::BgpInstanceConfig(const std::string &name)
         : name_(name),
           virtual_network_index_(0), 
           virtual_network_allow_transit_(false),
-          vxlan_id_(0) {
+          vxlan_id_(0),
+          last_change_at_(UTCTimestampUsec()) {
 }
 
 BgpInstanceConfig::~BgpInstanceConfig() {
@@ -232,6 +236,7 @@ BgpConfigManager::~BgpConfigManager() {
 template<>
 void BgpConfigManager::Notify<BgpInstanceConfig>(
         const BgpInstanceConfig *config, EventType event) {
+    config->set_last_change_at(UTCTimestampUsec());
     if (obs_.instance) {
         (obs_.instance)(config, event);
     }
@@ -240,6 +245,7 @@ void BgpConfigManager::Notify<BgpInstanceConfig>(
 template<>
 void BgpConfigManager::Notify<BgpProtocolConfig>(
         const BgpProtocolConfig *config, EventType event) {
+    config->set_last_change_at(UTCTimestampUsec());
     if (obs_.protocol) {
         (obs_.protocol)(config, event);
     }
@@ -248,6 +254,7 @@ void BgpConfigManager::Notify<BgpProtocolConfig>(
 template<>
 void BgpConfigManager::Notify<BgpNeighborConfig>(
         const BgpNeighborConfig *config, EventType event) {
+    config->set_last_change_at(UTCTimestampUsec());
     if (obs_.neighbor) {
         (obs_.neighbor)(config, event);
     }
