@@ -122,7 +122,6 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     vtep_global_= ovsdb_wrapper_vteprec_global_first(idl_);
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
             ovsdb_wrapper_idl_callback, ovsdb_wrapper_idl_txn_ack);
-    parser_ = NULL;
     receive_queue_ = new WorkQueue<OvsdbMsg *>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientIdl::ProcessMessage, this, _1));
@@ -193,65 +192,7 @@ void OvsdbClientIdl::OnEstablish() {
 }
 
 void OvsdbClientIdl::SendJsonRpc(struct jsonrpc_msg *msg) {
-    struct json *json_msg = ovsdb_wrapper_jsonrpc_msg_to_json(msg);
-    char *s = ovsdb_wrapper_json_to_string(json_msg, 0);
-    ovsdb_wrapper_json_destroy(json_msg);
-
-    session_->SendMsg((u_int8_t *)s, strlen(s));
-    // release the memory allocated by ovsdb_wrapper_json_to_string
-    free(s);
-}
-
-// This is invoked from OVSDB::IO task context. Handle the keepalive messages
-// in The OVSDB::IO task context itself. OVSDB::IO should not have exclusion
-// with any of the tasks
-void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
-    std::size_t used = 0;
-    // Multiple json message may be clubbed together, need to keep reading
-    // the buffer till whole message is consumed.
-    while (used != len) {
-        if (parser_ == NULL) {
-            parser_ = ovsdb_wrapper_json_parser_create(0);
-        }
-        const u_int8_t *pkt = buf + used;
-        std::size_t pkt_len = len - used;
-        std::size_t read;
-        read = ovsdb_wrapper_json_parser_feed(parser_, (const char *)pkt,
-                                              pkt_len);
-        used +=read;
-
-        /* If we have complete JSON, attempt to parse it as JSON-RPC. */
-        if (ovsdb_wrapper_json_parser_is_done(parser_)) {
-            struct json *json = ovsdb_wrapper_json_parser_finish(parser_);
-            parser_ = NULL;
-            struct jsonrpc_msg *msg;
-            char *error = ovsdb_wrapper_jsonrpc_msg_from_json(json, &msg);
-            if (error) {
-                assert(0);
-                free(error);
-            }
-
-            if (ovsdb_wrapper_msg_echo_req(msg)) {
-                // Echo request from ovsdb-server, reply inline so that
-                // ovsdb-server knows that connection is still active
-                struct jsonrpc_msg *reply;
-                reply = ovsdb_wrapper_jsonrpc_create_reply(msg);
-                SendJsonRpc(reply);
-            }
-
-            // Process all received messages in a KSync workqueue task context,
-            // to assure only one thread is writting data to OVSDB client.
-            // we even enqueue processed echo req message to workqueue, to
-            // track session activity in KSync task context.
-            if (!deleted_) {
-                OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
-                receive_queue_->Enqueue(ovs_msg);
-                continue;
-            }
-
-            ovsdb_wrapper_jsonrpc_msg_destroy(msg);
-        }
-    }
+    session_->SendJsonRpc(msg);
 }
 
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
@@ -306,6 +247,13 @@ void OvsdbClientIdl::NotifyDelAdd(struct ovsdb_idl_row *row) {
 
 Ip4Address OvsdbClientIdl::tsn_ip() {
     return session_->tsn_ip();
+}
+
+void OvsdbClientIdl::MessageProcess(struct jsonrpc_msg *msg) {
+    // Enqueue all received messages in receive queue running KSync task
+    // context, to assure only one thread is writting data to OVSDB client.
+    OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
+    receive_queue_->Enqueue(ovs_msg);
 }
 
 KSyncObjectManager *OvsdbClientIdl::ksync_obj_manager() {
