@@ -24,7 +24,7 @@ setuptools.setup(
 
         install_requires=requirements('requirements.txt'),
 
-        test_suite='contrail_snmp_scanner.tests',
+        test_suite='contrail_snmp_collector.tests',
         tests_require=requirements('test-requirements.txt'),
         entry_points = {
           'console_scripts' : [

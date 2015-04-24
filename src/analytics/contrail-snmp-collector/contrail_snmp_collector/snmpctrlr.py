@@ -23,7 +23,7 @@ class MaxNinTtime(object):
         t = time.time()
         diff = t - self._slots[self._pointer]
         if diff < self._t:
-            rt = diff
+            rt = self._t - diff
         self._add(t)
         return rt
 
