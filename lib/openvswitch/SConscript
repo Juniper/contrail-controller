@@ -6,7 +6,7 @@ import sys
 vpath = '#/third_party/openvswitch-2.3.0'
 
 env = DefaultEnvironment()
-env['ENV']['CFLAGS'] = '-DOPEN_CONTRAIL_CLIENT'
+env['ENV']['CFLAGS'] = '-DOPEN_CONTRAIL_CLIENT -g'
 
 config_opts = '--prefix=' + str(Dir('#/build'))
 
