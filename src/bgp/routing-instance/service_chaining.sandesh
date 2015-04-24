@@ -40,12 +40,13 @@ response sandesh ShowServiceChainResp {
 }
 
 request sandesh ShowServiceChainReq {
+    1: string search_string;
 }
-
 
 response sandesh ShowPendingServiceChainResp {
     1: list<string> pending_chains;
 }
 
 request sandesh ShowPendingServiceChainReq {
+    1: string search_string;
 }
