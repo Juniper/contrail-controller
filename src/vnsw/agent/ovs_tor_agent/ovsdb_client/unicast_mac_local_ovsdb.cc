@@ -30,6 +30,12 @@ using OVSDB::OvsdbClientSession;
 using std::string;
 
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
+        const std::string &logical_switch, const std::string &mac) :
+    OvsdbEntry(table), mac_(mac), logical_switch_name_(logical_switch),
+    dest_ip_("") {
+}
+
+UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
         const UnicastMacLocalEntry *key) : OvsdbEntry(table), mac_(key->mac_),
     logical_switch_name_(key->logical_switch_name_), dest_ip_(key->dest_ip_) {
 }
