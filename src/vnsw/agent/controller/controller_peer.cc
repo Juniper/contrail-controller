@@ -1779,6 +1779,12 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
     BridgeRouteEntry *l2_route =
         dynamic_cast<BridgeRouteEntry *>(route);
     path = l2_route->FindOvsPath();
+    if (path == NULL) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(),
+                         route->vrf()->GetName(),
+                         "OVS path not found for ff:ff:ff:ff:ff:ff, skip send");
+        return false;
+    }
 
     item.entry.local_preference = PathPreference::LOW;
     item.entry.sequence_number = 0;
