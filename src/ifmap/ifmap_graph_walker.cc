@@ -153,26 +153,24 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
     BitSet done_set;
     while (i != BitSet::npos) {
         IFMapClient *client = server->GetClient(i);
-        if (client == NULL) {
-            continue;
+        if (client) {
+            IFMapTable *table = IFMapTable::FindTable(server->database(),
+                                                      "virtual-router");
+            IFMapNode *node = table->FindNode(client->identifier());
+            if ((node != NULL) && node->IsVertexValid()) {
+                graph_->Visit(node,
+                 boost::bind(&IFMapGraphWalker::RecomputeInterest, this, _1, i),
+                 0, *traversal_white_list_.get());
+            }
+            done_set.set(i);
+            if (++count == kMaxLinkDeleteWalks) {
+                // client 'i' has been processed. If 'i' is the last bit set, we
+                // will return true below. Else we will return false and there
+                // is atleast one more bit left to process.
+                break;
+            }
         }
-        // TODO: In order to handle interest based on the vswitch registration
-        // there need to be links in the graph that correspond to these.
-        IFMapTable *table = IFMapTable::FindTable(server->database(),
-                                                  "virtual-router");
-        IFMapNode *node = table->FindNode(client->identifier());
-        if ((node != NULL) && node->IsVertexValid()) {
-            graph_->Visit(node,
-                boost::bind(&IFMapGraphWalker::RecomputeInterest, this, _1, i),
-                0, *traversal_white_list_.get());
-        }
-        done_set.set(i);
-        if (++count == kMaxLinkDeleteWalks) {
-            // client 'i' has been processed. If 'i' is the last bit set, we
-            // will return true below. Else we will return false and there is
-            // atleast one more bit left to process.
-            break;
-        }
+
         i = link_delete_clients_.find_next(i);
     }
     // Remove the subset of clients that we have finished processing.
