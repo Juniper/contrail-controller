@@ -13,6 +13,7 @@
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_peer_close.h"

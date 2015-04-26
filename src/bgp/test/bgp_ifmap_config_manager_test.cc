@@ -15,6 +15,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
