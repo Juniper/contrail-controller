@@ -955,6 +955,8 @@ class VirtualNetworkST(DictST):
     @staticmethod
     def protocol_policy_to_acl(pproto):
         # convert policy proto input(in str) to acl proto (num)
+        if pproto is None:
+            return 'any'
         if pproto.isdigit():
             return pproto
         return _PROTO_STR_TO_NUM.get(pproto.lower())
@@ -3328,9 +3330,9 @@ class SchemaTransformer(object):
                 if policy_rule_entries is None:
                     continue
                 for prule in policy_rule_entries.policy_rule:
-                    if prule.action_list is None:
-                        continue
-                    if prule.action_list.mirror_to is None:
+                    if (prule.action_list is None or
+                        prule.action_list.mirror_to is None or
+                        prule.action_list.mirror_to.analyzer_name is None):
                         continue
                     (vn_analyzer, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
                         prule.action_list.mirror_to.analyzer_name)
