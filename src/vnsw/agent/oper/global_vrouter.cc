@@ -293,8 +293,15 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
     InetUnicastAgentRouteTable *rt_table =
         vrf_entry->GetInet4UnicastRouteTable();
 
+    LinkLocalDBState *state = static_cast<LinkLocalDBState *>
+        (vn_entry->GetState(vn_entry->get_table_partition()->parent(), vn_id_));
+    if (!state) {
+        return true;
+    }
+
     if (is_add) {
         if (vn_entry->layer3_forwarding()) {
+            state->Add(key.linklocal_service_ip);
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
@@ -303,6 +310,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
                                         true);
         }
     } else {
+        state->Delete(key.linklocal_service_ip);
         rt_table->DeleteReq(agent->link_local_peer(), vrf_entry->GetName(),
                             key.linklocal_service_ip, 32, NULL);
     }
@@ -325,13 +333,10 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
             return true;
         InetUnicastAgentRouteTable *rt_table =
             state->vrf_->GetInet4UnicastRouteTable();
-        const GlobalVrouter::LinkLocalServicesMap &services =
-                   global_vrouter_->linklocal_services_map();
-        for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
-             services.begin(); it != services.end(); ++it) {
+        for (std::set<Ip4Address>::const_iterator it =
+             state->addresses_.begin(); it != state->addresses_.end(); ++it) {
             rt_table->DeleteReq(agent->link_local_peer(),
-                                state->vrf_->GetName(),
-                                it->first.linklocal_service_ip, 32, NULL);
+                                state->vrf_->GetName(), *it, 32, NULL);
         }
         vn_entry->ClearState(partition->parent(), vn_id_);
         delete state;
@@ -355,6 +360,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
+            state->Add(it->first.linklocal_service_ip);
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
