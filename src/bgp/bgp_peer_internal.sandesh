@@ -2,7 +2,45 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+include "bgp/bgp_peer.sandesh"
+
+request sandesh ShowNeighborStatisticsReq {
+    1: string bgp_or_xmpp; // BGP or XMPP
+    2: string up_or_down;  // "UP" for Established, "DOWN" for not-Established
+    3: string domain;      // Name of the routing-instance
+}
+
+response sandesh ShowNeighborStatisticsResp {
+    1: string bgp_or_xmpp; // BGP or XMPP
+    2: string up_or_down;  // "UP" for Established, "DOWN" for not-Established
+    3: string domain;      // Name of the routing-instance
+    4: u32 count;
+}
+
 request sandesh ShowRouteReqIterate {
     1: string route_info
 }
 
+request sandesh ShowRouteVrfReq {
+    1: string vrf;
+    2: string prefix;
+}
+
+response sandesh ShowRouteVrfResp {
+    1: bgp_peer.ShowRoute route;
+}
+
+response sandesh ShowMulticastManagerDetailResp {
+    1: list<bgp_peer.ShowMulticastTree> trees;
+}
+
+request sandesh ShowMulticastManagerDetailReq {
+    1: string name;
+}
+
+response sandesh ShowBgpPeeringConfigResp {
+    1: list<bgp_peer.ShowBgpPeeringConfig> peerings;
+}
+
+request sandesh ShowBgpPeeringConfigReq {
+}
