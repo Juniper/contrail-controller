@@ -5,6 +5,8 @@
 #ifndef BASE_TIME_UTIL_H__
 #define BASE_TIME_UTIL_H__
 
+#include <sstream>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
@@ -35,6 +37,14 @@ static inline boost::posix_time::ptime UTCUsecToPTime(uint64_t tusec) {
                    tusec/1000000, 
                    boost::posix_time::time_duration::ticks_per_second()/1000000*(tusec%1000000)));
     return pt;
+}
+
+static inline std::string UTCUsecToString(uint64_t tstamp) {
+    if (tstamp == 0)
+        return "";
+    std::stringstream ss;
+    ss << UTCUsecToPTime(tstamp);
+    return ss.str();
 }
 
 static inline const std::string duration_usecs_to_string(const uint64_t usecs) {

@@ -1732,6 +1732,7 @@ void BgpPeer::FillNeighborInfo(vector<BgpNeighborResp> *nbr_list,
     BgpNeighborResp nbr;
     nbr.set_peer(peer_basename_);
     nbr.set_deleted(IsDeleted());
+    nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_peer_id(Ip4Address(remote_bgp_id_).to_string());
     nbr.set_peer_asn(peer_as());

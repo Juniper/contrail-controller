@@ -314,7 +314,8 @@ public:
         : server_(server),
           parent_(channel),
           is_deleted_(false),
-          send_ready_(true) {
+          send_ready_(true),
+          deleted_at_(0) {
         refcount_ = 0;
     }
 
@@ -364,7 +365,12 @@ public:
     virtual void Close();
 
     const bool IsDeleted() const { return is_deleted_; }
-    void SetDeleted(bool deleted) { is_deleted_ = deleted; }
+    void SetDeleted(bool deleted) {
+        is_deleted_ = deleted;
+        if (is_deleted_)
+            deleted_at_ = UTCTimestampUsec();
+    }
+    uint64_t deleted_at() const { return deleted_at_; }
 
     virtual BgpProto::BgpPeerType PeerType() const {
         return BgpProto::XMPP;
@@ -401,6 +407,7 @@ private:
     mutable tbb::atomic<int> refcount_;
     bool is_deleted_;
     bool send_ready_;
+    uint64_t deleted_at_;
 };
 
 static bool SkipUpdateSend() {
@@ -2495,6 +2502,13 @@ boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() {
 //
 // Return true if the XmppPeer is deleted.
 //
-bool BgpXmppChannel::peer_deleted() {
+bool BgpXmppChannel::peer_deleted() const {
     return peer_->IsDeleted();
+}
+
+//
+// Return time stamp of when the XmppPeer delete was initiated.
+//
+uint64_t BgpXmppChannel::peer_deleted_at() const {
+    return peer_->deleted_at();
 }

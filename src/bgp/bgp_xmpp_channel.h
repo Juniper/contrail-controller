@@ -84,7 +84,8 @@ public:
     std::string StateName() const;
     boost::asio::ip::tcp::endpoint remote_endpoint();
     boost::asio::ip::tcp::endpoint local_endpoint();
-    bool peer_deleted();
+    bool peer_deleted() const;
+    uint64_t peer_deleted_at() const;
 
     const XmppSession *GetSession() const;
     const Stats &rx_stats() const { return stats_[RX]; }
