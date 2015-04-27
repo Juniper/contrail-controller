@@ -163,7 +163,7 @@ class InstanceManager(object):
             id_perms = IdPermsType(enable=True, user_visible=user_visible)
             vn_obj.set_id_perms(id_perms)
         domain_name, project_name = proj_obj.get_fq_name()
-        ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
+        ipam_fq_name = [domain_name, project_name, 'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         cidr = vn_subnet.split('/')
         pfx = cidr[0]
