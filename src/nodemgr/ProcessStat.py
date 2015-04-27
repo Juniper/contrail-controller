@@ -1,6 +1,6 @@
 import socket
 
-class process_stat:
+class ProcessStat(object):
     def __init__(self, pname):
         self.start_count = 0
         self.stop_count = 0

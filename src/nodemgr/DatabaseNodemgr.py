@@ -14,7 +14,6 @@ import gevent
 import ConfigParser
 
 from nodemgr.EventManager import EventManager
-from nodemgr.process_stat import process_stat
 
 from ConfigParser import NoOptionError
 
@@ -48,7 +47,7 @@ class DatabaseEventManager(EventManager):
         self.module = Module.DATABASE_NODE_MGR
         self.module_id =  ModuleNames[self.module]
         self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
-        self.add_current_process(process_stat)
+        self.add_current_process()
     #end __init__
 
     def process(self):

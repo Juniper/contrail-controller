@@ -27,8 +27,8 @@ local_sources = [
            'VrouterNodemgr.py',
            'DatabaseNodemgr.py',
            'EventManager.py',
-           'vrouter_process_stat.py',
-           'process_stat.py',
+           'VrouterProcessStat.py',
+           'ProcessStat.py',
            'EventListenerProtocolNodeMgr.py',
            'main.py'
           ]
