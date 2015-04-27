@@ -26,8 +26,11 @@ systemlog sandesh XmppStateMachineDebug {
 systemlog sandesh XmppEventLog {
     1: string f1;
     2: string f2;
-    3: " peer: ";
+    3: "peer ip:";
     4: string f3;
+    5: "(";
+    6: string f4;
+    7: ")";
 }
 
 systemlog sandesh XmppOpen {
@@ -167,6 +170,9 @@ systemlog sandesh XmppStateMachineDequeueEvent {
    3: string f2;
    4: " In State ";
    5: string f3;
-   6: "from ";
+   6: "peer";
    7: string f4;
+   8: "(";
+   9: string f5;
+   10: ")"
 }

@@ -73,6 +73,12 @@ public:
         GetIsPeerCloseGraceful_fnc_ =
             boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
+    XmppServerTest(EventManager *evm, const std::string &server_addr,
+                   const XmppChannelConfig *config) :
+        XmppServer(evm, server_addr, config) {
+        GetIsPeerCloseGraceful_fnc_ =
+            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
+    }
     virtual ~XmppServerTest() { }
 
     virtual bool IsPeerCloseGraceful() {

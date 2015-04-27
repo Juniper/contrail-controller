@@ -735,12 +735,13 @@ void NetworkAgentMock::Initialize() {
 
 NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
                                    int server_port, string local_address,
-                                   string server_address)
+                                   string server_address, bool xmpp_auth_enabled)
     : client_(new XmppClient(evm)), impl_(new XmppDocumentMock(hostname)),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
                 boost::bind(&NetworkAgentMock::ProcessRequest, this, _1)),
       server_address_(server_address), local_address_(local_address),
-      server_port_(server_port), skip_updates_processing_(false), down_(false) {
+      server_port_(server_port), skip_updates_processing_(false), down_(false),
+      xmpp_auth_enabled_(xmpp_auth_enabled) {
 
     // Static initialization of NetworkAgentMock class.
     Initialize();
@@ -759,7 +760,9 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
             XmppDocumentMock::kConfigurationServiceJID));
 
     XmppConfigData *data = new XmppConfigData();
-    data->AddXmppChannelConfig(CreateXmppConfig());
+    XmppChannelConfig *cfg = CreateXmppConfig();
+    data->AddXmppChannelConfig(cfg);
+    client_ = new XmppClient(evm, cfg);
     client_->ConfigUpdate(data);
     if (!local_address.empty()) {
         impl_->set_localaddr(local_address);
@@ -827,6 +830,15 @@ XmppChannelConfig *NetworkAgentMock::CreateXmppConfig() {
     //
 #endif
 
+    if (xmpp_auth_enabled_) {
+        config->auth_enabled = true;
+        config->path_to_server_cert =
+            "controller/src/xmpp/testdata/server-build02.pem";
+        config->path_to_pvt_key =
+            "controller/src/xmpp/testdata/server-build02.key";
+    } else {
+        config->auth_enabled = false;
+    }
     config->local_endpoint.address(address::from_string(local_address_));
     config->local_endpoint.port(0);
     config->endpoint.port(server_port_);

@@ -25,7 +25,7 @@ public:
             read_fn_(buffer_);
             if (session_->IsSslDisabled()) {
                 session_->AsyncReadStart();
-            } else if (session_->IsSslHandShakeSuccess()) {
+            } else if (!session_->IsSslHandShakeInProgress()) {
                 session_->AsyncReadStart();
             }
         }
@@ -162,12 +162,7 @@ std::size_t SslSession::WriteSome(const uint8_t *data, std::size_t len,
     if (IsSslHandShakeSuccessLocked()) {
         return ssl_socket_->write_some(boost::asio::buffer(data, len), error);
     } else {
-        // No tcp socket read/write while ssl handshake is ongoing
-        if (!ssl_handshake_in_progress_) {
-            return (TcpSession::WriteSome(data, len, error));
-        } else {
-            return 0;
-        }
+        return (TcpSession::WriteSome(data, len, error));
     }
 }
 
@@ -196,16 +191,22 @@ void SslSession::SslHandShakeCallback(SslHandShakeCallbackHandler cb,
     cb(session, error);
 }
 
-void SslSession::TriggerSslHandShake(SslHandShakeCallbackHandler cb) {
+void SslSession::TriggerSslHandShakeInternal(SslSessionPtr session, SslHandShakeCallbackHandler cb) {
     std::srand(std::time(0));
-    ssl_handshake_in_progress_ = true;
-    if (IsServerSession()) {
-        ssl_socket_->async_handshake(boost::asio::ssl::stream_base::server,
-            boost::bind(&SslSession::SslHandShakeCallback, cb, SslSessionPtr(this),
+    boost::system::error_code ec;
+    session->ssl_handshake_in_progress_ = true;
+    if (session->IsServerSession()) {
+        session->ssl_socket_->async_handshake(boost::asio::ssl::stream_base::server,
+            boost::bind(&SslSession::SslHandShakeCallback, cb, session,
             boost::asio::placeholders::error));
     } else {
-        ssl_socket_->async_handshake(boost::asio::ssl::stream_base::client,
-            boost::bind(&SslSession::SslHandShakeCallback, cb, SslSessionPtr(this),
+        session->ssl_socket_->async_handshake(boost::asio::ssl::stream_base::client,
+            boost::bind(&SslSession::SslHandShakeCallback, cb, session,
             boost::asio::placeholders::error));
     }
+}
+
+void SslSession::TriggerSslHandShake(SslHandShakeCallbackHandler cb) {
+    server()->event_manager()->io_service()->post(
+        boost::bind(&TriggerSslHandShakeInternal, SslSessionPtr(this), cb));
 }
