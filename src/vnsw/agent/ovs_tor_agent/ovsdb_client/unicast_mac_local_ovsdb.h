@@ -37,6 +37,8 @@ private:
 class UnicastMacLocalEntry : public OvsdbEntry {
 public:
     UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
+            const std::string &logical_switch, const std::string &mac);
+    UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
             const UnicastMacLocalEntry *key);
     UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
             struct ovsdb_idl_row *row);
