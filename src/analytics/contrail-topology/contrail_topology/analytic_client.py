@@ -65,8 +65,11 @@ class AnalyticApiClient(object):
     def list_vrouters(self):
         return self._vrouters.keys()
 
-    def get_vrouter(self, vrouter):
+    def get_vrouter(self, vrouter, filters=None):
         if vrouter in self.list_vrouters():
+            if filters:
+                func, param = self.get_vrouters()[vrouter].split('?')
+                return self._get_url_json(func + '?cfilt=' + filters)
             return self._get_url_json(self.get_vrouters()[vrouter])
 
     def get_prouters(self, refresh=False):
@@ -78,8 +81,11 @@ class AnalyticApiClient(object):
     def list_prouters(self):
         return self._prouters.keys()
 
-    def get_prouter(self, prouter):
+    def get_prouter(self, prouter, filters=None):
         if prouter in self.list_prouters():
+            if filters:
+                func, param = self.get_prouters()[prouter].split('?')
+                return self._get_url_json(func + '?cfilt=' + filters)
             return self._get_url_json(self.get_prouters()[prouter])
 
 
