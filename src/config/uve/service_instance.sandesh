@@ -89,6 +89,6 @@ struct UveLoadbalancer {
     19: optional list<UveLoadbalancerStats>     member_stats     (tags=".uuid,.obj_name");
 }
 
-uve sandesh UveLoadbalancerStatsTrace {
-    1: UveLoadbalancerStats data
+uve sandesh UveLoadbalancerTrace {
+    1: UveLoadbalancer data
 }
