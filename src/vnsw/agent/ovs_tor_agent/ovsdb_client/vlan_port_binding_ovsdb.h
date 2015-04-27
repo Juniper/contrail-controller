@@ -14,7 +14,7 @@ class VlanLogicalInterface;
 namespace OVSDB {
 class VlanPortBindingTable : public OvsdbDBObject {
 public:
-    VlanPortBindingTable(OvsdbClientIdl *idl, DBTable *table);
+    VlanPortBindingTable(OvsdbClientIdl *idl);
     virtual ~VlanPortBindingTable();
 
     void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row*);

@@ -24,6 +24,7 @@ const struct vteprec_global *ovsdb_wrapper_vteprec_global_first(struct ovsdb_idl
 int ovsdb_wrapper_row_type(struct ovsdb_idl_row *row);
 bool ovsdb_wrapper_msg_echo_req(struct jsonrpc_msg *msg);
 bool ovsdb_wrapper_msg_echo_reply(struct jsonrpc_msg *msg);
+struct json * ovsdb_wrapper_jsonrpc_clone_id(struct jsonrpc_msg *msg);
 struct jsonrpc_msg* ovsdb_wrapper_jsonrpc_create_reply(struct jsonrpc_msg *msg);
 struct jsonrpc_msg* ovsdb_wrapper_jsonrpc_create_echo_request();
 
@@ -31,6 +32,7 @@ void ovsdb_wrapper_idl_set_callback(struct ovsdb_idl *idl, void *idl_base,
         void (*cb)(void*, int, struct ovsdb_idl_row *),
         void (*ack_cb)(void*, struct ovsdb_idl_txn *));
 struct jsonrpc_msg *ovsdb_wrapper_idl_encode_monitor_request(struct ovsdb_idl *);
+bool ovsdb_wrapper_idl_msg_is_monitor_response(struct json *, struct jsonrpc_msg *);
 void ovsdb_wrapper_idl_msg_process(struct ovsdb_idl *, struct jsonrpc_msg *msg);
 struct json *ovsdb_wrapper_jsonrpc_msg_to_json(struct jsonrpc_msg *);
 char *ovsdb_wrapper_json_to_string(const struct json *, int);

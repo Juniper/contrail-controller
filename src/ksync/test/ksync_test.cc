@@ -1001,6 +1001,18 @@ TEST_F(TestUT, trigger_object_delete_with_stale_entry) {
     vlan_table_ = new VlanTable(200);
 }
 
+TEST_F(TestUT, CreateStaleFailure) {
+    // Vlan entry with index 0
+    Vlan *vlan1 = AddVlan(0xF01, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 0);
+
+    // Since vlan is already created, stale creation should fail.
+    Vlan stale_key(0xF01, 0);
+    EXPECT_TRUE(vlan_table_->CreateStale(&stale_key) == NULL);
+
+    // Delete entry with index 0
+    vlan_table_->Delete(vlan1);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();

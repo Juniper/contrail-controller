@@ -91,8 +91,7 @@ KSyncEntry* VrfOvsdbEntry::UnresolvedReference() {
     return NULL;
 }
 
-VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table, true) {
+VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl) : OvsdbDBObject(idl, true) {
     client_idl_->Register(OvsdbClientIdl::OVSDB_UCAST_MAC_REMOTE,
             boost::bind(&VrfOvsdbObject::OvsdbNotify, this, _1, _2));
 }
@@ -111,9 +110,13 @@ void VrfOvsdbObject::OvsdbNotify(OvsdbClientIdl::Op op,
     VrfOvsdbEntry vrf_key(this, logical_switch);
     VrfOvsdbEntry *vrf_ovsdb = static_cast<VrfOvsdbEntry *>(Find(&vrf_key));
 
-    // if vrf is not available create a stale entry
-    // to accomodate stale unicast remote route
     if (vrf_ovsdb == NULL) {
+        if (op == OvsdbClientIdl::OVSDB_DEL) {
+            // nothing to do return from here.
+            return;
+        }
+        // if vrf is not available create a stale entry
+        // to accomodate stale unicast remote route
         vrf_ovsdb = static_cast<VrfOvsdbEntry *>(CreateStale(&vrf_key));
     }
 

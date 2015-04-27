@@ -232,7 +232,9 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
         LogicalSwitchEntry *ls_entry =
             static_cast<LogicalSwitchEntry *>(
                     client_idl_->logical_switch_table()->Find(&key));
-        entry->ovs_binding_table_[new_bind[i].vlan] = ls_entry;
+        if (ls_entry != NULL) {
+            entry->ovs_binding_table_[new_bind[i].vlan] = ls_entry;
+        }
     }
 
     // Compare difference between tor agent and ovsdb server.
@@ -266,6 +268,11 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
                 it++;
             }
         }
+    }
+
+    if (entry->binding_table_.size() != entry->ovs_binding_table_.size()) {
+        // we need to anyway override OVSDB if the table size are different
+        ret_override = true;
     }
 
     count = ovsdb_wrapper_physical_port_vlan_stats_count(entry->ovs_entry());
