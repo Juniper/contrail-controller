@@ -18,7 +18,6 @@ public:
 
     virtual bool SendVrouterMsg();
     void UpdateBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
-    uint32_t GetCpuCount();
 
 protected:
     uint8_t bandwidth_count_;

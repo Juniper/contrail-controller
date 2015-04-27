@@ -46,6 +46,9 @@ struct VmCpuStats {
     3: u64 rss;
     4: u64 virt_memory;
     5: u64 peak_virt_memory;
+    6: u64 max_memory_Kib;
+    7: u64 disk_allocated_bytes;
+    8: u64 disk_used_bytes;
 }
 
 struct UveVirtualMachineAgent {
