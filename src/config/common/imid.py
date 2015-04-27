@@ -21,7 +21,7 @@ from ifmap.operations import PublishUpdateOperation, PublishNotifyOperation, \
 from ifmap.util import attr, link_ids
 from ifmap.response import Response, newSessionResult
 from ifmap.metadata import Metadata
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape as s_esc, unescape as s_unesc
 
 
 _TENANT_GRP = "(?P<tenant_uuid>.*)"
@@ -242,3 +242,11 @@ def parse_poll_result(poll_result_str):
                 result_list.append((result_type, idents, meta))
     return result_list
 # end parse_poll_result
+
+def escape(string):
+    return s_esc(string, entities={'"':'&quot;', "'": "&apos;"})
+# end escape
+
+def unescape(string):
+    return s_unesc(string, entities={'&quot;':'"', "&apos;": "'"})
+# end unescape
