@@ -69,4 +69,26 @@ private:
     std::string dest_ip_;
 };
 
+class AgentUtXmlVlanPortBindingValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlVlanPortBindingValidate(const std::string &name,
+                                      const boost::uuids::uuid &id,
+                                      const pugi::xml_node &node);
+    virtual ~AgentUtXmlVlanPortBindingValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+    virtual uint32_t wait_count() const { return 2000; }
+    virtual uint32_t sleep_time() const { return 2000; }
+
+private:
+    const boost::uuids::uuid id_;
+    bool stale_entry_;
+    std::string physical_device_name_;
+    std::string physical_port_name_;
+    uint16_t vlan_id_;
+    std::string logical_switch_name_;
+};
+
 #endif  // SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_TEST_TEST_XML_OVSDB_H_

@@ -19,6 +19,7 @@
 #include <physical_switch_ovsdb.h>
 #include <logical_switch_ovsdb.h>
 #include <unicast_mac_remote_ovsdb.h>
+#include <vlan_port_binding_ovsdb.h>
 #include <vrf_ovsdb.h>
 
 #include <test-xml/test_xml.h>
@@ -47,12 +48,15 @@ CreateOvsdbValidateNode(const string &type, const string &name,
         return new AgentUtXmlUnicastRemoteValidate(name, id, node);
     if (type == "ovs-vrf")
         return new AgentUtXmlOvsdbVrfValidate(name, id, node);
+    if (type == "ovs-vlan-port-binding")
+        return new AgentUtXmlVlanPortBindingValidate(name, id, node);
 }
 
 void AgentUtXmlOvsdbInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("ovs-logical-switch", CreateOvsdbValidateNode);
     test->AddValidateEntry("ovs-uc-remote", CreateOvsdbValidateNode);
     test->AddValidateEntry("ovs-vrf", CreateOvsdbValidateNode);
+    test->AddValidateEntry("ovs-vlan-port-binding", CreateOvsdbValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -119,11 +123,12 @@ bool AgentUtXmlOvsdbVrfValidate::Validate() {
     VrfOvsdbEntry vrf_key(table, UuidToString(vn_uuid_));
     VrfOvsdbEntry *vrf_entry =
         static_cast<VrfOvsdbEntry *>(table->Find(&vrf_key));
-    if (vrf_entry == NULL) {
-        if (present()) {
+    if (present()) {
+        if (vrf_entry == NULL) {
             return false;
         }
-        return true;
+    } else {
+        return (vrf_entry == NULL);
     }
 
     return true;
@@ -188,5 +193,89 @@ bool AgentUtXmlUnicastRemoteValidate::Validate() {
 
 const string AgentUtXmlUnicastRemoteValidate::ToString() {
     return "ovs-unicast-remote";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlVlanPortBindingValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlVlanPortBindingValidate::AgentUtXmlVlanPortBindingValidate
+(const string &name, const uuid &id, const xml_node &node) :
+    AgentUtXmlValidationNode(name, node), id_(id), stale_entry_(false) {
+}
+
+AgentUtXmlVlanPortBindingValidate::~AgentUtXmlVlanPortBindingValidate() {
+}
+
+bool AgentUtXmlVlanPortBindingValidate::ReadXml() {
+    if (AgentUtXmlValidationNode::ReadXml() == false)
+        return false;
+    if (GetStringAttribute(node(), "physical-device",
+                           &physical_device_name_) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "physical-interface",
+                           &physical_port_name_) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+
+    uint16_t id = 0;
+    if (GetUintAttribute(node(), "ls-uuid", &id) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+    logical_switch_name_ = UuidToString(MakeUuid(id));
+
+    std::string str;
+    if (GetStringAttribute(node(), "stale", &str)) {
+        if (str == "1" || str == "yes")
+            stale_entry_ = true;
+        else
+            stale_entry_ = false;
+    }
+
+    if (GetUintAttribute(node(), "vlan", &vlan_id_) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool AgentUtXmlVlanPortBindingValidate::Validate() {
+    VlanPortBindingTable *table =
+        ovs_test_session->client_idl()->vlan_port_table();
+    VlanPortBindingEntry vlan_port_key(table, physical_device_name_,
+                                       physical_port_name_, vlan_id_,
+                                       "");
+    VlanPortBindingEntry *vlan_port_entry =
+        static_cast<VlanPortBindingEntry *>(table->Find(&vlan_port_key));
+    if (present()) {
+        if (vlan_port_entry == NULL) {
+            return false;
+        }
+    } else {
+        return (vlan_port_entry == NULL);
+    }
+
+    if (stale_entry_ != vlan_port_entry->stale()) {
+        return false;
+    }
+
+    if (logical_switch_name_ != vlan_port_entry->logical_switch_name()) {
+        return false;
+    }
+
+    if (vlan_id_ != vlan_port_entry->vlan()) {
+        return false;
+    }
+
+    return true;
+}
+
+const string AgentUtXmlVlanPortBindingValidate::ToString() {
+    return "ovs-vlan-port-binding";
 }
 

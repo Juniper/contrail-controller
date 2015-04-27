@@ -74,6 +74,15 @@ ovsdb_wrapper_msg_echo_reply(struct jsonrpc_msg *msg) {
             msg->id->type == JSON_STRING && !strcmp(msg->id->u.string, "echo"));
 }
 
+struct json *
+ovsdb_wrapper_jsonrpc_clone_id(struct jsonrpc_msg *msg) {
+    if (msg->id == NULL) {
+        return NULL;
+    }
+
+    return json_clone(msg->id);
+}
+
 struct jsonrpc_msg *
 ovsdb_wrapper_jsonrpc_create_reply(struct jsonrpc_msg *msg) {
     return jsonrpc_create_reply(json_clone(msg->params), msg->id);
@@ -100,6 +109,19 @@ struct jsonrpc_msg *
 ovsdb_wrapper_idl_encode_monitor_request(struct ovsdb_idl *idl)
 {
     return ovsdb_idl_encode_monitor_request(idl);
+}
+
+bool
+ovsdb_wrapper_idl_msg_is_monitor_response(struct json *monitor_request_id,
+                                          struct jsonrpc_msg *msg)
+{
+    if (msg->type == JSONRPC_REPLY &&
+        monitor_request_id != NULL &&
+        json_equal(monitor_request_id, msg->id)) {
+        return true;
+    }
+
+    return false;
 }
 
 void

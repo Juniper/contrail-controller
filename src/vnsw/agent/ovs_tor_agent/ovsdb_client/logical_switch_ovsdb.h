@@ -16,7 +16,7 @@ class MulticastMacLocalEntry;
 
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
-    LogicalSwitchTable(OvsdbClientIdl *idl, DBTable *table);
+    LogicalSwitchTable(OvsdbClientIdl *idl);
     virtual ~LogicalSwitchTable();
 
     void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
