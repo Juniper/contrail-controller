@@ -671,4 +671,9 @@ class VncApi(VncApiClientGen):
         return resource_objs
     #end resource_list
 
+    def set_auth_token(self, token):
+        """Park user token for forwarding to API server for RBAC."""
+        self._headers['X-AUTH-TOKEN'] = token
+    #end set_auth_token
+
 #end class VncApi
