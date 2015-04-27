@@ -123,10 +123,6 @@ class DBInterface(object):
         instance_name = instance_id
         instance_obj = VirtualMachine(instance_name)
         try:
-            id = self._vnc_lib.obj_to_id(instance_obj)
-            instance_obj = self._vnc_lib.virtual_machine_read(id=id)
-        except NoIdError:  # instance doesn't exist, create it
-            # check if instance_id is a uuid value or not
             try:
                 uuid.UUID(instance_id)
                 instance_obj.uuid = instance_id
@@ -135,6 +131,9 @@ class DBInterface(object):
                 # virtual_machine_create generate uuid for the vm
                 pass
             self._vnc_lib.virtual_machine_create(instance_obj)
+        except RefsExistError as e:
+            instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
+            pass
 
         return instance_obj
     #end _ensure_instance_exists
