@@ -13,6 +13,7 @@ import xmlrpclib
 
 from supervisor import childutils
 from nodemgr.EventListenerProtocolNodeMgr import EventListenerProtocolNodeMgr
+from nodemgr.ProcessStat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 
 class EventManager(object):
@@ -45,7 +46,7 @@ class EventManager(object):
         self.sandesh_global = None
 
     # Get all the current processes in the node
-    def get_current_process(self, process_stat):
+    def get_current_process(self):
         proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
                 transport=supervisor.xmlrpc.SupervisorTransport(None, None, serverurl=self.supervisor_serverurl))
         # Add all current processes to make sure nothing misses the radar
@@ -55,7 +56,7 @@ class EventManager(object):
                 proc_name = proc_info['group']+ ":" + proc_info['name']
             else:
                 proc_name = proc_info['name']
-            process_stat_ent = process_stat(proc_name)
+            process_stat_ent = self.get_process_stat_object(proc_name)
             process_stat_ent.process_state = "PROCESS_STATE_" + proc_info['statename']
             if (process_stat_ent.process_state  ==
                     'PROCESS_STATE_RUNNING'):
@@ -66,13 +67,13 @@ class EventManager(object):
     # end get_current_process
 
     # Add the current processes in the node to db
-    def add_current_process(self, process_stat):
-        self.process_state_db = self.get_current_process(process_stat)
+    def add_current_process(self):
+        self.process_state_db = self.get_current_process()
     # end add_current_process
 
     # In case the processes in the Node can change, update current processes
-    def update_current_process(self, process_stat):
-        process_state_db = self.get_current_process(process_stat)
+    def update_current_process(self):
+        process_state_db = self.get_current_process()
         old_process_set = set(self.process_state_db.keys())
         new_process_set = set(process_state_db.keys())
         common_process_set = new_process_set.intersection(old_process_set)
@@ -210,12 +211,15 @@ class EventManager(object):
         self.all_core_file_list = corename.split('\n')[0:-1]
         self.send_process_state_db(self.group_names)
 
+    def get_process_stat_object(self, pname):
+        return ProcessStat(pname)
+
     def send_process_state(self, pname, pstate, pheaders):
         # update process stats
         if pname in self.process_state_db.keys():
             proc_stat = self.process_state_db[pname]
         else:
-            proc_stat = process_stat(pname)
+            proc_stat = self.get_process_stat_object(pname)
             if not proc_stat.group in self.group_names:
                 self.group_names.append(proc_stat.group)
 
