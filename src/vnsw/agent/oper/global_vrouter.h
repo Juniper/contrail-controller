@@ -19,8 +19,12 @@ namespace autogen {
 
 struct LinkLocalDBState : DBState {
     const VrfEntry *vrf_;
+    // set of linklocal addresses added to the VN
+    std::set<Ip4Address> addresses_;
 
     LinkLocalDBState(const VrfEntry *vrf) : DBState(), vrf_(vrf) {}
+    void Add(const Ip4Address &address) { addresses_.insert(address); }
+    void Delete(const Ip4Address &address) { addresses_.erase(address); }
 };
 
 // Handle Global Vrouter configuration
