@@ -222,8 +222,8 @@ public:
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
-               const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id,
-               bool admin_state, bool enable_rpf);
+               const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
+               int vxlan_id, bool admin_state, bool enable_rpf);
     void DelVn(const uuid &vn_uuid);
     VnEntry *Find(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();
