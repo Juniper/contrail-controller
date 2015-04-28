@@ -3201,7 +3201,11 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
     if (addr_ != rhs->addr_)
         return addr_ < rhs->addr_;
 
-    return plen_ < rhs->plen_;
+    if (plen_ < rhs->plen_) {
+        return plen_ < rhs->plen_;
+    }
+
+    return gw_ < rhs->gw_;
 }
 
 void VmInterface::StaticRoute::Activate(VmInterface *interface,

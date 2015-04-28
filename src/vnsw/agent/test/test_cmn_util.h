@@ -334,8 +334,10 @@ void DelEncapList();
 void DelEncapList(Agent *agent);
 void VxLanNetworkIdentifierMode(bool config);
 int MplsToVrfId(int label);
-void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
                            int count);
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
+                           int count, const char *nexthop);
 void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *addr,
                               int count);
 void ShutdownAgentController(Agent *agent);
