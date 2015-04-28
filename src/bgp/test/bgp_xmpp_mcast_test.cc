@@ -2221,6 +2221,7 @@ static const char *config_tmpl3 = "\
     <bgp-router name=\'X\'>\
         <identifier>192.168.0.101</identifier>\
         <address>127.0.0.101</address>\
+        <autonomous-system>%d</autonomous-system>\
         <port>%d</port>\
         <session to=\'Y\'>\
             <address-families>\
@@ -2236,6 +2237,7 @@ static const char *config_tmpl3 = "\
     <bgp-router name=\'Y\'>\
         <identifier>192.168.0.102</identifier>\
         <address>127.0.0.102</address>\
+        <autonomous-system>%d</autonomous-system>\
         <port>%d</port>\
         <session to=\'X\'>\
             <address-families>\
@@ -2251,6 +2253,7 @@ static const char *config_tmpl3 = "\
     <bgp-router name=\'Z\'>\
         <identifier>192.168.0.103</identifier>\
         <address>127.0.0.103</address>\
+        <autonomous-system>%d</autonomous-system>\
         <port>%d</port>\
         <session to=\'X\'>\
             <address-families>\
@@ -2274,12 +2277,19 @@ static const char *config_tmpl3 = "\
 
 class BgpXmppMcast3ServerTestBase : public BgpXmppMcast2ServerTestBase {
 protected:
-    virtual void Configure(const char *config_tmpl) {
+    virtual void Configure(const char *config_tmpl, bool ebgp) {
         char config[8192];
-        snprintf(config, sizeof(config), config_tmpl,
-            bs_x_->session_manager()->GetPort(),
-            bs_y_->session_manager()->GetPort(),
-            bs_z_->session_manager()->GetPort());
+        if (ebgp) {
+            snprintf(config, sizeof(config), config_tmpl,
+                64511, bs_x_->session_manager()->GetPort(),
+                64512, bs_y_->session_manager()->GetPort(),
+                64513, bs_z_->session_manager()->GetPort());
+        } else {
+            snprintf(config, sizeof(config), config_tmpl,
+                64512, bs_x_->session_manager()->GetPort(),
+                64512, bs_y_->session_manager()->GetPort(),
+                64512, bs_z_->session_manager()->GetPort());
+        }
         bs_x_->Configure(config);
         bs_y_->Configure(config);
         bs_z_->Configure(config);
@@ -2351,12 +2361,16 @@ protected:
     boost::shared_ptr<test::NetworkAgentMock> agent_zc_;
 };
 
-class BgpXmppMcast3ServerTest : public BgpXmppMcast3ServerTestBase {
+// Parameterize iBGP vs eBGP.
+
+class BgpXmppMcast3ServerParamTest :
+    public BgpXmppMcast3ServerTestBase,
+    public ::testing::WithParamInterface<bool> {
 protected:
     virtual void SetUp() {
         BgpXmppMcast3ServerTestBase::SetUp();
 
-        Configure(config_tmpl3);
+        Configure(config_tmpl3, GetParam());
         task_util::WaitForIdle();
 
         BgpXmppMcast3ServerTestBase::SessionUp();
@@ -2372,7 +2386,7 @@ protected:
 //
 // Tree builder flaps the route.
 //
-TEST_F(BgpXmppMcast3ServerTest, SingleAgentRouteFlapping1) {
+TEST_P(BgpXmppMcast3ServerParamTest, SingleAgentRouteFlapping1) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for agents xa, ya and za.
@@ -2423,7 +2437,7 @@ TEST_F(BgpXmppMcast3ServerTest, SingleAgentRouteFlapping1) {
 //
 // Non tree builder flaps the route.
 //
-TEST_F(BgpXmppMcast3ServerTest, SingleAgentRouteFlapping2) {
+TEST_P(BgpXmppMcast3ServerParamTest, SingleAgentRouteFlapping2) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for agents xa, ya and za.
@@ -2474,7 +2488,7 @@ TEST_F(BgpXmppMcast3ServerTest, SingleAgentRouteFlapping2) {
 //
 // Forest node on tree builder flaps the route.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping1) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentRouteFlapping1) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2536,7 +2550,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping1) {
 //
 // Non-forest node on tree builder flaps the route.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping2) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentRouteFlapping2) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2598,7 +2612,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping2) {
 //
 // Forest node on non tree builder flaps the route.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping3) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentRouteFlapping3) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2660,7 +2674,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping3) {
 //
 // Non-forest node on non tree builder flaps the route.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping4) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentRouteFlapping4) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2722,7 +2736,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentRouteFlapping4) {
 //
 // Forest node on tree builder changes nexthop.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange1) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentNexthopChange1) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2785,7 +2799,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange1) {
 //
 // Non-forest node on tree builder changes nexthop.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange2) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentNexthopChange2) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2848,7 +2862,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange2) {
 //
 // Forest node on non tree builder changes nexthop.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange3) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentNexthopChange3) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2911,7 +2925,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange3) {
 //
 // Non-forest node on non tree builder changes nexthop.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange4) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentNexthopChange4) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -2974,7 +2988,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentNexthopChange4) {
 //
 // Forest node on tree builder changes label block.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange1) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentLabelBlockChange1) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -3044,7 +3058,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange1) {
 //
 // Non-forest node on tree builder changes label block.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange2) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentLabelBlockChange2) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -3114,7 +3128,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange2) {
 //
 // Forest node on non tree builder changes label block.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange3) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentLabelBlockChange3) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -3184,7 +3198,7 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange3) {
 //
 // Non-forest node on non tree builder changes label block.
 //
-TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange4) {
+TEST_P(BgpXmppMcast3ServerParamTest, MultipleAgentLabelBlockChange4) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents.
@@ -3250,6 +3264,9 @@ TEST_F(BgpXmppMcast3ServerTest, MultipleAgentLabelBlockChange4) {
     agent_zb_->DeleteMcastRoute("blue", mroute);
     task_util::WaitForIdle();
 };
+
+INSTANTIATE_TEST_CASE_P(Instance, BgpXmppMcast3ServerParamTest,
+    ::testing::Bool());
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
