@@ -12,7 +12,6 @@ import platform
 import gevent
 import ConfigParser
 
-from nodemgr.process_stat import process_stat
 from nodemgr.EventManager import EventManager
 
 from pysandesh.sandesh_base import *
@@ -39,7 +38,7 @@ class AnalyticsEventManager(EventManager):
         self.module = Module.ANALYTICS_NODE_MGR
         self.module_id =  ModuleNames[self.module]
         self.supervisor_serverurl = "unix:///tmp/supervisord_analytics.sock"
-        self.add_current_process(process_stat)
+        self.add_current_process()
     #end __init__
 
     def process(self):

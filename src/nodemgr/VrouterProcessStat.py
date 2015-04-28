@@ -4,18 +4,11 @@ import ConfigParser
 import sys
 import socket
 
-class process_stat:
+from nodemgr.ProcessStat import ProcessStat
+
+class VrouterProcessStat(ProcessStat):
     def __init__(self, pname):
-        self.start_count = 0
-        self.stop_count = 0
-        self.exit_count = 0
-        self.start_time = ''
-        self.exit_time = ''
-        self.stop_time = ''
-        self.core_file_list = []
-        self.last_exit_unexpected = False
-        self.deleted = False
-        self.process_state = 'PROCESS_STATE_STOPPED'
+        ProcessStat.__init__(self, pname)
         (self.group, self.name) = self.get_vrouter_process_info(pname)
 
     def get_vrouter_process_info(self, proc_name):
