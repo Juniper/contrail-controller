@@ -167,6 +167,9 @@ void AgentUveBase::VrouterAgentProcessState
     }
     if ((num_control_nodes == 0) || (num_control_nodes == down_control_nodes)) {
         pstate = ProcessState::NON_FUNCTIONAL;
+        if ((num_control_nodes == 0) && message.empty()) {
+            message = "No control-nodes configured";
+        }
     } else {
         pstate = ProcessState::FUNCTIONAL;
     }
