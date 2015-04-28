@@ -14,7 +14,7 @@ import gevent
 import ConfigParser
 
 from nodemgr.EventManager import EventManager
-from nodemgr.vrouter_process_stat import process_stat
+from nodemgr.VrouterProcessStat import VrouterProcessStat
 
 from ConfigParser import NoOptionError
 
@@ -48,9 +48,9 @@ class VrouterEventManager(EventManager):
         self.module_id =  ModuleNames[self.module]
 
         self.supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
-        self.add_current_process(process_stat)
+        self.add_current_process()
 
-        os_nova_comp = process_stat('openstack-nova-compute')
+        os_nova_comp = VrouterProcessStat('openstack-nova-compute')
         (os_nova_comp_state, error_value) = Popen("openstack-status | grep openstack-nova-compute | cut -d ':' -f2", shell=True, stdout=PIPE).communicate()
         os_nova_comp.process_state = os_nova_comp_state.strip()
         if (os_nova_comp.process_state == 'active'):
@@ -92,6 +92,9 @@ class VrouterEventManager(EventManager):
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
 
+    def get_process_stat_object(self, pname):
+        return VrouterProcessStat(pname)
+
     # overridden delete_process_handler - ignore delete in case of openstack-nova-compute
     def delete_process_handler(self, deleted_process):
         if deleted_process == 'openstack-nova-compute':
@@ -119,7 +122,7 @@ class VrouterEventManager(EventManager):
                 self.event_process_state(pheaders, headers)
                 # check for addition / deletion of processes in the node.
                 # Tor Agent process can get added / deleted based on need.
-                self.update_current_process(process_stat)
+                self.update_current_process()
 
             # check for flag value change events
             if headers['eventname'].startswith("PROCESS_COMMUNICATION"):
