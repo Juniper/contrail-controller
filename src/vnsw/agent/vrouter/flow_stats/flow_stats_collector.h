@@ -7,7 +7,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
-#include <uve/vm_uve_entry.h>
+#include <uve/interface_uve_stats_table.h>
 #include <pkt/flow_table.h>
 #include <vrouter/ksync/flowtable_ksync.h>
 
@@ -55,7 +55,7 @@ private:
                       uint64_t curr_time);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
-    VmUveEntry::FloatingIp *ReverseFlowFip(const FlowEntry *flow);
+    InterfaceUveTable::FloatingIp *ReverseFlowFip(const FlowEntry *flow);
     AgentUveBase *agent_uve_;
     FlowKey flow_iteration_key_;
     uint64_t flow_age_time_intvl_;

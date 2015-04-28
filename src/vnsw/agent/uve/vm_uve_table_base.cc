@@ -154,22 +154,22 @@ void VmUveTableBase::MarkChanged(const boost::uuids::uuid &u) {
     return;
 }
 
-void VmUveTableBase::InterfaceAddHandler(const VmEntry* vm, const Interface* itf,
-                                  const VmInterface::FloatingIpSet &old_list) {
+void VmUveTableBase::InterfaceAddHandler(const VmEntry* vm,
+                                         const string &intf_cfg_name) {
     VmUveEntryBase *vm_uve_entry = Add(vm, false);
 
-    vm_uve_entry->InterfaceAdd(itf, old_list);
+    vm_uve_entry->InterfaceAdd(intf_cfg_name);
     vm_uve_entry->set_changed(true);
 }
 
 void VmUveTableBase::InterfaceDeleteHandler(const boost::uuids::uuid &u,
-                                            const Interface* intf) {
+                                            const string &intf_cfg_name) {
     VmUveEntryBase* entry = UveEntryFromVm(u);
     if (entry == NULL) {
         return;
     }
 
-    entry->InterfaceDelete(intf);
+    entry->InterfaceDelete(intf_cfg_name);
     entry->set_changed(true);
 }
 
@@ -184,31 +184,38 @@ void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition,
                       (e->GetState(partition->parent(), intf_listener_id_));
     if (e->IsDeleted() || ((vm_port->vm() == NULL))) {
         if (state) {
-            InterfaceDeleteHandler(state->vm_uuid_, vm_port);
-            state->fip_list_.clear();
-            if (e->IsDeleted()) {
-                e->ClearState(partition->parent(), intf_listener_id_);
-                delete state;
-            }
+            InterfaceDeleteHandler(state->vm_uuid_, state->interface_cfg_name_);
+            e->ClearState(partition->parent(), intf_listener_id_);
+            delete state;
         }
     } else {
         const VmEntry *vm = vm_port->vm();
         VmInterface::FloatingIpSet old_list;
 
         if (!state) {
-            state = new VmUveInterfaceState(vm->GetUuid(),
-                                            vm_port->floating_ip_list().list_);
+            /* Skip Add notification if it does not have config name */
+            if (vm_port->cfg_name().empty()) {
+                return;
+            }
+            state = new VmUveInterfaceState(nil_uuid(), "");
             e->SetState(partition->parent(), intf_listener_id_, state);
-        } else {
-            old_list = state->fip_list_;
-            state->fip_list_ = vm_port->floating_ip_list().list_;
         }
         /* Handle Change of VM in a given VM interface */
-        if (vm->GetUuid() != state->vm_uuid_) {
+        if ((vm->GetUuid() != state->vm_uuid_) ||
+            (vm_port->cfg_name() != state->interface_cfg_name_)) {
             //Handle disassociation of old VM from the VMI
-            InterfaceDeleteHandler(state->vm_uuid_, vm_port);
+            if (state->vm_uuid_ != nil_uuid() &&
+                !state->interface_cfg_name_.empty()) {
+                InterfaceDeleteHandler(state->vm_uuid_,
+                                       state->interface_cfg_name_);
+            }
+            if (vm->GetUuid() != nil_uuid() &&
+                !vm_port->cfg_name().empty()) {
+                InterfaceAddHandler(vm, vm_port->cfg_name());
+            }
+            state->vm_uuid_ = vm->GetUuid();
+            state->interface_cfg_name_ = vm_port->cfg_name();
         }
-        InterfaceAddHandler(vm, vm_port, old_list);
     }
 }
 

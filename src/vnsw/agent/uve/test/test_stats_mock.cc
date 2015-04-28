@@ -822,49 +822,6 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     //Remove vrf stats object from mock Kernel
     KSyncSockTypeMap::VrfStatsDelete(vrf41_id);
     KSyncSockTypeMap::VrfStatsDelete(vrf42_id);
-
-}
-
-TEST_F(StatsTestMock, VnStatsTest) {
-    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (Agent::GetInstance()->stats_collector());
-    collector->interface_stats_responses_ = 0;
-    client->IfStatsTimerWait(1);
-
-    //Verify vn stats at the start of test case
-    char vn_name[20];
-    sprintf(vn_name, "vn%d", stats_if[0].vn_id);
-
-    EXPECT_TRUE(VnStatsMatch(vn_name, 0, 0, 0, 0)); 
-
-    EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
-    EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
-
-    //Change the stats on one interface of vn
-    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 50, 1, 0, 20, 1, 0);
-
-    //Wait for stats to be updated
-    collector->interface_stats_responses_ = 0;
-    client->IfStatsTimerWait(1);
-
-    //Verify the updated vn stats
-    EXPECT_TRUE(VnStatsMatch(vn_name, 50, 1, 20, 1)); 
-
-    if (stats_if[0].vn_id == stats_if[1].vn_id) {
-        //Change the stats on the other interface of same vn
-        KSyncSockTypeMap::IfStatsUpdate(test1->id(), 50, 1, 0, 20, 1, 0);
-
-        //Wait for stats to be updated
-        collector->interface_stats_responses_ = 0;
-        client->IfStatsTimerWait(1);
-
-        //Verify the updated vn stats
-        EXPECT_TRUE(VnStatsMatch(vn_name, 100, 2, 40, 2)); 
-    }
-
-    //Reset the stats so that repeat of this test case works
-    KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
-    KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
 }
 
 //Flow parameters (vrouter, peer_vrouter and tunnel_type) verification for

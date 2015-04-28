@@ -10,29 +10,48 @@ ProuterUveTable::ProuterUveTable(Agent *agent, uint32_t default_intvl)
     : uve_prouter_map_(), uve_phy_interface_map_(), agent_(agent),
       physical_device_listener_id_(DBTableBase::kInvalidId),
       interface_listener_id_(DBTableBase::kInvalidId),
-      timer_last_visited_(nil_uuid()),
-      timer_(TimerManager::CreateTimer
+      pr_timer_last_visited_(nil_uuid()),
+      pr_timer_(TimerManager::CreateTimer
              (*(agent->event_manager())->io_service(),
               "ProuterUveTimer",
+              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)),
+      pi_timer_last_visited_(""),
+      pi_timer_(TimerManager::CreateTimer
+             (*(agent->event_manager())->io_service(),
+              "PIUveTimer",
+              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)),
+      li_timer_last_visited_(nil_uuid()),
+      li_timer_(TimerManager::CreateTimer
+             (*(agent->event_manager())->io_service(),
+              "LIUveTimer",
               TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
-      expiry_time_ = default_intvl;
-      timer_->Start(expiry_time_,
+
+      pr_timer_->Start(default_intvl,
                     boost::bind(&ProuterUveTable::TimerExpiry, this));
+      pi_timer_->Start(default_intvl,
+                    boost::bind(&ProuterUveTable::PITimerExpiry, this));
+      li_timer_->Start(default_intvl,
+                    boost::bind(&ProuterUveTable::LITimerExpiry, this));
 }
 
 ProuterUveTable::~ProuterUveTable() {
-    if (timer_) {
-        timer_->Cancel();
-        TimerManager::DeleteTimer(timer_);
-        timer_ = NULL;
+    TimerCleanup(pr_timer_);
+    TimerCleanup(pi_timer_);
+    TimerCleanup(li_timer_);
+}
+
+void ProuterUveTable::TimerCleanup(Timer *timer) {
+    if (timer) {
+        timer->Cancel();
+        TimerManager::DeleteTimer(timer);
     }
 }
 
 bool ProuterUveTable::TimerExpiry() {
     UveProuterMap::iterator it = uve_prouter_map_.lower_bound
-        (timer_last_visited_);
+        (pr_timer_last_visited_);
     if (it == uve_prouter_map_.end()) {
-        timer_last_visited_ = nil_uuid();
+        pr_timer_last_visited_ = nil_uuid();
         return true;
     }
 
@@ -64,26 +83,122 @@ bool ProuterUveTable::TimerExpiry() {
     }
 
     if (it == uve_prouter_map_.end()) {
-        timer_last_visited_ = nil_uuid();
-        set_expiry_time(agent_->uve()->default_interval());
+        pr_timer_last_visited_ = nil_uuid();
+        set_expiry_time(agent_->uve()->default_interval(), pr_timer_);
     } else {
-        timer_last_visited_ = it->first;
-        set_expiry_time(agent_->uve()->incremental_interval());
+        pr_timer_last_visited_ = it->first;
+        set_expiry_time(agent_->uve()->incremental_interval(), pr_timer_);
     }
     /* Return true to trigger auto-restart of timer */
     return true;
 }
 
-void ProuterUveTable::set_expiry_time(int time) {
-    if (time != expiry_time_) {
-        expiry_time_ = time;
-        timer_->Reschedule(expiry_time_);
+bool ProuterUveTable::PITimerExpiry() {
+    UvePhyInterfaceMap::iterator it = uve_phy_interface_map_.lower_bound
+        (pi_timer_last_visited_);
+    if (it == uve_phy_interface_map_.end()) {
+        pi_timer_last_visited_ = "";
+        return true;
+    }
+
+    uint32_t count = 0;
+    while (it != uve_phy_interface_map_.end() &&
+           count < AgentUveBase::kUveCountPerTimer) {
+        PhyInterfaceUveEntry* entry = it->second.get();
+        string cfg_name = it->first;
+        UvePhyInterfaceMap::iterator prev = it;
+        it++;
+        count++;
+
+        if (entry->deleted_) {
+            SendPhysicalInterfaceDeleteMsg(cfg_name);
+            if (!entry->renewed_) {
+                uve_phy_interface_map_.erase(prev);
+            } else {
+                entry->deleted_ = false;
+                entry->renewed_ = false;
+                entry->changed_ = false;
+                SendPhysicalInterfaceMsg(cfg_name, entry);
+            }
+        } else if (entry->changed_) {
+            SendPhysicalInterfaceMsg(cfg_name, entry);
+            entry->changed_ = false;
+            /* Clear renew flag to be on safer side. Not really required */
+            entry->renewed_ = false;
+        }
+    }
+
+    if (it == uve_phy_interface_map_.end()) {
+        pi_timer_last_visited_ = "";
+        set_expiry_time(agent_->uve()->default_interval(), pi_timer_);
+    } else {
+        pi_timer_last_visited_ = it->first;
+        set_expiry_time(agent_->uve()->incremental_interval(), pi_timer_);
+    }
+    /* Return true to trigger auto-restart of timer */
+    return true;
+}
+
+bool ProuterUveTable::LITimerExpiry() {
+    LogicalInterfaceMap::iterator it = uve_logical_interface_map_.lower_bound
+        (li_timer_last_visited_);
+    if (it == uve_logical_interface_map_.end()) {
+        li_timer_last_visited_ = nil_uuid();
+        return true;
+    }
+
+    uint32_t count = 0;
+    while (it != uve_logical_interface_map_.end() &&
+           count < AgentUveBase::kUveCountPerTimer) {
+        LogicalInterfaceUveEntry* entry = it->second.get();
+        boost::uuids::uuid u = it->first;
+        LogicalInterfaceMap::iterator prev = it;
+        it++;
+        count++;
+
+        if (entry->deleted_) {
+            SendLogicalInterfaceDeleteMsg(entry->name_);
+            if (!entry->renewed_) {
+                uve_logical_interface_map_.erase(prev);
+            } else {
+                entry->deleted_ = false;
+                entry->renewed_ = false;
+                entry->changed_ = false;
+                SendLogicalInterfaceMsg(u, entry);
+            }
+        } else if (entry->changed_) {
+            SendLogicalInterfaceMsg(u, entry);
+            entry->changed_ = false;
+            /* Clear renew flag to be on safer side. Not really required */
+            entry->renewed_ = false;
+        }
+    }
+
+    if (it == uve_logical_interface_map_.end()) {
+        li_timer_last_visited_ = nil_uuid();
+        set_expiry_time(agent_->uve()->default_interval(), li_timer_);
+    } else {
+        li_timer_last_visited_ = it->first;
+        set_expiry_time(agent_->uve()->incremental_interval(), li_timer_);
+    }
+    /* Return true to trigger auto-restart of timer */
+    return true;
+}
+
+void ProuterUveTable::set_expiry_time(int time, Timer *timer) {
+    if (time != timer->time()) {
+        timer->Reschedule(time);
     }
 }
 
-ProuterUveTable::PhyInterfaceAttrEntry::PhyInterfaceAttrEntry
-    (const Interface *itf) :
-    uuid_(itf->GetUuid()) {
+ProuterUveTable::PhyInterfaceUveEntry::PhyInterfaceUveEntry
+    (const Interface *pintf) :
+    uuid_(pintf->GetUuid()), logical_interface_set_(), changed_(true),
+    deleted_(false), renewed_(false) {
+    Update(pintf);
+}
+
+void ProuterUveTable::PhyInterfaceUveEntry::Update(const Interface *pintf) {
 }
 
 ProuterUveTable::ProuterUveEntry::ProuterUveEntry(const PhysicalDevice *p) :
@@ -92,7 +207,8 @@ ProuterUveTable::ProuterUveEntry::ProuterUveEntry(const PhysicalDevice *p) :
 }
 
 ProuterUveTable::LogicalInterfaceUveEntry::LogicalInterfaceUveEntry
-    (const LogicalInterface *li) : name_(li->name()) {
+    (const LogicalInterface *li) : name_(li->name()), vlan_(kInvalidVlanId),
+    vmi_list_(), changed_(true), deleted_(false), renewed_(false) {
     Update(li);
 }
 
@@ -105,12 +221,7 @@ void ProuterUveTable::LogicalInterfaceUveEntry::Update
     } else {
         vlan_ = kInvalidVlanId;
     }
-    const VmInterface *vmi = li->vm_interface();
-    if (vmi) {
-        vmi_uuid_ = vmi->GetUuid();
-    } else {
-        vmi_uuid_ = nil_uuid();
-    }
+    changed_ = true;
 }
 
 ProuterUveTable::ProuterUveEntry::~ProuterUveEntry() {
@@ -125,51 +236,35 @@ void ProuterUveTable::ProuterUveEntry::Reset() {
 
 void ProuterUveTable::ProuterUveEntry::AddPhysicalInterface
                                            (const Interface *itf) {
-    UvePhyInterfaceAttrMap::iterator it = physical_interface_set_.find(itf->
-                                                                       name());
+    InterfaceSet::iterator it = physical_interface_set_.find(itf->name());
     if (it == physical_interface_set_.end()) {
-        PhyInterfaceAttrEntryPtr uve(new PhyInterfaceAttrEntry(itf));
-        physical_interface_set_.insert(UvePhyInterfaceAttrPair
-                                       (itf->name(), uve));
+        physical_interface_set_.insert(itf->name());
+        changed_ = true;
     }
 }
 
 void ProuterUveTable::ProuterUveEntry::DeletePhysicalInterface
                                            (const Interface *itf) {
-    UvePhyInterfaceAttrMap::iterator it = physical_interface_set_.find(itf->
-                                                                       name());
+    InterfaceSet::iterator it = physical_interface_set_.find(itf->name());
     if (it != physical_interface_set_.end()) {
         physical_interface_set_.erase(it);
+        changed_ = true;
     }
 }
 
 void ProuterUveTable::ProuterUveEntry::AddLogicalInterface
                                            (const LogicalInterface *itf) {
-    LogicalInterfaceMap::iterator it = logical_interface_set_.find
+    LogicalInterfaceSet::iterator it = logical_interface_set_.find
         (itf->GetUuid());
     if (it == logical_interface_set_.end()) {
-        LogicalInterfaceUveEntryPtr uve(new LogicalInterfaceUveEntry(itf));
-        logical_interface_set_.insert(LogicalInterfacePair(itf->GetUuid(),
-                                                           uve));
-    }
-}
-
-void ProuterUveTable::ProuterUveEntry::UpdateLogicalInterface
-                                           (const LogicalInterface *itf) {
-    LogicalInterfaceMap::iterator it = logical_interface_set_.find
-        (itf->GetUuid());
-    if (it == logical_interface_set_.end()) {
-        return;
-    } else {
-        LogicalInterfaceUveEntry *entry = it->second.get();
-        entry->Update(itf);
+        logical_interface_set_.insert(itf->GetUuid());
     }
 }
 
 bool ProuterUveTable::ProuterUveEntry::DeleteLogicalInterface
                                            (const LogicalInterface *itf) {
     bool deleted = false;
-    LogicalInterfaceMap::iterator it = logical_interface_set_.find(itf->
+    LogicalInterfaceSet::iterator it = logical_interface_set_.find(itf->
                                                                    GetUuid());
     if (it != logical_interface_set_.end()) {
         logical_interface_set_.erase(it);
@@ -229,73 +324,51 @@ const PhysicalDevice *ProuterUveTable::InterfaceToProuter
     return pde;
 }
 
-void ProuterUveTable::FillVmInterfaceList
-    (const boost::uuids::uuid &u, vector<string> &vmi_list) const {
-    LogicalIntf2VmiListMap::const_iterator it =
-        uve_logical_interface_map_.find(u);
-    if (it == uve_logical_interface_map_.end()) {
-        return;
-    }
-    LogicalIntf2VmiListEntry *entry = it->second.get();
-    ProuterUveTable::VmiSet::iterator vit = entry->vmi_list.begin();
-    while (vit != entry->vmi_list.end()) {
-        vmi_list.push_back(to_string(*vit));
+void ProuterUveTable::LogicalInterfaceUveEntry::FillVmInterfaceList
+    (vector<string> &vmi_list) const {
+    ProuterUveTable::InterfaceSet::iterator vit = vmi_list_.begin();
+    while (vit != vmi_list_.end()) {
+        vmi_list.push_back((*vit));
         ++vit;
     }
     return;
 }
 
-void ProuterUveTable::FillLogicalInterfaceList
-    (const LogicalInterfaceMap &in, vector<UveLogicalInterfaceData> *out)
-    const {
-    LogicalInterfaceMap::const_iterator lit = in.begin();
-
-    while (lit != in.end()) {
-        UveLogicalInterfaceData lif_data;
-        vector<string> vmi_list;
-        LogicalInterfaceUveEntry *lentry = lit->second.get();
-        boost::uuids::uuid luuid = lit->first;
-
-        ++lit;
-        lif_data.set_name(lentry->name_);
-        lif_data.set_uuid(to_string(luuid));
-        if (lentry->vlan_ != kInvalidVlanId) {
-            lif_data.set_vlan(lentry->vlan_);
-        }
-        FillVmInterfaceList(luuid, vmi_list);
-        lif_data.set_vm_interface_list(vmi_list);
-        out->push_back(lif_data);
+void ProuterUveTable::PhyInterfaceUveEntry::FillLogicalInterfaceList
+    (vector<string> &list) const {
+    ProuterUveTable::LogicalInterfaceSet::iterator it =
+        logical_interface_set_.begin();
+    while (it != logical_interface_set_.end()) {
+        list.push_back((to_string(*it)));
+        ++it;
     }
+    return;
 }
 
 void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
                                       ProuterData *uve) const {
-    vector<UvePhysicalInterfaceData> phy_if_list;
-    vector<UveLogicalInterfaceData> logical_list;
+    vector<string> phy_if_list;
+    vector<string> logical_list;
     /* We are using hostname instead of fq-name because Prouter UVE sent by
      * other modules to send topology information uses hostname and we want
      * both these information to be seen in same UVE */
     uve->set_name(entry->name_);
     uve->set_uuid(to_string(entry->uuid_));
-    UvePhyInterfaceAttrMap::iterator pit = entry->physical_interface_set_.
-        begin();
+    InterfaceSet::iterator pit = entry->physical_interface_set_.begin();
     while (pit != entry->physical_interface_set_.end()) {
-        UvePhysicalInterfaceData pif_data;
-        vector<UveLogicalInterfaceData> lif_list;
-        string pname = pit->first;
-        PhyInterfaceAttrEntry *pentry = pit->second.get();
+        phy_if_list.push_back(*pit);
         ++pit;
-        PhyInterfaceUveEntry *ientry = NameToPhyInterfaceUveEntry(pname);
-        if (ientry != NULL) {
-            FillLogicalInterfaceList(ientry->logical_interface_set_, &lif_list);
-        }
-        pif_data.set_name(pname);
-        pif_data.set_uuid(to_string(pentry->uuid_));
-        pif_data.set_logical_interface_list(lif_list);
-        phy_if_list.push_back(pif_data);
     }
     uve->set_physical_interface_list(phy_if_list);
-    FillLogicalInterfaceList(entry->logical_interface_set_, &logical_list);
+
+
+    LogicalInterfaceSet::const_iterator lit = entry->logical_interface_set_.
+        begin();
+
+    while (lit != entry->logical_interface_set_.end()) {
+        logical_list.push_back(to_string(*lit));
+        ++lit;
+    }
     uve->set_logical_interface_list(logical_list);
 }
 
@@ -371,48 +444,58 @@ void ProuterUveTable::DeleteHandler(const PhysicalDevice *p) {
     entry->Reset();
 }
 
-void ProuterUveTable::UpdateLogicalInterface(const Interface *pintf,
-                                             const LogicalInterface *intf) {
-    UvePhyInterfaceMap::iterator it = uve_phy_interface_map_.find(pintf->
-                                                                  name());
-    PhyInterfaceUveEntry *ientry = NULL;
-    if (it == uve_phy_interface_map_.end()) {
-        return;
-    } else {
-        ientry = it->second.get();
+void ProuterUveTable::MarkDeletedLogical(const LogicalInterface *itf) {
+    LogicalInterfaceMap::iterator it = uve_logical_interface_map_.find(itf->
+                                                                    GetUuid());
+    if (it != uve_logical_interface_map_.end()) {
+        LogicalInterfaceUveEntry *entry = it->second.get();
+        entry->deleted_ = true;
     }
-    LogicalInterfaceMap::iterator lit = ientry->logical_interface_set_.
-        find(intf->GetUuid());
-    if (lit == ientry->logical_interface_set_.end()) {
-        return;
-    } else {
-        LogicalInterfaceUveEntry *lentry = lit->second.get();
-        lentry->Update(intf);
-    }
-    SendProuterMsgFromPhyInterface(pintf);
 }
 
-void ProuterUveTable::AddLogicalInterface(const Interface *pintf,
-                                          const LogicalInterface *intf) {
+void ProuterUveTable::AddUpdateLogicalInterface(const LogicalInterface *itf) {
+    LogicalInterfaceMap::iterator it = uve_logical_interface_map_.find(itf->
+                                                                    GetUuid());
+    if (it == uve_logical_interface_map_.end()) {
+        LogicalInterfaceUveEntryPtr uve(new LogicalInterfaceUveEntry(itf));
+        uve_logical_interface_map_.insert(LogicalInterfacePair(itf->GetUuid(),
+                                                               uve));
+        return;
+    } else {
+        LogicalInterfaceUveEntry *entry = it->second.get();
+        entry->Update(itf);
+    }
+}
+
+void ProuterUveTable::MarkDeletedPhysical(const Interface *pintf) {
+    UvePhyInterfaceMap::iterator it = uve_phy_interface_map_.find(pintf->
+                                                                  name());
+    PhyInterfaceUveEntry *entry = NULL;
+    if (it != uve_phy_interface_map_.end()) {
+        entry = it->second.get();
+        entry->deleted_ = true;
+    }
+}
+
+void ProuterUveTable::AddLogicalToPhysical(const Interface *pintf,
+                                           const LogicalInterface *intf) {
     UvePhyInterfaceMap::iterator it = uve_phy_interface_map_.find(pintf->
                                                                   name());
     PhyInterfaceUveEntry *ientry = NULL;
     if (it == uve_phy_interface_map_.end()) {
-        PhyInterfaceUveEntryPtr entry(new PhyInterfaceUveEntry());
+        PhyInterfaceUveEntryPtr entry(new PhyInterfaceUveEntry(pintf));
         uve_phy_interface_map_.insert(UvePhyInterfacePair(pintf->name(),
                                                           entry));
         ientry = entry.get();
     } else {
         ientry = it->second.get();
     }
-    LogicalInterfaceMap::iterator lit = ientry->logical_interface_set_.
+    LogicalInterfaceSet::iterator lit = ientry->logical_interface_set_.
         find(intf->GetUuid());
     if (lit == ientry->logical_interface_set_.end()) {
-        LogicalInterfaceUveEntryPtr uve(new LogicalInterfaceUveEntry(intf));
-        ientry->logical_interface_set_.insert(LogicalInterfacePair
-                                              (intf->GetUuid(), uve));
+        ientry->logical_interface_set_.insert(intf->GetUuid());
+        ientry->changed_ = true;
     }
-    SendProuterMsgFromPhyInterface(pintf);
 }
 
 void ProuterUveTable::AddProuterLogicalInterface
@@ -427,35 +510,16 @@ void ProuterUveTable::AddProuterLogicalInterface
     entry->changed_ = true;
 }
 
-void ProuterUveTable::UpdateProuterLogicalInterface
-    (const PhysicalDevice *p, const LogicalInterface *intf) {
-    UveProuterMap::iterator it = uve_prouter_map_.find(p->uuid());
-    if (it == uve_prouter_map_.end()) {
-        return;
-    }
-
-    ProuterUveEntry* entry = it->second.get();
-    entry->UpdateLogicalInterface(intf);
-    entry->changed_ = true;
-}
-
-void ProuterUveTable::DeleteLogicalInterface(const string &name,
+void ProuterUveTable::DeleteLogicalFromPhysical(const string &name,
                                              const LogicalInterface *intf) {
     PhyInterfaceUveEntry *entry = NameToPhyInterfaceUveEntry(name);
     if (entry != NULL) {
-        LogicalInterfaceMap::iterator it = entry->logical_interface_set_.
+        LogicalInterfaceSet::iterator it = entry->logical_interface_set_.
             find(intf->GetUuid());
         if (it != entry->logical_interface_set_.end()) {
             entry->logical_interface_set_.erase(it);
+            entry->changed_ = true;
         }
-    }
-    const Interface *pintf = NameToInterface(name);
-    if (pintf) {
-        /* If Physical interface is not found (because it is marked for delete),
-         * then required UVEs will be sent as part of physical interface
-         * delete notification
-         */
-        SendProuterMsgFromPhyInterface(pintf);
     }
 }
 
@@ -500,8 +564,8 @@ void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition,
     }
 }
 
-void ProuterUveTable::DisassociatePhysicalInterface(const Interface *intf,
-                                                 const boost::uuids::uuid &u) {
+void ProuterUveTable::DeletePhysicalFromProuter(const Interface *intf,
+                                                const boost::uuids::uuid &u) {
     ProuterUveEntry *entry = PDEntryToProuterUveEntry(u);
     if (!entry) {
         return;
@@ -510,8 +574,22 @@ void ProuterUveTable::DisassociatePhysicalInterface(const Interface *intf,
     entry->changed_ = true;
 }
 
+void ProuterUveTable::AddUpdatePhysicalInterface(const Interface *intf) {
+    UvePhyInterfaceMap::iterator it = uve_phy_interface_map_.find(intf->name());
+    if (it == uve_phy_interface_map_.end()) {
+        PhyInterfaceUveEntryPtr uve(new PhyInterfaceUveEntry(intf));
+        uve_phy_interface_map_.insert(UvePhyInterfacePair(intf->name(), uve));
+        return;
+    }
+    PhyInterfaceUveEntry *entry = it->second.get();
+    entry->Update(intf);
+}
+
 void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
                                                const boost::uuids::uuid &u) {
+    if (intf->IsDeleted()) {
+        MarkDeletedPhysical(intf);
+    }
     /* Ignore notifications for PhysicalInterface if it has no
        PhysicalDevice */
     if (u == nil_uuid()) {
@@ -524,62 +602,47 @@ void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
         return;
     }
     if (intf->IsDeleted()) {
-        UvePhyInterfaceMap::iterator pit = uve_phy_interface_map_.find(intf->
-                                                                       name());
         entry->DeletePhysicalInterface(intf);
-        if (pit != uve_phy_interface_map_.end()) {
-            uve_phy_interface_map_.erase(pit);
-        }
     } else {
         entry->AddPhysicalInterface(intf);
     }
-    entry->changed_ = true;
 }
 
-void ProuterUveTable::MarkChanged(const boost::uuids::uuid &li) {
-    VlanLogicalInterfaceKey key(li, "");
-    LogicalInterface *intf = static_cast<LogicalInterface *>
-        (agent_->interface_table()->FindActiveEntry(&key));
-    if (intf == NULL) {
-        return;
-    }
-    const Interface *physical_interface = intf->physical_interface();
-    const PhysicalDevice *pde = intf->physical_device();
-    if (physical_interface) {
-        pde = InterfaceToProuter(physical_interface);
-    }
-    MarkPhysicalDeviceChanged(pde);
-}
-
-void ProuterUveTable::LogicalIntf2VmiListMapAdd(const VmInterface *vmi) {
-    LogicalIntf2VmiListEntry *entry;
+void ProuterUveTable::VMInterfaceAdd(const VmInterface *vmi) {
+    LogicalInterfaceUveEntry *entry;
     const boost::uuids::uuid li = vmi->logical_interface();
-    LogicalIntf2VmiListMap::iterator it = uve_logical_interface_map_.find(li);
+    LogicalInterfaceMap::iterator it = uve_logical_interface_map_.find(li);
     if (it != uve_logical_interface_map_.end()) {
         entry = it->second.get();
     } else {
-        LogicalIntf2VmiListEntryPtr uve(new LogicalIntf2VmiListEntry());
-        uve_logical_interface_map_.insert(LogicalIntf2VmiListPair(li, uve));
+        LogicalInterface *intf;
+        VlanLogicalInterfaceKey key(li, "");
+        intf = static_cast<LogicalInterface *>
+            (agent_->interface_table()->FindActiveEntry(&key));
+        if (!intf) {
+            return;
+        }
+        LogicalInterfaceUveEntryPtr uve(new LogicalInterfaceUveEntry(intf));
+        uve_logical_interface_map_.insert(LogicalInterfacePair(li, uve));
         entry = uve.get();
     }
-    ProuterUveTable::VmiSet::iterator vit = entry->vmi_list.find
-        (vmi->GetUuid());
-    if (vit == entry->vmi_list.end()) {
-        entry->vmi_list.insert(vmi->GetUuid());
-        MarkChanged(li);
+    InterfaceSet::iterator vit = entry->vmi_list_.find(vmi->cfg_name());
+    if (vit == entry->vmi_list_.end()) {
+        entry->vmi_list_.insert(vmi->cfg_name());
+        entry->changed_ = true;
     }
 }
 
-void ProuterUveTable::LogicalIntf2VmiListMapRemove(const boost::uuids::uuid &li,
+void ProuterUveTable::VMInterfaceRemove(const boost::uuids::uuid &li,
                                                    const VmInterface *vmi) {
-    LogicalIntf2VmiListMap::iterator it = uve_logical_interface_map_.find(li);
+    LogicalInterfaceMap::iterator it = uve_logical_interface_map_.find(li);
     if (it != uve_logical_interface_map_.end()) {
-        LogicalIntf2VmiListEntry *entry = it->second.get();
-        ProuterUveTable::VmiSet::iterator vit = entry->vmi_list.find
-            (vmi->GetUuid());
-        if (vit != entry->vmi_list.end()) {
-            entry->vmi_list.erase(vit);
-            MarkChanged(li);
+        LogicalInterfaceUveEntry *entry = it->second.get();
+        ProuterUveTable::InterfaceSet::iterator vit = entry->vmi_list_.find
+            (vmi->cfg_name());
+        if (vit != entry->vmi_list_.end()) {
+            entry->vmi_list_.erase(vit);
+            entry->changed_ = true;
         }
     }
 }
@@ -591,7 +654,7 @@ void ProuterUveTable::VmInterfaceHandler(DBTablePartBase *partition,
     const VmInterface *intf = static_cast<const VmInterface *>(e);
     if (e->IsDeleted()) {
         if (state) {
-            LogicalIntf2VmiListMapRemove(state->logical_interface_, intf);
+            VMInterfaceRemove(state->logical_interface_, intf);
             e->ClearState(partition->parent(), interface_listener_id_);
             delete state;
             return;
@@ -603,12 +666,12 @@ void ProuterUveTable::VmInterfaceHandler(DBTablePartBase *partition,
     }
     if (state->logical_interface_ != intf->logical_interface()) {
         if (state->logical_interface_ != nil_uuid()) {
-            LogicalIntf2VmiListMapRemove(state->logical_interface_, intf);
-        }
-        if (intf->logical_interface() != nil_uuid()) {
-            LogicalIntf2VmiListMapAdd(intf);
+            VMInterfaceRemove(state->logical_interface_, intf);
         }
         state->logical_interface_ = intf->logical_interface();
+    }
+    if (intf->logical_interface() != nil_uuid()) {
+        VMInterfaceAdd(intf);
     }
 }
 
@@ -648,12 +711,14 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
                 PhysicalInterfaceHandler(rpintf, state->physical_device_);
             } else if (lintf) {
                 if (!state->physical_interface_.empty()) {
-                    DeleteLogicalInterface(state->physical_interface_, lintf);
+                    DeleteLogicalFromPhysical(state->physical_interface_,
+                                              lintf);
                 }
                 if (state->physical_device_ != nil_uuid()) {
                     DeleteProuterLogicalInterface(state->physical_device_,
                                                   lintf);
                 }
+                MarkDeletedLogical(lintf);
             }
             e->ClearState(partition->parent(), interface_listener_id_);
             delete state;
@@ -672,16 +737,15 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
             pname = physical_interface->name();
         }
         if (intf->type() == Interface::LOGICAL) {
-            bool uve_send = true;
             if (state->physical_interface_ != pname) {
                 if (!state->physical_interface_.empty()) {
-                    DeleteLogicalInterface(state->physical_interface_, lintf);
+                    DeleteLogicalFromPhysical(state->physical_interface_,
+                                              lintf);
                 }
                 if (physical_interface) {
-                    AddLogicalInterface(physical_interface, lintf);
+                    AddLogicalToPhysical(physical_interface, lintf);
                 }
                 state->physical_interface_ = pname;
-                uve_send = false;
             }
             if (state->physical_device_ != pde_uuid) {
                 if (state->physical_device_ != nil_uuid()) {
@@ -692,22 +756,12 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
                     AddProuterLogicalInterface(pde, lintf);
                 }
                 state->physical_device_ = pde_uuid;
-                uve_send = false;
             }
-            if (uve_send) {
-                /* There is change in logical interface. Update our
-                   logical interface data and send UVE */
-                if (physical_interface) {
-                    UpdateLogicalInterface(physical_interface, lintf);
-                } else if (pde) {
-                    UpdateProuterLogicalInterface(pde, lintf);
-                }
-            }
+            AddUpdateLogicalInterface(lintf);
         } else {
             if (state->physical_device_ != pde_uuid) {
                 if (state->physical_device_ != nil_uuid()) {
-                    DisassociatePhysicalInterface(intf,
-                                                  state->physical_device_);
+                    DeletePhysicalFromProuter(intf, state->physical_device_);
                 }
                 if (pde) {
                     if (pintf) {
@@ -718,6 +772,7 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
                 }
                 state->physical_device_ = pde_uuid;
             }
+            AddUpdatePhysicalInterface(intf);
         }
     }
 }
@@ -738,4 +793,57 @@ void ProuterUveTable::Shutdown(void) {
             Unregister(physical_device_listener_id_);
     if (interface_listener_id_ != DBTableBase::kInvalidId)
         agent_->interface_table()->Unregister(interface_listener_id_);
+}
+
+void ProuterUveTable::SendLogicalInterfaceDeleteMsg(const string &config_name) {
+    UveLogicalInterfaceAgent uve;
+    uve.set_name(config_name);
+    uve.set_deleted(true);
+    DispatchLogicalInterfaceMsg(uve);
+}
+
+void ProuterUveTable::SendLogicalInterfaceMsg(const boost::uuids::uuid &u,
+                                              LogicalInterfaceUveEntry *entry) {
+    UveLogicalInterfaceAgent uve;
+    vector<string> list;
+
+    uve.set_name(to_string(u));
+    uve.set_config_name(entry->name_);
+    uve.set_vlan(entry->vlan_);
+
+    entry->FillVmInterfaceList(list);
+    uve.set_vm_interface_list(list);
+
+    DispatchLogicalInterfaceMsg(uve);
+}
+
+void ProuterUveTable::DispatchLogicalInterfaceMsg
+    (const UveLogicalInterfaceAgent &uve) {
+    UveLogicalInterfaceAgentTrace::Send(uve);
+}
+
+void ProuterUveTable::SendPhysicalInterfaceDeleteMsg(const string &cfg_name) {
+    UvePhysicalInterfaceAgent uve;
+    uve.set_name(cfg_name);
+    uve.set_deleted(true);
+    DispatchPhysicalInterfaceMsg(uve);
+}
+
+void ProuterUveTable::SendPhysicalInterfaceMsg(const string &cfg_name,
+                                               PhyInterfaceUveEntry *entry) {
+    UvePhysicalInterfaceAgent uve;
+    vector<string> list;
+
+    uve.set_name(cfg_name);
+    uve.set_uuid(to_string(entry->uuid_));
+
+    entry->FillLogicalInterfaceList(list);
+    uve.set_logical_interface_list(list);
+
+    DispatchPhysicalInterfaceMsg(uve);
+}
+
+void ProuterUveTable::DispatchPhysicalInterfaceMsg
+    (const UvePhysicalInterfaceAgent &uve) {
+    UvePhysicalInterfaceAgentTrace::Send(uve);
 }

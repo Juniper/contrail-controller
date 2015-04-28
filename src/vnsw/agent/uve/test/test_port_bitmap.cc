@@ -24,6 +24,7 @@
 #include <uve/agent_uve.h>
 #include <uve/test/vn_uve_table_test.h>
 #include <uve/test/vm_uve_table_test.h>
+#include <uve/test/interface_uve_table_test.h>
 #include <uve/test/vrouter_uve_entry_test.h>
 
 #include "testing/gunit.h"
@@ -211,14 +212,13 @@ public:
                       uint16_t dport) {
         PortBucketBitmap port_uve;
         bool ret = true;
-        VmUveTableTest *vut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
+        InterfaceUveTableTest *vut = static_cast<InterfaceUveTableTest *>
+        (Agent::GetInstance()->uve()->interface_uve_table());
 
         const VmInterface *intf = static_cast<const VmInterface *>
             (flow->data().intf_entry.get());
-        const VmEntry *vm = intf->vm();
 
-        L4PortBitmap *bmap = vut->GetVmIntfPortBitmap(vm, intf);
+        L4PortBitmap *bmap = vut->GetVmIntfPortBitmap(intf);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {

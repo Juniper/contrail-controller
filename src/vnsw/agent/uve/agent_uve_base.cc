@@ -31,6 +31,7 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl, bool create_objects,
                            uint32_t default_intvl, uint32_t incremental_intvl)
     : vn_uve_table_(NULL), vm_uve_table_(NULL), vrouter_uve_entry_(NULL),
       prouter_uve_table_(new ProuterUveTable(agent, default_intvl)),
+      interface_uve_table_(NULL),
       default_interval_(default_intvl),
       incremental_interval_(incremental_intvl),
       agent_(agent), bandwidth_intvl_(intvl),
@@ -41,6 +42,7 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl, bool create_objects,
         vn_uve_table_.reset(new VnUveTableBase(agent, default_intvl));
         vm_uve_table_.reset(new VmUveTableBase(agent, default_intvl));
         vrouter_uve_entry_.reset(new VrouterUveEntryBase(agent));
+        interface_uve_table_.reset(new InterfaceUveTable(agent, default_intvl));
     }
     singleton_ = this;
 }
@@ -53,6 +55,7 @@ void AgentUveBase::Shutdown() {
     vm_uve_table_.get()->Shutdown();
     vrouter_uve_entry_.get()->Shutdown();
     prouter_uve_table_.get()->Shutdown();
+    interface_uve_table_.get()->Shutdown();
     connection_state_manager_->Shutdown();
     vrouter_stats_collector_->Shutdown();
 }
@@ -186,5 +189,6 @@ void AgentUveBase::RegisterDBClients() {
     vm_uve_table_.get()->RegisterDBClients();
     vrouter_uve_entry_.get()->RegisterDBClients();
     prouter_uve_table_.get()->RegisterDBClients();
+    interface_uve_table_.get()->RegisterDBClients();
 }
 

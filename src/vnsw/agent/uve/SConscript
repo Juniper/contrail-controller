@@ -69,7 +69,8 @@ env.Default(sdist_gen)
 env.Alias("vrouter:node_mgr", sdist_gen)
 
 # Generate the C++ source files
-SandeshGenFiles  = env.SandeshGenCpp('port_bmap.sandesh')
+SandeshGenFiles  = env.SandeshGenCpp('interface.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('port_bmap.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
@@ -91,6 +92,7 @@ libuve = env.Library('uve',
                      SandeshGenObjs +
                      [
                      'agent_uve_base.cc',
+                     'interface_uve_table.cc',
                      'l4_port_bitmap.cc',
                      'prouter_uve_table.cc',
                      'vm_uve_entry_base.cc',
@@ -105,6 +107,7 @@ libstatsuve = env.Library('statsuve',
                           StatsSandeshGenObjs +
                          [
                           'agent_uve.cc',
+                          'interface_uve_stats_table.cc',
                           'stats_manager.cc',
                           'vm_stat.cc',
                           'vm_uve_entry.cc',

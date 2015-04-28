@@ -1,44 +1,8 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
 include "vnsw/agent/uve/port_bmap.sandesh"
-
-struct VmFloatingIPStats {
-    1: string virtual_network (aggtype="listkey")
-    2: string ip_address;
-    3: string iface_name;
-    4: u64 in_pkts;
-    5: u64 in_bytes;
-    6: u64 out_pkts;
-    7: u64 out_bytes;
-}
-
-struct VmFloatingIPAgent {
-    1: string virtual_network;
-    2: string ip_address;
-}
-
-struct VmInterfaceAgentBMap {
-    1: string name (aggtype="listkey")
-    2: port_bmap.PortBucketBitmap port_bucket_bmap;
-}
-
-struct VmInterfaceAgent {
-    1: string name (aggtype="listkey")
-    2: string ip_address;
-    3: string virtual_network;
-    4: list<VmFloatingIPAgent> floating_ips;
-    5: string mac_address;
-    6: u32 label;
-    7: bool active;
-    8: string vm_name;
-    9: string gateway;
-   10: bool l2_active;
-   11: string uuid;
-   12: string ip6_address;
-   13: bool ip6_active;
-}
 
 struct VmCpuStats {
     1: double cpu_one_min_avg;
@@ -55,14 +19,12 @@ struct UveVirtualMachineAgent {
     1: string                name (key="ObjectVMTable")
     2: optional bool         deleted
     3: optional list<string> attached_groups; 
-    4: optional list<VmInterfaceAgent> interface_list;
+    4: optional list<string> interface_list;
     5: optional string       vrouter; 
-    7: optional list<VmInterfaceAgentBMap> if_bmap_list;
     9: optional list<u32>   udp_sport_bitmap;
     10: optional list<u32>  udp_dport_bitmap;
     11: optional list<u32>  tcp_sport_bitmap;
     12: optional list<u32>  tcp_dport_bitmap;
-    13: optional list<VmFloatingIPStats> fip_stats_list;
     14: optional VmCpuStats cpu_info;
     15: optional string uuid;
 }
@@ -71,37 +33,9 @@ uve sandesh UveVirtualMachineAgentTrace {
     1: UveVirtualMachineAgent data;
 }
 
-/*
- * VM's floating ip stats samples
- */
-struct VmFloatingIPStatSamples {
-    1: string vn;
-    2: string ip_address;
-    3: string iface_name;
-    4: u64 in_pkts;
-    5: u64 in_bytes;
-    6: u64 out_pkts;
-    7: u64 out_bytes;
-}
-
-/*
- * VM's interfaces' stats samples
- */
-struct VmInterfaceStats {
-    1: string name;
-    2: u64 in_pkts;
-    3: u64 in_bytes;
-    4: u64 out_pkts;
-    5: u64 out_bytes;
-    6: u64 in_bw_usage;
-    7: u64 out_bw_usage;
-}
-
 struct VirtualMachineStats {
     1: string         name (key="ObjectVMTable")
     2: optional bool  deleted
-    3: optional list<VmFloatingIPStatSamples> fip_stats (tags=".vn,.iface_name,.ip_address")
-    4: optional list<VmInterfaceStats> if_stats (tags=".name")
     5: optional list<VmCpuStats> cpu_stats (tags="")
 }
 

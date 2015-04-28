@@ -30,10 +30,10 @@ class VmUveTableBase {
 public:
     struct VmUveInterfaceState :public DBState {
         VmUveInterfaceState(const boost::uuids::uuid u,
-                            const VmInterface::FloatingIpSet &fip_l)
-            : vm_uuid_(u), fip_list_(fip_l) {}
+                            const std::string cfg_name)
+            : vm_uuid_(u), interface_cfg_name_(cfg_name) {}
         boost::uuids::uuid vm_uuid_;
-        VmInterface::FloatingIpSet fip_list_;
+        std::string interface_cfg_name_;
     };
 
     class VmUveVmState: public DBState {
@@ -64,10 +64,9 @@ private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void InterfaceAddHandler(const VmEntry* vm, const Interface* intf,
-                             const VmInterface::FloatingIpSet &old_list);
+    void InterfaceAddHandler(const VmEntry* vm, const std::string &if_cfg_name);
     void InterfaceDeleteHandler(const boost::uuids::uuid &u,
-                                const Interface* intf);
+                                const std::string &intf_cfg_name);
     void MarkChanged(const boost::uuids::uuid &u);
     VmUveEntryBase* Add(const VmEntry *vm, bool vm_notify);
     void Delete(const boost::uuids::uuid &u);
