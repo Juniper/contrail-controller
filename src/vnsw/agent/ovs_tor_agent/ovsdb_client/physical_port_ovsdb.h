@@ -10,6 +10,7 @@
 
 namespace OVSDB {
 class PhysicalPortEntry;
+class VlanPortBindingEntry;
 
 class PhysicalPortTable : public OvsdbObject {
 public:
@@ -34,6 +35,7 @@ private:
 
 class PhysicalPortEntry : public OvsdbEntry {
 public:
+    typedef std::map<uint32_t, VlanPortBindingEntry *> VlanPortTable;
     typedef std::map<uint32_t, LogicalSwitchEntry *> VlanLSTable;
     typedef std::map<uint32_t, struct ovsdb_idl_row *> VlanStatsTable;
     PhysicalPortEntry(PhysicalPortTable *table, const std::string &dev_name,
@@ -48,12 +50,12 @@ public:
     std::string ToString() const {return "Physical Port";}
     KSyncEntry* UnresolvedReference();
     void TriggerUpdate();
-    void AddBinding(int16_t vlan, LogicalSwitchEntry *ls);
-    void DeleteBinding(int16_t vlan, LogicalSwitchEntry *ls);
+    void AddBinding(int16_t vlan, VlanPortBindingEntry *entry);
+    void DeleteBinding(int16_t vlan);
 
     const std::string &name() const;
     const std::string &dev_name() const;
-    const VlanLSTable &binding_table() const;
+    const VlanPortTable &binding_table() const;
     const VlanLSTable &ovs_binding_table() const;
     const VlanStatsTable &stats_table() const;
 
@@ -63,7 +65,7 @@ private:
     bool OverrideOvs();
     std::string name_;
     std::string dev_name_;
-    VlanLSTable binding_table_;
+    VlanPortTable binding_table_;
     VlanLSTable ovs_binding_table_;
     VlanStatsTable stats_table_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalPortEntry);
