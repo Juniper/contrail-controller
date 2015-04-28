@@ -4,7 +4,7 @@ import ConfigParser
 import sys
 import socket
 
-from nodemgr.ProcessStat import ProcessStat
+from nodemgr.process_stat import ProcessStat
 
 class VrouterProcessStat(ProcessStat):
     def __init__(self, pname):

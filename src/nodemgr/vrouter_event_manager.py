@@ -13,8 +13,8 @@ import select
 import gevent
 import ConfigParser
 
-from nodemgr.EventManager import EventManager
-from nodemgr.VrouterProcessStat import VrouterProcessStat
+from nodemgr.event_manager import EventManager
+from nodemgr.vrouter_process_stat import VrouterProcessStat
 
 from ConfigParser import NoOptionError
 

@@ -1,6 +1,7 @@
 doc = " "
 
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
 import os
 import sys
 import socket
@@ -12,7 +13,7 @@ import platform
 import gevent
 import ConfigParser
 
-from nodemgr.EventManager import EventManager
+from nodemgr.event_manager import EventManager
 
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -27,23 +28,28 @@ from analytics.process_info.ttypes import \
 from analytics.process_info.constants import \
     ProcessStateNames
 
+
 def usage():
     print doc
     sys.exit(255)
 
+
 class AnalyticsEventManager(EventManager):
-    def __init__(self, rule_file, discovery_server, discovery_port, collector_addr):
-        EventManager.__init__(self, rule_file, discovery_server, discovery_port, collector_addr)
+    def __init__(self, rule_file,
+      discovery_server, discovery_port, collector_addr):
+        EventManager.__init__(self, rule_file,
+          discovery_server, discovery_port, collector_addr)
         self.node_type = 'contrail-analytics'
         self.module = Module.ANALYTICS_NODE_MGR
-        self.module_id =  ModuleNames[self.module]
+        self.module_id = ModuleNames[self.module]
         self.supervisor_serverurl = "unix:///tmp/supervisord_analytics.sock"
         self.add_current_process()
     #end __init__
 
     def process(self):
         if self.rule_file is '':
-            self.rule_file = "/etc/contrail/supervisord_analytics_files/contrail-analytics.rules"
+            self.rule_file = "/etc/contrail/" + \
+             "supervisord_analytics_files/contrail-analytics.rules"
         json_file = open(self.rule_file)
         self.rules_data = json.load(json_file)
         node_type = Module2NodeType[self.module]
@@ -59,13 +65,17 @@ class AnalyticsEventManager(EventManager):
         self.sandesh_global = sandesh_global
 
     def send_process_state_db(self, group_names):
-        self.send_process_state_db_base(group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+        self.send_process_state_db_base(group_names,
+           ProcessInfo, NodeStatus, NodeStatusUVE)
 
     def send_nodemgr_process_status(self):
-        self.send_nodemgr_process_status_base(ProcessStateNames, ProcessState, ProcessStatus, NodeStatus, NodeStatusUVE)
+        self.send_nodemgr_process_status_base(ProcessStateNames,
+           ProcessState, ProcessStatus, NodeStatus, NodeStatusUVE)
 
     def get_process_state(self, fail_status_bits):
-        return self.get_process_state_base(fail_status_bits, ProcessStateNames, ProcessState)
+        return self.get_process_state_base(fail_status_bits,
+           ProcessStateNames, ProcessState)
 
     def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
+        self.send_disk_usage_info_base(NodeStatusUVE,
+           NodeStatus, DiskPartitionUsageStats)

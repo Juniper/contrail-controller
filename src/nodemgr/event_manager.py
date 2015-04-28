@@ -12,8 +12,8 @@ import supervisor.xmlrpc
 import xmlrpclib
 
 from supervisor import childutils
-from nodemgr.EventListenerProtocolNodeMgr import EventListenerProtocolNodeMgr
-from nodemgr.ProcessStat import ProcessStat
+from nodemgr.event_listener_protocol_nodemgr import EventListenerProtocolNodeMgr
+from nodemgr.process_stat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 
 class EventManager(object):
