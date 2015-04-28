@@ -694,8 +694,8 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : SERVER_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_stats.disk_name', 'datatype': 'string', 'index' : true},
-          { 'name' : 'disk_usage_stats.read_MB', 'datatype': 'int', 'index' : false},
-          { 'name' : 'disk_usage_stats.write_MB', 'datatype': 'int', 'index' : false},
+          { 'name' : 'disk_usage_stats.read_bytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'disk_usage_stats.write_bytes', 'datatype': 'int', 'index' : false},
         ]
     },
     {
@@ -719,6 +719,27 @@ const list<stat_table> _STAT_TABLES  = [
       'attributes': [
           { 'name' : 'resource_info_stats.cpu_usage_percentage', 'datatype': 'double', 'index' : false},
           { 'name' : 'resource_info_stats.mem_usage_mb', 'datatype': 'double', 'index' : false},
+          { 'name' : 'resource_info_stats.mem_usage_percent', 'datatype': 'double', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Server Monitoring File System Stats Info',
+      'stat_type' : 'ServerMonitoringInfo',
+      'stat_attr' : 'file_system_view_stats.physical_disks',
+      'obj_table' : SERVER_TABLE,
+      'attributes': [
+          { 'name' : 'file_system_view_stats.fs_name', 'datatype': 'string', 'index' : true},
+          { 'name' : 'file_system_view_stats.size_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.used_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.available_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.used_percentage', 'datatype': 'int', 'index' : true},
+          { 'name' : 'file_system_view_stats.mountpoint', 'datatype': 'string', 'index' : false},
+          { 'name' : 'file_system_view_stats.type', 'datatype': 'string', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_name', 'datatype': 'string', 'index' : true},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_size_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_used_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_available_kb', 'datatype': 'int', 'index' : false},
+          { 'name' : 'file_system_view_stats.physical_disks.disk_used_percentage', 'datatype': 'int', 'index' : true},
         ]
     },
     {
