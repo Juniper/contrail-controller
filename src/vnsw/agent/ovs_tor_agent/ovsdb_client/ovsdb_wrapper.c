@@ -539,6 +539,15 @@ ovsdb_wrapper_delete_mcast_mac_local(struct ovsdb_idl_row *row)
     struct vteprec_mcast_macs_local *mcast =
         row ? CONTAINER_OF(row, struct vteprec_mcast_macs_local, header_) : NULL;
     struct vteprec_physical_locator_set *l_set = mcast->locator_set;
+
+    if (l_set == NULL) {
+        // mcast entry and locator set always exists together in case locator
+        // set is missing donot encode delete for mcast entry as well, on next
+        // try when physical locator is also available it will successfully
+        // delete it
+        return;
+    }
+
     vteprec_physical_locator_set_delete(l_set);
     vteprec_mcast_macs_local_delete(mcast);
 }
@@ -603,6 +612,15 @@ ovsdb_wrapper_delete_mcast_mac_remote(struct ovsdb_idl_row *row)
     struct vteprec_mcast_macs_remote *mcast =
         row ? CONTAINER_OF(row, struct vteprec_mcast_macs_remote, header_) : NULL;
     struct vteprec_physical_locator_set *l_set = mcast->locator_set;
+
+    if (l_set == NULL) {
+        // mcast entry and locator set always exists together in case locator
+        // set is missing donot encode delete for mcast entry as well, on next
+        // try when physical locator is also available it will successfully
+        // delete it
+        return;
+    }
+
     vteprec_physical_locator_set_delete(l_set);
     vteprec_mcast_macs_remote_delete(mcast);
 }

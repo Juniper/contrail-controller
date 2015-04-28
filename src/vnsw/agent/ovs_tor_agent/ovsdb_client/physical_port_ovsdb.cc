@@ -78,24 +78,33 @@ void PhysicalPortEntry::TriggerUpdate() {
 
 void PhysicalPortEntry::Encode(struct ovsdb_idl_txn *txn) {
     struct ovsdb_wrapper_port_vlan_binding binding[binding_table_.size()];
-    VlanLSTable::iterator it = binding_table_.begin();
+    VlanPortTable::iterator it = binding_table_.begin();
     std::size_t i = 0;
     for ( ; it != binding_table_.end(); it++) {
-        struct ovsdb_idl_row *ls = it->second->ovs_entry();
+        LogicalSwitchEntry *ls_entry = it->second->logical_switch();
+        struct ovsdb_idl_row *ls = ls_entry->ovs_entry();
         if (ls != NULL) {
             binding[i].ls = ls;
             binding[i].vlan = it->first;
             i++;
+        } else {
+            // failed to get logical switch idl row, trigger change on
+            // vlan port binding to wait for logical switch idl
+            VlanPortBindingTable *vp_table =
+                table_->client_idl()->vlan_port_table();
+            if (it->second->IsActive()) {
+                vp_table->Change(it->second);
+            }
         }
     }
     ovsdb_wrapper_update_physical_port(txn, ovs_entry_, binding, i);
 }
 
-void PhysicalPortEntry::AddBinding(int16_t vlan, LogicalSwitchEntry *ls) {
-    binding_table_[vlan] = ls;
+void PhysicalPortEntry::AddBinding(int16_t vlan, VlanPortBindingEntry *entry) {
+    binding_table_[vlan] = entry;
 }
 
-void PhysicalPortEntry::DeleteBinding(int16_t vlan, LogicalSwitchEntry *ls) {
+void PhysicalPortEntry::DeleteBinding(int16_t vlan) {
     binding_table_.erase(vlan);
 }
 
@@ -107,7 +116,7 @@ const std::string &PhysicalPortEntry::dev_name() const {
     return dev_name_;
 }
 
-const PhysicalPortEntry::VlanLSTable &
+const PhysicalPortEntry::VlanPortTable &
 PhysicalPortEntry::binding_table() const {
     return binding_table_;
 }
@@ -239,7 +248,7 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
 
     // Compare difference between tor agent and ovsdb server.
     // on mis-match override and re-program Physical port
-    PhysicalPortEntry::VlanLSTable::iterator it =
+    PhysicalPortEntry::VlanPortTable::iterator it =
         entry->binding_table_.begin();
     PhysicalPortEntry::VlanLSTable::iterator ovs_it =
         entry->ovs_binding_table_.begin();
@@ -247,7 +256,7 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
     bool ret_override = false;
     while (ovs_it != entry->ovs_binding_table_.end()) {
         if (it != entry->binding_table_.end() && it->first == ovs_it->first) {
-            if (it->second != ovs_it->second) {
+            if (it->second->logical_switch() != ovs_it->second) {
                 // mis-match of logical switch for the vlan
                 //break;
                 ret_override = true;
@@ -322,17 +331,17 @@ public:
                 pentry.set_state(entry->StateString());
                 pentry.set_switch_name(entry->dev_name());
                 pentry.set_name(entry->name());
-                const PhysicalPortEntry::VlanLSTable &bindings =
+                const PhysicalPortEntry::VlanPortTable &bindings =
                     entry->binding_table();
                 const PhysicalPortEntry::VlanStatsTable &stats_table =
                     entry->stats_table();
-                PhysicalPortEntry::VlanLSTable::const_iterator it =
+                PhysicalPortEntry::VlanPortTable::const_iterator it =
                     bindings.begin();
                 std::vector<OvsdbPhysicalPortVlanInfo> vlan_list;
                 for (; it != bindings.end(); it++) {
                     OvsdbPhysicalPortVlanInfo vlan;
                     vlan.set_vlan(it->first);
-                    vlan.set_logical_switch(it->second->name());
+                    vlan.set_logical_switch(it->second->logical_switch_name());
                     PhysicalPortEntry::VlanStatsTable::const_iterator stats_it =
                         stats_table.find(it->first);
                     if (stats_it != stats_table.end()) {

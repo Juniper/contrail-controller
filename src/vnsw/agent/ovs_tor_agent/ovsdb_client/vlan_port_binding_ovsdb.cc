@@ -78,15 +78,14 @@ void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
         static_cast<PhysicalPortEntry *>(physical_port_.get());
 
     if (!logical_switch_name_.empty()) {
-        port->AddBinding(vlan_,
-                static_cast<LogicalSwitchEntry *>(logical_switch_.get()));
+        port->AddBinding(vlan_, this);
         OVSDB_TRACE(Trace, "Adding port vlan binding port " +
                 physical_port_name_ + " vlan " + integerToString(vlan_) +
                 " to Logical Switch " + logical_switch_name_);
     } else {
         OVSDB_TRACE(Trace, "Deleting port vlan binding port " +
                 physical_port_name_ + " vlan " + integerToString(vlan_));
-        port->DeleteBinding(vlan_, NULL);
+        port->DeleteBinding(vlan_);
     }
 
     // Don't trigger update for stale entries
@@ -100,7 +99,7 @@ void VlanPortBindingEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
         static_cast<PhysicalPortEntry *>(physical_port_.get());
     OVSDB_TRACE(Trace, "Deleting port vlan binding port " +
             physical_port_name_ + " vlan " + integerToString(vlan_));
-    port->DeleteBinding(vlan_, NULL);
+    port->DeleteBinding(vlan_);
 
     AddMsg(txn);
 }
@@ -113,8 +112,7 @@ void VlanPortBindingEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
         static_cast<PhysicalPortEntry *>(physical_port_.get());
     OVSDB_TRACE(Trace, "Deleting port vlan binding port " +
             physical_port_name_ + " vlan " + integerToString(vlan_));
-    port->DeleteBinding(vlan_,
-            static_cast<LogicalSwitchEntry *>(logical_switch_.get()));
+    port->DeleteBinding(vlan_);
     port->TriggerUpdate();
 }
 
@@ -215,6 +213,10 @@ KSyncEntry *VlanPortBindingEntry::UnresolvedReference() {
     }
 
     return NULL;
+}
+
+LogicalSwitchEntry *VlanPortBindingEntry::logical_switch() {
+    return static_cast<LogicalSwitchEntry *>(logical_switch_.get());
 }
 
 const std::string &VlanPortBindingEntry::logical_switch_name() const {
