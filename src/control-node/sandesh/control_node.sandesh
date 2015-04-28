@@ -58,7 +58,7 @@ struct NodeStatus {
     4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
     // Sent by node manager
     5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
-    6: optional list<process_info.DiskPartitionUsageStats> disk_usage_info
+    6: optional list<process_info.DiskPartitionUsageStats> disk_usage_info (tags="")
     7: optional string description
     8: optional list<string> all_core_file_list
 }
