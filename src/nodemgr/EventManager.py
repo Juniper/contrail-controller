@@ -311,7 +311,12 @@ class EventManager(object):
                 disk_usage_stat.partition_space_available_1k = int(partition_space_available_1k)
             except ValueError:
                 sys.stderr.write("Failed to get local disk space usage" + "\n")
-        disk_usage_infos.append(disk_usage_stat)
+<<<<<<< HEAD
+            disk_usage_infos.append(disk_usage_stat)
+=======
+            else:
+                disk_usage_infos.append(disk_usage_stat)
+>>>>>>> 47ce7ec... disk_usage_info in NodeStatusUVE should be stats field
 
         # send node UVE
         node_status = NodeStatus(name = socket.gethostname(),
