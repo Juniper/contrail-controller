@@ -46,7 +46,7 @@ private:
 
 class MplsKSyncObject : public KSyncDBObject {
 public:
-    static const int kMplsIndexCount = 10000;
+    static const int kMplsIndexCount = 128 * 1024; // support 128K mpls labels
     MplsKSyncObject(KSync *ksync);
     virtual ~MplsKSyncObject();
     KSync *ksync() const { return ksync_; }
