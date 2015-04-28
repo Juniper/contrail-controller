@@ -43,6 +43,8 @@ bool FlowHandler::Run() {
         pkt_info_->agent_hdr.vrf = fe->data().vrf;
         pkt_info_->family =
             fe->key().src_addr.is_v4() ? Address::INET : Address::INET6;
+        pkt_info_->smac = fe->data().smac;
+        pkt_info_->dmac = fe->data().dmac;
         pkt_info_->ip_saddr = fe->key().src_addr;
         pkt_info_->ip_daddr = fe->key().dst_addr;
         pkt_info_->ip_proto = fe->key().protocol;

@@ -104,12 +104,13 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
     return vxlan_id_table_;
 }
 
-void VxLanId::Create(uint32_t vxlan_id, const string &vrf_name) {
+void VxLanId::Create(uint32_t vxlan_id, const string &vrf_name,
+                     bool flood_unknown_unicast) {
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, true);
     nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(new VrfNHData());
+    nh_req.data.reset(new VrfNHData(flood_unknown_unicast));
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

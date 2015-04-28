@@ -55,7 +55,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(),
     vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(true),
-    layer3_forwarding_(true), mac_set_(false), ecmp_(false),
+    layer3_forwarding_(true), flood_unknown_unicast_(false),
+    mac_set_(false), ecmp_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -85,7 +86,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(vm_name),
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
-    bridging_(true), layer3_forwarding_(true), mac_set_(false),
+    bridging_(true), layer3_forwarding_(true),
+    flood_unknown_unicast_(false), mac_set_(false),
     ecmp_(false), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
     parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -1519,6 +1521,13 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         int vxlan_id = vn ? vn->GetVxLanId() : 0;
         if (vxlan_id_ != vxlan_id) {
             vxlan_id_ = vxlan_id;
+            ret = true;
+        }
+
+        bool flood_unknown_unicast =
+            vn ? vn->flood_unknown_unicast(): false;
+        if (flood_unknown_unicast_ != flood_unknown_unicast) {
+            flood_unknown_unicast_ = flood_unknown_unicast;
             ret = true;
         }
     }

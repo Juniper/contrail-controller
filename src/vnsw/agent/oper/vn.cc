@@ -90,7 +90,7 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
 VnEntry::VnEntry(Agent *agent, uuid id) :
     AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
     bridging_(true), layer3_forwarding_(true), admin_state_(true),
-    table_label_(0), enable_rpf_(true) {
+    table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false) {
 }
 
 VnEntry::~VnEntry() {
@@ -213,7 +213,7 @@ int VnEntry::ComputeEthernetTag() const {
 }
 
 void VnEntry::RebakeVxLan(int vxlan_id) {
-    VxLanId::Create(vxlan_id, GetVrf()->GetName());
+    VxLanId::Create(vxlan_id, GetVrf()->GetName(), flood_unknown_unicast_);
     VxLanId *vxlan_id_entry = NULL;
     VxLanIdKey vxlan_key(vxlan_id);
     vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
@@ -223,7 +223,8 @@ void VnEntry::RebakeVxLan(int vxlan_id) {
 
 bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
                               bool new_bridging, 
-                              bool vxlan_network_identifier_mode_changed) {
+                              bool vxlan_network_identifier_mode_changed,
+                              bool new_flood_unknown_unicast) {
     bool ret = false; 
     bool rebake_vxlan = false;
 
@@ -264,6 +265,12 @@ bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
             vnid_ = new_vnid;
             ret = true;
         }
+
+        if (flood_unknown_unicast_ != new_flood_unknown_unicast) {
+            flood_unknown_unicast_ = new_flood_unknown_unicast;
+            rebake_vxlan = true;
+            ret = true;
+        }
     }
 
     if (!GetVrf()) {
@@ -286,7 +293,7 @@ bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
 bool VnEntry::VxLanNetworkIdentifierChanged() {
     //No change in VN config. 
     //Need to pick vxlan based on config mode
-    return ReEvaluateVxlan(NULL, 0, 0, true, true);
+    return ReEvaluateVxlan(NULL, 0, 0, true, true, flood_unknown_unicast_);
 }
 
 bool VnEntry::Resync() {
@@ -424,7 +431,8 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     }
 
     ret |= vn->ReEvaluateVxlan(old_vrf, data->vxlan_id_, data->vnid_,
-                              data->bridging_, false);
+                              data->bridging_, false,
+                              data->flood_unknown_unicast_);
     
 
     if (vn->enable_rpf_ != data->enable_rpf_) {
@@ -631,11 +639,16 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     else
         network_id = cfg->properties().network_id;
 
+    bool flood_unknown_unicast = false;
+    if (properties.flood_unknown_unicast == true) {
+        flood_unknown_unicast = true;
+    }
+
     return new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
                       mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                       cfg->properties().vxlan_network_identifier,
                       network_id, bridging, layer3_forwarding,
-                      cfg->id_perms().enable, enable_rpf);
+                      cfg->id_perms().enable, enable_rpf, flood_unknown_unicast);
 }
 
 // Change to ACL referernce can result in change of Policy flag
@@ -778,13 +791,15 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const uuid &acl_id, const string &vrf_name, 
                     const std::vector<VnIpam> &ipam,
                     const VnData::VnIpamDataMap &vn_ipam_data,
-                    int vxlan_id, bool admin_state, bool enable_rpf) {
+                    int vxlan_id, bool admin_state, bool enable_rpf,
+                    bool flood_unknown_unicast) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(agent(), name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
                               vxlan_id, vxlan_id, true, true,
-                              admin_state, enable_rpf);
+                              admin_state, enable_rpf,
+                              flood_unknown_unicast);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -1083,6 +1098,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         data.set_bridging(bridging());
         data.set_admin_state(admin_state());
         data.set_enable_rpf(enable_rpf());
+        data.set_flood_unknown_unicast(flood_unknown_unicast());
 
         std::vector<VnSandeshData> &list =
             const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());

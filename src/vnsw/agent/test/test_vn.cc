@@ -838,6 +838,55 @@ TEST_F(CfgTest, RpfEnableDisable) {
     client->WaitForIdle();
 }
 
+TEST_F(CfgTest, UnknownBroadcastEnableDisable_1) {
+    AddVn("vn10", 10, true);
+    AddVrf("vrf10");
+    AddLink("virtual-network", "vn10", "routing-instance", "vrf10");
+    client->WaitForIdle();
+
+    VnEntry *vn = VnGet(10);
+    EXPECT_TRUE(vn->flood_unknown_unicast() == false);
+
+    NextHopKey *key = new VrfNHKey("vrf10", false, true);
+    const VrfNH *vrf_nh = static_cast<const VrfNH *>(GetNH(key));
+    EXPECT_TRUE(vrf_nh->flood_unknown_unicast() == false);
+
+    EnableUnknownBroadcast("vn10", 10);
+    EXPECT_TRUE(vn->flood_unknown_unicast());
+    EXPECT_TRUE(vrf_nh->flood_unknown_unicast() == true);
+
+    DisableUnknownBroadcast("vn10", 10);
+    EXPECT_FALSE(vn->flood_unknown_unicast());
+    EXPECT_TRUE(vrf_nh->flood_unknown_unicast() == false);
+
+    DelVn("vn10");
+    DelLink("virtual-network", "vn10", "routing-instance", "vrf10");
+    DelVrf("vrf10");
+    client->WaitForIdle();
+}
+
+TEST_F(CfgTest, UnknownBroadcastEnableDisable_2) {
+    struct PortInfo input[] = {
+        {"vnet10", 10, "1.1.1.10", "00:00:01:01:01:10", 10, 10},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(10));
+    EXPECT_FALSE(intf->flood_unknown_unicast());
+
+    EnableUnknownBroadcast("vn10", 10);
+    EXPECT_TRUE(intf->flood_unknown_unicast());
+
+    DisableUnknownBroadcast("vn10", 10);
+    EXPECT_FALSE(intf->flood_unknown_unicast());
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
 
 TEST_F(CfgTest, CfgDBStateUuid) {
     client->WaitForIdle();
