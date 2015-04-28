@@ -152,6 +152,11 @@ TEST_F(UnicastLocalRouteTest, UnicastLocalBasic) {
         WAIT_FOR(100, 10000,
                  (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
 
+        OvsdbUnicastMacLocalReq *req = new OvsdbUnicastMacLocalReq();
+        req->HandleRequest();
+        client->WaitForIdle();
+        req->Release();
+
         WAIT_FOR(10, 10000,
                  (true == del_ucast_mac_local(entry->name(),
                                               "00:00:00:00:01:01")));

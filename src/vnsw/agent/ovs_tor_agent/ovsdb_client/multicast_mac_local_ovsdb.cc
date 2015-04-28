@@ -25,6 +25,7 @@ extern "C" {
 
 using OVSDB::MulticastMacLocalOvsdb;
 using OVSDB::MulticastMacLocalEntry;
+using OVSDB::OvsdbClient;
 using OVSDB::OvsdbClientSession;
 using std::string;
 
@@ -126,15 +127,14 @@ public:
     virtual ~MulticastMacLocalSandeshTask() {}
     virtual bool Run() {
         std::vector<OvsdbMulticastMacLocalEntry> macs;
-        TorAgentInit *init =
-            static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
+        OvsdbClient *ovsdb_client = Agent::GetInstance()->ovsdb_client();
         OvsdbClientSession *session;
         if (ip_.empty()) {
-            session = init->ovsdb_client()->NextSession(NULL);
+            session = ovsdb_client->NextSession(NULL);
         } else {
             boost::system::error_code ec;
             Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = init->ovsdb_client()->FindSession(ip_addr, port_);
+            session = ovsdb_client->FindSession(ip_addr, port_);
         }
         if (session != NULL && session->client_idl() != NULL) {
             MulticastMacLocalOvsdb *table =

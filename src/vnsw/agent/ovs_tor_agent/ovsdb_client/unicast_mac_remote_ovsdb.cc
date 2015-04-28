@@ -28,6 +28,7 @@ using OVSDB::VrfOvsdbEntry;
 using OVSDB::VrfOvsdbObject;
 using OVSDB::OvsdbDBEntry;
 using OVSDB::OvsdbDBObject;
+using OVSDB::OvsdbClient;
 using OVSDB::OvsdbClientSession;
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
@@ -391,15 +392,14 @@ public:
     virtual ~UnicastMacRemoteSandeshTask() {}
     virtual bool Run() {
         std::vector<OvsdbUnicastMacRemoteEntry> macs;
-        TorAgentInit *init =
-            static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
+        OvsdbClient *ovsdb_client = Agent::GetInstance()->ovsdb_client();
         OvsdbClientSession *session;
         if (ip_.empty()) {
-            session = init->ovsdb_client()->NextSession(NULL);
+            session = ovsdb_client->NextSession(NULL);
         } else {
             boost::system::error_code ec;
             Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = init->ovsdb_client()->FindSession(ip_addr, port_);
+            session = ovsdb_client->FindSession(ip_addr, port_);
         }
         if (session != NULL && session->client_idl() != NULL) {
             VrfOvsdbObject *vrf_obj = session->client_idl()->vrf_ovsdb();
