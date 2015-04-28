@@ -21,6 +21,8 @@
 #include <unicast_mac_remote_ovsdb.h>
 #include <vlan_port_binding_ovsdb.h>
 #include <vrf_ovsdb.h>
+#include <vn_ovsdb.h>
+#include <multicast_mac_local_ovsdb.h>
 
 #include <test-xml/test_xml.h>
 #include <test-xml/test_xml_oper.h>
@@ -50,6 +52,8 @@ CreateOvsdbValidateNode(const string &type, const string &name,
         return new AgentUtXmlOvsdbVrfValidate(name, id, node);
     if (type == "ovs-vlan-port-binding")
         return new AgentUtXmlVlanPortBindingValidate(name, id, node);
+    if (type == "ovs-mc-local")
+        return new AgentUtXmlMulticastLocalValidate(name, id, node);
 }
 
 void AgentUtXmlOvsdbInit(AgentUtXmlTest *test) {
@@ -57,6 +61,7 @@ void AgentUtXmlOvsdbInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("ovs-uc-remote", CreateOvsdbValidateNode);
     test->AddValidateEntry("ovs-vrf", CreateOvsdbValidateNode);
     test->AddValidateEntry("ovs-vlan-port-binding", CreateOvsdbValidateNode);
+    test->AddValidateEntry("ovs-mc-local", CreateOvsdbValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -240,7 +245,6 @@ bool AgentUtXmlVlanPortBindingValidate::ReadXml() {
         cout << "Attribute Parsing failed " << endl;
         return false;
     }
-
     return true;
 }
 
@@ -279,3 +283,58 @@ const string AgentUtXmlVlanPortBindingValidate::ToString() {
     return "ovs-vlan-port-binding";
 }
 
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlMulticastLocalValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlMulticastLocalValidate::AgentUtXmlMulticastLocalValidate
+(const string &name, const uuid &id, const xml_node &node) :
+    AgentUtXmlValidationNode(name, node), id_(id) {
+}
+
+AgentUtXmlMulticastLocalValidate::~AgentUtXmlMulticastLocalValidate() {
+}
+
+bool AgentUtXmlMulticastLocalValidate::ReadXml() {
+    if (AgentUtXmlValidationNode::ReadXml() == false)
+        return false;
+    if (GetStringAttribute(node(), "mac", &mac_) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+
+    uint16_t id = 0;
+    if (GetUintAttribute(node(), "vn-uuid", &id) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+
+    vn_uuid_ = MakeUuid(id);
+
+    return true;
+}
+
+bool AgentUtXmlMulticastLocalValidate::Validate() {
+    LogicalSwitchTable *ls_table = ovs_test_session->client_idl()->
+        logical_switch_table();
+    LogicalSwitchEntry ls_key(ls_table, UuidToString(vn_uuid_));
+    LogicalSwitchEntry *ls_entry = static_cast<LogicalSwitchEntry *>
+        (ls_table->Find(&ls_key));
+
+    MulticastMacLocalOvsdb *table =
+        ovs_test_session->client_idl()->multicast_mac_local_ovsdb();
+
+    MulticastMacLocalEntry key(table, ls_entry);
+    MulticastMacLocalEntry *mc_entry =
+        static_cast<MulticastMacLocalEntry *>(table->Find(&key));
+    if (present()) {
+        return (mc_entry != NULL);
+    } else {
+        return (mc_entry == NULL);
+    }
+
+    return true;
+}
+
+const string AgentUtXmlMulticastLocalValidate::ToString() {
+    return "ovs-multicast-local";
+}

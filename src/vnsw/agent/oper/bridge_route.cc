@@ -129,6 +129,7 @@ void BridgeAgentRouteTable::AddBridgeRoute(const AgentRoute *rt) {
 
 void BridgeAgentRouteTable::AddOvsPeerMulticastRoute(const Peer *peer,
                                                      uint32_t vxlan_id,
+                                                     const std::string &vn_name,
                                                      Ip4Address tsn,
                                                      Ip4Address tor_ip) {
     const VrfEntry *vrf = vrf_entry();
@@ -142,7 +143,7 @@ void BridgeAgentRouteTable::AddOvsPeerMulticastRoute(const Peer *peer,
                                      vrf->GetName(),
                                      MacAddress::BroadcastMac(),
                                      vxlan_id));
-    req.data.reset(new MulticastRoute(vrf->vn()->GetName(), 0, vxlan_id,
+    req.data.reset(new MulticastRoute(vn_name, 0, vxlan_id,
                                       TunnelType::VxlanType(),
                                       nh_req, Composite::L2COMP));
     BridgeTableProcess(agent(), vrf_name(), req);

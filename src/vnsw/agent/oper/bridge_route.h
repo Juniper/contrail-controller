@@ -30,6 +30,7 @@ public:
                       const VmInterface *vm_intf);
     void AddOvsPeerMulticastRoute(const Peer* peer,
                                   uint32_t vxlan_id,
+                                  const std::string &vn_name,
                                   Ip4Address vtep,
                                   Ip4Address tor_ip);
     void AddBridgeRoute(const AgentRoute *rt);
