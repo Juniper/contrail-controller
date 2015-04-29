@@ -115,7 +115,7 @@ def get_fq_name_from_ifmap_id(ifmap_id):
     # route-target has ':' in the name, so handle it as a special case
     if type=='route-target':
         return [':'.join(unescape(ifmap_id).split(':')[2:])]
-    return ifmap_id.split(':')[2:]
+    return unescape(ifmap_id).split(':')[2:]
 # end get_fq_name_from_ifmap_id
 
 def get_vm_id_from_interface(vmi_obj):
