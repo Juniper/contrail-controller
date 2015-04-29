@@ -15,7 +15,7 @@ class VncChmod():
         # domain:default-project:default-virtual-network
 
         parser = argparse.ArgumentParser(
-            description="Show and change object permissions and ownership")
+            description="Show and change object permissions2 and ownership")
         parser.add_argument(
             'server', help="API server address in the form ip:port")
         parser.add_argument('--type', help="object type eg. virtual-network")
@@ -68,29 +68,29 @@ class VncChmod():
 # end
 
 def print_perms(obj_perms):
-    share_perms = ['%s:%d' % (x.tenant, x.tenant_access) for x in obj_perms.permissions.share]
+    share_perms = ['%s:%d' % (x.tenant, x.tenant_access) for x in obj_perms.permissions2.share]
     return '%s/%d %d %s' \
-        % (obj_perms.permissions.owner, obj_perms.permissions.owner_access,
-           obj_perms.permissions.globally_shared, share_perms)
+        % (obj_perms.permissions2.owner, obj_perms.permissions2.owner_access,
+           obj_perms.permissions2.globally_shared, share_perms)
 # end print_perms
 
 def set_perms(obj, owner=None, owner_access=None, share=None, globally_shared=None):
-    perms = obj.get_id_perms2()
+    perms = obj.get_id_perms()
     print 'Current perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
 
     if owner:
-        perms.permissions.owner = owner
+        perms.permissions2.owner = owner
 
     if owner_access:
-        perms.permissions.owner_access = owner_access
+        perms.permissions2.owner_access = owner_access
 
     if share is not None:
-        perms.permissions.share = [ShareType(obj_uuid, obj_crud) for (obj_uuid, obj_crud) in share]
+        perms.permissions2.share = [ShareType(obj_uuid, obj_crud) for (obj_uuid, obj_crud) in share]
 
     if globally_shared is not None:
-        perms.permissions.globally_shared = globally_shared
+        perms.permissions2.globally_shared = globally_shared
 
-    obj.set_id_perms2(perms)
+    obj.set_id_perms(perms)
     print 'New perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
 # end set_perms
 
@@ -161,7 +161,7 @@ print 'Name = ', chmod.args.name
 method_name = chmod.args.type.replace('-', '_')
 method = getattr(vnc, "%s_read" % (method_name))
 obj = method(fq_name_str=chmod.args.name)
-print 'Cur perms %s' % print_perms(obj.get_id_perms2())
+print 'Cur perms %s' % print_perms(obj.get_id_perms())
 
 # write to API server
 if args.owner or args.owner_access or args.globally_shared or args.share_list:
@@ -182,10 +182,10 @@ if args.owner or args.owner_access or args.globally_shared or args.share_list:
         owner_access = chmod.args.owner_access,
         globally_shared = True if chmod.args.globally_shared == 'on' else False,
         share = share_list)
-    print 'New perms %s' % print_perms(obj.get_id_perms2())
+    print 'New perms %s' % print_perms(obj.get_id_perms())
     ans = raw_input("Update perms? confirm (y/n): ")
     if not ans or ans[0].lower() != 'y':
         sys.exit(0)
-    obj.set_id_perms2(obj.get_id_perms2())
+    obj.set_id_perms(obj.get_id_perms())
     write_method = getattr(vnc, "%s_update" % (method_name))
     rv = write_method(obj)

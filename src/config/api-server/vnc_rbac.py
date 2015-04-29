@@ -14,9 +14,10 @@ class VncRbac(object):
 
     op_str = {'GET': 'R', 'POST': 'C', 'PUT': 'U', 'DELETE': 'D'}
 
-    def __init__(self, rbac, db_conn, args):
+    def __init__(self, rbac, server_mgr, db_conn):
         self._rbac = rbac
         self._db_conn = db_conn
+        self._server_mgr = server_mgr
     # end __init__
 
     def set_rbac(self, value):
@@ -168,7 +169,7 @@ class VncRbac(object):
                'yes' if is_admin else 'no',
                user, string.join(roles, ',')
                )
-        self._config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         print msg
 

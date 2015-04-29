@@ -94,30 +94,30 @@ class User(object):
 
 # display resource id-perms
 def print_perms(obj_perms):
-    share_perms = ['%s:%d' % (x.tenant, x.tenant_access) for x in obj_perms.permissions.share]
+    share_perms = ['%s:%d' % (x.tenant, x.tenant_access) for x in obj_perms.permissions2.share]
     return '%s/%d %d %s' \
-        % (obj_perms.permissions.owner, obj_perms.permissions.owner_access,
-           obj_perms.permissions.globally_shared, share_perms)
+        % (obj_perms.permissions2.owner, obj_perms.permissions2.owner_access,
+           obj_perms.permissions2.globally_shared, share_perms)
 # end print_perms
 
 # set id perms for object
 def set_perms(obj, owner=None, owner_access=None, share=None, globally_shared=None):
-    perms = obj.get_id_perms2()
+    perms = obj.get_id_perms()
     print 'Current perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
 
     if owner:
-        perms.permissions.owner = owner
+        perms.permissions2.owner = owner
 
     if owner_access:
-        perms.permissions.owner_access = owner_access
+        perms.permissions2.owner_access = owner_access
 
     if share is not None:
-        perms.permissions.share = [ShareType(obj_uuid, obj_crud) for (obj_uuid, obj_crud) in share]
+        perms.permissions2.share = [ShareType(obj_uuid, obj_crud) for (obj_uuid, obj_crud) in share]
 
     if globally_shared is not None:
-        perms.permissions.globally_shared = globally_shared
+        perms.permissions2.globally_shared = globally_shared
 
-    obj.set_id_perms2(perms)
+    obj.set_id_perms(perms)
     print 'New perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
 # end set_perms
 
@@ -138,6 +138,10 @@ def vnc_read_obj(vnc, obj_type, name = None, obj_uuid = None):
     except NoIdError:
         print '%s %s not found!' % (obj_type, name if name else obj_uuid)
         return None
+    except PermissionDenied:
+        print 'Error reading object fro API server'
+        print '*** RBAC disabled or missing user-token middleware in Neutron pipeline? Please verify'
+        sys.exit(1)
 # end
 
 def show_rbac_rules(api_access_list_entries):
@@ -252,6 +256,11 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
 
     # delete test VN if it exists
     vn_fq_name = [domain_name, alice.project, vn_name]
+    vn = vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+    if vn:
+        print '%s exists ... deleting to start fresh' % vn_fq_name
+        admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+    vn_fq_name = [domain_name, alice.project, 'bob-vn-in-alice-project']
     vn = vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name)
     if vn:
         print '%s exists ... deleting to start fresh' % vn_fq_name

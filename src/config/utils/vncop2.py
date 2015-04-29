@@ -23,14 +23,20 @@ def str_to_class(class_name):
     return reduce(getattr, class_name.split("."), sys.modules[__name__])
 
 def print_perms2(obj):
-    perms = obj.get_id_perms2()
-    if perms is None:
-        print '** missing perms2 **'
+    perms = obj.get_id_perms()
+    try:
+        permissions2 = perms.permissions2
+    except AttributeError:
+        print '** MISSING PERMS2 **'
         return
-    share_perms = ['%s:%s' % (x.tenant, x.tenant_access) for x in perms.permissions.share]
+    if permissions2 is None:
+        print '** EMPTY PERMS2 **'
+        return
+
+    share_perms = ['%s:%s' % (x.tenant, x.tenant_access) for x in perms.permissions2.share]
     print 'perms2 o=%s/%d g=%d s=%s' \
-        % (perms.permissions.owner, perms.permissions.owner_access,
-           perms.permissions.globally_shared, share_perms)
+        % (perms.permissions2.owner, perms.permissions2.owner_access,
+           perms.permissions2.globally_shared, share_perms)
 # end print_perms
 
 # Read VNC object. Return None if object doesn't exists

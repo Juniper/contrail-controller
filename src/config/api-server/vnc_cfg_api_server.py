@@ -463,7 +463,7 @@ class VncApiServer(VncApiServerGen):
 
         # API/Permissions check
         # after db init (uses db_conn)
-        self._rbac = vnc_rbac.VncRbac(self._args.rbac, self._db_conn, self._args)
+        self._rbac = vnc_rbac.VncRbac(self._args.rbac, self, self._db_conn)
         if self._args.rbac:
             self._permissions = vnc_perms.VncPermissions2(self, self._args)
             self._create_default_rbac_rule()
@@ -969,7 +969,6 @@ class VncApiServer(VncApiServerGen):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
-        self._ensure_id_perms2_present(obj_type, obj_uuid, obj_dict)
 
         # retrieve object and permissions
         id_perms = self._get_default_id_perms(obj_type)
@@ -1023,63 +1022,6 @@ class VncApiServer(VncApiServerGen):
         id_perms_dict = json.loads(id_perms_json)
         return id_perms_dict
     # end _get_default_id_perms
-
-    def _ensure_id_perms2_present(self, obj_type, obj_uuid, obj_dict):
-        """
-        Called at resource creation to ensure that id_perms is present in obj
-        """
-        # retrieve object and permissions
-        id_perms2 = self._get_default_id_perms2(obj_type)
-
-        if (('id_perms2' not in obj_dict) or
-                (obj_dict['id_perms2'] is None)):
-            # Resource creation
-            if obj_uuid is None:
-                obj_dict['id_perms2'] = id_perms2
-                return
-            # Resource already exist
-            try:
-                obj_dict['id_perms2'] = self._db_conn.uuid_to_obj_perms2(obj_uuid)
-            except NoIdError:
-                obj_dict['id_perms2'] = id_perms2
-
-            return
-
-        # retrieve the previous version of the id_perms2
-        # from the database and update the id_perms2 with
-        # them.
-        if obj_uuid is not None:
-            try:
-                old_id_perms2 = self._db_conn.uuid_to_obj_perms2(obj_uuid)
-                for field, value in old_id_perms2.items():
-                    if value is not None:
-                        id_perms2[field] = value
-            except NoIdError:
-                pass
-
-        # not all fields can be updated
-        if obj_uuid:
-            field_list = ['enable', 'description', 'permissions']
-        else:
-            field_list = ['enable', 'description', 'permissions', 'user_visible', 'creator']
-
-        # Start from default and update from obj_dict
-        req_id_perms2 = obj_dict['id_perms2']
-        for key in field_list:
-            if key in req_id_perms2:
-                id_perms2[key] = req_id_perms2[key]
-        # TODO handle perms2 present in req_id_perms2
-
-        obj_dict['id_perms2'] = id_perms2
-    # end _ensure_id_perms2_present
-
-    def _get_default_id_perms2(self, obj_type):
-        id_perms = copy.deepcopy(Provision.defaults.perms2[obj_type])
-        id_perms_json = json.dumps(id_perms, default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
-        id_perms_dict = json.loads(id_perms_json)
-        return id_perms_dict
-    # end _get_default_id_perms2
 
     def _db_init_entries(self):
         # create singleton defaults if they don't exist already in db
@@ -1158,7 +1100,6 @@ class VncApiServer(VncApiServerGen):
         except NoIdError:
             obj_dict = s_obj.serialize_to_json()
             obj_dict['id_perms'] = self._get_default_id_perms(obj_type)
-            obj_dict['id_perms2'] = self._get_default_id_perms2(obj_type)
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_ids = result
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
@@ -1479,7 +1420,7 @@ class VncApiServer(VncApiServerGen):
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(obj_type, None, obj_dict)
         owner = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
-        obj_dict['id_perms2']['permissions']['owner'] = owner
+        obj_dict['id_perms']['permissions2']['owner'] = owner
 
         # TODO check api + resource perms etc.
 
