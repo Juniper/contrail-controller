@@ -688,18 +688,35 @@ class AddrMgmt(object):
         # eg. existing [1.1.1.0/24, 2.2.2.0/24],
         #     requested [1.1.1.0/24] OR
         #     requested [1.1.1.0/28, 2.2.2.0/24]
+        existing_subnets = self._vn_to_subnets(db_vn_dict)
+        if not existing_subnets:
+            return True, ""
         requested_subnets = self._vn_to_subnets(req_vn_dict)
         if requested_subnets is None:
             # subnets not modified in request
             return True, ""
 
-        # if all subnets are being removed, check for any iip backrefs
-        # or floating pools still present in DB version of VN
-        if len(requested_subnets) == 0:
-            if db_vn_dict.get('instance_ip_back_refs'):
-                return False, "Cannot Delete IP Block, Instance IP(s) in use"
-            if db_vn_dict.get('floating_ip_pools'):
-                return False, "Cannot Delete IP Block, Floating Pool(s) in use"
+        delete_set = set(existing_subnets) - set(requested_subnets)
+
+        if len(delete_set):
+            # read the instance ip and floating ip pool only if subnet is being
+            # deleted. Skip the port check if no subnet is being deleted
+            vn_id = {'uuid': db_vn_dict['uuid']}
+            obj_fields = ['network_ipam_refs', 'instance_ip_back_refs', 'floating_ip_pools']
+            (read_ok, db_vn_dict) = db_conn.dbe_read('virtual-network', vn_id, obj_fields)
+            if not read_ok:
+                return (False, (500, db_vn_dict))
+
+            # if all subnets are being removed, check for any iip backrefs
+            # or floating pools still present in DB version of VN
+            if len(requested_subnets) == 0:
+                if db_vn_dict.get('instance_ip_back_refs'):
+                    return False, "Cannot Delete IP Block, Instance IP(s) in use"
+                if db_vn_dict.get('floating_ip_pools'):
+                    return False, "Cannot Delete IP Block, Floating Pool(s) in use"
+        else:
+            return True, ""
+
 
         instip_refs = db_vn_dict.get('instance_ip_back_refs', [])
         for ref in instip_refs:
