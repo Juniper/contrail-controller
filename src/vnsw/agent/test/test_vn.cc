@@ -175,7 +175,6 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     AddLinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf6");
     AddLinkString(buff, len, "access-control-list", "acl1", "virtual-network", 
                   "vn1");
-    AddLinkString(buff, len, "virtual-network", "vn1", "virtual-network", "vn2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
 
@@ -187,7 +186,6 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     AddXmlHdr(buff, len);
     DelLink("virtual-network", "vn1", "routing-instance", "vrf6");
     DelLink("access-control-list", "acl1", "virtual-network", "vn1");
-    DelLink("virtual-network", "vn1", "virtual-network", "vn2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
 

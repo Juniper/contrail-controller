@@ -593,11 +593,9 @@ static bool IsVlanSubInterface(VirtualMachineInterface *cfg) {
 static PhysicalRouter *BuildParentInfo(Agent *agent,
                                        VmInterfaceConfigData *data,
                                        VirtualMachineInterface *cfg,
-                                       IFMapNode *node) {
-    // Read logical-interface neighbor if any
-    IFMapNode *logical_node = agent->cfg_listener()->
-        FindAdjacentIFMapNode(agent, node, 
-                              "logical-interface");
+                                       IFMapNode *node,
+                                       IFMapNode *logical_node,
+                                       IFMapNode *parent_vmi_node) {
     if (logical_node) {
         IFMapNode *physical_node = agent->cfg_listener()->
             FindAdjacentIFMapNode(agent, logical_node, "physical-interface");
@@ -621,13 +619,12 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
         return NULL;
     }
 
-    // Find Parent VMI for sub-interface
-    IFMapNode *vmi_node = agent->cfg_listener()->
-        FindAdjacentIFMapNode(agent, node, "virtual-machine-interface");
-    if (vmi_node == false)
+    if (parent_vmi_node == false)
         return NULL;
+
+    // process Parent VMI for sub-interface
     VirtualMachineInterface *parent_cfg =
-        static_cast <VirtualMachineInterface *> (vmi_node->GetObject());
+        static_cast <VirtualMachineInterface *> (parent_vmi_node->GetObject());
     assert(parent_cfg);
     if (IsVlanSubInterface(parent_cfg)) {
         return NULL;
@@ -692,7 +689,7 @@ static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
 
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
                             CfgIntEntry *cfg_entry, PhysicalRouter *prouter,
-                            IFMapNode *node) {
+                            IFMapNode *node, IFMapNode *logical_node) {
     if (cfg_entry != NULL) {
         // Have got InstancePortAdd message. Treat it as VM_ON_TAP by default
         // TODO: Need to identify more cases here
@@ -718,10 +715,6 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
 
         // VMI is either Baremetal or Gateway interface
         if (prouter->display_name() == agent->agent_name()) {
-            // Read logical-interface neighbor if any
-           IFMapNode *logical_node = agent->cfg_listener()->
-                         FindAdjacentIFMapNode(agent, node,
-                                               "logical-interface");
             // VMI connected to local vrouter. Treat it as GATEWAY 
             data->device_type_ = VmInterface::LOCAL_DEVICE;
             data->vmi_type_ = VmInterface::GATEWAY;
@@ -821,12 +814,13 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
     VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
     data->SetIFMapNode(node);
 
-    IFMapNode *vn_node = NULL;
-
     BuildAttributes(agent_, node, cfg, data);
 
     // Graph walk to get interface configuration
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    IFMapNode *vn_node = NULL;
+    IFMapNode *li_node = NULL;
+    IFMapNode *parent_vmi_node = NULL;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
          iter != node->end(table->GetGraph()); ++iter) {
@@ -868,6 +862,14 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
         if (adj_node->table() == agent_->cfg()->cfg_subnet_table()) {
             BuildResolveRoute(data, adj_node);
         }
+
+        if (adj_node->table() == agent_->cfg()->cfg_logical_port_table()) {
+            li_node = adj_node;
+        }
+
+        if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
+            parent_vmi_node = adj_node;
+        }
     }
 
     UpdateAttributes(agent_, data);
@@ -879,10 +881,11 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
 
     PhysicalRouter *prouter = NULL;
     // Build parent for the virtual-machine-interface
-    prouter = BuildParentInfo(agent_, data, cfg, node);
+    prouter = BuildParentInfo(agent_, data, cfg, node, li_node,
+                              parent_vmi_node);
 
     // Compute device-type and vmi-type for the interface
-    ComputeTypeInfo(agent_, data, cfg_entry, prouter, node);
+    ComputeTypeInfo(agent_, data, cfg_entry, prouter, node, li_node);
 
     InterfaceKey *key = NULL; 
     if (data->device_type_ == VmInterface::VM_ON_TAP ||
@@ -920,40 +923,12 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     // Handle object delete
     if (node->IsDeleted()) {
-        agent()->config_manager()->DelVmiNode(node);
         DelPhysicalDeviceVnEntry(u);
         return DeleteVmi(this, u, &req);
     }
 
     agent()->config_manager()->AddVmiNode(node);
     return false;
-}
-
-// Handle virtual-machine-interface-routing-instance config node
-// Find the interface-node and enqueue RESYNC of service-vlans to interface
-void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
-    if (agent_->cfg_listener()->SkipNode(node)) {
-        return;
-    }
-    // Walk the node to get neighbouring interface 
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph()); 
-         iter != node->end(table->GetGraph()); ++iter) {
-
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent_->cfg_listener()->SkipNode(adj_node)) {
-            continue;
-        }
-
-        if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
-            DBRequest req;
-            if (IFNodeToReq(adj_node, req) == true) {
-                LOG(DEBUG, "Service VLAN SYNC for Port " << adj_node->name());
-                Enqueue(&req);
-            }
-        }
-    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2770,7 +2745,7 @@ void VmInterface::UpdateVrfAssignRule() {
 
     DBRequest req;
     AclKey *key = new AclKey(acl_spec.acl_id);
-    AclData *data = new AclData(acl_spec);
+    AclData *data = new AclData(agent, NULL, acl_spec);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
@@ -3797,229 +3772,6 @@ void VmInterface::VrfAssignRuleList::Update(const VrfAssignRule *lhs,
 
 void VmInterface::VrfAssignRuleList::Remove(VrfAssignRuleSet::iterator &it) {
     it->set_del_pending(true);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Confg triggers for FloatingIP notification to operational DB
-/////////////////////////////////////////////////////////////////////////////
-
-// Find the vm-port linked to the floating-ip and resync it
-void VmInterface::FloatingIpSync(InterfaceTable *table, IFMapNode *node) {
-    if (table->agent()->cfg_listener()->SkipNode
-        (node, table->agent()->cfg()->cfg_floatingip_table())) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *if_node = static_cast<IFMapNode *>(iter.operator->());
-        if (table->agent()->cfg_listener()->SkipNode
-            (if_node, table->agent()->cfg()->cfg_vm_interface_table())) {
-            continue;
-        }
-
-        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        if (table->IFNodeToReq(if_node, req)) {
-            LOG(DEBUG, "FloatingIP SYNC for VM Port " << if_node->name());
-            table->Enqueue(&req);
-        }
-    }
-
-    return;
-}
-
-// Find all adjacent Floating-IP nodes and resync the corresponding
-// interfaces
-void VmInterface::FloatingIpPoolSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *fip_node = static_cast<IFMapNode *>(iter.operator->());
-        if (fip_node->table() != table->agent()->cfg()->cfg_floatingip_table()){
-            continue;
-        }
-        FloatingIpSync(table, fip_node);
-    }
-
-    return;
-}
-
-void VmInterface::InstanceIpSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (table->agent()->cfg_listener()->SkipNode(adj)) {
-            continue;
-        }
-
-        if (adj->table() ==
-            table->agent()->cfg()->cfg_vm_interface_table()) {
-            DBRequest req;
-            if (table->IFNodeToReq(adj, req)) {
-                table->Enqueue(&req);
-            }
-        }
-    }
-
-}
-
-void VmInterface::PhysicalPortSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (table->agent()->cfg_listener()->SkipNode(adj)) {
-            continue;
-        }
-
-        if (adj->table() ==
-            table->agent()->cfg()->cfg_logical_port_table()) {
-            LogicalPortSync(table, adj);
-        }
-    }
-}
-
-
-
-void VmInterface::LogicalPortSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (table->agent()->cfg_listener()->SkipNode(adj)) {
-            continue;
-        }
-
-        if (adj->table() ==
-            table->agent()->cfg()->cfg_vm_interface_table()) {
-            DBRequest req;
-            if (table->IFNodeToReq(adj, req)) {
-                table->Enqueue(&req);
-            }
-        }
-    }
-}
-
-
-void VmInterface::SubnetSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (table->agent()->cfg_listener()->SkipNode(adj)) {
-            continue;
-        }
-
-        if (adj->table() ==
-            table->agent()->cfg()->cfg_vm_interface_table()) {
-            DBRequest req;
-            if (table->IFNodeToReq(adj, req)) {
-                table->Enqueue(&req);
-            }
-        }
-    }
-}
-
-// Process all floating-ip-pool nodes connected to the VN
-void VmInterface::FloatingIpVnSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *pool_node = static_cast<IFMapNode *>(iter.operator->());
-        if (pool_node->table() !=
-            table->agent()->cfg()->cfg_floatingip_pool_table()) {
-            continue;
-        }
-        FloatingIpPoolSync(table, pool_node);
-    }
-
-    return;
-}
-
-void VmInterface::FloatingIpVrfSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *vn_node = static_cast<IFMapNode *>(iter.operator->());
-        if (vn_node->table() != table->agent()->cfg()->cfg_vn_table()) {
-            continue;
-        }
-        FloatingIpVnSync(table, vn_node);
-    }
-
-    return;
-}
-
-void VmInterface::VnSync(InterfaceTable *table, IFMapNode *node) {
-    CfgListener *cfg_listener = table->agent()->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
-        return;
-    }
-    // Walk the node to get neighbouring interface 
-    DBGraph *graph =
-        static_cast<IFMapAgentTable *> (node->table())->GetGraph();;
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph); 
-         iter != node->end(graph); ++iter) {
-
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (cfg_listener->SkipNode(adj_node)) {
-            continue;
-        }
-
-        if (adj_node->table() ==
-            table->agent()->cfg()->cfg_vm_interface_table()) {
-            DBRequest req;
-            if (table->IFNodeToReq(adj_node, req) == true) {
-                LOG(DEBUG, "VN change sync for Port " << adj_node->name());
-                table->Enqueue(&req);
-            }
-        }
-    }
 }
 
 const string VmInterface::GetAnalyzer() const {

@@ -725,7 +725,7 @@ void ServiceInstanceTable::Initialize(
 
     dependency_manager_->Register(
         "service-instance",
-        boost::bind(&ServiceInstanceTable::ChangeEventHandler, this, _1));
+        boost::bind(&ServiceInstanceTable::ChangeEventHandler, this, _1, _2));
 }
 
 bool ServiceInstanceTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
@@ -750,7 +750,10 @@ bool ServiceInstanceTable::IFNodeToUuid(IFMapNode *node, uuid &idperms_uuid) {
     idperms_uuid = IdPermsGetUuid(id);
     return true;
 }
-void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
+void ServiceInstanceTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
+    if (entry == NULL)
+        return;
+
     ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
 
     /*
