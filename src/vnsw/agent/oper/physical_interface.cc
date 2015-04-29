@@ -223,7 +223,6 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
                                              Ip4Address(0),
                                              Interface::TRANSPORT_ETHERNET));
     Enqueue(&req);
-    VmInterface::PhysicalPortSync(this, node);
     return false;
 }
 

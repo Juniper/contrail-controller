@@ -24,14 +24,26 @@ IFMapDependencyTracker::IFMapDependencyTracker(
 // interesting node. It's interesting if there's an entry for self in the
 // ReactionMap.
 //
-// The node is always added to the ChangeList even if it's not interesting.
+// Node event is added based on "add_node_event" flag
 //
-void IFMapDependencyTracker::NodeEvent(IFMapNode *node) {
-    AddChangeEvent(node);
+void IFMapDependencyTracker::NodeEvent(IFMapNode *node, bool add_node_event) {
+    if (add_node_event)
+        AddChangeEvent(node);
     if (IsInterestingEvent(node, "self")) {
         node_list_.push_back(
             make_pair(node->table()->Typename(), node->name()));
     }
+}
+
+//
+// Add an IFMapNode to the NodeList for further propagation if it's an
+// interesting node. It's interesting if there's an entry for self in the
+// ReactionMap.
+//
+// The node is always added to the ChangeList even if it's not interesting.
+//
+void IFMapDependencyTracker::NodeEvent(IFMapNode *node) {
+    NodeEvent(node, true);
 }
 
 //
