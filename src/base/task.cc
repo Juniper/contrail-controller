@@ -270,7 +270,7 @@ int TaskScheduler::GetThreadCount() {
     static int num_cores_;
 
     if (init_) {
-        return num_cores_;
+        return num_cores_ * ThreadAmpFactor_;
     }
 
     char *num_cores_str = getenv("TBB_THREAD_COUNT");
