@@ -183,11 +183,11 @@ void OperDB::CreateDBTables(DB *db) {
         DBTableCreate<PhysicalDeviceVnTable>(db, agent_, this,
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
-    profile_.reset(new AgentProfile(agent_, false));
+    profile_.reset(new AgentProfile(agent_, true));
 }
 
 void OperDB::Init() {
-    dependency_manager_->Initialize();
+    dependency_manager_->Initialize(agent());
 
     // Unit tests may not initialize the agent configuration parameters.
     std::string netns_cmd;
@@ -215,7 +215,6 @@ void OperDB::RegisterDBClients() {
     IFMapDependencyManager *mgr = agent_->oper_db()->dependency_manager();
     agent_->physical_device_table()->RegisterDBClients(mgr);
     agent_->interface_table()->RegisterDBClients(mgr);
-    agent_->vn_table()->RegisterDBClients(mgr);
 
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();

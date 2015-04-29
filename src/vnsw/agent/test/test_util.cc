@@ -53,11 +53,99 @@ void AddXmlTail(char *buff, int &len) {
     len = strlen(buff);
 }
 
+static bool CheckLink(const string &node1, const string &node2,
+               const string &match1, const string &match2) {
+    if (node1 == match1 && node2 == match2)
+        return true;
+    if (node1 == match2 && node2 == match1)
+        return true;
+
+    return false;
+}
+
+typedef std::map<string, string> LinkToMetadata;
+LinkToMetadata link_to_metadata_;
+
+static void AddLinkToMetadata(const char *node1, const char *node2,
+                              const char *metadata = NULL) {
+    char buff[128];
+    if (metadata == NULL)
+        sprintf(buff, "%s-%s", node1, node2);
+    else
+        strcpy(buff, metadata);
+
+    link_to_metadata_.insert(make_pair(string(node1) + "-" + string(node2),
+                                       buff));
+    link_to_metadata_.insert(make_pair(string(node2) + "-" + string(node1),
+                                       buff));
+}
+
+static void BuildLinkToMetadata() {
+    if (link_to_metadata_.size() != 0)
+        return;
+
+    AddLinkToMetadata("virtual-machine-interface", "virtual-network");
+    AddLinkToMetadata("virtual-machine-interface", "virtual-machine");
+    AddLinkToMetadata("virtual-machine-interface", "security-group");
+    AddLinkToMetadata("virtual-machine-interface",
+                      "virtual-machine-interface-routing-instance",
+                      "virtual-machine-interface-routing-instance");
+    AddLinkToMetadata("virtual-machine-interface", "interface-route-table",
+                      "virtual-machine-interface-route-table");
+    AddLinkToMetadata("instance-ip", "virtual-machine-interface");
+    AddLinkToMetadata("virtual-machine-interface", "virtual-machine-interface",
+                      "virtual-machine-interface-sub-interface");
+
+    AddLinkToMetadata("virtual-network", "routing-instance");
+    AddLinkToMetadata("virtual-network", "access-control-list");
+    AddLinkToMetadata("virtual-network", "floating-ip-pool");
+    AddLinkToMetadata("virtual-network", "virtual-network-network-ipam",
+                      "virtual-network-network-ipam");
+    AddLinkToMetadata("virtual-network-network-ipam", "network-ipam",
+                      "virtual-network-network-ipam");
+
+    AddLinkToMetadata("security-group", "access-control-list");
+
+    AddLinkToMetadata("routing-instance",
+                      "virtual-machine-interface-routing-instance",
+                      "virtual-machine-interface-routing-instance");
+
+    AddLinkToMetadata("physical-router", "physical-interface");
+    AddLinkToMetadata("physical-router", "logical-interface");
+    AddLinkToMetadata("physical-interface", "logical-interface");
+    AddLinkToMetadata("logical-interface", "virtual-machine-interface");
+
+    AddLinkToMetadata("floating-ip-pool", "floating-ip");
+    AddLinkToMetadata("floating-ip", "virtual-machine-interface");
+
+    AddLinkToMetadata("subnet", "virtual-machine-interface");
+    AddLinkToMetadata("virtual-router", "virtual-machine");
+
+}
+
+string GetMetadata(const char *node1, const char *node2,
+                   const char *mdata) {
+    BuildLinkToMetadata();
+
+    if (mdata != NULL)
+        return mdata;
+
+    LinkToMetadata::iterator it = link_to_metadata_.find(string(node1) + "-" +
+                                                         string(node2));
+    if (it == link_to_metadata_.end()) {
+        cout << "Error finding metadata for link between "
+            << node1 << " and " << node2 << endl;
+        // Metadata not found for the link.
+        // Please populate link-to-metadata entry in BuildLinkToMetadata
+        assert(0);
+    }
+
+    return it->second;
+}
+
 void AddLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
-                   const char *name2) {
-    char mdata[256];
-    sprintf(mdata, "%s-%s", node_name1, node_name2);
+                   const char *name2, const char *mdata) {
     sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
@@ -67,7 +155,8 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
             "               <name>%s</name>\n"
             "           </node>\n"
             "           <metadata type=\"%s\"/>\n"
-            "       </link>\n", node_name1, name1, node_name2, name2, mdata);
+            "       </link>\n", node_name1, name1, node_name2, name2,
+            GetMetadata(node_name1, node_name2, mdata).c_str());
 
     len = strlen(buff);
 }
@@ -252,23 +341,21 @@ void ApplyXmlString(const char *buff) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
+    //cout << buff << endl;
     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
 void AddLink(const char *node_name1, const char *name1,
-             const char *node_name2, const char *name2) {
+             const char *node_name2, const char *name2, const char *mdata) {
     char buff[1024];
     int len = 0;
  
     AddXmlHdr(buff, len);
-    AddLinkString(buff, len, node_name1, name1, node_name2, name2);
+    AddLinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
     AddXmlTail(buff, len);
     //LOG(DEBUG, buff);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -281,10 +368,7 @@ void DelLink(const char *node_name1, const char *name1,
     DelLinkString(buff, len, node_name1, name1, node_name2, name2);
     DelXmlTail(buff, len);
     //LOG(DEBUG, buff);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -295,10 +379,7 @@ void AddNode(const char *node_name, const char *name, int id) {
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, node_name, name, id);
     AddXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -309,10 +390,7 @@ void AddNodeByStatus(const char *node_name, const char *name, int id, bool statu
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, node_name, name, id, status);
     AddXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -328,10 +406,7 @@ void AddNode(const char *node_name, const char *name, int id,
     else
         AddNodeStringWithoutUuid(buff, len, node_name, name);
     AddXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -344,10 +419,7 @@ void AddNode(Agent *agent, const char *node_name, const char *name, int id,
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, node_name, name, id, attr, admin_state);
     AddXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    agent->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -359,10 +431,7 @@ void AddLinkNode(const char *node_name, const char *name, const char *attr) {
     AddLinkNodeString(buff, len, node_name, name, attr);
     AddXmlTail(buff, len);
     LOG(DEBUG, buff);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -373,10 +442,7 @@ void DelNode(const char *node_name, const char *name) {
     DelXmlHdr(buff, len);
     DelNodeString(buff, len, node_name, name);
     DelXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -387,10 +453,7 @@ void DelNode(Agent *agent, const char *node_name, const char *name) {
     DelXmlHdr(buff, len);
     DelNodeString(buff, len, node_name, name);
     DelXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    agent->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -963,7 +1026,8 @@ void VmAddReq(int id) {
     VmKey *key = new VmKey(MakeUuid(id));
     VmData::SGUuidList sg_list(0);
     sprintf(vm_name, "vm%d", id);
-    VmData *data = new VmData(string(vm_name), sg_list);
+    VmData *data = new VmData(Agent::GetInstance(), NULL, string(vm_name),
+                              sg_list);
     DBRequest req;
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1000,7 +1064,7 @@ void AclAddReq(int id) {
     AclKey *key = new AclKey(MakeUuid(id));
     req.key.reset(key);
 
-    AclData *data = new AclData(*acl_spec);
+    AclData *data = new AclData(Agent::GetInstance(), NULL, *acl_spec);
     req.data.reset(data);
     Agent::GetInstance()->acl_table()->Enqueue(&req);
     delete acl_spec;
@@ -1038,7 +1102,7 @@ void AclAddReq(int id, int ace_id, bool drop) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     AclKey *key = new AclKey(MakeUuid(id));
-    AclData *data = new AclData(*acl_spec);
+    AclData *data = new AclData(Agent::GetInstance(), NULL, *acl_spec);
 
     req.key.reset(key);
     req.data.reset(data);
@@ -1643,12 +1707,7 @@ void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action) {
     std::string s = AddAclXmlString("access-control-list", name, id,
                                     src_vn, dest_vn, action, "", "");
-    pugi::xml_document xdoc_;
-
-    pugi::xml_parse_result result = xdoc_.load(s.c_str());
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->
-        ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(s.c_str());
 }
 
 void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
@@ -1656,12 +1715,7 @@ void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
                             std::string vrf_name) {
     std::string s = AddAclXmlString("access-control-list", name, id,
                                     src_vn, dest_vn, action, vrf_name, "");
-    pugi::xml_document xdoc_;
-
-    pugi::xml_parse_result result = xdoc_.load(s.c_str());
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->
-        ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(s.c_str());
 }
 
 void AddMirrorAcl(const char *name, int id, const char *src_vn,
@@ -1669,12 +1723,7 @@ void AddMirrorAcl(const char *name, int id, const char *src_vn,
                   std::string mirror_ip) {
     std::string s = AddAclXmlString("access-control-list", name, id,
             src_vn, dest_vn, action, "", mirror_ip);
-    pugi::xml_document xdoc_;
-
-    pugi::xml_parse_result result = xdoc_.load(s.c_str());
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->
-        ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(s.c_str());
 }
 
 void DelOperDBAcl(int id) {
@@ -1811,18 +1860,17 @@ void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_a
     AddNodeString(buff, len, "virtual-network-network-ipam", node_name,
                             ipam, ipam_size, vm_host_routes, add_subnet_tags);
     AddLinkString(buff, len, "virtual-network", name,
-                  "virtual-network-network-ipam", node_name);
+                  "virtual-network-network-ipam", node_name,
+                  "virtual-network-network-ipam");
     AddLinkString(buff, len, "network-ipam", ipam_name,
-                  "virtual-network-network-ipam", node_name);
+                  "virtual-network-network-ipam", node_name,
+                  "virtual-network-network-ipam");
     if (vdns_name) {
         AddLinkString(buff, len, "network-ipam", ipam_name,
                       "virtual-DNS", vdns_name);
     }
     AddXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
 }
 
 void DelIPAM(const char *name, const char *vdns_name) {
@@ -1845,10 +1893,7 @@ void DelIPAM(const char *name, const char *vdns_name) {
     DelNodeString(buff, len, "virtual-network-network-ipam", node_name);
     DelNodeString(buff, len, "network-ipam", ipam_name);
     DelXmlTail(buff, len);
-    pugi::xml_document xdoc_;
-    pugi::xml_parse_result result = xdoc_.load(buff);
-    EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    ApplyXmlString(buff);
     return;
 }
 
@@ -2077,7 +2122,7 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
             sprintf(vrf_name, "default-project:vn%d:vn%d", input[i].vn_id,
                     input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
-        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].intf_id);
         boost::system::error_code ec;
         DelLink("virtual-machine-interface-routing-instance", input[i].name,
                 "routing-instance", vrf_name);
@@ -2157,7 +2202,7 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
         else
             sprintf(vrf_name, "vrf%d", input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
-        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].intf_id);
         boost::system::error_code ec;
         DelLink("virtual-machine-interface-routing-instance", input[i].name,
                 "routing-instance", vrf_name);
@@ -2250,7 +2295,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
             sprintf(vrf_name, "default-project:vn%d:vn%d", input[i].vn_id,
                     input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
-        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].intf_id);
         AddVn(vn_name, input[i].vn_id);
         AddVrf(vrf_name);
         AddVm(vm_name, input[i].vm_id);
@@ -2260,18 +2305,19 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id);
-        AddActiveActiveInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        AddActiveActiveInstanceIp(instance_ip, input[i].intf_id, input[i].addr);
         AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
-        AddLink("virtual-machine", vm_name, "virtual-machine-interface",
-                input[i].name);
+        AddLink("virtual-machine-interface", input[i].name, "virtual-machine", vm_name);
         AddLink("virtual-machine-interface", input[i].name, "virtual-network",
                 vn_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
-                "routing-instance", vrf_name);
+                "routing-instance", vrf_name, "virtual-machine-interface-routing-instance");
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
-                "virtual-machine-interface", input[i].name);
+                "virtual-machine-interface", input[i].name, "virtual-machine-interface-routing-instance");
         AddLink("virtual-machine-interface", input[i].name,
                 "instance-ip", instance_ip);
+        AddLink("instance-ip", instance_ip, "virtual-machine-interface",
+                input[i].name);
 
         if (acl_id) {
             AddLink("virtual-network", vn_name, "access-control-list", acl_name);
@@ -2310,7 +2356,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         else
             sprintf(vrf_name, "vrf%d", input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
-        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].intf_id);
         if (!l2_vn) {
             AddVn(vn_name, input[i].vn_id, vn_admin_state);
             AddVrf(vrf_name);
@@ -2324,34 +2370,36 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         AddPort(input[i].name, input[i].intf_id, vm_interface_attr);
         if (with_ip) {
             if (ecmp) {
-                AddActiveActiveInstanceIp(instance_ip, input[i].vm_id,
+                AddActiveActiveInstanceIp(instance_ip, input[i].intf_id,
                                           input[i].addr);
             } else {
-                AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+                AddInstanceIp(instance_ip, input[i].intf_id, input[i].addr);
             }
         }
         if (with_ip6) {
-            sprintf(instance_ip6, "instance6%d", input[i].vm_id);
-            AddInstanceIp(instance_ip6, input[i].vm_id, input[i].ip6addr);
+            sprintf(instance_ip6, "instance6%d", input[i].intf_id);
+            AddInstanceIp(instance_ip6, input[i].intf_id, input[i].ip6addr);
         }
         if (!l2_vn) {
             AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
         }
-        AddLink("virtual-machine", vm_name, "virtual-machine-interface",
-                input[i].name);
+        AddLink("virtual-machine-interface", input[i].name, "virtual-machine",
+                vm_name);
         AddLink("virtual-machine-interface", input[i].name,
                 "virtual-network", vn_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
-                "routing-instance", vrf_name);
+                "routing-instance", vrf_name,
+                "virtual-machine-interface-routing-instance");
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
-                "virtual-machine-interface", input[i].name);
+                "virtual-machine-interface", input[i].name,
+                "virtual-machine-interface-routing-instance");
         if (with_ip) {
-            AddLink("virtual-machine-interface", input[i].name,
-                    "instance-ip", instance_ip);
+            AddLink("instance-ip", instance_ip,
+                    "virtual-machine-interface", input[i].name);
         }
         if (with_ip6) {
-            AddLink("virtual-machine-interface", input[i].name,
-                    "instance-ip", instance_ip6);
+            AddLink("instance-ip", instance_ip6,
+                    "virtual-machine-interface", input[i].name);
         }
 
         if (acl_id) {

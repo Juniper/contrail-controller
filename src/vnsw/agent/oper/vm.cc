@@ -88,7 +88,7 @@ std::auto_ptr<DBEntry> VmTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vm));
 }
 
-DBEntry *VmTable::Add(const DBRequest *req) {
+DBEntry *VmTable::OperDBAdd(const DBRequest *req) {
     VmKey *key = static_cast<VmKey *>(req->key.get());
     VmData *data = static_cast<VmData *>(req->data.get());
     VmEntry *vm = new VmEntry(key->uuid_);
@@ -98,13 +98,13 @@ DBEntry *VmTable::Add(const DBRequest *req) {
 }
 
 // Do DIFF walk for Interface and SG List.
-bool VmTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool VmTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
     vm->SendObjectLog(AgentLogEvent::CHANGE);
     return false;
 }
 
-bool VmTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VmTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
     vm->SendObjectLog(AgentLogEvent::DELETE);
     return true;
@@ -137,7 +137,7 @@ bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         VmData::SGUuidList sg_list(0);
-        data = new VmData(node->name(), sg_list);
+        data = new VmData(agent(), node, node->name(), sg_list);
     }
     req.key.reset(key);
     req.data.reset(data);

@@ -86,8 +86,8 @@ public:
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
-        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-        EXPECT_TRUE(VmPortPolicyEnable(input, 1));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 0)));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 1)));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -734,7 +734,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->Reset();
     AddVn("default-project:vn2", 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VnNotifyWait(2));
+    EXPECT_TRUE(client->VnNotifyWait(1));
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));

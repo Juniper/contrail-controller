@@ -102,7 +102,7 @@ std::auto_ptr<DBEntry> AclTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(acl));
 }
 
-DBEntry *AclTable::Add(const DBRequest *req) {
+DBEntry *AclTable::OperDBAdd(const DBRequest *req) {
     AclKey *key = static_cast<AclKey *>(req->key.get());
     AclData *data = static_cast<AclData *>(req->data.get());
     AclDBEntry *acl = new AclDBEntry(key->uuid_);
@@ -117,7 +117,7 @@ DBEntry *AclTable::Add(const DBRequest *req) {
     return acl;
 }
 
-bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool AclTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool changed = false;
     AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
     AclData *data = static_cast<AclData *>(req->data.get());
@@ -165,7 +165,7 @@ bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return changed;
 }
 
-bool AclTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool AclTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
     ACL_TRACE(Info, "Delete " + UuidToString(acl->GetUuid()));
     acl->DeleteAllAclEntries();
@@ -380,56 +380,12 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
 
     AclKey *key = new AclKey(acl_spec.acl_id);
-    AclData *data = new AclData(acl_spec);
+    AclData *data = new AclData(agent(), node, acl_spec);
     data->cfg_name_ = node->name();
     req.key.reset(key);
     req.data.reset(data);
     Agent::GetInstance()->acl_table()->Enqueue(&req);
-
-    // Its possible that VN got notified before ACL are created.
-    // Invoke change on VN linked to this ACL
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph());
-         iter != node->end(table->GetGraph()); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vn_table()) {
-            VirtualNetwork *vn_cfg = static_cast<VirtualNetwork *>
-                (adj_node->GetObject());
-            assert(vn_cfg);
-            if (adj_node->IsDeleted() == false) {
-                req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetInstance()->vn_table()->IFNodeToReq(adj_node, req);
-            }
-        }
-        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_sg_table()) {
-            SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
-                    ( adj_node->GetObject());
-            assert(sg_cfg);
-            if (adj_node->IsDeleted() == false) {
-                req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetInstance()->sg_table()->IFNodeToReq(adj_node, req);
-            }
-        }
-    }
     AclObjectTrace(AgentLogEvent::ADD, acl_spec);
-    return false;
-}
-
-bool AclTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                          const std::string &peer_type, IFMapNode *peer,
-                          DBRequest &req) {
-    if (peer && peer->table() == agent()->cfg()->cfg_vn_table()) {
-        DBRequest vn_req;
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        agent()->vn_table()->IFNodeToReq(peer, vn_req);
-    }
-
-    if (peer && peer->table() == agent()->cfg()->cfg_sg_table()) {
-        DBRequest sg_req;
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        agent()->sg_table()->IFNodeToReq(peer, sg_req);
-    }
     return false;
 }
 

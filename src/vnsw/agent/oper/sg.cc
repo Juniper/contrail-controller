@@ -51,7 +51,7 @@ std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(sg));
 }
 
-DBEntry *SgTable::Add(const DBRequest *req) {
+DBEntry *SgTable::OperDBAdd(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
     SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
@@ -61,7 +61,7 @@ DBEntry *SgTable::Add(const DBRequest *req) {
     return sg;
 }
 
-bool SgTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool SgTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
     SgEntry *sg = static_cast<SgEntry *>(entry);
     sg->SendObjectLog(AgentLogEvent::CHANGE);
@@ -88,7 +88,7 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-bool SgTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool SgTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
     sg->SendObjectLog(AgentLogEvent::DELETE);
     return true;
@@ -155,55 +155,11 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 }
             }
         }
-        data = new SgData(sg_id, egress_acl_uuid, ingress_acl_uuid);
+        data = new SgData(agent(), node, sg_id, egress_acl_uuid, ingress_acl_uuid);
     }
     req.key.reset(key);
     req.data.reset(data);
     Agent::GetInstance()->sg_table()->Enqueue(&req);
-
-    if (node->IsDeleted()) {
-        return false;
-    }
-
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-                 node->begin(table->GetGraph()); 
-         iter != node->end(table->GetGraph()); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->SkipNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table())) {
-            continue;
-        }
-        if (adj_node->GetObject() == NULL) {
-            continue;
-        }
-        if (Agent::GetInstance()->interface_table()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInstance()->interface_table()->Enqueue(&req);
-        }
-    }
-    return false;
-}
-
-bool SgTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                          const std::string &peer_type, IFMapNode *peer,
-                          DBRequest &req) {
-    // Add/Delete of link other than VMInterface will most likely need re-eval
-    // of VN.
-    if (peer_type != "virtual-machine-interface") {
-        return IFNodeToReq(node, req);
-    }
-
-    // If peer is VMI, invoke re-eval if peer node is present
-    if (peer && peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
-        DBRequest vmi_req;
-        if (agent()->interface_table()->IFNodeToReq(peer, vmi_req) == true) {
-             LOG(DEBUG, "SG change sync for Port " << peer->name());
-             agent()->interface_table()->Enqueue(&vmi_req);
-        }
-        return false;
-    }
-
     return false;
 }
 
