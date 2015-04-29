@@ -375,7 +375,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_06_alarmgen_basic
 
-    #@unittest.skip('Skipping Alarm test')
+    @unittest.skip('Skipping Alarm test')
     def test_07_alarm(self):
         '''
         This test starts redis, collectors, analytics-api and

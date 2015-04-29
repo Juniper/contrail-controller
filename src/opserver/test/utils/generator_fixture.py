@@ -462,9 +462,10 @@ class GeneratorFixture(fixtures.Fixture):
         msg_types.append(uve.__class__.__name__)
         self._logger.info('send uve: %s' % (uve.log()))
         uve.send(sandesh=self._sandesh_instance)
-        alarm_data = ObjectTableAlarmData(name=name)
-        alarm = ObjectTableAlarmTest(data=alarm_data,
-                    sandesh=self._sandesh_instance)
+        alarm_data = UVEAlarms(name=name)
+        alarm = AlarmTrace(data=alarm_data,
+                           table='ObjectBgpRouter',
+                           sandesh=self._sandesh_instance)
         msg_types.append(alarm.__class__.__name__)
         self._logger.info('send alarm: %s' % (alarm.log()))
         alarm.send(sandesh=self._sandesh_instance)
