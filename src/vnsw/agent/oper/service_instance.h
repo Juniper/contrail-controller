@@ -174,7 +174,7 @@ class ServiceInstanceTable : public AgentDBTable {
      * configuration. The dependency tracking policy is configured in
      * the dependency manager directly.
      */
-    void ChangeEventHandler(DBEntry *entry);
+    void ChangeEventHandler(IFMapNode *node, DBEntry *entry);
 
     DBGraph *graph_;
     IFMapDependencyManager *dependency_manager_;

@@ -15,6 +15,7 @@
 #include "ifmap/ifmap_table.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/vnc_cfg_types.h"
+#include "schema/bgp_schema_types.h"
 #include "testing/gunit.h"
 
 #include "cfg/cfg_listener.h"
@@ -40,11 +41,12 @@ class LoadbalancerTest : public ::testing::Test {
 
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
+        bgp_schema_Agent_ModuleInit(&database_, &graph_);
 
         config_listener_.Register("loadbalancer-pool",
                                   loadbalancer_table_,
                                   ::autogen::LoadbalancerPool::ID_PERMS);
-        manager_->Initialize();
+        manager_->Initialize(NULL);
     }
 
     virtual void TearDown() {

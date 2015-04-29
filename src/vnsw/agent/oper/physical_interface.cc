@@ -14,6 +14,7 @@
 #include <oper/interface_common.h>
 #include <oper/physical_device.h>
 #include <oper/nexthop.h>
+#include <oper/config_manager.h>
 
 #include <vector>
 #include <string>
@@ -178,6 +179,42 @@ static PhysicalInterfaceKey *BuildKey(const std::string &name) {
 
 bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
                                                   DBRequest &req) {
+    // Enqueue request to config-manager if add/change
+    if (node->IsDeleted() == false) {
+        agent()->config_manager()->AddPhysicalInterfaceNode(node);
+        return false;
+    }
+
+    autogen::PhysicalInterface *port =
+        static_cast <autogen::PhysicalInterface *>(node->GetObject());
+    assert(port);
+
+    // Get the physical-router from FQDN
+    string device = "";
+    vector<string> elements;
+    split(elements, node->name(), boost::is_any_of(":"), boost::token_compress_on);
+    if (elements.size() == 3) {
+        device = elements[1];
+    }
+
+    if (elements.size() == 3 && device != agent()->agent_name()) {
+        if (RemotePhysicalInterfaceIFNodeToReq(node, req)) {
+            Enqueue(&req);
+        }
+        return false;
+    }
+
+    req.key.reset(BuildKey(node->name()));
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    return true;
+}
+
+bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
+                                                    DBRequest &req) {
+    if (node->IsDeleted()) {
+        return false;
+    }
+
     autogen::PhysicalInterface *port =
         static_cast <autogen::PhysicalInterface *>(node->GetObject());
     assert(port);
@@ -192,17 +229,10 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
 
     // If physical-router does not match agent_name, treat as remote interface
     if (elements.size() == 3 && device != agent()->agent_name()) {
-        if (RemotePhysicalInterfaceIFNodeToReq(node, req))
-            Enqueue(&req);
-        VmInterface::PhysicalPortSync(this, node);
-        return false;
+        return RemotePhysicalInterfaceIFNodeToReq(node, req);
     }
 
     req.key.reset(BuildKey(node->name()));
-    if (node->IsDeleted()) {
-        req.oper = DBRequest::DB_ENTRY_DELETE;
-        return true;
-    }
 
     boost::uuids::uuid dev_uuid = nil_uuid();
     // Find link with physical-router adjacency
@@ -225,8 +255,8 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
                                              port->display_name(),
                                              Ip4Address(0),
                                              Interface::TRANSPORT_ETHERNET));
+    pi_ifnode_to_req_++;
     Enqueue(&req);
-    VmInterface::PhysicalPortSync(this, node);
     return false;
 }
 
