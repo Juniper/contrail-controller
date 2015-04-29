@@ -181,7 +181,7 @@ bool SandeshGenerator::Db_Connection_Init() {
     std::vector<Sandesh::QueueWaterMarkInfo> wm_info;
     collector_->GetDbQueueWaterMarkInfo(wm_info);
     for (size_t i = 0; i < wm_info.size(); i++) {
-        GetDbHandler()->SetDbQueueWaterMarkInfo(wm_info[i]);
+        SetDbQueueWaterMarkInfo(wm_info[i]);
     }
     return true;
 }
@@ -317,7 +317,17 @@ void SandeshGenerator::ConnectSession(VizSession *session,
 
 void SandeshGenerator::SetDbQueueWaterMarkInfo(
     Sandesh::QueueWaterMarkInfo &wm) {
-    GetDbHandler()->SetDbQueueWaterMarkInfo(wm);
+    bool high(boost::get<2>(wm));
+    bool defer_undefer(boost::get<3>(wm));
+    boost::function<void (void)> cb;
+    if (high && defer_undefer) {
+        cb = boost::bind(&SandeshStateMachine::SetDeferDequeue,
+                state_machine_, true);
+    } else if (!high && defer_undefer) {
+        cb = boost::bind(&SandeshStateMachine::SetDeferDequeue,
+                state_machine_, false);
+    }
+    GetDbHandler()->SetDbQueueWaterMarkInfo(wm, cb);
 }
 
 void SandeshGenerator::ResetDbQueueWaterMarkInfo() {

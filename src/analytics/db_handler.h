@@ -144,7 +144,8 @@ public:
     void GetSandeshStats(std::string *drop_level,
         std::vector<SandeshStats> *vdropmstats) const;
 
-    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
+    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
+        boost::function<void (void)> defer_undefer_cb);
     void ResetDbQueueWaterMarkInfo();
     std::string GetHost() const;
     int GetPort() const;
@@ -152,7 +153,8 @@ public:
 
 private:
     bool CreateTables();
-    void SetDropLevel(size_t queue_count, SandeshLevel::type level);
+    void SetDropLevel(size_t queue_count, SandeshLevel::type level,
+        boost::function<void (void)> cb);
     bool Setup(int instance);
     bool Initialize(int instance);
     bool StatTableWrite(uint32_t t2,
