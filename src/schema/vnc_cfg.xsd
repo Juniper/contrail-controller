@@ -779,6 +779,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('external-ipam', 'virtual-network') -->
 
+<xsd:element name="flood-unknown-unicast" type="xsd:boolean"
+    default='false'/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This flag is used to indicate whether packet with unknown
+            unicast destination mac should be broadcast or dropped.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('flood-unknown-unicast', 'virtual-network') -->
+
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
