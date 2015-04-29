@@ -544,7 +544,8 @@ void IFMapExporter::StateUpdateOnDequeue(IFMapUpdate *update,
     }
     if (update->advertise().empty()) {
         state->Remove(update);
-        if (state->update_list().empty() && state->IsInvalid()) {
+        if (state->update_list().empty() && state->IsInvalid() &&
+                state->CanDelete()) {
             assert(state->advertised().empty());
             db_entry->ClearState(table, TableListenerId(table));
             delete state;
