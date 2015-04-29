@@ -383,8 +383,8 @@ class EventManager(object):
         self.send_all_core_file()
         # send disk usage info periodically
         self.send_disk_usage_info()
-        # typical ntp sync time is about 3, 4 min - first time, we scan only after 5 min
-        if self.tick_count > 5:
+        # typical ntp sync time is about 5 min - first time, we scan only after 10 min
+        if self.tick_count >= 10:
             self.check_ntp_status()
 
         current_time = int(time.time())
