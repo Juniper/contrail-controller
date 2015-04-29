@@ -169,6 +169,8 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
                 // is atleast one more bit left to process.
                 break;
             }
+        } else {
+            done_set.set(i);
         }
 
         i = link_delete_clients_.find_next(i);
