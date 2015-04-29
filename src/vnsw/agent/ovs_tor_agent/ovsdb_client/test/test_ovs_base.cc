@@ -46,6 +46,7 @@
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/vrf_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/vlan_port_binding_ovsdb.h"
 #include "test_ovs_agent_init.h"
 
 #include <ovsdb_types.h>
@@ -92,6 +93,11 @@ protected:
 
 TEST_F(OvsBaseTest, connection) {
     WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+
+    OvsdbClientReq *req = new OvsdbClientReq();
+    req->HandleRequest();
+    client->WaitForIdle();
+    req->Release();
 }
 
 TEST_F(OvsBaseTest, physical_router) {
@@ -138,6 +144,32 @@ TEST_F(OvsBaseTest, VrfAuditRead) {
     VrfOvsdbObject *table = tcp_session_->client_idl()->vrf_ovsdb();
     VrfOvsdbEntry vrf_key(table, UuidToString(MakeUuid(1)));
     WAIT_FOR(1000, 10000, (table->Find(&vrf_key) != NULL));
+
+    OvsdbLogicalSwitchReq *req = new OvsdbLogicalSwitchReq();
+    req->HandleRequest();
+    client->WaitForIdle();
+    req->Release();
+
+    OvsdbMulticastMacLocalReq *mcast_req = new OvsdbMulticastMacLocalReq();
+    mcast_req->HandleRequest();
+    client->WaitForIdle();
+    mcast_req->Release();
+
+    OvsdbUnicastMacRemoteReq *mac_req = new OvsdbUnicastMacRemoteReq();
+    mac_req->HandleRequest();
+    client->WaitForIdle();
+    mac_req->Release();
+}
+
+TEST_F(OvsBaseTest, VlanPortBindingAuditRead) {
+    VlanPortBindingTable *table = tcp_session_->client_idl()->vlan_port_table();
+    VlanPortBindingEntry key(table, "test-router", "ge-0/0/0", 100, "");
+    WAIT_FOR(1000, 10000, (table->Find(&key) != NULL));
+
+    OvsdbVlanPortBindingReq *req = new OvsdbVlanPortBindingReq();
+    req->HandleRequest();
+    client->WaitForIdle();
+    req->Release();
 }
 
 TEST_F(OvsBaseTest, connection_close) {
