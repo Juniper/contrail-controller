@@ -130,18 +130,23 @@ class VncPermissions2(object):
         return self._server_mgr._args.rbac
     # end
 
-    def validate_user_visible_perm(self, id_perms2, is_admin):
-        return id_perms2.get('user_visible', True) is not False or is_admin
+    def validate_user_visible_perm(self, id_perms, is_admin):
+        return id_perms.get('user_visible', True) is not False or is_admin
     # end
 
     def validate_perms(self, request, obj_uuid, mode=PERMS_R):
+        err_msg = (403, 'Permission Denied')
+
         # retrieve object and permissions
         try:
-            id_perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
+            id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(obj_uuid)
         except NoIdError:
-            return (True, '')
+            return (False, err_msg)
 
-        err_msg = (403, 'Permission Denied')
+        # allow if older object doesn't have new permissions. This can happen
+        # if api server is upgraded but object database is not.
+        if 'permissions2' not in id_perms:
+            return (True, '')
 
         user, roles = self.get_user_roles(request)
         is_admin = 'admin' in [x.lower() for x in roles]
@@ -151,9 +156,9 @@ class VncPermissions2(object):
         if tenant is None:
             return (False, err_msg)
 
-        owner = id_perms2['permissions']['owner']
-        perms = id_perms2['permissions']['owner_access'] << 6
-        if id_perms2['permissions']['globally_shared']:
+        owner = id_perms['permissions2']['owner']
+        perms = id_perms['permissions2']['owner_access'] << 6
+        if id_perms['permissions2']['globally_shared']:
             perms |= PERMS_RWX
 
         # build perms
@@ -161,7 +166,7 @@ class VncPermissions2(object):
         if tenant == owner:
             mask |= 0700
 
-        share = id_perms2['permissions']['share']
+        share = id_perms['permissions2']['share']
         tenants = [item['tenant'] for item in share]
         for item in share:
             if tenant == item['tenant']:
@@ -176,14 +181,14 @@ class VncPermissions2(object):
         ok = is_admin or (mask & perms & mode_mask)
 
         if ok and mode == PERMS_W:
-            ok = self.validate_user_visible_perm(id_perms2, is_admin)
+            ok = self.validate_user_visible_perm(id_perms, is_admin)
 
         msg = '%s %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
             (usr=%s/own=%s/sh=%s), user_visible=%s' \
             % ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
                'yes' if is_admin else 'no', mode_mask, mask, perms,
                tenant, owner, tenants,
-               id_perms2.get('user_visible', True))
+               id_perms.get('user_visible', True))
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         return (True, '') if ok else (False, err_msg)

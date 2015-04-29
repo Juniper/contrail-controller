@@ -508,6 +508,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType> 
 
+<xsd:complexType name="ShareType">
+    <xsd:all>
+        <xsd:element name="tenant"        type="xsd:string"/>
+        <xsd:element name="tenant-access" type="AccessType"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="PermType2">
+    <xsd:all>
+        <xsd:element name="owner"           type="xsd:string"/>
+        <xsd:element name="owner-access"    type="AccessType"/>
+        <xsd:element name="globally-shared"  type="xsd:boolean" default="false"/>
+        <xsd:element name="share"           type="ShareType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType> 
+
 <xsd:simpleType name="CreatorType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="vcenter-plugin"/>
@@ -525,6 +541,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="description"   type="xsd:string"/>
         <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
         <xsd:element name="creator"       type="CreatorType"/>
+        <xsd:element name="permissions2"  type="PermType2"/>
     </xsd:all>
 </xsd:complexType> 
 
@@ -1611,38 +1628,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="api-access-list-entries" type="RbacRuleEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('api-access-list-entries', 'api-access-list') -->
-
-<xsd:complexType name="ShareType">
-    <xsd:all>
-        <xsd:element name="tenant"        type="xsd:string"/>
-        <xsd:element name="tenant-access" type="AccessType"/>
-    </xsd:all>
-</xsd:complexType> 
-
-<xsd:complexType name="PermType2">
-    <xsd:all>
-        <xsd:element name="owner"           type="xsd:string"/>
-        <xsd:element name="owner-access"    type="AccessType"/>
-        <xsd:element name="globally-shared"  type="xsd:boolean" default="false"/>
-        <xsd:element name="share"           type="ShareType" maxOccurs="unbounded"/>
-    </xsd:all>
-</xsd:complexType> 
-
-<xsd:complexType name="IdPermsType2">
-    <xsd:all>
-        <xsd:element name="permissions"   type="PermType2"/>
-        <xsd:element name="uuid"          type="UuidType"/>
-        <xsd:element name="enable"        type="xsd:boolean"/>
-        <xsd:element name="created"       type="xsd:dateTime"/>
-        <xsd:element name="last-modified" type="xsd:dateTime"/>
-        <xsd:element name="description"   type="xsd:string"/>
-        <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
-        <xsd:element name="creator"       type="CreatorType"/>
-    </xsd:all>
-</xsd:complexType> 
-
-<xsd:element name="id-perms2" type="IdPermsType2"/>
-<!--#IFMAP-SEMANTICS-IDL Property('id-perms2', 'all') -->
 
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>

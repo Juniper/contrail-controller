@@ -881,16 +881,6 @@ class VncServerCassandraClient(VncCassandraClient):
         return id_perms
     # end uuid_to_obj_perms
 
-    def uuid_to_obj_perms2(self, id):
-        try:
-            id_perms_json = self._obj_uuid_cf.get(
-                id, columns=['prop:id_perms2'])['prop:id_perms2']
-            id_perms = json.loads(id_perms_json)
-        except pycassa.NotFoundException:
-            raise NoIdError(id)
-        return id_perms
-    # end uuid_to_obj_perms2
-
     def useragent_kv_store(self, key, value):
         columns = {'value': value}
         self._useragent_kv_cf.insert(key, columns)
@@ -1700,10 +1690,6 @@ class VncDbClient(object):
         return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
 
-    def uuid_to_obj_perms2(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_perms2(obj_uuid)
-    # end uuid_to_obj_perms2
-
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
         self._cassandra_db.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation)
         self._msgbus.dbe_update_publish(obj_type.replace('_', '-'), {'uuid':obj_uuid})
@@ -1736,7 +1722,7 @@ class VncDbClient(object):
     # update index if object is shared
     def build_shared_index(self, obj_type, obj_uuid, obj_dict):
         try:
-            perms = obj_dict['id_perms2']['permissions']
+            perms = obj_dict['id_perms']['permissions2']
             globally_shared = perms['globally_shared']
             share_perms = perms['share']
         except Exception as e:
