@@ -89,8 +89,8 @@ public:
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
-        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-        EXPECT_TRUE(VmPortPolicyEnable(input, 1));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 0)));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 1)));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);

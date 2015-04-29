@@ -1272,3 +1272,22 @@ request sandesh VrouterObjectLimitsReq {
 response sandesh VrouterObjectLimitsResp {
     1: VrouterObjectLimits vrouter_object_limit;
 }
+
+/* IFMapDependency NodeEvent policies */
+struct IFMapReactEvent {
+    1: string event;
+    2: list<string> reactors;
+}
+
+struct IFMapNodePolicy {
+    1: string node;
+    2: list<IFMapReactEvent> events;
+}
+
+response sandesh IFMapNodePolicyResp {
+    1: list<IFMapNodePolicy> policies;
+}
+
+request sandesh IFMapNodePolicyReq {
+    1: string node;
+}

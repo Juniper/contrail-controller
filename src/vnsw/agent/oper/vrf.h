@@ -9,6 +9,7 @@
 #include <cmn/index_vector.h>
 #include <cmn/agent.h>
 #include <oper/agent_types.h>
+#include <oper/oper_db.h>
 
 using namespace std;
 class LifetimeActor;
@@ -16,9 +17,9 @@ class LifetimeManager;
 class ComponentNHData;
 class AgentRouteWalker;
 
-struct VrfKey : public AgentKey {
-    VrfKey(const string &name) : AgentKey(), name_(name) { };
-    virtual ~VrfKey() { };
+struct VrfKey : public AgentOperDBKey {
+    VrfKey(const string &name) : AgentOperDBKey(), name_(name) { }
+    virtual ~VrfKey() { }
 
     void Init(const string &vrf_name) {name_ = vrf_name;};
     bool IsLess(const VrfKey &rhs) const {
@@ -35,21 +36,22 @@ struct VrfKey : public AgentKey {
     string name_;
 };
 
-struct VrfData : public AgentData {
+struct VrfData : public AgentOperDBData {
     enum VrfEntryFlags {
         ConfigVrf = 1 << 0,     // vrf is received from config
         GwVrf     = 1 << 1,     // GW configured for this VRF
     };
 
-    VrfData(uint32_t flags, boost::uuids::uuid vn_uuid) :
-        AgentData(), flags_(flags), vn_uuid_(vn_uuid) {}
+    VrfData(Agent *agent, IFMapNode *node, uint32_t flags,
+            const boost::uuids::uuid &vn_uuid) :
+        AgentOperDBData(agent, node), flags_(flags), vn_uuid_(vn_uuid) {}
     virtual ~VrfData() {}
 
     uint32_t flags_;
     boost::uuids::uuid vn_uuid_;
 };
 
-class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
+class VrfEntry : AgentRefCount<VrfEntry>, public AgentOperDBEntry {
 public:
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
     static const uint32_t kDeleteTimeout = 900 * 1000;
@@ -135,7 +137,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
-class VrfTable : public AgentDBTable {
+class VrfTable : public AgentOperDBTable {
 public:
     // Map from VRF Name to VRF Entry
     typedef map<string, VrfEntry *> VrfNameTree;
@@ -150,7 +152,7 @@ public:
     typedef pair<string, RouteTable *> VrfDbPair;
 
     VrfTable(DB *db, const std::string &name) :
-        AgentDBTable(db, name), db_(db),
+        AgentOperDBTable(db, name), db_(db),
         walkid_(DBTableWalker::kInvalidWalkerId),
         route_delete_walker_(NULL),
         vrf_delete_walker_(NULL) { };
@@ -162,9 +164,9 @@ public:
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
     void VrfReuse(std::string name);
-    virtual DBEntry *Add(const DBRequest *req);
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual bool Delete(DBEntry *entry, const DBRequest *req);
+    virtual DBEntry *OperDBAdd(const DBRequest *req);
+    virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
@@ -185,9 +187,7 @@ public:
     static VrfTable *GetInstance() {return vrf_table_;};
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                             const string &peer_type, IFMapNode *peer,
-                             DBRequest &req);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req);
 
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);

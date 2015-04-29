@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "cmn/agent_cmn.h"
 #include "oper/ifmap_dependency_manager.h"
 
 #include <boost/bind.hpp>
@@ -96,7 +97,7 @@ class IFMapDependencyManagerTest : public ::testing::Test {
             database_.CreateTable("db.test.0"));
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
-        manager_->Initialize();
+        manager_->Initialize(NULL);
     }
 
     virtual void TearDown() {
@@ -154,7 +155,7 @@ class IFMapDependencyManagerTest : public ::testing::Test {
         }
     }
 
-    void ChangeEventHandler(DBEntry *entry) {
+    void ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
         change_list_.push_back(entry);
     }
 
@@ -169,7 +170,7 @@ TEST_F(IFMapDependencyManagerTest, VirtualMachineEvent) {
     typedef IFMapDependencyManagerTest_VirtualMachineEvent_Test TestClass;
     manager_->Register(
         "service-instance",
-        boost::bind(&TestClass::ChangeEventHandler, this, _1));
+        boost::bind(&TestClass::ChangeEventHandler, this, _1, _2));
 
     ifmap_test_util::IFMapMsgNodeAdd(&database_, "service-instance", "id-1");
     task_util::WaitForIdle();
@@ -189,7 +190,7 @@ TEST_F(IFMapDependencyManagerTest, TemplateEvent) {
     typedef IFMapDependencyManagerTest_TemplateEvent_Test TestClass;
     manager_->Register(
         "service-instance",
-        boost::bind(&TestClass::ChangeEventHandler, this, _1));
+        boost::bind(&TestClass::ChangeEventHandler, this, _1, _2));
 
     ifmap_test_util::IFMapMsgNodeAdd(&database_, "service-instance", "id-1");
     task_util::WaitForIdle();
@@ -209,7 +210,7 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
     typedef IFMapDependencyManagerTest_VMIEvent_Test TestClass;
     manager_->Register(
         "service-instance",
-        boost::bind(&TestClass::ChangeEventHandler, this, _1));
+        boost::bind(&TestClass::ChangeEventHandler, this, _1, _2));
 
     ifmap_test_util::IFMapMsgNodeAdd(&database_, "service-instance", "id-1");
     task_util::WaitForIdle();

@@ -245,7 +245,7 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
     // Enqueue ACL request
     DBRequest req;
     AclKey *key = new AclKey(uuid);
-    AclData *data = new AclData(acl_spec);
+    AclData *data = new AclData(agent_cfg_->agent(), NULL, acl_spec);
     data->ace_add = true;
     LOG(DEBUG, "Ace add: " << data->ace_add << ", Ace spec id:" 
         << ace_spec.id);
@@ -275,7 +275,8 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
         DBRequest areq;
         areq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         AclKey *akey = new AclKey(va_it->second.id);
-        AclData *adata = new AclData(entry->ace_info.id);
+        AclData *adata = new AclData(agent_cfg_->agent(),
+                                     NULL, entry->ace_info.id);
         areq.key.reset(akey);
         areq.data.reset(adata);
         agent_cfg_->agent()->acl_table()->Enqueue(&areq);

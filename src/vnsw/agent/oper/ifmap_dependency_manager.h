@@ -13,6 +13,7 @@
 #include "db/db_table.h"
 #include "ifmap/ifmap_dependency_tracker.h"
 
+class Agent;
 class DB;
 class DBGraph;
 class IFMapDependencyTracker;
@@ -60,7 +61,18 @@ class IFMapNodeState : public DBState {
 class IFMapDependencyManager {
 public:
     typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodePtr;
-    typedef boost::function<void(DBEntry *)> ChangeEventHandler;
+    typedef boost::function<void(IFMapNode *, DBEntry *)> ChangeEventHandler;
+
+    struct Link {
+        Link(const std::string &edge, const std::string &vertex, bool interest):
+            edge_(edge), vertex_(vertex), vertex_interest_(interest) {
+        }
+        std::string edge_;
+        std::string vertex_;
+        bool vertex_interest_;
+    };
+    typedef std::vector<Link> Path;
+
     IFMapDependencyManager(DB *database, DBGraph *graph);
     virtual ~IFMapDependencyManager();
 
@@ -68,13 +80,15 @@ public:
      * Initialize must be called after the ifmap tables are registered
      * via <schema>_Agent_ModuleInit.
      */
-    void Initialize();
+    void Initialize(Agent *agent);
 
     /*
      * Unregister from all tables.
      */
     void Terminate();
 
+    void AddDependencyPath(const std::string &node, Path path);
+    void InitializeDependencyRules(Agent *agent);
     /*
      * Register reactor-map for an IFMap node
      */
@@ -90,6 +104,12 @@ public:
      */
     IFMapNodePtr SetState(IFMapNode *node);
     IFMapNodeState *IFMapNodeGet(IFMapNode *node);
+
+    /*
+     * Get DBEntry object set for an IFMapNode
+     */
+    DBEntry *GetObject(IFMapNode *node);
+
     /*
      * Register a notification callback.
      */
@@ -100,6 +120,8 @@ public:
      */
     void Unregister(const std::string &type);
 
+    IFMapDependencyTracker *tracker() const { return tracker_.get(); }
+    void PropogateNodeChange(IFMapNode *node);
 
 private:
     /*
