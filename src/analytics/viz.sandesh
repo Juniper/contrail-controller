@@ -631,6 +631,36 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'VM Floating IP Stats'
+      'stat_type' : 'VirtualMachineStats',
+      'stat_attr' : 'fip_stats',
+      'obj_table' : VM_TABLE,
+      'attributes': [
+          { 'name' : 'fip_stats.vn', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'fip_stats.ip_address', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'fip_stats.iface_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'fip_stats.in_pkts', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'fip_stats.in_bytes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'fip_stats.out_pkts', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'fip_stats.out_bytes', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'VM Interface Stats'
+      'stat_type' : 'VirtualMachineStats',
+      'stat_attr' : 'if_stats',
+      'obj_table' : VM_TABLE,
+      'attributes': [
+          { 'name' : 'if_stats.name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'if_stats.in_pkts', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'if_stats.in_bytes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'if_stats.out_pkts', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'if_stats.out_bytes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'if_stats.in_bw_usage', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'if_stats.out_bw_usage', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Storage Pool Info',
       'stat_type' : 'ComputeStoragePool',
       'stat_attr' : 'info_stats',
