@@ -269,10 +269,10 @@ private:
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
 
-    bool GetBestAuthKey(AuthenticationKey *auth_key) const;
+    bool GetBestAuthKey(AuthenticationKey *auth_key, KeyType *key_type) const;
     void ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
     void LogInstallAuthKeys(const std::string &oper,
-                            const AuthenticationKey &auth_key);
+                            const AuthenticationKey &auth_key, KeyType key_type);
     void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
     void ResetInuseAuthKeyInfo();
 
