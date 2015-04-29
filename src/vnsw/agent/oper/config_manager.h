@@ -24,8 +24,12 @@
  * for virtual-network should be invoked before VMInterface. The changelist
  * should take of all dependencies.
  *
- * To simplify current design, the changelist is implemented only to objects
- * virtual-machine-interface, logical-interfaces and physical-device-vn
+ * The changelist is implemented to objects
+ * security-group
+ * virtual-machine-interface
+ * logical-interfaces
+ * physical-device-vn
+ * physical-router
  *****************************************************************************/
 
 #include <cmn/agent_cmn.h>
@@ -36,7 +40,9 @@
 class ConfigManager {
 public:
     // Number of changelist entries to pick in one run
-    const static uint32_t kIterationCount = 32;
+    const static uint32_t kIterationCount = 64;
+    const static uint32_t kMinTimeout = 1;
+    const static uint32_t kMaxTimeout = 20;
     // Set of changed IFMapNodes
     struct Node {
         Node(IFMapDependencyManager::IFMapNodePtr state);
@@ -77,19 +83,25 @@ public:
     ConfigManager(Agent *agent);
     virtual ~ConfigManager();
 
-    bool Run();
+    int Run();
+    bool TriggerRun();
+    bool TimerRun();
+    void Start();
+    int Size();
 
     void AddVmiNode(IFMapNode *node);
     void DelVmiNode(IFMapNode *node);
     uint32_t VmiNodeCount();
 
     void AddLogicalInterfaceNode(IFMapNode *node);
-    void DelLogicalInterfaceNode(IFMapNode *node);
     uint32_t LogicalInterfaceNodeCount();
 
+    void AddPhysicalInterfaceNode(IFMapNode *node);
+    void AddSgNode(IFMapNode *node);
+    void AddVnNode(IFMapNode *node);
+    void AddVrfNode(IFMapNode *node);
+    void AddVmNode(IFMapNode *node);
     void AddPhysicalDeviceNode(IFMapNode *node);
-    void DelPhysicalDeviceNode(IFMapNode *node);
-    uint32_t PhysicalDeviceNodeCount();
 
     void AddPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
@@ -100,10 +112,19 @@ public:
 private:
     Agent *agent_;
     std::auto_ptr<TaskTrigger> trigger_;
+    Timer *timer_;
+    uint32_t timeout_;
     NodeList vmi_list_;
+    NodeList physical_interface_list_;
     NodeList logical_interface_list_;
     NodeList physical_device_list_;
+    NodeList sg_list_;
+    NodeList vn_list_;
+    NodeList vrf_list_;
+    NodeList vm_list_;
     PhysicalDeviceVnList physical_device_vn_list_;
+    uint64_t process_config_count_[kMaxTimeout + 1];
+    uint64_t timer_count_;
 
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);
 };

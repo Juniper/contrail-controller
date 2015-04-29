@@ -287,7 +287,8 @@ public:
     InterfaceTable(DB *db, const std::string &name) :
         AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
         walkid_(DBTableWalker::kInvalidWalkerId), index_table_(),
-        vmi_count_(0), li_count_(0), active_vmi_count_(0) {
+        vmi_count_(0), li_count_(0), active_vmi_count_(0),
+        vmi_ifnode_to_req_(0), li_ifnode_to_req_(0), pi_ifnode_to_req_(0) {
     }
     virtual ~InterfaceTable() { }
 
@@ -309,6 +310,7 @@ public:
 
     // Config handlers
     bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
+    bool PhysicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
     bool VmiProcessConfig(IFMapNode *node, DBRequest &req);
     bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
@@ -319,8 +321,6 @@ public:
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
-    // Handle change in config VRF for the interface
-    void VmInterfaceVrfSync(IFMapNode *node);
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 
@@ -381,6 +381,7 @@ public:
 
     uint32_t vmi_ifnode_to_req() const { return vmi_ifnode_to_req_; }
     uint32_t li_ifnode_to_req() const { return li_ifnode_to_req_; }
+    uint32_t pi_ifnode_to_req() const { return pi_ifnode_to_req_; }
 private:
     bool L2VmInterfaceWalk(DBTablePartBase *partition,
                            DBEntryBase *entry);
@@ -406,6 +407,7 @@ private:
     uint32_t active_vmi_count_;
     uint32_t vmi_ifnode_to_req_;
     uint32_t li_ifnode_to_req_;
+    uint32_t pi_ifnode_to_req_;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };

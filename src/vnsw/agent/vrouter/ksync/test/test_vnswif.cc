@@ -263,12 +263,13 @@ TEST_F(TestVnswIf, oper_state_1) {
 // Add the config node and verify the interface NH are readded
 TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     struct PortInfo input[] = {
-        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
-        {"vnet2", 2, "1.1.1.10", "00:00:00:01:01:02", 1, 2},
-        {"vnet3", 3, "1.1.1.10", "00:00:00:01:01:03", 1, 3},
+        {"vnet3", 3, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+        {"vnet4", 4, "1.1.1.10", "00:00:00:01:01:02", 1, 2},
+        {"vnet5", 5, "1.1.1.10", "00:00:00:01:01:03", 1, 3},
     };
 
     client->Reset();
+    client->WaitForIdle();
     // Create ports with ECMP
     CreateVmportWithEcmp(input, 3);
     client->WaitForIdle();
@@ -277,9 +278,9 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
     EXPECT_TRUE(VmPortActive(input, 2));
-    InterfaceEvent(true, "vnet1", (IFF_UP|IFF_RUNNING));
-    InterfaceEvent(true, "vnet2", (IFF_UP|IFF_RUNNING));
     InterfaceEvent(true, "vnet3", (IFF_UP|IFF_RUNNING));
+    InterfaceEvent(true, "vnet4", (IFF_UP|IFF_RUNNING));
+    InterfaceEvent(true, "vnet5", (IFF_UP|IFF_RUNNING));
     client->WaitForIdle();
 
     // Ensure ECMP is created
@@ -288,34 +289,33 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     EXPECT_TRUE(rt != NULL);
 
     const CompositeNH *nh;
-    nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
-    EXPECT_TRUE(nh != NULL);
+    WAIT_FOR(100, 1000, ((nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop())) != NULL));
     EXPECT_EQ(nh->ActiveComponentNHCount(), 3);
 
-    // Set oper-state of vnet1 down. We should have ECMP with 2 NH
-    InterfaceEvent(true, "vnet1", 0);
+    // Set oper-state of vnet3 down. We should have ECMP with 2 NH
+    InterfaceEvent(true, "vnet3", 0);
     WAIT_FOR(100, 100, (VmPortActive(input, 0) == false));
     client->WaitForIdle();
     nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_EQ(nh->ActiveComponentNHCount(), 2);
 
-    // Set oper-state of vnet2 down. We should have non-ECMP route
-    InterfaceEvent(true, "vnet2", 0);
+    // Set oper-state of vnet4 down. We should have non-ECMP route
+    InterfaceEvent(true, "vnet4", 0);
     client->WaitForIdle();
     WAIT_FOR(100, 100, (VmPortActive(input, 1) == false));
     nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(nh == NULL);
 
-    // Set oper-state of vnet3 down. Route should be deleted
-    InterfaceEvent(true, "vnet3", 0);
+    // Set oper-state of vnet5 down. Route should be deleted
+    InterfaceEvent(true, "vnet5", 0);
     client->WaitForIdle();
     WAIT_FOR(100, 100, (VmPortActive(input, 2) == false));
     rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt == NULL);
 
-    // Set oper-state of vnet1 and vnet2 up. We should have ECMP os 2 NH
-    InterfaceEvent(true, "vnet1", (IFF_UP|IFF_RUNNING));
-    InterfaceEvent(true, "vnet2", (IFF_UP|IFF_RUNNING));
+    // Set oper-state of vnet3 and vnet4 up. We should have ECMP os 2 NH
+    InterfaceEvent(true, "vnet3", (IFF_UP|IFF_RUNNING));
+    InterfaceEvent(true, "vnet4", (IFF_UP|IFF_RUNNING));
     client->WaitForIdle();
     WAIT_FOR(100, 100, (VmPortActive(input, 0)));
     WAIT_FOR(100, 100, (VmPortActive(input, 1)));
@@ -328,6 +328,8 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     //Clean up
     DeleteVmportEnv(input, 3, true);
+    InterfaceEvent(false, "vnet5", 0);
+    InterfaceEvent(false, "vnet4", 0);
     InterfaceEvent(false, "vnet3", 0);
     client->WaitForIdle();
 }

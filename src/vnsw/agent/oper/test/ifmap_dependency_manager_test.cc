@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "cmn/agent_cmn.h"
 #include "oper/ifmap_dependency_manager.h"
 
 #include <boost/bind.hpp>
@@ -96,7 +97,7 @@ class IFMapDependencyManagerTest : public ::testing::Test {
             database_.CreateTable("db.test.0"));
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
-        manager_->Initialize();
+        manager_->Initialize(Agent::GetInstance());
     }
 
     virtual void TearDown() {
