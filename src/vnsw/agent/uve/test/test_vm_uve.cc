@@ -158,8 +158,8 @@ public:
 
         EXPECT_TRUE(VmPortActive(fip_input1, 0));
         EXPECT_TRUE(VmPortActive(fip_input1, 1));
-        EXPECT_TRUE(VmPortPolicyEnable(fip_input1, 0));
-        EXPECT_TRUE(VmPortPolicyEnable(fip_input1, 1));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(fip_input1, 0)));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(fip_input1, 1)));
         EXPECT_TRUE(VmPortActive(fip_input2, 0));
 
         flowa = VmInterfaceGet(fip_input1[0].intf_id);
@@ -664,7 +664,7 @@ TEST_F(UveVmUveTest, FipL3Disabled) {
     client->Reset();
     AddVn("default-project:vn2", 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VnNotifyWait(2));
+    EXPECT_TRUE(client->VnNotifyWait(1));
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));
@@ -776,7 +776,7 @@ TEST_F(UveVmUveTest, FipUninstalledRemove) {
     client->Reset();
     AddVn("default-project:vn2", 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VnNotifyWait(2));
+    EXPECT_TRUE(client->VnNotifyWait(1));
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));

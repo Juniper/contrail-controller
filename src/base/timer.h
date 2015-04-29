@@ -101,6 +101,11 @@ public:
         return (state_ == Cancelled); 
     }
 
+    bool Idle() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return (state_ == Cancelled || state_ == Init);
+    }
+
     bool IsDeleteOnCompletion() const {
         return delete_on_completion_;
     }
