@@ -26,13 +26,3 @@ struct ObjectTableUveData {
 uve sandesh ObjectTableUveTest {
     1: ObjectTableUveData data
 }
-
-struct ObjectTableAlarmData {
-    1: string name (key="ObjectBgpRouter")
-    2: optional bool deleted
-    3: "ObjectTableAlarmTest"
-}
-
-alarm sandesh ObjectTableAlarmTest {
-    1: ObjectTableAlarmData data
-}
