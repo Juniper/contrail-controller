@@ -3,6 +3,7 @@
  */
 
 #include <boost/bind.hpp>
+#include <base/logging.h>
 
 #include <oper/agent_sandesh.h>
 #include <ovsdb_types.h>
@@ -29,13 +30,28 @@ OvsdbClientSsl::OvsdbClientSsl(Agent *agent, TorAgentParam *params,
     ctx->set_verify_mode((boost::asio::ssl::verify_peer |
                           boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
     assert(ec.value() == 0);
+
     ctx->use_certificate_chain_file(params->ssl_cert(), ec);
-    assert(ec.value() == 0);
+    if (ec.value() != 0) {
+        LOG(ERROR, "Error : " << ec.message() << ", while using cert file : "
+            << params->ssl_cert());
+        exit(EINVAL);
+    }
+
     ctx->use_private_key_file(params->ssl_privkey(),
                               boost::asio::ssl::context::pem, ec);
-    assert(ec.value() == 0);
+    if (ec.value() != 0) {
+        LOG(ERROR, "Error : " << ec.message() << ", while using privkey file : "
+            << params->ssl_privkey());
+        exit(EINVAL);
+    }
+
     ctx->load_verify_file(params->ssl_cacert(), ec);
-    assert(ec.value() == 0);
+    if (ec.value() != 0) {
+        LOG(ERROR, "Error : " << ec.message() << ", while using cacert file : "
+            << params->ssl_cacert());
+        exit(EINVAL);
+    }
 }
 
 OvsdbClientSsl::~OvsdbClientSsl() {
