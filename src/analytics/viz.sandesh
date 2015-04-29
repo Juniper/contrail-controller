@@ -1169,6 +1169,66 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'member_stats.reponse_errors', 'datatype' : 'int', 'index' : false },
         ]
     },
+    {
+      'display_name' : 'Analytics Disk Usage Info',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'disk_usage_info',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Database Disk Usage Info',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'disk_usage_info',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Config Disk Usage Info',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'disk_usage_info',
+      'obj_table' : CONFIG_NODE_TABLE,
+      'attributes': [
+          { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Control-node Disk Usage Info',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'disk_usage_info',
+      'obj_table' : BGP_ROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Vrouter Disk Usage Info',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'disk_usage_info',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
+        ]
+    },
 ]
 
 const list<query_table> _TABLES = [
