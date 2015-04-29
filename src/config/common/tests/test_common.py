@@ -14,6 +14,7 @@ import testtools
 from testtools import content, content_type
 from flexmock import flexmock, Mock
 from webtest import TestApp
+import contextlib
 
 from vnc_api.vnc_api import *
 import cfgm_common.ifmap.client as ifmap_client
@@ -235,6 +236,16 @@ def setup_common_flexmock():
 
     flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
 #end setup_common_flexmock
+
+@contextlib.contextmanager
+def patch(target_obj, target_method_name, patched):
+    orig_method = getattr(target_obj, target_method_name)
+    setattr(target_obj, target_method_name, patched)
+    try:
+        yield
+    finally:
+        setattr(target_obj, target_method_name, orig_method)
+#end patch
 
 cov_handle = None
 class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
