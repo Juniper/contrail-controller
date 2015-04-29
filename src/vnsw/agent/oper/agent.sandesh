@@ -1211,3 +1211,22 @@ struct PhysicalDeviceVnObjectLogInfo {
 objectlog sandesh PhysicalDeviceVnObjectLog {
     1: PhysicalDeviceVnObjectLogInfo port;
 }
+
+/* IFMapDependency NodeEvent policies */
+struct IFMapReactEvent {
+    1: string event;
+    2: list<string> reactors;
+}
+
+struct IFMapNodePolicy {
+    1: string node;
+    2: list<IFMapReactEvent> events;
+}
+
+response sandesh IFMapNodePolicyResp {
+    1: list<IFMapNodePolicy> policies;
+}
+
+request sandesh IFMapNodePolicyReq {
+    1: string node;
+}

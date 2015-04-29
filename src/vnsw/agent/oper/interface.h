@@ -309,6 +309,7 @@ public:
 
     // Config handlers
     bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
+    bool PhysicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
     bool VmiProcessConfig(IFMapNode *node, DBRequest &req);
     bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
@@ -319,8 +320,6 @@ public:
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
-    // Handle change in config VRF for the interface
-    void VmInterfaceVrfSync(IFMapNode *node);
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 

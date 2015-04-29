@@ -24,8 +24,12 @@
  * for virtual-network should be invoked before VMInterface. The changelist
  * should take of all dependencies.
  *
- * To simplify current design, the changelist is implemented only to objects
- * virtual-machine-interface, logical-interfaces and physical-device-vn
+ * The changelist is implemented to objects
+ * security-group
+ * virtual-machine-interface
+ * logical-interfaces
+ * physical-device-vn
+ * physical-router
  *****************************************************************************/
 
 #include <cmn/agent_cmn.h>
@@ -36,7 +40,9 @@
 class ConfigManager {
 public:
     // Number of changelist entries to pick in one run
-    const static uint32_t kIterationCount = 32;
+    const static uint32_t kIterationCount = 64;
+    const static uint32_t kMinTimeout = 1;
+    const static uint32_t kMaxTimeout = 20;
     // Set of changed IFMapNodes
     struct Node {
         Node(IFMapDependencyManager::IFMapNodePtr state);
@@ -77,11 +83,19 @@ public:
     ConfigManager(Agent *agent);
     virtual ~ConfigManager();
 
-    bool Run();
+    int Run();
+    bool TriggerRun();
+    bool TimerRun();
+    void Start();
+    int Size();
 
     void AddVmiNode(IFMapNode *node);
     void DelVmiNode(IFMapNode *node);
     uint32_t VmiNodeCount();
+
+    void AddPhysicalInterfaceNode(IFMapNode *node);
+    void DelPhysicalInterfaceNode(IFMapNode *node);
+    uint32_t PhysicalInterfaceNodeCount();
 
     void AddLogicalInterfaceNode(IFMapNode *node);
     void DelLogicalInterfaceNode(IFMapNode *node);
@@ -97,12 +111,30 @@ public:
                              const boost::uuids::uuid &vn);
     uint32_t PhysicalDeviceVnCount();
 
+    void AddSgNode(IFMapNode *node);
+    void DelSgNode(IFMapNode *node);
+    uint32_t SgNodeCount();
+
+    void AddVnNode(IFMapNode *node);
+    void DelVnNode(IFMapNode *node);
+    uint32_t VnNodeCount();
+
+    void AddVrfNode(IFMapNode *node);
+    void DelVrfNode(IFMapNode *node);
+    uint32_t VrfNodeCount();
+
 private:
     Agent *agent_;
     std::auto_ptr<TaskTrigger> trigger_;
+    Timer *timer_;
+    uint32_t timeout_;
     NodeList vmi_list_;
+    NodeList physical_interface_list_;
     NodeList logical_interface_list_;
     NodeList physical_device_list_;
+    NodeList sg_list_;
+    NodeList vn_list_;
+    NodeList vrf_list_;
     PhysicalDeviceVnList physical_device_vn_list_;
 
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);

@@ -5,6 +5,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <vnc_cfg_types.h>
 #include <base/util.h>
+#include <db/db_partition.h>
 
 #include <ifmap/ifmap_node.h>
 #include <cmn/agent_cmn.h>
@@ -15,19 +16,28 @@
 #include <oper/interface_common.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <oper/vn.h>
+#include <oper/vrf.h>
+#include <oper/sg.h>
 
 #include <vector>
 #include <string>
 
 using std::string;
 
-ConfigManager::ConfigManager(Agent *agent) : agent_(agent), trigger_(NULL) {
+ConfigManager::ConfigManager(Agent *agent) : agent_(agent), trigger_(NULL),
+    timer_(NULL), timeout_(kMinTimeout) {
     int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
     trigger_.reset
-        (new TaskTrigger(boost::bind(&ConfigManager::Run, this), task_id, 0));
+        (new TaskTrigger(boost::bind(&ConfigManager::TriggerRun, this),
+                         task_id, 0));
+    timer_ = TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
+                                       "Config Manager", task_id, 0);
 }
 
 ConfigManager::~ConfigManager() {
+    timer_->Cancel();
+    TimerManager::DeleteTimer(timer_);
 }
 
 ConfigManager::Node::Node(IFMapDependencyManager::IFMapNodePtr state) :
@@ -37,10 +47,106 @@ ConfigManager::Node::Node(IFMapDependencyManager::IFMapNodePtr state) :
 ConfigManager::Node::~Node() {
 }
 
+int ConfigManager::Size() {
+    return
+        (sg_list_.size() +
+         physical_interface_list_.size() +
+         vn_list_.size() +
+         vrf_list_.size() +
+         vmi_list_.size() +
+         logical_interface_list_.size() +
+         physical_device_list_.size() +
+         physical_device_vn_list_.size());
+}
+
+void ConfigManager::Start() {
+    if (agent_->test_mode()) {
+        trigger_->Set();
+    } else {
+        timeout_++;
+        if (timeout_ > kMaxTimeout)
+            timeout_ = kMaxTimeout;
+        if (timer_->Idle())
+            timer_->Start(timeout_, boost::bind(&ConfigManager::TimerRun,
+                                                this));
+    }
+}
+
+bool ConfigManager::TimerRun() {
+    Run();
+    if (Size() == 0) {
+        timeout_ = kMinTimeout;
+        return false;
+    }
+
+    timeout_--;
+    if (timeout_ <= kMinTimeout)
+        timeout_ = kMinTimeout;
+    timer_->Reschedule(timeout_);
+    return true;
+}
+
+bool ConfigManager::TriggerRun() {
+    Run();
+    return (Size() == 0);
+}
+
 // Run the change-list
-bool ConfigManager::Run() {
+int ConfigManager::Run() {
     uint32_t count = 0;
     NodeListIterator it;
+
+    it = sg_list_.begin();
+    while ((count < kIterationCount) && (it != sg_list_.end())) {
+        NodeListIterator prev = it++;
+        IFMapNodeState *state = prev->state_.get();
+        IFMapNode *node = state->node();
+        DBRequest req;
+        if (agent_->sg_table()->ProcessConfig(node, req)) {
+            agent_->sg_table()->Enqueue(&req);
+        }
+        sg_list_.erase(prev);
+        count++;
+    }
+
+    it = physical_interface_list_.begin();
+    while ((count < kIterationCount) && (it != physical_interface_list_.end())) {
+        NodeListIterator prev = it++;
+        IFMapNodeState *state = prev->state_.get();
+        IFMapNode *node = state->node();
+        DBRequest req;
+        if (agent_->interface_table()->PhysicalInterfaceProcessConfig(node, req)) {
+            agent_->interface_table()->Enqueue(&req);
+        }
+        physical_interface_list_.erase(prev);
+        count++;
+    }
+
+    it = vn_list_.begin();
+    while ((count < kIterationCount) && (it != vn_list_.end())) {
+        NodeListIterator prev = it++;
+        IFMapNodeState *state = prev->state_.get();
+        IFMapNode *node = state->node();
+        DBRequest req;
+        if (agent_->vn_table()->ProcessConfig(node, req)) {
+            agent_->vn_table()->Enqueue(&req);
+        }
+        vn_list_.erase(prev);
+        count++;
+    }
+
+    it = vrf_list_.begin();
+    while ((count < kIterationCount) && (it != vrf_list_.end())) {
+        NodeListIterator prev = it++;
+        IFMapNodeState *state = prev->state_.get();
+        IFMapNode *node = state->node();
+        DBRequest req;
+        if (agent_->vrf_table()->ProcessConfig(node, req)) {
+            agent_->vrf_table()->Enqueue(&req);
+        }
+        vrf_list_.erase(prev);
+        count++;
+    }
 
     // LI has reference to VMI. So, create VMI before LI
     it = vmi_list_.begin();
@@ -95,21 +201,14 @@ bool ConfigManager::Run() {
         count++;
     }
 
-    trigger_->Reset();
-    if (vmi_list_.size() != 0 || logical_interface_list_.size() != 0 ||
-        physical_device_vn_list_.size() != 0) {
-        trigger_->Set();
-        return false;
-    }
-
-    return true;
+    return count;
 }
 
 void ConfigManager::AddVmiNode(IFMapNode *node) {
     IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
     Node n(dep->SetState(node));
     vmi_list_.insert(n);
-    trigger_->Set();
+    Start();
 }
 
 void ConfigManager::DelVmiNode(IFMapNode *node) {
@@ -129,7 +228,7 @@ void ConfigManager::AddLogicalInterfaceNode(IFMapNode *node) {
     IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
     Node n(dep->SetState(node));
     logical_interface_list_.insert(n);
-    trigger_->Set();
+    Start();
 }
 
 void ConfigManager::DelLogicalInterfaceNode(IFMapNode *node) {
@@ -149,7 +248,7 @@ void ConfigManager::AddPhysicalDeviceNode(IFMapNode *node) {
     IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
     Node n(dep->SetState(node));
     physical_device_list_.insert(n);
-    trigger_->Set();
+    Start();
 }
 
 void ConfigManager::DelPhysicalDeviceNode(IFMapNode *node) {
@@ -173,7 +272,7 @@ ConfigManager::PhysicalDeviceVnEntry::PhysicalDeviceVnEntry
 void ConfigManager::AddPhysicalDeviceVn(const boost::uuids::uuid &dev,
                                         const boost::uuids::uuid &vn) {
     physical_device_vn_list_.insert(PhysicalDeviceVnEntry(dev, vn));
-    trigger_->Set();
+    Start();
 }
 
 void ConfigManager::DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
@@ -183,4 +282,84 @@ void ConfigManager::DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
 
 uint32_t ConfigManager::PhysicalDeviceVnCount() {
     return physical_device_vn_list_.size();
+}
+
+void ConfigManager::AddSgNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    Node n(dep->SetState(node));
+    sg_list_.insert(n);
+    Start();
+}
+
+void ConfigManager::DelSgNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    IFMapNodeState *state = dep->IFMapNodeGet(node);
+    if (state == NULL)
+        return;
+    Node n(state);
+    sg_list_.erase(n);
+}
+
+uint32_t ConfigManager::SgNodeCount() {
+    return sg_list_.size();
+}
+
+void ConfigManager::AddVnNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    Node n(dep->SetState(node));
+    vn_list_.insert(n);
+    Start();
+}
+
+void ConfigManager::DelVnNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    IFMapNodeState *state = dep->IFMapNodeGet(node);
+    if (state == NULL)
+        return;
+    Node n(state);
+    vn_list_.erase(n);
+}
+
+uint32_t ConfigManager::VnNodeCount() {
+    return vn_list_.size();
+}
+
+void ConfigManager::AddVrfNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    Node n(dep->SetState(node));
+    vrf_list_.insert(n);
+    Start();
+}
+
+void ConfigManager::DelVrfNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    IFMapNodeState *state = dep->IFMapNodeGet(node);
+    if (state == NULL)
+        return;
+    Node n(state);
+    vrf_list_.erase(n);
+}
+
+uint32_t ConfigManager::VrfNodeCount() {
+    return vrf_list_.size();
+}
+
+void ConfigManager::AddPhysicalInterfaceNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    Node n(dep->SetState(node));
+    physical_interface_list_.insert(n);
+    Start();
+}
+
+void ConfigManager::DelPhysicalInterfaceNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    IFMapNodeState *state = dep->IFMapNodeGet(node);
+    if (state == NULL)
+        return;
+    Node n(state);
+    physical_interface_list_.erase(n);
+}
+
+uint32_t ConfigManager::PhysicalInterfaceNodeCount() {
+    return physical_interface_list_.size();
 }
