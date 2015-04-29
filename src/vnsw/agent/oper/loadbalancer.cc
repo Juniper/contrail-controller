@@ -254,7 +254,7 @@ void LoadbalancerTable::Initialize(
 
     dependency_manager_->Register(
         "loadbalancer-pool",
-        boost::bind(&LoadbalancerTable::ChangeEventHandler, this, _1));
+        boost::bind(&LoadbalancerTable::ChangeEventHandler, this, _1, _2));
 }
 
 bool LoadbalancerTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -286,7 +286,10 @@ bool LoadbalancerTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
     return true;
 }
 
-void LoadbalancerTable::ChangeEventHandler(DBEntry *entry) {
+void LoadbalancerTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
+    if (entry == NULL)
+        return;
+
     Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
     /*
      * Do not enqueue an ADD_CHANGE operation after the DELETE generated

@@ -8,6 +8,7 @@
 
 #include <db/db_partition.h>
 #include <cmn/agent_cmn.h>
+#include <db/db_partition.h>
 #include <cfg/cfg_init.h>
 #include <oper/operdb_init.h>
 #include <oper/agent_profile.h>
@@ -15,6 +16,9 @@
 #include <oper/vn.h>
 #include <oper/physical_device_vn.h>
 #include <oper/interface_common.h>
+#include <oper/sg.h>
+#include <oper/vrf.h>
+#include <oper/config_manager.h>
 using namespace std;
 
 AgentProfile::AgentProfile(Agent *agent, bool enable) :
@@ -52,12 +56,14 @@ string GetProfileString(DBTable *table, const char *name) {
 
 string GetInterfaceProfileString(InterfaceTable *table, const char *name) {
     stringstream str;
-    str << setw(4) << " LI " << setw(6) << table->li_count()
-        << " VMI " << table->vmi_count() << " / "
-        << setw(6) << table->active_vmi_count() << " / "
-        << setw(6) << table->vmi_ifnode_to_req() << " / "
-        << setw(6) << table->li_ifnode_to_req();
-    return GetProfileString(table, name) + str.str();
+    str << setw(20) << " LI" << setw(10) << table->li_count()
+        << " VMI " << setw(12) << table->vmi_count()
+        << " Active" << setw(8) << table->active_vmi_count()
+        << " IFNodeToReq " << table->vmi_count() << " / "
+        << setw(8) << table->vmi_ifnode_to_req() << " / "
+        << setw(8) << table->li_ifnode_to_req() << " / "
+        << setw(8) << table->pi_ifnode_to_req();
+    return str.str();
 }
 
 void AgentProfile::Log() {
@@ -76,15 +82,22 @@ void AgentProfile::Log() {
         << " " << sched->cancel_count() << ">"
         << endl;
 
-    AgentConfig *cfg = agent_->cfg();
+    cout << GetProfileString(agent_->interface_table(), "Intf")
+        << endl;
     cout << "    " << GetInterfaceProfileString(agent_->interface_table(),
                                                 "Interface") << endl;
-    cout << "    " << GetProfileString(agent_->vn_table(), "VN") << endl;
-    cout << "    " << GetProfileString(agent_->physical_device_vn_table(),
+    cout << GetProfileString(agent_->vn_table(), "VN") << endl;
+    cout << GetProfileString(agent_->sg_table(), "SG") << endl;
+    cout << GetProfileString(agent_->physical_device_vn_table(),
                                        "Dev-Vn") << endl;
-    cout << "    " << GetProfileString(cfg->cfg_vm_interface_table(),
+    cout << GetProfileString(agent_->vrf_table(), "VRF") << endl;
+    DBTable *link_db = static_cast<DBTable *>(agent_->db()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    cout << GetProfileString(link_db, "Cfg-Link") << endl;
+    cout << GetProfileString(agent_->cfg()->cfg_vm_interface_table(),
                                        "Cfg-VMI") << endl;
-    cout << "    " << GetProfileString(cfg->cfg_logical_port_table(),
+    cout << GetProfileString(agent_->cfg()->cfg_logical_port_table(),
                                        "Cfg-LI") << endl;
+    string str = agent_->config_manager()->ProfileInfo();
+    cout << str << endl;
     cout << endl;
 }

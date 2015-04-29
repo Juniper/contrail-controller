@@ -99,7 +99,7 @@ protected:
         agent_config_->Init();
         // Different test cases initialize the instance_manager with
         // different parameters so we avoid called OperDB::Init().
-        oper_db_->dependency_manager()->Initialize();
+        oper_db_->dependency_manager()->Initialize(agent_.get());
     }
 
 

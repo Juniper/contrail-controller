@@ -112,16 +112,10 @@ public:
 
     // Default callback handler from IFMap Dependency tracker. We invoke
     // IFNodeToReq to keep all IFMap handling at one place
-    virtual void ConfigEventHandler(DBEntry *entry) {
-        if (entry == NULL)
-            return;
-
-        AgentOperDBEntry *agent_entry = static_cast<AgentOperDBEntry *>(entry);
-        if (agent_entry->ifmap_node()) {
-            DBRequest req;
-            if (IFNodeToReq(agent_entry->ifmap_node(), req) == true) {
-                Enqueue(&req);
-            }
+    virtual void ConfigEventHandler(IFMapNode *node, DBEntry *entry) {
+        DBRequest req;
+        if (IFNodeToReq(node, req) == true) {
+            Enqueue(&req);
         }
         return;
     }
