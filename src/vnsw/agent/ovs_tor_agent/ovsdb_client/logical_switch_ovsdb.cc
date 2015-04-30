@@ -69,6 +69,11 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
     physical_switch_ = p_table->GetReference(&key);
+
+    if (stale()) {
+        // skip add encoding for stale entry
+        return;
+    }
     struct ovsdb_idl_row *row =
         ovsdb_wrapper_add_logical_switch(txn, ovs_entry_, name_.c_str(),
                 vxlan_id_);
@@ -283,8 +288,15 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         entry = static_cast<LogicalSwitchEntry *>(Find(&key));
     }
     if (op == OvsdbClientIdl::OVSDB_DEL) {
+        // trigger deletion based on the entry for which add was triggered
+        OvsdbIdlRowMap::iterator idl_it = idl_row_map_.find(row);
+        if (idl_it != idl_row_map_.end()) {
+            entry = idl_it->second;
+            idl_row_map_.erase(idl_it);
+        }
+
         OVSDB_TRACE(Trace, "Delete : Local Mcast MAC " + std::string(mac) +
-                ", logical switch " + (ls ? std::string(ls) : ""));
+                ", logical switch " + (entry != NULL ? entry->name() : ""));
         if (entry) {
             entry->mcast_local_row_ = NULL;
         }
@@ -292,6 +304,7 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         OVSDB_TRACE(Trace, "Add : Local Mcast MAC " + std::string(mac) +
                 ", logical switch " + (ls ? std::string(ls) : ""));
         if (entry) {
+            idl_row_map_[row] = entry;
             entry->mcast_local_row_ = row;
         }
     } else {
@@ -309,8 +322,15 @@ void LogicalSwitchTable::OvsdbMcastRemoteMacNotify(OvsdbClientIdl::Op op,
         entry = static_cast<LogicalSwitchEntry *>(Find(&key));
     }
     if (op == OvsdbClientIdl::OVSDB_DEL) {
+        // trigger deletion based on the entry for which add was triggered
+        OvsdbIdlRowMap::iterator idl_it = idl_row_map_.find(row);
+        if (idl_it != idl_row_map_.end()) {
+            entry = idl_it->second;
+            idl_row_map_.erase(idl_it);
+        }
+
         OVSDB_TRACE(Trace, "Delete : Remote Mcast MAC " + std::string(mac) +
-                ", logical switch " + (ls ? std::string(ls) : ""));
+                ", logical switch " + (entry != NULL ? entry->name() : ""));
         if (entry) {
             entry->old_mcast_remote_row_list_.erase(row);
             if (entry->mcast_remote_row_ == row) {
@@ -326,6 +346,7 @@ void LogicalSwitchTable::OvsdbMcastRemoteMacNotify(OvsdbClientIdl::Op op,
         OVSDB_TRACE(Trace, "Add : Remote Mcast MAC " + std::string(mac) +
                 ", logical switch " + (ls ? std::string(ls) : ""));
         if (entry) {
+            idl_row_map_[row] = entry;
             if (entry->mcast_remote_row_ != row) {
                 if (entry->mcast_remote_row_) {
                     // if we already had an entry move old and current
@@ -372,8 +393,15 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
         entry = static_cast<LogicalSwitchEntry *>(Find(&key));
     }
     if (op == OvsdbClientIdl::OVSDB_DEL) {
+        // trigger deletion based on the entry for which add was triggered
+        OvsdbIdlRowMap::iterator idl_it = idl_row_map_.find(row);
+        if (idl_it != idl_row_map_.end()) {
+            entry = idl_it->second;
+            idl_row_map_.erase(idl_it);
+        }
+
         OVSDB_TRACE(Trace, "Delete : Local Ucast MAC " + std::string(mac) +
-                ", logical switch " + (ls ? std::string(ls) : ""));
+                ", logical switch " + (entry != NULL ? entry->name() : ""));
         if (entry) {
             entry->ucast_local_row_list_.erase(row);
         }
@@ -381,6 +409,7 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
         OVSDB_TRACE(Trace, "Add : Local Ucast MAC " + std::string(mac) +
                 ", logical switch " + (ls ? std::string(ls) : ""));
         if (entry) {
+            idl_row_map_[row] = entry;
             entry->ucast_local_row_list_.insert(row);
         }
     } else {

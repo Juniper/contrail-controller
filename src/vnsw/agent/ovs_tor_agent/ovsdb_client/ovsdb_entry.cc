@@ -219,15 +219,12 @@ void OvsdbDBEntry::Ack(bool success) {
             OVSDB_TRACE(Error, "Add Transaction failed for " + ToString());
             // if we are waiting to delete, dont retry add.
             if (GetState() != DEL_DEFER_SYNC) {
-                // trigger ack when if no message to send, on calling add
-                trigger_ack = Add();
-            } else {
-                trigger_ack = true;
+                // Enqueue a change before generating an ADD_ACK to keep
+                // the entry in a not sync'd state.
+                object->Change(this);
             }
 
-            if (trigger_ack) {
-                object->NotifyEvent(this, KSyncEntry::ADD_ACK);
-            }
+            object->NotifyEvent(this, KSyncEntry::ADD_ACK);
         } else {
             // should never happen
             assert(0);
