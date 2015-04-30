@@ -33,7 +33,14 @@ public:
     virtual bool Run() {
         if (session_->IsEstablished()) {
             read_fn_(buffer_);
-            session_->AsyncReadStart();
+            if (session_->IsReaderDeferred()) {
+                // Update socket read block count.
+                session_->stats_.read_block_start_time = UTCTimestampUsec();
+                session_->stats_.read_blocked++;
+                session_->server_->stats_.read_blocked++;
+            } else {
+                session_->AsyncReadStart();
+            }
         }
         return true;
     }
@@ -62,6 +69,7 @@ TcpSession::TcpSession(
     if (server_) {
         io_strand_.reset(new Strand(*server->event_manager()->io_service()));
     }
+    defer_reader_ = false;
 }
 
 TcpSession::~TcpSession() {
@@ -118,6 +126,14 @@ void TcpSession::ReleaseBufferLocked(Buffer buffer) {
 }
 
 void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
+    // Update socket read block time.
+    if (stats_.read_block_start_time) {
+        uint64_t blocked_usecs = UTCTimestampUsec() -
+            stats_.read_block_start_time;
+        stats_.read_block_start_time = 0;
+        stats_.read_blocked_duration_usecs += blocked_usecs;
+        server_->stats_.read_blocked_duration_usecs += blocked_usecs;
+    }
     mutable_buffer buffer = AllocateBuffer();
     tbb::mutex::scoped_lock lock(mutex_);
     if (!established_) {
@@ -131,6 +147,16 @@ void TcpSession::AsyncReadStart() {
     if (io_strand_) {
         io_strand_->post(boost::bind(
             &TcpSession::AsyncReadStartInternal, this, TcpSessionPtr(this)));
+    }
+}
+
+void TcpSession::SetDeferReader(bool defer_reader) {
+    if (defer_reader_ != defer_reader) {
+        defer_reader_ = defer_reader;
+        // Call AsyncReadStart if reader was previously deferred
+        if (!defer_reader_) {
+            AsyncReadStart();
+        }
     }
 }
 

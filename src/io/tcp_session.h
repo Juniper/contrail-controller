@@ -137,6 +137,12 @@ public:
     void SessionEstablished(Endpoint remote, Direction direction);
 
     virtual void AsyncReadStart();
+    virtual void SetDeferReader(bool defer_reader);
+    // Is the reader deferred ? If reader is deferred, SetDeferReader needs
+    // to be called to undefer/restart reading.
+    virtual bool IsReaderDeferred() const {
+        return defer_reader_;
+    }
 
     const io::SocketStats &GetSocketStats() const { return stats_; }
     void GetRxSocketStats(SocketIOStats &socket_stats) const;
@@ -233,6 +239,7 @@ private:
 
     tbb::atomic<int> refcount_;
     std::string name_;
+    tbb::atomic<bool> defer_reader_;
 
     DISALLOW_COPY_AND_ASSIGN(TcpSession);
 };
