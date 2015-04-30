@@ -3,6 +3,7 @@
  */
 
 #include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
 #include <cmn/agent_db.h>
 #include <controller/controller_sandesh.h>
 #include <controller/controller_types.h>
@@ -36,6 +37,12 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		} else {
 		    data.set_cfg_controller("No");
 		}
+
+                if (Agent::GetInstance()->params()->xmpp_auth_enabled()) {
+                    data.set_xmpp_auth_enabled("Tls");
+                } else {
+                    data.set_xmpp_auth_enabled("Nil");
+                }
 
 		data.set_last_state(xc->LastStateName());
 		data.set_last_event(xc->LastEvent());
