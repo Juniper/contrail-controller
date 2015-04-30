@@ -656,7 +656,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_nhr_vrf(vrf_id_);
     encoder.set_nhr_family(AF_INET);
     encoder.set_nhr_label(MplsTable::kInvalidLabel);
-    uint16_t flags = 0;
+    uint32_t flags = 0;
     if (valid_) {
         flags |= NH_FLAG_VALID;
     }
