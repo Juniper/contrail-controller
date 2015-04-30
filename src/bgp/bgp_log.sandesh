@@ -132,7 +132,8 @@ trace sandesh BgpConfigNeighborCreateTrace {
     5: "Address Families";
     6: list<string> families;
     13: "Keys";
-    14: list<string> keys;
+    14: string key_type;
+    15: list<string> keys;
 }
 
 systemlog sandesh BgpConfigNeighborCreateLog {
@@ -149,7 +150,8 @@ systemlog sandesh BgpConfigNeighborCreateLog {
     5: "Address Families";
     6: list<string> families;
     13: "Keys";
-    14: list<string> keys;
+    14: string key_type;
+    15: list<string> keys;
 }
 
 trace sandesh BgpConfigNeighborDeleteTrace {
@@ -176,7 +178,8 @@ trace sandesh BgpConfigNeighborUpdateTrace {
     5: "Address Families";
     6: list<string> families;
     13: "Keys";
-    14: list<string> keys;
+    14: string key_type;
+    15: list<string> keys;
 }
 
 systemlog sandesh BgpConfigNeighborUpdateLog {
@@ -193,7 +196,8 @@ systemlog sandesh BgpConfigNeighborUpdateLog {
     5: "Address Families";
     6: list<string> families;
     13: "Keys";
-    14: list<string> keys;
+    14: string key_type;
+    15: list<string> keys;
 }
 
 trace sandesh BgpConfigPeeringCreateTrace {

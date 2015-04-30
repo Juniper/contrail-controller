@@ -61,6 +61,8 @@ struct BgpNeighborResp {
     11: optional string last_state;
     12: optional string last_state_at;
     13: optional string last_error;
+    44: optional string auth_type;
+    45: optional list<string> auth_keys;
     38: optional list<string> configured_address_families;
     39: optional list<string> negotiated_address_families;
     40: optional u32 configured_hold_time;
@@ -333,6 +335,8 @@ struct ShowBgpNeighborConfig {
     5: string identifier;
     6: string address;
     10: string last_change_at;
+    11: optional string auth_type;
+    12: optional list<string> auth_keys;
     7: list<string> address_families;
 }
 
