@@ -489,14 +489,24 @@ int main(int argc, char *argv[]) {
     if (!bgp_server->session_manager()->Initialize(options.bgp_port()))
         exit(1);
 
-    XmppServer *xmpp_server = new XmppServer(&evm, options.hostname());
-    XmppInit init;
+    // XmppChannel Configuration
     XmppChannelConfig xmpp_cfg(false);
     xmpp_cfg.endpoint.port(options.xmpp_port());
     xmpp_cfg.FromAddr = XmppInit::kControlNodeJID;
-    init.AddXmppChannelConfig(&xmpp_cfg);
-    if (!init.InitServer(xmpp_server, options.xmpp_port(), true))
-        exit(1);
+    xmpp_cfg.auth_enabled = options.xmpp_auth_enabled();
+
+    XmppServer *xmpp_server;
+    if (xmpp_cfg.auth_enabled) {
+        xmpp_cfg.path_to_server_cert = options.xmpp_server_cert();
+        xmpp_cfg.path_to_pvt_key = options.xmpp_server_key();
+        // Create XmppServer
+        xmpp_server = new XmppServer(&evm, options.hostname(), &xmpp_cfg);
+    } else {
+        // Create XmppServer
+        xmpp_server = new XmppServer(&evm, options.hostname());
+    }
+    xmpp_server->Initialize(options.xmpp_port(), true);
+
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
@@ -604,6 +614,5 @@ int main(int argc, char *argv[]) {
 
     ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get());
 
-    init.Reset();
     return 0;
 }

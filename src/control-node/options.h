@@ -37,6 +37,9 @@ public:
     const std::string ifmap_user() const { return ifmap_user_; }
     const std::string ifmap_certs_store() const { return ifmap_certs_store_; }
     const uint16_t xmpp_port() const { return xmpp_port_; }
+    const bool xmpp_auth_enabled() const { return xmpp_auth_enable_; }
+    const std::string xmpp_server_cert() const { return xmpp_server_cert_; }
+    const std::string xmpp_server_key() const { return xmpp_server_key_; }
     const bool test_mode() const { return test_mode_; }
     const bool collectors_configured() const { return collectors_configured_; }
 
@@ -82,6 +85,9 @@ private:
     std::string ifmap_user_;
     std::string ifmap_certs_store_;
     uint16_t xmpp_port_;
+    bool xmpp_auth_enable_;
+    std::string xmpp_server_cert_;
+    std::string xmpp_server_key_;
     bool test_mode_;
     bool collectors_configured_;
 

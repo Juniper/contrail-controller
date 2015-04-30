@@ -1270,7 +1270,7 @@ bool XmppStateMachine::ConnectTimerExpired() {
 }
 
 bool XmppStateMachine::OpenTimerExpired() {
-    XMPP_WARNING(XmppEventLog, this->ChannelType(),
+    XMPP_NOTICE(XmppEventLog, this->ChannelType(),
                  "Event: OpenTimer Expired ",
                  connection()->endpoint().address().to_string(),
                  connection()->GetTo()); 
@@ -1287,7 +1287,7 @@ bool XmppStateMachine::HoldTimerExpired() {
             session()->socket()->available(error) > 0) {
         return true;
     }
-    XMPP_WARNING(XmppEventLog, this->ChannelType(),
+    XMPP_NOTICE(XmppEventLog, this->ChannelType(),
                  "Event: HoldTimer Expired ",
                  connection()->endpoint().address().to_string(),
                  connection()->GetTo()); 

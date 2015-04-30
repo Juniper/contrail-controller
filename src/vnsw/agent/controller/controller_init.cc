@@ -10,6 +10,7 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
 #include "oper/vrf.h"
@@ -60,8 +61,34 @@ void VNController::XmppServerConnect() {
                 continue; 
             }
 
+            XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
+            xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
+            boost::system::error_code ec;
+            xmpp_cfg->FromAddr = agent_->agent_name();
+            xmpp_cfg->NodeAddr = XmppInit::kPubSubNS; 
+            xmpp_cfg->endpoint.address(
+                ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
+            assert(ec.value() == 0);
+            xmpp_cfg->auth_enabled = agent_->params()->xmpp_auth_enabled();
+            if (xmpp_cfg->auth_enabled) {
+                xmpp_cfg->path_to_server_cert =  agent_->params()->xmpp_server_cert();
+            }
+            uint32_t port = agent_->controller_ifmap_xmpp_port(count);
+            if (!port) {
+                port = XMPP_SERVER_PORT;
+            }
+            xmpp_cfg->endpoint.port(port);
+
+            // Create Xmpp Client
+            XmppClient *client;
+            if (xmpp_cfg->auth_enabled) {
+                client = new XmppClient(agent_->event_manager(), xmpp_cfg);
+            } else {
+                client = new XmppClient(agent_->event_manager());
+            }
+               
             XmppInit *xmpp = new XmppInit();
-            XmppClient *client = new XmppClient(agent_->event_manager());
+            xmpp->AddXmppChannelConfig(xmpp_cfg);
             agent_->SetAgentMcastLabelRange(count);
             // create bgp peer
             AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_,
@@ -71,21 +98,6 @@ void VNController::XmppServerConnect() {
             client->RegisterConnectionEvent(xmps::BGP,
                boost::bind(&AgentXmppChannel::XmppClientChannelEvent,
                            bgp_peer, _2));
-
-            XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
-            xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
-            boost::system::error_code ec;
-            xmpp_cfg->FromAddr = agent_->agent_name();
-            xmpp_cfg->NodeAddr = XmppInit::kPubSubNS; 
-            xmpp_cfg->endpoint.address(
-                ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
-            assert(ec.value() == 0);
-            uint32_t port = agent_->controller_ifmap_xmpp_port(count);
-            if (!port) {
-                port = XMPP_SERVER_PORT;
-            }
-            xmpp_cfg->endpoint.port(port);
-            xmpp->AddXmppChannelConfig(xmpp_cfg);
             xmpp->InitClient(client);
 
             XmppChannel *channel = client->
