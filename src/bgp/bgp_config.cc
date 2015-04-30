@@ -102,6 +102,15 @@ std::string AuthenticationData::KeyTypeToString() const {
     }
 }
 
+std::string AuthenticationData::KeyTypeToString(KeyType key_type) {
+    switch (key_type) {
+        case MD5:
+            return "MD5";
+        default:
+            return "NIL";
+    }
+}
+
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           peer_as_(0),

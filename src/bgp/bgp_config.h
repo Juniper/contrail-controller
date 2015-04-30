@@ -60,6 +60,7 @@ public:
     bool Empty() const;
     void Clear();
     std::string KeyTypeToString() const;
+    static std::string KeyTypeToString(KeyType key_type);
     void AddKeyToKeyChain(const AuthenticationKey &key);
 
     KeyType key_type() const { return key_type_; }
