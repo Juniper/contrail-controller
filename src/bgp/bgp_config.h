@@ -71,6 +71,8 @@ public:
     void set_key_chain(const AuthenticationKeyChain &in_chain) {
         key_chain_ = in_chain;
     }
+    std::vector<std::string> KeysToString() const;
+    std::vector<std::string> KeysToStringDetail() const;
 
 private:
     KeyType key_type_;
@@ -169,7 +171,8 @@ public:
         address_families_ = address_families;
     }
 
-    const std::vector<std::string> AuthKeysToString();
+    std::string AuthKeyTypeToString() const;
+    std::vector<std::string> AuthKeysToString() const;
 
     int CompareTo(const BgpNeighborConfig &rhs) const;
     bool operator!=(const BgpNeighborConfig &rhs) const {

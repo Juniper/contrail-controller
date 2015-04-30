@@ -10,6 +10,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 
 using std::make_pair;
@@ -227,13 +228,14 @@ BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
     return NULL;
 }
 
-void PeerManager::FillBgpNeighborInfo(vector<BgpNeighborResp> *nbr_list,
-    const string &neighbor, bool summary) {
+void PeerManager::FillBgpNeighborInfo(BgpSandeshContext *bsc,
+        vector<BgpNeighborResp> *nbr_list, const string &neighbor,
+        bool summary) {
     BgpPeerKey key = BgpPeerKey();
     while (BgpPeer *peer = NextPeer(key)) {
         if (neighbor.empty() || peer->peer_basename() == neighbor ||
             peer->peer_address_string() == neighbor) {
-            peer->FillNeighborInfo(nbr_list, summary);
+            peer->FillNeighborInfo(bsc, nbr_list, summary);
         }
     }
 }
