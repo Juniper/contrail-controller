@@ -104,7 +104,7 @@ public:
     void incr_input_count() { input_count_++; }
     void reset_input_count() { input_count_ = 0; }
 
-    uint64_t notify_count() const { return enqueue_count_; }
+    uint64_t notify_count() const { return notify_count_; }
     void incr_notify_count() { notify_count_++; }
     void reset_notify_count() { enqueue_count_ = 0; }
 
