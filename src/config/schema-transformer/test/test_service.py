@@ -353,6 +353,9 @@ class TestPolicy(test_case.STTestCase):
 
         vn_name = self.id() + 'vn100'
         vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
+        rtgt_list = RouteTargetList(route_target=['target:1:1'])
+        vn.set_route_target_list(rtgt_list)
+        self._vnc_lib.virtual_network_update(vn)
         rt = RouteTable("rt1")
         self._vnc_lib.route_table_create(rt)
         vn.add_route_table(rt)
@@ -365,7 +368,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.route_table_update(rt)
 
         @retries(5, hook=retry_exc_handler)
-        def _match_route_table():
+        def _match_route_table(rtgt_list):
             sc = [x for x in to_bgp.ServiceChain]
             if len(sc) == 0:
                 raise Exception("sc has 0 len")
@@ -380,7 +383,8 @@ class TestPolicy(test_case.STTestCase):
             route = sr.route[0]
             self.assertEqual(route.prefix, "0.0.0.0/0")
             self.assertEqual(route.next_hop, "10.0.0.252")
-
+            for rtgt in rtgt_list:
+                self.assertIn(rtgt, route.route_target)
             ri100 = self._vnc_lib.routing_instance_read(
                 fq_name=self.get_ri_name(vn))
             rt100 = ri100.get_route_target_refs()[0]['to']
@@ -389,7 +393,17 @@ class TestPolicy(test_case.STTestCase):
                     return sc_ri_name, rt100
             raise Exception("rt100 route-target ref not found")
 
-        sc_ri_name, rt100 = _match_route_table()
+        sc_ri_name, rt100 = _match_route_table(rtgt_list.get_route_target())
+
+        rtgt_list.add_route_target('target:1:2')
+        vn.set_route_target_list(rtgt_list)
+        self._vnc_lib.virtual_network_update(vn)
+        _match_route_table(rtgt_list.get_route_target())
+       
+        rtgt_list.delete_route_target('target:1:1')
+        vn.set_route_target_list(rtgt_list)
+        self._vnc_lib.virtual_network_update(vn)
+        _match_route_table(rtgt_list.get_route_target())
 
         routes.set_route([])
         rt.set_routes(routes)
