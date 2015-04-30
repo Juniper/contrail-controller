@@ -80,14 +80,23 @@ struct ServerMonitoringInfo {
     4: optional IpmiChassis_status_info chassis_state
     5: optional list<Disk> disk_usage_stats (tags=".disk_name")
     6: optional list<Disk_totals> disk_usage_totals
-    7: optional resource_info resource_info_stats (tags="")
-    8: optional list<network_info> network_info_stats (tags=".interface_name")
-    9: optional list<network_info_totals> network_info_totals
-    10: optional list<file_system_view> file_system_view_stats (tags="name:.fs_name,.used_percentage")
+    7: optional list<network_info_totals> network_info_totals
+    8: optional list<file_system_view> file_system_view_stats (tags="name:.fs_name,.used_percentage")
 }
 
 uve sandesh ServerMonitoringInfoUve {
     1: ServerMonitoringInfo             data
+}
+
+struct ServerMonitoringSummary {
+    1: string name               (key="ObjectServerTable")
+    2: optional bool             deleted
+    3: optional resource_info resource_info_stats (tags="")
+    4: optional list<network_info> network_info_stats (tags=".interface_name")
+}
+
+uve sandesh ServerMonitoringSummaryUve {
+    1: ServerMonitoringSummary             data
 }
 
 objectlog sandesh IpmiSystemEventLog {
