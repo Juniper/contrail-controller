@@ -103,6 +103,7 @@ struct LldpLocManAddrEntry {
     2: string lldpLocManAddrOID
     3: i32 lldpLocManAddrSubtype
     4: i32 lldpLocManAddrOIDLen
+    5: optional i32 lldpLocManAddrIfId
 }
 
 struct LldpLocalSystemData {
