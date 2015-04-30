@@ -128,15 +128,16 @@ class Controller(object):
                             fdbport = mac_entry['dot1dBasePortIfIndex']
                             try:
                                 snmpport = dot1d2snmp_dict[fdbport]
+                                ifname = ifm[snmpport]
                             except:
                                 continue
-                            is_lldp_int = any(ifm[snmpport] == lldp_int for lldp_int in lldp_ints)
+                            is_lldp_int = any(ifname == lldp_int for lldp_int in lldp_ints)
                             if is_lldp_int:
                                 continue
                             if self._add_link(
                                     prouter=prouter,
                                     remote_system_name=vrouter_mac_entry['vrname'],
-                                    local_interface_name=ifm[snmpport],
+                                    local_interface_name=ifname,
                                     remote_interface_name=vrouter_mac_entry[
                                                 'ifname'],
                                     local_interface_index=snmpport,
