@@ -1,0 +1,59 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "vnsw/agent/uve/port_bmap.sandesh"
+
+struct VmFloatingIPAgent {                                                      
+    1: string virtual_network;                                                  
+    2: string ip_address;                                                       
+}    
+
+struct VmFloatingIPStats {
+    1: string virtual_network;
+    2: string ip_address;
+    3: u64 in_pkts;
+    4: u64 in_bytes;
+    5: u64 out_pkts;
+    6: u64 out_bytes;
+}
+
+/*
+ * VM's interfaces' stats samples (diff stats)
+ */
+struct VmInterfaceStats {
+    1: u64 in_pkts;
+    2: u64 in_bytes;
+    3: u64 out_pkts;
+    4: u64 out_bytes;
+    5: u64 in_bw_usage;
+    6: u64 out_bw_usage;
+}
+
+struct UveVMInterfaceAgent {
+    1: string                name (key="ObjectVMITable")
+    2: optional bool         deleted
+    3: optional string ip_address;
+    4: string virtual_network;
+    5: optional string mac_address;
+    6: optional u32 label;
+    7: optional bool active;
+    8: string vm_name;
+    9: optional string gateway;
+   10: optional bool l2_active;
+   11: optional string uuid;
+   12: optional string ip6_address;
+   13: optional bool ip6_active;
+   14: optional port_bmap.PortBucketBitmap port_bucket_bmap;
+   15: optional list<VmFloatingIPAgent> floating_ips;
+       /* List of Floating Ips along with total stats */
+   16: optional list<VmFloatingIPStats> fip_agg_stats;
+   17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
+       /* Will have only 1 element if_stats list. Made as list because of analytics
+        * stats infra restriction */
+   18: optional list<VmInterfaceStats> if_stats (tags="vm_name, virtual_network")
+}
+
+uve sandesh UveVMInterfaceAgentTrace {
+    1: UveVMInterfaceAgent data;
+}

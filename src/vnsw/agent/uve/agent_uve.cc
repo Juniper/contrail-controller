@@ -17,6 +17,7 @@
 #include <uve/vm_uve_table.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vrouter_uve_entry.h>
+#include <uve/interface_uve_stats_table.h>
 
 AgentUve::AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
                    uint32_t incremental_intvl)
@@ -26,6 +27,8 @@ AgentUve::AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
       vn_uve_table_.reset(new VnUveTable(agent, default_intvl));
       vm_uve_table_.reset(new VmUveTable(agent, default_intvl));
       vrouter_uve_entry_.reset(new VrouterUveEntry(agent));
+      interface_uve_table_.reset(new InterfaceUveStatsTable(agent,
+                                                            default_intvl));
 }
 
 AgentUve::~AgentUve() {
