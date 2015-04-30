@@ -361,7 +361,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           deleter_(new DeleteActor(this)),
           instance_delete_ref_(this, instance->deleter()),
           flap_count_(0),
-          last_flap_(0) {
+          last_flap_(0),
+          inuse_authkey_type_(AuthenticationData::NIL) {
 
     if (peer_name_.find(rtinstance_->name()) == 0) {
         peer_basename_ = peer_name_.substr(rtinstance_->name().size() + 1);
@@ -413,13 +414,14 @@ void BgpPeer::BindLocalEndpoint(BgpSession *session) {
 }
 
 // Just return the first entry for now.
-bool BgpPeer::GetBestAuthKey(AuthenticationKey *auth_key) const {
+bool BgpPeer::GetBestAuthKey(AuthenticationKey *auth_key, KeyType *key_type) const {
     if (auth_data_.Empty()) {
         return false;
     }
     assert(auth_key);
     AuthenticationData::const_iterator iter = auth_data_.begin();
     *auth_key = *iter;
+    *key_type = auth_data_.key_type();
     return true;
 }
 
@@ -440,10 +442,11 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
     }
 
     AuthenticationKey auth_key;
-    bool valid = GetBestAuthKey(&auth_key);
+    KeyType key_type;
+    bool valid = GetBestAuthKey(&auth_key, &key_type);
     if (valid) {
-        if (AuthDataIsMd5()) {
-            LogInstallAuthKeys("add", auth_key);
+        if (key_type == AuthenticationData::MD5) {
+            LogInstallAuthKeys("add", auth_key, key_type);
             SetInuseAuthKeyInfo(auth_key, AuthenticationData::MD5);
             if (session) {
                 session->SetMd5SocketOption(PeerAddress(), auth_key.value);
@@ -454,7 +457,7 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
         // If there are no valid available keys but an older one is currently
         // installed, un-install it.
         if (inuse_authkey_type_ == AuthenticationData::MD5) {
-            LogInstallAuthKeys("delete", inuse_auth_key_);
+            LogInstallAuthKeys("delete", inuse_auth_key_, inuse_authkey_type_);
             ClearListenSocketAuthKey();
             if (session) {
                 session->ClearMd5SocketOption(PeerAddress());
@@ -475,14 +478,14 @@ void BgpPeer::ResetInuseAuthKeyInfo() {
 }
 
 void BgpPeer::SetListenSocketAuthKey(const AuthenticationKey &auth_key) {
-    if (AuthDataIsMd5()) {
+    if (inuse_authkey_type_ == AuthenticationData::MD5) {
         server_->session_manager()->
             SetListenSocketMd5Option(PeerAddress(), auth_key.value);
     }
 }
 
 void BgpPeer::ClearListenSocketAuthKey() {
-    if (AuthDataIsMd5()) {
+    if (inuse_authkey_type_ == AuthenticationData::MD5) {
         server_->session_manager()->SetListenSocketMd5Option(PeerAddress(), "");
     }
 }
@@ -496,10 +499,10 @@ bool BgpPeer::AuthDataIsMd5() {
 }
 
 void BgpPeer::LogInstallAuthKeys(const std::string &oper,
-                                 const AuthenticationKey &auth_key) {
+                                 const AuthenticationKey &auth_key, KeyType key_type) {
     std::string logstr = "Kernel " + oper + " of key id " 
-                          + integerToString(auth_key.id)
-                          + ", type " + auth_data_.KeyTypeToString()
+                          + integerToString(auth_key.id) + ", type "
+                          + AuthenticationData::KeyTypeToString(key_type)
                           + " for peer " + peer_name_;
     BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, logstr);
