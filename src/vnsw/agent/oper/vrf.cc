@@ -528,6 +528,14 @@ void VrfTable::CreateVrfReq(const string &name, uint32_t flags) {
     Enqueue(&req);
 }
 
+void VrfTable::CreateVrfReq(const string &name,
+                            const boost::uuids::uuid &vn_uuid, uint32_t flags) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    req.data.reset(new VrfData(flags, vn_uuid));
+    Enqueue(&req);
+}
+
 void VrfTable::CreateVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
