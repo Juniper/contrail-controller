@@ -215,7 +215,7 @@ class TestPolicy(test_case.STTestCase):
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
 
-        expr = ("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['contrail:routing-instance:%s]['links'])"
+        expr = ("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['contrail:routing-instance:%s']['links'])"
                % (':'.join(self.get_ri_name(vn1_obj)),
                   ':'.join(self.get_ri_name(vn2_obj))))
 
@@ -528,19 +528,20 @@ class TestPolicy(test_case.STTestCase):
         sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
                       + service_name)
         self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_ob, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_ob, sc_ri_name),
-                                      self.get_ri_name(vn2_ob))
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
 
         # stop st
-        self.kill_schema_transformer(self._st_greenlet)
+        gevent.sleep(1)
+        test_common.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+        #self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
@@ -581,7 +582,8 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         # stop st and wait for sometime
-        self.kill_schema_transformer(self._st_greenlet)
+        gevent.sleep(1)
+        test_common.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
 
         # start st on a free port
@@ -597,7 +599,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
                                       self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn1_obj))
+                                      self.get_ri_name(vn2_obj))
 
         #cleanup
         vn1_obj.del_network_policy(np)
