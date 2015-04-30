@@ -762,28 +762,6 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
     return false;
 }
 
-bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
-                  uint64_t out_bytes, uint64_t out_pkts) {
-    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
-    const VnUveEntry* entry = vnut->GetVnUveEntry(string(vn));
-    if (!entry) {
-        LOG(DEBUG, "Vn " << string(vn) << " NOT FOUND");
-        return false;
-    }
-    uint64_t match_in_bytes, match_out_bytes, match_in_pkts, match_out_pkts;
-    entry->GetInStats(&match_in_bytes, &match_in_pkts);
-    entry->GetOutStats(&match_out_bytes, &match_out_pkts);
-
-    if (match_in_bytes == in_bytes && match_in_pkts == in_pkts &&
-        match_out_bytes == out_bytes && match_out_pkts == out_pkts) {
-        return true;
-    }
-    LOG(DEBUG, "in_bytes " << match_in_bytes << " in_tpkts " << match_in_pkts <<
-               "out bytes " << match_out_bytes  << " out_tpkts " << match_out_pkts);
-    return false;
-}
-
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),

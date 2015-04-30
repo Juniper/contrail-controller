@@ -2,27 +2,37 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-struct UveLogicalInterfaceData {
-    1: string name (aggtype="listkey")
-    2: string uuid
-    3: u16 vlan
-    4: optional list<string> vm_interface_list
-}
-
-struct UvePhysicalInterfaceData {
-    1: string name (aggtype="listkey")
-    2: string uuid
-    3: optional list<UveLogicalInterfaceData> logical_interface_list
-}
-
 struct ProuterData {
     1: string name (key="ObjectPRouter")
     2: optional bool deleted
     3: string uuid
-    4: optional list<UvePhysicalInterfaceData> physical_interface_list
-    5: optional list<UveLogicalInterfaceData> logical_interface_list
+    4: optional list<string> physical_interface_list
+    5: optional list<string> logical_interface_list
 }
 
 uve sandesh UveProuterAgent {
     1: ProuterData data
+}
+
+struct UveLogicalInterfaceAgent {
+    1: string                name (key="ObjectLogicalInterfaceTable")
+    2: optional bool         deleted
+    3: optional string config_name
+    4: optional u16 vlan
+    5: optional list<string> vm_interface_list
+}
+
+uve sandesh UveLogicalInterfaceAgentTrace {
+    1: UveLogicalInterfaceAgent data;
+}
+
+struct UvePhysicalInterfaceAgent {
+    1: string                name (key="ObjectPhysicalInterfaceTable")
+    2: optional bool         deleted
+    3: optional string uuid
+    4: optional list<string> logical_interface_list
+}
+
+uve sandesh UvePhysicalInterfaceAgentTrace {
+    1: UvePhysicalInterfaceAgent data;
 }

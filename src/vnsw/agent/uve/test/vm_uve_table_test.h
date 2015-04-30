@@ -20,13 +20,9 @@ public:
     int GetVmUveInterfaceCount(const std::string &vm) const;
     void ClearCount();
     L4PortBitmap* GetVmUvePortBitmap(const VmEntry *vm);
-    L4PortBitmap* GetVmIntfPortBitmap(const VmEntry *vm, const Interface* intf);
     UveVirtualMachineAgent* VmUveObject(const VmEntry *vm);
     virtual void VmStatCollectionStart(VmUveVmState *st, const VmEntry *vm) {}
     virtual void VmStatCollectionStop(VmUveVmState *state) {}
-    uint32_t GetVmIntfFipCount(const VmEntry *vm, const Interface* intf);
-    const VmUveEntry::FloatingIp *GetVmIntfFip(const VmEntry *vm,
-        const Interface* intf, const string &fip, const string &vn);
     const VirtualMachineStats &last_sent_stats_uve() const { return stats_uve_; }
     const UveVirtualMachineAgent &last_sent_uve() const { return uve_; }
 private:

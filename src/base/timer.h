@@ -92,6 +92,10 @@ public:
         return (state_ == Fired);
     }
 
+    int time() const {
+        return time_;
+    }
+
     bool cancelled() const {
         tbb::mutex::scoped_lock lock(mutex_);
         return (state_ == Cancelled); 

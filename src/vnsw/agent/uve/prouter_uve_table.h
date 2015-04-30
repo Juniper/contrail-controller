@@ -25,23 +25,18 @@
 // Prouter UVEs
 class ProuterUveTable {
  public:
-    struct PhyInterfaceAttrEntry {
-        boost::uuids::uuid uuid_;
-        explicit PhyInterfaceAttrEntry(const Interface *itf);
-    };
-    typedef boost::shared_ptr<PhyInterfaceAttrEntry> PhyInterfaceAttrEntryPtr;
-    typedef std::map<std::string, PhyInterfaceAttrEntryPtr>
-        UvePhyInterfaceAttrMap;
-    typedef std::pair<std::string, PhyInterfaceAttrEntryPtr>
-        UvePhyInterfaceAttrPair;
-
+    typedef std::set<std::string> InterfaceSet;
     struct LogicalInterfaceUveEntry {
         const std::string name_;
         uint16_t vlan_;
-        boost::uuids::uuid vmi_uuid_;
+        InterfaceSet vmi_list_;
+        bool changed_;
+        bool deleted_;
+        bool renewed_;
 
         explicit LogicalInterfaceUveEntry(const LogicalInterface *li);
         void Update(const LogicalInterface *li);
+        void FillVmInterfaceList(std::vector<std::string> &vmi_list) const;
     };
     typedef boost::shared_ptr<LogicalInterfaceUveEntry>
         LogicalInterfaceUveEntryPtr;
@@ -67,20 +62,20 @@ class ProuterUveTable {
         }
     };
 
+    typedef std::set<boost::uuids::uuid> LogicalInterfaceSet;
     struct ProuterUveEntry {
         explicit  ProuterUveEntry(const PhysicalDevice *p);
         ~ProuterUveEntry();
         void AddPhysicalInterface(const Interface *itf);
         void DeletePhysicalInterface(const Interface *itf);
         void AddLogicalInterface(const LogicalInterface *itf);
-        void UpdateLogicalInterface(const LogicalInterface *itf);
         bool DeleteLogicalInterface(const LogicalInterface *itf);
         void Reset();
 
         std::string name_;
         boost::uuids::uuid uuid_;
-        UvePhyInterfaceAttrMap physical_interface_set_;
-        LogicalInterfaceMap logical_interface_set_;
+        InterfaceSet physical_interface_set_;
+        LogicalInterfaceSet logical_interface_set_;
         bool changed_;
         bool deleted_;
         bool renewed_;
@@ -90,7 +85,15 @@ class ProuterUveTable {
     typedef std::pair<boost::uuids::uuid, ProuterUveEntryPtr> UveProuterPair;
 
     struct PhyInterfaceUveEntry {
-        LogicalInterfaceMap logical_interface_set_;
+        explicit PhyInterfaceUveEntry(const Interface *pintf);
+        void Update(const Interface *pintf);
+        void FillLogicalInterfaceList(std::vector<std::string> &list) const;
+
+        boost::uuids::uuid uuid_;
+        LogicalInterfaceSet logical_interface_set_;
+        bool changed_;
+        bool deleted_;
+        bool renewed_;
     };
     typedef boost::shared_ptr<PhyInterfaceUveEntry> PhyInterfaceUveEntryPtr;
     typedef std::map<std::string, PhyInterfaceUveEntryPtr>
@@ -98,29 +101,23 @@ class ProuterUveTable {
     typedef std::pair<std::string, PhyInterfaceUveEntryPtr>
         UvePhyInterfacePair;
 
-    typedef std::set<boost::uuids::uuid> VmiSet;
-    struct LogicalIntf2VmiListEntry {
-        VmiSet vmi_list;
-    };
-    typedef boost::shared_ptr<LogicalIntf2VmiListEntry>
-        LogicalIntf2VmiListEntryPtr;
-    typedef std::map<boost::uuids::uuid, LogicalIntf2VmiListEntryPtr>
-        LogicalIntf2VmiListMap;
-    typedef std::pair<boost::uuids::uuid, LogicalIntf2VmiListEntryPtr>
-        LogicalIntf2VmiListPair;
-
     static const uint16_t kInvalidVlanId = 0xFFFF;
     explicit ProuterUveTable(Agent *agent, uint32_t default_intvl);
     virtual ~ProuterUveTable();
     void RegisterDBClients();
     void Shutdown(void);
     virtual void DispatchProuterMsg(const ProuterData &uve);
+    virtual void DispatchLogicalInterfaceMsg(const UveLogicalInterfaceAgent &u);
+    virtual void DispatchPhysicalInterfaceMsg
+        (const UvePhysicalInterfaceAgent &uve);
     bool TimerExpiry();
+    bool PITimerExpiry();
+    bool LITimerExpiry();
 
  protected:
     UveProuterMap uve_prouter_map_;
     UvePhyInterfaceMap uve_phy_interface_map_;
-    LogicalIntf2VmiListMap uve_logical_interface_map_;
+    LogicalInterfaceMap uve_logical_interface_map_;
 
  private:
     ProuterUveEntryPtr Allocate(const PhysicalDevice *pr);
@@ -128,48 +125,57 @@ class ProuterUveTable {
     PhyInterfaceUveEntry *NameToPhyInterfaceUveEntry(const std::string &name)
         const;
     const Interface *NameToInterface(const std::string &name) const;
-    void FillLogicalInterfaceList(const LogicalInterfaceMap &in,
-                           std::vector<UveLogicalInterfaceData> *out) const;
     void FrameProuterMsg(ProuterUveEntry *entry, ProuterData *uve) const;
     void SendProuterDeleteMsg(ProuterUveEntry *e);
     bool SendProuterMsg(ProuterUveEntry *entry);
     void SendProuterMsgFromPhyInterface(const Interface *pi);
     void PhysicalDeviceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void PhysicalInterfaceHandler(const Interface *i, const boost::uuids::uuid &u);
-    void DisassociatePhysicalInterface(const Interface *i,
-                                       const boost::uuids::uuid &u);
+    void MarkDeletedPhysical(const Interface *pintf);
+    void DeletePhysicalFromProuter(const Interface *i,
+                                   const boost::uuids::uuid &u);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     ProuterUveEntry* AddHandler(const PhysicalDevice *p);
     void DeleteHandler(const PhysicalDevice *p);
-    void AddLogicalInterface(const Interface *p, const LogicalInterface *i);
-    void UpdateLogicalInterface(const Interface *p, const LogicalInterface *i);
-    void DeleteLogicalInterface(const std::string &name,
-                                const LogicalInterface *i);
+    void AddLogicalToPhysical(const Interface *p, const LogicalInterface *i);
+    void AddUpdateLogicalInterface(const LogicalInterface *i);
+    void MarkDeletedLogical(const LogicalInterface *pintf);
+    void DeleteLogicalFromPhysical(const std::string &name,
+                                   const LogicalInterface *i);
     void AddProuterLogicalInterface(const PhysicalDevice *p,
                                     const LogicalInterface *intf);
-    void UpdateProuterLogicalInterface(const PhysicalDevice *p,
-                                       const LogicalInterface *intf);
     void DeleteProuterLogicalInterface(const boost::uuids::uuid &u,
                                        const LogicalInterface *intf);
     const PhysicalDevice *InterfaceToProuter(const Interface *intf);
     void SendProuterVrouterAssociation();
-    void set_expiry_time(int time);
+    void set_expiry_time(int time, Timer *timer);
+    void TimerCleanup(Timer *timer);
     void VmInterfaceHandler(DBTablePartBase *partition, DBEntryBase *e);
-    void LogicalIntf2VmiListMapAdd(const VmInterface *vmi);
-    void LogicalIntf2VmiListMapRemove(const boost::uuids::uuid &li,
+    void VMInterfaceAdd(const VmInterface *vmi);
+    void VMInterfaceRemove(const boost::uuids::uuid &li,
                                       const VmInterface *vmi);
-    void FillVmInterfaceList(const boost::uuids::uuid &u,
-                             std::vector<std::string> &vmi_list) const;
     void MarkPhysicalDeviceChanged(const PhysicalDevice *pde);
     void MarkChanged(const boost::uuids::uuid &li);
+    void AddUpdatePhysicalInterface(const Interface *intf);
+    void SendPhysicalInterfaceDeleteMsg(const std::string &cfg_name);
+    void SendPhysicalInterfaceMsg(const std::string &name,
+                                  PhyInterfaceUveEntry *entry);
+    void SendLogicalInterfaceDeleteMsg(const std::string &config_name);
+    void SendLogicalInterfaceMsg(const boost::uuids::uuid &u,
+                                 LogicalInterfaceUveEntry *entry);
 
     Agent *agent_;
     DBTableBase::ListenerId physical_device_listener_id_;
     DBTableBase::ListenerId interface_listener_id_;
-    // Last visited VmEntry by timer
-    boost::uuids::uuid timer_last_visited_;
-    Timer *timer_;
-    int expiry_time_;
+    // Last visited Prouter by timer
+    boost::uuids::uuid pr_timer_last_visited_;
+    Timer *pr_timer_;
+
+    std::string pi_timer_last_visited_;
+    Timer *pi_timer_;
+
+    boost::uuids::uuid li_timer_last_visited_;
+    Timer *li_timer_;
     DISALLOW_COPY_AND_ASSIGN(ProuterUveTable);
 };
 
