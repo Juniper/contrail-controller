@@ -12,7 +12,6 @@ import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_dri
 from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
-import neutron_plugin_contrail.plugins.opencontrail.loadbalancer.utils as utils
 from f5.bigip import bigip as f5_bigip
 from f5.common import constants as f5const
 from f5.bigip import exceptions as f5ex
@@ -23,6 +22,15 @@ from svc_monitor.config_db import *
 
 APP_COOKIE_RULE_PREFIX = 'app_cookie_'
 RPS_THROTTLE_RULE_PREFIX = 'rps_throttle_'
+
+def get_subnet_network_id(client, subnet_id):
+    kv_pair = client.kv_retrieve(subnet_id)
+    return kv_pair.split()[0]
+
+def get_subnet_cidr(client, subnet_id):
+    kv_pair = client.kv_retrieve(subnet_id)
+    return kv_pair.split()[1]
+
 
 class OpencontrailF5LoadbalancerDriver(
         abstract_driver.ContrailLoadBalancerAbstractDriver):
@@ -955,8 +963,8 @@ class OpencontrailF5LoadbalancerDriver(
         self.project_list[pool_obj.parent_uuid].add(pool_obj.uuid)
 
         pool_subnet_id = pool_obj.params['subnet_id']
-        pool_subnet_cidr = utils.get_subnet_cidr(self._api, pool_subnet_id)
-        pool_net_id = utils.get_subnet_network_id(self._api, pool_subnet_id)
+        pool_subnet_cidr = get_subnet_cidr(self._api, pool_subnet_id)
+        pool_net_id = get_subnet_network_id(self._api, pool_subnet_id)
         pool_network_obj = self._get_network(pool_net_id)
         new_members = {}
         for member in pool_obj.members or []:
@@ -968,8 +976,8 @@ class OpencontrailF5LoadbalancerDriver(
         if not vip_obj:
             return (None, None)
         vip_subnet_id = vip_obj.params['subnet_id']
-        vip_subnet_cidr = utils.get_subnet_cidr(self._api, vip_subnet_id)
-        vip_net_id = utils.get_subnet_network_id(self._api, vip_subnet_id)
+        vip_subnet_cidr = get_subnet_cidr(self._api, vip_subnet_id)
+        vip_net_id = get_subnet_network_id(self._api, vip_subnet_id)
         vip_network_obj = self._get_network(vip_net_id)
 
         new_pool_info[u'id'] = pool_obj.uuid
@@ -1154,7 +1162,7 @@ class OpencontrailF5LoadbalancerDriver(
         vnc_project = Project(proj_obj.name, parent_type = 'domain', fq_name = proj_obj.fq_name)
         vnc_project.uuid = proj_obj.uuid
 
-        net_id = utils.get_subnet_network_id(self._api, subnet_id)
+        net_id = get_subnet_network_id(self._api, subnet_id)
         net_obj = self._get_network(net_id)
         vnc_net = VirtualNetwork(net_obj.name, parent_type = 'project', fq_name = net_obj.fq_name)
         vnc_net.uuid = net_obj.uuid

@@ -9,8 +9,6 @@ import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_dri
 from vnc_api.vnc_api import ServiceInstance, ServiceInstanceType
 from vnc_api.vnc_api import ServiceScaleOutType, ServiceInstanceInterfaceType
 from vnc_api.vnc_api import NoIdError, RefsExistError
-import neutron_plugin_contrail.plugins.opencontrail.loadbalancer.utils
-import neutron_plugin_contrail.plugins.opencontrail.loadbalancer.utils as utils
 
 LOADBALANCER_SERVICE_TEMPLATE = [
     'default-domain',
@@ -87,8 +85,7 @@ class OpencontrailLoadbalancerDriver(
         if_list.append(right_if)
 
         pool_attrs = pool.get_loadbalancer_pool_properties()
-        backnet_id = utils.get_subnet_network_id(
-            self._api, pool_attrs.subnet_id)
+        backnet_id = self._api.kv_retrieve(pool_attrs.subnet_id).split()[0]
         if backnet_id != vnet_refs[0]['uuid']:
             try:
                 vnet = self._api.virtual_network_read(id=backnet_id)

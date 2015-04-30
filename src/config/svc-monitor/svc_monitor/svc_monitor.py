@@ -892,8 +892,8 @@ def parse_args(args_str):
         'netns_availability_zone': None,
     }
 
+    config = ConfigParser.SafeConfigParser()
     if args.conf_file:
-        config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if ('SECURITY' in config.sections() and
