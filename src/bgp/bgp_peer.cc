@@ -22,6 +22,7 @@
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_proto.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
 #include "bgp/state_machine.h"
@@ -492,10 +493,6 @@ void BgpPeer::ClearListenSocketAuthKey() {
 
 std::string BgpPeer::GetInuseAuthKeyValue() const {
     return inuse_auth_key_.value;
-}
-
-bool BgpPeer::AuthDataIsMd5() {
-    return auth_data_.IsMd5();
 }
 
 void BgpPeer::LogInstallAuthKeys(const std::string &oper,
@@ -1730,8 +1727,8 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
     resp.set_tx_socket_stats(peer_socket_stats);
 }
 
-void BgpPeer::FillNeighborInfo(vector<BgpNeighborResp> *nbr_list,
-    bool summary) const {
+void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
+        vector<BgpNeighborResp> *nbr_list, bool summary) const {
     BgpNeighborResp nbr;
     nbr.set_peer(peer_basename_);
     nbr.set_deleted(IsDeleted());
@@ -1746,6 +1743,10 @@ void BgpPeer::FillNeighborInfo(vector<BgpNeighborResp> *nbr_list,
     nbr.set_local_id(Ip4Address(htonl(local_bgp_id_)).to_string());
     nbr.set_local_asn(local_as());
     nbr.set_negotiated_hold_time(state_machine_->hold_time());
+    nbr.set_auth_type(AuthenticationData::KeyTypeToString(inuse_authkey_type_));
+    if (bsc->test_mode()) {
+        nbr.set_auth_keys(auth_data_.KeysToStringDetail());
+    }
 
     if (summary) {
         nbr_list->push_back(nbr);
