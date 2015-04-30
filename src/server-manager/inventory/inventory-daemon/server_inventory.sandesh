@@ -3,6 +3,8 @@ struct interface_info {
         2: optional string      macaddress
         3: optional string      ip_addr
         4: optional string      netmask
+        5: optional u64 speed_Mb_per_sec
+        6: optional string model
 }
 
 struct fru_info {
@@ -36,9 +38,7 @@ struct cpu_info {
 }
 
 struct ethernet_controller {
-        1: u64 speed_Mb_per_sec
-        2: u64 num_of_ports
-        3: string model
+        1: u64 num_of_ports
 }
 
 struct ServerInventoryInfo {
