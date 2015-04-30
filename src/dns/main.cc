@@ -164,7 +164,10 @@ int main(int argc, char *argv[]) {
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
-    DnsAgentXmppManager::Init();
+    if (!DnsAgentXmppManager::Init()){
+        LOG(ERROR, "Address already in use " << ContrailPorts::DnsXmpp());
+        exit(1);
+        }
 
     XmppSandeshContext xmpp_sandesh_context;
     xmpp_sandesh_context.xmpp_server = Dns::GetXmppServer();

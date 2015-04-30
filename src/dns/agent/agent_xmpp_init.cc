@@ -12,7 +12,7 @@
 
 using namespace boost::asio;
 
-void DnsAgentXmppManager::Init() {
+bool DnsAgentXmppManager::Init() {
     uint32_t port = Dns::GetXmppServerPort();
     if (!port)
         port = ContrailPorts::DnsXmpp();
@@ -23,12 +23,14 @@ void DnsAgentXmppManager::Init() {
     xmpp_cfg.FromAddr = XmppInit::kDnsNodeJID;
     xmpp_cfg.endpoint.port(port);
     init->AddXmppChannelConfig(&xmpp_cfg);
-    init->InitServer(server, port, false);
+    if (!init->InitServer(server, port, false))
+        return false;
     Dns::SetXmppServer(server);
 
     DnsAgentXmppChannelManager *agent_xmpp_mgr = 
                         new DnsAgentXmppChannelManager(server);
     Dns::SetAgentXmppChannelManager(agent_xmpp_mgr);
+    return true;
 }
 
 void DnsAgentXmppManager::Shutdown() {
