@@ -75,8 +75,6 @@ protected:
 
 private:
     bool SetVnPortBitmap(UveVirtualNetworkAgent &uve);
-    bool UveVnInterfaceInStatsChanged(uint64_t bytes, uint64_t pkts) const;
-    bool UveVnInterfaceOutStatsChanged(uint64_t bytes, uint64_t pkts) const;
     bool UveVnInBandChanged(uint64_t out_band) const;
     bool UveVnOutBandChanged(uint64_t out_band) const;
     bool UpdateVnFlowCount(const VnEntry *vn, UveVirtualNetworkAgent &s_vn);

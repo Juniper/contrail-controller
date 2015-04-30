@@ -54,6 +54,7 @@ const string OBJECT_TABLE       = "ObjectTable"
 //The following are the object tables and some of them are UVEs
 const string VN_TABLE               = "ObjectVNTable"
 const string VM_TABLE               = "ObjectVMTable"
+const string VMI_TABLE              = "ObjectVMITable"
 const string SI_TABLE               = "ObjectSITable"
 const string VROUTER_TABLE          = "ObjectVRouter"
 const string BGP_PEER_TABLE         = "ObjectBgpPeer"
@@ -76,9 +77,12 @@ const string DISK_TABLE             = "ObjectDiskTable"
 const string SERVER_TABLE             = "ObjectServerTable"
 const string PROUTER_TABLE          = "ObjectPRouter"
 const string CONFIG_OBJECT_TABLE_USER = "ConfigObjectTableByUser"
+const string PHYSICAL_IF_TABLE      = "ObjectPhysicalInterfaceTable"
+const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
+const string VMI_DISPLAY_NAME       = "Virtual Machine Interface"
 const string SI_DISPLAY_NAME        = "Service Instance"
 const string VROUTER_DISPLAY_NAME   = "vRouter"
 const string BGP_PEER_DISPLAY_NAME  = "BGP Peer"
@@ -101,6 +105,8 @@ const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
 const string SERVER_TABLE_DISPLAY_NAME       = "Server Table Info"
 const string PROUTER_DISPLAY_NAME          = "pRouter"
 const string CONFIG_OBJECT_USER_DISPLAY_NAME = "Config Object by User Table"
+const string LOGICAL_IF_DISPLAY_NAME       = "Logical Interface"
+const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -329,6 +335,7 @@ const i32 AnalyticsTTL              = 48
 const map<string, string> UVE_MAP = {
     "virtual-network" : VN_TABLE,
     "virtual-machine" : VM_TABLE,
+    "virtual-machine-interface" : VMI_TABLE,
     "service-instance" : SI_TABLE,
     "vrouter" : VROUTER_TABLE,
     "control-node" : BGP_ROUTER_TABLE,
@@ -345,6 +352,8 @@ const map<string, string> UVE_MAP = {
     "storage-disk" : DISK_TABLE,
     "server" : SERVER_TABLE,
     "prouter" : PROUTER_TABLE,
+    "physical-interface" : PHYSICAL_IF_TABLE,
+    "logical-interface" : LOGICAL_IF_TABLE
 }
 
 struct objtable_info {
@@ -364,6 +373,10 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     VM_TABLE               : {
         'objtable_display_name' : VM_DISPLAY_NAME
         'log_query_name'        : "virtual-machine"
+    }
+    VMI_TABLE              : {
+        'objtable_display_name' : VMI_DISPLAY_NAME
+        'log_query_name'        : "virtual-machine-interface"
     }
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
@@ -444,6 +457,14 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     CONFIG_OBJECT_TABLE_USER    : {
         'objtable_display_name' : CONFIG_OBJECT_USER_DISPLAY_NAME
         'log_query_name'        : "config-user"
+    }
+    PHYSICAL_IF_TABLE    : {
+        'objtable_display_name' : PHYSICAL_IF_DISPLAY_NAME
+        'log_query_name'        : "physical-interface"
+    }
+    LOGICAL_IF_TABLE   : {
+        'objtable_display_name' : LOGICAL_IF_DISPLAY_NAME
+        'log_query_name'        : "logical-interface"
     }
 }
 
@@ -1229,6 +1250,37 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
         ]
     },
+    {
+      'display_name' : 'Virtual Machine Floating IP Statistics',
+      'stat_type' : 'UveVMInterfaceAgent'
+      'stat_attr' : 'fip_diff_stats',
+      'obj_table' : VMI_TABLE,
+      'attributes': [
+          { 'name' : 'virtual_network', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'fip_diff_stats.other_vn', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'fip_diff_stats.ip_address', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'fip_diff_stats.in_pkts', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'fip_diff_stats.in_bytes', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'fip_diff_stats.out_pkts', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'fip_diff_stats.out_bytes', 'datatype' : 'int', 'index' : false }
+        ]
+    },
+    {
+      'display_name' : 'Virtual Machine Interface Statistics',
+      'stat_type' : 'UveVMInterfaceAgent'
+      'stat_attr' : 'if_stats',
+      'obj_table' : VMI_TABLE,
+      'attributes': [
+          { 'name' : 'vm_name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'virtual_network', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'if_stats.in_pkts', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'if_stats.in_bytes', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'if_stats.out_pkts', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'if_stats.out_bytes', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'if_stats.in_bw_usage', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'if_stats.out_bw_usage', 'datatype' : 'int', 'index' : false }
+        ]
+    }
 ]
 
 const list<query_table> _TABLES = [

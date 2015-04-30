@@ -43,10 +43,6 @@ struct UveVirtualNetworkAgent {
     2: optional bool                       deleted
     3: optional i32                        total_acl_rules; 
     4: optional list<string>               interface_list (aggtype="union")
-    5: optional u64                        in_tpkts  (aggtype="counter")
-    6: optional u64                        in_bytes  (aggtype="counter")
-    7: optional u64                        out_tpkts (aggtype="counter")
-    8: optional u64                        out_bytes (aggtype="counter")
     9: optional list<UveInterVnStats>      in_stats  (aggtype="append")
     10: optional list<UveInterVnStats>     out_stats (aggtype="append")
     11: optional list<string>              virtualmachine_list (aggtype="union")

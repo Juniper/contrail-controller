@@ -18,6 +18,7 @@
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
+#include <uve/interface_uve_stats_table.h>
 #include <init/agent_param.h>
 #include <vrouter/stats_collector/interface_stats_io_context.h>
 #include <vrouter/stats_collector/vrf_stats_io_context.h>
@@ -128,6 +129,10 @@ void AgentStatsCollector::SendStats() {
     VmUveTable *vmt = static_cast<VmUveTable *>
         (agent_->uve()->vm_uve_table());
     vmt->SendVmStats();
+
+    InterfaceUveStatsTable *it = static_cast<InterfaceUveStatsTable *>
+        (agent_->uve()->interface_uve_table());
+    it->SendInterfaceStats();
 }
 
 void AgentStatsCollector::Shutdown(void) {

@@ -70,6 +70,17 @@ public:
     }
 };
 
+class VmiUveSendTask : public Task {
+public:
+    VmiUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->interface_uve_table()->TimerExpiry();
+        return true;
+    }
+};
+
 class TestUveUtil {
 public:
     void EnqueueAgentStatsCollectorTask(int count) {
@@ -99,6 +110,12 @@ public:
     void EnqueueSendVmUveTask() {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         VmUveSendTask *task = new VmUveSendTask();
+        scheduler->Enqueue(task);
+    }
+
+    void EnqueueSendVmiUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        VmiUveSendTask *task = new VmiUveSendTask();
         scheduler->Enqueue(task);
     }
 

@@ -19,6 +19,7 @@
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
+#include <uve/interface_uve_stats_table.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
 #include <vrouter/ksync/ksync_init.h>
@@ -114,7 +115,7 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats,
 
 void FlowStatsCollector::UpdateFloatingIpStats(const FlowEntry *flow,
                                        uint64_t bytes, uint64_t pkts) {
-    VmUveEntry::FipInfo fip_info;
+    InterfaceUveTable::FipInfo fip_info;
 
     /* Ignore Non-Floating-IP flow */
     if (!flow->stats().fip ||
@@ -122,13 +123,8 @@ void FlowStatsCollector::UpdateFloatingIpStats(const FlowEntry *flow,
         return;
     }
 
-    VmUveTable *vm_table = static_cast<VmUveTable *>
-        (agent_uve_->vm_uve_table());
-    VmUveEntry *entry = vm_table->InterfaceIdToVmUveEntry
-        (flow->stats().fip_vm_port_id);
-    if (entry == NULL) {
-        return;
-    }
+    InterfaceUveStatsTable *table = static_cast<InterfaceUveStatsTable *>
+        (agent_uve_->interface_uve_table());
 
     fip_info.bytes_ = bytes;
     fip_info.packets_ = pkts;
@@ -148,21 +144,20 @@ void FlowStatsCollector::UpdateFloatingIpStats(const FlowEntry *flow,
         fip_info.rev_fip_ = ReverseFlowFip(flow);
     }
 
-    entry->UpdateFloatingIpStats(fip_info);
+    table->UpdateFloatingIpStats(fip_info);
 }
 
-VmUveEntry::FloatingIp *FlowStatsCollector::ReverseFlowFip
+InterfaceUveTable::FloatingIp *FlowStatsCollector::ReverseFlowFip
     (const FlowEntry *flow) {
     uint32_t fip = flow->reverse_flow_fip();
     const string &vn = flow->data().source_vn;
     uint32_t intf_id = flow->reverse_flow_vmport_id();
     Interface *intf = InterfaceTable::GetInstance()->FindInterface(intf_id);
 
-    VmUveTable *vm_table = static_cast<VmUveTable *>
-        (agent_uve_->vm_uve_table());
-    VmUveEntry *entry = vm_table->InterfaceIdToVmUveEntry(intf_id);
-    if (entry != NULL) {
-        return entry->FipEntry(fip, vn, intf);
+    if (intf) {
+        InterfaceUveStatsTable *table = static_cast<InterfaceUveStatsTable *>
+            (agent_uve_->interface_uve_table());
+        return table->FipEntry(fip, vn, intf);
     }
     return NULL;
 }
