@@ -94,34 +94,6 @@ bool VnUveEntry::UveVnFipCountChanged(int32_t size) const {
     return false;
 }
 
-bool VnUveEntry::UveVnInterfaceInStatsChanged(uint64_t bytes, uint64_t pkts)
-                                              const {
-    if (!uve_info_.__isset.in_bytes || !uve_info_.__isset.in_tpkts) {
-        return true;
-    }
-    uint64_t bytes2 = (uint64_t)uve_info_.get_in_bytes();
-    uint64_t  pkts2 = (uint64_t)uve_info_.get_in_tpkts();
-
-    if ((bytes != bytes2) || (pkts != pkts2)) {
-        return true;
-    }
-    return false;
-}
-
-bool VnUveEntry::UveVnInterfaceOutStatsChanged(uint64_t bytes, uint64_t pkts)
-                                               const {
-    if (!uve_info_.__isset.out_bytes || !uve_info_.__isset.out_tpkts) {
-        return true;
-    }
-    uint64_t bytes2 = (uint64_t)uve_info_.get_out_bytes();
-    uint64_t  pkts2 = (uint64_t)uve_info_.get_out_tpkts();
-
-    if ((bytes != bytes2) || (pkts != pkts2)) {
-        return true;
-    }
-    return false;
-}
-
 bool VnUveEntry::UveVnInBandChanged(uint64_t in_band) const {
     if (!uve_info_.__isset.in_bandwidth_usage) {
         return true;
@@ -344,9 +316,7 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
     assert(!deleted_);
     uve.set_name(vn->GetName());
 
-    uint64_t in_pkts = 0;
     uint64_t in_bytes = 0;
-    uint64_t out_pkts = 0;
     uint64_t out_bytes = 0;
 
     if (UpdateVrfStats(vn, uve)) {
@@ -365,36 +335,10 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
 
         const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
         fip_count += vm_port->GetFloatingIpCount();
-
-        AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-        const StatsManager::InterfaceStats *s =
-            uve->stats_manager()->GetInterfaceStats(intf);
-        if (s == NULL) {
-            continue;
-        }
-        in_pkts += s->in_pkts;
-        in_bytes += s->in_bytes;
-        out_pkts += s->out_pkts;
-        out_bytes += s->out_bytes;
     }
 
     uint64_t diff_in_bytes = 0;
-    if (UveVnInterfaceInStatsChanged(in_bytes, in_pkts)) {
-        uve.set_in_tpkts(in_pkts);
-        uve.set_in_bytes(in_bytes);
-        uve_info_.set_in_tpkts(in_pkts);
-        uve_info_.set_in_bytes(in_bytes);
-        changed = true;
-    }
-
     uint64_t diff_out_bytes = 0;
-    if (UveVnInterfaceOutStatsChanged(out_bytes, out_pkts)) {
-        uve.set_out_tpkts(out_pkts);
-        uve.set_out_bytes(out_bytes);
-        uve_info_.set_out_tpkts(out_pkts);
-        uve_info_.set_out_bytes(out_bytes);
-        changed = true;
-    }
 
     uint64_t diff_seconds = 0;
     uint64_t cur_time = UTCTimestampUsec();

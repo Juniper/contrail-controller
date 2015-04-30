@@ -32,16 +32,6 @@ L4PortBitmap* VmUveTableTest::GetVmUvePortBitmap(const VmEntry *vm) {
     return NULL;
 }
 
-L4PortBitmap* VmUveTableTest::GetVmIntfPortBitmap(const VmEntry *vm, 
-                                                  const Interface *intf) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
-    if (it != uve_vm_map_.end()) {
-        VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
-                it->second.get());
-        return entry->InterfaceBitmap(intf);
-    }
-    return NULL;
-}
 
 VmUveTable::VmUveEntryPtr VmUveTableTest::Allocate(const VmEntry *vm) {
     VmUveEntryPtr uve(new VmUveEntryTest(agent_, vm->GetCfgName()));
@@ -71,29 +61,6 @@ UveVirtualMachineAgent* VmUveTableTest::VmUveObject(const VmEntry *vm) {
 
     VmUveEntryTest *uve = static_cast<VmUveEntryTest *>(it->second.get());
     return uve->uve_info();
-}
-
-uint32_t VmUveTableTest::GetVmIntfFipCount(const VmEntry *vm,
-                                           const Interface* intf) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
-    if (it != uve_vm_map_.end()) {
-        VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
-                it->second.get());
-        return entry->FloatingIpCount(intf);
-    }
-    return 0;
-}
-
-const VmUveEntry::FloatingIp *VmUveTableTest::GetVmIntfFip
-    (const VmEntry *vm, const Interface* intf, const string &fip,
-     const string &vn) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
-    if (it != uve_vm_map_.end()) {
-        VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
-                it->second.get());
-        return entry->IntfFloatingIp(intf, fip, vn);
-    }
-    return NULL;
 }
 
 void VmUveTableTest::DispatchVmStatsMsg(const VirtualMachineStats &uve) {

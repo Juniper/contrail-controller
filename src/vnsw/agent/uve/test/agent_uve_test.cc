@@ -11,6 +11,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include <uve/test/vm_uve_table_test.h>
 #include <uve/test/vrouter_uve_entry_test.h>
+#include <uve/test/interface_uve_table_test.h>
 #include <uve/test/prouter_uve_table_test.h>
 
 AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl,
@@ -26,12 +27,16 @@ AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl,
     if (vrouter_uve_entry_) {
         vrouter_uve_entry_->Shutdown();
     }
+    if (interface_uve_table_) {
+        interface_uve_table_->Shutdown();
+    }
     if (prouter_uve_table_) {
         prouter_uve_table_->Shutdown();
     }
     vn_uve_table_.reset(new VnUveTableTest(agent, default_intvl));
     vm_uve_table_.reset(new VmUveTableTest(agent, default_intvl));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
+    interface_uve_table_.reset(new InterfaceUveTableTest(agent, default_intvl));
     prouter_uve_table_.reset(new ProuterUveTableTest(agent, default_intvl));
 }
 

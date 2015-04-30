@@ -209,16 +209,6 @@ bool VnUveEntryBase::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) 
     return changed;
 }
 
-void VnUveEntryBase::GetInStats(uint64_t *in_bytes, uint64_t *in_pkts) const {
-    *in_bytes = uve_info_.get_in_bytes();
-    *in_pkts = uve_info_.get_in_tpkts();
-}
-
-void VnUveEntryBase::GetOutStats(uint64_t *out_bytes, uint64_t *out_pkts) const {
-    *out_bytes = uve_info_.get_out_bytes();
-    *out_pkts = uve_info_.get_out_tpkts();
-}
-
 void VnUveEntryBase::Reset() {
     UveVirtualNetworkAgent uve;
 

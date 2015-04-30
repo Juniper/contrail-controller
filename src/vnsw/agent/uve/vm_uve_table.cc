@@ -61,18 +61,13 @@ void VmUveTable::SendVmStatsMsg(const boost::uuids::uuid &u) {
         return;
     }
     UveVirtualMachineAgent uve;
-    VirtualMachineStats stats_uve;
-    bool stats_uve_send = false;
 
     /* Two VM UVEs will be sent for all VM stats. VirtualMachineStats will
      * have VM stats and UveVirtualMachineAgent will have port bitmap for VM
      * and all its containing interfaces */
-    bool send = entry->FrameVmStatsMsg(&uve, &stats_uve, &stats_uve_send);
+    bool send = entry->FrameVmStatsMsg(&uve);
     if (send) {
         DispatchVmMsg(uve);
-    }
-    if (stats_uve_send) {
-        DispatchVmStatsMsg(stats_uve);
     }
 }
 
