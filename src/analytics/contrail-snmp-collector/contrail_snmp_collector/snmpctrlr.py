@@ -68,8 +68,8 @@ class Controller(object):
                                             and 'ifDescr' in x, data[dev][
                                                'snmp']['ifMib']['ifTable'])))
                 elif 'ifOperStatus' in data[dev]['snmp']:
-                    if_cdata[dev] = {k:(v, t) for k, v in data[dev]['snmp'][
-                                            'ifOperStatus'].items()}
+                    if_cdata[dev] = dict((k, (v, t)) for k, v in
+                                    data[dev]['snmp']['ifOperStatus'].items())
         return if_cdata
 
     def _set_status(self, _dict, dev, intf, val):
