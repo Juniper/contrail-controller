@@ -17,6 +17,37 @@ TestClient *client;
 #define MAX_VNET 10
 int test_tap_fd[MAX_VNET];
 
+TestTaskHold::HoldTask::HoldTask(TestTaskHold *hold_entry) :
+    Task(hold_entry->task_id_, hold_entry->task_instance_),
+    hold_entry_(hold_entry) {
+}
+
+bool TestTaskHold::HoldTask::Run() {
+    hold_entry_->task_held_ = true;
+    while (hold_entry_->task_held_ == true) {
+        usleep(2000);
+    }
+    hold_entry_->task_held_ = true;
+    return true;
+}
+
+TestTaskHold::TestTaskHold(int task_id, int task_instance) {
+    task_held_ = false;
+    HoldTask *task_entry = new HoldTask(this);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task_entry);
+    while (task_held_ != true) {
+        usleep(200);
+    }
+}
+
+TestTaskHold::~TestTaskHold() {
+    task_held_ = false;
+    while (task_held_ != true) {
+        usleep(200);
+    }
+}
+
 uuid MakeUuid(int id) {
     char str[50];
     sprintf(str, "00000000-0000-0000-0000-0000000000%02x", id);
