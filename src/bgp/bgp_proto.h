@@ -50,6 +50,7 @@ public:
 
         struct Capability : public ParseObject {
             enum CapabilityCode {
+                Reserved = 0,
                 MpExtension = 1,
                 RouteRefresh = 2,
                 OutboundRouteFiltering = 3,
@@ -60,36 +61,46 @@ public:
                 Dynamic = 67,
                 MultisessionBgp = 68,
                 AddPath = 69,
-                EnhancedRouteRefresh = 70
+                EnhancedRouteRefresh = 70,
+                LongLivedGracefulRestart = 71
             };
-            static const char *CapabilityToString(int capability) {
+            static std::string CapabilityToString(int capability) {
                 switch (capability) {
-                    case MpExtension:
-                        return "MpExtension";
-                    case RouteRefresh:
-                        return "RouteRefresh";
-                    case OutboundRouteFiltering:
-                        return "OutboundRouteFiltering";
-                    case MultipleRoutesToADestination:
-                        return "MultipleRoutesToADestination";
-                    case ExtendedNextHop:
-                        return "ExtendedNextHop";
-                    case GracefulRestart:
-                        return "GracefulRestart";
-                    case AS4Support:
-                        return "AS4Support";
-                    case Dynamic:
-                        return "Dynamic";
-                    case MultisessionBgp:
-                        return "MultisessionBgp";
-                    case AddPath:
-                        return "AddPath";
-                    case EnhancedRouteRefresh:
-                        return "EnhancedRouteRefresh";
+                case Reserved:
+                    return "Reserved";
+                case MpExtension:
+                    return "MpExtension";
+                case RouteRefresh:
+                    return "RouteRefresh";
+                case OutboundRouteFiltering:
+                    return "OutboundRouteFiltering";
+                case MultipleRoutesToADestination:
+                    return "MultipleRoutesToADestination";
+                case ExtendedNextHop:
+                    return "ExtendedNextHop";
+                case GracefulRestart:
+                    return "GracefulRestart";
+                case AS4Support:
+                    return "AS4Support";
+                case Dynamic:
+                    return "Dynamic";
+                case MultisessionBgp:
+                    return "MultisessionBgp";
+                case AddPath:
+                    return "AddPath";
+                case EnhancedRouteRefresh:
+                    return "EnhancedRouteRefresh";
+                case LongLivedGracefulRestart:
+                    return "LongLivedGracefulRestart";
+                default:
+                    break;
                 }
-                return "Unknown";
+
+                std::ostringstream oss;
+                oss << "Unknown(" << capability << ")";
+                return oss.str();
             }
-            Capability() {}
+            Capability() : code(Reserved) { }
             explicit Capability(int code, const uint8_t *src, int size) :
                 code(code), capability(src, src + size) {}
             int code;
@@ -120,8 +131,7 @@ public:
             FSMErr = 5,
             Cease = 6
         };
-        static const char *CodeToString(
-                BgpProto::Notification::Code code) {
+        static std::string CodeToString(Code code) {
             switch (code) {
             case MsgHdrErr:
                 return "Message Header Error";
@@ -135,16 +145,20 @@ public:
                 return "Finite State Machine Error";
             case Cease:
                 return "Cease";
+            default:
+                break;
             }
-            return "Unknown";
+
+            std::ostringstream oss;
+            oss << "Unknown(" << code << ")";
+            return oss.str();
         }
         enum MsgHdrSubCode {
             ConnNotSync = 1,
             BadMsgLength = 2,
             BadMsgType = 3,
         };
-        static const char *MsgHdrSubcodeToString(
-                BgpProto::Notification::MsgHdrSubCode sub_code) {
+        static std::string MsgHdrSubcodeToString(MsgHdrSubCode sub_code) {
             switch (sub_code) {
             case ConnNotSync:
                 return "Connection Not Synchronized";
@@ -153,19 +167,23 @@ public:
             case BadMsgType:
                 return "Bad Message Type";
             default:
-                return "Unknown";
+                break;
             }
+
+            std::ostringstream oss;
+            oss << "Unknown(" << sub_code << ")";
+            return oss.str();
         }
         enum OpenMsgSubCode {
             UnsupportedVersion = 1,
             BadPeerAS = 2,
             BadBgpId = 3,
             UnsupportedOptionalParam = 4,
+            AuthenticationFailure = 5,
             UnacceptableHoldTime = 6,
             UnsupportedCapability = 7
         };
-        static const char *OpenMsgSubcodeToString(
-                BgpProto::Notification::OpenMsgSubCode sub_code) {
+        static std::string OpenMsgSubcodeToString(OpenMsgSubCode sub_code) {
             switch (sub_code) {
             case UnsupportedVersion:
                 return "Unsupported Version Number";
@@ -175,13 +193,19 @@ public:
                 return "Bad BGP Identifier";
             case UnsupportedOptionalParam:
                 return "Unsupported Optional Parameter";
+            case AuthenticationFailure:
+                return "Authentication Failure";
             case UnacceptableHoldTime:
                 return "Unacceptable Hold Time";
             case UnsupportedCapability:
                 return "Unsupported Capability";
             default:
-                return "Unknown";
+                break;
             }
+
+            std::ostringstream oss;
+            oss << "Unknown(" << sub_code << ")";
+            return oss.str();
         }
         enum UpdateMsgSubCode {
             MalformedAttributeList = 1,
@@ -195,8 +219,7 @@ public:
             InvalidNetworkField = 10,
             MalformedASPath = 11
         };
-        static const char *UpdateMsgSubCodeToString(
-                BgpProto::Notification::UpdateMsgSubCode sub_code) {
+        static std::string UpdateMsgSubCodeToString(UpdateMsgSubCode sub_code) {
             switch (sub_code) {
             case MalformedAttributeList:
                 return "Malformed Attribute List";
@@ -219,8 +242,12 @@ public:
             case MalformedASPath:
                 return "Malformed AS_PATH";
             default:
-                return "Unknown";
+                break;
             }
+
+            std::ostringstream oss;
+            oss << "Unknown(" << sub_code << ")";
+            return oss.str();
         }
         enum FsmSubcode {
             UnspecifiedError = 0,
@@ -228,8 +255,7 @@ public:
             OpenConfirmError = 2,
             EstablishedError = 3
         };
-        static const char *FsmSubcodeToString(
-                BgpProto::Notification::FsmSubcode sub_code) {
+        static std::string FsmSubcodeToString(FsmSubcode sub_code) {
             switch (sub_code) {
             case UnspecifiedError:
                 return "Unspecified Error";
@@ -240,8 +266,12 @@ public:
             case EstablishedError:
                 return "Receive Unexpected Message in Established State";
             default:
-                return "Unknown";
+                break;
             }
+
+            std::ostringstream oss;
+            oss << "Unknown(" << sub_code << ")";
+            return oss.str();
         }
         enum CeaseSubCode {
             Unknown = 0,
@@ -255,39 +285,33 @@ public:
             OutOfResources = 8
         };
 
-        static const char *CeaseSubcodeToString(
-                        BgpProto::Notification::CeaseSubCode sub_code) {
+        static std::string CeaseSubcodeToString(CeaseSubCode sub_code) {
             switch (sub_code) {
             case Unknown:
                 return "Unspecified Error";
-
             case MaxPrefixes:
                 return "Received Maximum prefixes from peer";
-
             case AdminShutdown:
                 return "Administrator has disabled the peer";
-
             case PeerDeconfigured:
                 return "Administrator has unconfigured the peer";
-
             case AdminReset:
                 return "Administrator reset the peer";
-
             case ConnectionRejected:
                 return "Connection is rejected by the peer";
-
             case OtherConfigChange:
                 return "Peer configuration has changed";
-
             case ConnectionCollision:
                 return "Connection collision";
-
             case OutOfResources:
                 return "Unable handle peer due to resource limit";
-
             default:
-                return "Unknown";
+                break;
             }
+
+            std::ostringstream oss;
+            oss << "Unknown(" << sub_code << ")";
+            return oss.str();
         }
 
         Notification();
@@ -297,8 +321,7 @@ public:
         static BgpProto::Notification *Decode(const uint8_t *data, size_t size);
         static int EncodeData(Notification *msg, uint8_t *data, size_t size);
         virtual const std::string ToString() const;
-        static const std::string toString(BgpProto::Notification::Code code,
-                                          int subcode);
+        static const std::string toString(Code code, int subcode);
     };
 
     struct Keepalive : public BgpMessage {
