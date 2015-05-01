@@ -134,6 +134,7 @@ public:
     virtual bool IsInvalid() const { return sig_ == kInvalidSig; }
     const crc32type &crc() const { return crc_; }
     void SetCrc(crc32type &crc) { crc_ = crc; }
+    virtual bool CanDelete() = 0;
 
 protected:
     static const uint32_t kInvalidSig = -1;
@@ -171,6 +172,9 @@ public:
     const BitSet &nmask() const { return nmask_; }
     void nmask_clear() { nmask_.clear(); }
     void nmask_set(int bit) { nmask_.set(bit); }
+    virtual bool CanDelete() {
+        return (update_list().empty() && IsInvalid() && !HasDependents());
+    }
 
 private:
     DEPENDENCY_LIST(IFMapLink, IFMapNodeState, dependents_);
@@ -189,6 +193,9 @@ public:
 
     IFMapNodeState *left() { return left_.get(); }
     IFMapNodeState *right() { return right_.get(); }
+    virtual bool CanDelete() {
+        return (update_list().empty() && IsInvalid());
+    }
 
 private:
     DependencyRef<IFMapLink, IFMapNodeState> left_;
