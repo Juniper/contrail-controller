@@ -21,7 +21,7 @@ from ifmap.operations import PublishUpdateOperation, PublishNotifyOperation, \
 from ifmap.util import attr, link_ids
 from ifmap.response import Response, newSessionResult
 from ifmap.metadata import Metadata
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape as s_esc, unescape as s_unesc
 
 
 _TENANT_GRP = "(?P<tenant_uuid>.*)"
@@ -334,3 +334,11 @@ def ifmap_read_all(mapclient):
     return ifmap_read(mapclient, 'contrail:config-root:root',
                       srch_meta, result_meta)
 # end ifmap_read_all
+
+def escape(string):
+    return s_esc(string, entities={'"':'&quot;', "'": "&apos;"})
+# end escape
+
+def unescape(string):
+    return s_unesc(string, entities={'&quot;':'"', "&apos;": "'"})
+# end unescape

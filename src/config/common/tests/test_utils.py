@@ -18,7 +18,6 @@ import re
 import copy
 import uuid
 from lxml import etree
-from xml.sax.saxutils import escape, unescape
 try:
     from collections import OrderedDict
 except ImportError:
@@ -36,6 +35,7 @@ from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
 from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.imid import escape, unescape
 
 def stub(*args, **kwargs):
     pass
