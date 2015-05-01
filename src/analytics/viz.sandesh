@@ -721,7 +721,7 @@ const list<stat_table> _STAT_TABLES  = [
     },
     {
       'display_name' : 'Server Monitoring Interface Stats Info',
-      'stat_type' : 'ServerMonitoringInfo',
+      'stat_type' : 'ServerMonitoringSummary',
       'stat_attr' : 'network_info_stats',
       'obj_table' : SERVER_TABLE,
       'attributes': [
@@ -734,7 +734,7 @@ const list<stat_table> _STAT_TABLES  = [
     },
     {
       'display_name' : 'Server Monitoring Resource Stats Info',
-      'stat_type' : 'ServerMonitoringInfo',
+      'stat_type' : 'ServerMonitoringSummary',
       'stat_attr' : 'resource_info_stats',
       'obj_table' : SERVER_TABLE,
       'attributes': [
