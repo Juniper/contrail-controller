@@ -783,12 +783,12 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
     if (req->get_domain() != "") {
         RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
         if (ri)
-            ri->peer_manager()->FillBgpNeighborInfo(&mydata->nbr_list,
+            ri->peer_manager()->FillBgpNeighborInfo(bsc, &mydata->nbr_list,
                 req->get_neighbor(), false);
     } else {
         RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
         for (;it != rim->end(); it++) {
-            it->peer_manager()->FillBgpNeighborInfo(&mydata->nbr_list,
+            it->peer_manager()->FillBgpNeighborInfo(bsc, &mydata->nbr_list,
                 req->get_neighbor(), false);
         }
     }
@@ -881,7 +881,7 @@ bool ShowNeighborSummaryHandler::CallbackS1(const Sandesh *sr,
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
          it != rim->end(); ++it) {
-        it->peer_manager()->FillBgpNeighborInfo(&nbr_list, string(), true);
+        it->peer_manager()->FillBgpNeighborInfo(bsc, &nbr_list, string(), true);
     }
 
     bsc->ShowNeighborSummaryExtension(&nbr_list, req);
@@ -1764,6 +1764,10 @@ public:
             nbr.set_identifier(peerid.to_string());
             nbr.set_address(neighbor->peer_address().to_string());
             nbr.set_address_families(neighbor->address_families());
+            nbr.set_auth_type(neighbor->auth_data().KeyTypeToString());
+            if (bsc->test_mode()) {
+                nbr.set_auth_keys(neighbor->auth_data().KeysToStringDetail());
+            }
 
             nbr_list.push_back(nbr);
         }

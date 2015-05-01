@@ -705,7 +705,8 @@ void BgpIfmapInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
-        neighbor->address_families(), neighbor->AuthKeysToString());
+        neighbor->address_families(), neighbor->AuthKeyTypeToString(),
+        neighbor->AuthKeysToString());
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
@@ -725,7 +726,8 @@ void BgpIfmapInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
-        neighbor->address_families(), neighbor->AuthKeysToString());
+        neighbor->address_families(), neighbor->AuthKeyTypeToString(),
+        neighbor->AuthKeysToString());
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
 

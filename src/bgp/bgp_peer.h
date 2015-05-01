@@ -34,6 +34,7 @@ class StateMachine;
 class BgpSession;
 class BgpPeerInfo;
 class BgpNeighborResp;
+class BgpSandeshContext;
 
 // A BGP peer along with its session and state machine.
 class BgpPeer : public IPeer {
@@ -155,8 +156,8 @@ public:
     const BgpNeighborConfig *config() const { return config_; }
 
     virtual void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
-    void FillNeighborInfo(std::vector<BgpNeighborResp> *nbr_list,
-        bool summary) const;
+    void FillNeighborInfo(BgpSandeshContext *bsc,
+            std::vector<BgpNeighborResp> *nbr_list, bool summary) const;
 
     // thread-safe
     bool IsDeleted() const;
@@ -233,7 +234,6 @@ public:
     const StateMachine *state_machine() const { return state_machine_.get(); }
 
     bool GetBestAuthKeyItem(AuthenticationKey *auth_key);
-    bool AuthDataIsMd5();
     void InstallAuthKeys(TcpSession *session);
     std::string GetInuseAuthKeyValue() const;
     void SetListenSocketAuthKey(const AuthenticationKey &auth_key);

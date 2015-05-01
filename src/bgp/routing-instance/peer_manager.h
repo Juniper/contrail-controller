@@ -19,6 +19,7 @@ class BgpPeer;
 class BgpServer;
 class RoutingInstance;
 class BgpNeighborResp;
+class BgpSandeshContext;
 
 class PeerManager {
 public:
@@ -39,9 +40,9 @@ public:
 
     virtual BgpPeer *NextPeer(BgpPeerKey &key);
 
-    void FillBgpNeighborInfo(std::vector<BgpNeighborResp> *nbr_list,
+    void FillBgpNeighborInfo(BgpSandeshContext *bsc,
+                             std::vector<BgpNeighborResp> *nbr_list,
                              const std::string &neighbor, bool summary);
-
 
     size_t GetNeighborCount(std::string up_or_down);
 

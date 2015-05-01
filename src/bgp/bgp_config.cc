@@ -111,6 +111,27 @@ std::string AuthenticationData::KeyTypeToString(KeyType key_type) {
     }
 }
 
+std::vector<std::string> AuthenticationData::KeysToString() const {
+    AuthenticationKeyChain::const_iterator iter;
+    std::vector<std::string> auth_keys;
+    for (iter = key_chain_.begin(); iter != key_chain_.end(); ++iter) {
+        AuthenticationKey key = *iter;
+        auth_keys.push_back(integerToString(key.id));
+    }
+    return auth_keys;
+}
+
+// NOTE: This prints the actual key too. Use with care.
+std::vector<std::string> AuthenticationData::KeysToStringDetail() const {
+    AuthenticationKeyChain::const_iterator iter;
+    std::vector<std::string> auth_keys;
+    for (iter = key_chain_.begin(); iter != key_chain_.end(); ++iter) {
+        AuthenticationKey key = *iter;
+        auth_keys.push_back(integerToString(key.id) + ":" + key.value);
+    }
+    return auth_keys;
+}
+
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           peer_as_(0),
@@ -153,17 +174,13 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     return 0;
 }
 
+std::string BgpNeighborConfig::AuthKeyTypeToString() const {
+    return auth_data_.KeyTypeToString();
+}
+
 // Return the key's id concatenated with its type.
-const std::vector<std::string> BgpNeighborConfig::AuthKeysToString() {
-    AuthenticationKeyChain::const_iterator iter;
-    std::vector<std::string> auth_keys;
-    std::string ktype = auth_data_.KeyTypeToString();
-    for (iter = auth_data_.key_chain().begin();
-                iter != auth_data_.key_chain().end(); ++iter) {
-        AuthenticationKey key = *iter;
-        auth_keys.push_back(integerToString(key.id) + ":" + ktype);
-    }
-    return auth_keys;
+std::vector<std::string> BgpNeighborConfig::AuthKeysToString() const {
+    return auth_data_.KeysToString();
 }
 
 BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
