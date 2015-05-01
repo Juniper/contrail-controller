@@ -735,9 +735,29 @@ class VirtualNetworkST(DictST):
                                                 import_export='export')
         for (prefix, nexthop) in self.route_table.items():
             left_ri = self._get_routing_instance_from_route(nexthop)
-            if left_ri is not None:
-                left_ri.update_route_target_list(rt_add, rt_del,
-                                                 import_export='import')
+            if left_ri is None:
+                continue
+            left_ri.update_route_target_list(rt_add, rt_del,
+                                             import_export='import')
+            static_route_entries = left_ri.obj.get_static_route_entries()
+            update = False
+            for static_route in static_route_entries.get_route() or []:
+                if static_route.prefix != prefix:
+                    continue
+                for rt in rt_del:
+                    if rt in static_route.route_target:
+                        static_route.route_target.remove(rt)
+                        update = True
+                for rt in rt_add:
+                    if rt not in static_route.route_target:
+                        static_route.route_target.add(rt)
+                        update = True
+                if static_route.route_target == []:
+                    static_route_entries.delete_route(static_route)
+                    update = True
+            if update:
+                left_ri.obj.set_static_route_entries(static_route_entries)
+                _vnc_lib.routing_instance_update(left_ri.obj)
         for rt in rt_del:
             try:
                 RouteTargetST.delete(rt)
@@ -799,18 +819,23 @@ class VirtualNetworkST(DictST):
         sc_address = service_info.get_service_chain_address()
         static_route_entries = left_ri.obj.get_static_route_entries(
         ) or StaticRouteEntriesType()
+        update = False
         for static_route in static_route_entries.get_route() or []:
             if prefix == static_route.prefix:
-                if self.get_route_target() not in static_route.route_target:
-                    static_route.route_target.append(self.get_route_target())
+                for rt in self.rt_list | set([self.get_route_target()]):
+                    if rt not in static_route.route_target:
+                        static_route.route_target.append(rt)
+                        update = True
                 break
         else:
-            static_route = StaticRouteType(
-                prefix=prefix, next_hop=sc_address,
-                route_target=[self.get_route_target()])
+            rt_list = list(self.rt_list | set([self.get_route_target()]))
+            static_route = StaticRouteType(prefix=prefix, next_hop=sc_address,
+                                           route_target=rt_list)
             static_route_entries.add_route(static_route)
-        left_ri.obj.set_static_route_entries(static_route_entries)
-        _vnc_lib.routing_instance_update(left_ri.obj)
+            update = True
+        if update:
+            left_ri.obj.set_static_route_entries(static_route_entries)
+            _vnc_lib.routing_instance_update(left_ri.obj)
         left_ri.update_route_target_list(
             rt_add=self.rt_list | set([self.get_route_target()]),
             import_export="import")
@@ -828,17 +853,21 @@ class VirtualNetworkST(DictST):
                                          rt_del=self.rt_list | set(
                                              [self.get_route_target()]),
                                          import_export="import")
+        update = False
         static_route_entries = left_ri.obj.get_static_route_entries()
         for static_route in static_route_entries.get_route() or []:
             if static_route.prefix != prefix:
                 continue
-            if self.get_route_target() in static_route.route_target:
-                static_route.route_target.remove(self.get_route_target())
-                if static_route.route_target == []:
-                    static_route_entries.delete_route(static_route)
-                left_ri.obj._pending_field_updates.add('static_route_entries')
-                _vnc_lib.routing_instance_update(left_ri.obj)
-                return
+            for rt in self.rt_list | set([self.get_route_target()]):
+                if rt in static_route.route_target:
+                    static_route.route_target.remove(rt)
+                    update = True
+            if static_route.route_target == []:
+                static_route_entries.delete_route(static_route)
+                update = True
+        if update:
+            left_ri.obj.set_static_route_entries(static_route_entries)
+            _vnc_lib.routing_instance_update(left_ri.obj)
     # end delete_route
 
     def update_route_table(self):
