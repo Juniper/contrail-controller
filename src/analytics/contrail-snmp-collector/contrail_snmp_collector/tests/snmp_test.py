@@ -4,10 +4,22 @@
 import unittest
 import tempfile
 
-import sys, os
-sys.path.insert(0, os.path.abspath(".."))
+import sys, os, mock, gevent
+#sys.path.insert(0, os.path.abspath(".."))
 #sys.path.append('../../tools/sandesh/library/python')
-from contrail_snmp_scanner.device_config import DeviceConfig
+
+mock_pkg = mock.MagicMock(name='mock_vnc_api')
+mock_mod = mock.MagicMock(name='mock_vnc_api_mod')
+mock_cls = mock.MagicMock(name='mock_VncApi')
+mock_mod.VncApi = mock_cls
+mock_pkg.vnc_api = mock_mod
+
+sys.modules['vnc_api'] = mock_pkg
+sys.modules['vnc_api.vnc_api'] = mock_mod
+
+from contrail_snmp_collector.device_config import DeviceConfig
+from contrail_snmp_collector.snmpctrlr import MaxNinTtime
+
 
 class SnmpTest(unittest.TestCase):
     @classmethod
@@ -60,6 +72,27 @@ class SnmpTest(unittest.TestCase):
         #logging.info("*** test_000_snmp_devcfg ***")
         self.assertEqual(1, 1)
 
+class MaxNinTtimeTest(unittest.TestCase):
+    def setUp(self):
+        self.n = 5
+        self.t = 5
+        self.mntt = MaxNinTtime(self.n, self.t)
+
+    def test_000_addone(self):
+        self.assertEqual(len(self.mntt._slots), self.n)
+        self.mntt.add()
+        self.assertEqual(self.mntt._pointer, 1)
+
+    def test_010_addmore(self):
+        ts = [self.mntt.add() for i in range(self.n + self.n/2)]
+        self.assertEqual(len(filter(lambda p: p>self.t/2, [t-ts[
+                        i-1] for i,t in enumerate(ts)][1:])), 1) #one jump
+
+    def test_020_fs(self):
+        ts = [self.mntt.add() for i in range(self.n + self.n/2)]
+        self.assertFalse(self.mntt.ready4full_scan())
+        gevent.sleep(self.t + .1)
+        self.assertTrue(self.mntt.ready4full_scan())
 
 if __name__ == '__main__':
     unittest.main(catchbreak=True)
