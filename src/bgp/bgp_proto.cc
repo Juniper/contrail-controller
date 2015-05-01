@@ -91,10 +91,11 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
                      BGP_PEER_DIR_IN, "Bad BGP Identifier: " << 0);
         return BgpProto::Notification::BadBgpId;
     }
-    if (ntohl(identifier) == peer->server()->bgp_identifier()) {
+    if (identifier == peer->server()->bgp_identifier()) {
         BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN,
-                     "Bad (Same as mine) BGP Identifier: " << identifier);
+                     "Bad (Same as mine) BGP Identifier: " <<
+                     Ip4Address(identifier).to_string());
         return BgpProto::Notification::BadBgpId;
     }
     if (as_num != peer->peer_as()) {
@@ -120,7 +121,7 @@ const string BgpProto::OpenMessage::ToString() const {
     error_code ec;
     os << "AS " << as_num;
     os << ", Hold Time " << holdtime;
-    os << ", Identifier " << Ip4Address(ntohl(identifier)).to_string(ec);
+    os << ", Identifier " << Ip4Address(identifier).to_string(ec);
 
     // Go through each OptParam in the OpenMessage.
     for (vector<OptParam *>::const_iterator param_it = opt_params.begin();
