@@ -3574,12 +3574,16 @@ class SchemaTransformer(object):
     @staticmethod
     def reset():
         VirtualNetworkST.reset()
+        RouteTargetST.reset()
         NetworkPolicyST.reset()
         RouteTableST.reset()
         SecurityGroupST.reset()
         ServiceChain.reset()
         BgpRouterST.reset()
         VirtualMachineInterfaceST.reset()
+        InstanceIpST.reset()
+        FloatingIpST.reset()
+        VirtualMachineST.reset()
         LogicalRouterST.reset()
     # end reset
 # end class SchemaTransformer
