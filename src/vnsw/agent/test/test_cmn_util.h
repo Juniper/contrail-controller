@@ -20,6 +20,25 @@ struct TestLinkLocalService {
     uint16_t    fabric_port;
 };
 
+class TestTaskHold {
+public:
+    TestTaskHold(int task_id, int task_instance);
+    ~TestTaskHold();
+private:
+    class HoldTask : public Task {
+    public:
+        HoldTask(TestTaskHold *hold_entry);
+        bool Run();
+    private:
+        TestTaskHold *hold_entry_;
+    };
+
+    friend class HoldTask;
+    int task_id_;
+    int task_instance_;
+    tbb::atomic<bool> task_held_;
+};
+
 uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);

@@ -163,6 +163,8 @@ public:
     void CreateVrf(const string &name, uint32_t flags = VrfData::ConfigVrf);
     void DeleteVrf(const string &name, uint32_t flags = VrfData::ConfigVrf);
     void CreateVrfReq(const string &name, uint32_t flags = VrfData::ConfigVrf);
+    void CreateVrfReq(const string &name, const boost::uuids::uuid &vn_uuid,
+                      uint32_t flags = VrfData::ConfigVrf);
     void DeleteVrfReq(const string &name, uint32_t flags = VrfData::ConfigVrf);
     //Add and delete routine for VRF not deleted on VRF config delete
     void CreateStaticVrf(const string &name);

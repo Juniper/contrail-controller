@@ -114,6 +114,20 @@ TEST_F(UnicastRemoteTest, UnicastRemoteEmptyVrfAddDel) {
             "test/xml/unicast-remote-empty-vrf.xml");
 }
 
+TEST_F(UnicastRemoteTest, VrfNotifyWithIdlDeleted) {
+    Agent *agent = Agent::GetInstance();
+    TestTaskHold *hold =
+        new TestTaskHold(TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0);
+    tcp_session_->TriggerClose();
+    VnAddReq(1, "test-vn1");
+    agent->vrf_table()->CreateVrfReq("test-vrf1", MakeUuid(1));
+    delete hold;
+    client->WaitForIdle();
+    agent->vrf_table()->DeleteVrfReq("test-vrf1");
+    VnDelReq(1);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     // override with true to initialize ovsdb server and client
