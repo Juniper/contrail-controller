@@ -155,7 +155,7 @@ public:
             StateMachine::StartHoldTimer();
             return;
         }
-        hold_timer_->Start(30,
+        hold_timer_->Start(hold_time_msecs_,
             boost::bind(&StateMachine::HoldTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
