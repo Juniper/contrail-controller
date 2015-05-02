@@ -88,6 +88,7 @@ class PhysicalRouterDM(DBBase):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.management_ip = obj.get('physical_router_management_ip')
+        self.dataplane_ip = obj.get('physical_router_dataplane_ip')
         self.vendor = obj.get('physical_router_vendor_name')
         self.product = obj.get('physical_router_product_name')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
@@ -135,6 +136,9 @@ class PhysicalRouterDM(DBBase):
                 self.config_manager.add_bgp_peer(peer.params['address'],
                                                  params, external)
             self.config_manager.set_bgp_config(bgp_router.params)
+
+        if self.dataplane_ip is not None and GlobalSystemConfigDM.ip_fabric_subnets is not None:
+            self.config_manager.add_dynamic_tunnels(self.dataplane_ip, GlobalSystemConfigDM.ip_fabric_subnets)
 
         vn_dict = {}
         for vn_id in self.virtual_networks:
@@ -220,9 +224,11 @@ class GlobalSystemConfigDM(DBBase):
     _dict = {}
     obj_type = 'global_system_config'
     global_asn = None
+    ip_fabric_subnets = None
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.physical_routers = set()
         self.update(obj_dict)
     # end __init__
 
@@ -230,6 +236,9 @@ class GlobalSystemConfigDM(DBBase):
         if obj is None:
             obj = self.read_obj(self.uuid)
         GlobalSystemConfigDM.global_asn = obj.get('autonomous_system')
+        GlobalSystemConfigDM.ip_fabric_subnets = obj.get('ip_fabric_subnets', [])
+        self.physical_routers = set([pi['uuid'] for pi in
+                                        obj.get('physical_routers', [])])
     # end update
 
     @classmethod
@@ -571,4 +580,5 @@ DBBase._OBJ_TYPE_MAP = {
     'routing_instance': RoutingInstanceDM,
     'floating_ip': FloatingIpDM,
     'instance_ip': InstanceIpDM,
+    'global_system_config': GlobalSystemConfigDM,
 }
