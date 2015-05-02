@@ -82,6 +82,19 @@ class PhysicalRouterConfig(object):
                                                       e.message))
     # end send_config
 
+    def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets):
+        self.tunnel_config = etree.Element("routing-options")
+        dynamic_tunnels = etree.SubElement(self.tunnel_config, "dynamic-tunnels")
+        dynamic_tunnel = etree.SubElement(dynamic_tunnels, "dynamic-tunnel")
+        etree.SubElement(dynamic_tunnel, "name").text = "__contrail__"
+        etree.SubElement(dynamic_tunnel, "source-address").text = tunnel_source_ip
+        etree.SubElement(dynamic_tunnel, "gre")
+        for subnet in ip_fabric_nets.get("subnet", []): 
+            dest_network = etree.SubElement(dynamic_tunnel, "destination-networks")
+            etree.SubElement(dest_network, "name").text = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len']) 
+         
+    #end add_dynamic_tunnels
+
     def add_routing_instance(self, ri_name, import_targets, export_targets,
                              prefixes=[], gateways=[], router_external=False, interfaces=[], vni=None, fip_map=None):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
@@ -401,6 +414,7 @@ class PhysicalRouterConfig(object):
         self.routing_instances = {}
         self.bgp_params = None
         self.ri_config = None
+        self.tunnel_config = None
         self.interfaces_config = None
         self.services_config = None
         self.policy_config = None
@@ -482,6 +496,8 @@ class PhysicalRouterConfig(object):
             comm = etree.SubElement(self.policy_config, "community")
             etree.SubElement(comm, 'name').text = route_target.replace(':', '_')
             etree.SubElement(comm, 'members').text = route_target
+        if self.tunnel_config is not None:
+            config_list.append(self.tunnel_config)
         if self.interfaces_config is not None:
             config_list.append(self.interfaces_config)
         if self.services_config is not None:
