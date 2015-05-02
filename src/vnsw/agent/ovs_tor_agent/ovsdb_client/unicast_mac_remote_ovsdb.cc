@@ -117,7 +117,7 @@ void UnicastMacRemoteEntry::AddMsg(struct ovsdb_idl_txn *txn) {
         DeleteMsg(txn);
         return;
     }
-    if (ovs_entry_ == NULL && !dest_ip_.empty()) {
+    if (ovs_entry_ == NULL && !dest_ip_.empty() && !stale()) {
         PhysicalLocatorTable *pl_table =
             table_->client_idl()->physical_locator_table();
         PhysicalLocatorEntry pl_key(pl_table, dest_ip_);
