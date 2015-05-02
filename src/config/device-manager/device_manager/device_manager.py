@@ -52,11 +52,16 @@ class DeviceManager(object):
             'physical_interface': [],
             'logical_interface': [],
             'virtual_network': [],
+            'global_system_config': [],
+        },
+        'global_system_config': {
+            'self': ['bgp_router', 'physical_router'],
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
             'bgp_router': ['physical_router'],
             'physical_router': [],
+            'global_system_config': ['physical_router'],
         },
         'physical_interface': {
             'self': ['physical_router', 'logical_interface'],
