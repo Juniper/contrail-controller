@@ -13,9 +13,11 @@ class PhysicalDeviceVn;
 
 namespace OVSDB {
 class MulticastMacLocalEntry;
+class LogicalSwitchEntry;
 
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
+    typedef std::map<struct ovsdb_idl_row *, LogicalSwitchEntry *> OvsdbIdlRowMap;
     LogicalSwitchTable(OvsdbClientIdl *idl);
     virtual ~LogicalSwitchTable();
 
@@ -30,6 +32,7 @@ public:
     KSyncDBObject::DBFilterResp DBEntryFilter(const DBEntry *entry);
 
 private:
+    OvsdbIdlRowMap  idl_row_map_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchTable);
 };
 
