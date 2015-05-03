@@ -265,7 +265,9 @@ void BgpIfmapPeeringConfig::Update(BgpIfmapConfigManager *manager,
         const autogen::BgpRouter *remote_rt_config =
                 static_cast<const autogen::BgpRouter *>(
                     routers.second->GetObject());
-        if (remote_rt_config != NULL &&
+        if (local_rt_config && 
+            local_rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS) &&
+            remote_rt_config &&
             remote_rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS)) {
             BuildNeighbors(manager, local_rt_config, routers.second->name(),
                            remote_rt_config, peering, &future);
