@@ -71,6 +71,8 @@ public:
     void set_key_chain(const AuthenticationKeyChain &in_chain) {
         key_chain_ = in_chain;
     }
+    std::vector<std::string> KeysToString() const;
+    std::vector<std::string> KeysToStringDetail() const;
 
 private:
     KeyType key_type_;
@@ -172,7 +174,8 @@ public:
     uint64_t last_change_at() const { return last_change_at_; }
     void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
 
-    const std::vector<std::string> AuthKeysToString();
+    std::string AuthKeyTypeToString() const;
+    std::vector<std::string> AuthKeysToString() const;
 
     int CompareTo(const BgpNeighborConfig &rhs) const;
     bool operator!=(const BgpNeighborConfig &rhs) const {
