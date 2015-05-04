@@ -366,8 +366,8 @@ bool RibUpdateMonitor::GetPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
 
 //
 // Concurrency: Called in the context of the DB partition task. There's no
-// entry lock as such since the DBState is a RouteState. We may or may not
-// hold the monitor lock, but in either case we don't try to acquire it.
+// entry lock since the DBState is a RouteState, but the monitor lock must
+// be held.
 //
 // Helper routine for MergeUpdate to handle case where the current DBState
 // is a RouteState.
@@ -467,17 +467,10 @@ bool RibUpdateMonitor::MergeUpdate(DBEntryBase *db_entry,
         RouteUpdate *rt_update) {
     CHECK_CONCURRENCY("db::DBTable");
 
-    // Don't need to bother going through the monitor if there's no DBState.
-    // The scheduling group task can't hold a lock on the entry in this case.
-    DBState *dbstate =
-        db_entry->GetState(ribout_->table(), ribout_->listener_id());
-    if (dbstate == NULL) {
-        return EnqueueUpdateUnlocked(db_entry, rt_update);
-    }
-
-    // Go through the monitor and handle the DBState as appropriate.  Note
-    // that we still need to check for the DBState being NULL as things may
-    // have changed after the check made above.
+    // Go through the monitor and handle the DBState as necessary. Need
+    // to use the monitor even if there's no DBState in order to protect
+    // against race conditions which could result in an incorrect return
+    // value.
     while (true) {
         tbb::interface5::unique_lock<tbb::mutex> toplock(mutex_);
         DBState *dbstate =
