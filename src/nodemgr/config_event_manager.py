@@ -1,6 +1,7 @@
 doc = " "
 
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
 import os
 import sys
 import socket
@@ -13,7 +14,7 @@ import select
 import gevent
 import ConfigParser
 
-from nodemgr.EventManager import EventManager
+from nodemgr.event_manager import EventManager
 
 from ConfigParser import NoOptionError
 
@@ -35,23 +36,29 @@ from cfgm_common.uve.cfgm_cpuinfo.process_info.ttypes import \
 from cfgm_common.uve.cfgm_cpuinfo.process_info.constants import \
     ProcessStateNames
 
+
 def usage():
     print doc
     sys.exit(255)
 
+
 class ConfigEventManager(EventManager):
-    def __init__(self, rule_file, discovery_server, discovery_port, collector_addr):
-        EventManager.__init__(self, rule_file, discovery_server, discovery_port, collector_addr)
+    def __init__(self, rule_file, discovery_server,
+                 discovery_port, collector_addr):
+        EventManager.__init__(
+            self, rule_file, discovery_server,
+            discovery_port, collector_addr)
         self.node_type = "contrail-config"
         self.module = Module.CONFIG_NODE_MGR
-        self.module_id =  ModuleNames[self.module]
+        self.module_id = ModuleNames[self.module]
         self.supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
         self.add_current_process()
-    #end __init__
+    # end __init__
 
     def process(self):
         if self.rule_file is '':
-            self.rule_file = "/etc/contrail/supervisord_config_files/contrail-config.rules"
+            self.rule_file = "/etc/contrail/" + \
+                "supervisord_config_files/contrail-config.rules"
         json_file = open(self.rule_file)
         self.rules_data = json.load(json_file)
         node_type = Module2NodeType[self.module]
@@ -60,20 +67,26 @@ class ConfigEventManager(EventManager):
         Config = self.read_config_data(config_file)
         self.get_collector_list(Config)
         _disc = self.get_discovery_client(Config)
-        sandesh_global.init_generator(self.module_id, socket.gethostname(),
+        sandesh_global.init_generator(
+            self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8100, ['cfgm_common.uve'],_disc)
-        #sandesh_global.set_logging_params(enable_local_log=True)
+            self.module_id, 8100, ['cfgm_common.uve'], _disc)
+        # sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 
     def send_process_state_db(self, group_names):
-        self.send_process_state_db_base(group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+        self.send_process_state_db_base(
+            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
 
     def send_nodemgr_process_status(self):
-        self.send_nodemgr_process_status_base(ProcessStateNames, ProcessState, ProcessStatus, NodeStatus, NodeStatusUVE)
+        self.send_nodemgr_process_status_base(
+            ProcessStateNames, ProcessState, ProcessStatus,
+            NodeStatus, NodeStatusUVE)
 
     def get_process_state(self, fail_status_bits):
-        return self.get_process_state_base(fail_status_bits, ProcessStateNames, ProcessState)
+        return self.get_process_state_base(
+            fail_status_bits, ProcessStateNames, ProcessState)
 
     def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
+        self.send_disk_usage_info_base(
+            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
