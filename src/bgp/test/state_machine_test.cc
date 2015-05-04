@@ -466,7 +466,7 @@ protected:
         uint32_t identifier = 1, int holdtime = 30) {
         BgpProto::OpenMessage *open = new BgpProto::OpenMessage;
         BgpMessageTest::GenerateOpenMessage(open);
-        open->identifier = htonl(identifier);
+        open->identifier = identifier;
         open->holdtime = holdtime;
         peer_->ResetCapabilities();
         sm_->OnMessage(session, open);
