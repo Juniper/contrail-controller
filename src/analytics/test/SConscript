@@ -125,12 +125,15 @@ env.Alias('src/analytics:options_test', options_test)
 
 protobufEnv = env.Clone()
 protobuf_test_gen_files = protobufEnv.ProtocGenCpp('test_message.proto')
+protobuf_test_gen_files += protobufEnv.ProtocGenCpp('test_message_extensions.proto')
 protobuf_test_gen_srcs = protobufEnv.ExtractCpp(protobuf_test_gen_files)
 protobuf_test_desc_files = protobufEnv.ProtocGenDesc('test_message.proto')
+protobuf_test_desc_files += protobufEnv.ProtocGenDesc('test_message_extensions.proto')
 protobuf_test = protobufEnv.UnitTest('protobuf_test', protobuf_test_gen_srcs +
       protobufEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] +
       ['protobuf_test.cc', '../protobuf_server.o', '../stat_walker.o'])
-env.Requires(protobuf_test, env['TOP'] + '/analytics/test/test_message.desc')
+env.Requires(protobuf_test, [env['TOP'] + '/analytics/test/test_message.desc',
+                             env['TOP'] + '/analytics/test/test_message_extensions.desc'])
 protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
 
 test_suite = [ 

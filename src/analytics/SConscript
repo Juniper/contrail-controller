@@ -144,7 +144,7 @@ RedisLuaBuild(AnalyticsEnv, 'uveupdate_st')
 RedisLuaBuild(AnalyticsEnv, 'uvedelete')
 RedisLuaBuild(AnalyticsEnv, 'flushuves')
 
-ProtobufGenFiles = AnalyticsEnv.ProtocGenCpp('self_describing_message.proto')
+ProtobufGenFiles = AnalyticsEnv.ProtocGenCpp('protobuf_schema.proto')
 ProtobufGenSrcs = AnalyticsEnv.ExtractCpp(ProtobufGenFiles)
 ProtobufGenObjs = AnalyticsEnv.Object(ProtobufGenSrcs)
 AnalyticsEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] = ProtobufGenObjs

@@ -18,3 +18,15 @@ message SelfDescribingMessage {
   // The message data.
   required bytes message_data = 4;
 }
+
+message TelemetryFieldOptions {
+  // Key
+  optional bool is_key = 1;
+
+  // Timestamp
+  optional bool is_timestamp = 2;
+}
+
+extend google.protobuf.FieldOptions {
+  optional TelemetryFieldOptions telemetry_options = 33333;
+}
