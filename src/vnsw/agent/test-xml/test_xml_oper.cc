@@ -1092,6 +1092,9 @@ bool AgentUtXmlFlowValidate::ReadXml() {
     GetStringAttribute(node(), "svn", &svn_);
     GetStringAttribute(node(), "dvn", &dvn_);
     GetStringAttribute(node(), "action", &action_);
+    if (GetUintAttribute(node(), "rpf_nh", &rpf_nh_) == false) {
+        rpf_nh_ = 0;
+    }
     return true;
 }
 
@@ -1125,6 +1128,14 @@ bool AgentUtXmlFlowValidate::Validate() {
 
     if (MatchFlowAction(flow, action_) == false)
         return false;
+
+    if (rpf_nh_) {
+        if (!flow->data().nh_state_ ||
+            !flow->data().nh_state_->nh() ||
+             flow->data().nh_state_->nh()->id() != rpf_nh_) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -1211,17 +1222,18 @@ bool AgentUtXmlL2Route::Run() {
     if (encap == TunnelEncapType::VXLAN)
         bmap |= (1 << TunnelType::VXLAN);
     if (op_delete()) {
-        rt_table->DeleteReq(NULL, vrf_, MacAddress::FromString(mac_),
+        rt_table->DeleteReq(bgp_peer_, vrf_,
+                            MacAddress::FromString(mac_),
                             Ip4Address::from_string(ip_), vxlan_id_);
     } else {
         ControllerVmRoute *data =
-            ControllerVmRoute::MakeControllerVmRoute(NULL,
+            ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,
                                                      agent->fabric_vrf_name(),
                                                      agent->router_id(), vrf_,
                                                      Ip4Address::from_string(tunnel_dest_),
                                                      bmap, label_, vn_, sg_list,
                                                      PathPreference());
-        rt_table->AddRemoteVmRouteReq(NULL, vrf_,
+        rt_table->AddRemoteVmRouteReq(bgp_peer_, vrf_,
                                       MacAddress::FromString(mac_),
                                       Ip4Address::from_string(ip_),
                                       vxlan_id_, data);
