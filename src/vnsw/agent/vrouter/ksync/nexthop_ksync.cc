@@ -43,7 +43,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
-    vxlan_nh_(entry->vxlan_nh_){
+    vxlan_nh_(entry->vxlan_nh_),
+    flood_unknown_unicast_(entry->flood_unknown_unicast_) {
 }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -52,7 +53,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
-    vxlan_nh_(false) {
+    vxlan_nh_(false), flood_unknown_unicast_(false) {
 
     sip_.s_addr = 0;
     switch (type_) {
@@ -622,6 +623,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             vxlan_nh_ = vrf_nh->vxlan_nh();
             ret = true;
         }
+
+        if (flood_unknown_unicast_ != vrf_nh->flood_unknown_unicast()) {
+            flood_unknown_unicast_ = vrf_nh->flood_unknown_unicast();
+            ret = true;
+        }
         break;
     }
     case NextHop::RECEIVE:
@@ -755,6 +761,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_type(NH_VXLAN_VRF);
             if (vxlan_nh_) {
                 flags |= NH_FLAG_VNID;
+            }
+            if (flood_unknown_unicast_) {
+                flags |= NH_FLAG_UNKNOWN_UC_FLOOD;
             }
             break;
 

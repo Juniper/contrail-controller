@@ -87,6 +87,7 @@ struct ItfSandeshData {
    43: optional string vmi_type;
    44: string transport;
    45: string logical_interface_uuid;
+   46: optional bool flood_unknown_unicast;
 }
 
 struct VnIpamData {
@@ -120,6 +121,7 @@ struct VnSandeshData {
     14: i32 vn_id;
     15: bool enable_rpf;
     16: bool bridging;
+    17: bool flood_unknown_unicast;
 }
 
 struct SgSandeshData {
@@ -213,6 +215,7 @@ struct NhSandeshData {
    22: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
    23: optional MulticastCompositeData evpn_comp;  //Multicast sub nh list
    24: optional bool vxlan_flag;
+   25: optional bool flood_unknown_unicast;
 }
 
 struct NamespaceStateSandeshData {
