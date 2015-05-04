@@ -298,10 +298,14 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_HOLD;
         }
 
-        if (nh_ && enable_rpf_) {
-            const NHKSyncEntry *ksync_nh =
-                static_cast<const NHKSyncEntry *>(nh_.get());
-            req.set_fr_src_nh_index(ksync_nh->nh_id());
+        if (enable_rpf_) {
+            if (nh_) {
+                const NHKSyncEntry *ksync_nh =
+                    static_cast<const NHKSyncEntry *>(nh_.get());
+                req.set_fr_src_nh_index(ksync_nh->nh_id());
+            } else {
+                req.set_fr_src_nh_index(NextHopTable::kRpfDiscardIndex);
+            }
         } else {
             //Set to discard, vrouter ignores RPF check if
             //nexthop is set to discard

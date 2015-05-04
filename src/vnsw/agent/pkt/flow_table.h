@@ -430,7 +430,7 @@ private:
     friend class FlowStatsCollector;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
-    bool SetRpfNH(const AgentRoute *rt);
+    bool SetRpfNH(FlowTable *ft, const AgentRoute *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
     void GetSourceRouteInfo(const AgentRoute *rt);
