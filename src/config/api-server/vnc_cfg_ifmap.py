@@ -522,8 +522,13 @@ class VncIfmapClient(VncIfmapClientGen):
             for m in metalist:
                 meta_name = m._Metadata__name.replace('contrail:', '')
                 if meta_name in self._id_to_metas[self_imid]:
-                   self._id_to_metas[self_imid][meta_name].append({'meta':m,
-                                                                  'id': id2})
+                    for id_meta in self._id_to_metas[self_imid][meta_name]:
+                        if id_meta['id'] == id2:
+                            id_meta['meta'] = m
+                            break
+                    else:
+                        self._id_to_metas[self_imid][meta_name].append({'meta':m,
+                                                                        'id': id2})
                 else:
                    self._id_to_metas[self_imid][meta_name] = [{'meta':m,
                                                                'id': id2}]
@@ -531,8 +536,13 @@ class VncIfmapClient(VncIfmapClientGen):
                 if id2 not in self._id_to_metas:
                     self._id_to_metas[id2] = {}
                 if meta_name in self._id_to_metas[id2]:
-                   self._id_to_metas[id2][meta_name].append({'meta':m,
-                                                             'id': self_imid})
+                    for id_meta in self._id_to_metas[id2][meta_name]:
+                        if id_meta['id'] == self_imid:
+                            id_meta['meta'] = m
+                            break
+                    else:
+                        self._id_to_metas[id2][meta_name].append({'meta':m,
+                                                                  'id': self_imid})
                 else:
                    self._id_to_metas[id2][meta_name] = [{'meta':m,
                                                          'id': self_imid}]
