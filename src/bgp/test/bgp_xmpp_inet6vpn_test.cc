@@ -5615,7 +5615,7 @@ static void TearDown() {
 }
 
 int main(int argc, char **argv) {
-    //bgp_log_test::init();
+    bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
     SetUp();
