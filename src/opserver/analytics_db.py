@@ -227,8 +227,18 @@ class AnalyticsDb(object):
                             if (table is MESSAGE_TABLE_SOURCE):
                                 # get message table uuids to delete
                                 del_msg_uuids.append(list(cols.values()))
-                            b.remove(key)
-                    b.send()
+                            try:
+                                b.remove(key)
+                            except Exception as e:
+                                self._logger.error("Exception: Purge_id:%s table:%s "
+                                        "error: %s" % (purge_id, table, e))
+                                b = cf.batch() # create a new batch job
+                                continue
+                    try:
+                        b.send()
+                    except Exception as e:
+                        self._logger.error("Exception: Purge_id:%s table:%s "
+                                "error: %s" % (purge_id, table, e))
 
                     if len(del_msg_uuids) != 0:
                         # delete uuids from the message table
@@ -245,8 +255,8 @@ class AnalyticsDb(object):
 
 
                 except Exception as e:
-                    self._logger.error("Exception: Purge_id %s This table "
-                        "doesnot have row time %s" % (purge_id, e))
+                    self._logger.error("Exception: Purge_id:%s table:%s "
+                            "error: %s" % (purge_id, table, e))
                     continue
                 self._logger.info("Purge_id %s deleted %d rows from table: %s"
                     % (purge_id, per_table_deleted, table))
@@ -277,7 +287,8 @@ class AnalyticsDb(object):
                 db_uve_state = json.loads(urllib2.urlopen(node_dburl['href']).read())
                 db_usage_in_perc = (100*
                         float(db_uve_state['DatabaseUsageInfo']['database_usage']['analytics_db_size_1k'])/
-                        float(db_uve_state['DatabaseUsageInfo']['database_usage']['disk_space_available_1k']))
+                        float(db_uve_state['DatabaseUsageInfo']['database_usage']['disk_space_available_1k'] +
+                        db_uve_state['DatabaseUsageInfo']['database_usage']['disk_space_used_1k']))
                 to_return[node_dburl['name']] = db_usage_in_perc
         except Exception as inst:
             self._logger.error(type(inst))     # the exception instance
@@ -285,6 +296,7 @@ class AnalyticsDb(object):
             self._logger.error(inst)           # __str__ allows args to be printed directly
             self._logger.error("Could not retrieve db usage information")
 
+        self._logger.info("db usage:" + str(to_return))
         return to_return
     #end get_dbusage_info
 
