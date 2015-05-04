@@ -1851,8 +1851,10 @@ class OpServer(object):
                             db_node_usage[node], node)
 
             # check if there is a purge already going on
-            purge_id = str(uuid.uuid1(str(current_time)))
-            resp = self._analytics_db.get_analytics_db_purge_status(purge_id)
+            purge_id = str(uuid.uuid1())
+            resp = self._analytics_db.get_analytics_db_purge_status(
+                      self._state_server._redis_list)
+
             if (resp != None):
                 trigger_purge = False
 
