@@ -663,6 +663,13 @@ VrfNH::KeyPtr VrfNH::GetDBRequestKey() const {
 
 bool VrfNH::Change(const DBRequest *req) {
     bool ret = false;
+    const VrfNHData *data = static_cast<const VrfNHData *>(req->data.get());
+
+    if (data->flood_unknown_unicast_ != flood_unknown_unicast_) {
+        flood_unknown_unicast_ = data->flood_unknown_unicast_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -2257,6 +2264,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             const VrfNH *vrf = static_cast<const VrfNH *>(this);
             data.set_vrf(vrf->GetVrf()->GetName());
             data.set_vxlan_flag(vrf->vxlan_nh());
+            data.set_flood_unknown_unicast(vrf->flood_unknown_unicast());
             break;
         }
         case INTERFACE: {

@@ -70,7 +70,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     no_arp_(entry->no_arp_),
     encap_type_(entry->encap_type_),
     display_name_(entry->display_name_),
-    transport_(entry->transport_) {
+    transport_(entry->transport_),
+    flood_unknown_unicast_ (entry->flood_unknown_unicast_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -106,7 +107,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     xconnect_(NULL),
     no_arp_(false),
     encap_type_(PhysicalInterface::ETHERNET),
-    transport_(Interface::TRANSPORT_INVALID) {
+    transport_(Interface::TRANSPORT_INVALID),
+    flood_unknown_unicast_(false) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -220,6 +222,12 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             layer3_forwarding_ = vm_port->layer3_forwarding();
             ret = true;
         }
+
+        if (flood_unknown_unicast_ != vm_port->flood_unknown_unicast()) {
+            flood_unknown_unicast_ = vm_port->flood_unknown_unicast();
+            ret = true;
+        }
+
         if (bridging_ != vm_port->bridging()) {
             bridging_ = vm_port->bridging();
             ret = true;
@@ -476,6 +484,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (vmi_type_ == VmInterface::GATEWAY) {
             flags |= VIF_FLAG_NO_ARP_PROXY;
+        }
+        if (flood_unknown_unicast_) {
+            flags |= VIF_FLAG_UNKNOWN_UC_FLOOD;
         }
         MacAddress mac;
         if (parent_.get() != NULL) {

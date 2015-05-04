@@ -920,7 +920,7 @@ void VnAddReq(int id, const char *name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
-                                              true, true);
+                                              true, true, false);
     usleep(1000);
 }
 
@@ -930,7 +930,7 @@ void VnAddReq(int id, const char *name, int acl_id) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id,
-                                              true, true);
+                                              true, true, false);
     usleep(1000);
 }
 
@@ -939,7 +939,7 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id), vrf_name, ipam,
-                                              vn_ipam_data, id, true, true);
+                                              vn_ipam_data, id, true, true, false);
     usleep(1000);
 }
 
@@ -948,7 +948,7 @@ void VnAddReq(int id, const char *name, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               vrf_name, ipam, vn_ipam_data, id,
-                                              true, true);
+                                              true, true, false);
     usleep(1000);
 }
 
@@ -3248,6 +3248,38 @@ void DisableRpf(const std::string &vn_name, int vn_id) {
     buf << "disable";
     buf << "</rpf>";
     buf << "</virtual-network-properties>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-network", vn_name.c_str(), vn_id, cbuf);
+    client->WaitForIdle();
+}
+
+void EnableUnknownBroadcast(const std::string &vn_name, int vn_id) {
+    std::ostringstream buf;
+    buf << "<virtual-network-properties>";
+    buf << "<network-id>" << vn_id << "</network-id>" << endl;
+    buf << "<vxlan-network-identifier>" << (vn_id+100) <<
+           "</vxlan-network-identifier>" << endl;
+    buf << "</virtual-network-properties>";
+    buf << "<flood-unknown-unicast>";
+    buf << "true";
+    buf << "</flood-unknown-unicast>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-network", vn_name.c_str(), vn_id, cbuf);
+    client->WaitForIdle();
+}
+
+void DisableUnknownBroadcast(const std::string &vn_name, int vn_id) {
+    std::ostringstream buf;
+    buf << "<virtual-network-properties>";
+    buf << "<network-id>" << vn_id << "</network-id>" << endl;
+    buf << "<vxlan-network-identifier>" << (vn_id+100) <<
+           "</vxlan-network-identifier>" << endl;
+    buf << "</virtual-network-properties>";
+    buf << "<flood-unknown-unicast>";
+    buf << "false";
+    buf << "</flood-unknown-unicast>";
     char cbuf[10000];
     strcpy(cbuf, buf.str().c_str());
     AddNode("virtual-network", vn_name.c_str(), vn_id, cbuf);

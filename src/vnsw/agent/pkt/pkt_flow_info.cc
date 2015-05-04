@@ -1161,6 +1161,49 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     return;
 }
 
+bool PktFlowInfo::UnknownUnicastFlow(const PktInfo *pkt,
+                                     const PktControlInfo *in,
+                                     const PktControlInfo *out) {
+    bool ret = false;
+    if (ingress && out->rt_ == NULL && in->rt_) {
+        const VmInterface *vm_intf =
+            static_cast<const VmInterface *>(in->intf_);
+        //If interface has flag to flood unknown unicast
+        //and destination route is not present
+        //mark the flow for forward
+        if (vm_intf->flood_unknown_unicast()) {
+            flood_unknown_unicast = true;
+            flow_source_vrf = flow_dest_vrf =
+                static_cast<const AgentRoute *>(in->rt_)->vrf_id();
+            ret = true;
+        }
+    } else if (in->rt_ == NULL && out->rt_) {
+        //This packet should not be ideally trapped
+        //from vrouter for flow setup.
+        //VxLAN nexthop would be set with flag
+        //to flood multicast, hence we would
+        //hit all broadcast multicast route and
+        //packet would never be trapped for flow setup
+        Agent *agent = flow_table->agent();
+        tunnel_type = pkt->tunnel.type;
+        if (tunnel_type.GetType() == TunnelType::VXLAN) {
+            VxLanTable *table = static_cast<VxLanTable *>(agent->vxlan_table());
+            VxLanId *vxlan = table->Find(pkt->tunnel.vxlan_id);
+            if (vxlan && vxlan->nexthop()) {
+                const VrfNH *vrf_nh =
+                    static_cast<const VrfNH *>(vxlan->nexthop());
+                if (vrf_nh->flood_unknown_unicast()) {
+                    flow_source_vrf = flow_dest_vrf =
+                        static_cast<const AgentRoute *>(out->rt_)->vrf_id();
+                    flood_unknown_unicast = true;
+                    ret = true;
+                }
+            }
+        }
+    }
+    return ret;
+}
+
 bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
                           PktControlInfo *out) {
     if (pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
@@ -1218,6 +1261,12 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         IngressProcess(pkt, in, out);
     } else {
         EgressProcess(pkt, in, out);
+    }
+
+    if (l3_flow == false) {
+        if (UnknownUnicastFlow(pkt, in, out) == true) {
+            return true;
+        }
     }
 
     if (in->rt_ == NULL) {
