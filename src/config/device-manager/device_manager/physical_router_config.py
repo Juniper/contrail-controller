@@ -379,6 +379,13 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(family_etree, family)
     # end _add_family_etree
 
+    def add_bgp_auth_config(self, bgp_config, bgp_params):
+        if bgp_params.get('auth_data') is None:
+            return
+        keys = bgp_params['auth_data'].get('key_items', [])
+        if len(keys) > 0:
+            etree.SubElement(bgp_config, "authentication-key").text = keys[0].get('key')
+
     def set_bgp_config(self, params):
         self.bgp_params = params
         if (self.vnc_managed is None or self.vnc_managed == False):
@@ -406,6 +413,7 @@ class PhysicalRouterConfig(object):
         local_address = etree.SubElement(bgp_config, "local-address")
         local_address.text = self.bgp_params['address']
         self._add_family_etree(bgp_config, self.bgp_params)
+        self.add_bgp_auth_config(bgp_config, self.bgp_params)
         etree.SubElement(bgp_config, "keep").text = "all"
         return bgp_config
     # end _get_bgp_config_xml
@@ -465,6 +473,7 @@ class PhysicalRouterConfig(object):
                     # not specified
                     if attr.get('bgp_router') is None:
                         self._add_family_etree(nbr, attr)
+                        self.add_bgp_auth_config(nbr, attr)
                         break
             if params.get('autonomous_system') is not None:
                 etree.SubElement(nbr, "peer-as").text = str(params.get('autonomous_system'))
