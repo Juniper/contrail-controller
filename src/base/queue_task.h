@@ -130,7 +130,6 @@ public:
         start_runner_(0),
         current_runner_(NULL),
         on_entry_defer_count_(0),
-        disabled_(false),
         deleted_(false),
         enqueues_(0),
         dequeues_(0),
@@ -143,6 +142,7 @@ public:
         count_ = 0;
         hwater_index_ = -1;
         lwater_index_ = -1;
+        disabled_ = false;
     }
 
     // Concurrency - should be called from a task whose policy
@@ -302,10 +302,13 @@ public:
         on_exit_cb_ = on_exit;
     }
 
-    // For testing only.
     void set_disable(bool disabled) {
-        disabled_ = disabled;
-        MayBeStartRunner();
+        if (disabled_ != disabled) {
+            disabled_ = disabled;
+            if (!disabled_) {
+                MayBeStartRunner();
+            }
+        }
     }
 
     bool IsDisabled() const {
@@ -509,7 +512,7 @@ private:
     StartRunnerFunc start_runner_;
     QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> > *current_runner_;
     size_t on_entry_defer_count_;
-    bool disabled_;
+    tbb::atomic<bool> disabled_;
     bool deleted_;
     size_t enqueues_;
     size_t dequeues_;
