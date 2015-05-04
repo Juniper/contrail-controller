@@ -135,6 +135,8 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::ControllerXmpp",
         "Agent::RouteWalker",
         "db::DBTable",
+        "xmpp::StateMachine",
+        "bgp::ShowCommand",
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("bgp::Config", xmpp_config_exclude_list, 
