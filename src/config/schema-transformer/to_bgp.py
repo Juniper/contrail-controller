@@ -1406,7 +1406,7 @@ class RoutingInstanceST(object):
     def update_route_target_list(self, rt_add, rt_del=None,
                                  import_export=None):
         for rt in rt_add:
-            rtgt_obj = RouteTarget(rt)
+            rtgt_obj = RouteTargetST.locate(rt).obj
             inst_tgt_data = InstanceTargetType(import_export=import_export)
             self.obj.add_route_target(rtgt_obj, inst_tgt_data)
         for rt in rt_del or set():
@@ -2414,6 +2414,7 @@ class LogicalRouterST(DBBaseST):
         self.name = name
         self.interfaces = set()
         self.virtual_networks = set()
+        self.rt_list = set()
         if not obj:
             obj = self.read_vnc_obj(fq_name=name)
         rt_ref = obj.get_route_target_refs()
@@ -2474,12 +2475,12 @@ class LogicalRouterST(DBBaseST):
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
                 ri_obj.update_route_target_list(rt_add=set(),
-                                                rt_del=[self.route_target])
+                                                rt_del=self.rt_list|set([self.route_target]))
         for vn in vn_set - self.virtual_networks:
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_add=[self.route_target])
+                ri_obj.update_route_target_list(rt_add=self.rt_list|set([self.route_target]))
         self.virtual_networks = vn_set
     # end set_virtual_networks
 
@@ -2504,6 +2505,20 @@ class LogicalRouterST(DBBaseST):
         RouteTargetST.delete(old_rt)
         self.route_target = rt_key
     # end update_autonomous_system
+
+    def set_route_target_list(self, rt_list):
+        old_rt_list = self.rt_list
+        self.rt_list = set(rt_list.get_route_target())
+        rt_add = self.rt_list - old_rt_list
+        rt_del = old_rt_list - self.rt_list
+
+        for vn in self.virtual_networks:
+            vn_obj = VirtualNetworkST.get(vn)
+            if vn_obj is not None:
+                ri_obj = vn_obj.get_primary_routing_instance()
+                ri_obj.update_route_target_list(rt_del=rt_del,
+                                                rt_add=rt_add)
+    # end set_route_target_list
 
 # end LogicaliRouterST
 
@@ -2955,6 +2970,22 @@ class SchemaTransformer(object):
             vn.set_route_target_list(rt_list)
             self.current_network_set.add(vn_name)
     # end delete_route_target_list
+
+    def add_configured_route_target_list(self, idents, meta):
+        lr_name = idents['logical-router']
+        rt_list = RouteTargetList()
+        rt_list.build(meta)
+        lr = LogicalRouterST.locate(lr_name)
+        lr.set_route_target_list(rt_list)
+    # end add_configured_route_target_list
+
+    def delete_configured_route_target_list(self, idents, meta):
+        lr_name = idents['logical-router']
+        lr = VirtualNetworkST.get(lr_name)
+        if lr:
+            rt_list = RouteTargetList()
+            lr.set_route_target_list(rt_list)
+    # end delete_configured_route_target_list
 
     def add_bgp_router_parameters(self, idents, meta):
         router_name = idents['bgp-router']

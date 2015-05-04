@@ -754,6 +754,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('route-target-list', 'virtual-network') -->
 
+<xsd:element name="configured-route-target-list" type="RouteTargetList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('configured-route-target-list', 'logical-router') -->
+
 <xsd:element name="router-external" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('router-external', ['backend']);

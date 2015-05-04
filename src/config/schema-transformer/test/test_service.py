@@ -788,4 +788,44 @@ class TestPolicy(test_case.STTestCase):
 	self._vnc_lib.bgp_router_delete(id=router4.uuid)
         gevent.sleep(1)
 
+    # test logical router functionality
+    def test_logical_router(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create virtual machine interface
+        vmi_name = self.id() + 'vmi1'
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project', fq_name=['default-domain', 'default-project', vmi_name])
+        vmi.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        # create logical router
+        lr_name = self.id() + 'lr1'
+        lr = LogicalRouter(lr_name)
+        rtgt_list = RouteTargetList(route_target=['target:1:1'])
+        lr.set_configured_route_target_list(rtgt_list)
+        lr.add_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_create(lr)
+
+        ri_name = self.get_ri_name(vn1_obj)
+        self.check_route_target_in_routing_instance(ri_name, rtgt_list.get_route_target())
+
+        rtgt_list.add_route_target('target:1:2')
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_update(lr)
+        self.check_route_target_in_routing_instance(ri_name, rtgt_list.get_route_target())
+
+        rtgt_list.delete_route_target('target:1:1')
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_update(lr)
+        self.check_route_target_in_routing_instance(ri_name, rtgt_list.get_route_target())
+
+        lr.del_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_update(lr)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+
 # end class TestRouteTable
