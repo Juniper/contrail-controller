@@ -810,7 +810,7 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
             state_machine->active_session()) {
             // Need to resolve connection collision.
             uint32_t local_bgp_id = peer->server()->bgp_identifier();
-            if (ntohl(event.msg->identifier) > local_bgp_id) {
+            if (event.msg->identifier > local_bgp_id) {
                 // Passive connection wins, close the active session.
                 peer->SendNotification(state_machine->active_session(),
                     BgpProto::Notification::Cease,

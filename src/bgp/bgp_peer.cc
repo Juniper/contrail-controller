@@ -824,7 +824,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     BgpProto::OpenMessage openmsg;
     openmsg.as_num = local_as_;
     openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
-    openmsg.identifier = local_bgp_id_;
+    openmsg.identifier = ntohl(local_bgp_id_);
     static const uint8_t cap_mp[6][4] = {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
@@ -973,7 +973,7 @@ void BgpPeer::SendNotification(BgpSession *session,
 }
 
 void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
-    remote_bgp_id_ = msg->identifier;
+    remote_bgp_id_ = htonl(msg->identifier);
     capabilities_.clear();
     std::vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
     for (it = msg->opt_params.begin(); it < msg->opt_params.end(); ++it) {
@@ -1734,13 +1734,13 @@ void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
     nbr.set_deleted(IsDeleted());
     nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
-    nbr.set_peer_id(Ip4Address(remote_bgp_id_).to_string());
+    nbr.set_peer_id(Ip4Address(ntohl(remote_bgp_id_)).to_string());
     nbr.set_peer_asn(peer_as());
     nbr.set_encoding("BGP");
     nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
     nbr.set_state(state_machine_->StateName());
     nbr.set_local_address(server_->ToString());
-    nbr.set_local_id(Ip4Address(htonl(local_bgp_id_)).to_string());
+    nbr.set_local_id(Ip4Address(ntohl(local_bgp_id_)).to_string());
     nbr.set_local_asn(local_as());
     nbr.set_negotiated_hold_time(state_machine_->hold_time());
     nbr.set_auth_type(AuthenticationData::KeyTypeToString(inuse_authkey_type_));
