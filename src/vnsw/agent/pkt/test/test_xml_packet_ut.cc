@@ -82,6 +82,19 @@ TEST_F(TestPkt, l2_sg_flow_1) {
     }
 }
 
+TEST_F(TestPkt, rpf_flow) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/rpf-flow.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
 TEST_F(TestPkt, unknown_unicast_flood) {
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/unknown-unicast-flood.xml");
     AgentUtXmlOperInit(&test);
@@ -107,9 +120,13 @@ int main(int argc, char *argv[]) {
     client = XmlPktParseTestInit(init_file, ksync_init);
     client->agent()->flow_stats_collector()->set_expiry_time(1000*1000);
     client->agent()->flow_stats_collector()->set_delete_short_flow(false);
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                          "xmpp channel");
     usleep(1000);
     client->WaitForIdle();
     int ret = RUN_ALL_TESTS();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     delete client;
     return ret;
