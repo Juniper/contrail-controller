@@ -35,3 +35,18 @@ objectlog sandesh VncApiConfigLog {
 systemlog sandesh VncApiError {
     1: string api_error_msg;
 }
+
+struct ContrailConfigElem {
+    1: string attribute
+    2: string value // This holds the JSON-encoded value of the attribute
+}
+
+struct ContrailConfig {
+    1: string name (key="none")
+    2: list<ContrailConfigElem> properties
+    3: bool deleted
+}
+
+uve sandesh ContrailConfigTrace {
+    1: ContrailConfig data
+}
