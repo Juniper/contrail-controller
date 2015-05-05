@@ -80,6 +80,7 @@ class HttpSession: public TcpSession {
       { client_context_str_ = client_ctx; }
     boost::scoped_ptr<RequestBuilder> request_builder_;
     tbb::concurrent_queue<HttpRequest *> request_queue_;
+    tbb::atomic<bool> req_queue_empty_;
     std::string context_str_;
     std::string client_context_str_;
     SessionEventCb event_cb_;
