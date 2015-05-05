@@ -1358,6 +1358,7 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class NextHopTable : public AgentDBTable {
 public:
+    static const uint32_t kRpfDiscardIndex = 2;
     NextHopTable(DB *db, const std::string &name);
     virtual ~NextHopTable();
 
@@ -1412,6 +1413,7 @@ public:
     // NextHop index managing routines
     void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
     NextHop *FindNextHop(size_t index);
+    uint32_t ReserveIndex();
 
 private:
     NextHop *AllocWithKey(const DBRequestKey *k) const;

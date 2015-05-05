@@ -209,6 +209,11 @@ static void CreateVrfIndependentNextHop(Agent *agent) {
         (agent->nexthop_table()->FindActiveEntry(&key1));
     agent->nexthop_table()->set_discard_nh(nh);
 
+    //Reserve index 2, this would be used to
+    //set as RPF NH when packet has to be discarded
+    //due to source route mismatch
+    assert(agent->nexthop_table()->ReserveIndex() ==
+               NextHopTable::kRpfDiscardIndex);
     L2ReceiveNH::Create();
     L2ReceiveNHKey key2;
     nh = static_cast<NextHop *>
@@ -238,7 +243,6 @@ void AgentInit::CreateVrfBase() {
 }
 
 void AgentInit::CreateNextHopsBase() {
-    CreateVrfIndependentNextHop(agent_.get());
     CreateNextHops();
 }
 
