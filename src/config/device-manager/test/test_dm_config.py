@@ -118,6 +118,39 @@ class TestDM(test_case.DMTestCase):
         result = dictMatch(expect_cfg, gen_cfg)
         self.assertTrue(result)
             
+    def test_dm_md5_auth_config(self):
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        key = AuthenticationKeyItem(0, 'bgppswd')
+        bgp_router.get_bgp_router_parameters().set_auth_data(AuthenticationData('md5', [key]))
+        self._vnc_lib.bgp_router_update(bgp_router)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><authentication-key>bgppswd</authentication-key><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><authentication-key>bgppswd</authentication-key><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        #bgp peering, auth validate
+        bgp_router1, pr1 = self.create_router('router2', '10.1.1.1')
+        bgp_router2, pr2 = self.create_router('router3', '20.2.2.2')
+        families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
+        key1 = AuthenticationKeyItem(0, 'bgppswd')
+        auth1 = AuthenticationData('md5', [key1])
+        bgp_router1.get_bgp_router_parameters().set_auth_data(auth1)
+        key2 = AuthenticationKeyItem(0, 'bgppswd-neigh')
+        auth2 = AuthenticationData('md5', [key2])
+        bgp_sess_attrs = [BgpSessionAttributes(address_families=families, auth_data=auth2)]
+        bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
+        bgp_peering_attrs = BgpPeeringAttributes(session=bgp_sessions)
+        bgp_router1.add_bgp_router(bgp_router2, bgp_peering_attrs)
+        self._vnc_lib.bgp_router_update(bgp_router1)
+        
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>10.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><authentication-key>bgppswd</authentication-key><keep>all</keep><neighbor><name>20.2.2.2</name><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn></family><authentication-key>bgppswd-neigh</authentication-key></neighbor></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>10.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><authentication-key>bgppswd</authentication-key><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+    #end test_dm_md5_auth_config
+
     #dynamic tunnel test case - 1
     # 1. configure ip fabric subnets, 
     # 2. create physical  router with data plane source ip
