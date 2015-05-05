@@ -39,8 +39,12 @@ class Controller(object):
         self.vrouter_macs = {}
         for vr in self.analytic_api.list_vrouters():
             d = self.analytic_api.get_vrouter(vr, 'VrouterAgent:phy_if')
-            d.update(self.analytic_api.get_vrouter(vr,
-                        'VrouterAgent:self_ip_list'))
+            if 'VrouterAgent' not in d:
+                d['VrouterAgent'] = {}
+            _ipl = self.analytic_api.get_vrouter(vr,
+                    'VrouterAgent:self_ip_list')
+            if 'VrouterAgent' in _ipl:
+                d['VrouterAgent'].update(_ipl['VrouterAgent'])
             if 'VrouterAgent' not in d or\
                 'self_ip_list' not in d['VrouterAgent'] or\
                 'phy_if' not in d['VrouterAgent']:
@@ -102,15 +106,25 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
-                if pl['lldpRemLocalPortNum'] in ifm and \
-                        pl['lldpRemPortId'].isdigit():
+                if pl['lldpRemLocalPortNum'] in ifm:
+                    if pl['lldpRemPortId'].isdigit():
+                        rii = int(pl['lldpRemPortId'])
+                    else:
+                        try:
+                            rii = filter(lambda y: y['ifName'] == pl[
+                                    'lldpRemPortId'], [ x for x in self.prouters \
+                                    if x.name == 'a7-c2960'][0].data[
+                                    'PRouterEntry']['ifXTable'])[0]['ifIndex']
+                        except:
+                            rii = 0
+
                     if self._add_link(
                             prouter=prouter,
                             remote_system_name=pl['lldpRemSysName'],
                             local_interface_name=ifm[pl['lldpRemLocalPortNum']],
                             remote_interface_name=pl['lldpRemPortDesc'],
                             local_interface_index=pl['lldpRemLocalPortNum'],
-                            remote_interface_index=int(pl['lldpRemPortId']),
+                            remote_interface_index=rii,
                             link_type=1):
                         lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
