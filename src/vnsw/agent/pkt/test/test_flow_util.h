@@ -167,6 +167,15 @@ public:
         }
     };
 
+    bool FlowStatus(bool active) {
+        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
+        if (fe == NULL || fe->deleted()) {
+            return !active;
+        }
+
+        return active;
+    }
+
     FlowEntry* Send() {
         if (ifindex_) {
             SendIngressFlow();
@@ -178,15 +187,9 @@ public:
         if (allow_wait_for_idle_) {
             client->WaitForIdle();
         }
-        int count = 0;
-        while (count < 3000) {
-            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
-            if (fe != NULL && fe->deleted() != true)
-                break;
-            usleep(1000);
-            count++;
-        }
-        EXPECT_TRUE(count < 3000);
+
+        WAIT_FOR(1000, 3000, FlowStatus(true));
+
         //Get flow 
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_,
                                 nh_id_);
@@ -211,15 +214,8 @@ public:
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         FlowDeleteTask * task = new FlowDeleteTask(key);
         scheduler->Enqueue(task);
-        int count = 0;
-        while (count < 3000) {
-            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
-            if (fe == NULL || fe->deleted() == true)
-                break;
-            usleep(1000);
-            count++;
-        }
-        EXPECT_TRUE(count < 3000);
+
+        WAIT_FOR(1000, 3000, FlowStatus(false));
     };
 
     const FlowEntry *FlowFetch() {

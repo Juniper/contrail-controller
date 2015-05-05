@@ -1469,6 +1469,66 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
+    Ip4Address addr = Ip4Address::from_string("20.1.1.1");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 30, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
+            IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("vrf1")->vrf_id());
+
+    Inet4TunnelRouteAdd(NULL, "default-project:vn2:vn2", addr, 32, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    // since route in fip VRF should be prefered adding  the route should
+    // result in picking floating-ip, so due to conversion from NON-NAT to NAT
+    // it should become short flow.
+    EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("vrf1")->vrf_id());
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
+
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 30, NULL);
+    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2", addr, 32, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 3000, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+}
+
+TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
+    Ip4Address addr = Ip4Address::from_string("20.1.1.1");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+    Inet4TunnelRouteAdd(NULL, "default-project:vn2:vn2", addr, 32, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
+            IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
+
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 30, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    // addition of route with lower prefix length should be a no op
+    // so flow doesnot become short flow
+    EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == false);
+
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 30, NULL);
+    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2", addr, 32, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 3000, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+}
+
 TEST_F(FlowTest, Prefer_fip2_over_fip1_lower_addr) {
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_2");
     client->WaitForIdle();
