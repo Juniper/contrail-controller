@@ -324,7 +324,8 @@ class FlowEntry {
         Multicast       = 1 << 8,
         // a local port bind is done (used as as src port for linklocal nat)
         LinkLocalBindLocalSrcPort = 1 << 9,
-        TcpAckFlow      = 1 << 10
+        TcpAckFlow      = 1 << 10,
+        UnknownUnicastFlood = 1 << 11
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
@@ -591,10 +592,13 @@ public:
         AclDBEntryConstRef macl_;
         AclDBEntryConstRef mcacl_;
         bool enable_rpf_;
+        bool flood_unknown_unicast_;
         VnFlowHandlerState(const AclDBEntry *acl, 
                            const AclDBEntry *macl,
-                           const AclDBEntry *mcacl, bool enable_rpf) :
-           acl_(acl), macl_(macl), mcacl_(mcacl), enable_rpf_(enable_rpf) { }
+                           const AclDBEntry *mcacl, bool enable_rpf,
+                           bool flood_unknown_unicast) :
+           acl_(acl), macl_(macl), mcacl_(mcacl), enable_rpf_(enable_rpf),
+           flood_unknown_unicast_(flood_unknown_unicast){ }
         virtual ~VnFlowHandlerState() { }
     };
     struct VmIntfFlowHandlerState : public DBState {
@@ -678,6 +682,7 @@ public:
     void IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb);
     RouteFlowInfo *FindRouteFlowInfo(RouteFlowInfo *key);
     void FlowRecompute(RouteFlowInfo *rt_info);
+    void FlowL2Recompute(RouteFlowInfo *rt_info);
 
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);

@@ -380,6 +380,9 @@ public:
     const boost::uuids::uuid &logical_interface() const {
         return logical_interface_;
     }
+    bool flood_unknown_unicast() const {
+        return flood_unknown_unicast_;
+    }
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
@@ -655,6 +658,7 @@ private:
     int vxlan_id_;
     bool bridging_;
     bool layer3_forwarding_;
+    bool flood_unknown_unicast_;
     bool mac_set_;
     bool ecmp_;
     // VLAN Tag and the parent interface when VLAN is enabled

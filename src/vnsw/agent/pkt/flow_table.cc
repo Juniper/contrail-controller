@@ -1417,8 +1417,19 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         set_flags(FlowEntry::Multicast);
     }
 
-    GetSourceRouteInfo(ctrl->rt_);
-    GetDestRouteInfo(rev_ctrl->rt_);
+    reset_flags(FlowEntry::UnknownUnicastFlood);
+    if (info->flood_unknown_unicast) {
+        set_flags(FlowEntry::UnknownUnicastFlood);
+        if (info->ingress) {
+            GetSourceRouteInfo(ctrl->rt_);
+        } else {
+            GetSourceRouteInfo(rev_ctrl->rt_);
+        }
+        data_.dest_vn = data_.source_vn;
+    } else {
+        GetSourceRouteInfo(ctrl->rt_);
+        GetDestRouteInfo(rev_ctrl->rt_);
+    }
 
     data_.smac = pkt->smac;
     data_.dmac = pkt->dmac;
@@ -1467,8 +1478,24 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
         reset_flags(FlowEntry::Trap);
     }
 
-    GetSourceRouteInfo(ctrl->rt_);
-    GetDestRouteInfo(rev_ctrl->rt_);
+    reset_flags(FlowEntry::UnknownUnicastFlood);
+    if (info->flood_unknown_unicast) {
+        set_flags(FlowEntry::UnknownUnicastFlood);
+        if (info->ingress) {
+            GetSourceRouteInfo(rev_ctrl->rt_);
+        } else {
+            GetSourceRouteInfo(ctrl->rt_);
+        }
+        //Set source VN and dest VN to be same
+        //since flooding happens only for layer2 routes
+        //SG id would be left empty, user who wants
+        //unknown unicast to happen should modify the
+        //SG to allow such traffic
+        data_.dest_vn = data_.source_vn;
+    } else {
+        GetSourceRouteInfo(ctrl->rt_);
+        GetDestRouteInfo(rev_ctrl->rt_);
+    }
 
     data_.smac = pkt->dmac;
     data_.dmac = pkt->smac;
@@ -1762,6 +1789,7 @@ void FlowTable::VnNotify(DBTablePartBase *part, DBEntryBase *e)
     AclDBEntryConstRef macl = NULL;
     AclDBEntryConstRef mcacl = NULL;
     bool enable_rpf = true;
+    bool flood_unknown_unicast = false;
 
     if (vn->IsDeleted()) {
         DeleteVnFlows(vn);
@@ -1777,25 +1805,33 @@ void FlowTable::VnNotify(DBTablePartBase *part, DBEntryBase *e)
         macl = state->macl_;
         mcacl = state->mcacl_;
         enable_rpf = state->enable_rpf_;
+        flood_unknown_unicast = state->flood_unknown_unicast_;
     }
 
     const AclDBEntry *new_acl = vn->GetAcl();
     const AclDBEntry *new_macl = vn->GetMirrorAcl();
     const AclDBEntry *new_mcacl = vn->GetMirrorCfgAcl();
     bool new_enable_rpf = vn->enable_rpf();
+    bool new_flood_unknown_unicast = vn->flood_unknown_unicast();
     
     if (state == NULL) {
         state = new VnFlowHandlerState(new_acl, new_macl, new_mcacl,
-                                       new_enable_rpf);
+                                       new_enable_rpf,
+                                       new_flood_unknown_unicast);
         e->SetState(part->parent(), vn_listener_id_, state);
     }
 
     if (acl != new_acl || macl != new_macl || mcacl !=new_mcacl ||
-        enable_rpf != new_enable_rpf) {
+        enable_rpf != new_enable_rpf ||
+        flood_unknown_unicast != new_flood_unknown_unicast) {
         state->acl_ = new_acl;
         state->macl_ = new_macl;
         state->mcacl_ = new_mcacl;
         state->enable_rpf_ = new_enable_rpf;
+        state->flood_unknown_unicast_ = new_flood_unknown_unicast;
+        if (flood_unknown_unicast != new_flood_unknown_unicast) {
+            std::cout << "Flood flag changed\n";
+        }
         ResyncVnFlows(vn);
     }
 }
@@ -2147,6 +2183,17 @@ void BridgeEntryFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
 }
 
 void BridgeEntryFlowUpdate::RouteAdd(AgentRoute *entry) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    BridgeRouteEntry *route = static_cast< BridgeRouteEntry*>(entry);
+    FlowTable *table = agent->pkt()->flow_table();
+    RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
+    RouteFlowInfo rt_key(key);
+    RouteFlowInfo *rt_info =
+        table->route_flow_tree_.Find(&rt_key);
+    if (rt_info == NULL) {
+        return;
+    }
+    agent->pkt()->flow_table()->FlowL2Recompute(rt_info);
 }
 
 bool BridgeEntryFlowUpdate::DelEntry(FlowEntry *fe, FlowTable *table,
@@ -2323,6 +2370,15 @@ void FlowTable::ResyncVnFlows(const VnEntry *vn) {
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
+        //Mark the flow as short if flood unknown
+        //unicast flag is reset
+        if (vn->flood_unknown_unicast() == false &&
+            fe->is_flags_set(FlowEntry::UnknownUnicastFlood)) {
+            fe->MakeShortFlow(FlowEntry::SHORT_NO_DST_ROUTE);
+            fe->GetPolicyInfo(vn);
+            ResyncAFlow(fe);
+            continue;
+        }
         fe->GetPolicyInfo(vn);
         ResyncAFlow(fe);
         AddFlowInfo(fe);
@@ -2404,6 +2460,33 @@ void FlowTable::FlowRecompute(RouteFlowInfo *rt_info) {
         }
     }
 }
+
+void FlowTable::FlowL2Recompute(RouteFlowInfo *rt_info) {
+    if (rt_info == NULL) {
+        return;
+    }
+    FlowEntryTree fet = rt_info->fet;
+    FlowEntryTree::iterator it;
+    it = fet.begin();
+    for (;it != fet.end(); ++it) {
+        FlowEntry *fe = (*it).get();
+        if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+            continue;
+        }
+        if (fe->is_flags_set(FlowEntry::UnknownUnicastFlood) == false) {
+            continue;
+        }
+        if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
+            /* for reverse flow trigger a re-eval on its forward flow */
+            fe = fe->reverse_flow_entry();
+        }
+        if (fe->set_pending_recompute(true)) {
+            agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
+                    new FlowTaskMsg(fe));
+        }
+    }
+}
+
 
 // Iterate thru Inet FlowEntryTree and invoke call back for each flow entry
 void FlowTable::IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb) {

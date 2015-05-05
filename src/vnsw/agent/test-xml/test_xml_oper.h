@@ -42,10 +42,14 @@ public:
 
     std::string &vxlan_id() { return vxlan_id_;}
     std::string &network_id() { return network_id_;}
+    std::string &flood_unknown_unicast() {
+        return flood_unknown_unicast_;
+    }
 
 private:
     std::string vxlan_id_;
     std::string network_id_;
+    std::string flood_unknown_unicast_;
 };
 
 class AgentUtXmlVm : public AgentUtXmlConfig {

@@ -952,17 +952,20 @@ private:
 
 class VrfNHData : public NextHopData {
 public:
-    VrfNHData() : NextHopData() { }
+    VrfNHData(bool flood_unknown_unicast) : NextHopData(),
+    flood_unknown_unicast_(flood_unknown_unicast) {}
     virtual ~VrfNHData() { }
 private:
     friend class VrfNH;
+    bool flood_unknown_unicast_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHData);
 };
 
 class VrfNH : public NextHop {
 public:
-    VrfNH(VrfEntry *vrf, bool policy, bool vxlan_nh_) :
-        NextHop(VRF, true, policy), vrf_(vrf), vxlan_nh_(vxlan_nh_) { };
+    VrfNH(VrfEntry *vrf, bool policy, bool vxlan_nh_):
+        NextHop(VRF, true, policy), vrf_(vrf), vxlan_nh_(vxlan_nh_),
+        flood_unknown_unicast_(false) {}
     virtual ~VrfNH() { };
 
     virtual std::string ToString() const { return "VrfNH"; };
@@ -980,11 +983,14 @@ public:
         return true;
     }
     bool vxlan_nh() const { return vxlan_nh_; }
-
+    bool flood_unknown_unicast() const {
+        return flood_unknown_unicast_;
+    }
 private:
     VrfEntryRef vrf_;
     // NH created by VXLAN
     bool vxlan_nh_;
+    bool flood_unknown_unicast_;
     DISALLOW_COPY_AND_ASSIGN(VrfNH);
 };
 
