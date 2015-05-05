@@ -2146,6 +2146,15 @@ class AnalyticsFixture(fixtures.Fixture):
         return actual_uve_list == exp_uve_list
     # end verify_uve_list
 
+    def _remove_alarm_token(self, data):
+        for item in data:
+            if 'UVEAlarms' in item['value'] and \
+                'alarms' in item['value']['UVEAlarms']:
+                for alarm in item['value']['UVEAlarms']['alarms']:
+                    if 'token' in alarm:
+                        del alarm['token']
+    # end _remove_alarm_token
+
     def _verify_uves(self, exp_uves, actual_uves):
         self.logger.info('Expected UVEs: %s' % (str(exp_uves)))
         self.logger.info('Actual UVEs: %s' % (str(actual_uves)))
@@ -2153,8 +2162,13 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         exp_uve_value = exp_uves['value']
         actual_uve_value = actual_uves['value']
+        self.logger.info('Remove token from alarms')
+        self._remove_alarm_token(exp_uve_value)
+        self._remove_alarm_token(actual_uve_value)
         exp_uve_value.sort()
         actual_uve_value.sort()
+        self.logger.info('Expected UVE value: %s' % (str(exp_uve_value)))
+        self.logger.info('Actual UVE value: %s' % (str(actual_uve_value)))
         return actual_uve_value == exp_uve_value
     # end _verify_uves
 
@@ -2216,8 +2230,13 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         exp_alarm_value = exp_alarms['value']
         actual_alarm_value = actual_alarms['value']
+        self.logger.info('Remove token from alarms')
+        self._remove_alarm_token(exp_alarm_value)
+        self._remove_alarm_token(actual_alarm_value)
         exp_alarm_value.sort()
         actual_alarm_value.sort()
+        self.logger.info('Expected Alarm value: %s' % (str(exp_alarm_value)))
+        self.logger.info('Actual Alarm value: %s' % (str(actual_alarm_value)))
         return actual_alarm_value == exp_alarm_value
     # end _verify_alarms
 

@@ -22,6 +22,8 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'cpuinfo.py',
+           'generator_introspect_util.py',
+           'introspect_util.py',
            'opserver.py',
            'opserver_client.py',
            'opserver_util.py',
@@ -58,11 +60,13 @@ redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opser
 discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', False)
 analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
 alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', False)
+alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
+OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules, 
                  viz_pkg, analytics_pkg, cpu_info_pkg, redis_pkg,
                  process_info_pkg, discovery_pkg, analytics_database_pkg,
-                 alarmgen_pkg]
+                 alarmgen_pkg, alarm_sandesh_base_pkg]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')

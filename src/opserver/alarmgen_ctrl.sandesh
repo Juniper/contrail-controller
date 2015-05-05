@@ -8,6 +8,8 @@
  *  Sandesh messages for Alarm Generator
  */
 
+include "sandesh/library/common/sandesh_alarm_base.sandesh"
+
 request sandesh PartitionOwnershipReq {
     1: u32                      partition
     2: bool                     ownership
@@ -42,36 +44,13 @@ response sandesh PartitionStatusResp {
     3: list<UVECollInfo>        uves
 }
 
-struct AlarmElement {
-    1: string                      rule
-    2: string                      value
-}
-
-struct UVEAlarmInfo {
-    1: string                      type
-    2: list<AlarmElement>          description
-    3: bool                        ack
-    4: u64                         timestamp
-    5: byte                        severity
-}
-
-struct UVEAlarms {
-    1: string                      name (key="none")
-    2: list<UVEAlarmInfo>          alarms
-    3: optional bool               deleted
-}
-
 request sandesh UVETableAlarmReq {
     1: string                      table
 }
 
 response sandesh UVETableAlarmResp {
-    1: string                      table
-    2: list<UVEAlarms>             uves
-}
-
-alarm sandesh AlarmTrace {
-    1: UVEAlarms                   data
+    1: string table
+    2: list<sandesh_alarm_base.UVEAlarms> uves
 }
 
 struct UVETypeInfo {

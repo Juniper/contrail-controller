@@ -3,7 +3,7 @@
 #
 
 import re
-from verification_util import *
+from opserver.introspect_util import *
 
 
 def _OpResult_get_list_name(lst):

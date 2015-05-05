@@ -50,6 +50,7 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
         defaults = {
+            'host_ip'           : '127.0.0.1',
             'collectors'        : ['127.0.0.1:8086'],
             'kafka_broker_list' : ['127.0.0.1:9092'],
             'log_local'         : False,
@@ -100,6 +101,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
         defaults.update(redis_opts)
         defaults.update(disc_opts)
         parser.set_defaults(**defaults)
+        parser.add_argument("--host_ip",
+            help="Host IP address")
         parser.add_argument("--collectors",
             help="List of Collector IP addresses in ip:port format",
             nargs="+")
@@ -218,3 +221,6 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
     def redis_server_port(self):
         return self._args.redis_server_port
+
+    def host_ip(self):
+        return self._args.host_ip

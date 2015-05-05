@@ -64,6 +64,7 @@ from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
 from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
+from generator_introspect_util import GeneratorIntrospectUtil
 from stevedore import hook
 
 _ERRORS = {
@@ -357,6 +358,8 @@ class OpServer(object):
         bottle.route('/analytics', 'GET', obj.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', obj.uves_http_get)
         bottle.route('/analytics/alarms', 'GET', obj.alarms_http_get)
+        bottle.route('/analytics/alarms/acknowledge', 'POST',
+            obj.alarms_ack_http_post)
         bottle.route(
             '/analytics/virtual-networks', 'GET', obj.uve_list_http_get)
         bottle.route(
@@ -637,6 +640,8 @@ class OpServer(object):
         bottle.route('/analytics', 'GET', self.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', self.uves_http_get)
         bottle.route('/analytics/alarms', 'GET', self.alarms_http_get)
+        bottle.route('/analytics/alarms/acknowledge', 'POST',
+            self.alarms_ack_http_post)
         bottle.route(
             '/analytics/virtual-networks', 'GET', self.uve_list_http_get)
         bottle.route(
@@ -1612,6 +1617,51 @@ class OpServer(object):
     def alarms_http_get(self):
         return self._uves_alarms_http_get(is_alarm=True)
     # end alarms_http_get
+
+    def alarms_ack_http_post(self):
+        self._post_common(bottle.request, None)
+        if ('application/json' not in bottle.request.headers['Content-Type']):
+            self._logger.error('Content-type is not JSON')
+            return bottle.HTTPError(_ERRORS[errno.EBADMSG],
+                'Content-Type must be JSON')
+        self._logger.info('Alarm Acknowledge request: %s' % 
+            (bottle.request.json))
+        alarm_ack_fields = set(['table', 'name', 'type', 'token'])
+        bottle_req_fields = set(bottle.request.json.keys())
+        if len(alarm_ack_fields - bottle_req_fields):
+            return bottle.HTTPError(_ERRORS[errno.EINVAL],
+                'Alarm acknowledge request does not contain the fields '
+                '{%s}' % (', '.join(alarm_ack_fields - bottle_req_fields)))
+        # Decode generator ip, introspect port and timestamp from the
+        # the token field.
+        try:
+            token = json.loads(base64.b64decode(bottle.request.json['token']))
+        except (TypeError, ValueError):
+            self._logger.error('Alarm Ack Request: Failed to decode "token"')
+            return bottle.HTTPError(_ERRORS[errno.EINVAL],
+                'Failed to decode "token"')
+        exp_token_fields = set(['host_ip', 'http_port', 'timestamp'])
+        actual_token_fields = set(token.keys())
+        if len(exp_token_fields - actual_token_fields):
+            self._logger.error('Alarm Ack Request: Invalid token value')
+            return bottle.HTTPError(_ERRORS[errno.EINVAL],
+                'Invalid token value')
+        generator_introspect = GeneratorIntrospectUtil(token['host_ip'],
+                                                       token['http_port'])
+        try:
+            res = generator_introspect.send_alarm_ack_request(
+                bottle.request.json['table'], bottle.request.json['name'],
+                bottle.request.json['type'], token['timestamp'])
+        except Exception as e:
+            self._logger.error('Alarm Ack Request: Introspect request failed')
+            return bottle.HTTPError(_ERRORS[errno.EBUSY],
+                'Failed to process the Alarm Ack Request')
+        self._logger.debug('Alarm Ack Response: %s' % (res))
+        if res['status'] == 'false':
+            return bottle.HTTPError(_ERRORS[errno.EIO], res['error_msg'])
+        self._logger.info('Alarm Ack Request successfully processed')
+        return bottle.HTTPResponse(status=200)
+    # end alarms_ack_http_post
 
     def send_trace_buffer(self, source, module, instance_id, name):
         response = {}
