@@ -218,7 +218,9 @@ class Subnet(object):
                 exclude.append(gw_ip)
                 break
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
-                                              addr_from_start)
+                                              addr_from_start,
+                                              network.first,
+                                              network.size)
 
         # reserve excluded addresses
         for addr in exclude:
