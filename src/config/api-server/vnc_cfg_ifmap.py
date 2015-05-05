@@ -901,11 +901,38 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def walk(self, fn):
         walk_results = []
-        for obj_uuid, obj_cols in self._obj_uuid_cf.get_range(
-                                       column_count=self._MAX_COL):
-            result = fn(obj_uuid, obj_cols)
-            if result:
-                walk_results.append(result)
+        obj_infos = [x for x in self._obj_uuid_cf.get_range(
+                                          columns=['type', 'fq_name'],
+                                          column_count=self._MAX_COL)]
+        type_to_object = {}
+        for obj_uuid, obj_col in obj_infos:
+            try:
+                obj_type = json.loads(obj_col['type'])
+                obj_fq_name = json.loads(obj_col['fq_name'])
+                # prep cache to avoid n/w round-trip in db.read for ref
+                self.cache_uuid_to_fq_name_add(obj_uuid, obj_fq_name)
+
+                try:
+                    type_to_object[obj_type].append(obj_uuid)
+                except KeyError:
+                    type_to_object[obj_type] = [obj_uuid]
+            except Exception as e:
+                self.config_log('Error in db walk read %s' %(str(e)),
+                                level=SandeshLevel.SYS_ERR)
+                continue
+
+        for obj_type, uuid_list in type_to_object.items():
+            try:
+                self.config_log('Resync: obj_type %s len %s'
+                                %(obj_type, len(uuid_list)),
+                                level=SandeshLevel.SYS_INFO)
+                result = fn(obj_type, uuid_list)
+                if result:
+                    walk_results.append(result)
+            except Exception as e:
+                self.config_log('Error in db walk invoke %s' %(str(e)),
+                                level=SandeshLevel.SYS_ERR)
+                continue
 
         return walk_results
     # end walk
@@ -1347,74 +1374,77 @@ class VncDbClient(object):
                                                                  vn_dict)
     # end update_subnet_uuid
 
-    def _dbe_resync(self, obj_uuid, obj_cols):
-        obj_type = None
-        try:
-            obj_type = json.loads(obj_cols['type'])
-            obj_class = self.get_resource_class(obj_type)
-            props_n_refs = list(obj_class.prop_fields) + \
-                           list(obj_class.ref_fields)
-            (ok, obj_dicts) = self._cassandra_db.read(obj_type, [obj_uuid],
-                                                      field_names=props_n_refs)
-            obj_dict = obj_dicts[0]
+    def _dbe_resync(self, obj_type, obj_uuids):
+        obj_class = self._api_svr_mgr.str_to_class(utils.CamelCase(obj_type))
+        obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
+        (ok, obj_dicts) = self._cassandra_db.read(
+                               obj_type, obj_uuids, field_names=obj_fields)
+        for obj_dict in obj_dicts:
+            try:
+                obj_uuid = obj_dict['uuid']
+                # TODO remove backward compat (use RT instead of VN->LR ref)
+                if (obj_type == 'virtual_network' and
+                    'logical_router_refs' in obj_dict):
+                    for router in obj_dict['logical_router_refs']:
+                        self._cassandra_db._delete_ref(None, obj_type, obj_uuid,
+                                                       'logical_router',
+                                                       router['uuid'])
 
-            # TODO remove backward compat (use RT instead of VN->LR ref)
-            if (obj_type == 'virtual_network' and
-                'logical_router_refs' in obj_dict):
-                for router in obj_dict['logical_router_refs']:
-                    self._cassandra_db._delete_ref(None, obj_type, obj_uuid,
-                                                   'logical_router',
-                                                   router['uuid'])
+                if (obj_type == 'virtual_network' and
+                    'network_ipam_refs' in obj_dict):
+                    self.update_subnet_uuid(obj_dict, do_update=True)
+            except Exception as e:
+                self.config_object_error(
+                    obj_dict.get('uuid'), None, obj_type,
+                    'dbe_resync:cassandra_read', str(e))
+                continue
 
-            if (obj_type == 'virtual_network' and
-                'network_ipam_refs' in obj_dict):
-                self.update_subnet_uuid(obj_dict, do_update=True)
-        except Exception as e:
-            self.config_object_error(
-                obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
-            return
+            try:
+                parent_type = obj_dict.get('parent_type', None)
+                method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (obj_type))
+                (ok, result) = method(parent_type, obj_dict['fq_name'])
+                (my_imid, parent_imid) = result
+            except Exception as e:
+                self.config_object_error(
+                    obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc', str(e))
+                continue
 
-        try:
-            parent_type = obj_dict.get('parent_type', None)
-            method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (obj_type))
-            (ok, result) = method(parent_type, obj_dict['fq_name'])
-            (my_imid, parent_imid) = result
-        except Exception as e:
-            self.config_object_error(
-                obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc', str(e))
-            return
-
-        try:
-            obj_ids = {'uuid': obj_uuid, 'imid': my_imid,
-                       'parent_imid': parent_imid}
-            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
-            (ok, result) = method(obj_ids, obj_dict)
-        except Exception as e:
-            self.config_object_error(
-                obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
-            return
+            try:
+                obj_ids = {'uuid': obj_uuid, 'imid': my_imid,
+                           'parent_imid': parent_imid}
+                method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
+                (ok, result) = method(obj_ids, obj_dict)
+            except Exception as e:
+                self.config_object_error(
+                    obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
+                continue
+        # end for all objects
     # end _dbe_resync
 
-    def _dbe_check(self, obj_uuid, obj_cols):
-        obj_type = None
-        try:
-            obj_type = json.loads(obj_cols['type'])
-            (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
-        except Exception as e:
-            return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
-    # end _dbe_check
 
-    def _dbe_read(self, obj_uuid, obj_cols):
-        obj_type = None
-        try:
-            obj_type = json.loads(obj_cols['type'])
-            (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
-            result_dict = obj_dict[0]
-            result_dict['type'] = obj_type
-            result_dict['uuid'] = obj_uuid
-            return result_dict
-        except Exception as e:
-            return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
+    def _dbe_check(self, obj_type, obj_uuids):
+        for obj_uuid in obj_uuids:
+            try:
+                (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
+            except Exception as e:
+                return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
+     # end _dbe_check
+
+    def _dbe_read(self, obj_type, obj_uuids):
+        results = []
+        for obj_uuid in obj_uuids:
+            try:
+                (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
+                result_dict = obj_dict[0]
+                result_dict['type'] = obj_type
+                result_dict['uuid'] = obj_uuid
+                results.append(result_dict)
+            except Exception as e:
+                self.config_object_error(
+                    obj_uuid, None, obj_type, '_dbe_read:cassandra_read', str(e))
+                continue
+
+        return results
     # end _dbe_read
 
     @ignore_exceptions
