@@ -420,6 +420,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="SubnetListType">
+    <xsd:all>
+        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="IpamSubnetType">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"/>
@@ -582,6 +588,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Automatically create an iBGP mesh if set to True -->
 <!--#IFMAP-SEMANTICS-IDL
      Property('ibgp-auto-mesh', 'global-system-config') -->
+
+<xsd:element name="ip-fabric-subnets" type="SubnetListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ip-fabric-subnets', 'global-system-config') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
