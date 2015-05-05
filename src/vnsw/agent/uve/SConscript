@@ -10,6 +10,7 @@ env = AgentEnv.Clone()
 
 # Generate the sandesh UVE source files
 vrouter_pkg = env.SandeshGenPy('vrouter.sandesh', 'vrouter/', False)
+loadbalancer_pkg = env.SandeshGenPy('loadbalancer.sandesh', 'vrouter/', False)
 virtual_machine_pkg = env.SandeshGenPy('virtual_machine.sandesh', 'vrouter/sandesh/', False)
 virtual_network_pkg = env.SandeshGenPy('virtual_network.sandesh', 'vrouter/sandesh/', False)
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'vrouter/vrouter/', False)
@@ -60,6 +61,7 @@ sdist_depends.extend(port_bmap_pkg)
 sdist_depends.extend(sandesh_init_rules)
 sdist_depends.extend(build_info_rules)
 sdist_depends.extend(flow_pkg)
+sdist_depends.extend(loadbalancer_pkg)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
