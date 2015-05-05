@@ -16,6 +16,7 @@ import time
 from pprint import pformat
 
 from lxml import etree, objectify
+import xmltodict
 import cgitb
 import StringIO
 import re
@@ -27,6 +28,7 @@ import netaddr
 from netaddr import IPNetwork
 from bitarray import bitarray
 
+from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions, utils
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest,\
@@ -118,7 +120,7 @@ class VncIfmapClient(VncIfmapClientGen):
         self._IPAMS_NAME = "contrail:ipams"
         self._SG_RULE_NAME = "contrail:sg_rules"
         self._POLICY_ENTRY_NAME = "contrail:policy_entry"
-
+        
         self._NAMESPACES = {
             'env':   "http://www.w3.org/2003/05/soap-envelope",
             'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
@@ -127,6 +129,28 @@ class VncIfmapClient(VncIfmapClientGen):
             'contrail':   self._CONTRAIL_XSD
         }
 
+        self._UVEMAP = {
+            "virtual-network" : "ObjectVNTable",
+            "virtual-machine" : "ObjectVMTable",
+            "service-instance" : "ObjectSITable",
+            "virtual-router" : "ObjectVRouter",
+            "control-node" : "ObjectBgpRouter",
+            "analytics-node" : "ObjectCollectorInfo",
+            "database-node" : "ObjectDatabaseInfo",
+            "config-node" : "ObjectConfigNode",
+            "service-chain" : "ServiceChain",
+            "physical-router" : "ObjectPRouter",
+        }
+
+        self._UVEGLOBAL = {
+            "virtual-router",
+            "control-node",
+            "analytics-node",
+            "database-node",
+            "config-node",
+            "physical-router"
+        }
+       
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
 
@@ -290,6 +314,57 @@ class VncIfmapClient(VncIfmapClientGen):
         return ifmap_trace
     # end _generate_ifmap_trace
 
+    @ignore_exceptions
+    def _generate_ifmap_uve(self, oper, body):
+        msgs = []
+        msgstr = "<__M__>" + body + "</__M__>"
+        msg = xmltodict.parse(msgstr)["__M__"]
+        for opr,entries in msg.iteritems():
+            if not isinstance(entries,list):
+                entries=[entries]
+            for entry in entries:
+                if not isinstance(entry["identity"],basestring) and\
+                        isinstance(entry["identity"],list):
+                    cfg_key = entry["identity"][0]['@name']
+                    attr_name = entry["identity"][1]['@name']
+                    attr_contents = None
+                    if opr == "update":
+                        attr_contents = json.dumps(entry["metadata"].keys()[0])
+                else:
+                    cfg_key = entry["identity"]['@name']
+                    attr_name = entry["metadata"].keys()[0]
+                    attr_contents = None
+                    if opr == "update":
+                        attr_contents = json.dumps(entry["metadata"].values()[0])
+
+                utype = cfg_key.split(":",2)[1]
+                urawkey = cfg_key.split(":",2)[2]
+                ukey = None
+                utab = None
+                if self._UVEMAP.has_key(utype):
+                    utab = self._UVEMAP[utype]
+                    if utype in self._UVEGLOBAL:
+                        ukey = urawkey.split(":",1)[1]
+                    else:
+                        ukey = urawkey
+                else:
+                    continue
+                cce = None
+                if attr_contents:
+                    cce = ContrailConfigElem(attr_name,attr_contents)
+                cc = None
+                if cce:
+                    cc = ContrailConfig(name = ukey, properties = [cce],\
+                                        deleted = False)
+                else:
+                    cc = ContrailConfig(name = ukey, properties = [],\
+                                        deleted = True)
+                cfg_msg = ContrailConfigTrace(data=cc, table=utab)
+                msgs.append(cfg_msg)
+
+        return msgs
+
+    # end _generate_ifmap_trace
     def publish_accumulated(self):
         if self.accumulated_request_len:
             upd_str = ''.join(''.join(request) \
@@ -305,7 +380,7 @@ class VncIfmapClient(VncIfmapClientGen):
         # asking for update|delete in publish
         if not oper_body:
             return
-
+        ifmap_uves = self._generate_ifmap_uve(oper, oper_body)
         if do_trace:
             trace = self._generate_ifmap_trace(oper, oper_body)
 
@@ -356,6 +431,9 @@ class VncIfmapClient(VncIfmapClientGen):
 
             if do_trace:
                 trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
+
+            for cfg_msg in ifmap_uves:
+                cfg_msg.send(sandesh=self._sandesh)
 
             return resp_xml
         except Exception as e:

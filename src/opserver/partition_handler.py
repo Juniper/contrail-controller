@@ -10,6 +10,7 @@ from uveserver import UVEServer
 import os
 import json
 import copy
+import traceback
 
 class PartitionHandler(gevent.Greenlet):
     def __init__(self, brokers, partition, group, topic, logger, limit):
@@ -93,7 +94,8 @@ class PartitionHandler(gevent.Greenlet):
             except Exception as ex:
                 template = "An exception of type {0} occured. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
-                self._logger.info("%s" % messag)
+                self._logger.info("%s : traceback %s" % \
+                                  (messag, traceback.format_exc()))
                 self.stop_partition()
                 gevent.sleep(2)
         self._logger.info("Stopping %d pcount %d" % (self._partition, pcount))
