@@ -118,6 +118,105 @@ class TestDM(test_case.DMTestCase):
         result = dictMatch(expect_cfg, gen_cfg)
         self.assertTrue(result)
             
+    #dynamic tunnel test case - 1
+    # 1. configure ip fabric subnets, 
+    # 2. create physical  router with data plane source ip
+    # 3. check netconf XML config generated 
+    def test_tunnels_dm_1(self):
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 32)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.physical_router_dataplane_ip = "5.5.5.5"
+        self._vnc_lib.physical_router_update(pr)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+ 
+    #end test_tunnels_dm_1
+
+    #dynamic tunnel test case - 2 
+    # 1. create physical  router with data plane ip
+    # 2. configure ip fabric subnets, 
+    # 3. check netconf XML config generated 
+    def test_tunnels_dm_2(self):
+
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.physical_router_dataplane_ip = "5.5.5.5"
+        self._vnc_lib.physical_router_update(pr)
+
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 32)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+    #end test_tunnels_dm_2
+ 
+    #dynamic tunnel test case - 3 
+    # 1. create physical  router with no data plane ip
+    # 2. configure ip fabric subnets, 
+    # 3. update physical  router data plane ip
+    # 4. check netconf XML config generated 
+    def test_tunnels_dm_3(self):
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 32)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+        pr.physical_router_dataplane_ip = "5.5.5.5"
+        self._vnc_lib.physical_router_update(pr)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+    #end test_tunnels_dm_3
+ 
+    #dynamic tunnel test case - 4 
+    # 1. create physical  router with data plane ip
+    # 2. configure ip fabric subnets, 
+    # 4. check netconf XML config generated 
+    # 5. modify ip fabric subnets, 
+    # 6. check netconf XML config generated 
+    # 7. remove one ip fabric subnet, 
+    # 8. check netconf XML config generated 
+    def test_tunnels_dm_4(self):
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.physical_router_dataplane_ip = "5.5.5.5"
+        self._vnc_lib.physical_router_update(pr)
+
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 32)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("30.0.0.0", 24), SubnetType("40.0.0.0", 32)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>30.0.0.0/24</name></destination-networks><destination-networks><name>40.0.0.0/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("30.0.0.0", 24)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>30.0.0.0/24</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+    #end test_tunnels_dm_3
+ 
     def test_basic_dm(self):
         vn1_name = 'vn1'
         vn2_name = 'vn2'
