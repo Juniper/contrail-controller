@@ -39,8 +39,12 @@ class Controller(object):
         self.vrouter_macs = {}
         for vr in self.analytic_api.list_vrouters():
             d = self.analytic_api.get_vrouter(vr, 'VrouterAgent:phy_if')
-            d.update(self.analytic_api.get_vrouter(vr,
-                        'VrouterAgent:self_ip_list'))
+            if 'VrouterAgent' not in d:
+                d['VrouterAgent'] = {}
+            _ipl = self.analytic_api.get_vrouter(vr,
+                    'VrouterAgent:self_ip_list')
+            if 'VrouterAgent' in _ipl:
+                d['VrouterAgent'].update(_ipl['VrouterAgent'])
             if 'VrouterAgent' not in d or\
                 'self_ip_list' not in d['VrouterAgent'] or\
                 'phy_if' not in d['VrouterAgent']:
