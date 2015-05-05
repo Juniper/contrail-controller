@@ -12,6 +12,9 @@ class AgentDBEntry;
 class AgentDBTable;
 class AgentDBState;
 class AgentSandesh;
+class AgentSandeshArguments;
+class AgentSandesh;
+typedef class boost::shared_ptr<AgentSandesh> AgentSandeshPtr;
 
 /////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry
@@ -164,8 +167,10 @@ public:
     };
     virtual void OnZeroRefcount(AgentDBEntry *e) {};
     virtual void NotifyEntry(DBEntryBase *entry);
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context) {
-        return NULL;
+
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context) {
+        return AgentSandeshPtr();
     }
 
     // Dummy notification

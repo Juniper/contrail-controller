@@ -14,7 +14,8 @@ public:
         AgentRouteTable(db, name),
         walkid_(DBTableWalker::kInvalidWalkerId) { };
     virtual ~Inet4MulticastAgentRouteTable() { };
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context);
     // Nexthop will be stored in path as localvmpeer so that it falls in line
     // Override virtual routines for no action w.r.t. multicast
     virtual string GetTableName() const {

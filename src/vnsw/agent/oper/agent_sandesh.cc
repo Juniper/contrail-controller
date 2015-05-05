@@ -25,18 +25,32 @@
 
 #include <filter/acl.h>
 
+/////////////////////////////////////////////////////////////////////////////
+// Utility routines
+/////////////////////////////////////////////////////////////////////////////
+static bool MatchSubString(const string &str, const string &sub_str) {
+    if (sub_str.empty())
+        return true;
+
+    return (str.find(sub_str) != string::npos);
+}
+
+static bool MatchUuid(const string &uuid_str, const boost::uuids::uuid &u,
+                      const boost::uuids::uuid val) {
+    if (uuid_str.empty())
+        return true;
+    return u == val;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Sandesh routines per DBTable
+/////////////////////////////////////////////////////////////////////////////
 DBTable *AgentVnSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->vn_table());
 }
 
 void AgentVnSandesh::Alloc() {
     resp_ = new VnListResp();
-}
-
-void AgentVnSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                       const SandeshPageReq *req) {
-    VnListResp *resp = static_cast<VnListResp *>(sresp);
-    resp->set_req(*req);
 }
 
 DBTable *AgentSgSandesh::AgentGetTable() {
@@ -47,12 +61,6 @@ void AgentSgSandesh::Alloc() {
     resp_ = new SgListResp();
 }
 
-void AgentSgSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                       const SandeshPageReq *req) {
-    SgListResp *resp = static_cast<SgListResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentVmSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->vm_table());
 }
@@ -61,10 +69,24 @@ void AgentVmSandesh::Alloc() {
     resp_ = new VmListResp();
 }
 
-void AgentVmSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                       const SandeshPageReq *req) {
-    VmListResp *resp = static_cast<VmListResp *>(sresp);
-    resp->set_req(*req);
+AgentIntfSandesh::AgentIntfSandesh(const std::string &context,
+                                   const std::string &type,
+                                   const std::string &name,
+                                   const std::string &u,
+                                   const std::string &vn,
+                                   const std::string &mac,
+                                   const std::string &v4,
+                                   const std::string &v6,
+                                   const std::string &parent) :
+        AgentSandesh(context, ""), type_(type), name_(name), uuid_str_(u),
+        vn_(vn), mac_str_(mac), v4_str_(v4), v6_str_(v6),
+        parent_uuid_str_(parent) {
+
+    boost::system::error_code ec;
+    uuid_ = StringToUuid(u);
+    v4_ = Ip4Address::from_string(v4, ec);
+    v6_ = Ip6Address::from_string(v6, ec);
+    parent_uuid_ = StringToUuid(parent);
 }
 
 DBTable *AgentIntfSandesh::AgentGetTable() {
@@ -75,10 +97,85 @@ void AgentIntfSandesh::Alloc() {
     resp_ = new ItfResp();
 }
 
-void AgentIntfSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                         const SandeshPageReq *req) {
-    ItfResp *resp = static_cast<ItfResp *>(sresp);
-    resp->set_req(*req);
+bool AgentIntfSandesh::Filter(const DBEntryBase *entry) {
+    const Interface *intf = dynamic_cast<const Interface *>(entry);
+    assert(intf);
+
+    if (MatchSubString(intf->name(), name_) == false)
+        return false;
+
+    if (type_.empty() == false) {
+        if (type_ == "physical" &&
+            (intf->type() != Interface::PHYSICAL &&
+             intf->type() != Interface::REMOTE_PHYSICAL))
+            return false;
+        if (type_ == "logical" && intf->type() != Interface::LOGICAL)
+            return false;
+        if (type_ == "vmi" && intf->type() != Interface::VM_INTERFACE)
+            return false;
+        if (type_ == "inet" && intf->type() != Interface::INET)
+            return false;
+        if (type_ == "pkt" && intf->type() != Interface::PACKET)
+            return false;
+    }
+
+    if (MatchUuid(uuid_str_, uuid_, intf->GetUuid()) == false)
+        return false;
+
+    // vn_, mac_str_, v4_str_ or v6_str_ set means get VM-Interfaces only
+    if (vn_.empty() == false || mac_str_.empty() == false ||
+        v4_str_.empty() == false || v6_str_.empty() == false) {
+        if (intf->type() != Interface::VM_INTERFACE)
+            return false;
+    }
+
+    const LogicalInterface *li = dynamic_cast<const LogicalInterface *>(entry);
+    if (li) {
+        if (parent_uuid_str_.empty() == false && parent_uuid_.is_nil() == false
+            && li->physical_interface()) {
+            if (li->physical_interface()->GetUuid() != parent_uuid_)
+                return false;
+        }
+
+        return true;
+    }
+
+    const VmInterface *vmi = dynamic_cast<const VmInterface *>(entry);
+    if (vmi == NULL)
+        return true;
+
+    if (vn_.empty() == false && vmi->vn()) {
+        if (MatchSubString(vmi->vn()->GetName(), vn_) == false)
+            return false;
+    }
+
+    if (MatchSubString(vmi->vm_mac(), mac_str_) == false)
+        return false;
+
+    if (v4_str_.empty() == false) {
+        if (v4_ != vmi->ip_addr()) {
+            return false;
+        }
+    }
+
+    if (v6_str_.empty() == false) {
+        if (v6_ != vmi->ip6_addr()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool AgentIntfSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("type", type_);
+    args->Add("name", name_);
+    args->Add("uuid", uuid_str_);
+    args->Add("vn", vn_);
+    args->Add("mac", mac_str_);
+    args->Add("ipv4", v4_str_);
+    args->Add("ipv6", v6_str_);
+    args->Add("parent", parent_uuid_str_);
+    return true;
 }
 
 DBTable *AgentNhSandesh::AgentGetTable() {
@@ -89,12 +186,6 @@ void AgentNhSandesh::Alloc() {
     resp_ = new NhListResp();
 }
 
-void AgentNhSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                       const SandeshPageReq *req) {
-    NhListResp *resp = static_cast<NhListResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentMplsSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->mpls_table());
 }
@@ -103,24 +194,12 @@ void AgentMplsSandesh::Alloc() {
     resp_ = new MplsResp();
 }
 
-void AgentMplsSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                         const SandeshPageReq *req) {
-    MplsResp *resp = static_cast<MplsResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentVrfSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->vrf_table());
 }
 
 void AgentVrfSandesh::Alloc() {
     resp_ = new VrfListResp();
-}
-
-void AgentVrfSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                       const SandeshPageReq *req) {
-    VrfListResp *resp = static_cast<VrfListResp *>(sresp);
-    resp->set_req(*req);
 }
 
 DBTable *AgentInet4UcRtSandesh::AgentGetTable() {
@@ -139,12 +218,6 @@ bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
     return rt->DBEntrySandesh(resp_, addr_, plen_, stale_);
 }
 
-void AgentInet4UcRtSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                              const SandeshPageReq *req) {
-    Inet4UcRouteResp *resp = static_cast<Inet4UcRouteResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentInet6UcRtSandesh::AgentGetTable() {
     return static_cast<DBTable *>(vrf_->GetInet6UnicastRouteTable());
 }
@@ -161,12 +234,6 @@ bool AgentInet6UcRtSandesh::UpdateResp(DBEntryBase *entry) {
     return rt->DBEntrySandesh(resp_, addr_, plen_, stale_);
 }
 
-void AgentInet6UcRtSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                              const SandeshPageReq *req) {
-    Inet6UcRouteResp *resp = static_cast<Inet6UcRouteResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentInet4McRtSandesh::AgentGetTable() {
     return static_cast<DBTable *>(vrf_->GetInet4MulticastRouteTable());
 }
@@ -178,12 +245,6 @@ void AgentInet4McRtSandesh::Alloc() {
 bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
     AgentRoute *rt = static_cast<AgentRoute *>(entry);
     return rt->DBEntrySandesh(resp_, stale_);
-}
-
-void AgentInet4McRtSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                              const SandeshPageReq *req) {
-    Inet4McRouteResp *resp = static_cast<Inet4McRouteResp *>(sresp);
-    resp->set_req(*req);
 }
 
 DBTable *AgentEvpnRtSandesh::AgentGetTable() {
@@ -199,12 +260,6 @@ bool AgentEvpnRtSandesh::UpdateResp(DBEntryBase *entry) {
     return rt->DBEntrySandesh(resp_, stale_);
 }
 
-void AgentEvpnRtSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                           const SandeshPageReq *req) {
-    EvpnRouteResp *resp = static_cast<EvpnRouteResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentLayer2RtSandesh::AgentGetTable() {
     return static_cast<DBTable *>(vrf_->GetBridgeRouteTable());
 }
@@ -216,12 +271,6 @@ void AgentLayer2RtSandesh::Alloc() {
 bool AgentLayer2RtSandesh::UpdateResp(DBEntryBase *entry) {
     AgentRoute *rt = static_cast<AgentRoute *>(entry);
     return rt->DBEntrySandesh(resp_, stale_);
-}
-
-void AgentLayer2RtSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                             const SandeshPageReq *req) {
-    Layer2RouteResp *resp = static_cast<Layer2RouteResp *>(sresp);
-    resp->set_req(*req);
 }
 
 DBTable *AgentBridgeRtSandesh::AgentGetTable() {
@@ -237,12 +286,6 @@ bool AgentBridgeRtSandesh::UpdateResp(DBEntryBase *entry) {
     return rt->DBEntrySandesh(resp_, stale_);
 }
 
-void AgentBridgeRtSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                             const SandeshPageReq *req) {
-    BridgeRouteResp *resp = static_cast<BridgeRouteResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentAclSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->acl_table());
 }
@@ -256,24 +299,12 @@ bool AgentAclSandesh::UpdateResp(DBEntryBase *entry) {
     return ent->DBEntrySandesh(resp_, name_);
 }
 
-void AgentAclSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                        const SandeshPageReq *req) {
-    AclResp *resp = static_cast<AclResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentMirrorSandesh::AgentGetTable(){
     return static_cast<DBTable *>(Agent::GetInstance()->mirror_table());
 }
 
 void AgentMirrorSandesh::Alloc(){
     resp_ = new MirrorEntryResp();
-}
-
-void AgentMirrorSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                           const SandeshPageReq *req) {
-    MirrorEntryResp *resp = static_cast<MirrorEntryResp *>(sresp);
-    resp->set_req(*req);
 }
 
 DBTable *AgentVrfAssignSandesh::AgentGetTable(){
@@ -284,24 +315,12 @@ void AgentVrfAssignSandesh::Alloc(){
     resp_ = new VrfAssignResp();
 }
 
-void AgentVrfAssignSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                              const SandeshPageReq *req) {
-    VrfAssignResp *resp = static_cast<VrfAssignResp *>(sresp);
-    resp->set_req(*req);
-}
-
 DBTable *AgentVxLanSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->vxlan_table());
 }
 
 void AgentVxLanSandesh::Alloc() {
     resp_ = new VxLanResp();
-}
-
-void AgentVxLanSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                          const SandeshPageReq *req) {
-    VxLanResp *resp = static_cast<VxLanResp *>(sresp);
-    resp->set_req(*req);
 }
 
 DBTable *AgentServiceInstanceSandesh::AgentGetTable() {
@@ -312,11 +331,6 @@ void AgentServiceInstanceSandesh::Alloc() {
     resp_ = new ServiceInstanceResp();
 }
 
-void AgentServiceInstanceSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                                    const SandeshPageReq *req) {
-    ServiceInstanceResp *resp = static_cast<ServiceInstanceResp *>(sresp);
-    resp->set_req(*req);
-}
 
 DBTable *AgentLoadBalancerSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->db()->
@@ -327,16 +341,12 @@ void AgentLoadBalancerSandesh::Alloc() {
     resp_ = new LoadBalancerResp();
 }
 
-void AgentLoadBalancerSandesh::SetSandeshPageReq(Sandesh *sresp,
-                                                 const SandeshPageReq *req) {
-    LoadBalancerResp *resp = static_cast<LoadBalancerResp *>(sresp);
-    resp->set_req(*req);
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // Routines to manage arguments
 /////////////////////////////////////////////////////////////////////////////
 bool AgentSandeshArguments::Add(const std::string &key, const std::string &val){
+    if (val.empty())
+        return true;
     ArgumentMap::iterator it = arguments_.find(key);
     if (it != arguments_.end()) {
         it->second = val;
@@ -370,8 +380,8 @@ bool AgentSandeshArguments::Del(const std::string &key) {
     return false;
 }
 
-bool AgentSandeshArguments::Get(const std::string &key, std::string *val) {
-    ArgumentMap::iterator it = arguments_.find(key);
+bool AgentSandeshArguments::Get(const std::string &key, std::string *val) const{
+    ArgumentMap::const_iterator it = arguments_.find(key);
     if (it == arguments_.end()) {
         *val = "INVALID";
         return false;
@@ -380,8 +390,16 @@ bool AgentSandeshArguments::Get(const std::string &key, std::string *val) {
     return true;
 }
 
-bool AgentSandeshArguments::Get(const std::string &key, int *val) {
-    ArgumentMap::iterator it = arguments_.find(key);
+string AgentSandeshArguments::GetString(const std::string &key) const {
+    ArgumentMap::const_iterator it = arguments_.find(key);
+    if (it == arguments_.end()) {
+        return "";
+    }
+    return it->second;
+}
+
+bool AgentSandeshArguments::Get(const std::string &key, int *val) const {
+    ArgumentMap::const_iterator it = arguments_.find(key);
     if (it == arguments_.end()) {
         *val = -1;
         return false;
@@ -390,11 +408,18 @@ bool AgentSandeshArguments::Get(const std::string &key, int *val) {
     return true;
 }
 
+int AgentSandeshArguments::GetInt(const std::string &key) const {
+    ArgumentMap::const_iterator it = arguments_.find(key);
+    if (it == arguments_.end()) {
+        return -1;
+    }
+    return (strtoul(it->second.c_str(), NULL, 0));
+}
+
 int AgentSandeshArguments::Encode(std::string *str) {
-    *str = "";
     ArgumentMap::iterator it = arguments_.begin();
     while (it != arguments_.end()) {
-        *str += it->first + '=' + it->second;
+        *str += it->first + ':' + it->second;
         it++;
         if (it != arguments_.end())
             *str += ",";
@@ -421,7 +446,7 @@ int AgentSandeshArguments::Decode(const std::string &str) {
     for (vector<string>::iterator it = token_list.begin();
          it != token_list.end(); ++it) {
         vector<string> args;
-        if (Split((*it), '=', args) == 2) {
+        if (Split((*it), ':', args) == 2) {
             Add(args[0], args[1]);
         }
     }
@@ -432,13 +457,6 @@ int AgentSandeshArguments::Decode(const std::string &str) {
 ///////////////////////////////////////////////////////////////////////////
 // AgentSandesh Utilities
 ///////////////////////////////////////////////////////////////////////////
-static int ComputeCount(int first, int last) {
-    if (last <= first)
-        return AgentSandesh::kEntriesPerPage;
-
-    return last - first;
-}
-
 static int ComputeFirst(int first, int len) {
     if (first < 0 || first > len)
         return 0;
@@ -448,12 +466,24 @@ static int ComputeFirst(int first, int len) {
 
 static int ComputeLast(int first, int last, int len) {
     if (last < 0)
-        return len;
+        return -1;
+
+    if (last >= len)
+        return first + AgentSandesh::kEntriesPerPage - 1;
 
     if (last < first)
-        return first + AgentSandesh::kEntriesPerPage;
+        return first + AgentSandesh::kEntriesPerPage - 1;
 
     return last;
+}
+
+static int ComputePageSize(int first, int last) {
+    if (first < 0 || last < 0)
+        return AgentSandesh::kEntriesPerPage;
+
+    if (last <= first)
+        return AgentSandesh::kEntriesPerPage;
+    return (last - first + 1);
 }
 
 void SandeshError(DBTable *table, const std::string &msg,
@@ -472,46 +502,25 @@ void SandeshError(DBTable *table, const std::string &msg,
     return;
 }
 
-static void EncodeOne(string *s, DBTable *table, int begin, int end) {
+static void EncodeOne(string *s, DBTable *table, int begin, int end,
+                      AgentSandeshArguments *filter) {
+    *s = "";
     AgentSandeshArguments args;
     args.Add("table", table->name());
     args.Add("begin", begin);
     args.Add("end", end);
     args.Encode(s);
+
+    if (filter) {
+        *s += ",";
+        filter->Del("table");
+        filter->Del("begin");
+        filter->Del("end");
+        filter->Encode(s);
+    }
 }
 
-static void MakeSandeshPageReq(SandeshPageReq *req, DBTable *table, int first,
-                               int last, int end, int count) {
-    int len = table->Size();
-    std::stringstream entries_ss;
-    entries_ss << first << "-" << end << "/" << len;
-    req->set_entries(entries_ss.str());
-
-    if (last < len) {
-        string s;
-        EncodeOne(&s, table, last, (last+count));
-        req->set_next_page(s);
-    }
-
-    if (first > 0) {
-        first = first - count;
-        if (first < 0)
-            first = 0;
-        last = first + count;
-        string s;
-        EncodeOne(&s, table, first, last);
-        req->set_prev_page(s);
-    }
-
-    string s;
-    EncodeOne(&s, table, 0, count);
-    req->set_first_page(s);
-
-    EncodeOne(&s, table, -1, -1);
-    req->set_all(s);
-}
-
-void SandeshDBEntryIndex::HandleRequest() const {
+void PageReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     agent->oper_db()->agent_sandesh_manager()->AddPageRequest(key, context());
     return;
@@ -564,9 +573,10 @@ bool AgentSandeshManager::Run(PageRequest req) {
 
     AgentDBTable *agent_table = dynamic_cast<AgentDBTable *>(table);
     if (agent_table) {
-        AgentSandeshPtr sandesh(agent_table->GetAgentSandesh(req.context_));
+        AgentSandeshPtr sandesh = agent_table->GetAgentSandesh(&args,
+                                                            req.context_);
         if (sandesh) {
-            sandesh->DoSandesh(first, last);
+            sandesh->DoSandesh(sandesh, first, last);
         } else {
             SandeshError(table, "Pagination not supported", req.context_);
         }
@@ -575,9 +585,10 @@ bool AgentSandeshManager::Run(PageRequest req) {
 
     AgentRouteTable *route_table = dynamic_cast<AgentRouteTable *>(table);
     if (route_table) {
-        AgentSandeshPtr sandesh(route_table->GetAgentSandesh(req.context_));
+        AgentSandeshPtr sandesh = route_table->GetAgentSandesh(&args,
+                                                             req.context_);
         if (sandesh) {
-            sandesh->DoSandesh(first, last);
+            sandesh->DoSandesh(sandesh, first, last);
         } else {
             SandeshError(table, "Pagination not supported", req.context_);
         }
@@ -591,12 +602,76 @@ bool AgentSandeshManager::Run(PageRequest req) {
 ///////////////////////////////////////////////////////////////////////////
 // AgentSandesh routines
 ///////////////////////////////////////////////////////////////////////////
-void AgentSandesh::DoSandesh(int first, int last) {
-    if (first == -1 && last == -1) {
-        DoSandesh();
-        return;
+void AgentSandesh::MakeSandeshPageReq(PageReqData *req, DBTable *table,
+                                      int first, int count, int match_count,
+                                      int table_size, int page_size) {
+    AgentSandeshArguments filter;
+
+    FilterToArgs(&filter);
+
+    // Set table-size
+    int len = table->Size();
+    req->set_table_size(len);
+
+    // Set entries
+    int last = first + count - 1;
+    std::stringstream entries_ss;
+    if (match_count >= 0) {
+        if (count == 0) {
+            entries_ss << " 0 / " << match_count;
+        } else {
+            entries_ss << first << "-" << last << "/" << match_count;
+        }
+    } else {
+        entries_ss << first << "-" << last;
+    }
+    req->set_entries(entries_ss.str());
+
+    // Next-Page link
+    int next_page_first = last + 1;
+    int next_page_last = next_page_first + page_size - 1;
+    if (match_count >= 0 && next_page_last > match_count) {
+        next_page_last = match_count - 1;
     }
 
+    if (next_page_last >= table_size) {
+        next_page_last = table_size - 1;
+    }
+
+    if ((match_count >= 0 && next_page_first < match_count) ||
+        (match_count < 0 && next_page_first < table_size)) {
+        string s;
+        EncodeOne(&s, table, next_page_first, next_page_last, &filter);
+        req->set_next_page(s);
+    }
+
+    // Prev-Page link
+    if (first > 0) {
+        int prev_page_first = first - page_size - 1;
+        if (prev_page_first < 0)
+            prev_page_first = 0;
+
+        int prev_page_last = prev_page_first + page_size;
+        if (prev_page_last >= first)
+            prev_page_last = first - 1;
+        string s;
+        EncodeOne(&s, table, prev_page_first, prev_page_last, &filter);
+        req->set_prev_page(s);
+    }
+
+    // First-Page link
+    string s;
+    EncodeOne(&s, table, 0, (page_size - 1), &filter);
+    req->set_first_page(s);
+
+    // All-Page link
+    s = "";
+    EncodeOne(&s, table, -1, -1, &filter);
+    req->set_all(s);
+}
+
+void AgentSandesh::DoSandeshInternal(AgentSandeshPtr sandesh, int first,
+                                     int last) {
     DBTable *table = AgentGetTable();
     DBTablePartition *part = static_cast<DBTablePartition *>
         (table->GetTablePartition(0));
@@ -607,42 +682,24 @@ void AgentSandesh::DoSandesh(int first, int last) {
     }
 
     int len = (int)table->Size();
-    int count = ComputeCount(first, last);
+    int page_size = ComputePageSize(first, last);
     first = ComputeFirst(first, len);
     last = ComputeLast(first, last, len);
 
     SetResp();
-    DBEntry *entry = static_cast<DBEntry *>(part->GetFirst());
-    int i = 0;
-    while (entry && i < last) {
-        if (i >= first)
-            UpdateResp(entry);
-        entry = static_cast<DBEntry *>(part->GetNext(entry));
-        i++;
-    }
-
-    SandeshPageReq req;
-    MakeSandeshPageReq(&req, table, first, last, i, count);
-    SetSandeshPageReq(resp_, &req);
-
-    resp_->set_context(resp_->context());
-    resp_->Response();
-}
-
-void AgentSandesh::DoSandesh() {
-    DBTable *table;
-
-    table = AgentGetTable();
-    if (table == NULL) {
-        SandeshError(table, "Invalid DBTable name", context_);
-        return;
-    }
-
-    SetResp();
     DBTableWalker *walker = table->database()->GetWalker();
     walkid_ = walker->WalkTable(table, NULL,
-        boost::bind(&AgentSandesh::EntrySandesh, this, _2),
-        boost::bind(&AgentSandesh::SandeshDone, this, AgentSandeshPtr(this)));
+        boost::bind(&AgentSandesh::EntrySandesh, this, _2, first, last),
+        boost::bind(&AgentSandesh::SandeshDone, this, sandesh, first,
+                    page_size));
+}
+
+void AgentSandesh::DoSandesh(AgentSandeshPtr sandesh, int first, int last) {
+    sandesh->DoSandeshInternal(sandesh, first, last);
+}
+
+void AgentSandesh::DoSandesh(AgentSandeshPtr sandesh) {
+    DoSandesh(sandesh, 0, (kEntriesPerPage - 1));
 }
 
 void AgentSandesh::SetResp() {
@@ -655,37 +712,43 @@ bool AgentSandesh::UpdateResp(DBEntryBase *entry) {
     return ent->DBEntrySandesh(resp_, name_);
 }
 
-bool AgentSandesh::EntrySandesh(DBEntryBase *entry) {
-    if (!UpdateResp(entry)) {
+bool AgentSandesh::EntrySandesh(DBEntryBase *entry, int first, int last) {
+    if (Filter(entry) == false)
         return true;
+
+    if (total_entries_ >= first && ((last < 0) || (total_entries_ <= last))) {
+        if (!UpdateResp(entry)) {
+            return true;
+        }
+        count_++;
+
+        if ((count_ % entries_per_sandesh) == 0) {
+            // send partial sandesh
+            resp_->set_more(true);
+            resp_->Response();
+            SetResp();
+        }
     }
-
-    count_++;
-    if (!(count_ % entries_per_sandesh)) {
-        // send partial sandesh
-        resp_->set_context(resp_->context());
-        resp_->set_more(true);
-
-        DBTable *table = AgentGetTable();
-        int len = table->Size();
-        SandeshPageReq req;
-        MakeSandeshPageReq(&req, table, 0, len, len, len);
-        SetSandeshPageReq(resp_, &req);
-
-        resp_->Response();
-        SetResp();
-    }
+    total_entries_++;
 
     return true;
 }
 
-void AgentSandesh::SandeshDone(AgentSandeshPtr ptr) {
+void AgentSandesh::SandeshDone(AgentSandeshPtr ptr, int first, int page_size) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
+
+    resp_->set_more(true);
+    resp_->Response();
+
+    Pagination *page = new Pagination();
+    resp_ = page;
+    resp_->set_context(context_);
+
     DBTable *table = AgentGetTable();
-    int len = table->Size();
-    SandeshPageReq req;
-    MakeSandeshPageReq(&req, table, 0, len, len, len);
-    SetSandeshPageReq(resp_, &req);
+    PageReqData req;
+    MakeSandeshPageReq(&req, table, first, count_, total_entries_,
+                       table->Size(), page_size);
+    page->set_req(req);
     resp_->Response();
 }
 
