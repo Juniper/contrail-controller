@@ -590,7 +590,8 @@ TEST_F(SgTestV6, Sg_Policy_2) {
     EXPECT_TRUE(eth != NULL);
     TxIp6MplsPacket(eth->id(), "10.1.1.10",
                    Agent::GetInstance()->router_id().to_string().c_str(),
-                   vnet[1]->label(), remote_ip, vnet_addr[1], IPPROTO_ICMPV6);
+                   vnet[1]->label(), remote_ip, vnet_addr[1],
+                   IPPROTO_ICMPV6, 1);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,

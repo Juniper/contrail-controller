@@ -419,7 +419,7 @@ TEST_F(FlowTest, Mdata_FabricToVm_1) {
     // No route for dst-ip. Pkt to be dropped
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
                    vnet[1]->label(), "1.1.1.2",
-                   vnet[1]->mdata_ip_addr().to_string().c_str(), 1);
+                   vnet[1]->mdata_ip_addr().to_string().c_str(), 1, 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.2",
                         vnet[1]->mdata_ip_addr().to_string().c_str(), 1, 0, 0,
@@ -441,7 +441,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     SetupMetadataService();
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
-                   vnet[1]->label(), "1.1.1.10", "169.254.169.254", 1);
+                   vnet[1]->label(), "1.1.1.10", "169.254.169.254", 1, 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", 1, 0, 0, false, "vn1",
@@ -457,7 +457,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
 
     TxTcpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
                    vnet[1]->label(), "1.1.1.10", "169.254.169.254", 1001, 80,
-                   false);
+                   false, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", IPPROTO_TCP, 1001, 80, false, 
@@ -871,7 +871,7 @@ TEST_F(FlowTest, LocalVmToFipVm_1) {
 // FloatingIP test for traffic from VM to local VM
 TEST_F(FlowTest, FipFabricToVm_1) {
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
-                   vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1);
+                   vnet[1]->label(), vnet_addr[3], "2.1.1.100", 2, 1, 1);
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[3], "2.1.1.100", 1, 0, 0, 1,
@@ -883,7 +883,7 @@ TEST_F(FlowTest, FipFabricToVm_1) {
 
     TxTcpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
                     vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1000, 80,
-                    false);
+                    false, 2);
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[3], "2.1.1.100", IPPROTO_TCP, 1000,
@@ -894,7 +894,7 @@ TEST_F(FlowTest, FipFabricToVm_1) {
                                 vnet[1]->flow_key_nh()->id()));
 
     TxUdpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
-                    vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1000, 80);
+                    vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1000, 1, 80);
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[3], "2.1.1.100", IPPROTO_UDP, 1000,
@@ -1319,7 +1319,7 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
-                   vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
+                   vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1, 1);
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
@@ -1346,7 +1346,7 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
-                   vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
+                   vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1, 1);
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
@@ -1373,7 +1373,7 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
-                   vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
+                   vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1, 1);
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 

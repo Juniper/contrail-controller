@@ -152,7 +152,6 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     case NextHop::COMPOSITE: {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
         component_nh_list_.clear();
-        vrf_id_ = comp_nh->vrf()->vrf_id();
         comp_type_ = comp_nh->composite_nh_type();
         component_nh_key_list_ = comp_nh->component_nh_key_list();
         ComponentNHList::const_iterator component_nh_it =
@@ -271,10 +270,6 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     if (type_ == NextHop::COMPOSITE) {
         if (comp_type_ != entry.comp_type_) {
             return comp_type_ < entry.comp_type_;
-        }
-
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
         }
 
         ComponentNHKeyList::const_iterator it =

@@ -883,7 +883,7 @@ TEST_F(SgTest, Sg_Policy_2) {
 
     char remote_ip[] = "10.10.10.1";
     TxIpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, vnet[1]->label(),
-                   remote_ip, vnet_addr[1], 1);
+                   remote_ip, vnet_addr[1], 1, 1, 1);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,

@@ -120,7 +120,7 @@ public:
     MplsLabelData(COMPOSITETYPE type, bool policy,
         ComponentNHKeyList &component_nh_key_list, std::string vrf_name) :
         AgentData(), nh_key(new CompositeNHKey(type, policy,
-        component_nh_key_list, vrf_name)) {
+        component_nh_key_list)) {
     }
 
     MplsLabelData(const std::string vrf_name, bool policy) :

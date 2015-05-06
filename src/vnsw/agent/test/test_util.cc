@@ -1310,7 +1310,7 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     }
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(type, true,
-                                        comp_nh_list, vrf_name));
+                                        comp_nh_list));
     nh_req.data.reset(new CompositeNHData());
 
     ControllerEcmpRoute *data =
@@ -2982,8 +2982,8 @@ int MplsToVrfId(int label) {
                 vrf = intf->vrf()->vrf_id();
             }
         } else if (nh->GetType() == NextHop::COMPOSITE) {
-            const CompositeNH *nh1 = static_cast<const CompositeNH *>(nh);
-            vrf = nh1->vrf()->vrf_id();
+            //No VRF in composite NH
+            assert(0);
         } else if (nh->GetType() == NextHop::VLAN) {
             const VlanNH *nh1 = static_cast<const VlanNH *>(nh);
             const VmInterface *intf =

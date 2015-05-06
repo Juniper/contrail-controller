@@ -259,8 +259,7 @@ void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
                                                     ComponentNHKeyList
                                                     &component_nh_key_list) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
-                                        vrf_name));
+    nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list));
     nh_req.data.reset(new CompositeNHData());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -688,8 +687,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::L2COMP,
                                         false,
-                                        component_nh_list,
-                                        vrf()->GetName()));
+                                        component_nh_list));
     nh_req.data.reset(new CompositeNHData());
     agent->nexthop_table()->Process(nh_req);
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
