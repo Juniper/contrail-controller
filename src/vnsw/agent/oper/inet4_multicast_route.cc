@@ -57,8 +57,7 @@ Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name,
     NextHopKey *nh_key;
     CompositeNHData *nh_data;
 
-    nh_key = new CompositeNHKey(Composite::L3COMP, true, component_nh_key_list,
-                                vrf_name);
+    nh_key = new CompositeNHKey(Composite::L3COMP, true, component_nh_key_list);
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(nh_key);
     nh_data = new CompositeNHData();

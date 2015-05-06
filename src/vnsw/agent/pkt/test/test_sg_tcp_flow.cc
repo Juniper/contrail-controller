@@ -403,7 +403,7 @@ public:
 TEST_F(SgTcpAckTest, icmp_acl_1) {
     // Allow flow from fabric to VM
     TxIpMplsPacket(eth->id(), "9.1.1.10", vhost_addr, intf1->label(),
-                   "1.1.1.10", intf1_addr, 1);
+                   "1.1.1.10", intf1_addr, 1, 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), "1.1.1.10",
                                intf1_addr, 1, 0, 0, TrafficAction::PASS,
@@ -411,7 +411,7 @@ TEST_F(SgTcpAckTest, icmp_acl_1) {
 
     // Drop flow Non-ICMP flow
     TxIpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf1->label(),
-                   "1.1.1.10", intf1_addr, 10);
+                   "1.1.1.10", intf1_addr, 1, 1, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), "1.1.1.10",
                                intf1_addr, 10, 0, 0, TrafficAction::DROP,
