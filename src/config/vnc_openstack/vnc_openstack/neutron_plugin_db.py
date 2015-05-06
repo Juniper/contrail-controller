@@ -2868,7 +2868,16 @@ class DBInterface(object):
                 msg="Unable to set or clear the default gateway")
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
+        si_name = None
+        si_key = 'si_' + router_obj.uuid
+        try:
+            si_name = self._vnc_lib.kv_retrieve(key=si_key)
+
+            # Already set, nothing to do
+            return
+        except NoIdError:
+            si_name = 'si_' + router_obj.uuid + '_' + str(uuid.uuid4())
+
         si_fq_name = project_obj.get_fq_name() + [si_name]
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
@@ -2940,11 +2949,21 @@ class DBInterface(object):
 	router_obj.set_virtual_network(ext_net_obj)
         self._vnc_lib.logical_router_update(router_obj)
 
+        self._vnc_lib.kv_store(si_key, si_name)
+
     def _router_clear_external_gateway(self, router_obj):
         project_obj = self._project_read(proj_id=router_obj.parent_uuid)
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
+        si_name = None
+        si_key = 'si_' + router_obj.uuid
+        try:
+            si_name = self._vnc_lib.kv_retrieve(key=si_key)
+            self._vnc_lib.kv_delete(si_key)
+        except NoIdError:
+            # Fallback to the old version of the si_name
+            si_name = 'si_' + router_obj.uuid
+
         si_fq_name = project_obj.get_fq_name() + [si_name]
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
