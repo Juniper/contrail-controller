@@ -28,5 +28,5 @@ message TelemetryFieldOptions {
 }
 
 extend google.protobuf.FieldOptions {
-  optional TelemetryFieldOptions telemetry_options = 33333;
+  optional TelemetryFieldOptions telemetry_options = 50000;
 }
