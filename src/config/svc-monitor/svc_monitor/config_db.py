@@ -825,6 +825,7 @@ class LogicalRouterSM(DBBase):
         self.service_instance = None
         self.virtual_network = None
         self.virtual_machine_interfaces = set()
+        self.last_virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
 
@@ -850,6 +851,7 @@ class LogicalRouterSM(DBBase):
         del cls._dict[uuid]
     # end delete
 # end LogicalRouterSM
+
 
 DBBase._OBJ_TYPE_MAP = {
     'loadbalancer_pool': LoadbalancerPoolSM,
