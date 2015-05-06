@@ -26,7 +26,7 @@ using namespace boost::asio;
 VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
     agent_(agent), vm_uuid_(vm_uuid), mem_usage_(0),
     virt_memory_(0), virt_memory_peak_(0), vm_memory_quota_(0),
-    prev_cpu_stat_(0), cpu_usage_(0), max_memory_(0),
+    prev_cpu_stat_(0), cpu_usage_(0),
     prev_cpu_snapshot_time_(0), prev_vcpu_snapshot_time_(0),
     input_(*(agent_->event_manager()->io_service())),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
@@ -127,20 +127,10 @@ void VmStat::ReadCpuStat() {
 
     //Get 'CPU time' from the output
     double cpu_stat = 0;
-    bool cpu_stat_found = false, max_memory_found = false;
     std::string cpu_stat_str;
     while (data_ >> tmp) {
         if (tmp == "time:") {
             data_ >> cpu_stat_str;
-            cpu_stat_found = true;
-        } else if (tmp == "Max") {
-            data_ >> tmp;
-            if (tmp == "memory:") {
-                data_ >> max_memory_;
-                max_memory_found = true;
-            }
-        }
-        if (cpu_stat_found && max_memory_found) {
             break;
         }
     }
@@ -265,7 +255,6 @@ bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
     stats.set_rss(mem_usage_);
     stats.set_virt_memory(virt_memory_);
     stats.set_peak_virt_memory(virt_memory_peak_);
-    stats.set_max_memory_Kib(max_memory_);
     stats.set_disk_allocated_bytes(virtual_size_);
     stats.set_disk_used_bytes(disk_size_);
 
@@ -285,7 +274,6 @@ bool VmStat::BuildVmMsg(UveVirtualMachineAgent *uve) {
     stats.set_rss(mem_usage_);
     stats.set_virt_memory(virt_memory_);
     stats.set_peak_virt_memory(virt_memory_peak_);
-    stats.set_max_memory_Kib(max_memory_);
     stats.set_disk_allocated_bytes(virtual_size_);
     stats.set_disk_used_bytes(disk_size_);
 
