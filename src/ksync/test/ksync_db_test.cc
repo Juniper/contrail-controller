@@ -634,6 +634,59 @@ TEST_F(DBKSyncTest, create_stale_vlan_entry_to_non_stale) {
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
 }
 
+TEST_F(DBKSyncTest, DeleteAck_after_create_stale) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    // set entry to wait for ack trigger, to control KSync state
+    // events order
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry *ksync_vlan;
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    ksync_vlan->set_no_ack_trigger(false);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+    EXPECT_EQ(adc_notification, 1);
+    EXPECT_EQ(del_notification, 1);
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
+
+    // set to true so that we don't need to generate add ack
+    ksync_vlan->set_no_ack_trigger(true);
+    // Create a stale entry for vlan 10
+    VlanKSyncEntry vlan_key(10);
+    VlanKSyncObject::GetKSyncObject()->CreateStale(&vlan_key);
+    EXPECT_EQ(adc_notification, 1);
+    EXPECT_EQ(del_notification, 1);
+
+    // simulate ACK to move to active state
+    VlanKSyncObject::GetKSyncObject()->NetlinkAck(ksync_vlan,
+                                                  KSyncEntry::DEL_ACK);
+
+    task_util::WaitForIdle();
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
+
+    // verify DB entry clean up
+    Vlan::VlanKey v_key("vlan10", 10);
+    EXPECT_TRUE(NULL == itbl->Find(&v_key));
+
+    // Triggers delete of stale entry
+    TestTriggerStaleEntryCleanupCb(VlanKSyncObject::GetKSyncObject());
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
