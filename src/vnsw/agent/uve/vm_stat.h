@@ -63,7 +63,6 @@ private:
     uint32_t vm_memory_quota_;
     double   prev_cpu_stat_;
     double   cpu_usage_;
-    uint32_t max_memory_;
     time_t   prev_cpu_snapshot_time_;
     std::vector<double> prev_vcpu_usage_;
     std::vector<double> vcpu_usage_percent_;
