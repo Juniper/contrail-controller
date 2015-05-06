@@ -33,7 +33,6 @@ UPDATE = 3
 DELETE = 4
 
 # SNAT defines
-SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
 
 class DBInterface(object):
@@ -1882,14 +1881,14 @@ class DBInterface(object):
                 vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
             except NoIdError:
                 return None
-            port_req_memo['virtual-machines'][vm_uuid] = vm_obj 
+            port_req_memo['virtual-machines'][vm_uuid] = vm_obj
 
         si_refs = vm_obj.get_service_instance_refs()
         if not si_refs:
             return None
 
         try:
-            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'], 
+            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'],
                     fields=["logical_router_back_refs"])
         except NoIdError:
             return None
@@ -2922,7 +2921,7 @@ class DBInterface(object):
         return len(policy_info)
     #end policy_count
 
-    def _router_add_gateway(self, router_q, rtr_obj):
+    def _router_update_gateway(self, router_q, rtr_obj):
         ext_gateway = router_q.get('external_gateway_info', None)
         old_ext_gateway = self._get_external_gateway_info(rtr_obj)
         if ext_gateway or old_ext_gateway:
@@ -2956,46 +2955,6 @@ class DBInterface(object):
         router_obj.set_virtual_network_list([])
         self._vnc_lib.logical_router_update(router_obj)
 
-    def _set_snat_routing_table(self, router_obj, network_id):
-        project_obj = self._project_read(proj_id=router_obj.parent_uuid)
-        rt_name = 'rt_' + router_obj.uuid
-        rt_fq_name = project_obj.get_fq_name() + [rt_name]
-
-        try:
-            rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
-        except NoIdError:
-            # No route table set with that router ID, the gateway is not set
-            return
-
-        try:
-            net_obj = self._vnc_lib.virtual_network_read(id=network_id)
-        except NoIdError:
-            self._raise_contrail_exception(
-                'NetworkNotFound', net_id=network_id)
-        net_obj.set_route_table(rt_obj)
-        self._vnc_lib.virtual_network_update(net_obj)
-
-    def _clear_snat_routing_table(self, router_obj, network_id):
-        project_obj = self._project_read(proj_id=router_obj.parent_uuid)
-        rt_name = 'rt_' + router_obj.uuid
-        rt_fq_name = project_obj.get_fq_name() + [rt_name]
-
-        try:
-            rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
-        except NoIdError:
-            # No route table set with that router ID, the gateway is not set
-            return
-
-        try:
-            net_obj = self._vnc_lib.virtual_network_read(id=network_id)
-        except NoIdError:
-            self._raise_contrail_exception(
-                'NetworkNotFound', net_id=network_id)
-        net_obj.del_route_table(rt_obj)
-        self._vnc_lib.virtual_network_update(net_obj)
-
     # router api handlers
     @wait_for_api_server_connection
     def router_create(self, router_q):
@@ -3005,7 +2964,7 @@ class DBInterface(object):
         rtr_uuid = self._resource_create('logical_router', rtr_obj)
         # read it back to update id perms
         rtr_obj = self._logical_router_read(rtr_uuid)
-        self._router_add_gateway(router_q, rtr_obj)
+        self._router_update_gateway(router_q, rtr_obj)
         ret_router_q = self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
 
         return ret_router_q
@@ -3032,7 +2991,7 @@ class DBInterface(object):
         router_q['id'] = rtr_id
         rtr_obj = self._router_neutron_to_vnc(router_q, UPDATE)
         self._logical_router_update(rtr_obj)
-        self._router_add_gateway(router_q, rtr_obj)
+        self._router_update_gateway(router_q, rtr_obj)
         ret_router_q = self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
 
         return ret_router_q
@@ -3228,7 +3187,6 @@ class DBInterface(object):
                 'BadRequest', resource='router',
                 msg='Either port or subnet must be specified')
 
-        self._set_snat_routing_table(router_obj, subnet['network_id'])
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
         vmi_obj.set_virtual_machine_interface_device_owner(
             constants.DEVICE_OWNER_ROUTER_INTF)
@@ -3276,7 +3234,6 @@ class DBInterface(object):
                 self._raise_contrail_exception('BadRequest',
                                                resource='router', msg=msg)
 
-        self._clear_snat_routing_table(router_obj, subnet['network_id'])
         port_obj = self._virtual_machine_interface_read(port_id)
         router_obj.del_virtual_machine_interface(port_obj)
         self._vnc_lib.logical_router_update(router_obj)
