@@ -30,11 +30,12 @@ from config_db import *
 class InstanceManager(object):
 
     def __init__(self, vnc_lib, db, logger, vrouter_scheduler,
-                 nova_client, args=None):
+                 nova_client, agent_manager, args=None):
         self.logger = logger
         self._vnc_lib = vnc_lib
         self._args = args
         self._nc = nova_client
+        self._agent_manager = agent_manager
         self.vrouter_scheduler = vrouter_scheduler
 
     @abc.abstractmethod
@@ -153,40 +154,6 @@ class InstanceManager(object):
         self.logger.log_info("Info: VM %s updated SI %s" %
             (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
-    def create_service_vn(self, vn_name, vn_subnet,
-                          proj_fq_name, user_visible=None):
-        self.logger.log_info(
-            "Creating network %s subnet %s" % (vn_name, vn_subnet))
-
-        proj_obj = self._get_project_obj(proj_fq_name)
-        if not proj_obj:
-            return
-
-        vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
-        if user_visible is not None:
-            id_perms = IdPermsType(enable=True, user_visible=user_visible)
-            vn_obj.set_id_perms(id_perms)
-        domain_name, project_name = proj_obj.get_fq_name()
-        ipam_fq_name = [domain_name, project_name, 'default-network-ipam']
-        try:
-            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        except NoIdError:
-            ipam_obj = NetworkIpam()
-        cidr = vn_subnet.split('/')
-        pfx = cidr[0]
-        pfx_len = int(cidr[1])
-        subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
-        subnet_data = VnSubnetsType([subnet_info])
-        vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        try:
-            self._vnc_lib.virtual_network_create(vn_obj)
-        except RefsExistError:
-            vn_obj = self._vnc_lib.virtual_network_read(
-                fq_name=vn_obj.get_fq_name())
-        VirtualNetworkSM.locate(vn_obj.uuid)
-
-        return vn_obj.uuid
-
     def _upgrade_config(self, st, si):
         left_vn = si.params.get('left_virtual_network', None)
         right_vn = si.params.get('right_virtual_network', None)
@@ -239,18 +206,7 @@ class InstanceManager(object):
             user_visible = True
             itf_type = st_if.get('service_interface_type')
             vn_fq_str = si_if.get('virtual_network', None)
-            if (itf_type == svc_info.get_left_if_str() and
-                    (st.params.get('service_type') ==
-                     svc_info.get_snat_service_type())):
-                vn_id = self._create_snat_vn(si, vn_fq_str, index)
-                user_visible = False
-            elif (itf_type == svc_info.get_right_if_str() and
-                    (st.params.get('service_type') ==
-                     svc_info.get_lb_service_type())):
-                iip_id, vn_id = self._get_vip_vmi_iip(si)
-                nic['iip-id'] = iip_id
-                user_visible = False
-            elif not vn_fq_str or vn_fq_str == '':
+            if not vn_fq_str:
                 vn_id = self._check_create_service_vn(itf_type, si)
             else:
                 try:
@@ -259,7 +215,7 @@ class InstanceManager(object):
                 except NoIdError:
                     config_complete = False
 
-            nic['type'] = st_if.get('service_interface_type')
+            nic['type'] = itf_type
             nic['index'] = str(index + 1)
             nic['net-id'] = vn_id
             nic['shared-ip'] = st_if.get('shared_ip')
@@ -298,6 +254,9 @@ class InstanceManager(object):
                     pass
 
     def _check_create_netns_vm(self, instance_index, si, st, vm):
+        # notify all the agents
+        self._agent_manager.pre_create_service_vm(instance_index, si, st, vm)
+
         instance_name = self._get_instance_name(si, instance_index)
         vm_obj = VirtualMachine(instance_name)
         vm_obj.set_display_name(instance_name + '__' + st.virtualization_type)
@@ -318,6 +277,9 @@ class InstanceManager(object):
             vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st,
                 local_preference=si.local_preference[instance_index],
                 vm_obj=vm_obj)
+
+        # notify all the agents
+        self._agent_manager.post_create_service_vm(instance_index, si, st, vm)
 
         return vm
 
@@ -343,7 +305,7 @@ class InstanceManager(object):
         vmi_create = False
         vmi_updated = False
         if_properties = None
-        
+
         port_name = ('__').join([instance_name, nic['type'], nic['index']])
         port_fq_name = proj_obj.fq_name + [port_name]
         vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
@@ -593,51 +555,6 @@ class NetworkNamespaceManager(VRouterHostedManager):
         self.logger.uve_svc_instance((':').join(si.fq_name),
             status='CREATE', vms=instances,
             st_name=(':').join(st.fq_name))
-
-    def _create_snat_vn(self, si, vn_fq_str, index):
-        vn_name = '%s_%s' % (svc_info.get_snat_left_vn_prefix(),
-                             si.name)
-        vn_fq_name = si.fq_name[:-1] + [vn_name]
-        try:
-            vn_id = self._vnc_lib.fq_name_to_id(
-                'virtual-network', vn_fq_name)
-        except NoIdError:
-            snat_subnet = svc_info.get_snat_left_subnet()
-            vn_id = self.create_service_vn(vn_name, snat_subnet,
-                si.fq_name[:-1], user_visible=False)
-
-        if vn_fq_str != ':'.join(vn_fq_name):
-            si_obj = ServiceInstance()
-            si_obj.uuid = si.uuid
-            si_obj.fq_name = si.fq_name
-            si_props = ServiceInstanceType(**si.params)
-            left_if = ServiceInstanceInterfaceType(
-                virtual_network=':'.join(vn_fq_name))
-            si_props.insert_interface_list(index, left_if)
-            si_obj.set_service_instance_properties(si_props)
-            self._vnc_lib.service_instance_update(si_obj)
-            self.logger.log_info("SI %s updated with left vn %s" %
-                (si_obj.get_fq_name_str(), vn_fq_str))
-
-        return vn_id
-
-    def _get_vip_vmi_iip(self, si):
-        if not si.loadbalancer_pool:
-            return None, None
-
-        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
-        if not pool.virtual_ip:
-            return None, None
-
-        vip = VirtualIpSM.get(pool.virtual_ip)
-        if not vip.virtual_machine_interface:
-            return None, None
-
-        vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
-        if not vmi.instance_ip or not vmi.virtual_network:
-            return None, None
-
-        return vmi.instance_ip, vmi.virtual_network
 
     def add_fip_to_vip_vmi(self, vmi, fip):
         iip = InstanceIpSM.get(vmi.instance_ip)
