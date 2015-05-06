@@ -867,12 +867,12 @@ const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Database Usage Statistics',
       'stat_type' : 'DatabaseUsageInfo'
-      'stat_attr' : 'database_usage_stats',
+      'stat_attr' : 'database_usage',
       'obj_table' : DATABASE_INFO_TABLE,
       'attributes': [
-          { 'name' : 'database_usage_stats.disk_space_used_1k',      'datatype' : 'int', 'index' : false},
-          { 'name' : 'database_usage_stats.disk_space_available_1k', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'database_usage_stats.analytics_db_size_1k',    'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage.disk_space_used_1k',      'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage.disk_space_available_1k', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage.analytics_db_size_1k',    'datatype' : 'int', 'index' : false},
         ]
     },
     {

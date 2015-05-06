@@ -17,8 +17,7 @@ struct DatabaseUsageStats {
 struct DatabaseUsageInfo {
     1: string                              name (key="ObjectDatabaseInfo")
     2: optional bool                       deleted
-    3: DatabaseUsageStats                  database_usage
-    4: optional list<DatabaseUsageStats>   database_usage_stats (tags="")
+    3: optional list<DatabaseUsageStats>   database_usage (tags="")
 }
 
 //DatabaseUsageStat uve will be sent by Database-nodemgr
