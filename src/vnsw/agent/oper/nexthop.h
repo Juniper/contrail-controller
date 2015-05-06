@@ -1154,8 +1154,7 @@ public:
     ComponentNHKey(int label, std::auto_ptr<const NextHopKey> key) :
         label_(label), nh_key_(key) { }
     ComponentNHKey(int label, Composite::Type type, bool policy,
-                   const ComponentNHKeyList &component_nh_list,
-                   const std::string &vrf_name);
+                   const ComponentNHKeyList &component_nh_list);
     ComponentNHKey(int label, const uuid &intf_uuid, uint8_t flags):
         label_(label), 
         nh_key_(new InterfaceNHKey(
@@ -1192,11 +1191,10 @@ private:
 class CompositeNHKey : public NextHopKey {
 public:
     CompositeNHKey(COMPOSITETYPE type, bool policy,
-                   const ComponentNHKeyList &component_nh_key_list,
-                   const std::string &vrf_name) :
+                   const ComponentNHKeyList &component_nh_key_list) :
         NextHopKey(NextHop::COMPOSITE, policy),
-        composite_nh_type_(type), component_nh_key_list_(component_nh_key_list),
-        vrf_key_(vrf_name){
+        composite_nh_type_(type),
+        component_nh_key_list_(component_nh_key_list) {
     }
 
     virtual CompositeNHKey *Clone() const;
@@ -1231,7 +1229,6 @@ private:
 
     COMPOSITETYPE composite_nh_type_;
     ComponentNHKeyList component_nh_key_list_;
-    VrfKey vrf_key_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNHKey);
 };
 
@@ -1257,9 +1254,9 @@ class CompositeNH : public NextHop {
 public:
     static const uint32_t kInvalidComponentNHIdx = 0xFFFFFFFF;
     CompositeNH(COMPOSITETYPE type, bool policy,
-        const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
+        const ComponentNHKeyList &component_nh_key_list):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
-        component_nh_key_list_(component_nh_key_list), vrf_(vrf) {
+        component_nh_key_list_(component_nh_key_list) {
     }
 
     virtual ~CompositeNH() { };
@@ -1328,9 +1325,6 @@ public:
     const ComponentNHKeyList& component_nh_key_list() const {
         return component_nh_key_list_;
     }
-    const VrfEntry* vrf() const {
-        return vrf_.get();
-    }
    uint32_t hash(uint32_t seed) const {
        uint32_t idx = seed % component_nh_list_.size();
        while (component_nh_list_[idx].get() == NULL) {
@@ -1355,7 +1349,6 @@ private:
     COMPOSITETYPE composite_nh_type_;
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
-    VrfEntryRef vrf_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 

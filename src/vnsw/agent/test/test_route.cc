@@ -1282,7 +1282,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
     }
     client->WaitForIdle(5);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
-    CompositeNHKey key(Composite::ECMP, true, comp_nh_list, vrf_name_);
+    CompositeNHKey key(Composite::ECMP, true, comp_nh_list);
     EXPECT_FALSE(FindNH(&key));
 }
 
@@ -1325,7 +1325,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
 
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
-    CompositeNHKey key(Composite::ECMP, true, comp_nh_list, vrf_name_);
+    CompositeNHKey key(Composite::ECMP, true, comp_nh_list);
     EXPECT_FALSE(FindNH(&key));
 }
 

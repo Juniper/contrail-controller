@@ -111,11 +111,12 @@ bool PktFlowInfo::ComputeDirection(const Interface *intf) {
 }
 
 // Get VRF corresponding to a NH
-static uint32_t NhToVrf(const NextHop *nh) {
+static uint32_t NhToVrf(const AgentRoute *rt) {
+    const NextHop *nh = rt->GetActiveNextHop();
     const VrfEntry *vrf = NULL;
     switch (nh->GetType()) {
     case NextHop::COMPOSITE: {
-        vrf = (static_cast<const CompositeNH *>(nh))->vrf();
+        vrf = rt->vrf();
         break;
     }
     case NextHop::NextHop::INTERFACE: {
@@ -877,7 +878,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         out->vn_ = InterfaceToVn(out->intf_);
     } else {
         // Egress-vm is remote. Find VRF from the NH for source-ip
-        nat_vrf = NhToVrf(in->rt_->GetActiveNextHop());
+        nat_vrf = NhToVrf(in->rt_);
     }
 
     // Dest VRF for reverse flow is In-Port VRF
