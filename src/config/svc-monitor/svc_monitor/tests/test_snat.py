@@ -93,38 +93,41 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_args = mock.MagicMock()
         self.mocked_args.availability_zone = None
 
+        self.mocked_manager = mock.MagicMock()
+
         self.netns_manager = NetworkNamespaceManager(
             db=self.mocked_db, logger=mock.MagicMock(),
             vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
-            nova_client=self.nova_mock, args=self.mocked_args)
+            nova_client=self.nova_mock, agent_manager=self.mocked_manager,
+            args=self.mocked_args)
 
     def tearDown(self):
         ServiceTemplateSM.delete('fake-st-uuid')
         ServiceInstanceSM.delete('fake-si-uuid')
         pass
 
-    def create_test_project(self, fq_name_str):
+    def _create_test_project(self, fq_name_str):
         proj_obj = {}
         proj_obj['fq_name'] = fq_name_str.split(':')
         proj_obj['uuid'] = fq_name_str
         proj_obj['id_perms'] = 'fake-id-perms'
         ProjectSM.locate(proj_obj['uuid'], proj_obj)
 
-    def create_test_virtual_network(self, fq_name_str):
+    def _create_test_virtual_network(self, fq_name_str):
         vn_obj = {}
         vn_obj['fq_name'] = fq_name_str.split(':')
         vn_obj['uuid'] = fq_name_str
         vn_obj['id_perms'] = 'fake-id-perms'
         VirtualNetworkSM.locate(vn_obj['uuid'], vn_obj)
 
-    def create_test_security_group(self, fq_name_str):
+    def _create_test_security_group(self, fq_name_str):
         sg_obj = {}
         sg_obj['fq_name'] = fq_name_str.split(':')
         sg_obj['uuid'] = fq_name_str
         sg_obj['id_perms'] = 'fake-id-perms'
         SecurityGroupSM.locate(sg_obj['uuid'], sg_obj)
 
-    def create_test_virtual_machine(self, fq_name_str):
+    def _create_test_virtual_machine(self, fq_name_str):
         vm_obj = {}
         vm_obj['fq_name'] = fq_name_str.split(':')
         vm_obj['uuid'] = fq_name_str
@@ -134,9 +137,10 @@ class SnatInstanceManager(unittest.TestCase):
         return vm
 
     def test_snat_instance_create(self):
-        self.create_test_project('fake-domain:fake-project')
-        self.create_test_virtual_network('fake-domain:fake-project:public-vn')
-        self.create_test_security_group('fake-domain:fake-project:default')
+        self._create_test_project('fake-domain:fake-project')
+        self._create_test_virtual_network('fake-domain:fake-project:public-vn')
+        self._create_test_virtual_network('fake-domain:fake-project:fake-vn-uuid')
+        self._create_test_security_group('fake-domain:fake-project:default')
 
         st_obj = {}
         st_obj['fq_name'] = ['fake-domain', 'fake-snat-template']
@@ -159,7 +163,7 @@ class SnatInstanceManager(unittest.TestCase):
         si_props = {}
         si_props['scale_out'] = {'max_instances': 2}
         si_props['interface_list'] = [{'virtual_network': 'fake-domain:fake-project:public-vn'},
-                                      {'virtual_network': ''}]
+                                      {'virtual_network': 'fake-domain:fake-project:fake-vn-uuid'}]
         si_obj['service_instance_properties'] = si_props
 
         st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
@@ -168,7 +172,7 @@ class SnatInstanceManager(unittest.TestCase):
         self.netns_manager.create_service(st, si)
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
-        self.assertEqual(si.vn_info[1]['net-id'], 'fake-vn-uuid')
+        self.assertEqual(si.vn_info[1]['net-id'], 'fake-domain:fake-project:fake-vn-uuid')
 
     def test_snat_instance_delete(self):
         def create_fake_virtual_machine(fq_name_str):

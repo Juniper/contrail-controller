@@ -30,11 +30,12 @@ from config_db import *
 class InstanceManager(object):
 
     def __init__(self, vnc_lib, db, logger, vrouter_scheduler,
-                 nova_client, args=None):
+                 nova_client, agent_manager, args=None):
         self.logger = logger
         self._vnc_lib = vnc_lib
         self._args = args
         self._nc = nova_client
+        self._agent_manager = agent_manager
         self.vrouter_scheduler = vrouter_scheduler
 
     @abc.abstractmethod
@@ -298,7 +299,7 @@ class InstanceManager(object):
                 except NoIdError:
                     config_complete = False
 
-            nic['type'] = st_if.get('service_interface_type')
+            nic['type'] = itf_type
             nic['index'] = str(index + 1)
             nic['net-id'] = vn_id
             nic['shared-ip'] = st_if.get('shared_ip')
@@ -368,6 +369,9 @@ class InstanceManager(object):
                     pass
 
     def _check_create_netns_vm(self, instance_index, si, st, vm):
+        # notify all the agents
+        self._agent_manager.pre_create_service_vm(instance_index, si, st, vm)
+
         instance_name = self._get_instance_name(si, instance_index)
         vm_obj = VirtualMachine(instance_name)
         vm_obj.set_display_name(instance_name + '__' + st.virtualization_type)
@@ -388,6 +392,9 @@ class InstanceManager(object):
             vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st,
                 local_preference=si.local_preference[instance_index],
                 vm_obj=vm_obj)
+
+        # notify all the agents
+        self._agent_manager.post_create_service_vm(instance_index, si, st, vm)
 
         return vm
 
