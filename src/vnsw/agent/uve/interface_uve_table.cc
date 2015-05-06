@@ -74,14 +74,14 @@ void InterfaceUveTable::set_expiry_time(int time) {
     }
 }
 
-void InterfaceUveTable::UveInterfaceEntry::SetVnVmName(UveVMInterfaceAgent *uve)
+void InterfaceUveTable::UveInterfaceEntry::SetVnVmInfo(UveVMInterfaceAgent *uve)
                                                        const {
     /* VM interfaces which are not created by Nova will not have VM name set.
      * In that case pick VM name from VM object instead of VMI object */
+    const VmEntry *vm = intf_->vm();
     if (!intf_->vm_name().empty()) {
         uve->set_vm_name(intf_->vm_name());
     } else {
-        const VmEntry *vm = intf_->vm();
         if (vm) {
             uve->set_vm_name(vm->GetCfgName());
         }
@@ -91,13 +91,18 @@ void InterfaceUveTable::UveInterfaceEntry::SetVnVmName(UveVMInterfaceAgent *uve)
     } else {
         uve->set_virtual_network("");
     }
+    if (vm) {
+        uve->set_vm_uuid(to_string(vm->GetUuid()));
+    } else {
+        uve->set_vm_uuid("");
+    }
 }
 
 
 bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     UveVMInterfaceAgent *s_intf) const {
     s_intf->set_name(name);
-    SetVnVmName(s_intf);
+    SetVnVmInfo(s_intf);
     s_intf->set_ip_address(intf_->ip_addr().to_string());
     s_intf->set_mac_address(intf_->vm_mac());
     s_intf->set_ip6_address(intf_->ip6_addr().to_string());

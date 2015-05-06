@@ -119,7 +119,7 @@ public:
         bool GetVmInterfaceGateway(const VmInterface *vm_intf,
                                    std::string &gw) const;
         bool FipAggStatsChanged(const vector<VmFloatingIPStats>  &list) const;
-        void SetVnVmName(UveVMInterfaceAgent *uve) const;
+        void SetVnVmInfo(UveVMInterfaceAgent *uve) const;
         void Reset();
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;

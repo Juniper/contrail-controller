@@ -28,7 +28,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         return false;
     }
     uve->set_name(vm_intf->cfg_name());
-    entry->SetVnVmName(uve);
+    entry->SetVnVmInfo(uve);
 
     const Interface *intf = static_cast<const Interface *>(vm_intf);
     AgentUve *agent_uve = static_cast<AgentUve *>(agent_->uve());
