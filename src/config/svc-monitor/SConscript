@@ -2,7 +2,7 @@
 
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
-# 
+#
 import os
 
 Import('CfgmEnv')
@@ -16,6 +16,8 @@ sources = [
     '.testr.conf',
     'MANIFEST.in',
     'svc_monitor/__init__.py',
+    'svc_monitor/agent.py',
+    'svc_monitor/agent_manager.py',
     'svc_monitor/svc_monitor.py',
     'svc_monitor/instance_manager.py',
     'svc_monitor/virtual_machine_manager.py',
@@ -40,6 +42,7 @@ sources = [
     'svc_monitor/tests/test_vrouter_instance_manager.py',
     'svc_monitor/tests/test_virtual_machine_manager.py',
     'svc_monitor/tests/test_snat.py',
+    'svc_monitor/tests/test_snat_agent.py',
     'svc_monitor/tests/scheduler/__init__.py',
     'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
 ]
@@ -79,8 +82,8 @@ if 'install' in BUILD_TARGETS:
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-svc-monitor.conf'))
 env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
     '/contrail-svc-monitor', 'contrail-svc-monitor.initd.supervisord'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
-    '/supervisord_config_files', 'contrail-svc-monitor.ini')) 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
+    '/supervisord_config_files', 'contrail-svc-monitor.ini'))
 
 buildspace_link = os.environ.get('CONTRAIL_REPO')
 if buildspace_link:

@@ -47,6 +47,7 @@ from vnc_api.vnc_api import *
 import discoveryclient.client as client
 
 from db import ServiceMonitorDB
+from agent_manager import AgentManager
 from logger import ServiceMonitorLogger
 from loadbalancer_agent import LoadbalancerAgent
 from snat_agent import SNATAgent
@@ -134,6 +135,9 @@ class SvcMonitor(object):
             'virtual_machine_interface': [],
         },
         "project": {
+            'self': [],
+        },
+        "logical_router": {
             'self': [],
         },
     }
@@ -305,6 +309,9 @@ class SvcMonitor(object):
             'svc_monitor.nova_client.ServiceMonitorNovaClient',
             self._args, self.logger, SvcMonitor._kscertbundle)
 
+        # agent manager
+        self._agent_manager = AgentManager()
+
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
@@ -315,23 +322,32 @@ class SvcMonitor(object):
         self.vm_manager = importutils.import_object(
             'svc_monitor.virtual_machine_manager.VirtualMachineManager',
             self._vnc_lib, self._cassandra, self.logger,
-            self.vrouter_scheduler, self._nova_client, self._args)
+            self.vrouter_scheduler, self._nova_client, self._agent_manager,
+            self._args)
 
         # load network namespace instance manager
         self.netns_manager = importutils.import_object(
             'svc_monitor.instance_manager.NetworkNamespaceManager',
             self._vnc_lib, self._cassandra, self.logger,
-            self.vrouter_scheduler, self._nova_client, self._args)
+            self.vrouter_scheduler, self._nova_client, self._agent_manager,
+            self._args)
 
         # load a vrouter instance manager
         self.vrouter_manager = importutils.import_object(
             'svc_monitor.vrouter_instance_manager.VRouterInstanceManager',
             self._vnc_lib, self._cassandra, self.logger,
-            self.vrouter_scheduler, self._nova_client, self._args)
+            self.vrouter_scheduler, self._nova_client,
+            self._agent_manager, self._args)
 
         # load a loadbalancer agent
-        self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib, self._args)
-        self.snat_agent = SNATAgent(self, self._vnc_lib)
+        self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib,
+                                                    self._cassandra, self._args)
+        self._agent_manager.register_agent(self.loadbalancer_agent)
+
+        # load a snat agent
+        self.snat_agent = SNATAgent(self, self._vnc_lib,
+                                    self._cassandra, self._args)
+        self._agent_manager.register_agent(self.snat_agent)
 
         # Read the cassandra and populate the entry in ServiceMonitor DB
         self.sync_sm()
@@ -661,13 +677,12 @@ class SvcMonitor(object):
                         continue
                     self.port_delete_or_si_link(vm, vmi)
 
-
         ok, lr_list = self._cassandra._cassandra_logical_router_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in lr_list:
-                lr = LogicalRouterSM.locate(uuid)
+               LogicalRouterSM.locate(uuid)
 
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()

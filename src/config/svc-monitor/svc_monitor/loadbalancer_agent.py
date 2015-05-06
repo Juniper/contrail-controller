@@ -2,14 +2,20 @@ from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
 from cfgm_common import exceptions as vnc_exc
+from cfgm_common import svc_info
+
+from agent import Agent
 from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
-    LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
+    LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM, \
+    VirtualIpSM
 
 
-class LoadbalancerAgent(object):
+class LoadbalancerAgent(Agent):
 
-    def __init__(self, svc_mon, vnc_lib, config_section):
+    def __init__(self, svc_mon, vnc_lib, cassandra, config_section):
         # Loadbalancer
+        super(LoadbalancerAgent, self).__init__(svc_mon, vnc_lib,
+                                                cassandra, config_section)
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
         self._cassandra = self._svc_mon._cassandra
@@ -23,6 +29,34 @@ class LoadbalancerAgent(object):
         )
         self._default_provider = "opencontrail"
     # end __init__
+
+    def handle_service_type(self):
+        return svc_info.get_lb_service_type()
+
+    def pre_create_service_vm(self, instance_index, si, st, vm):
+        for nic in si.vn_info:
+           if nic['type'] == svc_info.get_right_if_str():
+                iip_id, vn_id = self._get_vip_vmi_iip(si)
+                nic['iip-id'] = iip_id
+                nic['user-visible'] = False
+
+    def _get_vip_vmi_iip(self, si):
+        if not si.loadbalancer_pool:
+            return None, None
+
+        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
+        if not pool.virtual_ip:
+            return None, None
+
+        vip = VirtualIpSM.get(pool.virtual_ip)
+        if not vip.virtual_machine_interface:
+            return None, None
+
+        vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
+        if not vmi.instance_ip or not vmi.virtual_network:
+            return None, None
+
+        return vmi.instance_ip, vmi.virtual_network
 
     # create default loadbalancer driver
     def _create_default_service_appliance_set(self, sa_set_name, driver_name):
