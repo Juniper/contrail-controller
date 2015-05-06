@@ -131,8 +131,7 @@ class DatabaseEventManager(EventManager):
             sys.stderr.write("Failed to get database usage" + "\n")
         else:
             db_info.name = socket.gethostname()
-            db_info.database_usage = db_stat
-            db_info.database_usage_stats = [db_stat]
+            db_info.database_usage = [db_stat]
             usage_stat = DatabaseUsage(data=db_info)
             usage_stat.send()
 
