@@ -133,11 +133,11 @@ public:
             if (family_ == Address::INET) {
                 TxTcpMplsPacket(eth_intf_id, outer_sip_.c_str(),
                                 self_server.c_str(), mpls_, sip_.c_str(),
-                                dip_.c_str(), sport_, dport_, false, hash_);
+                                dip_.c_str(), sport_, dport_, false, vrf_, hash_);
             } else {
                 TxTcp6MplsPacket(eth_intf_id, outer_sip_.c_str(), 
                                  self_server.c_str(), mpls_, sip_.c_str(),
-                                 dip_.c_str(), sport_, dport_, false, hash_);
+                                 dip_.c_str(), sport_, dport_, false, vrf_, hash_);
             }
             break;
 
@@ -145,11 +145,11 @@ public:
             if (family_ == Address::INET) {
                 TxUdpMplsPacket(eth_intf_id, outer_sip_.c_str(),
                                 self_server.c_str(), mpls_, sip_.c_str(), 
-                                dip_.c_str(), sport_, dport_, hash_);
+                                dip_.c_str(), sport_, dport_, vrf_, hash_);
             } else {
                 TxUdp6MplsPacket(eth_intf_id, outer_sip_.c_str(), 
                                  self_server.c_str(), mpls_, sip_.c_str(), 
-                                 dip_.c_str(), sport_, dport_, hash_);
+                                 dip_.c_str(), sport_, dport_, vrf_, hash_);
             }
             break;
 
@@ -157,11 +157,11 @@ public:
             if (family_ == Address::INET) {
                 TxIpMplsPacket(eth_intf_id, outer_sip_.c_str(),
                                self_server.c_str(), mpls_, sip_.c_str(), 
-                               dip_.c_str(), proto_, hash_);
+                               dip_.c_str(), proto_, vrf_, hash_);
             } else {
                 TxIp6MplsPacket(eth_intf_id, outer_sip_.c_str(),
                                 self_server.c_str(), mpls_, sip_.c_str(), 
-                                dip_.c_str(), proto_, hash_);
+                                dip_.c_str(), proto_, vrf_, hash_);
             }
             break;
         }
