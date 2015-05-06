@@ -106,15 +106,25 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
-                if pl['lldpRemLocalPortNum'] in ifm and \
-                        pl['lldpRemPortId'].isdigit():
+                if pl['lldpRemLocalPortNum'] in ifm:
+                    if pl['lldpRemPortId'].isdigit():
+                        rii = int(pl['lldpRemPortId'])
+                    else:
+                        try:
+                            rii = filter(lambda y: y['ifName'] == pl[
+                                    'lldpRemPortId'], [ x for x in self.prouters \
+                                    if x.name == 'a7-c2960'][0].data[
+                                    'PRouterEntry']['ifXTable'])[0]['ifIndex']
+                        except:
+                            rii = 0
+
                     if self._add_link(
                             prouter=prouter,
                             remote_system_name=pl['lldpRemSysName'],
                             local_interface_name=ifm[pl['lldpRemLocalPortNum']],
                             remote_interface_name=pl['lldpRemPortDesc'],
                             local_interface_index=pl['lldpRemLocalPortNum'],
-                            remote_interface_index=int(pl['lldpRemPortId']),
+                            remote_interface_index=rii,
                             link_type=1):
                         lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
