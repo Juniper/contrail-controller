@@ -89,13 +89,15 @@ struct VnData : public AgentOperDBData {
            const string &vrf_name, const uuid &mirror_acl_id, const uuid &mc_acl_id,
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool bridging,
-           bool layer3_forwarding, bool admin_state, bool enable_rpf) :
+           bool layer3_forwarding, bool admin_state, bool enable_rpf,
+           bool flood_unknown_unicast) :
         AgentOperDBData(agent, NULL), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
         vxlan_id_(vxlan_id), vnid_(vnid), bridging_(bridging),
         layer3_forwarding_(layer3_forwarding), admin_state_(admin_state),
-        enable_rpf_(enable_rpf) {
+        enable_rpf_(enable_rpf),
+        flood_unknown_unicast_(flood_unknown_unicast) {
     };
     virtual ~VnData() { }
 
@@ -112,6 +114,7 @@ struct VnData : public AgentOperDBData {
     bool layer3_forwarding_;
     bool admin_state_;
     bool enable_rpf_;
+    bool flood_unknown_unicast_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -152,7 +155,8 @@ public:
     bool VxLanNetworkIdentifierChanged();
     bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
                          bool new_bridging,
-                         bool vxlan_network_identifier_mode_changed);
+                         bool vxlan_network_identifier_mode_changed,
+                         bool new_flood_unknown_unicast);
     void UpdateMacVmBindingFloodFlag();
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
@@ -161,6 +165,7 @@ public:
     bool layer3_forwarding() const {return layer3_forwarding_;};
     bool admin_state() const {return admin_state_;}
     bool enable_rpf() const {return enable_rpf_;}
+    bool flood_unknown_unicast() const {return flood_unknown_unicast_;}
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -190,6 +195,7 @@ private:
     VxLanIdRef vxlan_id_ref_;
     uint32_t table_label_;
     bool enable_rpf_;
+    bool flood_unknown_unicast_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -224,7 +230,8 @@ public:
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
                const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id,
-               bool admin_state, bool enable_rpf);
+               bool admin_state, bool enable_rpf,
+               bool flood_unknown_unicast);
     void DelVn(const uuid &vn_uuid);
     VnEntry *Find(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();

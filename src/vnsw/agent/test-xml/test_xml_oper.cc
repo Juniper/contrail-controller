@@ -186,6 +186,7 @@ bool AgentUtXmlVn::ReadXml() {
     }
     GetStringAttribute(node(), "vxlan-id", &vxlan_id_);
     GetStringAttribute(node(), "network-id", &network_id_);
+    GetStringAttribute(node(), "flood-unknown-unicast", &flood_unknown_unicast_);
     return true;
 }
 
@@ -199,6 +200,11 @@ bool AgentUtXmlVn::ToXml(xml_node *parent) {
     if (!vxlan_id().empty() && op_delete() == false) {
         xml_node n1 = n.append_child("virtual-network-properties");
         AddXmlNodeWithValue(&n1, "vxlan-network-identifier", vxlan_id());
+    }
+
+    if (!flood_unknown_unicast().empty() && op_delete() == false) {
+        AddXmlNodeWithValue(&n, "flood-unknown-unicast",
+                            flood_unknown_unicast());
     }
     AddIdPerms(&n);
     return true;
