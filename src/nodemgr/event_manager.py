@@ -108,63 +108,14 @@ class EventManager(object):
         self.send_process_state_db([group_val])
     # end add_process_handler
 
-    def read_config_data(self, config_file):
-        data = StringIO('\n'.join(line.strip() for line in open(config_file)))
-        Config = ConfigParser.SafeConfigParser()
-        Config.readfp(data)
-        return Config
-
-    def get_discovery_server(self, Config):
-        try:
-            self.discovery_server = Config.get("DISCOVERY", "server")
-        except NoOptionError as e:
-            sys.stderr.write("ERROR: " + str(e) + '\n')
-        except NoSectionError as e:
-            sys.stderr.write("ERROR: " + str(e) + '\n')
-        # Hack becos of Configparser and the conf file format itself
-        try:
-            self.discovery_server[:self.discovery_server.index('#')].strip()
-        except:
-            self.discovery_server.strip()
-
-    def get_discovery_port(self, Config):
-        try:
-            self.discovery_port = Config.get("DISCOVERY", "port")
-        except NoOptionError as e:
-            sys.stderr.write("ERROR: " + str(e) + '\n')
-        except NoSectionError as e:
-            sys.stderr.write("ERROR: " + str(e) + '\n')
-        # Hack becos of Configparser and the conf file format itself
-        try:
-            self.discovery_port = self.discovery_port[
-                :self.discovery_port.index('#')].strip()
-        except Exception:
-            pass
-
-    def get_discovery_client(self, Config):
+    def get_discovery_client(self):
         try:
             import discovery.client as client
         except:
             import discoveryclient.client as client
-        if self.discovery_server == socket.gethostname():
-            self.get_discovery_server(Config)
-        self.get_discovery_port(Config)
         _disc = client.DiscoveryClient(
             self.discovery_server, self.discovery_port, self.module_id)
         return _disc
-
-    def get_collector_list(self, Config):
-        try:
-            self.collector_addr = Config.get("COLLECTOR", "server_list")
-            try:
-                self.collector_addr = self.collector_addr[
-                    :self.collector_addr.index('#')].strip()
-            except:
-                self.collector_addr.strip()
-        except NoOptionError as e:
-            sys.stderr.write("ERROR: " + str(e) + '\n')
-        except NoSectionError as e:
-            sys.stderr.write("ERROR: " + str(e) + '\n')
 
     def check_ntp_status(self):
         ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'

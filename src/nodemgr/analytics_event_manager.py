@@ -1,4 +1,3 @@
-doc = " "
 
 from gevent import monkey
 monkey.patch_all()
@@ -29,11 +28,6 @@ from analytics.process_info.constants import \
     ProcessStateNames
 
 
-def usage():
-    print doc
-    sys.exit(255)
-
-
 class AnalyticsEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr):
@@ -55,10 +49,7 @@ class AnalyticsEventManager(EventManager):
         self.rules_data = json.load(json_file)
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]
-        config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
-        Config = self.read_config_data(config_file)
-        self.get_collector_list(Config)
-        _disc = self.get_discovery_client(Config)
+        _disc = self.get_discovery_client()
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
