@@ -334,7 +334,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
     strcpy(remote_vm_ip, remote_vm_ip1_.to_string().c_str());
 
     TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, mpls_label_2,
-                   remote_vm_ip, vm_ip, 1, 10);
+                   remote_vm_ip, vm_ip, 1, 2, 10);
 
     client->WaitForIdle();
     int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_2)->nexthop()->id();
@@ -363,7 +363,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
     strcpy(remote_vm_ip, remote_vm_ip3_.to_string().c_str());
 
     TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, mpls_label_3,
-                   remote_vm_ip, vm_ip, 1, 10);
+                   remote_vm_ip, vm_ip, 1, 4, 10);
     client->WaitForIdle();
 
     int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_3)->nexthop()->id();
@@ -441,7 +441,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
     const VmInterface *vintf =
         static_cast<const VmInterface *>(VmPortGet(1));
     TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, vintf->label(),
-                   remote_vm_ip, vm_ip, 1, 10);
+                   remote_vm_ip, vm_ip, 1, 1, 10);
 
     client->WaitForIdle();
     int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, vintf->label())->
@@ -750,13 +750,13 @@ TEST_F(EcmpTest, EcmpTest_12) {
     if (entry->data().component_nh_idx == 0) {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 1);
     } else {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 0);
     }
@@ -842,14 +842,14 @@ TEST_F(EcmpTest, EcmpTest_13) {
     if (entry->data().component_nh_idx == 0) {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 1);
         index = 1;
     } else {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 0);
         index = 0;
