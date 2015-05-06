@@ -1279,10 +1279,6 @@ void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
 // CompositeNH routines
 /////////////////////////////////////////////////////////////////////////////
 bool CompositeNH::CanAdd() const {
-    if (vrf_ == NULL || vrf_->IsDeleted()) {
-        LOG(ERROR, "Invalid VRF in composite NH. Skip Add");
-        return false;
-    }
     return true;
 }
 
@@ -1302,10 +1298,8 @@ const NextHop* CompositeNH::GetLocalNextHop() const {
 }
 
 NextHop *CompositeNHKey::AllocEntry() const {
-    VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     return new CompositeNH(composite_nh_type_, policy_,
-                           component_nh_key_list_, vrf);
+                           component_nh_key_list_);
 }
 
 void CompositeNHKey::ChangeTunnelType(TunnelType::Type tunnel_type) {
@@ -1396,11 +1390,6 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
     FillObjectLog(event, info);
 
-    const VrfEntry *vrf_entry = vrf();
-    if (vrf_entry) {
-        info.set_vrf(vrf_entry->GetName());
-    }
-
     std::vector<ComponentNHLogInfo> comp_nh_log_list;
     ComponentNHList::const_iterator component_nh_it = begin();
     for (;component_nh_it != end(); component_nh_it++) {
@@ -1475,10 +1464,6 @@ bool CompositeNH::NextHopIsLess(const DBEntry &rhs_db) const {
         return composite_nh_type_ < rhs.composite_nh_type_;
     }
 
-    if (vrf_ != rhs.vrf_) {
-        return vrf_ < rhs.vrf_;
-    }
-
     //Parse thought indivial key entries and compare if they are same
     ComponentNHKeyList::const_iterator left_component_nh_it =
         component_nh_key_list_.begin();
@@ -1537,8 +1522,7 @@ CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
     ComponentNHKeyList component_nh_key_list;
     component_nh_key_list = component_nh_key_list_;
     NextHopKey *key = new CompositeNHKey(composite_nh_type_, policy_,
-                                         component_nh_key_list,
-                                         vrf_->GetName());
+                                         component_nh_key_list);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -1645,8 +1629,7 @@ CompositeNH *CompositeNH::ChangeTunnelType(Agent *agent,
     //Create the new nexthop
     CompositeNHKey *comp_nh_key = new CompositeNHKey(composite_nh_type_,
                                                      policy_,
-                                                     new_component_nh_key_list,
-                                                     vrf_->GetName());
+                                                     new_component_nh_key_list);
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(comp_nh_key);
     nh_req.data.reset(new CompositeNHData());
@@ -1725,7 +1708,7 @@ void CompositeNHKey::CreateTunnelNHReq(Agent *agent) {
 
 CompositeNHKey* CompositeNHKey::Clone() const {
     return new CompositeNHKey(composite_nh_type_, policy_,
-                              component_nh_key_list_, vrf_key_.name_);
+                              component_nh_key_list_);
 }
 
 bool CompositeNHKey::find(ComponentNHKeyPtr new_component_nh_key) {
@@ -1837,9 +1820,6 @@ CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh) const {
 
 bool CompositeNHKey::NextHopKeyIsLess(const NextHopKey &rhs) const {
     const CompositeNHKey *comp_rhs = static_cast<const CompositeNHKey *>(&rhs);
-    if (vrf_key_.name_ != comp_rhs->vrf_key_.name_) {
-        return vrf_key_.name_ < comp_rhs->vrf_key_.name_;
-    }
 
     if (composite_nh_type_ != comp_rhs->composite_nh_type_) {
         return composite_nh_type_ < comp_rhs->composite_nh_type_;
@@ -1992,9 +1972,9 @@ void CompositeNHKey::Reorder(Agent *agent,
 }
 
 ComponentNHKey::ComponentNHKey(int label, Composite::Type type, bool policy,
-    const ComponentNHKeyList &component_nh_list, const std::string &vrf_name):
-    label_(label), nh_key_(new CompositeNHKey(type, policy, component_nh_list,
-    vrf_name)) {
+    const ComponentNHKeyList &component_nh_list):
+    label_(label), nh_key_(new CompositeNHKey(type, policy,
+                                              component_nh_list)) {
 }
 
 /////////////////////////////////////////////////////////////////////////////

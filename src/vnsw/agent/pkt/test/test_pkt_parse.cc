@@ -519,7 +519,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
 
     pkt->Reset();
     MakeIpMplsPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
-                     "10.10.10.10", "11.11.11.11", 1, 1);
+                     "10.10.10.10", "11.11.11.11", 1, 1, 1);
     PktInfo pkt_info1(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
@@ -528,7 +528,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
 
     pkt->Reset();
     MakeUdpMplsPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
-                      "10.10.10.10", "11.11.11.11", 1, 2, 2);
+                      "10.10.10.10", "11.11.11.11", 1, 2, 2, 1);
     PktInfo pkt_info2(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
@@ -537,7 +537,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
 
     pkt->Reset();
     MakeUdpMplsPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
-                      "10.10.10.10", "11.11.11.11", 1, 2, 3);
+                      "10.10.10.10", "11.11.11.11", 1, 2, 3, 1);
     PktInfo pkt_info3(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
@@ -552,7 +552,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Vnet_1) {
 
     pkt->Reset();
     MakeIp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
-                      "10::10", "11::11", IPPROTO_ICMPV6, 1);
+                      "10::10", "11::11", IPPROTO_ICMPV6, 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::IP);
@@ -560,7 +560,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Vnet_1) {
 
     pkt->Reset();
     MakeUdp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
-                      "10::10", "11::11", 1, 2, 2);
+                      "10::10", "11::11", 1, 2, 2, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
@@ -568,7 +568,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Vnet_1) {
 
     pkt->Reset();
     MakeUdp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
-                      "10::10", "11::11", 1, 2, 3);
+                      "10::10", "11::11", 1, 2, 3, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
@@ -582,7 +582,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeIpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
-                     vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 1);
+                     vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 1, 1);
     PktInfo pkt_info1(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
@@ -591,7 +591,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeUdpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
-                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1, 1);
     PktInfo pkt_info2(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
@@ -602,7 +602,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
     pkt->Reset();
     MakeTcpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
                       vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 
-                      false, 1);
+                      false, 1, 1);
     PktInfo pkt_info3(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
@@ -619,7 +619,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeIp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
-                      vnet1->label(), "10::10", "11::11", IPPROTO_ICMPV6, 1);
+                      vnet1->label(), "10::10", "11::11", IPPROTO_ICMPV6, 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
@@ -628,7 +628,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeUdp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
-                       vnet1->label(), "10::10", "11::11", 1, 2, 1);
+                       vnet1->label(), "10::10", "11::11", 1, 2, 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
@@ -638,7 +638,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
     pkt->Reset();
     MakeTcp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
                        vnet1->label(), "10::10", "11::11", 1, 2, 
-                      false, 1);
+                      false, 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
@@ -654,7 +654,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     // Invalid Label
     pkt->Reset();
     MakeIpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
-                     1000, "10.10.10.10", "11.11.11.11", 1, 1);
+                     1000, "10.10.10.10", "11.11.11.11", 1, 1, 1);
     PktInfo pkt_info1(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
@@ -664,7 +664,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     // Invalid IP-DA
     pkt->Reset();
     MakeUdpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.2",
-                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1, 1);
     PktInfo pkt_info2(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
@@ -712,7 +712,7 @@ TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
     // Invalid Label
     pkt->Reset();
     MakeIp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
-                      1000, "10::10", "11::11", 1, 1);
+                      1000, "10::10", "11::11", 1, 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(pkt_info.ip != NULL);
@@ -721,7 +721,7 @@ TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
     // Invalid IP-DA
     pkt->Reset();
     MakeUdp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.2",
-                      vnet1->label(), "10::10", "11::11", 1, 2, 1);
+                      vnet1->label(), "10::10", "11::11", 1, 2, 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);

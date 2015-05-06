@@ -403,7 +403,7 @@ TEST_F(CfgTest, EcmpNH_controller) {
 
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
-                                        comp_nh_list, "vrf10"));
+                                        comp_nh_list));
     nh_req.data.reset(new CompositeNHData());
     Ip4Address prefix = Ip4Address::from_string("18.18.18.0");
     PathPreference rp(100, PathPreference::LOW, false, false);
@@ -850,13 +850,13 @@ TEST_F(CfgTest, EcmpNH_4) {
     ComponentNHKeyList comp_nh_list;
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new CompositeNHKey(Composite::ECMP, true, comp_nh_list, "vrf2"));
+    req.key.reset(new CompositeNHKey(Composite::ECMP, true, comp_nh_list));
     req.data.reset(new CompositeNHData());
     agent_->nexthop_table()->Enqueue(&req);
 
     client->WaitForIdle();
 
-    CompositeNHKey key(Composite::ECMP, true, comp_nh_list, "vrf2");
+    CompositeNHKey key(Composite::ECMP, true, comp_nh_list);
     EXPECT_FALSE(FindNH(&key));
     vrf1.reset();
 }
@@ -1212,7 +1212,7 @@ TEST_F(CfgTest, EcmpNH_8) {
         DeleteReq(bgp_peer, "vrf1", ip2, 32, NULL);
     client->WaitForIdle();
 
-    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list);
     EXPECT_FALSE(FindNH(&composite_nh_key));
     DelVrf("vrf1");
 }
@@ -1246,7 +1246,7 @@ TEST_F(CfgTest, EcmpNH_9) {
         DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
     client->WaitForIdle();
 
-    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list);
     EXPECT_FALSE(FindNH(&composite_nh_key));
     DelVrf("vrf1");
 }
@@ -1313,9 +1313,9 @@ TEST_F(CfgTest, EcmpNH_10) {
     EXPECT_TRUE(rt2->GetActiveNextHop() == nh);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     //Make sure old nexthop is deleted
-    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2, "vrf1");
+    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2);
     EXPECT_FALSE(FindNH(&composite_nh_key2));
-    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
+    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1);
     EXPECT_TRUE(GetNH(&composite_nh_key1)->GetRefCount() == 2);
 
     //Delete all the routes and make sure nexthop is also deleted
@@ -1379,8 +1379,8 @@ TEST_F(CfgTest, EcmpNH_11) {
     InetUnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt1->GetActiveNextHop() != rt2->GetActiveNextHop());
-    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
-    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2, "vrf1");
+    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1);
+    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2);
     CompositeNH *composite_nh1 =
         static_cast<CompositeNH *>(GetNH(&composite_nh_key1));
     EXPECT_TRUE(composite_nh1->GetRefCount() == 1);
@@ -1449,7 +1449,7 @@ TEST_F(CfgTest, EcmpNH_12) {
         DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
     client->WaitForIdle();
 
-    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list);
     EXPECT_FALSE(FindNH(&composite_nh_key));
     DelVrf("vrf1");
 }
@@ -1482,7 +1482,7 @@ TEST_F(CfgTest, EcmpNH_13) {
     client->WaitForIdle();
 
     //Delete composite NH
-    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list);
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(
             GetNH(&composite_nh_key));
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
@@ -1490,7 +1490,7 @@ TEST_F(CfgTest, EcmpNH_13) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
     NextHopKey *key = new CompositeNHKey(Composite::ECMP, true,
-                                         comp_nh_list, "vrf1");
+                                         comp_nh_list);
     req.key.reset(key);
     req.data.reset(NULL);
     NextHopTable::GetInstance()->Enqueue(&req);
@@ -1500,7 +1500,7 @@ TEST_F(CfgTest, EcmpNH_13) {
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     key = new CompositeNHKey(Composite::ECMP, true,
-                             comp_nh_list, "vrf1");
+                             comp_nh_list);
     ((CompositeNHKey *)key)->CreateTunnelNHReq(agent_);
     req.key.reset(key);
     req.data.reset(NULL);
@@ -2162,19 +2162,18 @@ TEST_F(CfgTest, Nexthop_keys) {
     DBRequest comp_nh_req;
     comp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     comp_nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
-                                             component_nh_key_list, "vrf10"));
+                                             component_nh_key_list));
     comp_nh_req.data.reset(new CompositeNHData());
     agent_->nexthop_table()->Enqueue(&comp_nh_req);
     client->WaitForIdle();
-    CompositeNHKey find_cnh_key(Composite::ECMP, true, component_nh_key_list, "vrf10");
+    CompositeNHKey find_cnh_key(Composite::ECMP, true, component_nh_key_list);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_cnh_key) != NULL);
     DoNextHopSandesh();
     DBRequest del_comp_nh_req;
     del_comp_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
     del_comp_nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
-                                                 component_nh_key_list,
-                                                 "vrf10"));
+                                                 component_nh_key_list));
     del_comp_nh_req.data.reset(new CompositeNHData());
     agent_->nexthop_table()->Enqueue(&del_comp_nh_req);
     client->WaitForIdle();
@@ -2370,13 +2369,12 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                                                   TunnelType::DefaultType()));
     DBRequest comp_nh_req;
     comp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    comp_nh_req.key.reset(new CompositeNHKey(Composite::L3COMP, false, component_nh_key_list,
-                                             "vrf11"));
+    comp_nh_req.key.reset(new CompositeNHKey(Composite::L3COMP, false, component_nh_key_list));
     comp_nh_req.data.reset(new CompositeNHData());
 
     agent_->nexthop_table()->Enqueue(&comp_nh_req);
     client->WaitForIdle();
-    CompositeNHKey find_cnh_key(Composite::L3COMP, false, component_nh_key_list, "vrf11");
+    CompositeNHKey find_cnh_key(Composite::L3COMP, false, component_nh_key_list);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_cnh_key) == NULL);
 

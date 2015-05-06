@@ -334,7 +334,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
     strcpy(remote_vm_ip, remote_vm_ip1_.to_string().c_str());
 
     TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, mpls_label_2,
-                   remote_vm_ip, vm_ip, 1, 10);
+                   remote_vm_ip, vm_ip, 1, 2, 10);
 
     client->WaitForIdle();
     int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_2)->nexthop()->id();
@@ -363,7 +363,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
     strcpy(remote_vm_ip, remote_vm_ip3_.to_string().c_str());
 
     TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, mpls_label_3,
-                   remote_vm_ip, vm_ip, 1, 10);
+                   remote_vm_ip, vm_ip, 1, 4, 10);
     client->WaitForIdle();
 
     int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_3)->nexthop()->id();
@@ -441,7 +441,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
     const VmInterface *vintf =
         static_cast<const VmInterface *>(VmPortGet(1));
     TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, vintf->label(),
-                   remote_vm_ip, vm_ip, 1, 10);
+                   remote_vm_ip, vm_ip, 1, 1, 10);
 
     client->WaitForIdle();
     int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, vintf->label())->
@@ -750,13 +750,13 @@ TEST_F(EcmpTest, EcmpTest_12) {
     if (entry->data().component_nh_idx == 0) {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 1);
     } else {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 0);
     }
@@ -842,14 +842,14 @@ TEST_F(EcmpTest, EcmpTest_13) {
     if (entry->data().component_nh_idx == 0) {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 1);
         index = 1;
     } else {
         TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
                        agent->router_id().to_string().c_str(),
-                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+                       label, "10.1.1.1", "10.10.10.2", 1, 9, reverse_index);
         client->WaitForIdle();
         EXPECT_TRUE(entry->data().component_nh_idx == 0);
         index = 0;
@@ -1534,8 +1534,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
-        "service-vrf1"));
+        Composite::ECMP, true, composite_nh_key->component_nh_key_list()));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 0, comp_nh_list);
@@ -1684,8 +1683,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
-        "service-vrf1"));
+        Composite::ECMP, true, composite_nh_key->component_nh_key_list()));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
     //Leak a aggregarate route to service VRF
@@ -1833,8 +1831,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
-        "service-vrf1"));
+        Composite::ECMP, true, composite_nh_key->component_nh_key_list()));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
 

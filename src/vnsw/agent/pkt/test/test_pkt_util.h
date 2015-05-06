@@ -38,27 +38,28 @@ extern void TxTcpPacket(int ifindex, const char *sip, const char *dip,
 extern void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 			     const char *out_dip, uint32_t label,
 			     const char *sip, const char *dip, uint8_t proto,
-			     int hash_id);
+			     int hash_id, int vrf_id);
 extern void TxIpMplsPacket(int ifindex, const char *out_sip,
                               const char *out_dip, uint32_t label,
                               const char *sip, const char *dip, uint8_t proto,
-                              int hash_id = 1);
+                              int vrf_id, int hash_id = 1);
 extern void MakeUdpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 			      const char *out_dip, uint32_t label,
 			      const char *sip, const char *dip, uint16_t sport,
-			      uint16_t dport, int hash_id);
+			      uint16_t dport, int hash_id, int vrf_id);
 extern void TxUdpMplsPacket(int ifindex, const char *out_sip,
 			       const char *out_dip, uint32_t label,
 			       const char *sip, const char *dip, uint16_t sport,
-			       uint16_t dport, int hash_id = 1);
+			       uint16_t dport, int vrf_id, int hash_id = 1);
 extern void MakeTcpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 			      const char *out_dip, uint32_t label,
 			      const char *sip, const char *dip, uint16_t sport,
-			      uint16_t dport, bool ack, int hash_id);
+			      uint16_t dport, bool ack, int hash_id, int vrf_id);
 extern void TxTcpMplsPacket(int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
-                               uint16_t dport, bool ack, int hash_id = 1);
+                               uint16_t dport, bool ack,
+                               int vrf_id, int hash_id = 1);
 
 extern void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip,
                           const char *dip, int proto, int hash_id,
@@ -87,26 +88,27 @@ extern void TxTcp6Packet(int ifindex, const char *sip, const char *dip,
 extern void MakeIp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                               const char *out_dip, uint32_t label,
                               const char *sip, const char *dip, uint8_t proto,
-                              int hash_id);
+                              int hash_id, int vrf_id);
 extern void TxIp6MplsPacket(int ifindex, const char *out_sip,
                             const char *out_dip, uint32_t label,
                             const char *sip, const char *dip, uint8_t proto,
-                            int hash_id = 1);
+                            int vrf_id, int hash_id = 1);
 extern void MakeUdp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
-                               uint16_t dport, int hash_id);
+                               uint16_t dport, int hash_id, int vrf_id);
 extern void TxUdp6MplsPacket(int ifindex, const char *out_sip,
                              const char *out_dip, uint32_t label,
                              const char *sip, const char *dip, uint16_t sport,
-                             uint16_t dport, int hash_id = 1);
+                             uint16_t dport, int vrf_id, int hash_id = 1);
 extern void MakeTcp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
-                               uint16_t dport, bool ack, int hash_id);
+                               uint16_t dport, bool ack, int hash_id, int vrf_id);
 extern void TxTcp6MplsPacket(int ifindex, const char *out_sip,
                              const char *out_dip, uint32_t label,
                              const char *sip, const char *dip, uint16_t sport,
-                             uint16_t dport, bool ack, int hash_id = 1);
+                             uint16_t dport, bool ack, int vrf_id,
+                             int hash_id = 1);
 
 #endif // __TEST_PKT_UTIL_H__
