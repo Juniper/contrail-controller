@@ -2,27 +2,60 @@ from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
 from cfgm_common import exceptions as vnc_exc
+from cfgm_common import svc_info
+
+from agent import Agent
 from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
-                     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
+                     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM, \
+                     VirtualIpSM
 from db import LBDB
 
-class LoadbalancerAgent(object):
 
-    def __init__(self, svc_mon, vnc_lib, config_section):
+class LoadbalancerAgent(Agent):
+
+    def __init__(self, svc_mon, vnc_lib, cassandra, config_section):
         # Loadbalancer
-        self._vnc_lib = vnc_lib
-        self._svc_mon = svc_mon
+        super(LoadbalancerAgent, self).__init__(svc_mon, vnc_lib,
+                                                cassandra, config_section)
         self._pool_driver = {}
         self._args = config_section
         self._loadbalancer_driver = {}
         # create default service appliance set
-        self._create_default_service_appliance_set("opencontrail", 
+        self._create_default_service_appliance_set("opencontrail",
           "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver")
         self._default_provider = "opencontrail"
         self.lb_db = LBDB(config_section)
         self.lb_db.add_logger(self._svc_mon.logger)
         self.lb_db.init_database()
     # end __init__
+
+    def handle_service_type(self):
+        return svc_info.get_lb_service_type()
+
+    def pre_create_service_vm(self, instance_index, si, st, vm):
+        for nic in si.vn_info:
+           if nic['type'] == svc_info.get_right_if_str():
+                iip_id, vn_id = self._get_vip_vmi_iip(si)
+                nic['iip-id'] = iip_id
+                nic['user-visible'] = False
+
+    def _get_vip_vmi_iip(self, si):
+        if not si.loadbalancer_pool:
+            return None, None
+
+        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
+        if not pool.virtual_ip:
+            return None, None
+
+        vip = VirtualIpSM.get(pool.virtual_ip)
+        if not vip.virtual_machine_interface:
+            return None, None
+
+        vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
+        if not vmi.instance_ip or not vmi.virtual_network:
+            return None, None
+
+        return vmi.instance_ip, vmi.virtual_network
 
     # create default loadbalancer driver
     def _create_default_service_appliance_set(self, sa_set_name, driver_name):
@@ -194,12 +227,12 @@ class LoadbalancerAgent(object):
         old_pools = []
         if obj.last_sent:
             old_pools = hm['pools'] or []
- 
+
         set_current_pools = set()
         set_old_pools = set()
         for i in current_pools:
             set_current_pools.add(i['pool_id'])
-        for i in old_pools: 
+        for i in old_pools:
             set_old_pools.add(i['pool_id'])
         update_pools = set_current_pools & set_old_pools
         delete_pools = set_old_pools - set_current_pools
@@ -213,7 +246,7 @@ class LoadbalancerAgent(object):
                 driver.delete_pool_health_monitor(hm, pool)
             for pool in update_pools:
                 driver = self._get_driver_for_pool(pool)
-                driver.update_health_monitor(obj.last_sent, 
+                driver.update_health_monitor(obj.last_sent,
                                          hm, pool)
         except Exception as ex:
             pass
