@@ -36,11 +36,13 @@ LifetimeActor::~LifetimeActor() {
 // to dependents happens in the context of the LifetimeManager's Task.
 //
 void LifetimeActor::Delete() {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (deleted_.fetch_and_store(true)) {
         return;
     }
     delete_time_stamp_usecs_ = UTCTimestampUsec();
-    manager_->Enqueue(this);
+    refcount_++;
+    manager_->EnqueueNoIncrement(this);
 }
 
 //
