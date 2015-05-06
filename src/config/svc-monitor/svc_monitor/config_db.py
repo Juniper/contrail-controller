@@ -794,6 +794,32 @@ class ServiceApplianceSetSM(DBBase):
 # end ServiceApplianceSetSM
 
 
+class LogicalRouterSM(DBBase):
+    _dict = {}
+    obj_type = 'logical_router'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.last_sent = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.last_sent = self._manager.snat_agent.update_gateway(self, obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        del cls._dict[uuid]
+    # end delete
+# end LogicalRouterSM
+
+
 DBBase._OBJ_TYPE_MAP = {
     'loadbalancer_pool': LoadbalancerPoolSM,
     'loadbalancer_member': LoadbalancerMemberSM,
@@ -816,4 +842,5 @@ DBBase._OBJ_TYPE_MAP = {
     'security_group': SecurityGroupSM,
     'service_appliance': ServiceApplianceSM,
     'service_appliance_set': ServiceApplianceSetSM,
+    'logical_router': LogicalRouterSM,
 }
