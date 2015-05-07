@@ -120,6 +120,14 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.xmpp_server_port",
              opt::value<uint16_t>()->default_value(default_xmpp_port),
              "XMPP listener port")
+        ("DEFAULT.xmpp_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
+             "Enable authentication over Xmpp")
+        ("DEFAULT.xmpp_server_cert",
+             opt::value<string>()->default_value("/etc/contrail/ssl/certs/server.pem"),
+             "XMPP Server ssl certificate")
+        ("DEFAULT.xmpp_server_key",
+             opt::value<string>()->default_value("/etc/contrail/ssl/private/server.key"),
+             "XMPP Server ssl private key")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
@@ -247,6 +255,9 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
+    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
+    GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
+    GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
