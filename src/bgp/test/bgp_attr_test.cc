@@ -21,6 +21,8 @@
 
 using boost::assign::list_of;
 using boost::system::error_code;
+using std::string;
+using std::vector;
 
 class BgpAttrTest : public ::testing::Test {
 protected:
@@ -845,6 +847,56 @@ TEST_F(BgpAttrTest, PmsiTunnelSpecToString2) {
               " Tunnel Flags: 0x80 Tunnel Type: 6 Label: 10000"
               " Identifier: 10.1.1.1",
         pmsi_spec.ToString());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelTypeString) {
+    PmsiTunnelSpec pmsi_spec;
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::RsvpP2mpLsp;
+    EXPECT_EQ("RsvpP2mpLsp", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::LdpP2mpLsp;
+    EXPECT_EQ("LdpP2mpLsp", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::PimSsmTree;
+    EXPECT_EQ("PimSsmTree", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::PimSmTree;
+    EXPECT_EQ("PimSmTree", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::BidirPimTree;
+    EXPECT_EQ("BidirPimTree", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    EXPECT_EQ("IngressReplication", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::MldpMp2mpLsp;
+    EXPECT_EQ("MldpMp2mpLsp", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::AssistedReplicationContrail;
+    EXPECT_EQ("AssistedReplication", pmsi_spec.GetTunnelTypeString());
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::NoTunnelInfo;
+    EXPECT_EQ("Unknown(0)", pmsi_spec.GetTunnelTypeString());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelArTypeString) {
+    PmsiTunnelSpec pmsi_spec;
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::RegularNVE;
+    EXPECT_EQ("RegularNVE", pmsi_spec.GetTunnelArTypeString());
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::ARReplicator;
+    EXPECT_EQ("ARReplicator", pmsi_spec.GetTunnelArTypeString());
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::ARLeaf;
+    EXPECT_EQ("ARLeaf", pmsi_spec.GetTunnelArTypeString());
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::AssistedReplicationType;
+    EXPECT_EQ("Unknown", pmsi_spec.GetTunnelArTypeString());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelFlagsStrings) {
+    PmsiTunnelSpec pmsi_spec;
+    vector<string> flags;
+    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
+    flags = list_of("LeafInfoRequired");
+    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    flags = list_of("EdgeReplicationSupported");
+    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
+    pmsi_spec.tunnel_flags |= PmsiTunnelSpec::EdgeReplicationSupported;
+    flags = list_of("LeafInfoRequired")("EdgeReplicationSupported");
+    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel2) {

@@ -124,6 +124,14 @@ struct ShowRouteBrief {
     2: list<ShowRoutePathBrief> paths;
 }
 
+struct ShowPmsiTunnel {
+    1: string type;
+    2: string ar_type;
+    3: string identifier;
+    4: u32 label;
+    5: list<string> flags;
+}
+
 struct ShowRoutePath {
     1: string protocol;
     2: u32 preference;
@@ -143,6 +151,7 @@ struct ShowRoutePath {
     15: list<string> communities;
     16: string origin_vn;
     20: list<string> origin_vn_path;
+    21: ShowPmsiTunnel pmsi_tunnel;
     19: string sequence_no;
     17: u32 flags;
 }
