@@ -203,6 +203,7 @@ struct PmsiTunnelSpec : public BgpAttribute {
 
     static const int kSize = -1;
     static const uint8_t kFlags = Optional | Transitive;
+
     PmsiTunnelSpec();
     explicit PmsiTunnelSpec(const BgpAttribute &rhs);
 
@@ -214,6 +215,10 @@ struct PmsiTunnelSpec : public BgpAttribute {
     void SetLabel(uint32_t label);
     Ip4Address GetIdentifier() const;
     void SetIdentifier(Ip4Address identifier);
+
+    std::string GetTunnelTypeString() const;
+    std::string GetTunnelArTypeString() const;
+    std::vector<std::string> GetTunnelFlagsStrings() const;
 
     uint8_t tunnel_flags;
     uint8_t tunnel_type;
