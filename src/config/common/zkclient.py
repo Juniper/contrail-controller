@@ -23,6 +23,8 @@ class IndexAllocator(object):
 
     def __init__(self, zookeeper_client, path, size=0, start_idx=0, 
                  reverse=False,alloc_list=None, max_alloc=0):
+        self._size = size
+        self._start_idx = start_idx
         if alloc_list is None:
             self._alloc_list = [{'start':start_idx, 'end':start_idx+size}]
         else:
@@ -31,7 +33,6 @@ class IndexAllocator(object):
 
         alloc_count = len(self._alloc_list)
         total_size = 0
-        start_idx = self._alloc_list[0]['start']
         size = 0
 
         #check for overlap in alloc_list --TODO
@@ -44,10 +45,8 @@ class IndexAllocator(object):
             size += idx_end_addr - idx_start_addr + 1
         size += self._alloc_list[alloc_count-1]['end'] - self._alloc_list[alloc_count-1]['start'] + 1
 
-        self._size = size
-        self._start_idx = start_idx
         if max_alloc == 0:
-            self._max_alloc = self._size
+            self._max_alloc = size
         else:
             self._max_alloc = max_alloc
 
@@ -136,6 +135,7 @@ class IndexAllocator(object):
     # end reset_in_use
 
     def alloc(self, value=None):
+        # Allocates a index from the allocation list
         if self._in_use.all():
             idx = self._in_use.length()
             if idx > self._max_alloc:
@@ -156,17 +156,18 @@ class IndexAllocator(object):
     # end alloc
 
     def reserve(self, idx, value=None):
-        bit_idx = self._get_bit_from_zk_index(idx)
-        if bit_idx < 0:
-            return None  
+        # Reserves the requested index if available
+        if not self._start_idx <= idx < self._start_idx + self._size:
+            return None
+
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
             self._zookeeper_client.create_node(self._path + id_str, value)
-            self._set_in_use(bit_idx)
+            self.set_in_use(idx)
             return idx
         except ResourceExistsError:
-            self._set_in_use(bit_idx)
+            self.set_in_use(idx)
             existing_value = self.read(idx)
             if (value == existing_value or
                 existing_value is None): # upgrade case
