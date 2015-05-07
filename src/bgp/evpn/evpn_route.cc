@@ -170,7 +170,9 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         prefix->ReadIpAddress(proto_prefix, ip_offset, ip_size);
         const PmsiTunnel *pmsi_tunnel = attr ? attr->pmsi_tunnel() : NULL;
         if (pmsi_tunnel &&
-            pmsi_tunnel->tunnel_type == PmsiTunnelSpec::IngressReplication) {
+            (pmsi_tunnel->tunnel_type == PmsiTunnelSpec::IngressReplication ||
+             pmsi_tunnel->tunnel_type ==
+             PmsiTunnelSpec::AssistedReplicationContrail)) {
             *label = pmsi_tunnel->label;
         }
         break;
