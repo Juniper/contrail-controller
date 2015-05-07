@@ -21,6 +21,7 @@ struct AgentXmppData {
     9: string flap_time;
     10: ControllerProtoStats rx_proto_stats;
     11: ControllerProtoStats tx_proto_stats;
+    12: string xmpp_auth_enabled;
 }
 
 traceobject sandesh AgentXmppTrace {
