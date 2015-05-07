@@ -30,7 +30,7 @@ class XmlDrv (object):
             return None
 
 
-class VerificationUtilBase (object):
+class IntrospectUtilBase (object):
 
     def __init__(self, ip, port, drv=JsonDrv):
         self._ip = ip

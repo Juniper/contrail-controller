@@ -20,7 +20,7 @@ import time
 from util import retry
 from pysandesh.sandesh_base import *
 from pysandesh.util import UTCTimestampUsec
-from opserver.sandesh.alarmgen_ctrl.ttypes import *
+from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 from sandesh.virtual_machine.ttypes import *
 from sandesh.virtual_network.ttypes import *
 from sandesh.flow.ttypes import *
@@ -54,7 +54,8 @@ class GeneratorFixture(fixtures.Fixture):
         super(GeneratorFixture, self).setUp()
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
-        sandesh_pkg = ['opserver.sandesh.alarmgen_ctrl', 'sandesh']
+        sandesh_pkg = ['opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base',
+                       'sandesh']
         self._sandesh_instance.init_generator(
             self._name, self._hostname, self._node_type, "0", self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=sandesh_pkg)

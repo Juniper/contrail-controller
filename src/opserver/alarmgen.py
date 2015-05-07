@@ -25,6 +25,8 @@ from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
+from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
+    UVEAlarms, UVEAlarmInfo, AlarmElement
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -37,11 +39,10 @@ from uveserver import UVEServer
 from partition_handler import PartitionHandler, UveStreamProc
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
-    PartitionStatusResp, UVEAlarms, AlarmElement, UVETableAlarmReq, \
-    UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace, AlarmTrace, UVEKeyInfo, \
-    UVETypeInfo, AlarmgenStatusTrace, AlarmgenStatus, AlarmgenStats, \
-    AlarmgenPartitionTrace, AlarmgenPartition, AlarmgenPartionInfo, \
-    AlarmgenUpdate
+    PartitionStatusResp, UVETableAlarmReq, UVETableAlarmResp, \
+    AlarmgenTrace, UVEKeyInfo, UVETypeInfo, AlarmgenStatusTrace, \
+    AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
+    AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
@@ -69,7 +70,8 @@ class Controller(object):
                                       self._conf.collectors(), 
                                       self._node_type_name,
                                       self._conf.http_port(),
-                                      ['opserver.sandesh', 'sandesh'])
+                                      ['opserver.sandesh', 'sandesh'],
+                                      host_ip=self._conf.host_ip())
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
             category=self._conf.log_category(),

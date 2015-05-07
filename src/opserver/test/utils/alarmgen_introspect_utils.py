@@ -11,10 +11,10 @@
 #
 
 from lxml import etree
-from verification_util import *
+from opserver.introspect_util import *
 
 
-class VerificationAlarmGen(VerificationUtilBase):
+class VerificationAlarmGen(IntrospectUtilBase):
     def __init__(self, ip, port):
         super(VerificationAlarmGen, self).__init__(ip, port, XmlDrv)
     #end __init__

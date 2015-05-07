@@ -11,12 +11,12 @@ import json
 import requests
 import socket
 from lxml import etree
-from verification_util import *
+from opserver.introspect_util import *
 from opserver_results import *
 from opserver.opserver_util import OpServerUtils
 
 
-class VerificationOpsSrv (VerificationUtilBase):
+class VerificationOpsSrv (IntrospectUtilBase):
 
     def __init__(self, ip, port=8081):
         super(VerificationOpsSrv, self).__init__(ip, port)
