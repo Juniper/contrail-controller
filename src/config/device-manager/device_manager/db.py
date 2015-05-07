@@ -65,6 +65,16 @@ class BgpRouterDM(DBBase):
                 resp.bgp_routers.extend(sandesh_router)
         resp.response(req.context())
 
+    def get_all_bgp_router_ips(self):
+        bgp_router_ips = set()
+        bgp_router_ips.add(self.params['address']) 
+        for peer_uuid, attrs in self.bgp_routers.items():
+            peer = BgpRouterDM.get(peer_uuid)
+            if peer is None:
+                continue
+            bgp_router_ips.add(peer.params['address']) 
+        return bgp_router_ips
+    #end get_all_bgp_router_ips
 
 # end class BgpRouterDM
 
@@ -137,8 +147,9 @@ class PhysicalRouterDM(DBBase):
                                                  params, external)
             self.config_manager.set_bgp_config(bgp_router.params)
 
-        if self.dataplane_ip is not None and GlobalSystemConfigDM.ip_fabric_subnets is not None:
-            self.config_manager.add_dynamic_tunnels(self.dataplane_ip, GlobalSystemConfigDM.ip_fabric_subnets)
+        bgp_router_ips = bgp_router.get_all_bgp_router_ips()
+        if self.dataplane_ip is not None:
+                self.config_manager.add_dynamic_tunnels(self.dataplane_ip, GlobalSystemConfigDM.ip_fabric_subnets, bgp_router_ips)
 
         vn_dict = {}
         for vn_id in self.virtual_networks:
@@ -236,7 +247,7 @@ class GlobalSystemConfigDM(DBBase):
         if obj is None:
             obj = self.read_obj(self.uuid)
         GlobalSystemConfigDM.global_asn = obj.get('autonomous_system')
-        GlobalSystemConfigDM.ip_fabric_subnets = obj.get('ip_fabric_subnets', [])
+        GlobalSystemConfigDM.ip_fabric_subnets = obj.get('ip_fabric_subnets')
         self.set_children('physical_router', obj)
     # end update
 

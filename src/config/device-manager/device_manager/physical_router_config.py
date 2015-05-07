@@ -82,17 +82,21 @@ class PhysicalRouterConfig(object):
                                                       e.message))
     # end send_config
 
-    def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets):
+    def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets, bgp_router_ips):
         self.tunnel_config = etree.Element("routing-options")
         dynamic_tunnels = etree.SubElement(self.tunnel_config, "dynamic-tunnels")
         dynamic_tunnel = etree.SubElement(dynamic_tunnels, "dynamic-tunnel")
         etree.SubElement(dynamic_tunnel, "name").text = "__contrail__"
         etree.SubElement(dynamic_tunnel, "source-address").text = tunnel_source_ip
         etree.SubElement(dynamic_tunnel, "gre")
-        for subnet in ip_fabric_nets.get("subnet", []): 
-            dest_network = etree.SubElement(dynamic_tunnel, "destination-networks")
-            etree.SubElement(dest_network, "name").text = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len']) 
-         
+        if ip_fabric_nets is not None and len(ip_fabric_nets.get("subnet", [])) > 0:
+            for subnet in ip_fabric_nets.get("subnet", []): 
+                dest_network = etree.SubElement(dynamic_tunnel, "destination-networks")
+                etree.SubElement(dest_network, "name").text = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len']) 
+        if bgp_router_ips is not None:
+            for bgp_router_ip in bgp_router_ips:
+                dest_network = etree.SubElement(dynamic_tunnel, "destination-networks")
+                etree.SubElement(dest_network, "name").text = bgp_router_ip + '/32'
     #end add_dynamic_tunnels
 
     def add_routing_instance(self, ri_name, import_targets, export_targets,

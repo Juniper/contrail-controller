@@ -176,7 +176,8 @@ class TestDM(test_case.DMTestCase):
 
         gevent.sleep(2)
 
-        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks><destination-networks><name>1.1.1.1/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+
         self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
  
     #end test_tunnels_dm_1
@@ -259,6 +260,74 @@ class TestDM(test_case.DMTestCase):
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>30.0.0.0/24</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
         self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
     #end test_tunnels_dm_3
+
+    #dynamic tunnel test case - 5
+    # 1. configure ip fabric subnets, 
+    # 2. create physical  router with data plane source ip
+    # 3. check netconf XML config generated 
+    # 4. add a new bgp peer 
+    # 5. check if new peer ip is present in netconf XML config generated for dynamic tunnels
+    def test_tunnels_dm_5(self):
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_ip_fabric_subnets(SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 16)]))
+        self._vnc_lib.global_system_config_update(gs)
+
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.physical_router_dataplane_ip = "5.5.5.5"
+        self._vnc_lib.physical_router_update(pr)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/16</name></destination-networks><destination-networks><name>1.1.1.1/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        bgp_router2, pr2 = self.create_router('router2', '20.2.2.2')
+        families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
+        bgp_sess_attrs = [BgpSessionAttributes(address_families=families)]
+        bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
+        bgp_peering_attrs = BgpPeeringAttributes(session=bgp_sessions)
+        bgp_router.add_bgp_router(bgp_router2, bgp_peering_attrs)
+        self._vnc_lib.bgp_router_update(bgp_router)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/16</name></destination-networks><destination-networks><name>1.1.1.1/32</name></destination-networks><destination-networks><name>20.2.2.2/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+    #end test_tunnels_dm_5
+
+    #dynamic tunnel test case - 6
+    # 1. dont configure ip fabric subnets, 
+    # 2. create physical  router with data plane source ip
+    # 3. check netconf XML config generated, should show dynamic tunnel config with only bgp router ip
+    # 4. add a new bgp peer 
+    # 5. check if new peer ip is present in netconf XML config generated for dynamic tunnels
+    def test_tunnels_dm_6(self):
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.physical_router_dataplane_ip = "5.5.5.5"
+        self._vnc_lib.physical_router_update(pr)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>1.1.1.1/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        bgp_router2, pr2 = self.create_router('router2', '20.2.2.2')
+        families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
+        bgp_sess_attrs = [BgpSessionAttributes(address_families=families)]
+        bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
+        bgp_peering_attrs = BgpPeeringAttributes(session=bgp_sessions)
+        bgp_router.add_bgp_router(bgp_router2, bgp_peering_attrs)
+        self._vnc_lib.bgp_router_update(bgp_router)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>1.1.1.1/32</name></destination-networks><destination-networks><name>20.2.2.2/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+    #end test_tunnels_dm_6
  
     def test_basic_dm(self):
         vn1_name = 'vn1'
