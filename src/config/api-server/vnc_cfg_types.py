@@ -379,6 +379,7 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
             if 'mac_address' in mc:
                 if len(mc['mac_address'])==1:
                     inmac = mc['mac_address']
+                    inmac = [m.replace("-",":") for m in inmac]
         if inmac!=None:
             mac_addrs_obj = MacAddressesType(inmac)
         else:
