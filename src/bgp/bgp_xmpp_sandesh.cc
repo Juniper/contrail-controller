@@ -39,7 +39,8 @@ static void ShowXmppNeighborVisitor(
     const XmppConnection *connection = bx_channel->channel()->connection();
     resp.set_configured_hold_time(connection->GetConfiguredHoldTime());
     resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
-
+    resp.set_auth_type(connection->GetXmppAuthenticationType());
+    
     PeerRibMembershipManager *mgr =
         bx_channel->Peer()->server()->membership_mgr();
     mgr->FillPeerMembershipInfo(bx_channel->Peer(), &resp);
