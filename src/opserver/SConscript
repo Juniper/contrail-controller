@@ -32,6 +32,7 @@ local_sources = [
            'uveserver.py',
            'analytics_db.py',
            'log.py',
+           'db.py',
            'stats.py',
            'flow.py',
            'api_log.py',
