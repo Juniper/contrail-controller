@@ -434,3 +434,12 @@ class CmdProvisionLinklocalUpdate(Command):
         changed_args_str = '--oper update'
         args_str = changed_args_str + args_str
         sp = MetadataProvisioner(args_str)
+
+
+class CmdContrailDb(Command):
+
+    "Option to display database usage and purge stats\n"
+
+    def take_action(self, parsed_args):
+        self.app.stdout.write('Option to display database usage and purge stats\n')
+        os.system("/usr/bin/contrail-db")

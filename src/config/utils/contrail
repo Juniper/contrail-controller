@@ -69,6 +69,7 @@ COMMAND_LIST = {
     'update-encapsulation-policy': cmd_wrapper.CmdProvisionEncapsulationUpdate,
     'add-linklocal': cmd_wrapper.CmdProvisionLinklocalAdd,
     'update-linklocal': cmd_wrapper.CmdProvisionLinklocalUpdate,
+    'contrail-db': cmd_wrapper.CmdContrailDb,
 
 }
 
