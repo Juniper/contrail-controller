@@ -178,8 +178,10 @@ class InstanceManager(object):
                 vmi_updated = True
 
         st_props = st_obj.get_service_template_properties()
-        if (st_props.service_mode in ['in-network', 'in-network-nat'] and
-            proj_obj.name != 'default-project'):
+        if ((st_props.service_mode == "in-network"
+             or (st_props.service_mode == "in-network-nat"
+                 and st_props.service_type not in ['source-nat', 'loadbalancer']))
+            and proj_obj.name != 'default-project'):
             if vmi_obj.get_security_group_refs() is None:
                 sg_obj = self._get_default_security_group(vn_obj)
                 vmi_obj.set_security_group(sg_obj)
@@ -650,13 +652,7 @@ class NetworkNamespaceManager(InstanceManager):
                 local_preference = local_prefs[inst_count]
 
             for nic in nics:
-                user_visible = True
-                if (st_props.get_service_type() ==
-                        svc_info.get_lb_service_type()):
-                    if nic['type'] == svc_info.get_right_if_str():
-                        user_visible = False
-                else:
-                    user_visible = False
+                user_visible = False
 
                 vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
                     si_obj, local_preference=int(local_preference),
