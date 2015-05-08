@@ -15,7 +15,7 @@
 #include "io/event_manager.h"
 #include "oper/instance_task.h"
 #include "oper/loadbalancer.h"
-#include "oper/loadbalancer_haproxy.h"
+#include "oper/loadbalancer_config.h"
 #include "oper/loadbalancer_properties.h"
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
@@ -99,20 +99,37 @@ public:
 
             //If Loadbalncer, delete the config files as well
             if (prop.service_type == ServiceInstance::LoadBalancer) {
+                std::stringstream pathgen;
+                std::stringstream conf_path, json_path, sock_path;
 
-                std::stringstream cfg_path;
-                cfg_path <<
-                    manager_->loadbalancer_config_path_ << prop.pool_id
-                    << ".haproxy.cfg";
+                pathgen << manager_->loadbalancer_config_path_ << prop.pool_id;
+                conf_path << pathgen.str() << ".haproxy.conf";
+                json_path << pathgen.str() << ".conf.json";
+                sock_path << pathgen.str() << ".haproxy.sock";
 
                 boost::system::error_code error;
-                if (fs::exists(cfg_path.str())) {
-                    fs::remove_all(cfg_path.str(), error);
+                if (fs::exists(conf_path.str())) {
+                    fs::remove_all(conf_path.str(), error);
+                    if (error) {
+                        LOG(ERROR, "Stale loadbalancer conf fle delete error"
+                                    << error.message());
+                    }
                 }
 
-                cfg_path << ".sock";
-                if (fs::exists(cfg_path.str())) {
-                    fs::remove_all(cfg_path.str(), error);
+                if (fs::exists(sock_path.str())) {
+                    fs::remove_all(sock_path.str(), error);
+                    if (error) {
+                        LOG(ERROR, "Stale loadbalancer sock fle delete error"
+                                    << error.message());
+                    }
+                }
+
+                if (fs::exists(json_path.str())) {
+                    fs::remove_all(json_path.str(), error);
+                    if (error) {
+                        LOG(ERROR, "Stale loadbalancer json file delete error"
+                                    << error.message());
+                    }
                 }
             }
         }
@@ -137,7 +154,7 @@ InstanceManager::InstanceManager(Agent *agent)
           loadbalancer_config_path_(loadbalancer_config_path_default),
           namespace_store_path_(namespace_store_path_default),
           stale_timer_interval_(5 * 60 * 1000),
-          haproxy_(new LoadbalancerHaproxy(agent)),
+          lb_config_(new LoadbalancerConfig(agent)),
           stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
                       "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
                       GetTaskId("db::DBTable"), 0)), agent_(agent) {
@@ -621,7 +638,7 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_default <<
-            props.pool_id << ".haproxy.cfg";
+            props.pool_id << ".conf.json";
         cmd_str << " --pool-id " << props.pool_id;
     }
 
@@ -714,7 +731,6 @@ void InstanceManager::LoadbalancerObserver(
     std::stringstream pathgen;
 
     pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
-    pathgen << ".haproxy.cfg";
 
     boost::system::error_code error;
     if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
@@ -726,24 +742,28 @@ void InstanceManager::LoadbalancerObserver(
                 return;
             }
         }
-
-        haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
-                                     *loadbalancer->properties());
+        pathgen << ".conf.json";
+        lb_config_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
+                                   *loadbalancer->properties());
     } else {
-        boost::filesystem::path file(pathgen.str());
-        if (boost::filesystem::exists(file, error)) {
-            boost::filesystem::remove_all(pathgen.str(), error);
-            if (error) {
-                LOG(ERROR, error.message());
-                return;
-            }
+        std::stringstream conf_path, json_path, sock_path;
+        conf_path << pathgen.str() << ".haproxy.conf";
+        json_path << pathgen.str() << ".conf.json";
+        sock_path << pathgen.str() << ".haproxy.sock";
 
-            pathgen << ".sock";
-            boost::filesystem::remove_all(pathgen.str(), error);
-            if (error) {
-                LOG(ERROR, error.message());
-                return;
-            }
+        boost::filesystem::path conf_file(conf_path.str());
+        if (boost::filesystem::exists(conf_file, error)) {
+            boost::filesystem::remove_all(conf_path.str(), error);
+        }
+
+        boost::filesystem::path sock_file(sock_path.str());
+        if (boost::filesystem::exists(sock_file, error)) {
+            boost::filesystem::remove_all(sock_path.str(), error);
+        }
+
+        boost::filesystem::path json_file(json_path.str());
+        if (boost::filesystem::exists(json_file, error)) {
+            boost::filesystem::remove_all(json_path.str(), error);
         }
     }
 }

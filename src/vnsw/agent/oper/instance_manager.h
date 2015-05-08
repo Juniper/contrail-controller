@@ -13,7 +13,7 @@
 
 class Agent;
 class DB;
-class LoadbalancerHaproxy;
+class LoadbalancerConfig;
 class InstanceState;
 class InstanceTask;
 class InstanceTaskQueue;
@@ -73,7 +73,7 @@ class InstanceManager {
 
     InstanceState *GetState(ServiceInstance *) const;
     bool StaleTimeout();
-    const LoadbalancerHaproxy &haproxy() const { return *(haproxy_.get()); }
+    const LoadbalancerConfig &lb_config() const { return *(lb_config_.get()); }
     void SetStaleTimerInterval(int minutes);
     int StaleTimerInterval() { return stale_timer_interval_;}
     void SetNamespaceStorePath(std::string path);
@@ -151,7 +151,7 @@ class InstanceManager {
     std::string loadbalancer_config_path_;
     std::string namespace_store_path_;
     int stale_timer_interval_;
-    std::auto_ptr<LoadbalancerHaproxy> haproxy_;
+    std::auto_ptr<LoadbalancerConfig> lb_config_;
     Timer *stale_timer_;
     std::auto_ptr<NamespaceStaleCleaner> stale_cleaner_;
     Agent *agent_;
