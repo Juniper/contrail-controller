@@ -718,16 +718,8 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
             prev_stats_.set_cpu_info(cpu_load_info);
             changed = true;
             cpu_first = false;
+            DispatchVrouterStatsMsg(stats);
         }
-        //Cpu and mem stats needs to be sent always regardless of whether stats
-        //have changed since last send
-        stats.set_cpu_share(cpu_load_info.get_cpu_share());
-        stats.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
-        stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
-        stats.set_one_min_avg_cpuload(
-                cpu_load_info.get_cpuload().get_one_min_avg());
-        stats.set_res_mem(cpu_load_info.get_meminfo().get_res());
-        DispatchVrouterStatsMsg(stats);
 
         //Stats oracle interface for cpu and mem stats. Needs to be sent
         //always regardless of whether the stats have changed since last send

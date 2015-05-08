@@ -73,8 +73,6 @@ bool CollectorCPULogger(const string & hostname) {
     // At some point, the following attributes will be deprecated
     // in favor of AnalyticsCpuState
     state.set_module_cpu_info(cciv);
-    state.set_collector_cpu_share(cpu_load_info.get_cpu_share());
-    state.set_collector_mem_virt(cpu_load_info.get_meminfo().get_virt());
     ModuleCpuStateTrace::Send(state);
 
     SendCpuInfoStat<AnalyticsCpuStateTrace, AnalyticsCpuState>(hostname,

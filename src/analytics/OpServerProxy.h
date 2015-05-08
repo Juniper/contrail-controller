@@ -40,7 +40,7 @@ public:
                            const std::string &instance_id,
                            const std::string &key, const std::string &message,
                            int32_t seq, const std::string& agg, 
-                           const std::string& atyp, int64_t ts, bool is_alarm);
+                           int64_t ts, bool is_alarm);
 
     virtual bool UVENotif(const std::string &type,
                            const std::string &source, const std::string &node_type,

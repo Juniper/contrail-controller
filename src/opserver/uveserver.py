@@ -315,36 +315,6 @@ class UVEServer(object):
                                     snhdict[attr]['list']['@size'] = \
                                         str(len(alarms))
                         else:
-                            if not flat:
-                                continue
-                            if typ not in statdict:
-                                statdict[typ] = {}
-                            statdict[typ][attr] = []
-                            statsattr = json.loads(value)
-                            for elem in statsattr:
-                                edict = {}
-                                if elem["rtype"] == "list":
-                                    elist = redish.lrange(elem["href"], 0, -1)
-                                    for eelem in elist:
-                                        jj = json.loads(eelem).items()
-                                        edict[jj[0][0]] = jj[0][1]
-                                elif elem["rtype"] == "zset":
-                                    elist = redish.zrange(
-                                        elem["href"], 0, -1, withscores=True)
-                                    for eelem in elist:
-                                        tdict = json.loads(eelem[0])
-                                        tval = long(tdict["ts"])
-                                        dt = datetime.datetime.utcfromtimestamp(
-                                            float(tval) / 1000000)
-                                        tms = (tval % 1000000) / 1000
-                                        tstr = dt.strftime('%Y %b %d %H:%M:%S')
-                                        edict[tstr + "." + str(tms)] = eelem[1]
-                                elif elem["rtype"] == "hash":
-                                    elist = redish.hgetall(elem["href"])
-                                    edict = elist
-
-                                statdict[typ][attr].append(
-                                    {elem["aggtype"]: edict})
                             continue
 
                         # print "Attr %s Value %s" % (attr, snhdict)

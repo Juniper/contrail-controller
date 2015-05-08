@@ -683,7 +683,7 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
                        const std::string &instance_id,
                        const std::string &key, const std::string &message,
                        int32_t seq, const std::string& agg, 
-                       const std::string& atyp, int64_t ts, bool is_alarm) {
+                       int64_t ts, bool is_alarm) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if (!prac) {
@@ -699,7 +699,7 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
 
     bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
             source, node_type, module, instance_id, key, message,
-            seq, agg, atyp, ts, pt, is_alarm);
+            seq, agg, ts, pt, is_alarm);
     if (ret) {
         impl_->redis_uve_.RedisUveUpdate();
     } else {
