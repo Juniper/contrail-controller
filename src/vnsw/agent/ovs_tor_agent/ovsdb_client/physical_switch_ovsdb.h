@@ -32,6 +32,8 @@ public:
     PhysicalSwitchEntry(PhysicalSwitchTable *table, const std::string &name);
     ~PhysicalSwitchEntry();
 
+    bool Add();
+    bool Delete();
     Ip4Address &tunnel_ip();
     const std::string &name();
     void set_tunnel_ip(std::string ip);

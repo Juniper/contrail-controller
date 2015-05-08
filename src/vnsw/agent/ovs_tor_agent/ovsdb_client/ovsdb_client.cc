@@ -8,10 +8,12 @@
 #include <ovsdb_client.h>
 #include <ovsdb_client_ssl.h>
 #include <ovsdb_client_tcp.h>
+#include <ovsdb_client_connection_state.h>
 #include <ovs_tor_agent/tor_agent_init.h>
 #include <ovs_tor_agent/tor_agent_param.h>
 
 using OVSDB::OvsdbClient;
+using OVSDB::ConnectionStateTable;
 
 OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval) :
     peer_manager_(manager), ksync_obj_manager_(KSyncObjectManager::Init()),
@@ -19,6 +21,14 @@ OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval) :
 }
 
 OvsdbClient::~OvsdbClient() {
+}
+
+void OvsdbClient::RegisterConnectionTable(Agent *agent) {
+    connection_table_.reset(new ConnectionStateTable(agent));
+}
+
+ConnectionStateTable *OvsdbClient::connection_table() {
+    return connection_table_.get();
 }
 
 KSyncObjectManager *OvsdbClient::ksync_obj_manager() {
