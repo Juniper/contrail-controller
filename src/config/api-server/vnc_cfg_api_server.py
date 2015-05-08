@@ -800,7 +800,7 @@ class VncApiServer(VncApiServerGen):
             return self._resource_classes[resource_type.replace('-', '_')]
 
         cls_name = '%sServerGen' %(cfgm_common.utils.CamelCase(resource_type))
-        return str_to_class(cls_name)
+        return self.str_to_class(cls_name)
     # end get_resource_class
 
     def set_resource_class(self, resource_type, resource_class):
@@ -851,6 +851,10 @@ class VncApiServer(VncApiServerGen):
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail)
     # end list_bulk_collection_http_post
+
+    def str_to_class(self, class_name):
+        return str_to_class(class_name)
+    # end str_to_class
 
     # Private Methods
     def _parse_args(self, args_str):
