@@ -949,8 +949,13 @@ void Inet4UcRouteReq::HandleRequest() const {
 
 AgentSandeshPtr InetUnicastAgentRouteTable::GetAgentSandesh
 (const AgentSandeshArguments *args, const std::string &context) {
-    return AgentSandeshPtr(new AgentInet4UcRtSandesh(vrf_entry(), context,
-                                                     true));
+    if (type_ == Agent::INET4_UNICAST) {
+        return AgentSandeshPtr(new AgentInet4UcRtSandesh(vrf_entry(), context,
+                                                         false));
+    } else {
+        return AgentSandeshPtr(new AgentInet6UcRtSandesh(vrf_entry(), context,
+                                                         false));
+    }
 }
 
 void Inet6UcRouteReq::HandleRequest() const {
