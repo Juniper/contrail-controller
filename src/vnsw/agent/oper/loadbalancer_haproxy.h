@@ -24,6 +24,7 @@ public:
 
 private:
     void GenerateGlobal(std::ostream *out,
+                        const std::string &filename,
                         const LoadbalancerProperties &props) const;
     void GenerateDefaults(std::ostream *out,
                           const LoadbalancerProperties &props) const;
