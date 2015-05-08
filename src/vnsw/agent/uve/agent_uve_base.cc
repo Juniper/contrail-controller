@@ -19,6 +19,7 @@
 #include <uve/vrouter_stats_collector.h>
 
 using process::ConnectionInfo;
+using process::ConnectionType;
 using process::ProcessState;
 using process::ConnectionStatus;
 using process::ConnectionState;
@@ -117,6 +118,12 @@ uint8_t AgentUveBase::ExpectedConnections(uint8_t &num_control_nodes,
         cfg->collector_server_list().size() != 0) {
         count++;
     }
+
+    // for TOR agent add physical device count to the count
+    if (agent_->tor_agent_enabled()) {
+        count += agent_->physical_device_table()->Size();
+    }
+
     return count;
 }
 
@@ -144,28 +151,24 @@ void AgentUveBase::VrouterAgentProcessState
     std::string cup(g_process_info_constants.ConnectionStatusNames.
         find(ConnectionStatus::UP)->second);
     bool is_cup = true;
+    bool is_tor_cup = true;
+    string tor_type(g_process_info_constants.ConnectionTypeNames.
+            find(ConnectionType::TOR)->second);
     // Iterate to determine process connectivity status
     for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
          it != cinfos.end(); it++) {
         const ConnectionInfo &cinfo(*it);
         const std::string &conn_status(cinfo.get_status());
         if (conn_status != cup) {
+            if (cinfo.get_type() == tor_type) {
+                is_tor_cup = false;
+            }
             if (cinfo.get_name().compare(0, 13,
                 agent_->xmpp_control_node_prefix()) == 0) {
                 down_control_nodes++;
-                is_cup = false;
-                UpdateMessage(cinfo, message);
-                continue;
-            } else if (cinfo.get_name().compare(0, 11,
-                agent_->xmpp_dns_server_prefix()) == 0) {
-                is_cup = false;
-                UpdateMessage(cinfo, message);
-                continue;
-            } else {
-                is_cup = false;
-                UpdateMessage(cinfo, message);
-                continue;
             }
+            is_cup = false;
+            UpdateMessage(cinfo, message);
         }
     }
     if ((num_control_nodes == 0) || (num_control_nodes == down_control_nodes)) {
@@ -173,16 +176,19 @@ void AgentUveBase::VrouterAgentProcessState
         if ((num_control_nodes == 0) && message.empty()) {
             message = "No control-nodes configured";
         }
+    } else if (!is_tor_cup) {
+        // waiting for TOR to connect
+        pstate = ProcessState::NON_FUNCTIONAL;
     } else {
         pstate = ProcessState::FUNCTIONAL;
     }
-    if (num_conns != expected_conns) {
-        message = "Number of connections:" + integerToString(num_conns) +
-            ", Expected: " + integerToString(expected_conns);
-        return;
-    }
     if (!is_cup) {
         message += " connection down";
+    }
+    if (num_conns != expected_conns) {
+        message += " Number of connections:" + integerToString(num_conns) +
+            ", Expected: " + integerToString(expected_conns);
+        return;
     }
     return;
 }
