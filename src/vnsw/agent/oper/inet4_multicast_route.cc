@@ -231,5 +231,5 @@ void Inet4McRouteReq::HandleRequest() const {
 AgentSandeshPtr Inet4MulticastAgentRouteTable::GetAgentSandesh
 (const AgentSandeshArguments *args, const std::string &context) {
     return AgentSandeshPtr(new AgentInet4McRtSandesh(vrf_entry(), context, "",
-                                                     true));
+                                                     false));
 }
