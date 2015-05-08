@@ -543,8 +543,8 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
     task_util::WaitForIdle();
 
     stringstream pathgen;
-    pathgen << loadbalancer_config_path() << lbid
-            << ".haproxy.cfg";
+    pathgen << loadbalancer_config_path() << lbid << ".conf.json";
+
     boost::filesystem::path config(pathgen.str());
     std::time_t old_time =
         boost::filesystem::last_write_time(pathgen.str());
@@ -553,8 +553,8 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
     lbid = AddLoadbalancer(UuidToString(gen()));
     pathgen.str("");
     pathgen.clear();
-    pathgen << loadbalancer_config_path() << lbid
-            << ".haproxy.cfg";
+    pathgen << loadbalancer_config_path() << lbid << ".conf.json";
+
     boost::filesystem::path config1(pathgen.str());
 
     //Make sure that both files exists
@@ -593,7 +593,8 @@ TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
             LOG(ERROR, "Error : " << error.message() << "in creating directory");
         }
     }
-    store_path  = loadbalancer_config_path() + lb_uuid;
+    store_path  = loadbalancer_config_path();
+    store_path += lb_uuid;
 
     if (!boost::filesystem::exists(store_path, error)) {
         boost::filesystem::create_directories(store_path, error);
