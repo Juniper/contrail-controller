@@ -391,6 +391,9 @@ public:
                       const std::string nexthop = "",
                       const RouteParams *params = NULL);
     void AddEnetRoute(const std::string &network, const std::string &prefix,
+                      const NextHop &nexthop,
+                      const RouteParams *params = NULL);
+    void AddEnetRoute(const std::string &network, const std::string &prefix,
                       const NextHops &nexthops,
                       const RouteParams *params = NULL);
     void AddEnetRoute(const std::string &network, const std::string &prefix,

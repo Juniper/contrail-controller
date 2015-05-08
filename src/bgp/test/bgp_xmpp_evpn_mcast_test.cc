@@ -70,6 +70,7 @@ protected:
           xs_x_(NULL),
           xs_y_(NULL),
           single_server_(false),
+          vxlan_(false),
           tag_(0) {
         EXPECT_TRUE(kAgentCount < 10);
         EXPECT_TRUE(kMxCount < 10);
@@ -155,6 +156,14 @@ protected:
         return TorBroadcastMac(tor);
     }
 
+    test::NextHop BuildNextHop(const string &nexthop) {
+        if (vxlan_) {
+            return test::NextHop(nexthop, tag_, "vxlan");
+        } else {
+            return test::NextHop(nexthop);
+        }
+    }
+
     string GetVrouterNexthopAddress(test::NetworkAgentMock *vrouter) {
         VrouterToNhAddrMap::const_iterator loc = vrouter_map_.find(vrouter);
         assert(loc != vrouter_map_.end());
@@ -172,6 +181,11 @@ protected:
         string nh_addr = GetVrouterNexthopAddress(vrouter);
         BOOST_FOREACH(const autogen::EnetNextHopType &nh, olist.next_hop) {
             if (nh.address == nh_addr) {
+                if (vxlan_) {
+                    TASK_UTIL_EXPECT_EQ(tag_, nh.label);
+                } else {
+                    TASK_UTIL_EXPECT_NE(0, nh.label);
+                }
                 EXPECT_FALSE(found);
                 found = true;
             }
@@ -365,7 +379,8 @@ protected:
         BOOST_FOREACH(test::NetworkAgentMock *agent, agents_) {
             string nh_addr = string("192.168.1.1") + integerToString(idx);
             if ((odd && idx % 2 != 0) || (even && idx % 2 == 0)) {
-                agent->AddEnetRoute("blue", BroadcastMac(), nh_addr);
+                agent->AddEnetRoute(
+                    "blue", BroadcastMac(), BuildNextHop(nh_addr));
                 task_util::WaitForIdle();
             }
             idx++;
@@ -499,7 +514,8 @@ protected:
         BOOST_FOREACH(test::NetworkAgentMock *mx, mxs_) {
             string nh_addr = string("192.168.1.2") + integerToString(idx);
             if ((odd && idx % 2 != 0) || (even && idx % 2 == 0)) {
-                mx->AddEnetRoute("blue", BroadcastMac(), nh_addr, &mx_params_);
+                mx->AddEnetRoute(
+                    "blue", BroadcastMac(), BuildNextHop(nh_addr), &mx_params_);
                 task_util::WaitForIdle();
             }
             idx++;
@@ -630,8 +646,8 @@ protected:
             test::RouteParams tor_params;
             tor_params.replicator_address = tor_replicator_address_list_[idx];
             if ((odd && idx % 2 != 0) || (even && idx % 2 == 0)) {
-                tor->AddEnetRoute(
-                    "blue", TorBroadcastMac(tor), nh_addr, &tor_params);
+                tor->AddEnetRoute("blue",
+                    TorBroadcastMac(tor), BuildNextHop(nh_addr), &tor_params);
                 task_util::WaitForIdle();
             }
             idx++;
@@ -735,8 +751,8 @@ protected:
         BOOST_FOREACH(test::NetworkAgentMock *tsn, tsns_) {
             string nh_addr = string("192.168.1.4") + integerToString(idx);
             if ((odd && idx % 2 != 0) || (even && idx % 2 == 0)) {
-                tsn->AddEnetRoute("blue", BroadcastMac(), nh_addr,
-                    &tsn_params_);
+                tsn->AddEnetRoute("blue",
+                    BroadcastMac(), BuildNextHop(nh_addr), &tsn_params_);
                 task_util::WaitForIdle();
             }
             idx++;
@@ -820,6 +836,7 @@ protected:
     test::RouteParams mx_params_;
     test::RouteParams tsn_params_;
     bool single_server_;
+    bool vxlan_;
     uint32_t tag_;
 };
 
@@ -857,14 +874,14 @@ static const char *config_template = "\
 
 // Parameterize single vs. dual servers and the tag value.
 
-typedef std::tr1::tuple<bool, uint32_t> TestParams;
+typedef std::tr1::tuple<bool, uint32_t> TestParams1;
 
 //
 // 2 Control Nodes X and Y.
 //
 class BgpXmppEvpnMcastTest :
     public BgpXmppEvpnMcastTestBase,
-    public ::testing::WithParamInterface<TestParams> {
+    public ::testing::WithParamInterface<TestParams1> {
 
 protected:
     virtual void SetUp() {
@@ -1152,7 +1169,41 @@ TEST_P(BgpXmppEvpnMcastTest, AddDelAgents) {
     UnsubscribeMxs();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic1) {
+// Parameterize single vs. dual servers and the tag value.
+
+typedef std::tr1::tuple<bool, uint32_t> TestParams2;
+
+//
+// 2 Control Nodes X and Y.
+//
+class BgpXmppEvpnArMcastTest :
+    public BgpXmppEvpnMcastTestBase,
+    public ::testing::WithParamInterface<TestParams2> {
+
+protected:
+    virtual void SetUp() {
+        single_server_ = std::tr1::get<0>(GetParam());
+        tag_ = std::tr1::get<1>(GetParam());
+        vxlan_ = true;
+        BgpXmppEvpnMcastTestBase::SetUp();
+    }
+
+    virtual void TearDown() {
+        BgpXmppEvpnMcastTestBase::TearDown();
+    }
+
+    void Configure() {
+        char config[8192];
+        snprintf(config, sizeof(config), config_template,
+            bs_x_->session_manager()->GetPort(),
+            bs_y_->session_manager()->GetPort());
+        bs_x_->Configure(config);
+        bs_y_->Configure(config);
+        task_util::WaitForIdle();
+    }
+};
+
+TEST_P(BgpXmppEvpnArMcastTest, ArBasic1) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1171,7 +1222,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic1) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic2) {
+TEST_P(BgpXmppEvpnArMcastTest, ArBasic2) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1190,7 +1241,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic2) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic3) {
+TEST_P(BgpXmppEvpnArMcastTest, ArBasic3) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1210,7 +1261,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic3) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic4) {
+TEST_P(BgpXmppEvpnArMcastTest, ArBasic4) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1230,7 +1281,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationBasic4) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationAddTors) {
+TEST_P(BgpXmppEvpnArMcastTest, ArAddTors) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1252,7 +1303,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationAddTors) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationDelTors) {
+TEST_P(BgpXmppEvpnArMcastTest, ArDelTors) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1274,7 +1325,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationDelTors) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationAddDelTors) {
+TEST_P(BgpXmppEvpnArMcastTest, ArAddDelTors) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1308,7 +1359,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationAddDelTors) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication1) {
+TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication1) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1330,7 +1381,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication1) {
     UnsubscribeMxs();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication2) {
+TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication2) {
     Configure();
     CreateTsns();
     CreateMxs();
@@ -1352,7 +1403,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication2) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication3) {
+TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication3) {
     Configure();
     CreateMxs();
     CreateTsns();
@@ -1374,7 +1425,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication3) {
     UnsubscribeTors();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication4) {
+TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication4) {
     Configure();
     CreateMxs();
     CreateTsns();
@@ -1396,7 +1447,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication4) {
     UnsubscribeTsns();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication5) {
+TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication5) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1418,7 +1469,7 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication5) {
     UnsubscribeTsns();
 }
 
-TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication6) {
+TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication6) {
     Configure();
     CreateTsns();
     CreateTors();
@@ -1441,7 +1492,9 @@ TEST_P(BgpXmppEvpnMcastTest, AssistedReplicationWithIngressReplication6) {
 }
 
 INSTANTIATE_TEST_CASE_P(Default, BgpXmppEvpnMcastTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Values(0, 4094)));
+    ::testing::Combine(::testing::Bool(), ::testing::Values(0, 4093)));
+INSTANTIATE_TEST_CASE_P(Default, BgpXmppEvpnArMcastTest,
+    ::testing::Combine(::testing::Bool(), ::testing::Values(512, 65536)));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

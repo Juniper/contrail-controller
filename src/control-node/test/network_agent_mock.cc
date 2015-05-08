@@ -1027,6 +1027,14 @@ void NetworkAgentMock::AddEnetRoute(const string &network_name,
 }
 
 void NetworkAgentMock::AddEnetRoute(const string &network_name,
+        const string &prefix, const NextHop &nexthop,
+        const RouteParams *params) {
+    NextHops nexthops;
+    nexthops.push_back(nexthop);
+    AddEnetRoute(network_name, prefix, nexthops, params);
+}
+
+void NetworkAgentMock::AddEnetRoute(const string &network_name,
         const string &prefix, const NextHops &nexthops,
         const RouteParams *params) {
     AgentPeer *peer = GetAgent();
