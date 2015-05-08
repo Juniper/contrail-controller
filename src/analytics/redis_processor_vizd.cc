@@ -14,7 +14,6 @@
 #include "seqnum_lua.cpp"
 #include "delrequest_lua.cpp"
 #include "uveupdate_lua.cpp"
-#include "uveupdate_st_lua.cpp"
 #include "uvedelete_lua.cpp"
 #include "flushuves_lua.cpp"
 
@@ -33,7 +32,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &instance_id,
                        const std::string &key, const std::string &msg,
                        int32_t seq, const std::string &agg,
-                       const std::string &hist, int64_t ts, unsigned int part,
+                       int64_t ts, unsigned int part,
                        bool is_alarm) {
     
     bool ret = false;
@@ -46,41 +45,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
     const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
 
-    if (agg == "stats") {
-        std::string sc,sp,ss;
-        int64_t tsbin = (ts / 3600000000ULL) * 3600000000ULL;
-        std::ostringstream tsbinstr;
-        tsbinstr << tsbin;
-        std::string lhist = hist;
-        if (hist == "") {
-            lhist = string("1");
-        }
-        ss = string("HISTORY-10:") + key + ":" + source + ":" + node_type + ":" + 
-             module + ":" + instance_id + ":" + type + ":" + attr;  
-        sc = string("S-3600-TOPVALS:") + key + ":" + source + ":" + node_type + 
-             ":" + module + ":" + instance_id + ":" + type + ":" + attr + 
-             ":" + tsbinstr.str();
-        sp = string("S-3600-SUMMARY:") + key + ":" + source + ":" + node_type + 
-             ":" + module + ":" + instance_id + ":" + type + ":" + attr + 
-             ":" + tsbinstr.str();
-
-        string lua_scr(reinterpret_cast<char *>(uveupdate_st_lua), uveupdate_st_lua_len);
-        ret = rac->RedisAsyncArgCmd(rpi,
-            list_of(string("EVAL"))(lua_scr)("8")(
-                string("TYPES:") + source + ":" + node_type + ":" + module + ":" + instance_id)(
-                string("ORIGINS:") + key)(
-                string("TABLE:") + table)(
-                string("UVES:") + source + ":" + node_type + ":" + module + 
-                ":" + instance_id + ":" + type)(
-                string("VALUES:") + key + ":" + source + ":" + node_type +
-                ":" + module + ":" + instance_id + ":" + type)(
-                ss)(sc)(sp)(
-                source)(node_type)(module)(instance_id)(type)(attr)(key)
-                (seqstr.str())(lhist)(tsstr.str())(msg)
-                (integerToString(REDIS_DB_UVE)));
-
-    } else {
-
+    {
         string lua_scr(reinterpret_cast<char *>(uveupdate_lua), uveupdate_lua_len);
         ret = rac->RedisAsyncArgCmd(rpi,
             list_of(string("EVAL"))(lua_scr)("5")(

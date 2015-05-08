@@ -13,10 +13,6 @@ struct BgpRouterState {
    29: optional u32 global_asn;
     2: optional bool deleted
     3: optional u64 uptime;
-    4: optional cpuinfo.CpuLoadInfo cpu_info;
-    5: optional double cpu_share (aggtype="stats")
-    6: optional u32 virt_mem (aggtype="stats")
-   19: optional u32 res_mem (aggtype="stats")
     7: optional u32 output_queue_depth;
     8: optional u32 num_bgp_peer;
     9: optional u32 num_up_bgp_peer;

@@ -327,21 +327,6 @@ bool ControlNodeInfoLogger(BgpServer *server,
         }
     }
 
-    if (cpu_load_info != prev_state.get_cpu_info() || first) {
-        state.set_cpu_info(cpu_load_info);
-        if (cpu_load_info.get_cpu_share() != 
-                prev_state.get_cpu_info().get_cpu_share()) {
-            state.set_cpu_share(cpu_load_info.get_cpu_share());
-        }
-        if (prev_state.get_cpu_info().get_meminfo() != 
-                cpu_load_info.get_meminfo()) {
-            state.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
-            state.set_res_mem(cpu_load_info.get_meminfo().get_res());
-        }
-        prev_state.set_cpu_info(cpu_load_info);
-        change = true;
-    }
-
     SendCpuInfoStat<ControlCpuStateTrace, ControlCpuState>(server->localname(),
         cpu_load_info);
 

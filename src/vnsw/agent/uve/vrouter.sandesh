@@ -198,11 +198,6 @@ struct VrouterStatsAgent {  // Agent stats
 
         //Process stats
     12: optional cpuinfo.CpuLoadInfo cpu_info;
-    13: optional double cpu_share (aggtype="stats")
-    45: optional u32 virt_mem (aggtype="stats")
-    46: optional u32 used_sys_mem (aggtype="stats")
-    47: optional double one_min_avg_cpuload (aggtype="stats")
-    48: optional u32 res_mem (aggtype="stats")
 
         //Nexthop stats
     14: optional u32 nexthops; 
@@ -238,8 +233,8 @@ struct VrouterStatsAgent {  // Agent stats
     40: optional list<u32>   tcp_sport_bitmap;
     41: optional list<u32>   tcp_dport_bitmap;
     42: optional AgentDropStats drop_stats;
-    43: optional byte total_in_bandwidth_utilization (aggtype="stats");
-    44: optional byte total_out_bandwidth_utilization (aggtype="stats");
+    43: optional byte total_in_bandwidth_utilization
+    44: optional byte total_out_bandwidth_utilization
     49: optional VrouterFlowRate flow_rate (tags="")
 }
 

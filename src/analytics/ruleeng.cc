@@ -593,11 +593,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         tempstr = node.attribute("aggtype").value();
         if (strcmp(tempstr, "")) {
             agg = std::string(tempstr);
-            if (!strcmp(tempstr,"stats")) {
-                ostr.str("");
-                ostr.clear();
-                ostr << node.child_value();
-            }
         } else {
             agg = std::string("None");
         }
@@ -638,7 +633,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         if (!osp_->UVEUpdate(object.name(), node.name(),
                              source, node_type, module, instance_id,
                              key, ostr.str(), seq,
-                             agg, node.attribute("hbin").value(), ts,
+                             agg, ts,
                              is_alarm)) {
             LOG(ERROR, __func__ << " Message: "  << type << " : " << source <<
               ":" << node_type << ":" << module << ":" << instance_id <<

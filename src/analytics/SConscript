@@ -143,7 +143,6 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
 RedisLuaBuild(AnalyticsEnv, 'uveupdate')
-RedisLuaBuild(AnalyticsEnv, 'uveupdate_st')
 RedisLuaBuild(AnalyticsEnv, 'uvedelete')
 RedisLuaBuild(AnalyticsEnv, 'flushuves')
 
