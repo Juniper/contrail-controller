@@ -646,7 +646,9 @@ class SvcMonitor(object):
         try:
             st_uuid = self._vnc_lib.service_template_create(st_obj)
         except Exception as e:
-            print e
+            self.logger.log_error("%s create failed with error %s" %
+                (st_name, str(e)))
+            return
 
         self.logger.log_info("%s created with uuid %s" %
             (st_name, str(st_uuid)))
