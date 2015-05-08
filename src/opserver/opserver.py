@@ -1900,10 +1900,6 @@ class OpServer(object):
 
             # At some point, the following attributes will be deprecated in favor of cpu_info
             mod_cpu_state.module_cpu_info = [mod_cpu_info]
-            mod_cpu_state.opserver_cpu_share = mod_cpu_info.cpu_info.cpu_share
-            mod_cpu_state.opserver_mem_virt =\
-                mod_cpu_info.cpu_info.meminfo.virt
-
             opserver_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
             opserver_cpu_state_trace.send()
 

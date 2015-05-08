@@ -159,19 +159,6 @@ class CpuInfo(object):
             if self._build_change:
                 cfgm_cpu_uve.build_info = self._curr_build_info
 
-        if (self._module_id == ModuleNames[Module.API_SERVER]):
-            cfgm_cpu_uve.api_server_mem_virt = mod_cpu.cpu_info.meminfo.virt
-            cfgm_cpu_uve.api_server_cpu_share = self._cpu_share
-
-        if (self._module_id == ModuleNames[Module.SCHEMA_TRANSFORMER]):
-            cfgm_cpu_uve.schema_xmer_mem_virt = mod_cpu.cpu_info.meminfo.virt
-            cfgm_cpu_uve.schema_xmer_cpu_share = self._cpu_share
-
-        if (self._module_id == ModuleNames[Module.SVC_MONITOR]):
-            cfgm_cpu_uve.service_monitor_mem_virt =\
-                mod_cpu.cpu_info.meminfo.virt
-            cfgm_cpu_uve.service_monitor_cpu_share = self._cpu_share
-
         cpu_info_trace = ModuleCpuStateTrace(
             data=cfgm_cpu_uve, sandesh=self._sandesh)
         cpu_info_trace.send(sandesh=self._sandesh)

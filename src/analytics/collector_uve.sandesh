@@ -66,9 +66,9 @@ struct ModuleServerState {
     2: optional bool                       deleted
     3: optional list<SandeshStatsInfo>     msg_stats (aggtype="union")
     4: optional list<GeneratorInfo>        generator_info (aggtype="union")
-    5: optional u64                        sm_queue_count (aggtype="stats" hbin="50") 
+    5: optional u64                        sm_queue_count
     6: optional sandesh_uve.SandeshStateMachineStats sm_stats
-    7: optional u64                        db_queue_count (aggtype="stats" hbin="50")
+    7: optional u64                        db_queue_count
     8: optional u64                        db_enqueues
     9: optional sandesh_uve.SandeshSessionStats session_stats
     10: optional io.SocketIOStats          session_rx_socket_stats
