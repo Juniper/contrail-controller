@@ -154,6 +154,10 @@ KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
             // or deleted state to form a stale entry
             return NULL;
         }
+        // cleanup associated DB entry for KSyncDBObject
+        // so that DB operation on this KSyncEntry does not happen
+        // without re-claiming this entry
+        CleanupOnDel(entry);
     }
 
     // mark the entry stale and add to stale entry tree.
