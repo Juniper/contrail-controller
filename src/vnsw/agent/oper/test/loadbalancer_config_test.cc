@@ -1,7 +1,7 @@
 #include "base/os.h"
 #include "base/logging.h"
 #include <boost/filesystem.hpp>
-#include "oper/loadbalancer_haproxy.h"
+#include "oper/loadbalancer_config.h"
 #include "oper/operdb_init.h"
 #include "oper/instance_manager.h"
 
@@ -22,7 +22,7 @@ void RouterIdDepInit(Agent *agent) {
 
 using boost::uuids::uuid;
 
-class LoadbalancerHaproxyTest : public ::testing::Test {
+class LoadbalancerConfigTest : public ::testing::Test {
   protected:
     virtual void SetUp() {
     }
@@ -31,7 +31,7 @@ class LoadbalancerHaproxyTest : public ::testing::Test {
     }
 };
 
-TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
+TEST_F(LoadbalancerConfigTest, GenerateConfig) {
     boost::uuids::random_generator gen;
     uuid pool_id = gen();
 
@@ -58,7 +58,7 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
     stringstream ss;
     boost::filesystem::path curr_dir(boost::filesystem::current_path());
     ss << curr_dir.string() << "/" << getpid() << ".conf";
-    Agent::GetInstance()->oper_db()->instance_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+    Agent::GetInstance()->oper_db()->instance_manager()->lb_config().GenerateConfig(ss.str(), pool_id, props);
     boost::system::error_code error;
     boost::filesystem::remove_all(ss.str(), error);
     if (error) {
@@ -66,8 +66,8 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
     }
 }
 
-//Test to make sure we don't http-check to haproxy config file unless monitor_type is HTTP
-TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_Monitor) {
+//Test to make sure we don't http-check to config file unless monitor_type is HTTP
+TEST_F(LoadbalancerConfigTest, GenerateConfig_with_Monitor) {
     boost::uuids::random_generator gen;
     uuid pool_id = gen();
 
@@ -102,7 +102,7 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_Monitor) {
     stringstream ss;
     boost::filesystem::path curr_dir(boost::filesystem::current_path());
     ss << curr_dir.string() << "/" << getpid() << ".conf";
-    Agent::GetInstance()->oper_db()->instance_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+    Agent::GetInstance()->oper_db()->instance_manager()->lb_config().GenerateConfig(ss.str(), pool_id, props);
 
     ifstream file(ss.str().c_str());
     if (file) {
@@ -120,7 +120,7 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_Monitor) {
 }
 
 //Test to make sure HTTPS monitor adds SSL check
-TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_SSL_Monitor) {
+TEST_F(LoadbalancerConfigTest, GenerateConfig_with_SSL_Monitor) {
     boost::uuids::random_generator gen;
     uuid pool_id = gen();
 
@@ -155,19 +155,15 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_SSL_Monitor) {
     stringstream ss;
     boost::filesystem::path curr_dir(boost::filesystem::current_path());
     ss << curr_dir.string() << "/" << getpid() << ".conf";
-    Agent::GetInstance()->oper_db()->instance_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+    Agent::GetInstance()->oper_db()->instance_manager()->lb_config().GenerateConfig(ss.str(), pool_id, props);
 
     ifstream file(ss.str().c_str());
     if (file) {
         string file_str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-        string search_str1 = "ssl-hello-chk";
-        string search_str2 = "ssl_cert";
+        string search_str1 = "HTTPS";
 
         size_t found = file_str.find(search_str1);
         EXPECT_NE(found, string::npos);
-
-        found = file_str.find(search_str2);
-        EXPECT_EQ(found, string::npos);
     }
 
     boost::system::error_code error;

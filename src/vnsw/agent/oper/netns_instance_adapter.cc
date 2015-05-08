@@ -34,7 +34,7 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
 
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
-            props.pool_id << "/etc/haproxy/haproxy.cfg";
+            props.pool_id << "/conf.json";
         cmd_str << " --pool-id " << props.pool_id;
     }
 
@@ -68,7 +68,7 @@ InstanceTask* NetNSInstanceAdapter::CreateStopTask(const ServiceInstance::Proper
     cmd_str << " " << UuidToString(props.vmi_outside);
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
-            props.pool_id << "/etc/haproxy/haproxy.cfg";
+            props.pool_id << "/conf.json";
         cmd_str << " --pool-id " << props.pool_id;
     }
 
