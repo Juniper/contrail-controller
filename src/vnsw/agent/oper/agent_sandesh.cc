@@ -446,9 +446,11 @@ int AgentSandeshArguments::Decode(const std::string &str) {
     for (vector<string>::iterator it = token_list.begin();
          it != token_list.end(); ++it) {
         vector<string> args;
-        if (Split((*it), ':', args) == 2) {
-            Add(args[0], args[1]);
+        if (Split((*it), ':', args) < 2) {
+            return 0;
         }
+        string val = (*it).substr(args[0].length() + 1);
+        Add(args[0], val);
     }
 
     return count;
