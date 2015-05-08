@@ -100,7 +100,7 @@ Mibs = LldpTable, ArpTable
             'admin_tenant_name': 'default-domain'
         }
         disc_opts = {
-            'disc_server_ip'     : None,
+            'disc_server_ip'     : '127.0.0.1',
             'disc_server_port'   : 5998,
         }
 
