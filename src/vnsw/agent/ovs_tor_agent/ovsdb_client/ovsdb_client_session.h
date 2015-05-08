@@ -35,8 +35,10 @@ public:
 
     virtual int keepalive_interval() = 0;
 
+    virtual ConnectionStateTable *connection_table() = 0;
     virtual KSyncObjectManager *ksync_obj_manager() = 0;
     virtual Ip4Address remote_ip() { return Ip4Address(); }
+    virtual uint16_t remote_port() { return 0; }
     virtual Ip4Address tsn_ip() = 0;
     virtual void SendMsg(u_int8_t *buf, std::size_t len) = 0;
     void MessageProcess(const u_int8_t *buf, std::size_t len);

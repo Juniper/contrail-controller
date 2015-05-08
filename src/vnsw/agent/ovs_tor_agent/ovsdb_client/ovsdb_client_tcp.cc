@@ -7,11 +7,13 @@
 #include <oper/agent_sandesh.h>
 #include <ovsdb_types.h>
 #include <ovsdb_client_tcp.h>
+#include <ovsdb_client_connection_state.h>
 
 using OVSDB::OvsdbClientSession;
 using OVSDB::OvsdbClientTcp;
 using OVSDB::OvsdbClientTcpSession;
 using OVSDB::OvsdbClientTcpSessionReader;
+using OVSDB::ConnectionStateTable;
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
         IpAddress tsn_ip, int keepalive_interval, OvsPeerManager *manager) :
@@ -24,6 +26,7 @@ OvsdbClientTcp::~OvsdbClientTcp() {
 }
 
 void OvsdbClientTcp::RegisterClients() {
+    RegisterConnectionTable(agent_);
     session_ = CreateSession();
     Connect(session_, server_ep_);
 }
@@ -149,6 +152,11 @@ int OvsdbClientTcpSession::keepalive_interval() {
     return ovs_server->keepalive_interval();
 }
 
+ConnectionStateTable *OvsdbClientTcpSession::connection_table() {
+    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
+    return ovs_server->connection_table();
+}
+
 KSyncObjectManager *OvsdbClientTcpSession::ksync_obj_manager() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     return ovs_server->ksync_obj_manager();
@@ -177,6 +185,10 @@ void OvsdbClientTcpSession::TriggerClose() {
 
 Ip4Address OvsdbClientTcpSession::remote_ip() {
     return remote_endpoint().address().to_v4();
+}
+
+uint16_t OvsdbClientTcpSession::remote_port() {
+    return remote_endpoint().port();
 }
 
 bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {

@@ -8,6 +8,7 @@
 #include <oper/agent_sandesh.h>
 #include <ovsdb_types.h>
 #include <ovsdb_client_ssl.h>
+#include <ovsdb_client_connection_state.h>
 
 #include <ovs_tor_agent/tor_agent_param.h>
 
@@ -15,6 +16,7 @@ using OVSDB::OvsdbClientSession;
 using OVSDB::OvsdbClientSsl;
 using OVSDB::OvsdbClientSslSession;
 using OVSDB::OvsdbClientTcpSessionReader;
+using OVSDB::ConnectionStateTable;
 
 OvsdbClientSsl::OvsdbClientSsl(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) :
@@ -58,6 +60,7 @@ OvsdbClientSsl::~OvsdbClientSsl() {
 }
 
 void OvsdbClientSsl::RegisterClients() {
+    RegisterConnectionTable(agent_);
     Initialize(ssl_server_port_);
 }
 
@@ -199,6 +202,11 @@ int OvsdbClientSslSession::keepalive_interval() {
     return ovs_server->keepalive_interval();
 }
 
+ConnectionStateTable *OvsdbClientSslSession::connection_table() {
+    OvsdbClientSsl *ovs_server = static_cast<OvsdbClientSsl *>(server());
+    return ovs_server->connection_table();
+}
+
 KSyncObjectManager *OvsdbClientSslSession::ksync_obj_manager() {
     OvsdbClientSsl *ovs_server = static_cast<OvsdbClientSsl *>(server());
     return ovs_server->ksync_obj_manager();
@@ -225,6 +233,10 @@ void OvsdbClientSslSession::TriggerClose() {
 
 Ip4Address OvsdbClientSslSession::remote_ip() {
     return remote_endpoint().address().to_v4();
+}
+
+uint16_t OvsdbClientSslSession::remote_port() {
+    return remote_endpoint().port();
 }
 
 bool OvsdbClientSslSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {

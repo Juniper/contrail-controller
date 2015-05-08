@@ -33,6 +33,7 @@ public:
 
     int keepalive_interval();
 
+    ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();
 
@@ -46,6 +47,7 @@ public:
 
     // method to return ip address of remoter endpoint
     virtual Ip4Address remote_ip();
+    virtual uint16_t remote_port();
 
     // Dequeue event from workqueue for processing
     bool ProcessSessionEvent(OvsdbSessionEvent event);

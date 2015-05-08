@@ -46,6 +46,7 @@ class MulticastMacLocalOvsdb;
 class VrfOvsdbObject;
 class VnOvsdbObject;
 class OvsdbEntryBase;
+class ConnectionStateTable;
 
 class OvsdbClientIdl;
 typedef boost::intrusive_ptr<OvsdbClientIdl> OvsdbClientIdlPtr;
@@ -130,6 +131,10 @@ public:
     // Process jsonrpc_msg for IDL, takes ownership of jsonrpc_msg
     void MessageProcess(struct jsonrpc_msg *msg);
 
+    Ip4Address remote_ip();
+    uint16_t remote_port();
+
+    ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     OvsPeer *route_peer();
     bool deleted() { return deleted_; }
