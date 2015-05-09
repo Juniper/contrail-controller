@@ -211,6 +211,57 @@ void PmsiTunnelSpec::SetIdentifier(Ip4Address in_identifier) {
     std::copy(bytes.begin(), bytes.begin() + 4, identifier.begin());
 }
 
+std::string PmsiTunnelSpec::GetTunnelTypeString() const {
+    switch (tunnel_type) {
+    case RsvpP2mpLsp:
+        return "RsvpP2mpLsp";
+    case LdpP2mpLsp:
+        return "LdpP2mpLsp";
+    case PimSsmTree:
+        return "PimSsmTree";
+    case PimSmTree:
+        return "PimSmTree";
+    case BidirPimTree:
+        return "BidirPimTree";
+    case IngressReplication:
+        return "IngressReplication";
+    case MldpMp2mpLsp:
+        return "MldpMp2mpLsp";
+    case AssistedReplicationContrail:
+        return "AssistedReplication";
+    default:
+        break;
+    }
+    std::ostringstream oss;
+    oss << "Unknown(" << int(tunnel_type) << ")";
+    return oss.str();
+}
+
+std::string PmsiTunnelSpec::GetTunnelArTypeString() const {
+    switch (tunnel_flags & AssistedReplicationType) {
+    case RegularNVE:
+        return "RegularNVE";
+    case ARReplicator:
+        return "ARReplicator";
+    case ARLeaf:
+        return "ARLeaf";
+    default:
+        break;
+    }
+    return "Unknown";
+}
+
+std::vector<std::string> PmsiTunnelSpec::GetTunnelFlagsStrings() const {
+    std::vector<std::string> flags;
+    if (tunnel_flags & LeafInfoRequired) {
+        flags.push_back("LeafInfoRequired");
+    }
+    if (tunnel_flags & EdgeReplicationSupported) {
+        flags.push_back("EdgeReplicationSupported");
+    }
+    return flags;
+}
+
 PmsiTunnel::PmsiTunnel(PmsiTunnelDB *pmsi_tunnel_db,
     const PmsiTunnelSpec &pmsi_spec)
     : pmsi_tunnel_db_(pmsi_tunnel_db),
