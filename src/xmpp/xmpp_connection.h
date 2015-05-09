@@ -215,6 +215,10 @@ public:
     size_t get_stream_feature_fail();
     size_t get_handshake_failure();
 
+    static const char *kAuthTypeNil;
+    static const char *kAuthTypeTls;
+    std::string GetXmppAuthenticationType() const;
+
 protected:
     TcpServer *server_;
     XmppSession *session_;
@@ -241,6 +245,7 @@ private:
     bool disable_read_;
     std::string from_; // bare jid
     std::string to_;
+    bool auth_enabled_;
 
     boost::scoped_ptr<XmppStateMachine> state_machine_;
     boost::scoped_ptr<XmppChannelMux> mux_;

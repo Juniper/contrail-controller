@@ -7,6 +7,10 @@
 #include <controller/controller_sandesh.h>
 #include <controller/controller_types.h>
 #include <controller/controller_peer.h>
+#include <init/agent_param.h>
+
+const char *ControllerSandesh::kAuthTypeNil = "NIL";
+const char *ControllerSandesh::kAuthTypeTls = "TLS";
 
 void AgentXmppConnectionStatusReq::HandleRequest() const {
     uint8_t count = 0;
@@ -36,6 +40,12 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		} else {
 		    data.set_cfg_controller("No");
 		}
+
+                if (Agent::GetInstance()->params()->xmpp_auth_enabled()) {
+                    data.set_xmpp_auth_enabled(ControllerSandesh::kAuthTypeTls);
+                } else {
+                    data.set_xmpp_auth_enabled(ControllerSandesh::kAuthTypeNil);
+                }
 
 		data.set_last_state(xc->LastStateName());
 		data.set_last_event(xc->LastEvent());
