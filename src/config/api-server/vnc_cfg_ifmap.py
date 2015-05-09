@@ -34,11 +34,9 @@ from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest,\
     EndSessionRequest, PublishRequest, SearchRequest, SubscribeRequest,\
     PurgeRequest, PollRequest
-from cfgm_common.ifmap.id import IPAddress, MACAddress, Device,\
-    AccessRequest, Identity, CustomIdentity
+from cfgm_common.ifmap.id import Identity
 from cfgm_common.ifmap.operations import PublishUpdateOperation,\
-    PublishNotifyOperation, PublishDeleteOperation, SubscribeUpdateOperation,\
-    SubscribeDeleteOperation
+    PublishNotifyOperation, PublishDeleteOperation
 from cfgm_common.ifmap.util import attr, link_ids
 from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
@@ -106,7 +104,7 @@ class VncIfmapClient(VncIfmapClientGen):
         file.close()
 
     def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
-                 uname, passwd, ssl_options, ifmap_srv_loc=None):
+                 uname, passwd, ssl_options):
         super(VncIfmapClient, self).__init__()
         self._ifmap_srv_ip = ifmap_srv_ip
         self._ifmap_srv_port = ifmap_srv_port
@@ -159,22 +157,16 @@ class VncIfmapClient(VncIfmapClientGen):
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
 
-        # launch mapserver
-        if ifmap_srv_loc:
-            self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
-
         self._reset_cache_and_accumulator()
 
         # Set the signal handler
         signal.signal(signal.SIGUSR2, self.handler)
 
         # Initialize ifmap-id handler (alloc|convert|parse etc.)
-        self._imid_handler = Imid()
-        imid = self._imid_handler
+        self._imid_handler = None
 
         self._init_conn()
         self._publish_config_root()
-
     # end __init__
 
     def _init_conn(self):
@@ -194,7 +186,8 @@ class VncIfmapClient(VncIfmapClientGen):
 
         ConnectionState.update(conn_type = ConnectionType.IFMAP,
             name = 'IfMap', status = ConnectionStatus.UP, message = '',
-            server_addrs = ["%s:%s" % (self._ifmap_srv_ip, self._ifmap_srv_port)])
+            server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
+                                       self._ifmap_srv_port)])
         self._conn_state = ConnectionStatus.UP
         msg = 'IFMAP connection ESTABLISHED'
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -225,84 +218,11 @@ class VncIfmapClient(VncIfmapClientGen):
                         ns_prefix='contrail', elements=id_perms_xml)
         self._update_id_self_meta(update, meta)
         self._publish_update("contrail:config-root:root", update)
-    # end __init__
+    # end _publish_config_root
 
     def config_log(self, msg, level):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
-
-    def get_imid_handler(self):
-        return self._imid_handler
-    # end get_imid_handler
-
-    # Parse ifmap-server returned search results and create list of tuples
-    # of (ident-1, ident-2, link-attribs)
-    def parse_result_items(self, srch_result, my_imid):
-        xpath_expr = \
-            '/env:Envelope/env:Body/ifmap:response/searchResult/resultItem'
-        result_items = self._parse(srch_result, xpath_expr)
-
-        return cfgm_common.imid.parse_result_items(result_items, my_imid)
-    # end parse_result_items
-
-    # In list of (ident-1, ident-2, link-attribs) tuples, return list of
-    # ifmap-ids of other idents
-    def get_others_in_result_list(self, result_list, my_imid):
-        other_imid_list = []
-        for result_elem in result_list:
-            ident_1, ident_2, meta = result_elem
-            if (ident_1 is None) or (ident_2 is None):
-                continue
-
-            other_imid = None
-            if ident_1.attrib['name'] == my_imid:
-                other_imid = ident_2.attrib['name']
-            elif ident_2.attrib['name'] == my_imid:
-                other_imid = ident_1.attrib['name']
-
-            other_imid_list.append(other_imid)
-
-        return other_imid_list
-    # end get_others_in_result_list
-
-    def _ensure_port_not_listened(self, server_ip, server_port):
-        try:
-            s = socket.create_connection((server_ip, server_port))
-            s.close()
-            print "IP %s port %s already listened on"\
-                % (server_ip, server_port)
-        except Exception as err:
-            if err.errno == errno.ECONNREFUSED:
-                return  # all is well
-    # end _ensure_port_not_listened
-
-    def _block_till_port_listened(self, server_name, server_ip, server_port):
-        svr_running = False
-        while not svr_running:
-            try:
-                s = socket.create_connection((server_ip, server_port))
-                s.close()
-                svr_running = True
-            except Exception as err:
-                if err.errno == errno.ECONNREFUSED:
-                    print "%s not up, retrying in 2 secs" % (server_name)
-                    time.sleep(2)
-                else:
-                    raise err
-    # end _block_till_port_listened
-
-    # launch ifmap server
-    def _launch_mapserver(self, ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc):
-        print 'Starting IFMAP server ...'
-        self._ensure_port_not_listened(ifmap_srv_ip, ifmap_srv_port)
-        logf_out = open('ifmap-server.out', 'w')
-        logf_err = open('ifmap-server.err', 'w')
-        self._mapserver = subprocess.Popen(['java', '-jar', 'build/irond.jar'],
-                                           cwd=ifmap_srv_loc, stdout=logf_out,
-                                           stderr=logf_err)
-        self._block_till_port_listened(
-            'ifmap-server', ifmap_srv_ip, ifmap_srv_port)
-    # end _launch_mapserver
 
     @ignore_exceptions
     def _generate_ifmap_trace(self, oper, body):
@@ -368,15 +288,14 @@ class VncIfmapClient(VncIfmapClientGen):
     # end _generate_ifmap_trace
     def publish_accumulated(self):
         if self.accumulated_request_len:
-            upd_str = ''.join(''.join(request) \
+            upd_str = ''.join(''.join(request)
                               for request in self.accumulator)
-            self._publish_to_ifmap('update', upd_str,
-                                   async=True, do_trace=False)
+            self._publish_to_ifmap('update', upd_str, do_trace=False)
         self.accumulator = None
         self.accumulated_request_len = 0
     # end publish_accumulated
 
-    def _publish_to_ifmap(self, oper, oper_body, async, do_trace=True):
+    def _publish_to_ifmap(self, oper, oper_body, do_trace=True):
         # safety check, if we proceed ifmap-server reports error
         # asking for update|delete in publish
         if not oper_body:
@@ -391,22 +310,13 @@ class VncIfmapClient(VncIfmapClientGen):
             resp_xml = None
             while not_published:
                 sess_id = self._mapclient.get_session_id()
-                if async:
-                    method = getattr(self._mapclient, 'call_async_result')
-                else:
-                    method = getattr(self._mapclient, 'call')
-                if oper != 'search':
-                    req_xml = PublishRequest(sess_id, oper_body)
-                    resp_xml = method('publish', req_xml)
-                else:
-                    req_xml = SearchRequest(
-                        sess_id, oper_body['id'],
-                        search_parameters=oper_body['parameters'])
-                    resp_xml = method('search', req_xml)
+                req_xml = PublishRequest(sess_id, oper_body)
+                resp_xml = self._mapclient.call('publish', req_xml)
 
                 resp_doc = etree.parse(StringIO.StringIO(resp_xml))
-                err_codes = resp_doc.xpath('/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
-                                           namespaces=self._NAMESPACES)
+                err_codes = resp_doc.xpath(
+                    '/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
+                    namespaces=self._NAMESPACES)
                 if err_codes:
                     if retry_count == 0:
                         log_str = 'Error publishing to ifmap, req: %s, resp: %s' \
@@ -440,15 +350,17 @@ class VncIfmapClient(VncIfmapClientGen):
         except Exception as e:
             if (isinstance(e, socket.error) and
                 self._conn_state != ConnectionStatus.DOWN):
-                log_str = 'Connection to IFMAP down. Failed to publish %s body %s' %(oper,
-                    oper_body)
+                log_str = 'Connection to IFMAP down. Failed to publish %s body %s' %(
+                    oper, oper_body)
                 if do_trace:
                     trace_msg(trace, 'IfmapTraceBuf', self._sandesh, error_msg=log_str)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 self._conn_state = ConnectionStatus.DOWN
-                ConnectionState.update(conn_type=ConnectionType.IFMAP,
-                               name='IfMap', status=ConnectionStatus.DOWN, message='',
-                               server_addrs=["%s:%s" % (self._ifmap_srv_ip, self._ifmap_srv_port)])
+                ConnectionState.update(
+                    conn_type=ConnectionType.IFMAP,
+                    name='IfMap', status=ConnectionStatus.DOWN, message='',
+                    server_addrs=["%s:%s" % (self._ifmap_srv_ip,
+                                             self._ifmap_srv_port)])
 
                 # this will block till connection is re-established
                 self._reset_cache_and_accumulator()
@@ -470,17 +382,31 @@ class VncIfmapClient(VncIfmapClientGen):
             raise
     # end _publish_to_ifmap
 
+    def _build_request(self, id1_name, id2_name, meta_list, delete=False):
+            request = ''
+            id1 = unicode(Identity(name=id1_name, type="other",
+                                   other_type="extended"))
+            if id2_name != 'self':
+                id2 = unicode(Identity(name=id2_name, type="other",
+                                       other_type="extended"))
+            else:
+                id2 = None
+            for m in meta_list:
+                if delete:
+                    op = PublishDeleteOperation(id1=id1, id2=id2,
+                                                metadata=unicode(m))
+                else:
+                    op = PublishUpdateOperation(id1=id1, id2=id2,
+                                                metadata=unicode(m),
+                                                lifetime='forever')
+                request += unicode(op)
+            return request
+
     def _delete_id_self_meta(self, self_imid, meta_name):
         mapclient = self._mapclient
 
-        del_str = str(PublishDeleteOperation(
-                          id1=str(Identity(
-                                  name=self_imid,
-                                  type="other",
-                                  other_type="extended")),
-                          filter=meta_name))
-
-        self._publish_to_ifmap('delete', del_str, async=False)
+        del_str = self._build_request(self_imid, 'self', [meta_name], True)
+        self._publish_to_ifmap('delete', del_str)
 
         # del meta from cache and del id if this was last meta
         if meta_name:
@@ -496,14 +422,9 @@ class VncIfmapClient(VncIfmapClientGen):
         mapclient = self._mapclient
         del_str = ''
         for id2, metadata in meta_list:
-            del_str += unicode(PublishDeleteOperation(
-               id1=unicode(
-                   Identity(name=id1, type="other", other_type="extended")),
-               id2=unicode(
-                   Identity(name=id2, type="other", other_type="extended")),
-               filter=metadata))
+            del_str += self._build_request(id1, id2, [metadata], True)
 
-        self._publish_to_ifmap('delete', del_str, async=False)
+        self._publish_to_ifmap('delete', del_str)
 
         # del meta,id2 from cache and del id if this was last meta
         def _id_to_metas_delete(id1, id2, meta_name):
@@ -520,20 +441,19 @@ class VncIfmapClient(VncIfmapClientGen):
             # if meta is prop, noop
             if 'id' not in self._id_to_metas[id1][meta_name][0]:
                 return
-            self._id_to_metas[id1][meta_name] = \
-                 [{'id':m['id'], 'meta':m['meta']} \
-                 for m in self._id_to_metas[id1][meta_name] if m['id'] != id2]
+            self._id_to_metas[id1][meta_name] = [
+                m for m in self._id_to_metas[id1][meta_name] if m['id'] != id2]
         for id2, metadata in meta_list:
             if metadata:
                 meta_name = metadata.replace('contrail:', '')
                 # replace with remaining refs
-                for (id_x, id_y) in [(id1, id2), (id2, id1)]:
-                    _id_to_metas_delete(id_x, id_y, meta_name)
+                _id_to_metas_delete(id1, id2, meta_name)
+                _id_to_metas_delete(id2, id1, meta_name)
             else: # no meta specified remove all links from id1 to id2
-                for (id_x, id_y) in [(id1, id2), (id2, id1)]:
-                    meta_names = self._id_to_metas.get(id_x, {}).keys()
-                    for meta_name in meta_names:
-                        _id_to_metas_delete(id_x, id_y, meta_name)
+                for meta_name in self._id_to_metas.get(id1, {}).keys():
+                    _id_to_metas_delete(id1, id2, meta_name)
+                for meta_name in self._id_to_metas.get(id2, {}).keys():
+                    _id_to_metas_delete(id2, id1, meta_name)
     # end _delete_id_pair_meta_list
 
     def _delete_id_pair_meta(self, id1, id2, metadata):
@@ -544,21 +464,12 @@ class VncIfmapClient(VncIfmapClientGen):
         """ update: dictionary of the type
                 update[<id> | 'self'] = list(metadata)
         """
-        if 'self' in update:
-            mlist = update['self']
-        else:
-            mlist = []
-            update['self'] = mlist
-
+        mlist = update.setdefault('self', [])
         mlist.append(meta)
     # end _update_id_self_meta
 
     def _update_id_pair_meta(self, update, to_id, meta):
-        if to_id in update:
-            mlist = update[to_id]
-        else:
-            mlist = []
-            update[to_id] = mlist
+        mlist = update.setdefault(to_id, [])
         mlist.append(meta)
      # end _update_id_pair_meta
 
@@ -566,50 +477,18 @@ class VncIfmapClient(VncIfmapClientGen):
         if self_imid not in self._id_to_metas:
             self._id_to_metas[self_imid] = {}
 
-        def _build_request_id_self(imid, metalist):
-            request = ''
-            for m in metalist:
-                request += unicode(PublishUpdateOperation(
-                        id1=unicode(Identity(name=self_imid, type="other",
-                                         other_type="extended")),
-                        metadata=unicode(m),
-                        lifetime='forever'))
-            return request
-
-        def _build_request_id_pair(id1, id2, metalist):
-            request = ''
-            for m in metalist:
-                request += unicode(PublishUpdateOperation(
-                    id1=unicode(Identity(name=id1, type="other",
-                                     other_type="extended")),
-                    id2=unicode(Identity(name=id2, type="other",
-                                     other_type="extended")),
-                    metadata=unicode(m),
-                    lifetime='forever'))
-            return request
-
         mapclient = self._mapclient
         requests = []
-        if 'self' in update:
-            metalist = update['self']
-            requests.append(
-                _build_request_id_self(self_imid, metalist))
-
-            # remember what we wrote for diffing during next update
-            for m in metalist:
-                meta_name = m._Metadata__name.replace('contrail:', '')
-                self._id_to_metas[self_imid][meta_name] = [{'meta':m}]
-
         for id2 in update:
-            if id2 == 'self':
-                continue
             metalist = update[id2]
-            requests.append(
-                _build_request_id_pair(self_imid, id2, metalist))
+            requests.append(self._build_request(self_imid, id2, metalist))
 
             # remember what we wrote for diffing during next update
             for m in metalist:
                 meta_name = m._Metadata__name.replace('contrail:', '')
+                if id2 == 'self':
+                    self._id_to_metas[self_imid][meta_name] = [{'meta':m}]
+                    continue
                 if meta_name in self._id_to_metas[self_imid]:
                     for id_meta in self._id_to_metas[self_imid][meta_name]:
                         if id_meta['id'] == id2:
@@ -639,96 +518,15 @@ class VncIfmapClient(VncIfmapClientGen):
             self.accumulator.append(requests)
             self.accumulated_request_len += len(requests)
             if self.accumulated_request_len >= 1024*1024:
-                upd_str = \
-                    ''.join(''.join(request) for request in \
-                        self.accumulator)
-                self._publish_to_ifmap('update', upd_str, async=True)
+                upd_str = ''.join(
+                    ''.join(request) for request in self.accumulator)
+                self._publish_to_ifmap('update', upd_str)
                 self.accumulator = []
                 self.accumulated_request_len = 0
         else:
             upd_str = ''.join(requests)
-            self._publish_to_ifmap('update', upd_str, async=True)
+            self._publish_to_ifmap('update', upd_str)
     # end _publish_update
-
-    def _search(self, start_id, match_meta=None, result_meta=None,
-                max_depth=1):
-        # set ifmap search parmeters
-        srch_params = {}
-        srch_params['max-depth'] = str(max_depth)
-
-        if match_meta is not None:
-            srch_params['match-links'] = match_meta
-        if result_meta is not None:
-            # all => don't set result-filter, so server returns all id + meta
-            if result_meta == "all":
-                pass
-            else:
-                srch_params['result-filter'] = result_meta
-        else:
-            # default to return match_meta metadata types only
-            srch_params['result-filter'] = match_meta
-
-        result = self._publish_to_ifmap(
-            'search',
-            {'id': start_id, 'parameters': srch_params},
-            async=False)
-
-        return result
-    # end _search
-
-    def _parse(self, srch_result, xpath_expr):
-        soap_doc = etree.parse(StringIO.StringIO(srch_result))
-        result_items = soap_doc.xpath(xpath_expr,
-                                      namespaces=self._NAMESPACES)
-
-        return result_items
-    # end _parse
-
-    def _search_and_parse(self, start_id, xpath_expr,
-                          match_meta=None, result_meta=None, max_depth=0):
-        result = self._search(start_id, match_meta, result_meta, max_depth)
-        result_items = self._parse(result, xpath_expr)
-
-        return result_items
-    # end _search_and_parse
-
-    def _get_id_meta_refs(self, result_items, self_type, parent_type):
-        # Given parsed result items from search, returns # of idents + metadata
-        # referring to this ident (incl self + parent). In addition, parent's
-        # name and names of non-parent, non-self idents referring to this ident
-        # are returned. TODO should this be moved to cfgm/common
-        ref_cnt = 0
-        ref_set = set()
-        ref_names = ""
-        parent_imid = ""
-        imid = self._imid_handler
-        for r_item in result_items:
-            if r_item.tag == 'identity':
-                ident_name = r_item.attrib['name']
-                ident_type = cfgm_common.imid.ifmap_id_to_type(ident_name)
-                # No action if already encountered
-                if ident_name in ref_set:
-                    continue
-
-                ref_cnt = ref_cnt + 1
-                ref_set.add(ident_name)
-                if (ident_type == self_type):
-                    continue
-                if (ident_type == parent_type):
-                    parent_imid = r_item.attrib['name']
-                    continue
-
-                # non-parent, non-self refs
-                ref_names = "%s %s" % (ref_names, ident_name)
-            elif r_item.tag == 'metadata':
-                # TBI figure out meta only belonging to self
-                ref_cnt = ref_cnt + 1
-                meta_elem = r_item.getchildren()[0]
-                meta_name = re.sub("{.*}", "", meta_elem.tag)
-                ref_names = "%s %s" % (ref_names, meta_name)
-
-        return ref_cnt, parent_imid, ref_names
-    # end _get_id_meta_refs
 
     def fq_name_to_ifmap_id(self, obj_type, fq_name):
         return cfgm_common.imid.get_ifmap_id_from_fq_name(obj_type, fq_name)
@@ -739,11 +537,6 @@ class VncIfmapClient(VncIfmapClientGen):
     # end ifmap_id_to_fq_name
 
 # end class VncIfmapClient
-
-
-class Imid(ImidGen):
-    pass
-# end class Imid
 
 
 class VncServerCassandraClient(VncCassandraClient):
@@ -937,7 +730,9 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def update_last_modified(self, bch, obj_uuid, id_perms=None):
         if id_perms is None:
-            id_perms = json.loads(self._obj_uuid_cf.get(obj_uuid, ['prop:id_perms'])['prop:id_perms'])
+            id_perms = json.loads(
+                self._obj_uuid_cf.get(obj_uuid,
+                                      ['prop:id_perms'])['prop:id_perms'])
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
@@ -1082,7 +877,8 @@ class VncServerKombuClient(VncKombuClient):
             if r_class:
                 r_class.dbe_create_notification(obj_info, obj_dict)
         except Exception as e:
-            err_msg = "Failed to invoke type specific dbe_create_notification %s" %(str(e))
+            err_msg = ("Failed in type specific dbe_create_notification " +
+                       str(e))
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
@@ -1273,8 +1069,8 @@ class VncZkClient(object):
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
                  passwd, cass_srv_list,
-                 rabbit_servers, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
-                 rabbit_ha_mode, reset_config=False, ifmap_srv_loc=None,
+                 rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
+                 rabbit_vhost, rabbit_ha_mode, reset_config=False,
                  zk_server_ip=None, db_prefix=''):
 
         self._api_svr_mgr = api_svr_mgr
@@ -1298,8 +1094,7 @@ class VncDbClient(object):
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         self._ifmap_db = VncIfmapClient(
-            self, ifmap_srv_ip, ifmap_srv_port,
-            uname, passwd, ssl_options, ifmap_srv_loc)
+            self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options)
 
         msg = "Connecting to cassandra on %s" % (cass_srv_list,)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -1380,7 +1175,8 @@ class VncDbClient(object):
         if persist:
             # set the mapping from name to uuid in zk to ensure single creator
             fq_name = obj_dict['fq_name']
-            self._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name, str(id))
+            self._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name,
+                                                       str(id))
 
         # set uuid in the perms meta
         mslong, lslong = self._uuid_to_longs(id)
@@ -1534,7 +1330,8 @@ class VncDbClient(object):
         try:
             if uuid_requested:
                 obj_uuid = uuid_requested
-                ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested), False)
+                ok = self.set_uuid(obj_type, obj_dict,
+                                   uuid.UUID(uuid_requested), False)
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
         except ResourceExistsError as e:
@@ -1591,7 +1388,8 @@ class VncDbClient(object):
         method_name = obj_type.replace('-', '_')
         try:
             (ok, cassandra_result) = self._cassandra_db.read(method_name,
-                                                             [obj_ids['uuid']], obj_fields)
+                                                             [obj_ids['uuid']],
+                                                             obj_fields)
         except NoIdError as e:
             return (False, str(e))
 
@@ -1601,8 +1399,8 @@ class VncDbClient(object):
     def dbe_count_children(self, obj_type, obj_id, child_type):
         method_name = obj_type.replace('-', '_')
         try:
-            (ok, cassandra_result) = self._cassandra_db.count_children(method_name,
-                                                             obj_id, child_type)
+            (ok, cassandra_result) = self._cassandra_db.count_children(
+                method_name, obj_id, child_type)
         except NoIdError as e:
             return (False, str(e))
 
@@ -1612,9 +1410,9 @@ class VncDbClient(object):
     def dbe_read_multi(self, obj_type, obj_ids_list, obj_fields=None):
         method_name = obj_type.replace('-', '_')
         try:
-            (ok, cassandra_result) = self._cassandra_db.read(method_name, [obj_id['uuid']
-                                                for obj_id in obj_ids_list],
-                                            obj_fields)
+            (ok, cassandra_result) = self._cassandra_db.read(
+                method_name, [obj_id['uuid'] for obj_id in obj_ids_list],
+                obj_fields)
         except NoIdError as e:
             return (False, str(e))
 
@@ -1633,7 +1431,8 @@ class VncDbClient(object):
     @dbe_trace('update')
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
         method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.update(method_name, obj_ids['uuid'], new_obj_dict)
+        (ok, cassandra_result) = self._cassandra_db.update(
+            method_name, obj_ids['uuid'], new_obj_dict)
 
         # publish to ifmap via redis
         self._msgbus.dbe_update_publish(obj_type, obj_ids)
@@ -1645,17 +1444,18 @@ class VncDbClient(object):
                  obj_uuids=None, count=False, paginate_start=None,
                  paginate_count=None):
         method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.list(method_name, parent_uuids=parent_uuids,
-                                        back_ref_uuids=back_ref_uuids,
-                                        obj_uuids=obj_uuids,
-                                        count=count)
+        (ok, cassandra_result) = self._cassandra_db.list(
+                 method_name, parent_uuids=parent_uuids,
+                 back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
+                 count=count)
         return (ok, cassandra_result)
     # end dbe_list
 
     @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_ids, obj_dict):
         method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.delete(method_name, obj_ids['uuid'])
+        (ok, cassandra_result) = self._cassandra_db.delete(method_name,
+                                                           obj_ids['uuid'])
 
         # publish to ifmap via redis
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
@@ -1765,9 +1565,12 @@ class VncDbClient(object):
         return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
 
-    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
-        self._cassandra_db.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation)
-        self._msgbus.dbe_update_publish(obj_type.replace('_', '-'), {'uuid':obj_uuid})
+    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
+                   operation):
+        self._cassandra_db.ref_update(obj_type, obj_uuid, ref_type, ref_uuid,
+                                      ref_data, operation)
+        self._msgbus.dbe_update_publish(obj_type.replace('_', '-'),
+                                        {'uuid':obj_uuid})
         return obj_uuid
     # ref_update
 
