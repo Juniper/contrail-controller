@@ -11,8 +11,8 @@ setup(
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="Nodemgr Implementation",
-    entry_points = {
-        'console_scripts' : [
+    entry_points={
+        'console_scripts': [
             'contrail-nodemgr = nodemgr.main:main',
         ],
     },

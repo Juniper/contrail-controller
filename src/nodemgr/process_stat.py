@@ -1,4 +1,9 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
 import socket
+
 
 class ProcessStat(object):
     def __init__(self, pname):

@@ -21,15 +21,15 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'AnalyticsNodemgr.py',
-           'ControlNodemgr.py',
-           'ConfigNodemgr.py',
-           'VrouterNodemgr.py',
-           'DatabaseNodemgr.py',
-           'EventManager.py',
-           'VrouterProcessStat.py',
-           'ProcessStat.py',
-           'EventListenerProtocolNodeMgr.py',
+           'analytics_event_manager.py',
+           'control_event_manager.py',
+           'config_event_manager.py',
+           'vrouter_event_manager.py',
+           'database_event_manager.py',
+           'event_manager.py',
+           'vrouter_process_stat.py',
+           'process_stat.py',
+           'event_listener_protocol_nodemgr.py',
            'main.py'
           ]
 
