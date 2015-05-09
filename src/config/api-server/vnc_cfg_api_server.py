@@ -935,7 +935,6 @@ class VncApiServer(VncApiServerGen):
         cass_server_list = self._args.cassandra_server_list
         redis_server_ip = self._args.redis_server_ip
         redis_server_port = self._args.redis_server_port
-        ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
         rabbit_servers = self._args.rabbit_server
         rabbit_port = self._args.rabbit_port
@@ -947,7 +946,7 @@ class VncApiServer(VncApiServerGen):
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
                               cass_server_list, rabbit_servers, rabbit_port,
                               rabbit_user, rabbit_password, rabbit_vhost,
-                              rabbit_ha_mode, reset_config, ifmap_loc,
+                              rabbit_ha_mode, reset_config,
                               zk_server, self._args.cluster_id)
         self._db_conn = db_conn
     # end _db_connect
