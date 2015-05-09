@@ -1,6 +1,6 @@
 import os
 
-from HaproxyStats import HaproxyStats
+from haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
     UveLoadbalancerTrace, UveLoadbalancer, UveLoadbalancerStats  
 
