@@ -17,7 +17,6 @@ InterfaceUveStatsTable::~InterfaceUveStatsTable() {
 bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                             UveVMInterfaceAgent *uve) const {
     uint64_t in_band, out_band;
-    vector<VmInterfaceStats> if_stats_list;
     VmInterfaceStats if_stats;
     vector<VmFloatingIPStats> agg_fip_list;
     vector<VmFloatingIPStats> diff_fip_list;
@@ -71,8 +70,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
      * any changes are not. */
     uve->set_fip_diff_stats(diff_fip_list);
 
-    if_stats_list.push_back(if_stats);
-    uve->set_if_stats(if_stats_list);
+    uve->set_if_stats(if_stats);
 
     return true;
 }
