@@ -386,6 +386,11 @@ class PhysicalRouterConfig(object):
         if len(keys) > 0:
             etree.SubElement(bgp_config, "authentication-key").text = keys[0].get('key')
 
+    def add_bgp_hold_time_config(self, bgp_config, bgp_params):
+        if bgp_params.get('hold_time') is None:
+            return
+        etree.SubElement(bgp_config, "hold-time").text = str(bgp_params.get('hold_time'))
+
     def set_bgp_config(self, params):
         self.bgp_params = params
         if (self.vnc_managed is None or self.vnc_managed == False):
@@ -414,6 +419,7 @@ class PhysicalRouterConfig(object):
         local_address.text = self.bgp_params['address']
         self._add_family_etree(bgp_config, self.bgp_params)
         self.add_bgp_auth_config(bgp_config, self.bgp_params)
+        self.add_bgp_hold_time_config(bgp_config, self.bgp_params)
         etree.SubElement(bgp_config, "keep").text = "all"
         return bgp_config
     # end _get_bgp_config_xml
