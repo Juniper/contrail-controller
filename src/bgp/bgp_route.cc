@@ -368,14 +368,17 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
 
         if (path->GetSource() == BgpPath::BGP_XMPP) {
-            if (peer)
+            if (peer) {
                 srp.set_protocol(peer->IsXmppPeer() ? "XMPP" : "BGP");
-            else
-                srp.set_protocol("Local");
+            } else {
+                srp.set_protocol("None");
+            }
         } else if (path->GetSource() == BgpPath::ServiceChain) {
             srp.set_protocol("ServiceChain");
         } else if (path->GetSource() == BgpPath::StaticRoute) {
             srp.set_protocol("StaticRoute");
+        } else if (path->GetSource() == BgpPath::Local) {
+            srp.set_protocol("Local");
         }
 
         const BgpAttr *attr = path->GetAttr();
