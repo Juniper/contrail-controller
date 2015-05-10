@@ -338,6 +338,17 @@ static void FillOriginVnPathInfo(const OriginVnPath *ovnpath,
     }
 }
 
+static void FillPmsiTunnelInfo(const PmsiTunnel *pmsi_tunnel,
+    ShowRoutePath *show_path) {
+    ShowPmsiTunnel spt;
+    spt.set_type(pmsi_tunnel->pmsi_tunnel().GetTunnelTypeString());
+    spt.set_ar_type(pmsi_tunnel->pmsi_tunnel().GetTunnelArTypeString());
+    spt.set_identifier(pmsi_tunnel->identifier.to_string());
+    spt.set_label(pmsi_tunnel->label);
+    spt.set_flags(pmsi_tunnel->pmsi_tunnel().GetTunnelFlagsStrings());
+    show_path->set_pmsi_tunnel(spt);
+}
+
 void BgpRoute::FillRouteInfo(const BgpTable *table,
     ShowRoute *show_route) const {
     const RoutingInstance *ri = table->routing_instance();
@@ -397,6 +408,9 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
         if (attr->origin_vn_path()) {
             FillOriginVnPathInfo(attr->origin_vn_path(), &srp);
+        }
+        if (attr->pmsi_tunnel()) {
+            FillPmsiTunnelInfo(attr->pmsi_tunnel(), &srp);
         }
         show_route_paths.push_back(srp);
     }
