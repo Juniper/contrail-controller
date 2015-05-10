@@ -2364,8 +2364,12 @@ class VirtualMachineInterfaceST(DictST):
         vrf_table_pickle = jsonpickle.encode(vrf_table)
         if vrf_table_pickle != self.vrf_table:
             self.obj.set_vrf_assign_table(vrf_table)
-            _vnc_lib.virtual_machine_interface_update(self.obj)
-            self.vrf_table = vrf_table_pickle
+            try:
+                _vnc_lib.virtual_machine_interface_update(self.obj)
+                self.vrf_table = vrf_table_pickle
+            except NoIdError as e:
+                if e._unknown_id == self.uuid:
+                    VirtualMachineInterfaceST.delete(self.name)
 
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST
