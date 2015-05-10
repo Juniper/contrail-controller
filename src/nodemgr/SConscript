@@ -30,6 +30,8 @@ local_sources = [
            'VrouterProcessStat.py',
            'ProcessStat.py',
            'EventListenerProtocolNodeMgr.py',
+           'LoadbalancerStats.py',
+           'HaproxyStats.py',
            'main.py'
           ]
 

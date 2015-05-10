@@ -1112,7 +1112,7 @@ const list<stat_table> _STAT_TABLES  = [
     },
     {
       'display_name' : 'Loadbalancer VirtualIp Stats',
-      'stat_type' : 'UveLoadbalancerStats'
+      'stat_type' : 'UveLoadbalancer'
       'stat_attr' : 'virtual_ip_stats',
       'obj_table' : SI_TABLE,
       'attributes': [
@@ -1132,7 +1132,7 @@ const list<stat_table> _STAT_TABLES  = [
     },
     {
       'display_name' : 'Loadbalancer Listener Stats',
-      'stat_type' : 'UveLoadbalancerStats'
+      'stat_type' : 'UveLoadbalancer'
       'stat_attr' : 'listener_stats',
       'obj_table' : SI_TABLE,
       'attributes': [
@@ -1152,7 +1152,7 @@ const list<stat_table> _STAT_TABLES  = [
     },
     {
       'display_name' : 'Loadbalancer Pool Stats',
-      'stat_type' : 'UveLoadbalancerStats'
+      'stat_type' : 'UveLoadbalancer'
       'stat_attr' : 'pool_stats',
       'obj_table' : SI_TABLE,
       'attributes': [
@@ -1172,7 +1172,7 @@ const list<stat_table> _STAT_TABLES  = [
     },
     {
       'display_name' : 'Loadbalancer Member Stats',
-      'stat_type' : 'UveLoadbalancerStats'
+      'stat_type' : 'UveLoadbalancer'
       'stat_attr' : 'member_stats',
       'obj_table' : SI_TABLE,
       'attributes': [
