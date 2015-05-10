@@ -23,7 +23,6 @@ import utils
 import vnc_cfg_ifmap
 from schema_transformer import to_bgp
 from discovery import disc_cassdb
-from svc_monitor import db as svc_monitor_db
 
 MAX_COL = 10000000
 class DatabaseChecker(object):
@@ -139,7 +138,7 @@ class DatabaseChecker(object):
             # good-case: 1 node in standalone
             if not modes['standalone'] == 1:
                 ret_ok = False
-                ret_msg += "Error, Single zookeeper node and modes %s. " \
+                ret_msg += "Error, Single zookeeper node and modes %s.\n" \
                            %(str(modes))
         else:
             # good-case: 1 node in leader, >=1 in followers
@@ -147,7 +146,7 @@ class DatabaseChecker(object):
                 pass # ok
             else:
                 ret_ok = False
-                ret_msg += "Error, Incorrect modes %s. " %(str(modes))
+                ret_msg += "Error, Incorrect modes %s.\n" %(str(modes))
 
         # Check node count
         node_counts = []
@@ -157,7 +156,7 @@ class DatabaseChecker(object):
         # all nodes should have same count, so set should have 1 elem
         if len(set(node_counts)) != 1:
             ret_ok = False
-            ret_msg += "Error, Differing node counts %s. " %(str(node_counts))
+            ret_msg += "Error, Differing node counts %s.\n" %(str(node_counts))
 
         return ret_ok, ret_msg
     # end check_zk_mode_and_node_count
@@ -171,8 +170,7 @@ class DatabaseChecker(object):
             sys_mgr = pycassa.SystemManager(server)
             db_info = vnc_cfg_ifmap.VncCassandraClient.get_db_info() + \
                       to_bgp.SchemaTransformer.get_db_info() + \
-                      disc_cassdb.DiscoveryCassandraClient.get_db_info() + \
-                      svc_monitor_db.ServiceMonitorDB.get_db_info()
+                      disc_cassdb.DiscoveryCassandraClient.get_db_info()
             for ks_name, _ in db_info:
                 logger.debug("Reading keyspace properties for %s on %s: ",
                              ks_name, server)
@@ -183,7 +181,7 @@ class DatabaseChecker(object):
                 if (repl_factor != len(self._cassandra_servers)):
                     errmsg = 'Incorrect replication factor %d for keyspace %s' \
                              %(repl_factor, ks_name)
-                    ret_msg += "Error, %s. " %(errmsg)
+                    ret_msg += "Error, %s.\n" %(errmsg)
 
         return ret_ok, ret_msg
     # end check_cassandra_keyspace_replication
@@ -219,11 +217,11 @@ class DatabaseChecker(object):
                     obj_fq_name_str = ':'.join(json.loads(obj_cols['fq_name']))
                     if fq_name_str != obj_fq_name_str:
                         ret_ok = False
-                        ret_msg += 'Error, Mismatched FQ Name %s vs %s. ' \
+                        ret_msg += 'Error, Mismatched FQ Name %s vs %s.\n' \
                                    %(fq_name_str, obj_fq_name_str)
                 except pycassa.NotFoundException:
                     ret_ok = False
-                    ret_msg += 'Error, Missing object %s %s %s in uuid table. '\
+                    ret_msg += 'Error, Missing object %s %s %s in uuid table.\n'\
                                    %(obj_uuid, obj_type, fq_name_str)
             # end for all objects in a type
         # end for all obj types
@@ -241,13 +239,13 @@ class DatabaseChecker(object):
         for extra in set(fq_name_table_all) - set(uuid_table_all):
             obj_type, fq_name_str, obj_uuid = extra
             ret_ok = False
-            ret_msg += 'Error, Extra object %s %s %s in obj_fq_name_table. ' \
+            ret_msg += 'Error, Extra object %s %s %s in obj_fq_name_table.\n' \
                        %(obj_type, fq_name_str, obj_uuid)
 
         for extra in set(uuid_table_all) - set(fq_name_table_all):
             obj_type, fq_name_str, obj_uuid = extra
             ret_ok = False
-            ret_msg += 'Error, Extra object %s %s %s in obj_uuid_table. ' \
+            ret_msg += 'Error, Extra object %s %s %s in obj_uuid_table.\n' \
                        %(obj_type, fq_name_str, obj_uuid)
 
         for mapclient in self._mapclients:
@@ -260,7 +258,14 @@ class DatabaseChecker(object):
             # convert it into set of identifiers
             all_ifmap_idents = []
             for ident_s, meta in search_results:
-                all_ifmap_idents.extend(ident_s.values())
+                # ref to same type appears as list of idents
+                # flatten so set can be used
+                for ident in ident_s.values():
+                    if type(ident) == list:
+                        all_ifmap_idents.extend(ident)
+                    else:
+                        all_ifmap_idents.append(ident)
+
             all_ifmap_idents = set(all_ifmap_idents)
             all_cassandra_idents = set([item[1] for item in fq_name_table_all])
             logger.debug("Got %d idents from %s server",
@@ -271,12 +276,12 @@ class DatabaseChecker(object):
                 pass # good
             else:
                 ret_ok = False
-                ret_msg += 'Error, Extra identifiers %s in ifmap %s vs obj_fq_name_table. ' \
+                ret_msg += 'Error, Extra identifiers %s in ifmap %s vs obj_fq_name_table.\n' \
                        %(extra, mapclient._client__url)
             extra = all_cassandra_idents - all_ifmap_idents
             if extra:
                 ret_ok = False
-                ret_msg += 'Error, Missing identifiers %s in ifmap %s vs obj_fq_name_table. ' \
+                ret_msg += 'Error, Missing identifiers %s in ifmap %s vs obj_fq_name_table.\n' \
                        %(extra, mapclient._client__url)
 
 
@@ -302,7 +307,7 @@ class DatabaseChecker(object):
                     continue
                 num_bad_objs += 1
                 ret_ok = False
-                ret_msg += 'Error, obj %s missing column %s. ' \
+                ret_msg += 'Error, obj %s missing column %s.\n' \
                            %(obj_uuid, col_name)
 
         logger.debug("Got %d objects %d with missing mandatory fields",
@@ -330,9 +335,9 @@ class DatabaseChecker(object):
                     rev_map = ua_kv_cf.get(subnet_id)
                 except pycassa.NotFoundException:
                     ret_ok = False
-                    errmsg = "Mismatch no subnet id %s for %s in useragent. " \
+                    errmsg = "Mismatch no subnet id %s for %s in useragent" \
                              %(subnet_id, subnet_key)
-                    ret_msg += "Error, %s" %(errmsg)
+                    ret_msg += "Error, %s.\n" %(errmsg)
             else: # uuid -> subnet key
                 subnet_id = key
                 subnet_key = cols['value']
@@ -341,9 +346,9 @@ class DatabaseChecker(object):
                     rev_map = ua_kv_cf.get(subnet_key)
                 except pycassa.NotFoundException:
                     ret_ok = False
-                    errmsg = "Mismatch no subnet key %s for %s in useragent. " \
+                    errmsg = "Mismatch no subnet key %s for %s in useragent" \
                              %(subnet_id, subnet_key)
-                    ret_msg += "Error, %s" %(errmsg)
+                    ret_msg += "Error, %s\n" %(errmsg)
 
         # check all subnet prop in obj_uuid_table to see if subnet-uuid exists
         vnc_all_subnet_uuids = []
@@ -372,24 +377,24 @@ class DatabaseChecker(object):
                         ret_ok = False
                         errmsg = "Missing subnet uuid in vnc for %s %s" \
                                  %(vn_id, subnet['subnet']['ip_prefix'])
-                        ret_msg += "Error, %s" %(errmsg)
+                        ret_msg += "Error, %s.\n" %(errmsg)
 
         # check #subnets in useragent table vs #subnets in obj_uuid_table
         if len(ua_all_subnet_uuids) != len(vnc_all_subnet_uuids):
             ret_ok = False
-            ret_msg += "Error, Mismatch #subnets usergent %d #subnets vnc %d. " \
+            ret_msg += "Error, Mismatch #subnets usergent %d #subnets vnc %d.\n" \
                        %(len(ua_all_subnet_uuids), len(vnc_all_subnet_uuids))
 
         # check if subnet-uuids match in useragent table vs obj_uuid_table
         extra_ua_subnets = set(ua_all_subnet_uuids) - set(vnc_all_subnet_uuids)
         if extra_ua_subnets:
             ret_ok = False
-            ret_msg += "Error, Extra useragent subnets %s. " \
+            ret_msg += "Error, Extra useragent subnets %s.\n" \
                        %(str(extra_ua_subnets))
         extra_vnc_subnets = set(vnc_all_subnet_uuids) - set(ua_all_subnet_uuids)
         if extra_vnc_subnets:
             ret_ok = False
-            ret_msg += "Error, Extra vnc subnets %s. " \
+            ret_msg += "Error, Extra vnc subnets %s.\n" \
                        %(str(extra_vnc_subnets))
 
         return ret_ok, ret_msg
@@ -476,13 +481,13 @@ class DatabaseChecker(object):
         if extra_vn:
             ret_ok = False
             errmsg = 'Extra VN in zookeeper for %s' %(str(extra_vn))
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         extra_vn = set(cassandra_all_vns.keys()) - set(zk_all_vns.keys())
         if extra_vn:
             ret_ok = False
             errmsg = 'Extra VN in cassandra for %s' %(str(extra_vn))
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         # check for differences in subnets
         zk_all_vn_sn = []
@@ -497,13 +502,13 @@ class DatabaseChecker(object):
         if extra_vn_sn:
             ret_ok = False
             errmsg = 'Extra VN/SN in zookeeper for %s' %(str(extra_vn_sn))
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         extra_vn_sn = set(cassandra_all_vn_sn) - set(zk_all_vn_sn)
         if extra_vn_sn:
             ret_ok = False
             errmsg = 'Extra VN/SN in cassandra for %s' %(str(extra_vn_sn))
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         # check for differences in ip addresses
         for vn, sn_key in set(zk_all_vn_sn) & set(cassandra_all_vn_sn):
@@ -521,7 +526,7 @@ class DatabaseChecker(object):
                 ret_ok = False
                 errmsg = 'Extra IPs in zookeeper for vn %s %s' \
                     %(vn, str(extra_ips))
-                ret_msg += 'Error, %s. ' %(errmsg)
+                ret_msg += 'Error, %s.\n' %(errmsg)
             # end all zk extra ips
 
             extra_ips = set(cassandra_ips) - set(zk_ips)
@@ -529,7 +534,7 @@ class DatabaseChecker(object):
                 ret_ok = False
                 errmsg = 'Extra IPs in cassandra for vn %s %s' \
                     %(vn, str(extra_ips))
-                ret_msg += 'Error, %s. ' %(errmsg)
+                ret_msg += 'Error, %s.\n' %(errmsg)
             # end all cassandra extra ips
 
             # check gateway ip present/reserved in zookeeper
@@ -537,7 +542,7 @@ class DatabaseChecker(object):
                 ret_ok = False
                 errmsg = 'Gateway ip not reserved in zookeeper %s %s' \
                     %(vn, str(extra_ips))
-                ret_msg += 'Error, %s. ' %(errmsg)
+                ret_msg += 'Error, %s.\n' %(errmsg)
         # for all common VN/subnets
 
         return ret_ok, ret_msg
@@ -567,7 +572,7 @@ class DatabaseChecker(object):
 
             ret_ok = False
             errmsg = 'Wrong route-target range in zookeeper %s' %(rtgt)
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
             num_bad_rtgts += 1
 
         logger.debug("Got %d route-targets, %d of them from wrong range",
@@ -603,7 +608,7 @@ class DatabaseChecker(object):
                 num_bad_rtgts += 1
                 ret_ok = False
                 errmsg = 'Wrong route-target range in cassandra %d' %(rtgt_num)
-                ret_msg += 'Error, %s. ' %(errmsg)
+                ret_msg += 'Error, %s.\n' %(errmsg)
             # end for all rtgt
         # end for all vns
 
@@ -627,7 +632,7 @@ class DatabaseChecker(object):
             ret_ok = False
             errmsg = 'Mismatch in route-target count, %d user %d auto, cassandra has %d' \
                      %(num_user_rtgts, len(zk_all_rtgts), len(rtgt_uuids))
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         return ret_ok, ret_msg
     # end check_route_targets_id
@@ -665,10 +670,23 @@ class DatabaseChecker(object):
         cassandra_all_vns = {}
         for vn_uuid in vn_uuids:
             vn_cols = obj_uuid_table.get(vn_uuid,
-                columns=['prop:virtual_network_properties', 'fq_name'],
+                columns=['prop:virtual_network_properties', 
+                         'prop:virtual_network_network_id',
+                         'fq_name'],
                 column_count=MAX_COL)
-            vn_props = json.loads(vn_cols['prop:virtual_network_properties'])
-            vn_id = vn_props['network_id']
+            try:
+                vn_id = json.loads(vn_cols['prop:virtual_network_network_id'])
+            except KeyError:
+                try:
+                    # upgrade case older VNs had it in composite prop
+                    vn_props = json.loads(vn_cols['prop:virtual_network_properties'])
+                    vn_id = vn_props['network_id']
+                except KeyError:
+                    errmsg = 'Missing network-id in cassandra for vn %s' \
+                             %(vn_uuid)
+                    ret_msg += 'Error, %s.\n' %(errmsg)
+                    continue
+
             vn_fq_name_str = ':'.join(json.loads(vn_cols['fq_name']))
             cassandra_all_vns[vn_id] = vn_fq_name_str
 
@@ -681,14 +699,14 @@ class DatabaseChecker(object):
             ret_ok = False
             errmsg = 'Extra VN IDs in zookeeper for vn %s %s' \
                     %(vn_fq_name_str, vn_id)
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         extra_vn_ids = cassandra_set - zk_set
         for vn_id, vn_fq_name_str in extra_vn_ids:
             ret_ok = False
             errmsg = 'Extra VN IDs in cassandra for vn %s %s' \
                     %(vn_fq_name_str, vn_id)
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         return ret_ok, ret_msg
     # end check_virtual_networks_id
@@ -713,7 +731,7 @@ class DatabaseChecker(object):
                 sg_val = zk_client.get(base_path+'/'+sg_id)[0]
                 if sg_val != '__reserved__':
                     ret_ok = False
-                    ret_msg += 'Error, SG-ID 0 not reserved %s. ' %(sg_val)
+                    ret_msg += 'Error, SG-ID 0 not reserved %s.\n' %(sg_val)
                 continue
                 
             sg_fq_name_str = zk_client.get(base_path+'/'+sg_id)[0]
@@ -748,14 +766,14 @@ class DatabaseChecker(object):
             ret_ok = False
             errmsg = 'Extra SG IDs in zookeeper for sg %s %s' \
                     %(sg_fq_name_str, sg_id)
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         extra_sg_ids = cassandra_set - zk_set
         for sg_id, sg_fq_name_str in extra_sg_ids:
             ret_ok = False
             errmsg = 'Extra SG IDs in cassandra for sg %s %s' \
                     %(sg_fq_name_str, sg_id)
-            ret_msg += 'Error, %s. ' %(errmsg)
+            ret_msg += 'Error, %s.\n' %(errmsg)
 
         return ret_ok, ret_msg
     # end check_security_groups_id
@@ -781,7 +799,7 @@ class DatabaseChecker(object):
             except KeyError:
                 ret_ok = False
                 errmsg = 'Missing ip addr in %s %s' %(ip_type, ip_id)
-                ret_msg += 'Error, %s.' %(errmsg)
+                ret_msg += 'Error, %s.\n' %(errmsg)
                 continue
 
             # get vn uuid
@@ -794,7 +812,7 @@ class DatabaseChecker(object):
 
             if not vn_id:
                 ret_ok = False
-                ret_msg += 'Error, Missing vn-id in %s %s. ' %(ip_type, ip_id)
+                ret_msg += 'Error, Missing vn-id in %s %s.\n' %(ip_type, ip_id)
                 continue
 
             fq_name_json = obj_uuid_table.get(vn_id,
@@ -833,7 +851,7 @@ class DatabaseChecker(object):
             if not addr_added:
                 ret_ok = False
                 errmsg = 'Missing subnet for ip %s %s' %(ip_type, ip_id)
-                ret_msg += 'Error, %s. ' %(errmsg)
+                ret_msg += 'Error, %s.\n' %(errmsg)
             # end handled the ip
         # end for all ip_uuids
 
@@ -897,3 +915,7 @@ def db_check():
     db_checker.check_virtual_networks_id()
     db_checker.check_security_groups_id()
 # end db_check
+
+
+if __name__ == '__main__':
+    db_check()
