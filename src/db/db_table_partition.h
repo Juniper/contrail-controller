@@ -46,6 +46,7 @@ public:
 
     // Walk functions
     virtual DBEntryBase *lower_bound(const DBEntryBase *key) = 0;
+    virtual DBEntryBase *upper_bound(const DBEntryBase *key) = 0;
     virtual DBEntryBase *GetFirst() = 0;
     virtual DBEntryBase *GetNext(const DBEntryBase *) = 0;
 
@@ -77,6 +78,10 @@ public:
     void Process(DBClient *client, DBRequest *req);
     // Returns the matching route or next in lex order
     virtual DBEntry *lower_bound(const DBEntryBase *entry);
+
+    // Returns the next in lex order
+    virtual DBEntry *upper_bound(const DBEntryBase *entry);
+
     // Returns the next route (Doesn't search). Threaded walk
     virtual DBEntry *GetNext(const DBEntryBase *entry);
 
@@ -101,6 +106,9 @@ public:
 
     // Find DB Entry. Get key from from argument
     DBEntry *Find(const DBRequestKey *key);
+
+    // Find the next in lex order
+    DBEntry *FindNext(const DBRequestKey *key);
 
     DBTable *table();
     size_t size() const { return tree_.size(); }
