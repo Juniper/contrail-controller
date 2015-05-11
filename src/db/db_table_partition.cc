@@ -144,12 +144,36 @@ DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
     return NULL;
 }
 
+DBEntry *DBTablePartition::FindNext(const DBRequestKey *key) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    DBTable *table = static_cast<DBTable *>(parent());
+    std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+
+    Tree::iterator loc = tree_.upper_bound(*(entry_ptr.get()));
+    if (loc != tree_.end()) {
+        return loc.operator->();
+    }
+    return NULL;
+}
+
 // Returns the matching entry or next in lex order
 DBEntry *DBTablePartition::lower_bound(const DBEntryBase *key) {
     const DBEntry *entry = static_cast<const DBEntry *>(key);
     tbb::mutex::scoped_lock lock(mutex_);
 
     Tree::iterator it = tree_.lower_bound(*entry);
+    if (it != tree_.end()) {
+        return (it.operator->());
+    }
+    return NULL;
+}
+
+// Returns the next in lex order
+DBEntry *DBTablePartition::upper_bound(const DBEntryBase *key) {
+    const DBEntry *entry = static_cast<const DBEntry *>(key);
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    Tree::iterator it = tree_.upper_bound(*entry);
     if (it != tree_.end()) {
         return (it.operator->());
     }

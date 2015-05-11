@@ -192,6 +192,8 @@ public:
 
     DBEntry *Find(const DBRequestKey *key);
 
+    DBEntry *FindNext(const DBEntry *entry);
+
     ///////////////////////////////////////////////////////////////
     // Virtual functions from DBTableBase implemented by DBTable
     ///////////////////////////////////////////////////////////////

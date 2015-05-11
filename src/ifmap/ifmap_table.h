@@ -32,6 +32,7 @@ public:
     virtual IFMapObject *AllocObject() = 0;
 
     IFMapNode *FindNode(const std::string &name);
+    IFMapNode *FindNextNode(const std::string &name);
 
     virtual void Clear() = 0;
 
