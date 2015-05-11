@@ -24,7 +24,7 @@ public:
                        const std::string &module, const std::string &instance_id,
                        const std::string &key, const std::string &message,
                        int32_t seq, const std::string &agg,
-                       const std::string &atyp, int64_t ts, unsigned int part,
+                       int64_t ts, unsigned int part,
                        bool is_alarm);
 
     static bool
