@@ -96,7 +96,8 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
-    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
+    virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                            const std::string &context);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
 private:
