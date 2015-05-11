@@ -787,7 +787,7 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
     return false;
 }
 
-bool PktHandler::IsValidInterface(uint16_t ifindex, Interface **interface) {
+bool PktHandler::IsValidInterface(uint32_t ifindex, Interface **interface) {
     Interface *intf = agent_->interface_table()->FindInterface(ifindex);
     if (intf == NULL) {
         PKT_TRACE(Err, "Invalid interface index <" << ifindex << ">");

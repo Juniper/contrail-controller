@@ -33,8 +33,8 @@ public:
 
     virtual bool Run() = 0;
 
-    void Send(uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
-    void Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
+    void Send(uint32_t itf, uint32_t vrf, uint16_t, PktHandler::PktModuleName);
+    void Send(uint32_t itf, uint32_t vrf, uint16_t cmd,
               uint32_t param1, uint32_t param2, PktHandler::PktModuleName mod);
 
     int EthHdr(const MacAddress &src, const MacAddress &dest,
@@ -44,22 +44,23 @@ public:
     int EthHdr(char *buff, uint16_t len, const Interface *interface,
                const MacAddress &src, const MacAddress &dest,
                const uint16_t proto);
-    int EthHdr(char *buff, uint16_t len, uint16_t ifindex,
+    int EthHdr(char *buff, uint16_t len, uint32_t ifindex,
                const MacAddress &src, const MacAddress &dest,
                const uint16_t proto);
 
     void VlanHdr(uint8_t *ptr, uint16_t tci);
-    void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t,
+    void IpHdr(uint16_t len, in_addr_t src, in_addr_t dest, uint8_t protocol,
                uint16_t id, uint8_t ttl);
-    uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t,
-                   uint8_t, uint16_t id, uint8_t ttl);
+    uint16_t IpHdr(char *buff, uint16_t buf_len, uint16_t len, in_addr_t src,
+                   in_addr_t dest, uint8_t protocol, uint16_t id, uint8_t ttl);
     void Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
                 uint8_t hlim, uint8_t *src, uint8_t *dest);
-    void UdpHdr(uint16_t, in_addr_t, uint16_t, in_addr_t, uint16_t);
+    void UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port, in_addr_t dest,
+                uint16_t dest_port);
     void UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
                 const uint8_t *dest, uint16_t dest_port, uint8_t next_hdr);
-    uint16_t UdpHdr(udphdr *, uint16_t, uint16_t, in_addr_t, uint16_t,
-                    in_addr_t, uint16_t);
+    uint16_t UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len, in_addr_t src,
+                    uint16_t src_port, in_addr_t dest, uint16_t dest_port);
     uint16_t IcmpHdr(char *buff, uint16_t buf_len, uint8_t type, uint8_t code,
                      uint16_t word1, uint16_t word2);
     void IcmpChecksum(char *buff, uint16_t buf_len);
@@ -74,7 +75,7 @@ public:
 
     Agent *agent() { return agent_; }
     uint32_t GetVrfIndex() const { return pkt_info_->GetAgentHdr().vrf; }
-    uint16_t GetInterfaceIndex() const {
+    uint32_t GetInterfaceIndex() const {
         return pkt_info_->GetAgentHdr().ifindex;
     }
     uint16_t GetLength() const { return pkt_info_->len; }

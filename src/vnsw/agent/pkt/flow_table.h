@@ -239,7 +239,7 @@ struct FlowData {
     uint32_t vrf;
     uint32_t mirror_vrf;
 
-    uint16_t dest_vrf;
+    uint32_t dest_vrf;
 
     uint32_t component_nh_idx;
 
@@ -250,7 +250,7 @@ struct FlowData {
     uint16_t drop_reason;
     bool vrf_assign_evaluated;
     bool pending_recompute;
-    uint16_t            if_index_info;
+    uint32_t            if_index_info;
     TunnelInfo          tunnel_info;
     // map for references to the routes which were ignored due to more specific
     // route this will be used to trigger flow re-compute to use more specific

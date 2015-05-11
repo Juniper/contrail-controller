@@ -94,14 +94,14 @@ public:
     const InterfaceArpMap& interface_arp_map() { return interface_arp_map_; }
 
     Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
-    uint16_t ip_fabric_interface_index() const {
+    uint32_t ip_fabric_interface_index() const {
         return ip_fabric_interface_index_;
     }
     const MacAddress &ip_fabric_interface_mac() const {
         return ip_fabric_interface_mac_;
     }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
-    void set_ip_fabric_interface_index(uint16_t ind) {
+    void set_ip_fabric_interface_index(uint32_t ind) {
         ip_fabric_interface_index_ = ind;
     }
     void set_ip_fabric_interface_mac(const MacAddress &mac) {
@@ -171,7 +171,7 @@ private:
     ArpCache arp_cache_;
     ArpStats arp_stats_;
     bool run_with_vrouter_;
-    uint16_t ip_fabric_interface_index_;
+    uint32_t ip_fabric_interface_index_;
     MacAddress ip_fabric_interface_mac_;
     Interface *ip_fabric_interface_;
     ArpEntry *gratuitous_arp_entry_;
