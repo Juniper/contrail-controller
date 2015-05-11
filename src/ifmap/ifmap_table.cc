@@ -11,6 +11,7 @@
 #include <boost/algorithm/string.hpp>
 #include "db/db.h"
 #include "db/db_table.h"
+#include "db/db_table_partition.h"
 #include "ifmap/autogen.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_server_show_types.h"
@@ -21,10 +22,19 @@ IFMapTable::IFMapTable(DB *db, const std::string &name) : DBTable(db, name) {
 }
 
 IFMapNode *IFMapTable::FindNode(const std::string &name) {
+    DBTablePartition *partition =
+        static_cast<DBTablePartition *>(GetTablePartition(0));
     IFMapTable::RequestKey reqkey;
     reqkey.id_name = name;
-    auto_ptr<DBEntry> key(AllocEntry(&reqkey));
-    return static_cast<IFMapNode *>(Find(key.get()));
+    return static_cast<IFMapNode *>(partition->Find(&reqkey));
+}
+
+IFMapNode *IFMapTable::FindNextNode(const std::string &name) {
+    DBTablePartition *partition =
+        static_cast<DBTablePartition *>(GetTablePartition(0));
+    IFMapTable::RequestKey reqkey;
+    reqkey.id_name = name;
+    return static_cast<IFMapNode *>(partition->FindNext(&reqkey));
 }
 
 IFMapTable *IFMapTable::FindTable(DB *db, const std::string &element_type) {
