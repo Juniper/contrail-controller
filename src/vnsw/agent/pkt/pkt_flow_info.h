@@ -31,7 +31,7 @@ struct PktControlInfo {
     bool  vlan_nh_;
     uint16_t vlan_tag_;
     // The NH-ID field used as key in the flow
-    uint16_t nh_;
+    uint32_t nh_;
 };
 
 class PktFlowInfo {
@@ -115,14 +115,14 @@ public:
     uint32_t            nat_sport;
     uint32_t            nat_dport;
     // VRF for matching the NAT flow
-    uint16_t            nat_vrf;
+    uint32_t            nat_vrf;
     // Modified VRF for the NAT flow
     // After flow processing, packet is assigned this VRF
-    uint16_t            nat_dest_vrf;
+    uint32_t            nat_dest_vrf;
 
     // Modified VRF for the forward flow
     // After flow processing, packet is assigned this VRF
-    uint16_t            dest_vrf;
+    uint32_t            dest_vrf;
 
     // Intermediate fields used in creating flows
     const AclDBEntry    *acl;
