@@ -45,6 +45,7 @@ public:
     static DBTable *CreateTable(DB *db, const std::string &name,
                                 DBGraph *graph);
     IFMapLink *FindLink(const std::string &name);
+    IFMapLink *FindNextLink(const std::string &name);
 
 protected:
     void DeleteLink(DBGraphEdge *edge);
