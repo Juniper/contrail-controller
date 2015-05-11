@@ -22,12 +22,12 @@ uint32_t ProtoHandler::EncapHeaderLen() const {
 }
 
 // send packet to the pkt0 interface
-void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
+void ProtoHandler::Send(uint32_t itf, uint32_t vrf, uint16_t cmd,
                         PktHandler::PktModuleName mod) {
     Send(itf, vrf, cmd, 0, 0, mod);
 }
 
-void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
+void ProtoHandler::Send(uint32_t itf, uint32_t vrf, uint16_t cmd,
                         uint32_t param1, uint32_t param2,
                         PktHandler::PktModuleName mod) {
     // If pkt_info_->pkt is non-NULL, pkt is freed in destructor of pkt_info_
@@ -85,7 +85,7 @@ int ProtoHandler::EthHdr(char *buff, uint16_t len, const Interface *interface,
     return EthHdr(buff, len, src, dest, proto, vlan_id);
 }
 
-int ProtoHandler::EthHdr(char *buff, uint16_t len, uint16_t ifindex,
+int ProtoHandler::EthHdr(char *buff, uint16_t len, uint32_t ifindex,
                          const MacAddress &src, const MacAddress &dest,
                          const uint16_t proto) {
     const Interface *intf = agent()->interface_table()->FindInterface(ifindex);

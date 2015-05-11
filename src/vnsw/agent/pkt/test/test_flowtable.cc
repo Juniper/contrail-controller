@@ -15,7 +15,7 @@ const std::string svn_name("svn");
 const std::string dvn_name("dvn");
 
 struct TestFlowKey {
-    uint16_t        vrfid_;
+    uint32_t        vrfid_;
     const char      *sip_;
     const char      *dip_;
     uint8_t         proto_;
@@ -23,15 +23,15 @@ struct TestFlowKey {
     uint16_t        dport_;
     const std::string      *svn_;
     const std::string      *dvn_;
-    uint16_t        ifindex_;
-    uint16_t        vn_;
-    uint16_t        vm_;
+    uint32_t        ifindex_;
+    uint32_t        vn_;
+    uint32_t        vm_;
     uint32_t        nh_;
 
-    TestFlowKey(uint16_t vrf, const char *sip, const char *dip, uint8_t proto,
+    TestFlowKey(uint32_t vrf, const char *sip, const char *dip, uint8_t proto,
                 uint16_t sport, uint16_t dport, const std::string &svn,
-                const std::string &dvn, uint16_t ifindex, uint16_t vn,
-                uint16_t vm, uint32_t nh) :
+                const std::string &dvn, uint32_t ifindex, uint32_t vn,
+                uint32_t vm, uint32_t nh) :
         vrfid_(vrf), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
         dport_(dport), svn_(&svn), dvn_(&dvn), ifindex_(ifindex), vn_(vn),
         vm_(vm), nh_(nh) {

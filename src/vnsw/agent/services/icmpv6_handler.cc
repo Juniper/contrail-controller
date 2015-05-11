@@ -176,7 +176,7 @@ uint16_t Icmpv6Handler::FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
     return offset;
 }
 
-void Icmpv6Handler::SendRAResponse(uint16_t ifindex, uint16_t vrfindex,
+void Icmpv6Handler::SendRAResponse(uint32_t ifindex, uint32_t vrfindex,
                                    uint8_t *src_ip, uint8_t *dest_ip,
                                    const MacAddress &dest_mac,
                                    const Ip6Address &prefix, uint8_t plen) {
@@ -200,7 +200,7 @@ void Icmpv6Handler::SendPingResponse() {
                        ntohs(pkt_info_->ip6->ip6_plen));
 }
 
-void Icmpv6Handler::SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
+void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
                                        uint8_t *src_ip, uint8_t *dest_ip,
                                        const MacAddress &dest_mac,
                                        uint16_t len) {

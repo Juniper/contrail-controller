@@ -123,11 +123,11 @@ struct AgentHdr {
         ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), cmd_param_1(-1),
         nh(-1), flow_index(-1), mtu(0) {}
 
-    AgentHdr(uint16_t ifindex_p, uint16_t vrf_p, uint16_t cmd_p) :
+    AgentHdr(uint32_t ifindex_p, uint32_t vrf_p, uint16_t cmd_p) :
         ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1),
         cmd_param_1(-1), nh(-1), flow_index(-1), mtu(0) {}
 
-    AgentHdr(uint16_t ifindex_p, uint16_t vrf_p, uint16_t cmd_p,
+    AgentHdr(uint32_t ifindex_p, uint32_t vrf_p, uint16_t cmd_p,
              uint32_t param1, uint32_t param2) :
         ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(param1),
         cmd_param_1(param2), nh(-1), flow_index(-1), mtu(0) {}
@@ -135,12 +135,12 @@ struct AgentHdr {
     ~AgentHdr() {}
 
     // Fields from agent_hdr
-    uint16_t            ifindex;
+    uint32_t            ifindex;
     uint32_t            vrf;
     uint16_t            cmd;
     uint32_t            cmd_param;
     uint32_t            cmd_param_1;
-    uint16_t            nh;
+    uint32_t            nh;
     uint32_t            flow_index;
     uint16_t            mtu;
 };
@@ -311,7 +311,7 @@ private:
 
     void SetOuterIp(PktInfo *pkt_info, uint8_t *pkt);
     bool IsDHCPPacket(PktInfo *pkt_info);
-    bool IsValidInterface(uint16_t ifindex, Interface **interface);
+    bool IsValidInterface(uint32_t ifindex, Interface **interface);
     bool IsToRDevice(uint32_t vrf_id, const IpAddress &ip);
     bool IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
                             PktType::Type &pkt_type, uint8_t *pkt);

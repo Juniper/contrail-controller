@@ -804,9 +804,9 @@ void DnsHandler::SendDnsResponse() {
                          (agent()->interface_table()->FindActiveEntry(&key));
     if (pkt_itf) {
         UpdateStats();
-        uint16_t interface =
+        uint32_t interface =
             (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
-            (uint16_t)pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+            pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
         uint16_t command =
             (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
             (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;

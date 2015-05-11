@@ -340,7 +340,7 @@ public:
                                           std::string *vm_ip,
                                           std::string *vm_uuid,
                                           std::string *vm_project_uuid);
-    void VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid, Ip4Address *addr);
+    void VmPortToMetaDataIp(uint32_t ifindex, uint32_t vrfid, Ip4Address *addr);
 
     // Dhcp Snoop Map entries
     const Ip4Address GetDhcpSnoopEntry(const std::string &ifname);

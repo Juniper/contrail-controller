@@ -42,7 +42,7 @@ private:
     VrfAssignKSyncObject *ksync_obj_;
     KSyncEntryPtr interface_;
     uint16_t vlan_tag_;
-    uint16_t vrf_id_;
+    uint32_t vrf_id_;
     KSyncEntryPtr nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfAssignKSyncEntry);
 };
