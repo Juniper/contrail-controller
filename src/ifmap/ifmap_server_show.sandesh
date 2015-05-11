@@ -28,6 +28,8 @@ request sandesh IFMapTableShowReq {
 
 response sandesh IFMapTableShowResp {
     1: list<IFMapNodeShowInfo> ifmap_db;
+    2: optional string next_batch (link="IFMapTableShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing link table - IFMapLink **/
@@ -54,7 +56,10 @@ request sandesh IFMapLinkTableShowReq {
 }
 
 response sandesh IFMapLinkTableShowResp {
-    1: list<IFMapLinkShowInfo> ifmap_db;
+    1: u32 table_size;
+    2: list<IFMapLinkShowInfo> ifmap_db;
+    3: optional string next_batch (link="IFMapLinkTableShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing the internal Update Queue **/

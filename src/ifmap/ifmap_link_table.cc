@@ -75,6 +75,15 @@ IFMapLink *IFMapLinkTable::FindLink(const string &name) {
     return static_cast<IFMapLink *>(partition->Find(&key));
 }
 
+IFMapLink *IFMapLinkTable::FindNextLink(const string &name) {
+
+    DBTablePartition *partition =
+        static_cast<DBTablePartition *>(GetTablePartition(0));
+    RequestKey key;
+    key.name = name;
+    return static_cast<IFMapLink *>(partition->FindNext(&key));
+}
+
 void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {
     IFMapLink *link = static_cast<IFMapLink *>(edge);
     link->set_last_change_at_to_now();
