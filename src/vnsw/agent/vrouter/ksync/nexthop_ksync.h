@@ -94,6 +94,7 @@ private:
     uint32_t nh_id_;
     ComponentNHKeyList component_nh_key_list_;
     bool vxlan_nh_;
+    bool flood_unknown_unicast_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

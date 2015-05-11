@@ -28,7 +28,8 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;};
     const NextHop *nexthop() const {return nh_.get();};
 
-    static void Create(uint32_t vxlan_id, const std::string &vrf_name);
+    static void Create(uint32_t vxlan_id, const std::string &vrf_name,
+                       bool flood_unknown_unicast);
     // Delete vxlan_id vxlan_id entry
     static void Delete(uint32_t vxlan_id);
 

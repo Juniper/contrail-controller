@@ -738,6 +738,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         } else {
             data.set_policy("Disable");
         }
+        data.set_flood_unknown_unicast(vintf->flood_unknown_unicast());
 
         if ((ipv4_active_ == false) ||
             (l2_active_ == false)) {

@@ -103,6 +103,7 @@ private:
     PhysicalInterface::EncapType encap_type_;
     std::string display_name_;
     Interface::Transport transport_;
+    bool flood_unknown_unicast_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 
