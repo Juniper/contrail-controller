@@ -636,9 +636,9 @@ void Dhcpv6Handler::SendDhcpResponse() {
     FillDhcpResponse(MacAddress(pkt_info_->eth->ether_shost),
                      config_.dns_addr.to_v6(),
                      pkt_info_->ip_saddr.to_v6());
-    uint16_t interface =
+    uint32_t interface =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
-        (uint16_t)pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+        pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
     uint16_t command =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;

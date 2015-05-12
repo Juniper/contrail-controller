@@ -16,7 +16,7 @@ void RouterIdDepInit(Agent *agent) {
 }
 
 struct TestFlowKey {
-    uint16_t        vrfid_;
+    uint32_t        vrfid_;
     const char      *sip_;
     const char      *dip_;
     uint8_t         proto_;

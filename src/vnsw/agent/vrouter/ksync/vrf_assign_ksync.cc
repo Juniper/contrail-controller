@@ -98,7 +98,7 @@ std::string VrfAssignKSyncEntry::ToString() const {
 bool VrfAssignKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const VrfAssign *vassign = static_cast<VrfAssign *>(e);
-    uint16_t vrf_id = 0;
+    uint32_t vrf_id = 0;
 
     if (vassign->GetVrf()) {
         vrf_id = vassign->GetVrf()->vrf_id();

@@ -283,7 +283,7 @@ Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
     return index_table_.At(addr & 0xFFFF);
 }
 
-void InterfaceTable::VmPortToMetaDataIp(uint16_t index, uint32_t vrfid,
+void InterfaceTable::VmPortToMetaDataIp(uint32_t index, uint32_t vrfid,
                                         Ip4Address *addr) {
     uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
     ip += (index & 0xFFFF);

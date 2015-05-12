@@ -30,7 +30,7 @@ public:
 
     void Reset();
     void incr_xmpp_reconnects(uint8_t idx) {xmpp_reconnect_[idx]++;}
-    uint16_t xmpp_reconnects(uint8_t idx) const {
+    uint32_t xmpp_reconnects(uint8_t idx) const {
         return xmpp_reconnect_[idx];
     }
 
@@ -41,7 +41,7 @@ public:
     uint64_t xmpp_out_msgs(uint8_t idx) const {return xmpp_out_msgs_[idx];}
 
     void incr_sandesh_reconnects() {sandesh_reconnects_++;}
-    uint16_t sandesh_reconnects() const {return sandesh_reconnects_;}
+    uint32_t sandesh_reconnects() const {return sandesh_reconnects_;}
 
     void incr_sandesh_in_msgs() {sandesh_in_msgs_++;}
     uint64_t sandesh_in_msgs() const {return sandesh_in_msgs_;}
@@ -50,7 +50,7 @@ public:
     uint64_t sandesh_out_msgs() const {return sandesh_out_msgs_;}
 
     void incr_sandesh_http_sessions() {sandesh_http_sessions_++;}
-    uint16_t sandesh_http_sessions() const {return sandesh_http_sessions_;}
+    uint32_t sandesh_http_sessions() const {return sandesh_http_sessions_;}
 
     void incr_flow_created() {flow_created_++;}
     uint64_t flow_created() const {return flow_created_;}
@@ -103,14 +103,14 @@ public:
     uint64_t out_bytes() const {return out_bytes_;}
 private:
     Agent *agent_;
-    uint16_t xmpp_reconnect_[MAX_XMPP_SERVERS];
+    uint32_t xmpp_reconnect_[MAX_XMPP_SERVERS];
     uint64_t xmpp_in_msgs_[MAX_XMPP_SERVERS];
     uint64_t xmpp_out_msgs_[MAX_XMPP_SERVERS];
 
-    uint16_t sandesh_reconnects_;
+    uint32_t sandesh_reconnects_;
     uint64_t sandesh_in_msgs_;
     uint64_t sandesh_out_msgs_;
-    uint16_t sandesh_http_sessions_;
+    uint32_t sandesh_http_sessions_;
 
     // Number of NH created
     uint32_t nh_count_;

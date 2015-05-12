@@ -21,7 +21,7 @@ public:
     bool Run();
     void SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
                  const MacAddress &tmac, in_addr_t tip,
-                 uint16_t itf, uint16_t vrf);
+                 uint32_t itf, uint32_t vrf);
     friend void intrusive_ptr_add_ref(const ArpHandler *p);
     friend void intrusive_ptr_release(const ArpHandler *p);
 
@@ -29,8 +29,8 @@ private:
     bool HandlePacket();
     bool HandleMessage();
     void EntryDelete(ArpKey &key);
-    uint16_t ArpHdr(const MacAddress &, in_addr_t, const MacAddress &,
-                    in_addr_t, uint16_t);
+    uint16_t ArpHdr(const MacAddress &smac, in_addr_t sip,
+                    const MacAddress &tmac, in_addr_t tip, uint16_t op);
 
     ether_arp *arp_;
     in_addr_t arp_tpa_;

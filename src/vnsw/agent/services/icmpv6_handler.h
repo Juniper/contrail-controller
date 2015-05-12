@@ -24,12 +24,12 @@ private:
     uint16_t FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
                                      uint8_t *dest, const Ip6Address &prefix,
                                      uint8_t plen);
-    void SendRAResponse(uint16_t ifindex, uint16_t vrfindex,
+    void SendRAResponse(uint32_t ifindex, uint32_t vrfindex,
                         uint8_t *src_ip, uint8_t *dest_ip,
                         const MacAddress &dest_mac,
                         const Ip6Address &prefix, uint8_t plen);
     void SendPingResponse();
-    void SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
+    void SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
                             uint8_t *src_ip, uint8_t *dest_ip,
                             const MacAddress &dest_mac, uint16_t len);
 
