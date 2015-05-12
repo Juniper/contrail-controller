@@ -8,6 +8,7 @@ import ConfigParser
 from StringIO import StringIO
 from ConfigParser import NoOptionError, NoSectionError
 import sys
+import os
 import socket
 import time
 import subprocess
@@ -302,8 +303,8 @@ class EventManager(object):
                                 'deleting core file:' + core_file + "\n")
                             try:
                                 os.remove(core_file)
-                            except:
-                                pass
+                            except OSError as e:
+                                sys.stderr.write('ERROR: ' + str(e) + '\n')
                         # now delete the list as well
                         val = self.max_cores - self.max_new_cores + 1
                         del proc_stat.core_file_list[self.max_old_cores:(val)]
