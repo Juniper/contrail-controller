@@ -13,6 +13,7 @@ class KSyncObjectManager;
 
 namespace OVSDB {
 class OvsdbClientSession;
+class ConnectionStateTable;
 class OvsdbClient {
 public:
     OvsdbClient(OvsPeerManager *manager, int keepalive_interval);
@@ -33,6 +34,8 @@ public:
     virtual void AddSessionInfo(SandeshOvsdbClient &client) = 0;
     virtual void shutdown() = 0;
 
+    void RegisterConnectionTable(Agent *agent);
+    ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     int keepalive_interval() const;
     void Init();
@@ -42,6 +45,7 @@ public:
 protected:
     OvsPeerManager *peer_manager_;
 private:
+    boost::scoped_ptr<ConnectionStateTable> connection_table_;
     KSyncObjectManager *ksync_obj_manager_;
     int keepalive_interval_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClient);
