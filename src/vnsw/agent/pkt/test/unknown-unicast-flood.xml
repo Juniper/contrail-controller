@@ -49,10 +49,10 @@
      type="flow"/>
 
     <validate name="validate-2">
-       <flow name="l2-vxlan-unknown-mac" uuid="1" vrf="vrf1" nh="11"
+       <flow name="l2-vxlan-unknown-mac" uuid="1" vrf="vrf1" nh="10"
         sip="2.2.2.10" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
         dvn="vn1" action="pass"/>
-       <flow name="l2-vxlan-unknown-mac1" uuid="2" vrf="vrf1" nh="13"
+       <flow name="l2-vxlan-unknown-mac1" uuid="2" vrf="vrf1" nh="12"
         sip="2.2.2.11" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
         dvn="vn1" action="pass"/>
     </validate>
@@ -64,10 +64,10 @@
         label="5" />
 
     <validate name="validate-3">
-       <flow name="l2-vxlan-unknown-mac" uuid="1" vrf="vrf1" nh="11"
+       <flow name="l2-vxlan-unknown-mac" uuid="1" vrf="vrf1" nh="10"
         sip="2.2.2.10" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
         dvn="vn1" action="drop"/>
-       <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="13"
+       <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="12"
         sip="2.2.2.11" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
         dvn="vn1" action="pass"/>
     </validate>
@@ -78,7 +78,7 @@
         flood-unknown-unicast="false"/>
 
     <validate name="validate-4">
-        <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="13"
+        <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="12"
             sip="1.1.1.1" dip="2.2.2.11" proto="udp" sport="1" dport="1" svn="vn1"
             dvn="vn1" action="drop"/>
     </validate>

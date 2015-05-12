@@ -1325,6 +1325,10 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         DeleteMulticastNextHop();
     }
 
+    if (vrf_ && vmi_type() == GATEWAY) {
+        vrf_->CreateTableLabel();
+    }
+
     //Irrespective of interface state, if ipv4 forwarding mode is enabled
     //enable L3 services on this interface
     if (layer3_forwarding_) {

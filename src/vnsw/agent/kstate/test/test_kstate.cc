@@ -108,12 +108,12 @@ public:
             WAIT_FOR(1000, 1000, ((oper_if_count) ==
                                 Agent::GetInstance()->interface_table()->Size()));
         }
-        //Table label would not be allocated for fabric vrf
-        WAIT_FOR(1000, 1000, ((((num_ports * 2) + agent_->vrf_table()->Size()) ==
+        //One EVPN label for VN
+        WAIT_FOR(1000, 1000, (((num_ports * 2) + 1 ==
                             (Agent::GetInstance()->mpls_table()->Size()))));
         if (!ksync_init_) {
-            //Table label would not be allocated for fabric vrf
-            WAIT_FOR(1000, 1000, (((num_ports * 2) + agent_->vrf_table()->Size()) ==
+            //One EVPN label for VN
+            WAIT_FOR(1000, 1000, ((num_ports * 2) + 1 ==
                                   (uint32_t)(KSyncSockTypeMap::MplsCount())));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
@@ -123,8 +123,8 @@ public:
                 //5 interface nexthops get created for each interface
                 //(l2 with policy, l2 without policy, l3 with policy, l3
                 // without policy and 1 multicast - mac as all f's)
-                //plus 4 Nexthops for each VRF (2 VRF NH and 2 Composite NHs)
-                WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 5) + 4) ==
+                //plus 4 Nexthops for each VRF (1 VRF NH and 2 Composite NHs)
+                WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 5) + 3) ==
                                     (uint32_t)KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
@@ -259,8 +259,8 @@ TEST_F(KStateTest, NHDumpTest) {
     //5 interface nexthops get created for each interface
     //(l2 with policy, l2 without policy, l3 with policy, l3 without policy
     // and 1 multicast - mac as all f's )
-    //plus 4 Nexthops for each VRF (2 VRF NH and 2 Composite NHs)
-    TestNHKState::Init(-1, true, nh_count + (max_ports * 5) + 4);
+    //plus 4 Nexthops for each VRF (1 VRF NH and 2 Composite NHs)
+    TestNHKState::Init(-1, true, nh_count + (max_ports * 5) + 3);
     client->WaitForIdle();
     client->KStateResponseWait(1);
 
@@ -303,7 +303,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     CreatePorts(0, 0, 0);
     uint32_t vn_count = agent_->vn_table()->Size() - old_vn_count;
     CreatePorts(0, 0, 0);
-    TestMplsKState::Init(-1, true, mpls_count + vn_count + MAX_TEST_MPLS);
+    TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_MPLS);
     client->WaitForIdle(3);
     client->KStateResponseWait(1);
 
