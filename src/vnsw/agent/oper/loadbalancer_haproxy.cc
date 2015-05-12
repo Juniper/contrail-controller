@@ -55,7 +55,8 @@ const string &LoadbalancerHaproxy::BalanceMap(const string &proto) const {
  *     stats socket <path> mode 0666 level user
  */
 void LoadbalancerHaproxy::GenerateGlobal(
-    ostream *out, const LoadbalancerProperties &props) const {
+    ostream *out, const string &filename,
+    const LoadbalancerProperties &props) const {
 
     *out << "global" << endl;
     *out << string(4, ' ') << "daemon" << endl;
@@ -206,7 +207,7 @@ void LoadbalancerHaproxy::GenerateConfig(
         LOG(ERROR, "File create " << filename << ": " << strerror(errno));
     }
 
-    GenerateGlobal(&fs, props);
+    GenerateGlobal(&fs, filename, props);
     GenerateDefaults(&fs, props);
     GenerateListen(&fs, props);
     GenerateFrontend(&fs, pool_id, props);

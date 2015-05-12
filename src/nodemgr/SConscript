@@ -30,7 +30,7 @@ local_sources = [
            'vrouter_process_stat.py',
            'process_stat.py',
            'event_listener_protocol_nodemgr.py',
-           'load_balancer_stats.py',
+           'loadbalancer_stats.py',
            'haproxy_stats.py',
            'main.py'
           ]
