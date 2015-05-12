@@ -246,7 +246,8 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
                      const char *vm_interface_attr = NULL, bool l2_vn = false,
                      bool with_ip = false, bool ecmp = false,
-                     bool vn_admin_state = true, bool with_ip6 = false);
+                     bool vn_admin_state = true, bool with_ip6 = false,
+                     bool send_nova_msg = true);
 void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                        const char *vn = NULL, const char *vrf = NULL,
                        bool with_v4_ip = true);
@@ -262,6 +263,8 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,
                           const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportWithoutNova(struct PortInfo *input, int count, int acl_id = 0,
+                             const char *vn = NULL, const char *vrf = NULL);
 void FlushFlowTable();
 bool FlowDelete(const string &vrf_name, const char *sip,
                 const char *dip, uint8_t proto, uint16_t sport, uint16_t dport,
