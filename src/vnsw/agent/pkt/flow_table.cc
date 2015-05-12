@@ -1245,7 +1245,36 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_dmac(data_.dmac.ToString());
 }
 
-bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
+bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
+    bool ret = false;
+    //If l2 flow has a ip route entry present in
+    //layer 3 table, then use that for calculating
+    //rpf nexthop, else use layer 2 route entry(baremetal
+    //scenario where layer 3 route may not be present)
+
+    if (l3_flow() == false) {
+        //For ingress flow, agent always sets
+        //rpf NH from layer 3 route entry
+        //In case of egress flow if route entry is present
+        //and its a host route entry use it for RPF NH
+        //For baremetal case since IP address may not be known
+        //agent uses layer 2 route entry
+        InetUnicastRouteEntry *ip_rt = static_cast<InetUnicastRouteEntry *>(
+            ft->GetUcRoute(rt->vrf(), key().src_addr));
+        if (is_flags_set(FlowEntry::IngressDir) ||
+                (ip_rt && ip_rt->IsHostRoute())) {
+            rt = ip_rt;
+        }
+    }
+
+    if (!rt) {
+        if (data_.nh_state_ != NULL) {
+            data_.nh_state_ = NULL;
+            ret = true;
+        }
+        return ret;
+    }
+
     const NextHop *nh = rt->GetActiveNextHop();
     if (key_.family != Address::INET) {
         //TODO:IPV6
@@ -1391,7 +1420,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         reset_flags(FlowEntry::IngressDir);
     }
     if (ctrl->rt_ != NULL) {
-        SetRpfNH(ctrl->rt_);
+        SetRpfNH(info->flow_table, ctrl->rt_);
     }
 
     data_.flow_source_vrf = info->flow_source_vrf;
@@ -1457,7 +1486,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
         }
     }
     if (ctrl->rt_ != NULL) {
-        SetRpfNH(ctrl->rt_);
+        SetRpfNH(info->flow_table, ctrl->rt_);
     }
 
     data_.flow_source_vrf = info->flow_dest_vrf;
@@ -2110,6 +2139,10 @@ void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
 bool InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
                                    RouteFlowKey &key,
                                    const SecurityGroupList &sg_list) {
+    if (fe->l3_flow() == false) {
+        return true;
+    }
+
     fe->GetPolicyInfo();
 
     // Update SG-ID List
@@ -2222,6 +2255,9 @@ void BridgeEntryFlowUpdate::RouteDel(AgentRoute *entry) {
 bool BridgeEntryFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
                                    RouteFlowKey &key,
                                    const SecurityGroupList &sg_list) {
+    if (fe->l3_flow() == true) {
+        return true;
+    }
     fe->GetPolicyInfo();
 
     // Update SG-ID List
@@ -2429,7 +2465,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
             continue;
         }
 
-        if (flow->SetRpfNH(rt) == true) {
+        if (flow->SetRpfNH(this, rt) == true) {
             flow->UpdateKSync(this);
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
@@ -2453,6 +2489,9 @@ void FlowTable::FlowRecompute(RouteFlowInfo *rt_info) {
         if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
             /* for reverse flow trigger a re-eval on its forward flow */
             fe = fe->reverse_flow_entry();
+        }
+        if (fe->l3_flow() == false) {
+            continue;
         }
         if (fe->set_pending_recompute(true)) {
             agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
@@ -2742,9 +2781,10 @@ void FlowTable::DeleteL2RouteFlowInfo(FlowEntry *fe) {
 }
 
 void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe) {
-    if (fe->l3_flow_) {
+    if (fe->l3_flow()) {
         DeleteInetRouteFlowInfo(fe);
     } else {
+        DeleteInetRouteFlowInfo(fe);
         DeleteL2RouteFlowInfo(fe);
     }
 }
@@ -3048,9 +3088,14 @@ void FlowTable::AddL2RouteFlowInfo (FlowEntry *fe) {
 }
 
 void FlowTable::AddRouteFlowInfo (FlowEntry *fe) {
-    if (fe->l3_flow_) {
+    if (fe->l3_flow()) {
         AddInetRouteFlowInfo(fe);
     } else {
+        //For layer 2 flow, we add flow entry in both
+        //inet and layer 2 tree entry. This
+        //get s used to resync rpf nexthop for a layer2 flow
+        //since its calculated based on layer3 route entry
+        AddInetRouteFlowInfo(fe);
         AddL2RouteFlowInfo(fe);
     }
 }

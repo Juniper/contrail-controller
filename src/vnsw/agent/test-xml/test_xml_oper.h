@@ -340,6 +340,7 @@ private:
     std::string svn_;
     std::string dvn_;
     std::string action_;
+    uint16_t rpf_nh_;
 };
 
 class AgentUtXmlL2Route : public AgentUtXmlNode {

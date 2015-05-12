@@ -77,6 +77,10 @@ NextHopTable::~NextHopTable() {
     FreeInterfaceId(0);
 }
 
+uint32_t NextHopTable::ReserveIndex() {
+    return index_table_.Insert(NULL);
+}
+
 void NextHop::SendObjectLog(AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
