@@ -119,6 +119,9 @@ uint64_t InterfaceUveStatsTable::GetVmPortBandwidth
 void InterfaceUveStatsTable::UpdateFloatingIpStats(const FipInfo &fip_info) {
     Interface *intf = InterfaceTable::GetInstance()->FindInterface
                               (fip_info.fip_vm_port_id_);
+    if (intf == NULL) {
+        return;
+    }
     VmInterface *vmi = static_cast<VmInterface *>(intf);
     InterfaceMap::iterator intf_it = interface_tree_.find(vmi->cfg_name());
 
