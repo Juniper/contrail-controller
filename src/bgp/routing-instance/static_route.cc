@@ -203,7 +203,7 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst,
             const Ip4Prefix &static_route, const vector<string> &rtargets,
             IpAddress nexthop)
     : routing_instance_(rtinst), static_route_prefix_(static_route),
-    nexthop_(nexthop), unregistered_(false) {
+    nexthop_(nexthop), nexthop_route_(NULL), unregistered_(false) {
     for (vector<string>::const_iterator it = rtargets.begin();
         it != rtargets.end(); it++) {
         error_code ec;
