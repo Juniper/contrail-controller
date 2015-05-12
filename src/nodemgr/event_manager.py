@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
 import gevent
 import json
 import ConfigParser
@@ -12,19 +16,23 @@ import supervisor.xmlrpc
 import xmlrpclib
 
 from supervisor import childutils
-from nodemgr.EventListenerProtocolNodeMgr import EventListenerProtocolNodeMgr
-from nodemgr.ProcessStat import ProcessStat
+from nodemgr.event_listener_protocol_nodemgr import \
+    EventListenerProtocolNodeMgr
+from nodemgr.process_stat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
+
 
 class EventManager(object):
     rules_data = []
     group_names = []
     process_state_db = {}
-    FAIL_STATUS_DUMMY       = 0x1
-    FAIL_STATUS_DISK_SPACE  = 0x2
+    FAIL_STATUS_DUMMY = 0x1
+    FAIL_STATUS_DISK_SPACE = 0x2
     FAIL_STATUS_SERVER_PORT = 0x4
-    FAIL_STATUS_NTP_SYNC    = 0x8
-    def __init__(self, rule_file, discovery_server, discovery_port, collector_addr):
+    FAIL_STATUS_NTP_SYNC = 0x8
+
+    def __init__(self, rule_file, discovery_server,
+                 discovery_port, collector_addr):
         self.stdin = sys.stdin
         self.stdout = sys.stdout
         self.stderr = sys.stderr
@@ -47,20 +55,23 @@ class EventManager(object):
 
     # Get all the current processes in the node
     def get_current_process(self):
-        proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
-                transport=supervisor.xmlrpc.SupervisorTransport(None, None, serverurl=self.supervisor_serverurl))
+        proxy = xmlrpclib.ServerProxy(
+            'http://127.0.0.1',
+            transport=supervisor.xmlrpc.SupervisorTransport(
+                None, None, serverurl=self.supervisor_serverurl))
         # Add all current processes to make sure nothing misses the radar
         process_state_db = {}
         for proc_info in proxy.supervisor.getAllProcessInfo():
             if (proc_info['name'] != proc_info['group']):
-                proc_name = proc_info['group']+ ":" + proc_info['name']
+                proc_name = proc_info['group'] + ":" + proc_info['name']
             else:
                 proc_name = proc_info['name']
             process_stat_ent = self.get_process_stat_object(proc_name)
-            process_stat_ent.process_state = "PROCESS_STATE_" + proc_info['statename']
-            if (process_stat_ent.process_state  ==
+            process_stat_ent.process_state = "PROCESS_STATE_" + \
+                proc_info['statename']
+            if (process_stat_ent.process_state ==
                     'PROCESS_STATE_RUNNING'):
-                process_stat_ent.start_time = str(proc_info['start']*1000000)
+                process_stat_ent.start_time = str(proc_info['start'] * 1000000)
                 process_stat_ent.start_count += 1
             process_state_db[proc_name] = process_stat_ent
         return process_state_db
@@ -82,20 +93,23 @@ class EventManager(object):
         for deleted_process in deleted_process_set:
             self.delete_process_handler(deleted_process)
         for added_process in added_process_set:
-            self.add_process_handler(added_process, process_state_db[added_process])
+            self.add_process_handler(
+                added_process, process_state_db[added_process])
     # end update_current_process
 
     # process is deleted, send state & remove it from db
     def delete_process_handler(self, deleted_process):
         self.process_state_db[deleted_process].deleted = True
-        self.send_process_state_db([self.process_state_db[deleted_process].group])
+        group_val = self.process_state_db[deleted_process].group
+        self.send_process_state_db([group_val])
         del self.process_state_db[deleted_process]
     # end delete_process_handler
 
     # new process added, update db & send state
     def add_process_handler(self, added_process, process_info):
         self.process_state_db[added_process] = process_info
-        self.send_process_state_db([self.process_state_db[added_process].group])
+        group_val = self.process_state_db[added_process].group
+        self.send_process_state_db([group_val])
     # end add_process_handler
 
     def read_config_data(self, config_file):
@@ -111,7 +125,7 @@ class EventManager(object):
             sys.stderr.write("ERROR: " + str(e) + '\n')
         except NoSectionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
-        #Hack becos of Configparser and the conf file format itself
+        # Hack becos of Configparser and the conf file format itself
         try:
             self.discovery_server[:self.discovery_server.index('#')].strip()
         except:
@@ -124,9 +138,10 @@ class EventManager(object):
             sys.stderr.write("ERROR: " + str(e) + '\n')
         except NoSectionError as e:
             sys.stderr.write("ERROR: " + str(e) + '\n')
-        #Hack becos of Configparser and the conf file format itself
+        # Hack becos of Configparser and the conf file format itself
         try:
-            self.discovery_port = self.discovery_port[:self.discovery_port.index('#')].strip()
+            self.discovery_port = self.discovery_port[
+                :self.discovery_port.index('#')].strip()
         except Exception:
             pass
 
@@ -138,14 +153,16 @@ class EventManager(object):
         if self.discovery_server == socket.gethostname():
             self.get_discovery_server(Config)
         self.get_discovery_port(Config)
-        _disc= client.DiscoveryClient(self.discovery_server, self.discovery_port, self.module_id)
+        _disc = client.DiscoveryClient(
+            self.discovery_server, self.discovery_port, self.module_id)
         return _disc
 
     def get_collector_list(self, Config):
         try:
             self.collector_addr = Config.get("COLLECTOR", "server_list")
             try:
-                self.collector_addr = self.collector_addr[:self.collector_addr.index('#')].strip()
+                self.collector_addr = self.collector_addr[
+                    :self.collector_addr.index('#')].strip()
             except:
                 self.collector_addr.strip()
         except NoOptionError as e:
@@ -163,7 +180,8 @@ class EventManager(object):
             self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
         self.send_nodemgr_process_status()
 
-    def send_process_state_db_base(self, group_names, ProcessInfo, NodeStatus, NodeStatusUVE):
+    def send_process_state_db_base(self, group_names, ProcessInfo,
+                                   NodeStatus, NodeStatusUVE):
         name = socket.gethostname()
         for group in group_names:
             process_infos = []
@@ -196,18 +214,22 @@ class EventManager(object):
             node_status.deleted = delete_status
             node_status.process_info = process_infos
             node_status.all_core_file_list = self.all_core_file_list
-            node_status_uve = NodeStatusUVE(data = node_status)
+            node_status_uve = NodeStatusUVE(data=node_status)
             sys.stderr.write('Sending UVE:' + str(node_status_uve))
             node_status_uve.send()
 
     def send_all_core_file(self):
         stat_command_option = "stat --printf=%Y /var/crashes"
-        modified_time = Popen(stat_command_option.split(), stdout=PIPE).communicate()
+        modified_time = Popen(
+            stat_command_option.split(),
+            stdout=PIPE).communicate()
         if modified_time[0] == self.core_dir_modified_time:
             return
         self.core_dir_modified_time = modified_time[0]
         ls_command_option = "ls /var/crashes"
-        (corename, stderr) = Popen(ls_command_option.split(), stdout=PIPE).communicate()
+        (corename, stderr) = Popen(
+            ls_command_option.split(),
+            stdout=PIPE).communicate()
         self.all_core_file_list = corename.split('\n')[0:-1]
         self.send_process_state_db(self.group_names)
 
@@ -228,52 +250,76 @@ class EventManager(object):
         send_uve = False
         if (pstate == 'PROCESS_STATE_RUNNING'):
             proc_stat.start_count += 1
-            proc_stat.start_time = str(int(time.time()*1000000))
+            proc_stat.start_time = str(int(time.time() * 1000000))
             send_uve = True
 
         if (pstate == 'PROCESS_STATE_STOPPED'):
             proc_stat.stop_count += 1
             send_uve = True
-            proc_stat.stop_time = str(int(time.time()*1000000))
+            proc_stat.stop_time = str(int(time.time() * 1000000))
             proc_stat.last_exit_unexpected = False
 
         if (pstate == 'PROCESS_STATE_EXITED'):
             proc_stat.exit_count += 1
             send_uve = True
-            proc_stat.exit_time = str(int(time.time()*1000000))
+            proc_stat.exit_time = str(int(time.time() * 1000000))
             if not(int(pheaders['expected'])):
-                self.stderr.write(pname + " with pid:" + pheaders['pid'] + " exited abnormally\n")
+                self.stderr.write(
+                    pname + " with pid:" + pheaders['pid'] +
+                    " exited abnormally\n")
                 proc_stat.last_exit_unexpected = True
                 # check for core file for this exit
-                find_command_option = "find /var/crashes -name core.[A-Za-z]*."+ pheaders['pid'] + "*"
-                self.stderr.write("find command option for cores:" + find_command_option + "\n")
-                (corename, stderr) = Popen(find_command_option.split(), stdout=PIPE).communicate()
+                find_command_option = \
+                    "find /var/crashes -name core.[A-Za-z]*." + \
+                    pheaders['pid'] + "*"
+                self.stderr.write(
+                    "find command option for cores:" +
+                    find_command_option + "\n")
+                (corename, stderr) = Popen(
+                    find_command_option.split(),
+                    stdout=PIPE).communicate()
                 self.stderr.write("core file: " + corename + "\n")
 
                 if ((corename is not None) and (len(corename.rstrip()) >= 1)):
-                    # before adding to the core file list make sure that we do not have too many cores
-                    sys.stderr.write('core_file_list:'+str(proc_stat.core_file_list)+", self.max_cores:"+str(self.max_cores)+"\n")
+                    # before adding to the core file list make
+                    # sure that we do not have too many cores
+                    sys.stderr.write(
+                        'core_file_list:' + str(proc_stat.core_file_list) +
+                        ", self.max_cores:" + str(self.max_cores) + "\n")
                     if (len(proc_stat.core_file_list) == self.max_cores):
                         # get rid of old cores
-                        sys.stderr.write('max # of cores reached:' + str(self.max_cores) + "\n")
-                        core_files_to_be_deleted = proc_stat.core_file_list[self.max_old_cores:(self.max_cores - self.max_new_cores+1)]
-                        sys.stderr.write('deleting core file list:' + str(core_files_to_be_deleted) + "\n")
+                        sys.stderr.write(
+                            'max # of cores reached:' +
+                            str(self.max_cores) + "\n")
+                        val = self.max_cores - self.max_new_cores + 1
+                        core_files_to_be_deleted = \
+                            proc_stat.core_file_list[self.max_old_cores:(val)]
+                        sys.stderr.write(
+                            'deleting core file list:' +
+                            str(core_files_to_be_deleted) + "\n")
                         for core_file in core_files_to_be_deleted:
-                            sys.stderr.write('deleting core file:' + core_file + "\n")
+                            sys.stderr.write(
+                                'deleting core file:' + core_file + "\n")
                             try:
                                 os.remove(core_file)
                             except:
                                 pass
                         # now delete the list as well
-                        del proc_stat.core_file_list[self.max_old_cores:(self.max_cores - self.max_new_cores+1)]
+                        val = self.max_cores - self.max_new_cores + 1
+                        del proc_stat.core_file_list[self.max_old_cores:(val)]
                     # now add the new core to the core file list
                     proc_stat.core_file_list.append(corename.rstrip())
-                    sys.stderr.write("# of cores for " + pname + ":" + str(len(proc_stat.core_file_list)) + "\n")
+                    sys.stderr.write(
+                        "# of cores for " + pname + ":" +
+                        str(len(proc_stat.core_file_list)) + "\n")
 
         # update process state database
         self.process_state_db[pname] = proc_stat
-        f = open('/var/log/contrail/process_state' + self.node_type + ".json", 'w')
-        f.write(json.dumps(self.process_state_db, default=lambda obj: obj.__dict__))
+        f = open('/var/log/contrail/process_state' +
+                 self.node_type + ".json", 'w')
+        f.write(json.dumps(
+            self.process_state_db,
+            default=lambda obj: obj.__dict__))
 
         if not(send_uve):
             return
@@ -281,24 +327,30 @@ class EventManager(object):
         if (send_uve):
             self.send_process_state_db([proc_stat.group])
 
-    def send_nodemgr_process_status_base(self, ProcessStateNames, ProcessState, ProcessStatus, NodeStatus, NodeStatusUVE):
+    def send_nodemgr_process_status_base(self, ProcessStateNames,
+                                         ProcessState, ProcessStatus,
+                                         NodeStatus, NodeStatusUVE):
         if (self.prev_fail_status_bits != self.fail_status_bits):
             self.prev_fail_status_bits = self.fail_status_bits
             fail_status_bits = self.fail_status_bits
             state, description = self.get_process_state(fail_status_bits)
-            process_status = ProcessStatus(module_id = self.module_id, instance_id = self.instance_id, state = state,
-                description = description)
+            process_status = ProcessStatus(
+                module_id=self.module_id, instance_id=self.instance_id,
+                state=state, description=description)
             process_status_list = []
             process_status_list.append(process_status)
-            node_status = NodeStatus(name = socket.gethostname(),
-                process_status = process_status_list)
-            node_status_uve = NodeStatusUVE(data = node_status)
+            node_status = NodeStatus(
+                name=socket.gethostname(),
+                process_status=process_status_list)
+            node_status_uve = NodeStatusUVE(data=node_status)
             sys.stderr.write('Sending UVE:' + str(node_status_uve))
             node_status_uve.send()
 
-    def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus, DiskPartitionUsageStats):
-        partition = subprocess.Popen("df -T -t ext2 -t ext3 -t ext4 -t xfs",
-              shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,
+                                  DiskPartitionUsageStats):
+        partition = subprocess.Popen(
+            "df -T -t ext2 -t ext3 -t ext4 -t xfs",
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         disk_usage_infos = []
         for line in partition.stdout:
             if 'Filesystem' in line:
@@ -311,22 +363,25 @@ class EventManager(object):
             try:
                 disk_usage_stat.partition_type = str(partition_type)
                 disk_usage_stat.partition_name = str(partition_name)
-                disk_usage_stat.partition_space_used_1k = int(partition_space_used_1k)
-                disk_usage_stat.partition_space_available_1k = int(partition_space_available_1k)
+                disk_usage_stat.partition_space_used_1k = \
+                    int(partition_space_used_1k)
+                disk_usage_stat.partition_space_available_1k = \
+                    int(partition_space_available_1k)
             except ValueError:
                 sys.stderr.write("Failed to get local disk space usage" + "\n")
             else:
                 disk_usage_infos.append(disk_usage_stat)
 
         # send node UVE
-        node_status = NodeStatus(name = socket.gethostname(),
-                disk_usage_info = disk_usage_infos)
-        node_status_uve = NodeStatusUVE(data = node_status)
+        node_status = NodeStatus(
+            name=socket.gethostname(), disk_usage_info=disk_usage_infos)
+        node_status_uve = NodeStatusUVE(data=node_status)
         sys.stderr.write('Sending UVE:' + str(node_status_uve))
         node_status_uve.send()
     # end send_disk_usage_info
 
-    def get_process_state_base(self, fail_status_bits, ProcessStateNames, ProcessState):
+    def get_process_state_base(self, fail_status_bits,
+                               ProcessStateNames, ProcessState):
         if fail_status_bits:
             state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
             description = self.get_failbits_nodespecific_desc(fail_status_bits)
@@ -344,38 +399,45 @@ class EventManager(object):
         return ""
 
     def event_process_state(self, pheaders, headers):
-        self.stderr.write("process:" + pheaders['processname'] + "," + "groupname:" + pheaders['groupname'] + "," + "eventname:" + headers['eventname'] + '\n')
+        self.stderr.write("process:" + pheaders['processname'] + "," +
+                          "groupname:" + pheaders['groupname'] + "," +
+                          "eventname:" + headers['eventname'] + '\n')
         pname = pheaders['processname']
         if (pheaders['processname'] != pheaders['groupname']):
-             pname = pheaders['groupname'] + ":" + pheaders['processname']
+            pname = pheaders['groupname'] + ":" + pheaders['processname']
         self.send_process_state(pname, headers['eventname'], pheaders)
         for rules in self.rules_data['Rules']:
             if 'processname' in rules:
-                 if ((rules['processname'] == pheaders['groupname']) and (rules['process_state'] == headers['eventname'])):
-                      self.stderr.write("got a hit with:" + str(rules) + '\n')
-                      # do not make async calls
-                      try:
-                          ret_code = subprocess.call([rules['action']],
-                               shell=True, stdout=self.stderr,
-                               stderr=self.stderr)
-                      except Exception as e:
-                          self.stderr.write('Failed to execute action: ' \
-                               + rules['action'] + ' with err ' + str(e) + '\n')
-                      else:
-                          if ret_code:
-                              self.stderr.write('Execution of action ' + \
-                                   rules['action'] + ' returned err ' + \
-                                   str(ret_code) + '\n')
+                if ((rules['processname'] == pheaders['groupname']) and
+                   (rules['process_state'] == headers['eventname'])):
+                    self.stderr.write("got a hit with:" + str(rules) + '\n')
+                    # do not make async calls
+                    try:
+                        ret_code = subprocess.call(
+                            [rules['action']], shell=True,
+                            stdout=self.stderr, stderr=self.stderr)
+                    except Exception as e:
+                        self.stderr.write(
+                            'Failed to execute action: ' +
+                            rules['action'] + ' with err ' + str(e) + '\n')
+                    else:
+                        if ret_code:
+                            self.stderr.write(
+                                'Execution of action ' +
+                                rules['action'] + ' returned err ' +
+                                str(ret_code) + '\n')
 
     def event_process_communication(self, pdata):
         flag_and_value = pdata.partition(":")
-        self.stderr.write("Flag:" + flag_and_value[0] + " Value:" + flag_and_value[2] + "\n")
+        self.stderr.write("Flag:" + flag_and_value[0] +
+                          " Value:" + flag_and_value[2] + "\n")
         for rules in self.rules_data['Rules']:
             if 'flag_name' in rules:
-                if ((rules['flag_name'] == flag_and_value[0]) and (rules['flag_value'].strip() == flag_and_value[2].strip())):
-                     self.stderr.write("got a hit with:" + str(rules) + '\n')
-                     cmd_and_args = ['/usr/bin/bash', '-c' , rules['action']]
-                     subprocess.Popen(cmd_and_args)
+                if ((rules['flag_name'] == flag_and_value[0]) and
+                   (rules['flag_value'].strip() == flag_and_value[2].strip())):
+                    self.stderr.write("got a hit with:" + str(rules) + '\n')
+                    cmd_and_args = ['/usr/bin/bash', '-c', rules['action']]
+                    subprocess.Popen(cmd_and_args)
 
     def event_tick_60(self, prev_current_time):
         self.tick_count += 1
@@ -383,30 +445,47 @@ class EventManager(object):
         self.send_all_core_file()
         # send disk usage info periodically
         self.send_disk_usage_info()
-        # typical ntp sync time is about 5 min - first time, we scan only after 10 min
+        # typical ntp sync time is about 5 min - first time,
+        # we scan only after 10 min
         if self.tick_count >= 10:
             self.check_ntp_status()
 
         current_time = int(time.time())
         if ((abs(current_time - prev_current_time)) > 300):
-            #update all process start_times with the updated time
-            #Compute the elapsed time and subtract them from current time to get updated values
-            sys.stderr.write("Time lapse detected " + str(abs(current_time - prev_current_time)) + "\n")
+            # update all process start_times with the updated time
+            # Compute the elapsed time and subtract them from
+            # current time to get updated values
+            sys.stderr.write(
+                "Time lapse detected " +
+                str(abs(current_time - prev_current_time)) + "\n")
             for key in self.process_state_db:
                 pstat = self.process_state_db[key]
                 if pstat.start_time is not '':
-                    pstat.start_time = str((int(current_time - (prev_current_time-((int)(pstat.start_time))/1000000)))*1000000)
+                    pstat.start_time = str(
+                        (int(current_time - (prev_current_time -
+                             ((int)(pstat.start_time)) / 1000000))) * 1000000)
                 if (pstat.process_state == 'PROCESS_STATE_STOPPED'):
                     if pstat.stop_time is not '':
-                        pstat.stop_time = str(int(current_time - (prev_current_time-((int)(pstat.stop_time))/1000000))*1000000)
+                        pstat.stop_time = str(
+                            int(current_time - (prev_current_time -
+                                ((int)(pstat.stop_time)) / 1000000)) *
+                            1000000)
                 if (pstat.process_state == 'PROCESS_STATE_EXITED'):
                     if pstat.exit_time is not '':
-                        pstat.exit_time = str(int(current_time - (prev_current_time-((int)(pstat.exit_time))/1000000))*1000000)
+                        pstat.exit_time = str(
+                            int(current_time - (prev_current_time -
+                                ((int)(pstat.exit_time)) / 1000000)) *
+                            1000000)
                 # update process state database
                 self.process_state_db[key] = pstat
             try:
-                f = open('/var/log/contrail/process_state' + self.node_type + ".json", 'w')
-                f.write(json.dumps(self.process_state_db, default=lambda obj: obj.__dict__))
+                json_file = '/var/log/contrail/process_state' + \
+                    self.node_type + ".json"
+                f = open(json_file, 'w')
+                f.write(
+                    json.dumps(
+                        self.process_state_db,
+                        default=lambda obj: obj.__dict__))
             except:
                 sys.stderr.write("Unable to write json")
                 pass
@@ -420,8 +499,9 @@ class EventManager(object):
             gevent.sleep(1)
             # we explicitly use self.stdin, self.stdout, and self.stderr
             # instead of sys.* so we can unit test this code
-            headers, payload = self.listener_nodemgr.wait(self.stdin, self.stdout)
-            pheaders, pdata = childutils.eventdata(payload+'\n')
+            headers, payload = self.listener_nodemgr.wait(
+                self.stdin, self.stdout)
+            pheaders, pdata = childutils.eventdata(payload + '\n')
 
             # check for process state change events
             if headers['eventname'].startswith("PROCESS_STATE"):
