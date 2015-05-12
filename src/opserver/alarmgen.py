@@ -235,8 +235,7 @@ class Controller(object):
                 self._logger.info("UVE %s deleted" % uv)
                 if self.tab_alarms[tab].has_key(uv):
                     del self.tab_alarms[tab][uv]
-                    uname = uv.split(":",1)[1]
-                    ustruct = UVEAlarms(name = uname, deleted = True)
+                    ustruct = UVEAlarms(name = uve_name, deleted = True)
                     alarm_msg = AlarmTrace(data=ustruct, table=tab)
                     self._logger.info('send del alarm: %s' % (alarm_msg.log()))
                     alarm_msg.send()
@@ -285,14 +284,13 @@ class Controller(object):
                 for dnm in del_types:
                     del self.tab_alarms[tab][uv][dnm]
                     
-                uname = uv.split(":")[1]
                 ustruct = None
                 if len(self.tab_alarms[tab][uv]) == 0:
-                    ustruct = UVEAlarms(name = uname,
+                    ustruct = UVEAlarms(name = uve_name,
                             deleted = True)
                     del self.tab_alarms[tab][uv]
                 else:
-                    ustruct = UVEAlarms(name = uname,
+                    ustruct = UVEAlarms(name = uve_name,
                             alarms = self.tab_alarms[tab][uv].values(),
                             deleted = False)
                 alarm_msg = AlarmTrace(data=ustruct, table=tab)
