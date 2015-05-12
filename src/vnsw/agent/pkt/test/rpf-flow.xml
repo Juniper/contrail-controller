@@ -53,15 +53,15 @@
      sip="1.1.1.4" dip="1.1.1.5" proto="udp" sport="1" dport="11"
      type="flow" />
     <validate name="validate-1">
-        <flow name="l2-udp-from-vm" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="2"/>
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="13"/>
-        <flow name="l3-udp-from-vm" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         dvn="vn1" action="pass" rpf_nh="12"/>
+        <flow name="l3-udp-from-vm" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="13"/>
+         dvn="vn1" action="pass" rpf_nh="12"/>
     </validate>
 
     <!-- Update SG of the interface and verify RPF NH gets
@@ -90,15 +90,15 @@
 
     <!-- RPF nexthop gets set to policy enabled unicast nexthop -->
     <validate name="validate-2">
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="2"/>
-        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
-        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         dvn="vn1" action="pass" rpf_nh="11"/>
+        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
+         dvn="vn1" action="pass" rpf_nh="11"/>
     </validate>
 
     <!-- Explictly change fdb entry of interface,
@@ -108,12 +108,12 @@
         label="5" />
 
     <validate name="validate-3">
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="drop"/>
-         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
+         dvn="vn1" action="pass" rpf_nh="11"/>
     </validate>
 
     <fdb delete="1" uuid="1" id="1" name="fdb_1" mac="00:00:00:00:01:01"

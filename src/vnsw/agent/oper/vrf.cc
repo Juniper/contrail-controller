@@ -93,6 +93,15 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
     return ret;
 }
 
+void VrfEntry::CreateTableLabel() {
+    if (table_label_ == MplsTable::kInvalidLabel) {
+        VrfTable *table = static_cast<VrfTable *>(get_table());
+        Agent *agent = table->agent();
+        set_table_label(agent->mpls_table()->AllocLabel());
+        MplsTable::CreateTableLabel(agent, table_label(), name_, false);
+    }
+}
+
 void VrfEntry::PostAdd() {
     VrfTable *table = static_cast<VrfTable *>(get_table());
     Agent *agent = table->agent();
@@ -131,11 +140,6 @@ void VrfEntry::PostAdd() {
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
     table->dbtree_[type].insert(VrfTable::VrfDbPair(name_, rt_table_db_[type]));
-
-    if (agent->fabric_vrf_name() != name_) {
-        set_table_label(agent->mpls_table()->AllocLabel());
-        MplsTable::CreateTableLabel(agent, table_label(), name_, false);
-    }
 
     uint32_t vxlan_id = VxLanTable::kInvalidvxlan_id;
     if (vn_) {

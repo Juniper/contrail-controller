@@ -2434,6 +2434,7 @@ void VmInterface::UpdateResolveRoute(bool old_ipv4_active, bool force_update,
         CopySgIdList(&sg_id_list);
         VmInterfaceKey vm_intf_key(AgentKey::ADD_DEL_CHANGE, GetUuid(), "");
 
+        vrf_->CreateTableLabel();
         InetUnicastAgentRouteTable::AddResolveRoute(peer_.get(), vrf_->GetName(),
                 Address::GetIp4SubnetAddress(subnet_, subnet_plen_),
                 subnet_plen_, vm_intf_key, vrf_->table_label(),
@@ -2929,6 +2930,7 @@ void VmInterface::ResolveRoute(const std::string &vrf_name, const Ip4Address &ad
     CopySgIdList(&sg_id_list);
     VmInterfaceKey vm_intf_key(AgentKey::ADD_DEL_CHANGE, GetUuid(), "");
 
+    vrf_->CreateTableLabel();
     InetUnicastAgentRouteTable::AddResolveRoute(peer_.get(), vrf_name,
             Address::GetIp4SubnetAddress(addr, plen),
             plen, vm_intf_key, vrf_->table_label(),
@@ -3238,6 +3240,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
         if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != gw_ip) {
             SecurityGroupList sg_id_list;
             interface->CopySgIdList(&sg_id_list);
+            interface->vrf_->CreateTableLabel();
             InetUnicastAgentRouteTable::AddGatewayRoute(interface->peer_.get(),
                     vrf_, addr_.to_v4(),
                     plen_, gw_.to_v4(), interface->vn_->GetName(),
