@@ -2515,16 +2515,14 @@ TEST_F(IntfTest, GwIntfAdd) {
     };
 
     client->Reset();
-    CreateVmportWithEcmp(input1, 1);
+    CreateVmportWithoutNova(input1, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VmPortActive(input1, 0));
-    EXPECT_TRUE(VmPortFind(8));
-    client->Reset();
 
     AddPhysicalDevice(agent->host_name().c_str(), 1);
-    AddPhysicalInterface("pi1", 1, "pid1");
+    AddPhysicalInterface("pi1", 1, "pi1");
     AddLogicalInterface("lp1", 1, "lp1", 1);
-    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("physical-router", agent->host_name().c_str(),
+            "physical-interface", "pi1");
     AddLink("logical-interface", "lp1", "physical-interface", "pi1");
     AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
 
@@ -2545,12 +2543,13 @@ TEST_F(IntfTest, GwIntfAdd) {
     EXPECT_TRUE(vrf != NULL);
     if (rt && vrf) {
         EXPECT_TRUE(rt->GetActiveLabel() == vrf->table_label());
+        EXPECT_TRUE(rt->GetActiveLabel() != MplsTable::kInvalidLabel);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
     }
    
     DelLink("virtual-machine-interface", input1[0].name,
              "subnet", "subnet");
-    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelLink("physical-router", agent->host_name().c_str(), "physical-interface", "pi1");
     DelLink("logical-interface", "lp1", "physical-interface", "pi1");
     DelLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
     DeletePhysicalDevice(agent->host_name().c_str());
