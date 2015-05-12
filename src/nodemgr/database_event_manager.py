@@ -2,8 +2,6 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-doc = " "
-
 from gevent import monkey
 monkey.patch_all()
 import os
@@ -42,20 +40,18 @@ from database.sandesh.database.process_info.constants import \
     ProcessStateNames
 
 
-def usage():
-    print doc
-    sys.exit(255)
-
-
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr,
+                 hostip, minimum_diskgb):
         EventManager.__init__(
             self, rule_file, discovery_server,
             discovery_port, collector_addr)
         self.node_type = "contrail-database"
         self.module = Module.DATABASE_NODE_MGR
         self.module_id = ModuleNames[self.module]
+        self.hostip = hostip
+        self.minimum_diskgb = minimum_diskgb
         self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
         self.add_current_process()
     # end __init__
@@ -68,21 +64,13 @@ class DatabaseEventManager(EventManager):
         self.rules_data = json.load(json_file)
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]
-        config_file = '/etc/contrail/contrail-database-nodemgr.conf'
-        Config = self.read_config_data(config_file)
-        self.get_collector_list(Config)
-        _disc = self.get_discovery_client(Config)
+        _disc = self.get_discovery_client()
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(), node_type_name,
-            self.instance_id, [], self.module_id, 8103,
+            self.instance_id, self.collector_addr, self.module_id, 8103,
             ['database.sandesh'], _disc)
         # sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
-
-        try:
-            self.hostip = Config.get("DEFAULT", "hostip")
-        except:
-            self.hostip = '127.0.0.1'
 
         (linux_dist, x, y) = platform.linux_distribution()
         if (linux_dist == 'Ubuntu'):
@@ -122,12 +110,7 @@ class DatabaseEventManager(EventManager):
             (analytics_db_size, error_value) = \
                 Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
         disk_space_total = int(disk_space_used) + int(disk_space_available)
-        try:
-            min_disk_opt = Config.get("DEFAULT", "minimum_diskGB")
-            min_disk = int(min_disk_opt)
-        except:
-            min_disk = 0
-        if (disk_space_total / (1024 * 1024) < min_disk):
+        if (disk_space_total / (1024 * 1024) < self.minimum_diskgb):
             cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
             (ret_value, error_value) = Popen(
                 cmd_str, shell=True, stdout=PIPE).communicate()
