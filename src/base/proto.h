@@ -439,7 +439,7 @@ private:
         ChoiceEncoder(EncodeContext *context, const T *msg, uint8_t *data, int size,
                       int *resultp)
             : context(context), msg(msg), data(data), size(size),
-            resultp(resultp) {
+            resultp(resultp), found(false) {
         }
         template <typename U, typename CtxType>
         struct EncoderTrue {
@@ -465,8 +465,9 @@ private:
         struct EncoderSetter {
             int operator()(int opt, EncodeContext *context, const CtxType *msg,
                     uint8_t *data, int size) {
-                if (Derived::Setter::get(msg) == opt) {
-                    return EncoderTrue<U, CtxType>()(opt, context, msg, data, size);
+                int value = Derived::Setter::get(msg);
+                if (value == opt || opt == -1) {
+                    return EncoderTrue<U, CtxType>()(value, context, msg, data, size);
                 }
                 return 0;
             }
@@ -508,7 +509,7 @@ private:
         };
         template <typename U>
         void operator()(U x) {
-            if (*resultp < 0) {
+            if (*resultp < 0 || found) {
                 return;
             }
             // The choice element can be determined by:
@@ -534,7 +535,8 @@ private:
             int result = choice(U::first::value, context, msg, data, size);
             if (result < 0) {
                 *resultp = result;
-            } else {
+            } else if (result > 0) {
+                found = true;
                 *resultp += result;
             }
         }
@@ -544,6 +546,7 @@ private:
         uint8_t *data;
         int size;
         int *resultp;
+        bool found;
     };
 };
 
