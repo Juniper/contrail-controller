@@ -13,7 +13,7 @@
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
 #include <controller/controller_peer.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 #include <uve/vrouter_uve_entry.h>
 #include <pkt/agent_stats.h>
 #include <base/cpuinfo.h>
@@ -182,7 +182,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     InetInterfaceKey key(agent_->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));
-    AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     const StatsManager::InterfaceStats *s =
         uve->stats_manager()->GetInterfaceStats(vhost);
     if (s != NULL) {
@@ -281,7 +281,7 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(vector<AgentIfStats> &list)
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
-        AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
         StatsManager::InterfaceStats *s =
               uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
@@ -310,7 +310,7 @@ bool VrouterUveEntry::BuildPhysicalInterfaceBandwidth
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
-        AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
         StatsManager::InterfaceStats *s =
               uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
@@ -333,7 +333,7 @@ void VrouterUveEntry::InitPrevStats() const {
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
-        AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
         StatsManager::InterfaceStats *s =
               uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
@@ -350,7 +350,7 @@ void VrouterUveEntry::InitPrevStats() const {
 }
 
 void VrouterUveEntry::FetchDropStats(AgentDropStats &ds) const {
-    AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     ds = uve->stats_manager()->drop_stats();
 }
 

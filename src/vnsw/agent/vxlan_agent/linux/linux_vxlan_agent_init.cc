@@ -29,7 +29,7 @@
 
 #include <cfg/cfg_init.h>
 #include <controller/controller_init.h>
-#include <uve/agent_uve_base.h>
+#include <uve/agent_uve.h>
 
 #include <vxlan_agent/ksync_vxlan.h>
 #include <vxlan_agent/ksync_vxlan_bridge.h>
@@ -69,9 +69,9 @@ void LinuxVxlanAgentInit::FactoryInit() {
 
 void LinuxVxlanAgentInit::CreateModules() {
     ksync_vxlan_.reset(new KSyncLinuxVxlan(agent()));
-    uve_.reset(new AgentUveBase(agent(), AgentUveBase::kBandwidthInterval, true,
-                                AgentUveBase::kDefaultInterval,
-                                AgentUveBase::kIncrementalInterval));
+    uve_.reset(new AgentUve(agent(), AgentUveBase::kBandwidthInterval,
+                            AgentUveBase::kDefaultInterval,
+                            AgentUveBase::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 }
 

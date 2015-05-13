@@ -3,7 +3,7 @@
  */
 
 #include <uve/vn_uve_entry.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 
 VnUveEntry::VnUveEntry(Agent *agent, const VnEntry *vn)
     : VnUveEntryBase(agent, vn), port_bitmap_(), inter_vn_stats_(), mutex_(),
@@ -264,7 +264,7 @@ bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
     UveVrfStats vrf_stats;
     vector<UveVrfStats> vlist;
 
-    AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     StatsManager::VrfStats *s = uve->stats_manager()->GetVrfStats(vrf_id);
     if (s != NULL) {
         vrf_stats.set_name(s->name);

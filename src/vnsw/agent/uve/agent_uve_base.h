@@ -30,7 +30,7 @@ public:
     static const uint32_t kIncrementalInterval = (1000); // time in millisecs
 
     static const uint64_t kBandwidthInterval = (1000000); // time in microseconds
-    AgentUveBase(Agent *agent, uint64_t intvl, bool create_object,
+    AgentUveBase(Agent *agent, uint64_t intvl,
                  uint32_t default_intvl, uint32_t incremental_intvl);
     virtual ~AgentUveBase();
 

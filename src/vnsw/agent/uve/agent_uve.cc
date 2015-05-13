@@ -21,39 +21,13 @@
 
 AgentUve::AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
                    uint32_t incremental_intvl)
-    : AgentUveBase(agent, intvl, false, default_intvl, incremental_intvl),
-      stats_manager_(new StatsManager(agent)) {
-      //Override vm_uve_table_ to point to derived class object
-      vn_uve_table_.reset(new VnUveTable(agent, default_intvl));
-      vm_uve_table_.reset(new VmUveTable(agent, default_intvl));
-      vrouter_uve_entry_.reset(new VrouterUveEntry(agent));
-      interface_uve_table_.reset(new InterfaceUveStatsTable(agent,
-                                                            default_intvl));
+    : AgentUveBase(agent, intvl, default_intvl, incremental_intvl) {
+
+    vn_uve_table_.reset(new VnUveTableBase(agent, default_intvl));
+    vm_uve_table_.reset(new VmUveTableBase(agent, default_intvl));
+    vrouter_uve_entry_.reset(new VrouterUveEntryBase(agent));
+    interface_uve_table_.reset(new InterfaceUveTable(agent, default_intvl));
 }
 
 AgentUve::~AgentUve() {
-}
-
-StatsManager *AgentUve::stats_manager() const {
-    return stats_manager_.get();
-}
-
-void AgentUve::Shutdown() {
-    AgentUveBase::Shutdown();
-    stats_manager_->Shutdown();
-}
-
-void AgentUve::RegisterDBClients() {
-    AgentUveBase::RegisterDBClients();
-    stats_manager_->RegisterDBClients();
-}
-
-// The following is deprecated and is present only for backward compatibility
-void GetStatsInterval::HandleRequest() const {
-    StatsIntervalResp_InSeconds *resp = new StatsIntervalResp_InSeconds();
-    resp->set_agent_stats_interval(0);
-    resp->set_flow_stats_interval(0);
-    resp->set_context(context());
-    resp->Response();
-    return;
 }
