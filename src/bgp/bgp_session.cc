@@ -77,9 +77,8 @@ void BgpSession::SendNotification(int code, int subcode,
     msg.error = code;
     msg.subcode = subcode;
     msg.data = data;
-    uint8_t buf[256];
-    int result = BgpProto::Encode(&msg, buf, sizeof(buf));
-    assert(result > BgpProto::kMinMessageSize);
+    uint8_t buf[BgpProto::kMaxMessageSize];
+    int msglen = BgpProto::Encode(&msg, buf, sizeof(buf));
 
     // Use SYS_DEBUG for connection collision, SYS_NOTICE for the rest.
     SandeshLevel::type log_level;
@@ -92,5 +91,8 @@ void BgpSession::SendNotification(int code, int subcode,
     BGP_LOG(BgpPeerNotification, log_level, BGP_LOG_FLAG_ALL,
             peer_ ? peer_->ToUVEKey() : ToString(),
             BGP_PEER_DIR_OUT, code, subcode, msg.ToString());
-    Send(buf, result, NULL);
+
+    if (msglen > BgpProto::kMinMessageSize) {
+        Send(buf, msglen, NULL);
+    }
 }
