@@ -30,6 +30,7 @@ struct OriginVnPathSpec : public BgpAttribute {
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    virtual size_t EncodeLength() const;
 };
 
 class OriginVnPath {

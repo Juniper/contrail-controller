@@ -34,6 +34,10 @@ void OriginVnPathSpec::ToCanonical(BgpAttr *attr) {
     attr->set_origin_vn_path(this);
 }
 
+size_t OriginVnPathSpec::EncodeLength() const {
+    return origin_vns.size() * sizeof(uint64_t);
+}
+
 OriginVnPath::OriginVnPath(OriginVnPathDB *ovnpath_db,
     const OriginVnPathSpec spec)
     : ovnpath_db_(ovnpath_db) {

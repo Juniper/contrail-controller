@@ -589,7 +589,7 @@ public:
     typedef AttrLen SequenceLength;
     struct AttrSizeSet {
         static int get(const BgpAttribute *obj) {
-            if (obj->flags & BgpAttribute::ExtendedLength) {
+            if (obj->GetEncodeFlags() & BgpAttribute::ExtendedLength) {
                 // Extended Length: use 2 bytes to read
                 return 2;
             } else {
@@ -823,7 +823,15 @@ public:
 class BgpPathAttributeFlags : public ProtoElement<BgpPathAttributeFlags> {
 public:
     static const int kSize = 1;
-    typedef Accessor<BgpAttribute, uint8_t, &BgpAttribute::flags> Setter;
+    struct FlagsAccessor {
+        static void set(BgpAttribute *obj, uint8_t value) {
+            obj->flags = value;
+        }
+        static uint8_t get(const BgpAttribute *obj) {
+            return obj->GetEncodeFlags();
+        }
+    };
+    typedef FlagsAccessor Setter;
 };
 
 class BgpPathAttributeCommunityList :
@@ -1420,6 +1428,7 @@ public:
           mpl::pair<mpl::int_<BgpAttribute::Origin>,
                     BgpAttrTemplate<BgpAttrOrigin, 1, int,
                                     &BgpAttrOrigin::origin> >,
+          mpl::pair<mpl::int_<BgpAttribute::AsPath>, BgpPathAttributeAsPath>,
           mpl::pair<mpl::int_<BgpAttribute::NextHop>,
                     BgpAttrTemplate<BgpAttrNextHop, 4, uint32_t,
                                     &BgpAttrNextHop::nexthop> >,
@@ -1433,26 +1442,25 @@ public:
                     BgpPathAttributeAtomicAggregate>,
           mpl::pair<mpl::int_<BgpAttribute::Aggregator>,
                     BgpPathAttributeAggregator>,
+          mpl::pair<mpl::int_<BgpAttribute::Communities>,
+                    BgpPathAttributeCommunities>,
           mpl::pair<mpl::int_<BgpAttribute::OriginatorId>,
                     BgpAttrTemplate<BgpAttrOriginatorId, 4, uint32_t,
                                     &BgpAttrOriginatorId::originator_id> >,
-          mpl::pair<mpl::int_<BgpAttribute::AsPath>, BgpPathAttributeAsPath>,
-          mpl::pair<mpl::int_<BgpAttribute::Communities>,
-                    BgpPathAttributeCommunities>,
           mpl::pair<mpl::int_<BgpAttribute::MPReachNlri>,
                     BgpPathAttributeMpReachNlriSequence>,
           mpl::pair<mpl::int_<BgpAttribute::MPUnreachNlri>,
                     BgpPathAttributeMpUnreachNlriSequence>,
           mpl::pair<mpl::int_<BgpAttribute::ExtendedCommunities>,
                     BgpPathAttributeExtendedCommunities>,
-          mpl::pair<mpl::int_<BgpAttribute::OriginVnPath>,
-                    BgpPathAttributeOriginVnPath>,
           mpl::pair<mpl::int_<BgpAttribute::PmsiTunnel>,
                     BgpPathAttributePmsiTunnel>,
           mpl::pair<mpl::int_<BgpAttribute::McastEdgeDiscovery>,
                     BgpPathAttributeEdgeDiscovery>,
           mpl::pair<mpl::int_<BgpAttribute::McastEdgeForwarding>,
                     BgpPathAttributeEdgeForwarding>,
+          mpl::pair<mpl::int_<BgpAttribute::OriginVnPath>,
+                    BgpPathAttributeOriginVnPath>,
           mpl::pair<mpl::int_<-1>, BgpPathAttributeUnknown>
     > Choice;
 };
