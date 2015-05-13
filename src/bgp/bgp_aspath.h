@@ -63,6 +63,7 @@ struct AsPathSpec : public BgpAttribute {
 
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
+    virtual size_t EncodeLength() const;
     virtual std::string ToString() const;
     AsPathSpec *Add(as_t asn) const;
     std::vector<PathSegment *> path_segments;
