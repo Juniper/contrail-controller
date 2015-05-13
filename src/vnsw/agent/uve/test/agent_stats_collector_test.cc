@@ -19,7 +19,7 @@
 #include <uve/vm_uve_table.h>
 #include <init/agent_param.h>
 #include <uve/test/agent_stats_collector_test.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 
 IoContext *AgentStatsCollectorTest::AllocateIoContext(char* buf, uint32_t buf_len,
                                                       StatsType type, uint32_t seq) {
@@ -99,7 +99,8 @@ void DropStatsIoContextTest::ErrorHandler(int err) {
 }
 
 void AgentStatsCollectorTest::Test_DeleteVrfStatsEntry(int vrf_id) {
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>
+        (Agent::GetInstance()->uve());
     StatsManager *sm = uve->stats_manager();
     StatsManager::VrfIdToVrfStatsTree::iterator it;
     it = sm->vrf_stats_tree_.find(vrf_id);

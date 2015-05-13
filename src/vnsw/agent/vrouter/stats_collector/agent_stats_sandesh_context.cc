@@ -4,7 +4,7 @@
 
 #include <net/if.h>
 
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 #include <vrouter/stats_collector/agent_stats_sandesh_context.h>
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <pkt/agent_stats.h>
@@ -13,7 +13,7 @@
 
 AgentStatsSandeshContext::AgentStatsSandeshContext(Agent *agent)
     : agent_(agent), marker_id_(-1) {
-    AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     stats_ = uve->stats_manager();
 }
 

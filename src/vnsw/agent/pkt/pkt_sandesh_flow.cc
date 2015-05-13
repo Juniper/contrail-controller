@@ -403,19 +403,23 @@ void FetchFlowRecord::HandleRequest() const {
 // Intended for use in testing only
 void FlowAgeTimeReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
+    uint32_t age_time = get_new_age_time();
 
     FlowStatsCollector *collector = agent->flow_stats_collector();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
+    if (collector == NULL) {
+        goto done;
+    }
     resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());
 
-    uint32_t age_time = get_new_age_time();
     if (age_time && age_time != resp->get_old_age_time()) {
         collector->UpdateFlowAgeTimeInSecs(age_time);
         resp->set_new_age_time(age_time);
     } else {
         resp->set_new_age_time(resp->get_old_age_time());
     }
+done:
     resp->set_context(context());
     resp->set_more(false);
     resp->Response();

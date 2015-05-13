@@ -544,7 +544,7 @@ TEST_F(UveTest, SandeshTest) {
 /* Discovery IP and service IPs are not configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
     Agent *agent = Agent::GetInstance();
-    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
 
     uint8_t num_c_nodes, num_d_servers;
     int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
@@ -555,7 +555,7 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
 TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
-    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
     params.set_discovery_server("0.0.0.0");
     params.set_xmpp_server_1("1.1.1.1");
     params.set_xmpp_server_2("1.1.1.2");
@@ -573,7 +573,7 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
 TEST_F(UveTest, NodeStatus_ExpectedConnections_2) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
-    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
     params.set_discovery_server("1.1.1.1");
     params.set_xmpp_server_1("0.0.0.0");
     params.set_xmpp_server_2("0.0.0.0");
@@ -591,7 +591,7 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_2) {
 TEST_F(UveTest, NodeStatus_ExpectedConnections_3) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
-    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
     params.set_discovery_server("1.1.1.1");
     params.set_xmpp_server_1("1.1.1.1");
     params.set_xmpp_server_2("1.1.1.2");

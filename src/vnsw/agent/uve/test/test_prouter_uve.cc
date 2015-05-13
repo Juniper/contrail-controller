@@ -89,7 +89,7 @@ public:
 };
 
 TEST_F(UveProuterUveTest, ProuterAddDel_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -125,7 +125,7 @@ TEST_F(UveProuterUveTest, ProuterAddDel_1) {
 //Verify that no Prouter UVEs are sent when physical interfaces added/removed.
 //(when physical interfaces are not associated with physical devices)
 TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -151,7 +151,7 @@ TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_1) {
 }
 
 TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_2) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -203,7 +203,7 @@ TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_2) {
 
 //Verify PhysicalInterface UVE is send on PhysicalInterface Add/del
 TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_3) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -232,7 +232,7 @@ TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_3) {
 //Verify that no UVEs are sent when logical interfaces added/removed.
 //(when logical interfaces are not associated with physical interfaces)
 TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -263,7 +263,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_1) {
 }
 
 TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -327,7 +327,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
 }
 
 TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_3) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -398,7 +398,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_3) {
 
 //Associate logical interface with prouter (instead of physical-interface)
 TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_4) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -458,7 +458,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_4) {
 //Associate logical interface with prouter. Verify change of prouter for a
 //logical-interface from one prouter to another.
 TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_5) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -529,7 +529,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_5) {
 }
 
 TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_6) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -557,7 +557,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_6) {
 
 //Delete PhysicalDevice before deleting logical interface
 TEST_F(UveProuterUveTest, PhysicalDeviceDel_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -623,7 +623,7 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_1) {
 //Delete PhysicalDevice and associate Physical interface with different
 //PhysicalDevice
 TEST_F(UveProuterUveTest, PhysicalDeviceDel_2) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -702,7 +702,7 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_2) {
 }
 
 TEST_F(UveProuterUveTest, VMI_Logical_Assoc_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     struct PortInfo input[] = {
@@ -737,7 +737,7 @@ TEST_F(UveProuterUveTest, VMI_Logical_Assoc_1) {
 }
 
 TEST_F(UveProuterUveTest, VMIAddDel_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -799,7 +799,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_1) {
 }
 
 TEST_F(UveProuterUveTest, VMIAddDel_2) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -874,7 +874,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_2) {
 }
 
 TEST_F(UveProuterUveTest, VMIAddDel_3) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
@@ -956,7 +956,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_3) {
 }
 
 TEST_F(UveProuterUveTest, VMIAddDel_4) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     pr->ClearCount();
