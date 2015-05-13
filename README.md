@@ -31,7 +31,7 @@ compute node and programs the data-plane in the host operating system.
 Data gathered from all these components is collected into a logically centralized database (src/{analytics,opserver}).
 
 ### Contributing code
-* Sign the [CLA](https://secure.echosign.com/public/hostedForm?formid=6G36BHPX974EXY)
+* Sign the [CLA](https://na2.docusign.net/Member/PowerFormSigning.aspx?PowerFormId=cf81ffe2-5694-4ad8-9d92-334fc57a8a7c)
 * Submit change requests via gerrit at http://review.opencontrail.org.
 
 [![ga](https://www.google-analytics.com/__utm.gif?utmac=UA-44166833-1&utmp=contrail-controller%2FREADME.md&utmdt=README.md)](https://www.google-analytics.com)
