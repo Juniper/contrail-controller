@@ -5,6 +5,7 @@
 #include "bgp/bgp_attr.h"
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
+#include "net/bgp_af.h"
 
 int BgpAttrOrigin::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
@@ -149,6 +150,25 @@ int BgpMpNlri::CompareTo(const BgpAttribute &rhs_attr) const {
 void BgpMpNlri::ToCanonical(BgpAttr *attr) {
 }
 
+size_t BgpMpNlri::EncodeLength() const {
+    size_t sz = 2 /* safi */ + 1 /* afi */ +
+                1 /* NlriNextHopLength */ +
+                1 /* Reserved */;
+    sz += nexthop.size();
+    for (std::vector<BgpProtoPrefix*>::const_iterator iter = nlri.begin();
+         iter != nlri.end(); ++iter) {
+        size_t bytes = 0;
+        if (afi == BgpAf::L2Vpn &&
+            (safi == BgpAf::EVpn || safi == BgpAf::ErmVpn)) {
+            bytes = (*iter)->prefixlen;
+        } else {
+            bytes = ((*iter)->prefixlen + 7) / 8;
+        }
+        sz += 1 + bytes;
+    }
+    return sz;
+}
+
 PmsiTunnelSpec::PmsiTunnelSpec()
     : BgpAttribute(PmsiTunnel, kFlags),
       tunnel_flags(0), tunnel_type(0), label(0) {
@@ -161,9 +181,11 @@ PmsiTunnelSpec::PmsiTunnelSpec(const BgpAttribute &rhs)
 int PmsiTunnelSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    const PmsiTunnelSpec &rhs =
-        static_cast<const PmsiTunnelSpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
+    const PmsiTunnelSpec &rhs = static_cast<const PmsiTunnelSpec &>(rhs_attr);
+    KEY_COMPARE(tunnel_flags, rhs.tunnel_flags);
+    KEY_COMPARE(tunnel_type, rhs.tunnel_type);
+    KEY_COMPARE(label, rhs.label);
+    KEY_COMPARE(identifier, rhs.identifier);
     return 0;
 }
 
@@ -255,13 +277,47 @@ void EdgeDiscoverySpec::Edge::SetLabels(
     labels.push_back(last_label);
 }
 
+template <class InputIterator, class CompareOp>
+int STLSortedCompare(InputIterator first1, InputIterator last1,
+                     InputIterator first2, InputIterator last2,
+                     CompareOp op) {
+    InputIterator iter1 = first1;
+    InputIterator iter2 = first2;
+    while (iter1 != last1 && iter2 != last2) {
+        int result = op(*iter1, *iter2);
+        if (result != 0) {
+            return result;
+        }
+        ++iter1;
+        ++iter2;
+    }
+    if (iter1 != last1) {
+        return 1;
+    }
+    if (iter2 != last2) {
+        return -1;
+    }
+    return 0;
+}
+
+struct EdgeDiscoverySpecEdgeCompare {
+    int operator()(const EdgeDiscoverySpec::Edge *lhs,
+                   const EdgeDiscoverySpec::Edge *rhs) const {
+        KEY_COMPARE(lhs->address, rhs->address);
+        KEY_COMPARE(lhs->labels, rhs->labels);
+        return 0;
+    }
+};
+
 int EdgeDiscoverySpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
     const EdgeDiscoverySpec &rhs =
-        static_cast<const EdgeDiscoverySpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
-    return 0;
+            static_cast<const EdgeDiscoverySpec &>(rhs_attr);
+    ret = STLSortedCompare(edge_list.begin(), edge_list.end(),
+                           rhs.edge_list.begin(), rhs.edge_list.end(),
+                           EdgeDiscoverySpecEdgeCompare());
+    return ret;
 }
 
 void EdgeDiscoverySpec::ToCanonical(BgpAttr *attr) {
@@ -283,6 +339,17 @@ std::string EdgeDiscoverySpec::ToString() const {
     }
 
     return oss.str();
+}
+
+size_t EdgeDiscoverySpec::EncodeLength() const {
+    size_t sz = 0;
+    for (EdgeList::const_iterator iter = edge_list.begin();
+         iter != edge_list.end(); ++iter) {
+        sz += 2; /* AddressLen + LabelLen */
+        sz += (*iter)->address.size();
+        sz += (*iter)->labels.size() * sizeof(uint32_t);
+    }
+    return sz;
 }
 
 EdgeDiscovery::Edge::Edge(const EdgeDiscoverySpec::Edge *spec_edge) {
@@ -349,13 +416,26 @@ void EdgeForwardingSpec::Edge::SetOutboundIp4Address(Ip4Address addr) {
         outbound_address.begin());
 }
 
+struct EdgeForwardingSpecEdgeCompare {
+    int operator()(const EdgeForwardingSpec::Edge *lhs,
+                   const EdgeForwardingSpec::Edge *rhs) const {
+        KEY_COMPARE(lhs->inbound_address, rhs->inbound_address);
+        KEY_COMPARE(lhs->outbound_address, rhs->outbound_address);
+        KEY_COMPARE(lhs->inbound_label, rhs->inbound_label);
+        KEY_COMPARE(lhs->outbound_label, rhs->outbound_label);
+        return 0;
+    }
+};
+
 int EdgeForwardingSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
     const EdgeForwardingSpec &rhs =
-        static_cast<const EdgeForwardingSpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
-    return 0;
+            static_cast<const EdgeForwardingSpec &>(rhs_attr);
+    ret = STLSortedCompare(edge_list.begin(), edge_list.end(),
+                           rhs.edge_list.begin(), rhs.edge_list.end(),
+                           EdgeForwardingSpecEdgeCompare());
+    return ret;
 }
 
 void EdgeForwardingSpec::ToCanonical(BgpAttr *attr) {
@@ -378,6 +458,18 @@ std::string EdgeForwardingSpec::ToString() const {
     }
 
     return oss.str();
+}
+
+size_t EdgeForwardingSpec::EncodeLength() const {
+    size_t sz = 0;
+    for (EdgeList::const_iterator iter = edge_list.begin();
+         iter != edge_list.end(); ++iter) {
+        sz += 1 /* address len */ + 8 /* 2 labels */;
+        sz += (*iter)->inbound_address.size();
+        sz += (*iter)->outbound_address.size();
+    }
+
+    return sz;
 }
 
 EdgeForwarding::Edge::Edge(const EdgeForwardingSpec::Edge *spec_edge) {

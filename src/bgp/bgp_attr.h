@@ -150,6 +150,7 @@ struct BgpMpNlri : public BgpAttribute {
     }
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
+    virtual size_t EncodeLength() const;
 
     uint16_t afi;
     uint8_t safi;
@@ -237,6 +238,7 @@ struct EdgeDiscoverySpec : public BgpAttribute {
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    virtual size_t EncodeLength() const;
 
     struct Edge : public ParseObject {
         Ip4Address GetIp4Address() const;
@@ -298,6 +300,7 @@ struct EdgeForwardingSpec : public BgpAttribute {
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    virtual size_t EncodeLength() const;
 
     struct Edge : public ParseObject {
         Ip4Address GetInboundIp4Address() const;
