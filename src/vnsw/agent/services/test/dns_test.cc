@@ -584,6 +584,304 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     client->WaitForIdle();
 }
 
+// Order the config such that Ipam gets updated last
+TEST_F(DnsTest, VirtualDnsIpamUpdateReqTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    char vdns_attr[] =
+        "<virtual-DNS-data>\
+            <domain-name>test.contrail.juniper.net</domain-name>\
+            <dynamic-records-from-client>true</dynamic-records-from-client>\
+            <record-order>fixed</record-order>\
+            <default-ttl-seconds>120</default-ttl-seconds>\
+        </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    AddIPAM("vn1", ipam_info, 3, "", "vdns1");
+    client->WaitForIdle();
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    DnsProto::DnsStats stats;
+    int count = 0;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
+    usleep(1000);
+    client->WaitForIdle();
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+}
+
+// Order the config such that Vdns comes first
+TEST_F(DnsTest, VirtualDnsVdnsFirstReqTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    char vdns_attr[] =
+        "<virtual-DNS-data>\
+            <domain-name>test.contrail.juniper.net</domain-name>\
+            <dynamic-records-from-client>true</dynamic-records-from-client>\
+            <record-order>fixed</record-order>\
+            <default-ttl-seconds>120</default-ttl-seconds>\
+        </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    DnsProto::DnsStats stats;
+    int count = 0;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
+    usleep(1000);
+    client->WaitForIdle();
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+}
+
+// Order the config such that Vdns comes first
+TEST_F(DnsTest, VirtualDnsVdnsFirstReorderTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    char vdns_attr[] =
+        "<virtual-DNS-data>\
+            <domain-name>test.contrail.juniper.net</domain-name>\
+            <dynamic-records-from-client>true</dynamic-records-from-client>\
+            <record-order>fixed</record-order>\
+            <default-ttl-seconds>120</default-ttl-seconds>\
+        </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    DnsProto::DnsStats stats;
+    int count = 0;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
+    usleep(1000);
+    client->WaitForIdle();
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+}
+
+// Order the config such that Ipam comes first
+TEST_F(DnsTest, VirtualDnsIpamFirstTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    char vdns_attr[] =
+        "<virtual-DNS-data>\
+            <domain-name>test.contrail.juniper.net</domain-name>\
+            <dynamic-records-from-client>true</dynamic-records-from-client>\
+            <record-order>fixed</record-order>\
+            <default-ttl-seconds>120</default-ttl-seconds>\
+        </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    DnsProto::DnsStats stats;
+    int count = 0;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
+    usleep(1000);
+    client->WaitForIdle();
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+}
+
+// Order the config such that Ipam comes first
+TEST_F(DnsTest, VirtualDnsIpamFirstReorderTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    char vdns_attr[] =
+        "<virtual-DNS-data>\
+            <domain-name>test.contrail.juniper.net</domain-name>\
+            <dynamic-records-from-client>true</dynamic-records-from-client>\
+            <record-order>fixed</record-order>\
+            <default-ttl-seconds>120</default-ttl-seconds>\
+        </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+
+    DnsProto::DnsStats stats;
+    int count = 0;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
+    usleep(1000);
+    client->WaitForIdle();
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+}
+
 TEST_F(DnsTest, VirtualDnsLinkLocalReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
