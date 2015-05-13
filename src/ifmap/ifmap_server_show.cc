@@ -336,8 +336,6 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
                                   IFMapServer *server) {
     IFMapLink *src_link = static_cast<IFMapLink *>(src);
 
-    IFMapLinkState *state = server->exporter()->LinkStateLookup(src_link);
-
     dest->metadata = src_link->metadata();
     if (src_link->left()) {
         dest->left = src_link->left()->ToString();
@@ -347,8 +345,13 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
     }
 
     // Get the interests and advertised from state
-    dest->interests = state->interest().ToNumberedString();
-    dest->advertised = state->advertised().ToNumberedString();
+    IFMapLinkState *state = server->exporter()->LinkStateLookup(src_link);
+    if (state) {
+        dest->interests = state->interest().ToNumberedString();
+        dest->advertised = state->advertised().ToNumberedString();
+    } else {
+        dest->dbentryflags.append("No state, ");
+    }
 
     if (src_link->IsDeleted()) {
         dest->dbentryflags.append("Deleted, ");
@@ -572,7 +575,7 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
 
     IFMapNodeState *state = server->exporter()->NodeStateLookup(src_node);
 
-    if (state->interest().test(client_index)) {
+    if (state && state->interest().test(client_index)) {
         dest->node_name = src_node->ToString();
         if (state->advertised().test(client_index)) {
             dest->sent = "Yes";
@@ -730,7 +733,7 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
 
     IFMapLinkState *state = server->exporter()->LinkStateLookup(src_link);
 
-    if (state->interest().test(client_index)) {
+    if (state && state->interest().test(client_index)) {
         dest->metadata = src_link->metadata();
         dest->left = src_link->left()->ToString();
         dest->right = src_link->right()->ToString();
