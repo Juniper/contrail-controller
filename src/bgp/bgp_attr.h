@@ -149,15 +149,15 @@ struct BgpMpNlri : public BgpAttribute {
     static const int kSize = -1;
     static const uint8_t kFlags = Optional;
     // Always using extended length for MP NLRI
-    BgpMpNlri() : BgpAttribute(0, ExtendedLength|kFlags), afi(0), safi(0) {}
+    BgpMpNlri() : BgpAttribute(0, kFlags), afi(0), safi(0) {}
     explicit BgpMpNlri(BgpAttribute::Code code) :
-            BgpAttribute(code, ExtendedLength|kFlags), afi(0), safi(0) {}
+            BgpAttribute(code, kFlags), afi(0), safi(0) {}
     explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi,
                        std::vector<uint8_t> nh) :
-            BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi),
+            BgpAttribute(code, kFlags), afi(afi), safi(safi),
                        nexthop(nh) {}
     explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi) :
-        BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi) {
+        BgpAttribute(code, kFlags), afi(afi), safi(safi) {
         nexthop.clear();
     }
     explicit BgpMpNlri(const BgpAttribute &rhs)
@@ -168,6 +168,7 @@ struct BgpMpNlri : public BgpAttribute {
     }
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
+    virtual size_t EncodeLength() const;
 
     uint16_t afi;
     uint8_t safi;
@@ -303,6 +304,7 @@ struct EdgeDiscoverySpec : public BgpAttribute {
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    virtual size_t EncodeLength() const;
 
     struct Edge : public ParseObject {
         Ip4Address GetIp4Address() const;
@@ -406,6 +408,7 @@ struct EdgeForwardingSpec : public BgpAttribute {
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    virtual size_t EncodeLength() const;
 
     struct Edge : public ParseObject {
         Ip4Address GetInboundIp4Address() const;

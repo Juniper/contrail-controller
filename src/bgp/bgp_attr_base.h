@@ -19,7 +19,8 @@
 
 class BgpAttr;
 
-struct BgpAttribute : public ParseObject {
+class BgpAttribute : public ParseObject {
+public:
     enum Flag {
         Optional = 1 << 7,
         Transitive = 1 << 6,
@@ -64,6 +65,11 @@ struct BgpAttribute : public ParseObject {
     uint8_t code;
     uint8_t subcode;
     uint8_t flags;
+    /*
+     * Variable length attributes should return the size of the attribute
+     * for encoding purposes in order to set the ExtendedLength flag.
+     */
+    virtual size_t EncodeLength() const;
     virtual std::string ToString() const;
     virtual int CompareTo(const BgpAttribute &rhs) const;
     virtual void ToCanonical(BgpAttr *attr) { }

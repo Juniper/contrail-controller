@@ -589,7 +589,11 @@ public:
     typedef AttrLen SequenceLength;
     struct AttrSizeSet {
         static int get(const BgpAttribute *obj) {
-            if (obj->flags & BgpAttribute::ExtendedLength) {
+            uint8_t flags = obj->flags;
+            if (obj->EncodeLength() > sizeof(uint8_t) << 8) {
+                flags |= BgpAttribute::ExtendedLength;
+            }
+            if (flags & BgpAttribute::ExtendedLength) {
                 // Extended Length: use 2 bytes to read
                 return 2;
             } else {
@@ -823,7 +827,19 @@ public:
 class BgpPathAttributeFlags : public ProtoElement<BgpPathAttributeFlags> {
 public:
     static const int kSize = 1;
-    typedef Accessor<BgpAttribute, uint8_t, &BgpAttribute::flags> Setter;
+    struct FlagsAccessor {
+        static void set(BgpAttribute *obj, uint8_t value) {
+            obj->flags = value;
+        }
+        static uint8_t get(const BgpAttribute *obj) {
+            uint8_t flags = obj->flags;
+            if (obj->EncodeLength() > sizeof(uint8_t) << 8) {
+                flags |= BgpAttribute::ExtendedLength;
+            }
+            return flags;
+        }
+    };
+    typedef FlagsAccessor Setter;
 };
 
 class BgpPathAttributeCommunityList :

@@ -9,6 +9,7 @@
 
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
+#include "net/bgp_af.h"
 
 using std::sort;
 
@@ -153,6 +154,25 @@ int BgpMpNlri::CompareTo(const BgpAttribute &rhs_attr) const {
 }
 
 void BgpMpNlri::ToCanonical(BgpAttr *attr) {
+}
+
+size_t BgpMpNlri::EncodeLength() const {
+    size_t sz = 2 /* safi */ + 1 /* afi */ +
+                1 /* NlriNextHopLength */ +
+                1 /* Reserved */;
+    sz += nexthop.size();
+    for (std::vector<BgpProtoPrefix*>::const_iterator iter = nlri.begin();
+         iter != nlri.end(); ++iter) {
+        size_t bytes = 0;
+        if (afi == BgpAf::L2Vpn &&
+            (safi == BgpAf::EVpn || safi == BgpAf::ErmVpn)) {
+            bytes = (*iter)->prefixlen;
+        } else {
+            bytes = ((*iter)->prefixlen + 7) / 8;
+        }
+        sz += 1 + bytes;
+    }
+    return sz;
 }
 
 PmsiTunnelSpec::PmsiTunnelSpec()
@@ -350,6 +370,16 @@ std::string EdgeDiscoverySpec::ToString() const {
     return oss.str();
 }
 
+size_t EdgeDiscoverySpec::EncodeLength() const {
+    size_t sz = 2;
+    for (EdgeList::const_iterator iter = edge_list.begin();
+         iter != edge_list.end(); ++iter) {
+        sz += (*iter)->address.size();
+        sz += (*iter)->labels.size() * sizeof(uint32_t);
+    }
+    return sz;
+}
+
 EdgeDiscovery::Edge::Edge(const EdgeDiscoverySpec::Edge *spec_edge) {
     address = spec_edge->GetIp4Address();
     uint32_t first_label, last_label;
@@ -462,6 +492,23 @@ std::string EdgeForwardingSpec::ToString() const {
     }
 
     return oss.str();
+}
+
+size_t EdgeForwardingSpec::EncodeLength() const {
+    /*
+     * TODO:
+     * ForwardingEdgeLen
+     * EdgeInAddress
+     * EdgeInLabel
+     * EdgeOutAddress
+     * EdgeOutLabel
+     */
+    size_t sz = 0;
+    for (EdgeList::const_iterator iter = edge_list.begin();
+         iter != edge_list.end(); ++iter) {
+    }
+
+    return sz;
 }
 
 EdgeForwarding::Edge::Edge(const EdgeForwardingSpec::Edge *spec_edge) {

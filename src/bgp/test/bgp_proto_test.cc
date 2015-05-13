@@ -139,7 +139,7 @@ private:
     static void AddMpNlri(BgpProto::Update *msg) {
         static const int kMaxRoutes = 500;
         BgpMpNlri *mp_nlri = new BgpMpNlri;
-        mp_nlri->flags = BgpAttribute::Optional|BgpAttribute::ExtendedLength;
+        mp_nlri->flags = BgpAttribute::Optional;
         mp_nlri->code = BgpAttribute::MPReachNlri;
         mp_nlri->afi = 1;
         mp_nlri->safi = 128;
@@ -416,7 +416,51 @@ TEST_F(BgpProtoTest, L3VPNUpdate) {
     }
 }
 
+TEST_F(BgpProtoTest, 32PlusExtCommunities) {
+    BgpProto::Update update;
+    BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Vpn);
+    uint8_t data[BgpProto::kMaxMessageSize];
 
+    ExtCommunitySpec *ext_community = NULL;
+    for (size_t i = 0; i < update.path_attributes.size(); ++i) {
+        BgpAttribute *attr = update.path_attributes[i];
+        if (attr->code == BgpAttribute::ExtendedCommunities) {
+            ext_community = static_cast<ExtCommunitySpec *>(attr);
+            break;
+        }
+    }
+    ASSERT_TRUE(ext_community != NULL);
+    for (uint i = 0; i < 32; ++i) {
+        uint64_t value = 0x0002fc00007a1200ULL;
+        ext_community->communities.push_back(value + i);
+    }
+
+    int res = BgpProto::Encode(&update, data, BgpProto::kMaxMessageSize);
+    EXPECT_NE(-1, res);
+    if (detail::debug_) {
+        for (int i = 0; i < res; i++) {
+            printf("%02x ", data[i]);
+        }
+        printf("\n");
+    }
+
+    const BgpProto::Update *result;
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    EXPECT_TRUE(result != NULL);
+    if (result) {
+        EXPECT_EQ(0, result->CompareTo(update));
+        delete result;
+    } else {
+        for (int i = 0; i < res; i++) {
+            if (i % 16 == 0) {
+                printf("\n");
+            }
+            printf("%02x ", data[i]);
+        }
+        printf("\n");
+    }
+
+}
 
 TEST_F(BgpProtoTest, EvpnUpdate) {
     BgpProto::Update update;
@@ -632,6 +676,17 @@ TEST_F(BgpProtoTest, UpdateAttrFlagsError) {
     }
 }
 
+TEST_F(BgpProtoTest, LargeNotification) {
+    BgpProto::Notification msg;
+    msg.error = BgpProto::Notification::UpdateMsgErr;
+    msg.subcode = BgpProto::Notification::AttribLengthError;
+    msg.data = string(300, 'x');
+    uint8_t buf[BgpProto::kMaxMessageSize];
+    int result = BgpProto::Encode(&msg, buf, sizeof(buf));
+    const int minMessageSize = BgpProto::kMinMessageSize;
+    EXPECT_LT(minMessageSize, result);
+}
+
 TEST_F(BgpProtoTest, UpdateScale) {
     BgpProto::Update update;
     static const int kMaxRoutes = 500;
@@ -662,7 +717,7 @@ TEST_F(BgpProtoTest, UpdateScale) {
     update.path_attributes.push_back(community);
 
     BgpMpNlri *mp_nlri = new BgpMpNlri(BgpAttribute::MPReachNlri);
-    mp_nlri->flags = BgpAttribute::Optional|BgpAttribute::ExtendedLength;
+    mp_nlri->flags = BgpAttribute::Optional;
     mp_nlri->afi = 1;
     mp_nlri->safi = 128;
     uint8_t nh[4] = {192,168,1,1};

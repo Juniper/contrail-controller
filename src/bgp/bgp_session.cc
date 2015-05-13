@@ -79,7 +79,7 @@ void BgpSession::SendNotification(int code, int subcode,
     msg.error = code;
     msg.subcode = subcode;
     msg.data = data;
-    uint8_t buf[256];
+    uint8_t buf[BgpProto::kMaxMessageSize];
     int result = BgpProto::Encode(&msg, buf, sizeof(buf));
     assert(result > BgpProto::kMinMessageSize);
 
