@@ -33,8 +33,20 @@ void BgpProtoPrefix::WriteLabel(size_t label_offset, uint32_t label) {
 int BgpAttribute::CompareTo(const BgpAttribute &rhs) const {
     KEY_COMPARE(code, rhs.code);
     KEY_COMPARE(subcode, rhs.subcode);
-    KEY_COMPARE(flags, rhs.flags);
+    KEY_COMPARE(flags & ~ExtendedLength, rhs.flags & ~ExtendedLength);
     return 0;
+}
+
+size_t BgpAttribute::EncodeLength() const {
+    return 0;
+}
+
+uint8_t BgpAttribute::GetEncodeFlags() const {
+    uint8_t value = flags;
+    if (EncodeLength() >= sizeof(uint8_t) << 8) {
+        value |= BgpAttribute::ExtendedLength;
+    }
+    return value;
 }
 
 std::string BgpAttribute::ToString() const {

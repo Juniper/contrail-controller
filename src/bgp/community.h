@@ -37,6 +37,7 @@ struct CommunitySpec : public BgpAttribute {
     }
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    virtual size_t EncodeLength() const;
 };
 
 class Community {
@@ -113,11 +114,13 @@ public:
 private:
 };
 
-struct ExtCommunitySpec : public BgpAttribute {
+class ExtCommunitySpec : public BgpAttribute {
+public:
     static const int kSize = -1;
     static const uint8_t kFlags = Optional | Transitive;
     ExtCommunitySpec() : BgpAttribute(ExtendedCommunities, kFlags) { }
     explicit ExtCommunitySpec(const BgpAttribute &rhs) : BgpAttribute(rhs) { }
+    virtual size_t EncodeLength() const;
     std::vector<uint64_t> communities;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
