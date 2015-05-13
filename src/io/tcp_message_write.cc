@@ -15,6 +15,7 @@ using tbb::mutex;
 
 TcpMessageWriter::TcpMessageWriter(TcpSession *session) :
     offset_(0), session_(session) {
+    defered_queue_ = false;
 }
 
 TcpMessageWriter::~TcpMessageWriter() {
@@ -35,7 +36,7 @@ int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code &ec) {
     session_->server_->stats_.write_calls++;
     session_->server_->stats_.write_bytes += len;
 
-    if (buffer_queue_.empty()) {
+    if (!defered_queue_) {
         wrote = session_->WriteSome(data, len, ec);
         if (TcpSession::IsSocketErrorHard(ec)) return -1;
         assert(wrote >= 0);
@@ -45,7 +46,6 @@ int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code &ec) {
                 "Encountered partial send of " << wrote << " bytes when "
                 "sending " << len << " bytes, Error: " << ec);
             BufferAppend(data + wrote, len - wrote);
-            session_->DeferWriter();
         }
     } else {
         TCP_SESSION_LOG_UT_DEBUG(session_, TCP_DIR_OUT,
@@ -57,7 +57,7 @@ int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code &ec) {
 
 // Socket is ready for write. Flush any pending data
 void TcpMessageWriter::HandleWriteReady(error_code &error) {
-    while (!buffer_queue_.empty()) {
+    while (defered_queue_) {
         boost::asio::mutable_buffer head = buffer_queue_.front();
         const uint8_t *data = buffer_cast<const uint8_t *>(head) + offset_;
         int remaining = buffer_size(head) - offset_;
@@ -73,17 +73,28 @@ void TcpMessageWriter::HandleWriteReady(error_code &error) {
         } else {
             offset_ = 0;
             DeleteBuffer(head);
-            buffer_queue_.pop_front();
+            {
+                tbb::mutex::scoped_lock lock(buffer_queue_mutex_);
+                buffer_queue_.pop_front();
+                if (buffer_queue_.empty()) {
+                    defered_queue_ = false;
+                }
+            }
         }
     }
-    buffer_queue_.clear();
 }
 
 void TcpMessageWriter::BufferAppend(const uint8_t *src, int bytes) {
     u_int8_t *data = new u_int8_t[bytes];
     memcpy(data, src, bytes);
     mutable_buffer buffer = mutable_buffer(data, bytes);
-    buffer_queue_.push_back(buffer);
+    {
+        tbb::mutex::scoped_lock lock(buffer_queue_mutex_);
+        buffer_queue_.push_back(buffer);
+    }
+    if (false == defered_queue_.fetch_and_store(true)) {
+        session_->DeferWriter();
+    }
 }
 
 void TcpMessageWriter::DeleteBuffer(mutable_buffer buffer) {

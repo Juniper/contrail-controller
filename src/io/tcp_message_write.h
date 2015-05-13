@@ -38,6 +38,12 @@ private:
     BufferQueue buffer_queue_;
     int offset_;
     TcpSession *session_;
+
+    // indicates if writer is building buffer queue for defered write
+    tbb::atomic<bool> defered_queue_;
+
+    // mutex to protect buffer queue enqueue/dequeue operations
+    tbb::mutex buffer_queue_mutex_;
 };
 
 #endif
