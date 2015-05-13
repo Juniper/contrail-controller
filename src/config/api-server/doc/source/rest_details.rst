@@ -462,7 +462,10 @@ this collection. If parent resource is not mentioned, a resource named
 'default-<parent-type>' is assumed.
 
     * *METHOD*: GET
-    * *URL*: http://<ip>:<port>/example_resources?parent_id=<parent_uuid> *OR*
-           http://<ip>:<port>/example_resources?parent_fq_name_str=<parent's fully-qualified name delimited by ':'>
+    * *URL*: http://<ip>:<port>/example_resources
+             http://<ip>:<port>/example_resources?parent_id=<parent_uuid> *OR*
+             http://<ip>:<port>/example_resources?parent_fq_name_str=<parent's fully-qualified name delimited by ':'> *OR*
+             http://<ip>:<port>/example_resources?obj_uuids=<example1_uuid>,<example2_uuid>&detail=True *OR*
+             http://<ip>:<port>/example_resources?back_ref_id=<back_ref_uuid> *OR*
     * *BODY*: None
-    * *RESPONSE*: json list of uuid and href of collection
+    * *RESPONSE*: json list of uuid and href of collection if detail not specified, else json list of collection dicts

@@ -61,10 +61,12 @@ object type to:
        >>> vnc_lib.example_type_delete(id = <example-uuid>)
        >>> vnc_lib.example_type_delete(fq_name = ['example-root', ... ,'example-parent', 'example-name'])
 
-   * list objects
+   * list objects (an optional delete=True parameter returns detail instead of summary)
 
-       >>> vnc_lib.example_types_list(<example_parent_type>_id = <parent-uuid>)
-       >>> vnc_lib.example_types_list(<example_parent_type>_fq_name = ['example-root', ... ,'example-parent'])
+       >>> vnc_lib.example_types_list(parent_id = <parent-uuid>)
+       >>> vnc_lib.example_types_list(parent_fq_name = ['example-root', ... ,'example-parent'])
+       >>> vnc_lib.example_types_list(obj_uuids = [<example-obj1-uuid>, <example-obj2-uuid>])
+       >>> vnc_lib.example_types_list(back_ref_id = <back-ref-uuid>)
 
    These CRUD methods communicate with the API server.
 
