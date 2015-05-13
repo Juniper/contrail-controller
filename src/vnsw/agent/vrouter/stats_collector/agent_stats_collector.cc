@@ -141,9 +141,11 @@ void AgentStatsCollector::Shutdown(void) {
 
 void SetAgentStatsInterval_InSeconds::HandleRequest() const {
     SandeshResponse *resp;
-    if (get_interval() > 0) {
-        Agent::GetInstance()->stats_collector()->set_expiry_time
-            (get_interval() * 1000);
+    AgentStatsCollector *col = Agent::GetInstance()->stats_collector();
+    if (!col) {
+        resp = new AgentStatsCfgResp();
+    } else if (get_interval() > 0) {
+        col->set_expiry_time(get_interval() * 1000);
         resp = new AgentStatsCfgResp();
     } else {
         resp = new AgentStatsCfgErrResp();
@@ -157,8 +159,10 @@ void SetAgentStatsInterval_InSeconds::HandleRequest() const {
 void GetAgentStatsInterval::HandleRequest() const {
     AgentStatsIntervalResp_InSeconds *resp =
         new AgentStatsIntervalResp_InSeconds();
-    resp->set_agent_stats_interval((Agent::GetInstance()->stats_collector()->
-        expiry_time())/1000);
+    AgentStatsCollector *col = Agent::GetInstance()->stats_collector();
+    if (col) {
+        resp->set_agent_stats_interval((col->expiry_time())/1000);
+    }
     resp->set_context(context());
     resp->Response();
     return;
