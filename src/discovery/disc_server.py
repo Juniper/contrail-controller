@@ -526,7 +526,9 @@ class DiscoveryServer():
 
         assigned_sid = set()
         r = []
-        ttl = random.randint(self._args.ttl_min, self._args.ttl_max)
+        ttl_min = self.get_service_config(service_type, 'ttl_min')
+        ttl_max = self.get_service_config(service_type, 'ttl_max')
+        ttl = random.randint(ttl_min, ttl_max)
 
         # check client entry and any existing subscriptions
         cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
@@ -993,8 +995,12 @@ def parse_args(args_str):
                 continue
             service_config[
                 section.lower()] = default_service_opts.copy()
-            service_config[section.lower()].update(
-                dict(config.items(section)))
+            config_dict = dict(config.items(section))
+            if 'ttl_min' in config_dict:
+                config_dict['ttl_min'] = int(config_dict['ttl_min'])
+            if 'ttl_max' in config_dict:
+                config_dict['ttl_max'] = int(config_dict['ttl_max'])
+            service_config[section.lower()].update(config_dict)
 
     parser.set_defaults(**defaults)
 
