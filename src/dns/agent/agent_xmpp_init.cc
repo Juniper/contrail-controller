@@ -12,18 +12,29 @@
 
 using namespace boost::asio;
 
-void DnsAgentXmppManager::Init() {
+bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
+                               const std::string &xmpp_server_cert,
+                               const std::string &xmpp_server_key) {
     uint32_t port = Dns::GetXmppServerPort();
     if (!port)
         port = ContrailPorts::DnsXmpp();
 
-    XmppInit *init = new XmppInit();
-    XmppServer *server = new XmppServer(Dns::GetEventManager());
+    // XmppChannel Configuration
     XmppChannelConfig xmpp_cfg(false);
     xmpp_cfg.FromAddr = XmppInit::kDnsNodeJID;
     xmpp_cfg.endpoint.port(port);
-    init->AddXmppChannelConfig(&xmpp_cfg);
-    init->InitServer(server, port, false);
+    xmpp_cfg.auth_enabled = xmpp_auth_enabled;
+    if (xmpp_cfg.auth_enabled) {
+        xmpp_cfg.path_to_server_cert = xmpp_server_cert;
+        xmpp_cfg.path_to_pvt_key = xmpp_server_key;
+    }
+
+    // Create XmppServer
+    XmppServer *server = new XmppServer(Dns::GetEventManager(),
+                                        Dns::GetHostName(), &xmpp_cfg);
+    if (!server->Initialize(port, false)) {
+        return false;
+    }
     Dns::SetXmppServer(server);
 
     DnsAgentXmppChannelManager *agent_xmpp_mgr = 
