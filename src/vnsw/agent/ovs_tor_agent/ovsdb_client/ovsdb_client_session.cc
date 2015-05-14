@@ -10,6 +10,7 @@ extern "C" {
 
 #include <cmn/agent.h>
 #include <ovsdb_types.h>
+#include <ovsdb_client_connection_state.h>
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
 #include <ovsdb_route_peer.h>
@@ -18,6 +19,7 @@ extern "C" {
 
 using OVSDB::OvsdbClientIdl;
 using OVSDB::OvsdbClientSession;
+using OVSDB::ConnectionStateTable;
 
 int OvsdbClientSession::ovsdb_io_task_id_ = -1;
 

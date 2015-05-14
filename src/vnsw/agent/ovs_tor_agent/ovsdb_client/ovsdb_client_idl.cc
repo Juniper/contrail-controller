@@ -12,6 +12,7 @@ extern "C" {
 };
 #include <oper/agent_sandesh.h>
 #include <ovsdb_types.h>
+#include <ovsdb_client_connection_state.h>
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
 #include <ovsdb_route_peer.h>
@@ -48,6 +49,7 @@ using OVSDB::UnicastMacLocalOvsdb;
 using OVSDB::MulticastMacLocalOvsdb;
 using OVSDB::VrfOvsdbObject;
 using OVSDB::VnOvsdbObject;
+using OVSDB::ConnectionStateTable;
 
 namespace OVSDB {
 void ovsdb_wrapper_idl_callback(void *idl_base, int op,
@@ -280,6 +282,18 @@ void OvsdbClientIdl::MessageProcess(struct jsonrpc_msg *msg) {
     // context, to assure only one thread is writting data to OVSDB client.
     OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
     receive_queue_->Enqueue(ovs_msg);
+}
+
+Ip4Address OvsdbClientIdl::remote_ip() const {
+    return session_->remote_ip();
+}
+
+uint16_t OvsdbClientIdl::remote_port() const {
+    return session_->remote_port();
+}
+
+ConnectionStateTable *OvsdbClientIdl::connection_table() {
+    return session_->connection_table();
 }
 
 KSyncObjectManager *OvsdbClientIdl::ksync_obj_manager() {

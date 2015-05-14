@@ -14,6 +14,7 @@ enum ConnectionType {
     ZOOKEEPER,
     DISCOVERY,
     APISERVER,
+    TOR,
 }
 
 const map<ConnectionType, string> ConnectionTypeNames = {
@@ -25,7 +26,8 @@ const map<ConnectionType, string> ConnectionTypeNames = {
     ConnectionType.REDIS : "Redis",
     ConnectionType.ZOOKEEPER : "Zookeeper",
     ConnectionType.DISCOVERY : "Discovery",
-    ConnectionType.APISERVER : "ApiServer"
+    ConnectionType.APISERVER : "ApiServer",
+    ConnectionType.TOR : "ToR"
 }
 
 enum ConnectionStatus {

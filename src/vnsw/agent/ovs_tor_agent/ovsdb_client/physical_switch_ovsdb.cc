@@ -12,6 +12,7 @@ extern "C" {
 #include <ovsdb_client.h>
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
+#include <ovsdb_client_connection_state.h>
 #include <physical_switch_ovsdb.h>
 #include <logical_switch_ovsdb.h>
 #include <physical_port_ovsdb.h>
@@ -28,6 +29,18 @@ PhysicalSwitchEntry::PhysicalSwitchEntry(PhysicalSwitchTable *table,
 }
 
 PhysicalSwitchEntry::~PhysicalSwitchEntry() {
+}
+
+bool PhysicalSwitchEntry::Add() {
+    table_->client_idl()->connection_table()->AddIdlToConnectionState(
+            name_, table_->client_idl());
+    return true;
+}
+
+bool PhysicalSwitchEntry::Delete() {
+    table_->client_idl()->connection_table()->DelIdlToConnectionState(
+            name_, table_->client_idl());
+    return true;
 }
 
 Ip4Address &PhysicalSwitchEntry::tunnel_ip() {
