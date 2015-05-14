@@ -1567,7 +1567,10 @@ bool AgentXmppChannel::ControllerSendVmCfgSubscribe(AgentXmppChannel *peer,
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "",
               std::string(reinterpret_cast<const char *>(data_), datalen_));
     // send data
-    return (peer->SendUpdate(data_,datalen_));
+    if (peer->SendUpdate(data_,datalen_) == false) {
+        CONTROLLER_TRACE(Session, peer->GetXmppServer(),
+                         "VM subscribe Send Update deferred", vm, "");
+    }
 
     return true;
 }
@@ -1604,7 +1607,11 @@ bool AgentXmppChannel::ControllerSendCfgSubscribe(AgentXmppChannel *peer) {
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "",
             std::string(reinterpret_cast<const char *>(data_), datalen_));
     // send data
-    return (peer->SendUpdate(data_,datalen_));
+    if (peer->SendUpdate(data_,datalen_) == false) {
+        CONTROLLER_TRACE(Session, peer->GetXmppServer(),
+                         "Config subscribe Send Update deferred", node, "");
+    }
+    return true;
 }
 
 bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
@@ -1650,7 +1657,11 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
 
     // send data
-    return (peer->SendUpdate(data_,datalen_));
+    if (peer->SendUpdate(data_,datalen_) == false) {
+        CONTROLLER_TRACE(Session, peer->GetXmppServer(),
+                         "Vrf subscribe Send Update deferred", vrf_id, "");
+    }
+    return true;
 }
 
 bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
@@ -1762,7 +1773,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
 
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
-    return (SendUpdate(data_,datalen_));
+    SendUpdate(data_,datalen_);
+    return true;
 }
 
 bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
@@ -2069,7 +2081,8 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
 
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
-    return (SendUpdate(data_,datalen_));
+    SendUpdate(data_,datalen_);
+    return true;
 }
 
 bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
@@ -2217,7 +2230,8 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
 
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
-    return (SendUpdate(data_,datalen_));
+    SendUpdate(data_,datalen_);
+    return true;
 }
 
 bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
