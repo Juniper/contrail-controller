@@ -42,7 +42,7 @@ public:
     void ReceiveBgpMessage(std::auto_ptr<XmlBase> impl);
 
     //Helper to identify if specified peer has active BGP peer attached
-    static bool IsBgpPeerActive(AgentXmppChannel *peer);
+    static bool IsBgpPeerActive(const Agent *agent, AgentXmppChannel *peer);
     static bool SetConfigPeer(AgentXmppChannel *peer);
     static void SetMulticastPeer(AgentXmppChannel *old_peer, 
                                  AgentXmppChannel *new_peer);

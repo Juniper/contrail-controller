@@ -126,13 +126,11 @@ void MulticastHandler::HandleTsnSubscription(DBTablePartBase *partition,
     const VrfEntry *vrf = vn->GetVrf();
     uint32_t vn_vxlan_id = vn->GetVxLanId();
     bool deleted = false;
-    bool withdraw = false;
 
     MulticastDBState *state = static_cast<MulticastDBState *>
         (vn->GetState(partition->parent(), vn_listener_id_));
 
     deleted = vn->IsDeleted() || !(vrf);
-    withdraw = (state && (state->vxlan_id_ != vn_vxlan_id));
     uint32_t old_vxlan_id = state ? state->vxlan_id_ : 0;
     boost::system::error_code ec;
     Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
@@ -172,7 +170,7 @@ void MulticastHandler::HandleTsnSubscription(DBTablePartBase *partition,
     }
 
     //Delete or withdraw old vxlan id
-    if (deleted || withdraw) {
+    if (deleted) {
         if (!state)
             return;
 
@@ -223,8 +221,10 @@ void MulticastHandler::ModifyVN(DBTablePartBase *partition, DBEntryBase *e)
 
     HandleIpam(vn);
     HandleFamilyConfig(vn);
-    HandleVxLanChange(vn);
-    HandleTsnSubscription(partition, e);
+    if (agent_->tsn_enabled() == false)
+        HandleVxLanChange(vn);
+    if (agent_->tsn_enabled() == true)
+        HandleTsnSubscription(partition, e);
 }
 
 bool MulticastGroupObject::CanBeDeleted() const {

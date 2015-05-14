@@ -510,7 +510,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     //Fabric path - from multicast builder
     //Multicast peer
     AgentPath *multicast_peer_path = NULL;
-    AgentPath *local_peer_path = NULL;
+    AgentPath *local_vm_peer_path = NULL;
     AgentPath *evpn_peer_path = NULL;
     AgentPath *fabric_peer_path = NULL;
     AgentPath *tor_peer_path = NULL;
@@ -545,7 +545,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
 
         //Handle Add/Changes
         if (it_path->peer() == agent->local_vm_peer()) {
-            local_peer_path = it_path;
+            local_vm_peer_path = it_path;
         } else if (it_path->peer()->GetType() == Peer::BGP_PEER) {
             const CompositeNH *bgp_comp_nh =
                 static_cast<const CompositeNH *>(it_path->nexthop());    
@@ -570,7 +570,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     }
 
     //all paths are gone so delete multicast_peer path as well
-    if ((local_peer_path == NULL) &&
+    if ((local_vm_peer_path == NULL) &&
         (tor_peer_path == NULL) &&
         (evpn_peer_path == NULL) &&
         (fabric_peer_path == NULL)) {
@@ -616,13 +616,13 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         component_nh_list.push_back(component_nh_data3);
     }
 
-    if (local_peer_path) {
-        NextHopKey *local_peer_key =
-            static_cast<NextHopKey *>((local_peer_path->
-                        ComputeNextHop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key1(local_peer_key);
-        ComponentNHKeyPtr component_nh_data1(new ComponentNHKey(0, key1));
-        component_nh_list.push_back(component_nh_data1);
+    if (local_vm_peer_path) {
+        NextHopKey *local_vm_peer_key =
+            static_cast<NextHopKey *>((local_vm_peer_path->
+                                       ComputeNextHop(agent)->GetDBRequestKey()).release());
+        std::auto_ptr<const NextHopKey> key4(local_vm_peer_key);
+        ComponentNHKeyPtr component_nh_data4(new ComponentNHKey(0, key4));
+        component_nh_list.push_back(component_nh_data4);
     }
 
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -651,12 +651,12 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     uint32_t tunnel_bmap = TunnelType::AllType();
 
     //Select based on priority of path peer.
-    if (local_peer_path) {
-        dest_vn_name = local_peer_path->dest_vn_name();
-        unresolved = local_peer_path->unresolved();
-        vxlan_id = local_peer_path->vxlan_id();
+    if (local_vm_peer_path) {
+        dest_vn_name = local_vm_peer_path->dest_vn_name();
+        unresolved = local_vm_peer_path->unresolved();
+        vxlan_id = local_vm_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::AllType();
-        label = local_peer_path->label();
+        label = local_vm_peer_path->label();
         evpn_label = label;
     } else if (tor_peer_path) {
         dest_vn_name = tor_peer_path->dest_vn_name();

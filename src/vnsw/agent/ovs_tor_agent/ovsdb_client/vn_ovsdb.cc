@@ -12,6 +12,7 @@ extern "C" {
 #include <ovsdb_types.h>
 
 #include <unicast_mac_local_ovsdb.h>
+#include <multicast_mac_local_ovsdb.h>
 #include <vn_ovsdb.h>
 
 using OVSDB::OvsdbDBEntry;
@@ -48,6 +49,11 @@ void VnOvsdbEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     // on delete of this entry trigger Vrf re-eval for entries in
     // Unicast Mac Local Table
     uc_obj->VrfReEvalEnqueue(vrf_.get());
+    //For multicast vrf delete needs to known for deleting
+    //route.
+    MulticastMacLocalOvsdb *mc_obj =
+        table_->client_idl()->multicast_mac_local_ovsdb();
+    mc_obj->VrfReEvalEnqueue(vrf_.get());
     vrf_ = NULL;
 }
 
