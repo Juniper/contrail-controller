@@ -16,7 +16,6 @@ import time
 from pprint import pformat
 
 from lxml import etree, objectify
-import xmltodict
 import cgitb
 import StringIO
 import re
@@ -129,28 +128,6 @@ class VncIfmapClient(VncIfmapClientGen):
             'contrail':   self._CONTRAIL_XSD
         }
 
-        self._UVEMAP = {
-            "virtual-network" : "ObjectVNTable",
-            "virtual-machine" : "ObjectVMTable",
-            "service-instance" : "ObjectSITable",
-            "virtual-router" : "ObjectVRouter",
-            "control-node" : "ObjectBgpRouter",
-            "analytics-node" : "ObjectCollectorInfo",
-            "database-node" : "ObjectDatabaseInfo",
-            "config-node" : "ObjectConfigNode",
-            "service-chain" : "ServiceChain",
-            "physical-router" : "ObjectPRouter",
-        }
-
-        self._UVEGLOBAL = {
-            "virtual-router",
-            "control-node",
-            "analytics-node",
-            "database-node",
-            "config-node",
-            "physical-router"
-        }
-       
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
 
@@ -314,57 +291,6 @@ class VncIfmapClient(VncIfmapClientGen):
         return ifmap_trace
     # end _generate_ifmap_trace
 
-    @ignore_exceptions
-    def _generate_ifmap_uve(self, oper, body):
-        msgs = []
-        msgstr = "<__M__>" + body + "</__M__>"
-        msg = xmltodict.parse(msgstr)["__M__"]
-        for opr,entries in msg.iteritems():
-            if not isinstance(entries,list):
-                entries=[entries]
-            for entry in entries:
-                if not isinstance(entry["identity"],basestring) and\
-                        isinstance(entry["identity"],list):
-                    cfg_key = entry["identity"][0]['@name']
-                    attr_name = entry["identity"][1]['@name']
-                    attr_contents = None
-                    if opr == "update":
-                        attr_contents = json.dumps(entry["metadata"].keys()[0])
-                else:
-                    cfg_key = entry["identity"]['@name']
-                    attr_contents = None
-                    attr_name = None
-                    if opr == "update":
-                        attr_name = entry["metadata"].keys()[0]
-                        attr_contents = json.dumps(entry["metadata"].values()[0])
-
-                utype = cfg_key.split(":",2)[1]
-                urawkey = cfg_key.split(":",2)[2]
-                ukey = None
-                utab = None
-                if self._UVEMAP.has_key(utype):
-                    utab = self._UVEMAP[utype]
-                    if utype in self._UVEGLOBAL:
-                        ukey = urawkey.split(":",1)[1]
-                    else:
-                        ukey = urawkey
-                else:
-                    continue
-                cce = None
-                if attr_contents:
-                    cce = ContrailConfigElem(attr_name,attr_contents)
-                cc = None
-                if cce:
-                    cc = ContrailConfig(name = ukey, properties = [cce])
-                else:
-                    cc = ContrailConfig(name = ukey, properties = [],\
-                                        deleted = True)
-                cfg_msg = ContrailConfigTrace(data=cc, table=utab,
-                                              sandesh=self._sandesh)
-                msgs.append(cfg_msg)
-
-        return msgs
-
     # end _generate_ifmap_trace
     def publish_accumulated(self):
         if self.accumulated_request_len:
@@ -381,7 +307,6 @@ class VncIfmapClient(VncIfmapClientGen):
         # asking for update|delete in publish
         if not oper_body:
             return
-        ifmap_uves = self._generate_ifmap_uve(oper, oper_body)
         if do_trace:
             trace = self._generate_ifmap_trace(oper, oper_body)
 
@@ -432,9 +357,6 @@ class VncIfmapClient(VncIfmapClientGen):
 
             if do_trace:
                 trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
-
-            for cfg_msg in ifmap_uves:
-                cfg_msg.send(sandesh=self._sandesh)
 
             return resp_xml
         except Exception as e:
@@ -1022,6 +944,14 @@ class VncServerKombuClient(VncKombuClient):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
 
+    def uuid_to_fq_name(self, uuid):
+        self._db_client_mgr.uuid_to_fq_name(uuid)
+    # end uuid_to_fq_name
+
+    def dbe_uve_trace(self, oper, typ, uuid, body):
+        self._db_client_mgr.dbe_uve_trace(oper, typ, uuid, body)
+    # end uuid_to_fq_name
+
     def dbe_oper_publish_pending(self):
         return self.num_pending_messages()
     # end dbe_oper_publish_pending
@@ -1077,6 +1007,8 @@ class VncServerKombuClient(VncKombuClient):
     def _dbe_create_notification(self, obj_info):
         obj_dict = obj_info['obj_dict']
 
+        self.dbe_uve_trace("CREATE", obj_info['type'], obj_info['uuid'], obj_dict)
+
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
@@ -1107,6 +1039,8 @@ class VncServerKombuClient(VncKombuClient):
 
         new_obj_dict = result
 
+        self.dbe_uve_trace("UPDATE", obj_info['type'], obj_info['uuid'], new_obj_dict)
+
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
@@ -1133,6 +1067,8 @@ class VncServerKombuClient(VncKombuClient):
 
     def _dbe_delete_notification(self, obj_info):
         obj_dict = obj_info['obj_dict']
+
+        self.dbe_uve_trace("DELETE", obj_info['type'], obj_info['uuid'], None)
 
         db_client_mgr = self._db_client_mgr
         db_client_mgr._cassandra_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
@@ -1279,6 +1215,28 @@ class VncDbClient(object):
 
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
+
+        self._UVEMAP = {
+            "virtual_network" : "ObjectVNTable",
+            "virtual_machine" : "ObjectVMTable",
+            "service_instance" : "ObjectSITable",
+            "virtual_router" : "ObjectVRouter",
+            "control_node" : "ObjectBgpRouter",
+            "analytics_node" : "ObjectCollectorInfo",
+            "database_node" : "ObjectDatabaseInfo",
+            "config_node" : "ObjectConfigNode",
+            "service_chain" : "ServiceChain",
+            "physical_router" : "ObjectPRouter",
+        }
+
+        self._UVEGLOBAL = set([
+            "virtual_router",
+            "control_node",
+            "analytics_node",
+            "database_node",
+            "config_node",
+            "physical_router"
+        ])
 
         # certificate auth
         ssl_options = None
@@ -1446,6 +1404,8 @@ class VncDbClient(object):
     # end update_subnet_uuid
 
     def _dbe_resync(self, obj_uuid, obj_cols):
+        self.dbe_uve_trace("RESYNC", json.loads(obj_cols['type']), obj_uuid, obj_cols)
+
         obj_type = None
         try:
             obj_type = json.loads(obj_cols['type'])
@@ -1555,6 +1515,50 @@ class VncDbClient(object):
 
         return (True, obj_ids)
     # end dbe_alloc
+
+    def dbe_uve_trace(self, oper, typ, uuid, obj_dict):
+        oo = {}
+        oo['uuid'] = uuid
+        oo['name'] = self.uuid_to_fq_name(uuid)
+        oo['value'] = obj_dict
+        oo['type'] = typ
+
+        req_id = get_trace_id()
+        db_trace = DBRequestTrace(request_id=req_id)
+        db_trace.operation = oper
+        db_trace.body = json.dumps(obj_dict)
+        trace_msg(db_trace, 'DBUVERequestTraceBuf', self._sandesh)
+
+        attr_contents = None
+        if oo['value']:
+            attr_contents = json.dumps(oo['value'])
+        attr_name = 'value'
+
+	utype = oo['type']
+        urawkey = ':'.join(oo['name'])
+	ukey = None
+	utab = None
+	if utype in self._UVEMAP:
+	    utab = self._UVEMAP[utype]
+	    if utype in self._UVEGLOBAL:
+		ukey = urawkey.split(":",1)[1]
+	    else:
+		ukey = urawkey
+	else:
+	    return
+
+	cce = None
+	if attr_contents:
+	    cce = ContrailConfigElem(attr_name,attr_contents)
+	cc = None
+	if cce:
+	    cc = ContrailConfig(name = ukey, properties = [cce])
+	else:
+	    cc = ContrailConfig(name = ukey, properties = [],\
+				deleted = True)
+	cfg_msg = ContrailConfigTrace(data=cc, table=utab,
+				      sandesh=self._sandesh)
+        cfg_msg.send(sandesh=self._sandesh)
 
     def dbe_trace(oper):
         def wrapper1(func):
