@@ -7,7 +7,9 @@
 
 class DnsAgentXmppManager {
 public:
-    static bool Init();
+    static bool Init(bool xmpp_auth_enabled,
+                     const std::string &xmpp_server_cert,
+                     const std::string &xmpp_server_key);
     static void Shutdown();
 };
 
