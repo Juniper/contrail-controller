@@ -67,10 +67,10 @@ public:
 
     Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
-    uint16_t ip_fabric_interface_index() const {
+    uint32_t ip_fabric_interface_index() const {
         return ip_fabric_interface_index_;
     }
-    void set_ip_fabric_interface_index(uint16_t ind) {
+    void set_ip_fabric_interface_index(uint32_t ind) {
         ip_fabric_interface_index_ = ind;
     }
     const MacAddress &ip_fabric_interface_mac() const {
@@ -102,7 +102,7 @@ private:
     bool run_with_vrouter_;
     bool dhcp_relay_mode_;
     Interface *ip_fabric_interface_;
-    uint16_t ip_fabric_interface_index_;
+    uint32_t ip_fabric_interface_index_;
     MacAddress ip_fabric_interface_mac_;
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;

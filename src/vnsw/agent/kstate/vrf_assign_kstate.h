@@ -15,7 +15,7 @@ public:
 };
 
 struct VrfAssignContext {
-    uint16_t vif_index_;
+    uint32_t vif_index_;
     int      marker_;
 };
 

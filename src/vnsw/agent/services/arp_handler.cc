@@ -312,7 +312,7 @@ uint16_t ArpHandler::ArpHdr(const MacAddress &smac, in_addr_t sip,
 
 void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
                          const MacAddress &tmac, in_addr_t tip,
-                         uint16_t itf, uint16_t vrf) {
+                         uint32_t itf, uint32_t vrf) {
 
     if (pkt_info_->packet_buffer() == NULL) {
         pkt_info_->AllocPacketBuffer(agent(), PktHandler::ARP, ARP_TX_BUFF_LEN,

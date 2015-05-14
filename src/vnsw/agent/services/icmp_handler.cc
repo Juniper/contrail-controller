@@ -93,9 +93,9 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     IcmpChecksum((char *)hdr, icmp_len_);
     pkt_info_->set_len(len);
 
-    uint16_t interface =
+    uint32_t interface =
         ((pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
-         (uint16_t)pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex());
+         pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex());
     uint16_t command =
         ((pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
          AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH);
