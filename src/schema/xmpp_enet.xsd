@@ -24,6 +24,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:element name="address" type="xsd:string"/>
     <xsd:element name="label" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="EnetTunnelEncapsulationListType"/>
+    <xsd:element name="sequence-number" type="xsd:integer"/>
 </xsd:complexType>
 
 <xsd:complexType name="EnetOlistType">
