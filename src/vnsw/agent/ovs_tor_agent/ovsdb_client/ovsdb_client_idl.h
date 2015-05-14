@@ -156,6 +156,7 @@ public:
     bool KeepAliveTimerCb();
     void TriggerDeletion();
     bool IsDeleted() const { return deleted_; }
+    int refcount() const { return refcount_; }
 
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);

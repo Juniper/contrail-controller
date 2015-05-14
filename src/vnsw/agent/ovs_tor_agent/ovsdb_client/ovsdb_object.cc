@@ -70,10 +70,7 @@ OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl,
 }
 
 OvsdbDBObject::~OvsdbDBObject() {
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
-        walker->WalkCancel(walkid_);
-    }
+    assert(walkid_ == DBTableWalker::kInvalidWalkerId);
 }
 
 void OvsdbDBObject::OvsdbRegisterDBTable(DBTable *tbl) {
@@ -134,6 +131,11 @@ void OvsdbDBObject::DeleteTable(void) {
 
 void OvsdbDBObject::EmptyTable(void) {
     if (delete_scheduled()) {
+        if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+            DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
+            walker->WalkCancel(walkid_);
+            walkid_ = DBTableWalker::kInvalidWalkerId;
+        }
         client_idl_ = NULL;
     }
 }
