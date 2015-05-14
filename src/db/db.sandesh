@@ -5,4 +5,5 @@
 struct ShowTableListener {
     1: u32 id;
     2: string name;
+    3: u64 state_count;
 }
