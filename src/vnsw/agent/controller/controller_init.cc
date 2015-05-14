@@ -10,7 +10,6 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include "cmn/agent_cmn.h"
-#include "init/agent_param.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
 #include "oper/vrf.h"
@@ -61,17 +60,17 @@ void VNController::XmppServerConnect() {
                 continue; 
             }
 
+            boost::system::error_code ec;
             XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
-            boost::system::error_code ec;
             xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
             assert(ec.value() == 0);
-            xmpp_cfg->auth_enabled = agent_->params()->xmpp_auth_enabled();
+            xmpp_cfg->auth_enabled = agent_->xmpp_auth_enabled(count);
             if (xmpp_cfg->auth_enabled) {
-                xmpp_cfg->path_to_server_cert =  agent_->params()->xmpp_server_cert();
+                xmpp_cfg->path_to_server_cert =  agent_->xmpp_server_cert(count);
             }
             uint32_t port = agent_->controller_ifmap_xmpp_port(count);
             if (!port) {
@@ -80,12 +79,7 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->endpoint.port(port);
 
             // Create Xmpp Client
-            XmppClient *client;
-            if (xmpp_cfg->auth_enabled) {
-                client = new XmppClient(agent_->event_manager(), xmpp_cfg);
-            } else {
-                client = new XmppClient(agent_->event_manager());
-            }
+            XmppClient *client = new XmppClient(agent_->event_manager(), xmpp_cfg);
 
             XmppInit *xmpp = new XmppInit();
             xmpp->AddXmppChannelConfig(xmpp_cfg);
@@ -140,9 +134,26 @@ void VNController::DnsXmppServerConnect() {
                 continue; 
             }
 
-            // create Xmpp channel with DNS server
+            // XmppChannel Configuration
+            boost::system::error_code ec;
+            XmppChannelConfig *xmpp_cfg_dns = new XmppChannelConfig(true);
+            xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
+            xmpp_cfg_dns->FromAddr = agent_->agent_name() + "/dns";
+            xmpp_cfg_dns->NodeAddr = "";
+            xmpp_cfg_dns->endpoint.address(
+                     ip::address::from_string(agent_->dns_server(count), ec));
+            assert(ec.value() == 0);
+            xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
+            xmpp_cfg_dns->auth_enabled = agent_->dns_auth_enabled(count);
+            if (xmpp_cfg_dns->auth_enabled) {
+                xmpp_cfg_dns->path_to_server_cert = agent_->dns_server_cert(count);
+            }
+
+            // Create Xmpp Client
+            XmppClient *client_dns = new XmppClient(agent_->event_manager(),
+                                                    xmpp_cfg_dns);
+
             XmppInit *xmpp_dns = new XmppInit();
-            XmppClient *client_dns = new XmppClient(agent_->event_manager());
             // create dns peer
             AgentDnsXmppChannel *dns_peer = new AgentDnsXmppChannel(agent_,
                                                 agent_->dns_server(count),
@@ -151,16 +162,6 @@ void VNController::DnsXmppServerConnect() {
                 boost::bind(&AgentDnsXmppChannel::HandleXmppClientChannelEvent,
                             dns_peer, _2));
 
-            XmppChannelConfig *xmpp_cfg_dns = new XmppChannelConfig(true);
-            //XmppChannelConfig xmpp_cfg_dns(true);
-            xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
-            boost::system::error_code ec;
-            xmpp_cfg_dns->FromAddr = agent_->agent_name() + "/dns";
-            xmpp_cfg_dns->NodeAddr = "";
-            xmpp_cfg_dns->endpoint.address(
-                     ip::address::from_string(agent_->dns_server(count), ec));
-            assert(ec.value() == 0);
-            xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
             xmpp_dns->AddXmppChannelConfig(xmpp_cfg_dns);
             xmpp_dns->InitClient(client_dns);
 

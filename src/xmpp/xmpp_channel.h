@@ -59,6 +59,8 @@ public:
     virtual std::string LastFlap() const = 0;
     virtual xmps::PeerState GetPeerState() const = 0;
     virtual std::string FromString() const = 0;
+    virtual std::string AuthType() const = 0;
+    virtual std::string PeerAddress() const = 0;
     virtual const XmppConnection *connection() const = 0;
 };
 

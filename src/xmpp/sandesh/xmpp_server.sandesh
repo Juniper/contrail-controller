@@ -24,6 +24,7 @@ struct ShowXmppConnection {
     7: string last_state;
     8: string last_state_at;
     9: list<string> receivers;
+    10: string server_auth_type;
 }
 
 response sandesh ShowXmppConnectionResp {
