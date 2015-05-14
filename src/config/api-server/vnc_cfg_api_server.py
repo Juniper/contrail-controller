@@ -399,6 +399,7 @@ class VncApiServer(VncApiServerGen):
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="DBUVERequestTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
         self._sandesh.trace_buffer_create(name="IfmapTraceBuf", size=1000)
