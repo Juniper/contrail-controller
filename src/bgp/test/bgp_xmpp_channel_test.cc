@@ -97,6 +97,12 @@ public:
     virtual std::string LastFlap() const {
         return "";
     }
+    virtual std::string AuthType() const {
+        return "";
+    }
+    virtual std::string PeerAddress() const {
+        return "";
+    }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {

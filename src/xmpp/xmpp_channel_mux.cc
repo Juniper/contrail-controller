@@ -105,6 +105,14 @@ std::string XmppChannelMux::StateName() const {
     return connection_->StateName();
 }
 
+std::string XmppChannelMux::AuthType() const {
+    return connection_->GetXmppAuthenticationType();
+}
+
+std::string XmppChannelMux::PeerAddress() const {
+    return connection_->endpoint_string();
+}
+
 inline bool MatchCallback(string to, xmps::PeerId peer) {
     if ((to.find(XmppInit::kBgpPeer) != string::npos) && 
         (peer == xmps::BGP)) {
