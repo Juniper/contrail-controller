@@ -122,6 +122,7 @@ void AgentRouteWalker::StartVrfWalk() {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(NULL,
                                       AgentRouteWalkerQueueEntry::START_VRF_WALK,
                                       false));
+    IncrementWalkCount();
     work_queue_.Enqueue(data);
 }
 
@@ -139,11 +140,14 @@ void AgentRouteWalker::StartVrfWalkInternal()
                                     boost::bind(&AgentRouteWalker::VrfWalkDone, 
                                                 this, _1));
     if (vrf_walkid_ != DBTableWalker::kInvalidWalkerId) {
-        IncrementWalkCount();
         AGENT_DBWALK_TRACE(AgentRouteWalkerTrace,
                            "VRF table walk started",
                            walk_type_, "", vrf_walkid_,
                            0, "", DBTableWalker::kInvalidWalkerId);
+    } else {
+        //As walk didnt start because of some failure decrement the
+        //walk count, as there will be no walk done.
+        DecrementWalkCount();
     }
 }
 
@@ -155,6 +159,7 @@ void AgentRouteWalker::StartRouteWalk(VrfEntry *vrf) {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(vrf,
                                       AgentRouteWalkerQueueEntry::START_ROUTE_WALK,
                                       false));
+    IncrementWalkCount();
     work_queue_.Enqueue(data);
 }
 
@@ -179,12 +184,15 @@ void AgentRouteWalker::StartRouteWalkInternal(const VrfEntry *vrf) {
                              boost::bind(&AgentRouteWalker::RouteWalkDone, 
                                          this, _1));
         if (walkid != DBTableWalker::kInvalidWalkerId) {
-            IncrementWalkCount();
             route_walkid_[table_type][vrf_id] = walkid;
             AGENT_DBWALK_TRACE(AgentRouteWalkerTrace,
                                "Route table walk started for vrf", walk_type_,
                                (vrf != NULL) ? vrf->GetName() : "Unknown",
                                vrf_walkid_, table_type, "", walkid);
+        } else {
+            //As walk didnt start because of some failure decrement the
+            //walk count, as there will be no walk done.
+            DecrementWalkCount();
         }
     }
 }
@@ -334,7 +342,7 @@ bool AgentRouteWalker::AreAllWalksDone() const {
         }
     }
     if (walk_done && walk_count_) {
-        assert(0);
+        walk_done = false;
     }
     return walk_done;
  }
