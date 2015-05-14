@@ -99,13 +99,14 @@ def info_callback(info):
 def main(args_str=None):
     x = TestDiscService(args_str)
     _uuid = str(uuid.uuid4())
-    myid = 'test_disc:%s' % (_uuid[:8])
+    my_id = 'test_disc:%s' % (_uuid[:8])
+    my_pid = os.getpid()
     disc = client.DiscoveryClient(
-        x.args.server_ip, x.args.server_port, "test-discovery")
+        x.args.server_ip, x.args.server_port, "test-discovery-%d" % my_pid)
     if x.args.oper == 'subscribe':
         print 'subscribe: service-type = %s, count = %d, myid = %s,\
             subscribe type: %s' \
-            % (x.args.service_type, x.args.service_count, myid, x.args.subscribe_type)
+            % (x.args.service_type, x.args.service_count, my_id, x.args.subscribe_type)
 
         # sync
         if x.args.subscribe_type == 'sync':
@@ -131,11 +132,11 @@ def main(args_str=None):
     elif x.args.oper == 'pubtest':
         tasks = []
         for i in range(x.args.iterations):
-            pub_id = "disco-%d-%i" % (os.getpid(), i)
+            pub_id = "disco-%d-%i" % (my_pid, i)
             disc = client.DiscoveryClient(
                 x.args.server_ip, x.args.server_port, 
                     pub_id, pub_id)
-            data = '%s-%d' % (x.args.service_type, i)
+            data = '%s-%d-%d' % (x.args.service_type, my_pid, i)
             print 'Publish: service-type %s, data %s'\
                 % (x.args.service_type, data)
             task = disc.publish(x.args.service_type, data)
@@ -148,7 +149,7 @@ def main(args_str=None):
         for i in range(x.args.iterations):
             disc = client.DiscoveryClient(
                 x.args.server_ip, x.args.server_port, 
-                "test-discovery-%d-%d" % (os.getpid(), i))
+                "test-discovery-%d-%d" % (my_pid, i))
             obj = disc.subscribe(
                       x.args.service_type, x.args.service_count, info_callback)
             tasks.append(obj.task)
