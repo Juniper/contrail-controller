@@ -699,22 +699,30 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
         if (data->config()) {
             AgentXmppChannel *peer =
                 agent_->controller_xmpp_channel(data->channel_id());
-            peer->ReceiveBgpMessage(data->dom());
+            if (peer) {
+                peer->ReceiveBgpMessage(data->dom());
+            }
         } else {
             AgentXmppChannel *peer =
                 agent_->controller_xmpp_channel(data->channel_id());
-            AgentXmppChannel::HandleAgentXmppClientChannelEvent(peer,
-                                                                data->peer_state());
+            if (peer) {
+                AgentXmppChannel::HandleAgentXmppClientChannelEvent(peer,
+                                                                    data->peer_state());
+            }
         }
     } else if (data->peer_id() == xmps::CONFIG) {
         AgentIfMapXmppChannel *peer =
             agent_->ifmap_xmpp_channel(data->channel_id());
-        peer->ReceiveConfigMessage(data->dom());
+        if (peer) {
+            peer->ReceiveConfigMessage(data->dom());
+        }
     } else if (data->peer_id() == xmps::DNS) {
         AgentDnsXmppChannel *peer =
             agent_->dns_xmpp_channel(data->channel_id());
-        AgentDnsXmppChannel::HandleXmppClientChannelEvent(peer,
-                                                          data->peer_state());
+        if (peer) {
+            AgentDnsXmppChannel::HandleXmppClientChannelEvent(peer,
+                                                              data->peer_state());
+        }
     }
 
     return true;
