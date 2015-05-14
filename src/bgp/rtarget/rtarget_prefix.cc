@@ -11,6 +11,8 @@ using boost::system::error_code;
 using std::copy;
 using std::string;
 
+const string RTargetPrefix::kDefaultPrefixString = "0:target:0:0";
+
 RTargetPrefix::RTargetPrefix() : as_(0), rtarget_(RouteTarget::null_rtarget) {
 }
 
@@ -58,6 +60,9 @@ void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix) const {
 // as:rtarget
 RTargetPrefix RTargetPrefix::FromString(const string &str, error_code *errorp) {
     RTargetPrefix prefix;
+
+    if (str == kDefaultPrefixString)
+        return RTargetPrefix();
 
     size_t pos = str.find(':');
     if (pos == string::npos) {
