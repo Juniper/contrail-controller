@@ -164,7 +164,9 @@ int main(int argc, char *argv[]) {
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
-    if (!DnsAgentXmppManager::Init()){
+    if (!DnsAgentXmppManager::Init(options.xmpp_auth_enabled(),
+                                   options.xmpp_server_cert(),
+                                   options.xmpp_server_key())) {
         LOG(ERROR, "Address already in use " << ContrailPorts::DnsXmpp());
         exit(1);
     }

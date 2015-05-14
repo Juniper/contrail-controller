@@ -14,8 +14,6 @@
 class ControllerSandesh {
 public:
     static const uint8_t entries_per_sandesh = 20;
-    static const char *kAuthTypeNil;
-    static const char *kAuthTypeTls;
     ControllerSandesh();
     virtual ~ControllerSandesh() {}
 

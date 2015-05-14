@@ -82,20 +82,19 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_cfg->endpoint.port(options->xmpp_port());
     xmpp_cfg->FromAddr = XmppInit::kControlNodeJID;
     xmpp_cfg->auth_enabled = options->xmpp_auth_enabled();
-
-    XmppServer *xmpp_server;
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();
         xmpp_cfg->path_to_pvt_key = options->xmpp_server_key();
-        // Create XmppServer
-        xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
-    } else {
-        // Create XmppServer
-        xmpp_server = new XmppServer(evm, options->hostname());
     }
-    xmpp_server->Initialize(options->xmpp_port(), true);
 
-    return (xmpp_server);
+    // Create XmppServer
+    XmppServer *xmpp_server;
+    xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
+    if (!xmpp_server->Initialize(options->xmpp_port(), true)) {
+        return NULL;
+    } else {
+        return (xmpp_server);
+    }
 }
 
 static void WaitForIdle() {
@@ -500,6 +499,9 @@ int main(int argc, char *argv[]) {
     //Create Xmpp Server
     XmppChannelConfig xmpp_cfg(false);
     XmppServer *xmpp_server = CreateXmppServer(&evm, &options, &xmpp_cfg);
+    if (xmpp_server == NULL) {
+        exit(1);
+    }
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
