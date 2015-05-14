@@ -17,4 +17,3 @@ netifaces
 bottle
 stevedore
 kazoo
-xmltodict
