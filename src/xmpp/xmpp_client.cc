@@ -51,7 +51,6 @@ XmppClient::XmppClient(EventManager *evm)
 
 XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
     : SslServer(evm, ssl::context::tlsv1_client, config->auth_enabled, true),
-
       config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
