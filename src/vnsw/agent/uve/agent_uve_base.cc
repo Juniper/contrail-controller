@@ -28,7 +28,7 @@ using process::g_process_info_constants;
 
 AgentUveBase *AgentUveBase::singleton_;
 
-AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl, bool create_objects,
+AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl,
                            uint32_t default_intvl, uint32_t incremental_intvl)
     : vn_uve_table_(NULL), vm_uve_table_(NULL), vrouter_uve_entry_(NULL),
       prouter_uve_table_(new ProuterUveTable(agent, default_intvl)),
@@ -39,12 +39,6 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl, bool create_objects,
       vrouter_stats_collector_(new VrouterStatsCollector(
                                    *(agent->event_manager()->io_service()),
                                    this)) {
-    if (create_objects) {
-        vn_uve_table_.reset(new VnUveTableBase(agent, default_intvl));
-        vm_uve_table_.reset(new VmUveTableBase(agent, default_intvl));
-        vrouter_uve_entry_.reset(new VrouterUveEntryBase(agent));
-        interface_uve_table_.reset(new InterfaceUveTable(agent, default_intvl));
-    }
     singleton_ = this;
 }
 

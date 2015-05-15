@@ -4,6 +4,8 @@
 #ifndef __test_uve_util__
 #define __test_uve_util__
 
+#include "uve/agent_uve_stats.h"
+
 class AgentStatsCollectorTask : public Task {
 public:
     AgentStatsCollectorTask(int count) :
@@ -39,7 +41,8 @@ public:
         count_(count) {
     }
     virtual bool Run() {
-        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+        AgentUveStats *uve = static_cast<AgentUveStats *>
+            (Agent::GetInstance()->uve());
         for (int i = 0; i < count_; i++)
             uve->vrouter_stats_collector()->Run();
         return true;

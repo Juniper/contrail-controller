@@ -17,7 +17,7 @@
 AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl,
                                    uint32_t default_intvl,
                                    uint32_t incremental_intvl)
-    : AgentUve(agent, intvl, default_intvl, incremental_intvl) {
+    : AgentUveStats(agent, intvl, default_intvl, incremental_intvl) {
     if (vn_uve_table_) {
         vn_uve_table_->Shutdown();
     }

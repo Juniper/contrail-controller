@@ -6,7 +6,6 @@
 #define vnsw_agent_uve_h
 
 #include <uve/agent_uve_base.h>
-#include <uve/stats_manager.h>
 
 //The class to drive UVE module initialization for agent
 //Defines objects required for statistics collection from vrouter and
@@ -16,13 +15,6 @@ public:
     AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
              uint32_t incremental_intvl);
     virtual ~AgentUve();
-
-    virtual void Shutdown();
-    virtual void RegisterDBClients();
-    StatsManager *stats_manager() const;
-
-protected:
-    boost::scoped_ptr<StatsManager> stats_manager_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(AgentUve);
