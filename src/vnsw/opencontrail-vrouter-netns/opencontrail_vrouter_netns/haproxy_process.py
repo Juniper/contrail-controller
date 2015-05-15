@@ -3,52 +3,49 @@ import os
 import shlex
 import subprocess
 import haproxy_config
+from opencontrail_vrouter_netns.linux import child_monitor
 
 SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
 
-def stop_haproxy(conf_file, daemon_mode=False):
+def stop_haproxy(ip_ns, conf_file, daemon_mode=False):
     pool_id = os.path.split(os.path.dirname(conf_file))[1]
     try:
         if daemon_mode:
-            _stop_haproxy_daemon(pool_id)
+            _stop_haproxy_daemon(ip_ns, pool_id, conf_file)
         else:
             _stop_supervisor_haproxy(pool_id)
     except Exception as e:
         pass
 
-def start_update_haproxy(conf_file, netns, daemon_mode=False):
+def start_update_haproxy(ip_ns, conf_file, daemon_mode=False):
+    netns = ip_ns.namespace
     pool_id = os.path.split(os.path.dirname(conf_file))[1]
     haproxy_cfg_file = haproxy_config.build_config(conf_file)
     try:
         if daemon_mode:
-            _start_haproxy_daemon(pool_id, netns, haproxy_cfg_file)
+            _start_haproxy_daemon(ip_ns, pool_id, haproxy_cfg_file)
         else:
             _start_supervisor_haproxy(pool_id, netns, haproxy_cfg_file)
     except Exception as e:
         pass
 
-def _get_lbaas_pid(pool_id):
-    cmd_list = shlex.split('ps aux')
-    p1 = subprocess.Popen(cmd_list, stdout=subprocess.PIPE)
-    cmd_list = shlex.split('grep haproxy')
-    p2 = subprocess.Popen(cmd_list, stdin=p1.stdout, stdout=subprocess.PIPE)
-    cmd_list = shlex.split('grep ' + pool_id)
-    p = subprocess.Popen(cmd_list, stdin=p2.stdout, stdout=subprocess.PIPE)
-    out, err = p.communicate()
-    try:
-        pid = out.split()[1]
-    except Exception:
-        pid = None
-    return pid
+def _get_lbaas_pid(ip_ns, pool_id, conf_file):
+    cmd = "pidof haproxy"
+    out = ip_ns.netns.execute(shlex.split(cmd), check_exit_code=False)
+    pids = shlex.split(out)
+    for pid in pids:
+        with open("/proc/%s/cmdline" % pid, "r") as fd:
+            if pool_id in fd.read():
+                return pid
 
-def _stop_haproxy_daemon(pool_id):
-    last_pid = _get_lbaas_pid(pool_id)
+def _stop_haproxy_daemon(ip_ns, pool_id, conf_file):
+    last_pid = _get_lbaas_pid(ip_ns, pool_id, conf_file)
     if last_pid:
-        cmd_list = shlex.split('kill -9 ' + last_pid)
-        subprocess.Popen(cmd_list)
+        cmd_list = shlex.split('kill -10 ' + last_pid)
+        ip_ns.netns.execute(cmd_list)
 
-def _start_haproxy_daemon(pool_id, netns, conf_file):
-    last_pid = _get_lbaas_pid(pool_id)
+def _start_haproxy_daemon(ip_ns, pool_id, conf_file):
+    last_pid = _get_lbaas_pid(ip_ns, pool_id, conf_file)
     if last_pid:
         sf_opt = '-sf ' + last_pid
     else:
@@ -56,10 +53,12 @@ def _start_haproxy_daemon(pool_id, netns, conf_file):
     conf_dir = os.path.dirname(conf_file)
     pid_file = conf_dir + '/haproxy.pid'
 
-    cmd = 'ip netns exec %s haproxy -f %s -p %s %s' % \
-        (netns, conf_file, pid_file, sf_opt)
+    cm_file = child_monitor.__file__
+    cmd = 'python %s ' % cm_file
+    cmd += ('haproxy -f %s -p %s -db %s' %
+        (conf_file, pid_file, sf_opt))
     cmd_list = shlex.split(cmd)
-    subprocess.Popen(cmd_list)
+    ip_ns.netns.execute(cmd_list)
 
 def _stop_supervisor_haproxy(pool_id):
     pool_suffix = _get_pool_suffix(pool_id)

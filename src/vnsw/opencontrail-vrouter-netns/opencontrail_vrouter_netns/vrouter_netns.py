@@ -22,8 +22,8 @@ Script to start or destroy a Linux network namespace plug
 between two virtual networks. Such that an application can
 be executed under the context of a virtualized network.
 """
-from __future__ import print_function
-__docformat__ = "restructuredtext en"
+#from __future__ import print_function
+#__docformat__ = "restructuredtext en"
 
 import argparse
 import netaddr
@@ -132,7 +132,8 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             self.create()
 
-        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True)
+        print " -- Starting update haproxy"
+        haproxy_process.start_update_haproxy(self.ip_ns, self.cfg_file, True)
 
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
@@ -144,7 +145,7 @@ class NetnsManager(object):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
        
-        haproxy_process.stop_haproxy(self.cfg_file, True)
+        haproxy_process.stop_haproxy(self.ip_ns, self.cfg_file, True)
 
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
