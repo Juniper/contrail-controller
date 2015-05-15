@@ -4,7 +4,7 @@
 
 #include <oper/interface_common.h>
 #include <uve/interface_uve_stats_table.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 
 InterfaceUveStatsTable::InterfaceUveStatsTable(Agent *agent,
                                                uint32_t default_intvl)
@@ -30,7 +30,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     entry->SetVnVmInfo(uve);
 
     const Interface *intf = static_cast<const Interface *>(vm_intf);
-    AgentUve *agent_uve = static_cast<AgentUve *>(agent_->uve());
+    AgentUveStats *agent_uve = static_cast<AgentUveStats *>(agent_->uve());
     StatsManager::InterfaceStats *s =
         agent_uve->stats_manager()->GetInterfaceStats(intf);
     if (s == NULL) {

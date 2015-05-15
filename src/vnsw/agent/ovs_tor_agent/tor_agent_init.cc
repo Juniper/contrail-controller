@@ -22,7 +22,7 @@
 #include <oper/mpls.h>
 #include <oper/route_common.h>
 #include <oper/bridge_route.h>
-#include <uve/agent_uve_base.h>
+#include <uve/agent_uve.h>
 
 #include <cfg/cfg_init.h>
 #include <controller/controller_init.h>
@@ -77,9 +77,9 @@ void TorAgentInit::CreateModules() {
                 static_cast<TorAgentParam *>(agent_param()),
                 ovs_peer_manager()));
     agent()->set_ovsdb_client(ovsdb_client_.get());
-    uve_.reset(new AgentUveBase(agent(), AgentUveBase::kBandwidthInterval, true,
-                                AgentUveBase::kDefaultInterval,
-                                AgentUveBase::kIncrementalInterval));
+    uve_.reset(new AgentUve(agent(), AgentUveBase::kBandwidthInterval,
+                            AgentUveBase::kDefaultInterval,
+                            AgentUveBase::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 }
 

@@ -94,6 +94,7 @@ libuve = env.Library('uve',
                      SandeshGenObjs +
                      [
                      'agent_uve_base.cc',
+                     'agent_uve.cc',
                      'interface_uve_table.cc',
                      'l4_port_bitmap.cc',
                      'prouter_uve_table.cc',
@@ -108,7 +109,7 @@ libuve = env.Library('uve',
 libstatsuve = env.Library('statsuve',
                           StatsSandeshGenObjs +
                          [
-                          'agent_uve.cc',
+                          'agent_uve_stats.cc',
                           'interface_uve_stats_table.cc',
                           'stats_manager.cc',
                           'vm_stat.cc',

@@ -11,6 +11,7 @@
 #include <controller/controller_init.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <openstack/instance_service_server.h>
@@ -38,7 +39,13 @@ void ContrailAgentInit::ProcessOptions
  * Initialization routines
 ****************************************************************************/
 void ContrailAgentInit::FactoryInit() {
-    AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUve *>());
+    if (agent()->tsn_enabled() == false) {
+        AgentObjectFactory::Register<AgentUveBase>
+            (boost::factory<AgentUveStats *>());
+    } else {
+        AgentObjectFactory::Register<AgentUveBase>
+            (boost::factory<AgentUve *>());
+    }
     if (agent_param()->vrouter_on_nic_mode() || agent_param()->vrouter_on_host_dpdk()) {
         AgentObjectFactory::Register<KSync>(boost::factory<KSyncTcp *>());
     } else {
@@ -73,14 +80,14 @@ void ContrailAgentInit::CreateModules() {
                                    *(agent()->event_manager()->io_service()),
                                      agent()));
         agent()->set_stats_collector(stats_collector_.get());
-    }
 
-    flow_stats_collector_.reset(new FlowStatsCollector(
+        flow_stats_collector_.reset(new FlowStatsCollector(
                                     *(agent()->event_manager()->io_service()),
                                     agent()->params()->flow_stats_interval(),
                                     agent()->params()->flow_cache_timeout(),
                                     uve_.get()));
-    agent()->set_flow_stats_collector(flow_stats_collector_.get());
+        agent()->set_flow_stats_collector(flow_stats_collector_.get());
+    }
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());

@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vn_uve_entry.h>
 
@@ -37,7 +37,7 @@ bool VnUveTable::SendUnresolvedVnMsg(const string &vn_name,
     changed = entry->PopulateInterVnStats(uve);
 
 
-    AgentUve *u = static_cast<AgentUve *>(agent_->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     StatsManager *stats = u->stats_manager();
     /* Send Nameless VrfStats as part of Unknown VN */
     if (vn_name.compare(FlowHandler::UnknownVn()) == 0) {

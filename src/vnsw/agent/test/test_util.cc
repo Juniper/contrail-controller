@@ -7,6 +7,7 @@
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
 #include "uve/test/vn_uve_table_test.h"
+#include "uve/agent_uve_stats.h"
 
 #define MAX_TESTNAME_LEN 80
 
@@ -696,7 +697,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
     if (intf == NULL)
         return false;
 
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::InterfaceStats *st = sm->GetInterfaceStats(intf);
     if (st == NULL)
@@ -714,7 +715,7 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t fabric_composites, uint64_t l2_mcast_composites,
                    uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
                    uint64_t encaps, uint64_t l2_encaps) {
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::VrfStats *st = sm->GetVrfStats(vrf_id);
     if (st == NULL) {
@@ -761,7 +762,7 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
                    uint64_t l2_mcast_composites, uint64_t l3_mcast_composites,
                    uint64_t multi_proto_composites, uint64_t encaps,
                    uint64_t l2_encaps) {
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::VrfStats *st = sm->GetVrfStats(vrf_id);
     if (st == NULL) {
@@ -801,7 +802,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     if (intf == NULL)
         return false;
 
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::InterfaceStats *st = sm->GetInterfaceStats(intf);
     if (st == NULL)
@@ -814,7 +815,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
 
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
                       uint32_t obytes, uint32_t opkts) {
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::InterfaceStats *st = sm->GetInterfaceStats(intf);
     EXPECT_TRUE(st != NULL);

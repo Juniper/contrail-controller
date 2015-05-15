@@ -390,7 +390,7 @@ TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 
 TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     Agent *agent = Agent::GetInstance();
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
@@ -464,7 +464,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
 
 TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     Agent *agent = Agent::GetInstance();
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
@@ -533,7 +533,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 
 TEST_F(UveVrouterUveTest, BandwidthTest_2) {
     Agent *agent = Agent::GetInstance();
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
@@ -633,7 +633,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 
 TEST_F(UveVrouterUveTest, BandwidthTest_3) {
     Agent *agent = Agent::GetInstance();
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
@@ -732,7 +732,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
 }
 
 TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
@@ -772,7 +772,7 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
 
 //Flow creation using IP and TCP packets
 TEST_F(UveVrouterUveTest, Bitmap_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
@@ -860,7 +860,7 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
 
 /* Verifies agent configuration sent via vrouter UVE. */
 TEST_F(UveVrouterUveTest, config_1) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();

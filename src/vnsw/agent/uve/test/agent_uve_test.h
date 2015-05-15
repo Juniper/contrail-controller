@@ -5,9 +5,9 @@
 #ifndef vnsw_agent_uve_test_h
 #define vnsw_agent_uve_test_h
 
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_stats.h>
 
-class AgentUveBaseTest : public AgentUve {
+class AgentUveBaseTest : public AgentUveStats {
 public:
     AgentUveBaseTest(Agent *agent, uint64_t intvl, uint32_t default_intvl,
                      uint32_t incremental_intvl);
