@@ -32,7 +32,6 @@ else:
    from eventlet.green import subprocess
    from eventlet import greenthread
 
-
 def _subprocess_setup():
     # Python installs a SIGPIPE handler by default. This is usually not what
     # non-Python subprocesses expect.
