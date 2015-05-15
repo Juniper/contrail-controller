@@ -479,7 +479,7 @@ class IpNetnsCommand(IpCommandBase):
     def delete(self, name):
         self._as_root('delete', name, use_root_namespace=True)
 
-    def execute(self, cmds, addl_env={}, check_exit_code=True):
+    def execute(self, cmds, addl_env={}, check_exit_code=True, monitor=False):
         if not self._parent.root_helper:
             raise NameError("Sudo privilege is required to run this command.")
         ns_params = []
@@ -493,7 +493,8 @@ class IpNetnsCommand(IpCommandBase):
         return utils.execute(
             ns_params + env_params + list(cmds),
             root_helper=self._parent.root_helper,
-            check_exit_code=check_exit_code)
+            check_exit_code=check_exit_code,
+            monitor=monitor)
 
     def exists(self, name):
         output = self._parent._execute('o', 'netns', ['list'])

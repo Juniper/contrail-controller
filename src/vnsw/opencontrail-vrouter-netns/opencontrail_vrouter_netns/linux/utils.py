@@ -25,13 +25,13 @@ import socket
 import struct
 import tempfile
 import sys
+from opencontrail_vrouter_netns.linux import child_monitor
 
 if sys.version_info[:2] == (2, 6):
    import subprocess
 else:
    from eventlet.green import subprocess
    from eventlet import greenthread
-
 
 def _subprocess_setup():
     # Python installs a SIGPIPE handler by default. This is usually not what
@@ -70,7 +70,14 @@ def create_process(cmd, root_helper=None, addl_env=None):
 
 
 def execute(cmd, root_helper=None, process_input=None, addl_env=None,
-            check_exit_code=True, return_stderr=False):
+            check_exit_code=True, return_stderr=False, monitor=False):
+    if monitor:
+        cm_file = child_monitor.__file__
+        cmd = (shlex.split(root_helper) if root_helper else []) + ['python', cm_file] + cmd
+        subprocess.Popen(cmd, shell=False)
+        greenthread.sleep(0)
+        return None
+
     try:
         obj, cmd = create_process(cmd, root_helper=root_helper,
                                   addl_env=addl_env)

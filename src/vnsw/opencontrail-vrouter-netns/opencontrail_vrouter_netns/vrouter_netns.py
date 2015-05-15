@@ -129,18 +129,16 @@ class NetnsManager(object):
                                  'dev', str(self.nic_left['name'])])
 
     def _get_lbaas_pid(self):
-        cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
-              """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
+        cmd = 'pidof -s %s' % self.LBAAS_PROCESS
         try:
             if "check_output" not in dir(subprocess):
                 s = _check_output(cmd)
             else:
                 s = subprocess.check_output(cmd, shell=True)
-                
+
         except subprocess.CalledProcessError:
             return None
-        words = s.split()
-        pid = int(words[1])
+        pid = int(s)
         return pid
 
     def set_lbaas(self):
@@ -153,15 +151,22 @@ class NetnsManager(object):
             if pid is not None:
                 self.release_lbaas()
 
-            self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
-                                    '-p', pid_file])
-            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
+            self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file,
+                                    '-db',
+                                    '-p', pid_file], monitor=True)
+            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip],
+                monitor=True)
         else:
             if pid is not None:
-                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
+                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, 
+                    '-db',
+                    '-p', pid_file, '-sf', str(pid)],
+                    monitor=True)
             else:
-                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
-                                    '-p', pid_file])
+                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file,
+                                    '-db',
+                                    '-p', pid_file],
+                                    monitor=True)
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
