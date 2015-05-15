@@ -49,6 +49,7 @@ import discoveryclient.client as client
 from db import ServiceMonitorDB
 from logger import ServiceMonitorLogger
 from loadbalancer_agent import LoadbalancerAgent
+from snat_agent import SNATAgent
 
 from novaclient import exceptions as nc_exc
 
@@ -110,6 +111,9 @@ class SvcMonitor(object):
             'self': [],
         },
         "logical_interface": {
+            'self': [],
+        },
+        "logical_router": {
             'self': [],
         },
         "virtual_network": {
@@ -288,6 +292,11 @@ class SvcMonitor(object):
                     if vmi and vmi.virtual_ip:
                         self.netns_manager.add_fip_to_vip_vmi(vmi, fip)
 
+        for lr_id in dependency_tracker.resources.get('logical_router', []):
+            lr = LogicalRouterSM.get(lr_id)
+            if lr:
+                self.snat_agent.update_snat_instance(lr)
+
     def post_init(self, vnc_lib, args=None):
         # api server
         self._vnc_lib = vnc_lib
@@ -322,6 +331,7 @@ class SvcMonitor(object):
 
         # load a loadbalancer agent
         self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib, self._args)
+        self.snat_agent = SNATAgent(self, self._vnc_lib)
 
         # Read the cassandra and populate the entry in ServiceMonitor DB
         self.sync_sm()
@@ -651,6 +661,14 @@ class SvcMonitor(object):
                         continue
                     self.port_delete_or_si_link(vm, vmi)
 
+
+        ok, lr_list = self._cassandra._cassandra_logical_router_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in lr_list:
+                lr = LogicalRouterSM.locate(uuid)
+
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
 
@@ -659,6 +677,9 @@ class SvcMonitor(object):
 
         # Audit the lb pools
         self.loadbalancer_agent.audit_lb_pools()
+
+        # Audit the SNAT instances
+        self.snat_agent.audit_snat_instances()
 
     # end sync_sm
 

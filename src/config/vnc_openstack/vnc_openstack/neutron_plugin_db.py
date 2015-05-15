@@ -2947,132 +2947,14 @@ class DBInterface(object):
                 self._router_clear_external_gateway(rtr_obj)
 
     def _router_set_external_gateway(self, router_obj, ext_net_obj):
-        project_obj = self._project_read(proj_id=router_obj.parent_uuid)
-
-        # Get netns SNAT service template
-        try:
-            st_obj = self._vnc_lib.service_template_read(
-                fq_name=SNAT_SERVICE_TEMPLATE_FQ_NAME)
-        except NoIdError:
-            self._raise_contrail_exception('BadRequest', resouce='router',
-                msg="Unable to set or clear the default gateway")
-
-        # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
-        si_fq_name = project_obj.get_fq_name() + [si_name]
-        try:
-            si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            si_uuid = si_obj.uuid
-        except NoIdError:
-            si_obj = None
-
-        # Get route table for default route it it exists
-        rt_name = 'rt_' + router_obj.uuid
-        rt_fq_name = project_obj.get_fq_name() + [rt_name]
-        try:
-            rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
-        except NoIdError:
-            rt_obj = None
-
-        # Set the service instance
-        si_created = False
-        if not si_obj:
-            si_obj = ServiceInstance(si_name, parent_obj=project_obj)
-            si_created = True
-        si_prop_obj = ServiceInstanceType(
-            scale_out=ServiceScaleOutType(max_instances=2,
-                                          auto_scale=True),
-            auto_policy=True)
-
-        # set right interface in order of [right, left] to match template
-        left_if = ServiceInstanceInterfaceType()
-        right_if = ServiceInstanceInterfaceType(
-            virtual_network=ext_net_obj.get_fq_name_str())
-        si_prop_obj.set_interface_list([right_if, left_if])
-        si_prop_obj.set_ha_mode('active-standby')
-
-        si_obj.set_service_instance_properties(si_prop_obj)
-        si_obj.set_service_template(st_obj)
-        if si_created:
-            si_uuid = self._vnc_lib.service_instance_create(si_obj)
-        else:
-            self._vnc_lib.service_instance_update(si_obj)
-
-        # Set the route table
-        route_obj = RouteType(prefix="0.0.0.0/0",
-                              next_hop=si_obj.get_fq_name_str())
-        rt_created = False
-        if not rt_obj:
-            rt_obj = RouteTable(name=rt_name, parent_obj=project_obj)
-            rt_created = True
-        rt_obj.set_routes(RouteTableType.factory([route_obj]))
-        if rt_created:
-            rt_uuid = self._vnc_lib.route_table_create(rt_obj)
-        else:
-            self._vnc_lib.route_table_update(rt_obj)
-
-        # Associate route table to all private networks connected onto
-        # that router
-        for intf in router_obj.get_virtual_machine_interface_refs() or []:
-            port_id = intf['uuid']
-            net_id = self.port_read(port_id)['network_id']
-            try:
-                net_obj = self._vnc_lib.virtual_network_read(id=net_id)
-            except NoIdError:
-                self._raise_contrail_exception(
-                    'NetworkNotFound', net_id=net_id)
-            net_obj.set_route_table(rt_obj)
-            self._vnc_lib.virtual_network_update(net_obj)
-
-        # Add logical gateway virtual network
-        router_obj.set_service_instance(si_obj)
-	router_obj.set_virtual_network(ext_net_obj)
+        # Set logical gateway virtual network
+        router_obj.set_virtual_network(ext_net_obj)
         self._vnc_lib.logical_router_update(router_obj)
 
     def _router_clear_external_gateway(self, router_obj):
-        project_obj = self._project_read(proj_id=router_obj.parent_uuid)
-
-        # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
-        si_fq_name = project_obj.get_fq_name() + [si_name]
-        try:
-            si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            si_uuid = si_obj.uuid
-        except NoIdError:
-            si_obj = None
-
-        # Get route table for default route it it exists
-        rt_name = 'rt_' + router_obj.uuid
-        rt_fq_name = project_obj.get_fq_name() + [rt_name]
-        try:
-            rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
-        except NoIdError:
-            rt_obj = None
-
-        # Delete route table
-        if rt_obj:
-            # Disassociate route table to all private networks connected
-            # onto that router
-            for net_ref in rt_obj.get_virtual_network_back_refs() or []:
-                try:
-                    net_obj = self._vnc_lib.virtual_network_read(
-                        id=net_ref['uuid'])
-                except NoIdError:
-                    continue
-                net_obj.del_route_table(rt_obj)
-                self._vnc_lib.virtual_network_update(net_obj)
-            self._vnc_lib.route_table_delete(id=rt_obj.uuid)
-
         # Clear logical gateway virtual network
         router_obj.set_virtual_network_list([])
-        router_obj.set_service_instance_list([])
         self._vnc_lib.logical_router_update(router_obj)
-
-        # Delete service instance
-        if si_obj:
-            self._vnc_lib.service_instance_delete(id=si_uuid)
 
     def _set_snat_routing_table(self, router_obj, network_id):
         project_obj = self._project_read(proj_id=router_obj.parent_uuid)
