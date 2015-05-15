@@ -64,9 +64,26 @@ An object can be read by using its uuid returned by create...
 
 List the virtual-networks
 -------------------------
-A collection of objects can be listed by 
+A summary collection of objects can be listed by
 
     >>> print vnc_lib.virtual_networks_list()
+
+A detailed collection (**Warning** depending on collection size it might
+transfer a lot of data) of objects can be listed by
+
+    >>> print vnc_lib.virtual_networks_list(detail=True)
+
+A subset collection of objects can be listed by
+
+    >>> print vnc_lib.virtual_networks_list(
+            obj_uuids=['57603abb-0089-4a89-b44b-8ca71d4b7826',
+                       '5de3af3e-269f-40be-b0f6-69d6bb962a9f'],
+            detail=True)
+
+A subset collection of objects anchored by a parent can be listed by
+
+    >>> print vnc_lib.virtual_networks_list(parent_id='83a4bea4-ec45-4670-950c-d7f0f98e0e4f')
+
 
 Deleting the objects
 --------------------

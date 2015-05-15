@@ -73,6 +73,18 @@ Response ::
 
     {"virtual-networks": [{"href": "http://10.84.14.2:8082/virtual-network/8c84ff8a-30ac-4136-99d9-f0d9662f3eee", "fq_name": ["default-domain", "admin", "vn-blue"], "uuid": "8c84ff8a-30ac-4136-99d9-f0d9662f3eee"}, {"href": "http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99", "fq_name": ["default-domain", "admin", "vn-red"], "uuid": "47a91732-629b-4cbe-9aa5-45ba4d7b0e99"}, {"href": "http://10.84.14.2:8082/virtual-network/f423b6c8-deb6-4325-9035-15a8c8bb0a0d", "fq_name": ["default-domain", "default-project", "__link_local__"], "uuid": "f423b6c8-deb6-4325-9035-15a8c8bb0a0d"}, {"href": "http://10.84.14.2:8082/virtual-network/d44a51b0-f2d8-4644-aee0-fe856f970683", "fq_name": ["default-domain", "default-project", "default-virtual-network"], "uuid": "d44a51b0-f2d8-4644-aee0-fe856f970683"}, {"href": "http://10.84.14.2:8082/virtual-network/aad9e80a-8638-449f-a484-5d1bfd58065c", "fq_name": ["default-domain", "default-project", "ip-fabric"], "uuid": "aad9e80a-8638-449f-a484-5d1bfd58065c"}]}
 
+Request with detail (**WARNING** depending on collection size, this may be inefficient)::
+
+    curl -X GET -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-networks?detail=True
+
+Request subset of virtual-networks with detail ::
+
+    curl -X GET -H "Content-Type: application/json; charset=UTF-8" "http://10.84.14.2:8082/virtual-networks?obj_uuids=8c84ff8a-30ac-4136-99d9-f0d9662f3eee,47a91732-629b-4cbe-9aa5-45ba4d7b0e99&detail=True"
+
+Request virtual-networks anchored by a project(parent)::
+
+    curl -X GET -H "Content-Type: application/json; charset=UTF-8" "http://10.84.14.2:8082/parent_id=83a4bea4-ec45-4670-950c-d7f0f98e0e4f"
+
 Delete the objects
 ------------------
 To delete the virtual-networks and network-policy objects created:
