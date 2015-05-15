@@ -817,6 +817,39 @@ class ServiceApplianceSetSM(DBBase):
     # end delete
 # end ServiceApplianceSetSM
 
+class LogicalRouterSM(DBBase):
+    _dict = {}
+    obj_type = 'logical_router'
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_instance = None
+        self.virtual_network = None
+        self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.parent_uuid = obj['parent_uuid']
+        self.update_single_ref('service_instance', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_single_ref('virtual_network', obj)
+        self.name = obj['fq_name'][-1]
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        cls._manager.snat_agent.delete_snat_instance(obj)
+        obj.update_single_ref('service_instance', {})
+        obj.update_single_ref('virtual_network', {})
+        self.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end LogicalRouterSM
 
 DBBase._OBJ_TYPE_MAP = {
     'loadbalancer_pool': LoadbalancerPoolSM,
@@ -840,4 +873,5 @@ DBBase._OBJ_TYPE_MAP = {
     'security_group': SecurityGroupSM,
     'service_appliance': ServiceApplianceSM,
     'service_appliance_set': ServiceApplianceSetSM,
+    'logical_router': LogicalRouterSM,
 }
