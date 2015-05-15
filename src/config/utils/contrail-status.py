@@ -291,7 +291,8 @@ def check_svc_status(service_name, debug, detail, timeout):
                 svc_detail_info = ' '.join(supervisor_svc_info[2:])
                 # Extract UVE state only for running processes
                 svc_uve_description = None
-                if svc_name in NodeUVEImplementedServices and svc_status == 'active':
+                if (svc_name in NodeUVEImplementedServices or
+                    svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices) and svc_status == 'active':
                     try:
                         svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug, timeout)
                     except requests.ConnectionError, e:
