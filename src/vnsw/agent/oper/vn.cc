@@ -40,11 +40,9 @@ VnTable *VnTable::vn_table_;
 
 VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
                const std::string& dns, bool dhcp, std::string &name,
-               const autogen::IpamType &ipam_type,
                const std::vector<autogen::DhcpOptionType> &dhcp_options,
                const std::vector<autogen::RouteType> &host_routes)
-        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name),
-          ipam(ipam_type) {
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
     boost::system::error_code ec;
     ip_prefix = IpAddress::from_string(ip, ec);
     default_gw = IpAddress::from_string(gw, ec);
@@ -88,7 +86,7 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
 }
 
 VnEntry::VnEntry(Agent *agent, uuid id) :
-    AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
+    AgentOperDBEntry(), agent_(agent), uuid_(id), vxlan_id_(0), vnid_(0),
     bridging_(true), layer3_forwarding_(true), admin_state_(true),
     table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false) {
 }
@@ -131,17 +129,25 @@ bool VnEntry::GetVnHostRoutes(const std::string &ipam,
     return false;
 }
 
-bool VnEntry::GetIpamData(const IpAddress &vm_addr,
-                          std::string *ipam_name,
-                          autogen::IpamType *ipam) const {
+bool VnEntry::GetIpamName(const IpAddress &vm_addr,
+                          std::string *ipam_name) const {
     for (unsigned int i = 0; i < ipam_.size(); i++) {
         if (ipam_[i].IsSubnetMember(vm_addr)) {
             *ipam_name = ipam_[i].ipam_name;
-            *ipam = ipam_[i].ipam;
             return true;
         }
     }
     return false;
+}
+
+bool VnEntry::GetIpamData(const IpAddress &vm_addr,
+                          std::string *ipam_name,
+                          autogen::IpamType *ipam) const {
+    if (!GetIpamName(vm_addr, ipam_name) ||
+        !agent_->domain_config_table()->GetIpam(*ipam_name, ipam))
+        return false;
+
+    return true;
 }
 
 const VnIpam *VnEntry::GetIpam(const IpAddress &ip) const {
@@ -157,11 +163,12 @@ bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
                               autogen::IpamType *ipam_type,
                               autogen::VirtualDnsType *vdns_type) const {
     std::string ipam_name;
-    if (!GetIpamData(vm_addr, &ipam_name, ipam_type) ||
+    if (!GetIpamName(vm_addr, &ipam_name) ||
+        !agent_->domain_config_table()->GetIpam(ipam_name, ipam_type) ||
         ipam_type->ipam_dns_method != "virtual-dns-server")
         return false;
     
-    if (!Agent::GetInstance()->domain_config_table()->GetVDns(
+    if (!agent_->domain_config_table()->GetVDns(
                 ipam_type->ipam_dns_server.virtual_dns_server_name, vdns_type))
         return false;
         
@@ -196,8 +203,7 @@ std::string VnEntry::GetProject() const {
 }
 
 int VnEntry::GetVxLanId() const {
-    if (Agent::GetInstance()->vxlan_network_identifier_mode() == 
-        Agent::CONFIGURED) {
+    if (agent_->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
         return vxlan_id_;
     } else {
         return vnid_;
@@ -216,7 +222,7 @@ void VnEntry::RebakeVxLan(int vxlan_id) {
     VxLanId::Create(vxlan_id, GetVrf()->GetName(), flood_unknown_unicast_);
     VxLanId *vxlan_id_entry = NULL;
     VxLanIdKey vxlan_key(vxlan_id);
-    vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
+    vxlan_id_entry = static_cast<VxLanId *>(agent_->
                             vxlan_table()->FindActiveEntry(&vxlan_key));
     vxlan_id_ref_ = vxlan_id_entry;
 }
@@ -247,8 +253,7 @@ bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
         if (new_vxlan_id != vxlan_id_) {
             //Ignore rebake if mode is not configured as user configured vxlan
             //is not in use.
-            if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
-                Agent::CONFIGURED) {
+            if (agent_->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
                 rebake_vxlan = true;
             }
             vxlan_id_ = new_vxlan_id; 
@@ -258,8 +263,7 @@ bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
         if (new_vnid != vnid_) {
             //Ignore rebake if mode is not automatic as auto assigned vxlan
             //is not in use.
-            if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
-                Agent::AUTOMATIC) {
+            if (agent_->vxlan_network_identifier_mode() == Agent::AUTOMATIC) {
                 rebake_vxlan = true;
             }
             vnid_ = new_vnid;
@@ -329,7 +333,7 @@ void VnTable::VnEntryWalkDone(DBTableBase *partition) {
 }
 
 void VnTable::UpdateVxLanNetworkIdentifierMode() {
-    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
+    DBTableWalker *walker = agent()->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
     }
@@ -371,7 +375,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
-        (Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
+        (agent()->acl_table()->FindActiveEntry(&key));
     if (vn->acl_.get() != acl) {
         vn->acl_ = acl;
         ret = true;
@@ -379,7 +383,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_key(data->mirror_acl_id_);
     AclDBEntry *mirror_acl = static_cast<AclDBEntry *>
-        (Agent::GetInstance()->acl_table()->FindActiveEntry(&mirror_key));
+        (agent()->acl_table()->FindActiveEntry(&mirror_key));
     if (vn->mirror_acl_.get() != mirror_acl) {
         vn->mirror_acl_ = mirror_acl;
         ret = true;
@@ -387,7 +391,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_cfg_acl_key(data->mirror_cfg_acl_id_);
     AclDBEntry *mirror_cfg_acl = static_cast<AclDBEntry *>
-         (Agent::GetInstance()->acl_table()->FindActiveEntry(&mirror_cfg_acl_key));
+         (agent()->acl_table()->FindActiveEntry(&mirror_cfg_acl_key));
     if (vn->mirror_cfg_acl_.get() != mirror_cfg_acl) {
         vn->mirror_cfg_acl_ = mirror_cfg_acl;
         ret = true;
@@ -395,7 +399,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     VrfKey vrf_key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
+        (agent()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf != old_vrf) {
         if (!vrf) {
             DeleteAllIpamRoutes(vn);
@@ -554,7 +558,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
             continue;
         }
 
-        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_acl_table()) {
+        if (adj_node->table() == agent()->cfg()->cfg_acl_table()) {
             AccessControlList *acl_cfg = static_cast<AccessControlList *>
                 (adj_node->GetObject());
             assert(acl_cfg);
@@ -577,11 +581,6 @@ VnData *VnTable::BuildData(IFMapNode *node) {
             if (IFMapNode *ipam_node = FindTarget(table, adj_node,
                                                   "network-ipam")) {
                 ipam_name = ipam_node->name();
-                autogen::NetworkIpam *network_ipam =
-                  static_cast <autogen::NetworkIpam *> (ipam_node->GetObject());
-                autogen::IpamType ipam_type;
-                if (network_ipam)
-                    ipam_type = network_ipam->mgmt();
 
                 VirtualNetworkNetworkIpam *ipam =
                     static_cast<VirtualNetworkNetworkIpam *>
@@ -607,7 +606,6 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                                 subnets.ipam_subnets[i].default_gateway,
                                 dns_server_address,
                                 subnets.ipam_subnets[i].enable_dhcp, ipam_name,
-                                ipam_type,
                                 subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
                                 subnets.ipam_subnets[i].host_routes.route));
                 }
@@ -841,8 +839,7 @@ void VnTable::UpdateHostRoute(const IpAddress &old_address,
                               VnEntry *vn) {
     VrfEntry *vrf = vn->GetVrf();
 
-    if (vrf && (vrf->GetName() != Agent::GetInstance()->
-                linklocal_vrf_name())) {
+    if (vrf && (vrf->GetName() != agent()->linklocal_vrf_name())) {
         AddHostRoute(vn, new_address);
         DelHostRoute(vn, old_address);
     }
@@ -941,7 +938,7 @@ void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf) {
         // Do not let the gateway configuration overwrite the receive nh.
-        if (vrf->GetName() == Agent::GetInstance()->linklocal_vrf_name()) {
+        if (vrf->GetName() == agent()->linklocal_vrf_name()) {
             return;
         }
         if (IsGwHostRouteRequired())
@@ -987,12 +984,12 @@ void VnTable::DelHostRoute(VnEntry *vn, const IpAddress &address) {
     if (address.is_v4()) {
         static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet4UnicastRouteTable())->DeleteReq
-            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+            (agent()->local_peer(), vrf->GetName(),
              address.to_v4(), 32, NULL);
     } else if (address.is_v6()) {
         static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->DeleteReq
-            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+            (agent()->local_peer(), vrf->GetName(),
              address.to_v6(), 128, NULL);
     }
 }
@@ -1017,12 +1014,12 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     if (ipam.IsV4()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->DeleteReq
-            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+            (agent()->local_peer(), vrf->GetName(),
              ipam.GetSubnetAddress(), ipam.plen, NULL);
     } else if (ipam.IsV6()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->DeleteReq
-            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+            (agent()->local_peer(), vrf->GetName(),
              ipam.GetV6SubnetAddress(), ipam.plen, NULL);
     }
 }
