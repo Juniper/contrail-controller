@@ -286,9 +286,9 @@ class AnalyticsDb(object):
                 # calculate disk usage percentage for analytics in each cassandra node
                 db_uve_state = json.loads(urllib2.urlopen(node_dburl['href']).read())
                 db_usage_in_perc = (100*
-                        float(db_uve_state['DatabaseUsageInfo']['database_usage']['analytics_db_size_1k'])/
-                        float(db_uve_state['DatabaseUsageInfo']['database_usage']['disk_space_available_1k'] +
-                        db_uve_state['DatabaseUsageInfo']['database_usage']['disk_space_used_1k']))
+                        float(db_uve_state['DatabaseUsageInfo']['database_usage'][0]['analytics_db_size_1k'])/
+                        float(db_uve_state['DatabaseUsageInfo']['database_usage'][0]['disk_space_available_1k'] +
+                        db_uve_state['DatabaseUsageInfo']['database_usage'][0]['disk_space_used_1k']))
                 to_return[node_dburl['name']] = db_usage_in_perc
         except Exception as inst:
             self._logger.error(type(inst))     # the exception instance
