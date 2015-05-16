@@ -32,7 +32,8 @@ bool TestTaskHold::HoldTask::Run() {
     return true;
 }
 
-TestTaskHold::TestTaskHold(int task_id, int task_instance) {
+TestTaskHold::TestTaskHold(int task_id, int task_instance) :
+    task_id_(task_id), task_instance_(task_instance) {
     task_held_ = false;
     HoldTask *task_entry = new HoldTask(this);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
