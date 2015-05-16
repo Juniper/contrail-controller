@@ -58,6 +58,15 @@ string AsPathSpec::ToString() const {
     return oss.str();
 }
 
+size_t AsPathSpec::EncodeLength() const {
+    size_t sz = 0;
+    for (size_t i = 0; i < path_segments.size(); i++) {
+        sz += 2;
+        sz += path_segments[i]->path_segment.size() * 2;
+    }
+    return sz;
+}
+
 bool AsPathSpec::AsPathLoop(as_t as) const {
     for (size_t i = 0; i < path_segments.size(); i++)
         for (size_t j = 0; j < path_segments[i]->path_segment.size(); j++)
