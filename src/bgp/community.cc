@@ -51,6 +51,10 @@ int Community::CompareTo(const Community &rhs) const {
     return 0;
 }
 
+size_t CommunitySpec::EncodeLength() const {
+    return communities.size() * sizeof(uint32_t);
+}
+
 void Community::Remove() {
     comm_db_->Delete(this);
 }
@@ -71,6 +75,10 @@ string ExtCommunitySpec::ToString() const {
     snprintf(repr, sizeof(repr), "ExtCommunity <code: %d, flags: %02x>:%d",
              code, flags, (uint32_t)communities.size());
     return string(repr);
+}
+
+size_t ExtCommunitySpec::EncodeLength() const {
+    return communities.size() * sizeof(uint64_t);
 }
 
 int ExtCommunitySpec::CompareTo(const BgpAttribute &rhs_attr) const {

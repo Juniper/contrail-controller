@@ -130,7 +130,7 @@ private:
 
     static void AddCommunity(BgpProto::Update *msg) {
         CommunitySpec *community = new CommunitySpec;
-        for (int len = rand() % 10; len > 0; len--) {
+        for (int len = rand() % 32; len > 0; len--) {
             community->communities.push_back(rand());
         }
         msg->path_attributes.push_back(community);
@@ -139,7 +139,7 @@ private:
     static void AddMpNlri(BgpProto::Update *msg) {
         static const int kMaxRoutes = 500;
         BgpMpNlri *mp_nlri = new BgpMpNlri;
-        mp_nlri->flags = BgpAttribute::Optional|BgpAttribute::ExtendedLength;
+        mp_nlri->flags = BgpAttribute::Optional;
         mp_nlri->code = BgpAttribute::MPReachNlri;
         mp_nlri->afi = 1;
         mp_nlri->safi = 128;
@@ -160,7 +160,7 @@ private:
 
     static void AddExtCommunity(BgpProto::Update *msg) {
         ExtCommunitySpec *ext_community = new ExtCommunitySpec;
-        for (int i = rand() % 10; i > 0; i--) {
+        for (int i = rand() % 64; i > 0; i--) {
             ext_community->communities.push_back(rand());
         }
         msg->path_attributes.push_back(ext_community);
@@ -178,7 +178,7 @@ private:
 
     static void AddEdgeDiscovery(BgpProto::Update *msg) {
         EdgeDiscoverySpec *edspec = new EdgeDiscoverySpec;
-        for (int i = rand() % 4; i > 0; i--) {
+        for (int i = rand() % 64; i > 0; i--) {
             boost::system::error_code ec;
             EdgeDiscoverySpec::Edge *edge = new EdgeDiscoverySpec::Edge;
             edge->SetIp4Address(Ip4Address::from_string("10.1.1.1", ec));
@@ -190,7 +190,7 @@ private:
 
     static void AddEdgeForwarding(BgpProto::Update *msg) {
         EdgeForwardingSpec *efspec = new EdgeForwardingSpec;
-        for (int i = rand() % 4; i > 0; i--) {
+        for (int i = rand() % 64; i > 0; i--) {
             boost::system::error_code ec;
             EdgeForwardingSpec::Edge *edge = new EdgeForwardingSpec::Edge;
             edge->SetInboundIp4Address(Ip4Address::from_string("10.1.1.1", ec));
@@ -204,7 +204,7 @@ private:
 
     static void AddOriginVnPath(BgpProto::Update *msg) {
         OriginVnPathSpec *ovnpath = new OriginVnPathSpec;
-        for (int i = rand() % 10; i > 0; i--) {
+        for (int i = rand() % 64; i > 0; i--) {
             ovnpath->origin_vns.push_back(rand());
         }
         msg->path_attributes.push_back(ovnpath);
@@ -213,7 +213,8 @@ private:
     static void AddUnknown(BgpProto::Update *msg) {
         BgpAttrUnknown *unk = new BgpAttrUnknown;
         unk->flags = BgpAttribute::Optional;
-        unk->code = (rand() % 236) + 20;
+        // Code must be different than attributes define in BgpAttribute::Code
+        unk->code = (rand() % 64) + 64;
         for (int len = rand() % 8; len > 0; len--) {
             unk->value.push_back(rand());
         }
@@ -416,7 +417,51 @@ TEST_F(BgpProtoTest, L3VPNUpdate) {
     }
 }
 
+TEST_F(BgpProtoTest, 32PlusExtCommunities) {
+    BgpProto::Update update;
+    BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Vpn);
+    uint8_t data[BgpProto::kMaxMessageSize];
 
+    ExtCommunitySpec *ext_community = NULL;
+    for (size_t i = 0; i < update.path_attributes.size(); ++i) {
+        BgpAttribute *attr = update.path_attributes[i];
+        if (attr->code == BgpAttribute::ExtendedCommunities) {
+            ext_community = static_cast<ExtCommunitySpec *>(attr);
+            break;
+        }
+    }
+    ASSERT_TRUE(ext_community != NULL);
+    for (uint i = 0; i < 32; ++i) {
+        uint64_t value = 0x0002fc00007a1200ULL;
+        ext_community->communities.push_back(value + i);
+    }
+
+    int res = BgpProto::Encode(&update, data, BgpProto::kMaxMessageSize);
+    EXPECT_NE(-1, res);
+    if (detail::debug_) {
+        for (int i = 0; i < res; i++) {
+            printf("%02x ", data[i]);
+        }
+        printf("\n");
+    }
+
+    const BgpProto::Update *result;
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    EXPECT_TRUE(result != NULL);
+    if (result) {
+        EXPECT_EQ(0, result->CompareTo(update));
+        delete result;
+    } else {
+        for (int i = 0; i < res; i++) {
+            if (i % 16 == 0) {
+                printf("\n");
+            }
+            printf("%02x ", data[i]);
+        }
+        printf("\n");
+    }
+
+}
 
 TEST_F(BgpProtoTest, EvpnUpdate) {
     BgpProto::Update update;
@@ -632,6 +677,17 @@ TEST_F(BgpProtoTest, UpdateAttrFlagsError) {
     }
 }
 
+TEST_F(BgpProtoTest, LargeNotification) {
+    BgpProto::Notification msg;
+    msg.error = BgpProto::Notification::UpdateMsgErr;
+    msg.subcode = BgpProto::Notification::AttribLengthError;
+    msg.data = string(300, 'x');
+    uint8_t buf[BgpProto::kMaxMessageSize];
+    int result = BgpProto::Encode(&msg, buf, sizeof(buf));
+    const int minMessageSize = BgpProto::kMinMessageSize;
+    EXPECT_LT(minMessageSize, result);
+}
+
 TEST_F(BgpProtoTest, UpdateScale) {
     BgpProto::Update update;
     static const int kMaxRoutes = 500;
@@ -662,7 +718,7 @@ TEST_F(BgpProtoTest, UpdateScale) {
     update.path_attributes.push_back(community);
 
     BgpMpNlri *mp_nlri = new BgpMpNlri(BgpAttribute::MPReachNlri);
-    mp_nlri->flags = BgpAttribute::Optional|BgpAttribute::ExtendedLength;
+    mp_nlri->flags = BgpAttribute::Optional;
     mp_nlri->afi = 1;
     mp_nlri->safi = 128;
     uint8_t nh[4] = {192,168,1,1};
@@ -719,6 +775,60 @@ TEST_F(BgpProtoTest, KeepaliveError) {
             BgpProto::Notification::BadMsgLength, "BgpMsgLength", 16, 2);
 }
 
+TEST_F(BgpProtoTest, RandomUpdate) {
+    uint8_t data[BgpProto::kMaxMessageSize];
+    int count = 10000;
+
+    //
+    // When running under memory profiling mode, this test can take a really
+    // long time. Hence reduce the number of iterations
+    //
+    if (getenv("HEAPCHECK")) count = 100;
+    for (int i = 0; i < count; i++) {
+        BgpProto::Update update;
+        BuildUpdateMessage::Generate(&update);
+        int msglen = BgpProto::Encode(&update, data, sizeof(data));
+        /*
+         * Some message combinations will generate an update that is too
+         * big. Ignore this for now since the test generates useful
+         * permutations of attributes.
+         */
+        if (msglen == -1) {
+            continue;
+        }
+
+        ParseErrorContext  err;
+        std::auto_ptr<const BgpProto::Update> result(
+            static_cast<const BgpProto::Update *>(
+                BgpProto::Decode(data, msglen, &err)));
+        EXPECT_TRUE(result.get() != NULL);
+        if (result.get() != NULL) {
+            EXPECT_EQ(0, result->CompareTo(update));
+        } else {
+            string repr(BgpProto::Notification::toString(
+                (BgpProto::Notification::Code) err.error_code,
+                err.error_subcode));
+            printf("Decode: %s\n", repr.c_str());
+            for (int x = 0; x < err.data_size; ++x) {
+                if (x % 16 == 0) {
+                    printf("\n");
+                }
+                printf("%02x ", err.data[x]);
+            }
+
+            printf("UPDATE: \n");
+            for (int x = 0; x < msglen; ++x) {
+                if (x % 16 == 0) {
+                    printf("\n");
+                }
+                printf("%02x ", data[x]);
+            }
+            printf("\n");
+
+        }
+    }
+}
+
 TEST_F(BgpProtoTest, RandomError) {
     uint8_t data[4096];
     int count = 10000;
@@ -731,18 +841,174 @@ TEST_F(BgpProtoTest, RandomError) {
     for (int i = 0; i < count; i++) {
         BgpProto::Update update;
         BuildUpdateMessage::Generate(&update);
-        int res = BgpProto::Encode(&update, data, sizeof(data));
-        EXPECT_NE(-1, res);
+        int msglen = BgpProto::Encode(&update, data, sizeof(data));
+        if (msglen == -1) {
+            continue;
+        }
         if (detail::debug_) {
-            cout << res << " Bytes encoded" << endl;
-            for (int i = 0; i < res; i++) {
+            cout << msglen << " Bytes encoded" << endl;
+            for (int i = 0; i < msglen; i++) {
                 printf("%02x ", data[i]);
             }
             printf("\n");
         }
-        GenerateByteError(data, res);
+        GenerateByteError(data, msglen);
     }
 }
+
+class EncodeLengthTest : public testing::Test {
+  protected:
+
+    int EncodeAndReadAttributeLength(BgpAttribute *spec) {
+        BgpProto::Update update;
+        EncodeOffsets offsets;
+        update.path_attributes.push_back(spec);
+        int msglen = BgpProto::Encode(&update, data_, sizeof(data_), &offsets);
+        EXPECT_LT(0, msglen);
+
+        int offset = offsets.FindOffset("BgpPathAttribute");
+        EXPECT_LT(0, offset);
+        if (offset <= 0) {
+            return -1;
+        }
+        uint8_t flags = data_[offset + 2];
+        uint attrlen = 0;
+        if (flags & BgpAttribute::ExtendedLength) {
+            attrlen = get_value(&data_[offset + 4], 2);
+        } else {
+            attrlen = get_value(&data_[offset + 4], 1);
+        }
+        return attrlen;
+    }
+
+    uint8_t data_[BgpProto::kMaxMessageSize];
+};
+
+static void BuildASPath(AsPathSpec::PathSegment *segment) {
+    for (int i = rand() % 128; i > 0; i--) {
+        segment->path_segment.push_back(i);
+    }
+}
+
+TEST_F(EncodeLengthTest, AsPath) {
+    const int count = 32;
+    for (int i = 0; i < count; ++i) {
+        AsPathSpec *spec = new AsPathSpec;
+        for (int segments = rand() % 16; segments > 0; segments--) {
+            AsPathSpec::PathSegment *segment = new AsPathSpec::PathSegment;
+            BuildASPath(segment);
+            spec->path_segments.push_back(segment);
+        }
+        uint encodeLen = spec->EncodeLength();
+        int attrlen = EncodeAndReadAttributeLength(spec);
+        EXPECT_EQ(attrlen, encodeLen);
+    }
+}
+
+TEST_F(EncodeLengthTest, BgpMpNlri) {
+    const int count = 32;
+    for (int i = 0; i < count; ++i) {
+        BgpMpNlri *mp_nlri = new BgpMpNlri;
+        mp_nlri->flags = BgpAttribute::Optional;
+        mp_nlri->code = BgpAttribute::MPReachNlri;
+        mp_nlri->afi = BgpAf::IPv4;
+        mp_nlri->safi = BgpAf::Vpn;
+        if (rand() & 1) {
+            boost::system::error_code err;
+            Ip4Address addr = Ip4Address::from_string("127.0.0.1", err);
+            const Ip4Address::bytes_type &bytes = addr.to_bytes();
+            mp_nlri->nexthop.insert(
+                mp_nlri->nexthop.begin(), bytes.begin(), bytes.end());
+        } else {
+            boost::system::error_code err;
+            Ip6Address addr = Ip6Address::from_string(
+                "2001:db8:85a3::8a2e:370:7334", err);
+            const Ip6Address::bytes_type &bytes = addr.to_bytes();
+            mp_nlri->nexthop.insert(
+                mp_nlri->nexthop.begin(), bytes.begin(), bytes.end());
+        }
+        int len = rand() % 64;
+        for (int i = 0; i < len; i++) {
+            BgpProtoPrefix *prefix = new BgpProtoPrefix;
+            int len = rand() % 16;
+            prefix->prefixlen = len*8;
+            for (int j = 0; j < len; j++) {
+                prefix->prefix.push_back(rand() % 256);
+            }
+            mp_nlri->nlri.push_back(prefix);
+        }
+
+        uint encodeLen = mp_nlri->EncodeLength();
+        int attrlen = EncodeAndReadAttributeLength(mp_nlri);
+        EXPECT_EQ(attrlen, encodeLen);
+    }
+}
+
+TEST_F(EncodeLengthTest, ExtendedCommunity) {
+    /* Boundary condition at 32 Extended communities */
+    {
+        ExtCommunitySpec *spec = new ExtCommunitySpec;
+        for (int j = 32; j > 0; j--) {
+            spec->communities.push_back(8000000 + j);
+        }
+        uint encodeLen = spec->EncodeLength();
+        int attrlen = EncodeAndReadAttributeLength(spec);
+        EXPECT_EQ(attrlen, encodeLen);
+    }
+
+    const int count = 32;
+    for (int i = 0; i < count; ++i) {
+        ExtCommunitySpec *spec = new ExtCommunitySpec;
+        for (int j = rand() % 128; j > 0; j--) {
+            spec->communities.push_back(j);
+        }
+        uint encodeLen = spec->EncodeLength();
+        int attrlen = EncodeAndReadAttributeLength(spec);
+        EXPECT_EQ(attrlen, encodeLen);
+    }
+}
+
+TEST_F(EncodeLengthTest, EdgeDiscovery) {
+    const int count = 32;
+    for (int i = 0; i < count; ++i) {
+        EdgeDiscoverySpec *spec = new EdgeDiscoverySpec;
+        for (int j = rand() % 64; j > 0; j--) {
+            EdgeDiscoverySpec::Edge *edge = new EdgeDiscoverySpec::Edge;
+            boost::system::error_code err;
+            Ip4Address addr = Ip4Address::from_string("192.168.0.1", err);
+            edge->SetIp4Address(addr);
+            edge->SetLabels(10000, 20000);
+            spec->edge_list.push_back(edge);
+        }
+        uint encodeLen = spec->EncodeLength();
+        int attrlen = EncodeAndReadAttributeLength(spec);
+        EXPECT_EQ(attrlen, encodeLen);
+    }
+}
+
+static void BuildEdge(EdgeForwardingSpec::Edge *edge) {
+    boost::system::error_code err;
+    edge->SetInboundIp4Address(Ip4Address::from_string("10.1.1.1", err));
+    edge->inbound_label = 10000;
+    edge->SetOutboundIp4Address(Ip4Address::from_string("10.1.1.2", err));
+    edge->outbound_label = 10001;
+}
+
+TEST_F(EncodeLengthTest, EdgeForwarding) {
+    const int count = 32;
+    for (int i = 0; i < count; ++i) {
+        EdgeForwardingSpec *spec = new EdgeForwardingSpec;
+        for (int j = rand() % 64; j > 0; j--) {
+            EdgeForwardingSpec::Edge *edge = new EdgeForwardingSpec::Edge;
+            BuildEdge(edge);
+            spec->edge_list.push_back(edge);
+        }
+        uint encodeLen = spec->EncodeLength();
+        int attrlen = EncodeAndReadAttributeLength(spec);
+        EXPECT_EQ(attrlen, encodeLen);
+    }
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
