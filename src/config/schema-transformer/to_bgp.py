@@ -170,14 +170,6 @@ def get_si_vns(si_obj, si_props):
 
 def _access_control_list_update(acl_obj, name, obj, entries):
     if acl_obj is None:
-        try:
-            # Check if there is any stale object. If there is, delete it
-            acl_name = copy.deepcopy(obj.get_fq_name())
-            acl_name.append(name)
-            _vnc_lib.access_control_list_delete(fq_name=acl_name)
-        except NoIdError:
-            pass
-
         if entries is None:
             return None
         acl_obj = AccessControlList(name, obj, entries)
