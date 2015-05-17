@@ -12,11 +12,12 @@
 #include <cmn/agent_cmn.h>
 
 void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
-		  const char *dip, int proto, int hash_id, int cmd, int vrf) {
+		  const char *dip, int proto, int hash_id, int cmd, int vrf,
+		  bool fragment) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, cmd, hash_id, vrf) ;
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
-    pkt->AddIpHdr(sip, dip, proto);
+    pkt->AddIpHdr(sip, dip, proto, fragment);
     if (proto == 1) {
         pkt->AddIcmpHdr();
     }

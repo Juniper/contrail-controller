@@ -310,6 +310,7 @@ private:
     void ComputeForwardingMode(PktInfo *pkt_info) const;
 
     void SetOuterIp(PktInfo *pkt_info, uint8_t *pkt);
+    bool IgnoreFragmentedPacket(PktInfo *pkt_info);
     bool IsDHCPPacket(PktInfo *pkt_info);
     bool IsValidInterface(uint16_t ifindex, Interface **interface);
     bool IsToRDevice(uint32_t vrf_id, const IpAddress &ip);
