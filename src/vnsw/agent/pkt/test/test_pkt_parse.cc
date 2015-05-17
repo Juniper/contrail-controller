@@ -424,6 +424,15 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "1.1.1.1", "1.1.1.2", IPPROTO_TCP, 
                                   1, 2));
+
+    pkt->Reset();
+    MakeIpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1, -1, true);
+    PktInfo pkt_info4(Agent::GetInstance(), 100, 0, 0);
+    TestPkt(&pkt_info4, pkt.get());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info1, "1.1.1.1", "1.1.1.2", 1, 0, 0));
+    EXPECT_EQ(Agent::GetInstance()->stats()->pkt_fragments_dropped(), 1);
+
 }
 
 TEST_F(PktParseTest, IPv6_On_Vnet_1) {
