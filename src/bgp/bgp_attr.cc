@@ -323,10 +323,24 @@ void EdgeDiscoverySpec::Edge::SetLabels(
     labels.push_back(last_label);
 }
 
+struct EdgeDiscoverySpecEdgeCompare {
+    int operator()(const EdgeDiscoverySpec::Edge *lhs,
+                   const EdgeDiscoverySpec::Edge *rhs) const {
+        KEY_COMPARE(lhs->address, rhs->address);
+        KEY_COMPARE(lhs->labels, rhs->labels);
+        return 0;
+    }
+};
+
 int EdgeDiscoverySpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    return 0;
+    const EdgeDiscoverySpec &rhs =
+            static_cast<const EdgeDiscoverySpec &>(rhs_attr);
+    ret = STLSortedCompare(edge_list.begin(), edge_list.end(),
+                           rhs.edge_list.begin(), rhs.edge_list.end(),
+                           EdgeDiscoverySpecEdgeCompare());
+    return ret;
 }
 
 void EdgeDiscoverySpec::ToCanonical(BgpAttr *attr) {
@@ -381,9 +395,19 @@ EdgeDiscovery::~EdgeDiscovery() {
     STLDeleteValues(&edge_list);
 }
 
+struct EdgeDiscoveryEdgeCompare {
+    int operator()(const EdgeDiscovery::Edge *lhs,
+                   const EdgeDiscovery::Edge *rhs) const {
+        KEY_COMPARE(*lhs, *rhs);
+        return 0;
+    }
+};
+
 int EdgeDiscovery::CompareTo(const EdgeDiscovery &rhs) const {
-    KEY_COMPARE_VECTOR_PTRS(Edge, edge_list, rhs.edge_list);
-    return 0;
+    int result = STLSortedCompare(edge_list.begin(), edge_list.end(),
+                                  rhs.edge_list.begin(), rhs.edge_list.end(),
+                                  EdgeDiscoveryEdgeCompare());
+    return result;
 }
 
 void EdgeDiscovery::Remove() {
@@ -436,10 +460,26 @@ void EdgeForwardingSpec::Edge::SetOutboundIp4Address(Ip4Address addr) {
         outbound_address.begin());
 }
 
+struct EdgeForwardingSpecEdgeCompare {
+    int operator()(const EdgeForwardingSpec::Edge *lhs,
+                   const EdgeForwardingSpec::Edge *rhs) const {
+        KEY_COMPARE(lhs->inbound_address, rhs->inbound_address);
+        KEY_COMPARE(lhs->outbound_address, rhs->outbound_address);
+        KEY_COMPARE(lhs->inbound_label, rhs->inbound_label);
+        KEY_COMPARE(lhs->outbound_label, rhs->outbound_label);
+        return 0;
+    }
+};
+
 int EdgeForwardingSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    return 0;
+    const EdgeForwardingSpec &rhs =
+            static_cast<const EdgeForwardingSpec &>(rhs_attr);
+    ret = STLSortedCompare(edge_list.begin(), edge_list.end(),
+                           rhs.edge_list.begin(), rhs.edge_list.end(),
+                           EdgeForwardingSpecEdgeCompare());
+    return ret;
 }
 
 void EdgeForwardingSpec::ToCanonical(BgpAttr *attr) {
@@ -496,9 +536,19 @@ EdgeForwarding::~EdgeForwarding() {
     STLDeleteValues(&edge_list);
 }
 
+struct EdgeForwardingEdgeCompare {
+    int operator()(const EdgeForwarding::Edge *lhs,
+                   const EdgeForwarding::Edge *rhs) const {
+        KEY_COMPARE(*lhs, *rhs);
+        return 0;
+    }
+};
+
 int EdgeForwarding::CompareTo(const EdgeForwarding &rhs) const {
-    KEY_COMPARE_VECTOR_PTRS(Edge, edge_list, rhs.edge_list);
-    return 0;
+    int result = STLSortedCompare(edge_list.begin(), edge_list.end(),
+                                  rhs.edge_list.begin(), rhs.edge_list.end(),
+                                  EdgeForwardingEdgeCompare());
+    return result;
 }
 
 void EdgeForwarding::Remove() {
@@ -555,10 +605,19 @@ BgpOList::~BgpOList() {
     STLDeleteValues(&elements);
 }
 
+struct BgpOListElementCompare {
+    int operator()(const BgpOListElem *lhs, const BgpOListElem *rhs) const {
+        KEY_COMPARE(*lhs, *rhs);
+        return 0;
+    }
+};
+
 int BgpOList::CompareTo(const BgpOList &rhs) const {
     KEY_COMPARE(olist().subcode, rhs.olist().subcode);
-    KEY_COMPARE_VECTOR_PTRS(BgpOListElem, elements, rhs.elements);
-    return 0;
+    int result = STLSortedCompare(elements.begin(), elements.end(),
+                                  rhs.elements.begin(), rhs.elements.end(),
+                                  BgpOListElementCompare());
+    return result;
 }
 
 void BgpOList::Remove() {
