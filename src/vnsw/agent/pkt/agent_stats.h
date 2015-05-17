@@ -14,11 +14,11 @@ public:
         sandesh_reconnects_(0U), sandesh_in_msgs_(0U), sandesh_out_msgs_(0U),
         sandesh_http_sessions_(0U), nh_count_(0U), pkt_exceptions_(0U),
         pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
-        pkt_no_handler_(0U), pkt_dropped_(0U), flow_created_(0U),
-        flow_aged_(0U), flow_active_(0U), flow_drop_due_to_max_limit_(0),
-        flow_drop_due_to_linklocal_limit_(0), ipc_in_msgs_(0U),
-        ipc_out_msgs_(0U), in_tpkts_(0U), in_bytes_(0U), out_tpkts_(0U),
-        out_bytes_(0U) {
+        pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
+        flow_created_(0U), flow_aged_(0U), flow_active_(0U),
+        flow_drop_due_to_max_limit_(0), flow_drop_due_to_linklocal_limit_(0),
+        ipc_in_msgs_(0U), ipc_out_msgs_(0U), in_tpkts_(0U), in_bytes_(0U),
+        out_tpkts_(0U), out_bytes_(0U) {
         assert(singleton_ == NULL);
         singleton_ = this;
     }
@@ -81,6 +81,9 @@ public:
     void incr_pkt_no_handler() {pkt_no_handler_++;}
     uint64_t pkt_no_handler() const {return pkt_no_handler_;}
 
+    void incr_pkt_fragments_dropped() {pkt_fragments_dropped_++;}
+    uint64_t pkt_fragments_dropped() const {return pkt_fragments_dropped_;}
+
     void incr_pkt_dropped() {pkt_dropped_++;}
     uint64_t pkt_dropped() const {return pkt_dropped_;}
 
@@ -120,6 +123,7 @@ private:
     uint64_t pkt_invalid_agent_hdr_;
     uint64_t pkt_invalid_interface_;
     uint64_t pkt_no_handler_;
+    uint64_t pkt_fragments_dropped_;
     uint64_t pkt_dropped_;
 
     // Flow stats
