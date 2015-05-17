@@ -535,6 +535,13 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
+
+    // If packet is an IP fragment and not flow trap, ignore it
+    if (IgnoreFragmentedPacket(pkt_info)) {
+        agent_->stats()->incr_pkt_fragments_dropped();
+        return -1;
+    }
+
     // If it is a packet from TOR that we serve, dont parse any further
     if (IsManagedTORPacket(intf, pkt_info, pkt_type, (pkt + len))) {
         return len;
@@ -600,6 +607,14 @@ void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
                       mod << ">");
         }
     }
+}
+
+bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
+    if (pkt_info->ip && (pkt_info->ip->ip_off & IP_MF) &&
+        pkt_info->agent_hdr.cmd && AgentHdr::TRAP_FLOW_MISS &&
+        pkt_info->agent_hdr.cmd && AgentHdr::TRAP_ECMP_RESOLVE)
+        return true;
+    return false;
 }
 
 bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
