@@ -922,7 +922,7 @@ void VnAddReq(int id, const char *name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
-                                              true, true, false);
+                                              (id + 100), true, true, false);
     usleep(1000);
 }
 
@@ -932,7 +932,7 @@ void VnAddReq(int id, const char *name, int acl_id) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id,
-                                              true, true, false);
+                                              (id + 100), true, true, false);
     usleep(1000);
 }
 
@@ -941,7 +941,8 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id), vrf_name, ipam,
-                                              vn_ipam_data, id, true, true, false);
+                                              vn_ipam_data, id, (id + 100),
+                                              true, true, false);
     usleep(1000);
 }
 
@@ -950,7 +951,7 @@ void VnAddReq(int id, const char *name, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               vrf_name, ipam, vn_ipam_data, id,
-                                              true, true, false);
+                                              (id + 100), true, true, false);
     usleep(1000);
 }
 
