@@ -98,7 +98,7 @@ private:
 class StaticRouteTest : public ::testing::Test {
 protected:
     StaticRouteTest()
-        : bgp_server_(new BgpServer(&evm_)) {
+        : bgp_server_(new BgpServer(&evm_)), ri_mgr_(NULL) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
@@ -353,6 +353,172 @@ protected:
 };
 
 int StaticRouteTest::validate_done_;
+
+TEST_F(StaticRouteTest, InvalidNextHop) {
+    vector<string> instance_names = list_of("nat");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    // Add Nexthop route.
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_9a.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.3.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("nat", "192.168.2.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_9b.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.2.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.3.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_9c.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.2.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("nat", "192.168.3.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    // Delete nexthop route.
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+}
+
+TEST_F(StaticRouteTest, InvalidPrefix) {
+    vector<string> instance_names = list_of("nat");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    // Add Nexthop route.
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_10a.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.3.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_10b.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.2.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.3.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_10c.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.2.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    // Delete nexthop route.
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+}
+
+TEST_F(StaticRouteTest, InvalidRouteTarget) {
+    vector<string> instance_names = list_of("nat");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    // Add Nexthop route.
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_11a.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    BgpRoute *static_rt = InetRouteLookup("nat", "192.168.1.0/24");
+    const BgpPath *static_path = static_rt->BestPath();
+    set<string> config_list = list_of("target:64496:1")("target:64496:3");
+    TASK_UTIL_EXPECT_TRUE(GetRTargetFromPath(static_path) == config_list);
+
+    params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_11b.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    static_rt = InetRouteLookup("nat", "192.168.1.0/24");
+    static_path = static_rt->BestPath();
+    config_list = list_of("target:64496:2")("target:64496:3");
+    TASK_UTIL_EXPECT_TRUE(GetRTargetFromPath(static_path) == config_list);
+
+    params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_11c.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+        "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    static_rt = InetRouteLookup("nat", "192.168.1.0/24");
+    static_path = static_rt->BestPath();
+    config_list = list_of("target:64496:1")("target:64496:2");
+    TASK_UTIL_EXPECT_TRUE(GetRTargetFromPath(static_path) == config_list);
+
+    // Delete nexthop route.
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+}
+
 //
 // Basic Test
 // 1. Configure routing instance with static route property
