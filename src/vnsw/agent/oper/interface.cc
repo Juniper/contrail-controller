@@ -400,12 +400,6 @@ void Interface::GetOsParams(Agent *agent) {
         name = phy_intf->display_name();
     }
 
-    if (transport_ == TRANSPORT_PMD && type_ == PHYSICAL) {
-        //PCI address is the name of the interface
-        // os index from that
-       SetPciIndex(agent);
-    }
-
     //In case of DPDK, set mac-address to the physical
     //mac address set in configuration file, since
     //agent cane query for mac address as physical interface
@@ -414,6 +408,12 @@ void Interface::GetOsParams(Agent *agent) {
         if (type_ == PHYSICAL || type_ == INET) {
             mac_ = *ether_aton(agent->params()->
                                physical_interface_mac_addr().c_str());
+
+            // PCI address is the name of the interface
+            // os index from that
+            // TODO: set cross_connect_idx instead and fix dp-core to pass
+            // the index to the DPDK callback.
+            SetPciIndex(agent);
         }
     }
 
