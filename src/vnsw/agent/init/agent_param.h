@@ -34,6 +34,7 @@ public:
         MODE_KVM,
         MODE_XEN,
         MODE_VMWARE,
+        MODE_DOCKER,
     };
 
     enum VmwareMode {
@@ -158,6 +159,7 @@ public:
     HypervisorMode mode() const { return hypervisor_mode_; }
     bool isXenMode() const { return hypervisor_mode_ == MODE_XEN; }
     bool isKvmMode() const { return hypervisor_mode_ == MODE_KVM; }
+    bool isDockerMode() const { return hypervisor_mode_ == MODE_DOCKER; }
     bool isVmwareMode() const { return hypervisor_mode_ == MODE_VMWARE; }
     bool isVmwareVcenterMode() const { return vmware_mode_ == VCENTER; }
     VmwareMode vmware_mode() const { return vmware_mode_; }
