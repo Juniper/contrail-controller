@@ -24,35 +24,22 @@ public:
     typedef boost::function<void(void)> DoneCb;
 
     VmStat(Agent *agent, const boost::uuids::uuid &vm_uuid);
-    ~VmStat();
+    virtual ~VmStat();
     bool marked_delete() const { return marked_delete_; }
 
-    void Start();
+    virtual void Start();
     void Stop();
-    void HandleSigChild(const boost::system::error_code& error, int sig);
     void ProcessData();
 private:
     bool BuildVmStatsMsg(VirtualMachineStats *uve);
     bool BuildVmMsg(UveVirtualMachineAgent *uve);
-    void ReadCpuStat();
-    void ReadVcpuStat();
-    void ReadMemStat();
-    void ReadDiskStat();
-    void ReadDiskName();
-    void GetCpuStat();
-    void GetVcpuStat();
-    void GetMemStat();
-    void GetDiskName();
-    void GetDiskStat();
     void ReadData(const boost::system::error_code &ec, size_t read_bytes,
                   DoneCb &cb);
-    void ExecCmd(std::string cmd, DoneCb cb);
+    virtual bool TimerExpiry();
+
+protected:
     void StartTimer();
-    bool TimerExpiry();
-    void GetPid();
-    void ReadPid();
-    void ReadMemoryQuota();
-    void GetMemoryQuota();
+    void ExecCmd(std::string cmd, DoneCb cb);
     void SendVmCpuStats();
 
     Agent *agent_;
