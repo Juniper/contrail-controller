@@ -155,14 +155,8 @@ OvsdbDBEntry *VrfOvsdbObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
     return NULL;
 }
 
-KSyncDBObject::DBFilterResp VrfOvsdbObject::DBEntryFilter(const DBEntry *entry) {
-    if (client_idl_->deleted()) {
-        // To Handle a case when client idl is deleted and Delete table
-        // is still in KSyncObject Manager queue, ignore notification to
-        // avoid creating unicast remote table for deleted IDL
-        return DBFilterIgnore;
-    }
-
+KSyncDBObject::DBFilterResp VrfOvsdbObject::OvsdbDBEntryFilter(
+        const DBEntry *entry) {
     const VrfEntry *vrf = static_cast<const VrfEntry *>(entry);
     // Delete Vrf if vn goes NULL
     if (vrf->vn() == NULL) {
