@@ -74,6 +74,10 @@ const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
         return server_ep_;
 }
 
+void OvsdbClientTcp::set_connect_complete_cb(SessionEventCb cb) {
+    connect_complete_cb_ = cb;
+}
+
 OvsdbClientSession *OvsdbClientTcp::FindSession(Ip4Address ip, uint16_t port) {
     // match both ip and port with available session
     // if port is not provided match only ip
@@ -192,6 +196,8 @@ uint16_t OvsdbClientTcpSession::remote_port() const {
 }
 
 bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
+    OvsdbClientTcp *ovs_server =
+        static_cast<OvsdbClientTcp *>(server());
     boost::system::error_code ec;
     switch (ovs_event.event) {
     case TcpSession::CONNECT_FAILED:
@@ -208,8 +214,6 @@ bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
             // Trigger close for the current session, to allocate
             // and start a new one.
             OnClose();
-            OvsdbClientTcp *ovs_server =
-                static_cast<OvsdbClientTcp *>(server());
             if (ovs_server->shutdown_ == false) {
                 ovs_server->session_ = ovs_server->CreateSession();
                 ovs_server->Connect(ovs_server->session_,
@@ -224,6 +228,9 @@ bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
         assert(ec.value() == 0);
         set_status("Established");
         OnEstablish();
+        if (!ovs_server->connect_complete_cb_.empty()) {
+            ovs_server->connect_complete_cb_(this);
+        }
         break;
     default:
         break;
