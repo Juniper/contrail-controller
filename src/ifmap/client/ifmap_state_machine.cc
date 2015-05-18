@@ -30,7 +30,7 @@
 using boost::system::error_code;
 
 const int IFMapStateMachine::kConnectWaitIntervalMs = 30000;
-const int IFMapStateMachine::kResponseWaitIntervalMs = 5000;
+const int IFMapStateMachine::kResponseWaitIntervalMs = 60000;
 
 namespace sc = boost::statechart;
 namespace mpl = boost::mpl;
