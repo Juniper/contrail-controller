@@ -15,6 +15,8 @@
 
 class RTargetPrefix {
 public:
+    static const std::string kDefaultPrefixString;
+
     RTargetPrefix();
     explicit RTargetPrefix(const BgpProtoPrefix &prefix);
     RTargetPrefix(as4_t as, RouteTarget rtarget)

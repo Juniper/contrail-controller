@@ -33,6 +33,15 @@ TEST_F(RTargetPrefixTest, Parse) {
     EXPECT_EQ(prefix.as(), 64512);
 }
 
+TEST_F(RTargetPrefixTest, Default) {
+    RTargetPrefix prefix;
+    EXPECT_EQ(prefix.as(), 0);
+    EXPECT_EQ(prefix.rtarget(), RouteTarget::null_rtarget);
+    EXPECT_EQ(prefix.ToString(), RTargetPrefix::kDefaultPrefixString);
+    EXPECT_EQ(prefix,
+        RTargetPrefix::FromString(RTargetPrefix::kDefaultPrefixString));
+}
+
 // No ":" to delineate the AS number.
 TEST_F(RTargetPrefixTest, Error1) {
     boost::system::error_code ec;
@@ -57,6 +66,7 @@ TEST_F(RTargetPrefixTest, FromProtoPrefix1) {
     RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
+    EXPECT_EQ(96, proto_prefix.prefixlen);
     RTargetPrefix prefix_1;
     int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
     EXPECT_EQ(0, result);
@@ -67,6 +77,7 @@ TEST_F(RTargetPrefixTest, FromProtoPrefix2) {
     RTargetPrefix prefix;
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
+    EXPECT_EQ(0, proto_prefix.prefixlen);
     RTargetPrefix prefix_1;
     int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
     EXPECT_EQ(0, result);

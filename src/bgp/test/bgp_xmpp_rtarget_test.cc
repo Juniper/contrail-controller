@@ -286,6 +286,48 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void AddDeleteRTargetRoute(BgpServer *server, bool add_change,
+        const string &rt_prefix_str) {
+        RoutingInstanceMgr *instance_mgr = server->routing_instance_mgr();
+        RoutingInstance *master =
+            instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        assert(master);
+        BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
+        assert(rtarget_table);
+
+        BgpAttrPtr attr;
+        if (add_change) {
+            BgpAttrSpec attr_spec;
+            BgpAttrNextHop nexthop(server->bgp_identifier());
+            attr_spec.push_back(&nexthop);
+            BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+            attr_spec.push_back(&origin);
+            attr = server->attr_db()->Locate(attr_spec);
+        }
+        DBRequest req;
+        error_code ec;
+        RTargetPrefix rt_prefix = RTargetPrefix::FromString(rt_prefix_str, &ec);
+        assert(ec == 0);
+        req.key.reset(new RTargetTable::RequestKey(rt_prefix, NULL));
+        if (add_change) {
+            req.data.reset(new RTargetTable::RequestData(attr, 0, 0));
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        } else {
+            req.oper = DBRequest::DB_ENTRY_DELETE;
+        }
+        rtarget_table->Enqueue(&req);
+        if (TaskScheduler::GetInstance()->GetRunStatus())
+            task_util::WaitForIdle();
+    }
+
+    void AddRTargetRoute(BgpServer *server, const string &rt_prefix_str) {
+        AddDeleteRTargetRoute(server, true, rt_prefix_str);
+    }
+
+    void DeleteRTargetRoute(BgpServer *server, const string &rt_prefix_str) {
+        AddDeleteRTargetRoute(server, false, rt_prefix_str);
+    }
+
     void BringupAgents() {
         TASK_UTIL_EXPECT_TRUE(agent_a_1_->IsEstablished());
         TASK_UTIL_EXPECT_TRUE(agent_b_1_->IsEstablished());
@@ -3378,6 +3420,190 @@ TEST_F(BgpXmppRTargetTest, DifferentLocalAs2) {
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:2");
     VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:2");
+}
+
+//
+// Default RTarget route is received/withdrawn at the CNs after the
+// end of rib marker has been received from the MX.
+// Single route on each CN.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute1) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
+    AddInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(2));
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(2));
+
+    AddRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteExists(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteExists(cn1_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteExists(cn2_.get(), RTargetPrefix::kDefaultPrefixString);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(2));
+
+    DeleteRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(cn1_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(cn2_.get(), RTargetPrefix::kDefaultPrefixString);
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(2));
+
+    DeleteInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
+    DeleteInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(2));
+}
+
+//
+// Default RTarget route is received/withdrawn at the CNs after the
+// end of rib marker has been received from the MX.
+// Multiple routes on each CN.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute2) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    AddRouteTarget(mx_.get(), "pink", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "pink"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(idx));
+        AddInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(idx + 64));
+        AddInetRoute(cn1_.get(), NULL, "pink", BuildPrefix(idx));
+        AddInetRoute(cn2_.get(), NULL, "pink", BuildPrefix(idx + 64));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(idx + 64));
+        VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(idx));
+        VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(idx + 64));
+    }
+
+    AddRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx + 64));
+        VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(idx));
+        VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(idx + 64));
+    }
+
+    DeleteRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(idx + 64));
+        VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(idx));
+        VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(idx + 64));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(idx));
+        DeleteInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(idx + 64));
+        DeleteInetRoute(cn1_.get(), NULL, "pink", BuildPrefix(idx));
+        DeleteInetRoute(cn2_.get(), NULL, "pink", BuildPrefix(idx + 64));
+    }
+}
+
+//
+// Default RTarget route is withdrawn at the CNs but a more specific
+// RTarget route is still present.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute3) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    AddRTargetRoute(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
+    AddInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(2));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(2));
+
+    DeleteRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(cn1_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(cn2_.get(), RTargetPrefix::kDefaultPrefixString);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(2));
+
+    DeleteRTargetRoute(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(2));
+
+    DeleteInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
+    DeleteInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(2));
+}
+
+//
+// Default RTarget route is withdrawn at the CNs but a more specific
+// RTarget route is still present for one VRF, but not for another.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute4) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    AddRouteTarget(mx_.get(), "pink", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "pink"));
+
+    AddRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    AddRTargetRoute(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
+    AddInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
+    AddInetRoute(cn1_.get(), NULL, "pink", BuildPrefix(1));
+    AddInetRoute(cn2_.get(), NULL, "pink", BuildPrefix(2));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(2));
+    VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(1));
+    VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(2));
+
+    DeleteRTargetRoute(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(mx_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(cn1_.get(), RTargetPrefix::kDefaultPrefixString);
+    VerifyRTargetRouteNoExists(cn2_.get(), RTargetPrefix::kDefaultPrefixString);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(2));
+    VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(1));
+    VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(2));
+
+    DeleteRTargetRoute(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(2));
+    VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(1));
+    VerifyInetRouteNoExists(mx_.get(), "pink", BuildPrefix(2));
+
+    DeleteInetRoute(cn1_.get(), NULL, "blue", BuildPrefix(1));
+    DeleteInetRoute(cn2_.get(), NULL, "blue", BuildPrefix(2));
+    DeleteInetRoute(cn1_.get(), NULL, "pink", BuildPrefix(1));
+    DeleteInetRoute(cn2_.get(), NULL, "pink", BuildPrefix(2));
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(1));
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(2));
+    VerifyInetRouteNoExists(cn1_.get(), "pink", BuildPrefix(1));
+    VerifyInetRouteNoExists(cn2_.get(), "pink", BuildPrefix(2));
 }
 
 class TestEnvironment : public ::testing::Environment {

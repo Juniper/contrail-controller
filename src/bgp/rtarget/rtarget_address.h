@@ -21,7 +21,7 @@ public:
 
     std::string ToString() const;
 
-    bool IsNull() { return operator==(RouteTarget::null_rtarget); }
+    bool IsNull() const { return operator==(RouteTarget::null_rtarget); }
     uint8_t Type() { return data_[0]; }
     uint8_t Subtype() { return data_[1]; }
 
