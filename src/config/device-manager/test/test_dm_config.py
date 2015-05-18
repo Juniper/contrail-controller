@@ -118,6 +118,16 @@ class TestDM(test_case.DMTestCase):
         result = dictMatch(expect_cfg, gen_cfg)
         self.assertTrue(result)
             
+    def test_dm_bgp_hold_time_config(self):
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        bgp_router.get_bgp_router_parameters().set_hold_time(100)
+        self._vnc_lib.bgp_router_update(bgp_router)
+
+        gevent.sleep(2)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>100</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>100</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
     def test_dm_md5_auth_config(self):
         bgp_router, pr = self.create_router('router1', '1.1.1.1')
         key = AuthenticationKeyItem(0, 'bgppswd')
