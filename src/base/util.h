@@ -74,15 +74,28 @@ static ModuleInitializer TOKENPASTE2(init_, __LINE__)(Func);
     } while(0);
 
 // Compare sorted vectors of pointers.
-#define KEY_COMPARE_VECTOR_PTRS(T, x, y) \
-    do { \
-        KEY_COMPARE((x).size(), (y).size()); \
-        std::vector<T *>::const_iterator __ix, __iy; \
-        for (__ix = (x).begin(), __iy = (y).begin(); \
-             __ix < x.end(); ++__ix, ++__iy) { \
-            KEY_COMPARE(**__ix, **__iy); \
-        } \
-    } while (0)
+template <class InputIterator, class CompareOp>
+int STLSortedCompare(InputIterator first1, InputIterator last1,
+                     InputIterator first2, InputIterator last2,
+                     CompareOp op) {
+    InputIterator iter1 = first1;
+    InputIterator iter2 = first2;
+    while (iter1 != last1 && iter2 != last2) {
+        int result = op(*iter1, *iter2);
+        if (result != 0) {
+            return result;
+        }
+        ++iter1;
+        ++iter2;
+    }
+    if (iter1 != last1) {
+        return 1;
+    }
+    if (iter2 != last2) {
+        return -1;
+    }
+    return 0;
+}
 
 template <typename Container>
 void STLDeleteValues(Container *container) {
