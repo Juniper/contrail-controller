@@ -148,10 +148,9 @@ class PhysicalRouterDM(DBBase):
                 self.config_manager.add_bgp_peer(peer.params['address'],
                                                  params, external)
             self.config_manager.set_bgp_config(bgp_router.params)
-
-        bgp_router_ips = bgp_router.get_all_bgp_router_ips()
-        if self.dataplane_ip is not None:
-            self.config_manager.add_dynamic_tunnels(self.dataplane_ip, 
+            bgp_router_ips = bgp_router.get_all_bgp_router_ips()
+            if self.dataplane_ip is not None:
+                self.config_manager.add_dynamic_tunnels(self.dataplane_ip,
                               GlobalSystemConfigDM.ip_fabric_subnets, bgp_router_ips)
         vn_dict = {}
         for vn_id in self.virtual_networks:
