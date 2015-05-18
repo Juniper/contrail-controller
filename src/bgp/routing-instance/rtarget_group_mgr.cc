@@ -233,8 +233,10 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (!path->IsFeasible()) break;
-        if (path->GetPeer()->IsXmppPeer()) continue;
+        if (!path->IsFeasible())
+            break;
+        if (!path->GetPeer() || path->GetPeer()->IsXmppPeer())
+            continue;
         const BgpPeer *peer = static_cast<const BgpPeer *>(path->GetPeer());
         BgpProto::BgpPeerType peer_type = peer->PeerType();
 
@@ -243,9 +245,8 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
                  RtGroup::RTargetRouteList>(peer, RtGroup::RTargetRouteList()));
         assert(ret.second);
         ret.first->second.insert(rt);
-        if (peer_type == BgpProto::EBGP) {
+        if (peer_type == BgpProto::EBGP)
             break;
-        }
     }
 
     RTargetPeerSync(table, rt, id, dbstate, &peer_list);
@@ -497,6 +498,16 @@ RtGroup *RTargetGroupMgr::LocateRtGroup(const RouteTarget &rt) {
 
 void RTargetGroupMgr::NotifyRtGroup(const RouteTarget &rt) {
     AddRouteTargetToLists(rt);
+    if (!rt.IsNull())
+        return;
+
+    for (RtGroupMgrTableStateList::iterator it = table_state_.begin();
+         it != table_state_.end(); ++it) {
+        BgpTable *table = it->first;
+        if (!table->IsVpnTable())
+            continue;
+        table->NotifyAllEntries();
+    }
 }
 
 void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {

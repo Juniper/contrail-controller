@@ -367,7 +367,7 @@ void DBTable::WalkCompleteCallback(DBTableBase *tbl_base) {
 // turns around and puts the DBentryBase on the change list.
 //
 void DBTable::NotifyAllEntries() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::RTFilter");
 
     DBTableWalker *walker = database()->GetWalker();
     if (walk_id_ != DBTableWalker::kInvalidWalkerId)
