@@ -1335,6 +1335,80 @@ TEST_F(StaticRouteTest, EntryAfterStop) {
                              "Wait for Static route in blue..");
 }
 
+// Sandesh introspect test
+// Verify http introspect output
+//   1. After creating the config and before nexthop route is published
+//   2. After creating the config and after nexthop route is published
+//   3. After updating the config(nexthop) and before new nexthop route is published
+//   4. After updating the config(nexthop) and after new nexthop route is published
+TEST_F(StaticRouteTest, SandeshTest) {
+    vector<string> instance_names = list_of("blue")("nat")("red")("green");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    VerifyStaticRouteSandesh("nat");
+
+    // Add Nexthop Route
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+     // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    VerifyStaticRouteSandesh("nat");
+    // Delete nexthop route
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+
+
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_4.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    VerifyStaticRouteSandesh("nat");
+
+    // Add Nexthop Route
+    AddInetRoute(NULL, "nat", "192.168.1.1/32", 100, "5.4.3.2");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    VerifyStaticRouteSandesh("nat");
+    // Delete nexthop route
+    DeleteInetRoute(NULL, "nat", "192.168.1.1/32");
+    task_util::WaitForIdle();
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };
