@@ -792,6 +792,8 @@ public:
     AgentParam *params() const { return params_; }
 
     bool isXenMode();
+    bool isKvmMode();
+    bool isDockerMode();
     // Agent param accessor functions
     bool isVmwareMode() const;
     bool isVmwareVcenterMode() const;

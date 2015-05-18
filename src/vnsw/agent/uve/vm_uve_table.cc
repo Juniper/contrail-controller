@@ -6,6 +6,8 @@
 #include <uve/vm_uve_table.h>
 #include <uve/vm_uve_entry.h>
 #include <uve/agent_uve.h>
+#include <uve/vm_stat_kvm.h>
+#include <uve/vm_stat_docker.h>
 
 VmUveTable::VmUveTable(Agent *agent, uint32_t default_intvl)
     : VmUveTableBase(agent, default_intvl) {
@@ -73,14 +75,24 @@ void VmUveTable::SendVmStatsMsg(const boost::uuids::uuid &u) {
 
 void VmUveTable::VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm) {
     //Create object to poll for VM stats
-    VmStat *stat = new VmStat(agent_, vm->GetUuid());
-    stat->Start();
-    state->stat_ = stat;
+    VmStat *stat;
+    if (agent_->isKvmMode()) {
+        stat = new VmStatKvm(agent_, vm->GetUuid());
+    } else if (agent_->isDockerMode()) {
+        stat = new VmStatDocker(agent_, vm->GetUuid());
+    }
+
+    if (stat) {
+        stat->Start();
+        state->stat_ = stat;
+    }
 }
 
 void VmUveTable::VmStatCollectionStop(VmUveVmState *state) {
-    state->stat_->Stop();
-    state->stat_ = NULL;
+    if (state->stat_) {
+        state->stat_->Stop();
+        state->stat_ = NULL;
+    }
 }
 
 void VmUveTable::EnqueueVmStatData(VmStatData *data) {
