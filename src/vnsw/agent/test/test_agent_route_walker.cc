@@ -60,6 +60,8 @@ public:
         vrf_notifications_ = vrf_notifications_count_ = 0;
         total_rt_vrf_walk_done_ = 0;
         walk_task_context_mismatch_ = false;
+        route_table_walk_started_ = false;
+        is_vrf_walk_done_ = false;
     };
     ~AgentRouteWalkerTest() { 
     }
@@ -163,6 +165,7 @@ public:
         //vrf2
         //2.2.2.20/32; 255.255.255.255; 0:0:2:2:2:20; ff:ff:ff:ff:ff:ff
         route_notifications_++;
+        route_table_walk_started_ = true;
         return true;
     }
 
@@ -180,7 +183,12 @@ public:
 
     virtual void VrfWalkDone(DBTableBase *part) {
         vrf_notifications_count_++;
+        is_vrf_walk_done_ = true;
         AgentRouteWalker::VrfWalkDone(part);
+        if (is_vrf_walk_done_ &&
+            !route_table_walk_started_ &&
+            AreAllWalksDone())
+            assert(0);
     }
 
     void VerifyNotifications(uint32_t route_notifications,
@@ -211,6 +219,8 @@ public:
     int walk_task_instance_;
     string walk_task_name_;
     bool walk_task_context_mismatch_;
+    bool route_table_walk_started_;
+    bool is_vrf_walk_done_;
     friend class SetupTask;
 };
 
@@ -221,6 +231,12 @@ class SetupTask : public Task {
                   GetTaskId("db::DBTable")), 0), test_(test),
             test_name_(name) {
         }
+
+        static void AllWalkDone(AgentRouteWalkerTest *test_walker) {
+            if (test_walker->is_vrf_walk_done_ && !test_walker->route_table_walk_started_)
+                assert(0);
+        }
+
         virtual bool Run() {
             if (test_name_ == "restart_walk_with_2_vrf") {
                 test_->StartVrfWalk();
@@ -228,6 +244,10 @@ class SetupTask : public Task {
             } else if (test_name_ == "cancel_vrf_walk_with_2_vrf") {
                 test_->StartVrfWalk();
                 test_->CancelVrfWalk();
+            } else if (test_name_ == "vrf_state_deleted") {
+                test_->WalkDoneCallback(boost::bind(&SetupTask::AllWalkDone,
+                                                    test_));
+                test_->StartVrfWalk();
             }
             return true;
         }
@@ -299,8 +319,16 @@ TEST_F(AgentRouteWalkerTest, cancel_vrf_walk_with_2_vrf) {
     DeleteEnvironment(2);
 }
 
-TEST_F(AgentRouteWalkerTest, cancel_route_walk_with_2_vrf) {
-    //TODO
+TEST_F(AgentRouteWalkerTest, test_setup_teardown) {
+}
+
+TEST_F(AgentRouteWalkerTest, vrf_state_deleted) {
+    client->Reset();
+    SetupEnvironment(1);
+    SetupTask * task = new SetupTask(this, "vrf_state_deleted");
+    TaskScheduler::GetInstance()->Enqueue(task);
+    WAIT_FOR(1000, 1000, IsWalkCompleted() == true);
+    DeleteEnvironment(1);
 }
 
 //TODO REMAINING TESTS

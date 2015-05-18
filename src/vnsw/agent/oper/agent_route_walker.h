@@ -93,6 +93,7 @@ public:
     //Callback for start of a walk issued from Agent::RouteWalker
     //task context.
     virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry> data);
+    bool AreAllWalksDone() const;
     Agent *agent() const {return agent_;}
 
 private:
@@ -107,7 +108,6 @@ private:
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
     void IncrementWalkCount() {walk_count_++;}
-    bool AreAllWalksDone() const;
 
     Agent *agent_;
     AgentRouteWalker::WalkType walk_type_;    
