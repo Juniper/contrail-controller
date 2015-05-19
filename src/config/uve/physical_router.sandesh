@@ -1,0 +1,28 @@
+//
+// physical_router.sandesh
+//
+// UVE physical router
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Config state of the UVE on this app instance.
+//
+struct UvePhysicalRouterConfig {
+    1: string                           name (key="ObjectPRouter")
+    2: optional bool                    deleted
+    3: optional string                  ip_address
+    4: optional string                  connected_bgp_router
+    5: optional bool                    netconf_enabled 
+    6: optional string                  product_info
+    7: optional string                  last_commit_time
+    8: optional i32                     last_commit_duration
+    9: optional string                  commit_status_message
+    10: optional i32                    total_commits_sent_since_up
+    // Add additional items here as needed
+}
+
+uve sandesh UvePhysicalRouterConfigTrace {
+    1: UvePhysicalRouterConfig              data
+}
