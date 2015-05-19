@@ -25,7 +25,7 @@ public:
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
     OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row);
-    KSyncDBObject::DBFilterResp DBEntryFilter(const DBEntry *entry);
+    DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry);
 
 private:
     DISALLOW_COPY_AND_ASSIGN(VrfOvsdbObject);

@@ -140,3 +140,22 @@ void OvsdbDBObject::EmptyTable(void) {
     }
 }
 
+KSyncDBObject::DBFilterResp OvsdbDBObject::OvsdbDBEntryFilter(
+        const DBEntry *entry) {
+    // Accept by default, unless overriden by dereived class
+    return DBFilterAccept;
+}
+
+KSyncDBObject::DBFilterResp OvsdbDBObject::DBEntryFilter(const DBEntry *entry) {
+    // Ignore Add/Change notifications while client idl is deleted
+    // there can be cases that the current table might be pending
+    // for delete schedule in KSyncObjectManager Queue and in
+    // the mean while we get a notification, where we should not
+    // process it further.
+    if (client_idl_->deleted()) {
+        return DBFilterIgnore;
+    }
+
+    return OvsdbDBEntryFilter(entry);
+}
+
