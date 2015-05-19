@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <set>
 
 #include <tbb/atomic.h>
 #include <tbb/concurrent_queue.h>
@@ -32,12 +33,18 @@ struct WaterMarkInfo {
     }
     friend inline bool operator<(const WaterMarkInfo& lhs,
         const WaterMarkInfo& rhs);
+    friend inline bool operator==(const WaterMarkInfo& lhs,
+        const WaterMarkInfo& rhs);
     size_t count_;
     WaterMarkCallback cb_;
 };
 
 inline bool operator<(const WaterMarkInfo& lhs, const WaterMarkInfo& rhs) {
     return lhs.count_ < rhs.count_;
+}
+
+inline bool operator==(const WaterMarkInfo& lhs, const WaterMarkInfo& rhs) {
+    return lhs.count_ == rhs.count_;
 }
 
 typedef std::vector<WaterMarkInfo> WaterMarkInfos;
@@ -202,16 +209,21 @@ public:
 
     void SetHighWaterMark(const WaterMarkInfos &high_water) {
         tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        // Eliminate duplicates and sort by converting to set
+        std::set<WaterMarkInfo> hwater_set(high_water.begin(),
+            high_water.end());
         hwater_index_ = -1;
-        high_water_ = high_water;
-        std::sort(high_water_.begin(), high_water_.end());
+        high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
     }
 
     void SetHighWaterMark(const WaterMarkInfo& hwm_info) {
         tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        // Eliminate duplicates and sort by converting to set
+        std::set<WaterMarkInfo> hwater_set(high_water_.begin(),
+            high_water_.end());
+        hwater_set.insert(hwm_info);
         hwater_index_ = -1;
-        high_water_.push_back(hwm_info);
-        std::sort(high_water_.begin(), high_water_.end());
+        high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
     }
 
     void ResetHighWaterMark() {
@@ -227,16 +239,21 @@ public:
 
     void SetLowWaterMark(const WaterMarkInfos &low_water) {
         tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        // Eliminate duplicates and sort by converting to set
+        std::set<WaterMarkInfo> lwater_set(low_water.begin(),
+            low_water.end());
         lwater_index_ = -1;
-        low_water_ = low_water;
-        std::sort(low_water_.begin(), low_water_.end());
+        low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
      }
 
     void SetLowWaterMark(const WaterMarkInfo& lwm_info) {
         tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        // Eliminate duplicates and sort by converting to set
+        std::set<WaterMarkInfo> lwater_set(low_water_.begin(),
+            low_water_.end());
+        lwater_set.insert(lwm_info);
         lwater_index_ = -1;
-        low_water_.push_back(lwm_info);
-        std::sort(low_water_.begin(), low_water_.end());
+        low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
      }
 
     void ResetLowWaterMark() {
@@ -526,8 +543,8 @@ private:
     // Sorted in ascending order
     WaterMarkInfos high_water_; // When queue count goes above
     WaterMarkInfos low_water_; // When queue count goes below
-    tbb::spin_rw_mutex hwater_mutex_;
-    tbb::spin_rw_mutex lwater_mutex_;
+    mutable tbb::spin_rw_mutex hwater_mutex_;
+    mutable tbb::spin_rw_mutex lwater_mutex_;
     tbb::atomic<int> hwater_index_;
     tbb::atomic<int> lwater_index_;
 
