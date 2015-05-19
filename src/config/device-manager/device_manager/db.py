@@ -10,6 +10,7 @@ from vnc_api.common.exceptions import NoIdError
 from physical_router_config import PhysicalRouterConfig
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
+from cfgm_common.uve.physical_router.ttypes import *
 import copy
 
 class BgpRouterDM(DBBase):
@@ -84,6 +85,7 @@ class BgpRouterDM(DBBase):
 class PhysicalRouterDM(DBBase):
     _dict = {}
     obj_type = 'physical_router'
+    _sandesh = None
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -94,11 +96,13 @@ class PhysicalRouterDM(DBBase):
         self.config_manager = PhysicalRouterConfig(
             self.management_ip, self.user_credentials, self.vendor,
             self.product, self.vnc_managed, self._logger)
+        self.uve_send()
     # end __init__
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.dataplane_ip = obj.get('physical_router_dataplane_ip')
         self.vendor = obj.get('physical_router_vendor_name')
@@ -124,6 +128,7 @@ class PhysicalRouterDM(DBBase):
             return
         obj = cls._dict[uuid]
         obj.config_manager.delete_bgp_config()
+        self.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
@@ -229,7 +234,36 @@ class PhysicalRouterDM(DBBase):
                                                          vn_obj.instance_ip_map)
 
         self.config_manager.send_bgp_config()
+        self.uve_send()
     # end push_config
+
+    def uve_send(self, deleted=False):
+        pr_trace = UvePhysicalRouterConfig(name=self.name,
+                                           ip_address=self.management_ip,
+                                           connected_bgp_router=self.bgp_router,
+                                           auto_conf_enabled=self.vnc_managed,
+                                           product_info=self.vendor + ':' + self.product)
+        if deleted:
+            pr_trace.deleted = True
+            pr_msg = UvePhysicalRouterConfigTrace(data=pr_trace,
+                                                  sandesh=PhysicalRouterDM._sandesh)
+            pr_msg.send(sandesh=PhysicalRouterDM._sandesh)
+            return
+
+        commit_stats = self.config_manager.get_commit_stats()
+
+        if commit_stats['netconf_enabled'] is True:
+            pr_trace.last_commit_time = commit_stats['last_commit_time']
+            pr_trace.last_commit_duration = commit_stats['last_commit_duration']
+            pr_trace.commit_status_message = commit_stats['commit_status_message']
+            pr_trace.total_commits_sent_since_up = commit_stats['total_commits_sent_since_up']
+        else:
+            pr_trace.netconf_enabled_status = commit_stats['netconf_enabled_status']
+
+        pr_msg = UvePhysicalRouterConfigTrace(data=pr_trace, sandesh=PhysicalRouterDM._sandesh)
+        pr_msg.send(sandesh=PhysicalRouterDM._sandesh)
+    # end uve_send
+
 # end PhysicalRouterDM
 
 class GlobalSystemConfigDM(DBBase):
