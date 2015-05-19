@@ -51,6 +51,7 @@ public:
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);
+    virtual void VrouterOpsMsgHandler(vrouter_ops *req) { }
 protected:
     std::string response_context_;
     Sandesh *response_object_;
