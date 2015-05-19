@@ -115,6 +115,15 @@ protected:
         return tbl->FindNode(name);
     }
 
+    IFMapLink *LinkTableLookup(const string &name) {
+        IFMapLinkTable *table = static_cast<IFMapLinkTable *>
+            (db_.FindTable("__ifmap_metadata__.0"));
+        if (table == NULL) {
+            return NULL;
+        }
+        return table->FindLink(name);
+    }
+
     // Read all the updates in the queue and consider them sent.
     void ProcessQueue() {
         IFMapUpdateQueue *queue = server_.queue();
@@ -126,10 +135,10 @@ protected:
                 continue;
             }
             IFMapUpdate *update = static_cast<IFMapUpdate *>(iter);
+            BitSet adv = update->advertise();
             update->AdvertiseReset(update->advertise());
             queue->Dequeue(update);
-            exporter_->StateUpdateOnDequeue(update, update->advertise(),
-                                            update->IsDelete());
+            exporter_->StateUpdateOnDequeue(update, adv, update->IsDelete());
         }
     }
 
@@ -250,13 +259,42 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_z");
     task_util::WaitForIdle();
 
+    // Check that only c3 will receive a delete for blue.
     state = exporter_->NodeStateLookup(blue);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DELETE);
+    ASSERT_TRUE(update != NULL);
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c1.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c2.index()));
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c3.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c4.index()));
+
+    // Check that only c4 will receive an add for red.
+    IFMapNode *red = TableLookup("virtual-network", "red");
+    ASSERT_TRUE(red != NULL);
+    state = exporter_->NodeStateLookup(red);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(update != NULL);
-    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c1.index()));
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c2.index()));
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c3.index()));
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c4.index()));
+
+    // Check that only c2 will receive a delete for red.
+    state = exporter_->NodeStateLookup(red);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DELETE);
+    ASSERT_TRUE(update != NULL);
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c1.index()));
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c2.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c3.index()));
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c4.index()));
+
+    // Check that there will be no update for blue.
+    state = exporter_->NodeStateLookup(blue);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
 
@@ -267,19 +305,42 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     task_util::WaitForIdle();
 
     state = exporter_->NodeStateLookup(blue);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(update != NULL);
-    EXPECT_TRUE(update->advertise().test(c1.index()));
+    EXPECT_FALSE(update->advertise().test(c1.index()));
+    EXPECT_FALSE(update->advertise().test(c2.index()));
     EXPECT_FALSE(update->advertise().test(c3.index()));
     EXPECT_TRUE(update->advertise().test(c4.index()));
+
+    state = exporter_->NodeStateLookup(red);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DELETE);
+    ASSERT_TRUE(update != NULL);
+    EXPECT_FALSE(update->advertise().test(c1.index()));
+    EXPECT_FALSE(update->advertise().test(c2.index()));
+    EXPECT_FALSE(update->advertise().test(c3.index()));
+    EXPECT_TRUE(update->advertise().test(c4.index()));
+
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
 
-    IFMapNode *red = TableLookup("virtual-network", "red");
+    red = TableLookup("virtual-network", "red");
     ASSERT_TRUE(red != NULL);
     state = exporter_->NodeStateLookup(red);
     ASSERT_TRUE(state != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update == NULL);
+    update = state->GetUpdate(IFMapListEntry::DELETE);
+    EXPECT_TRUE(update == NULL);
+
+    blue = TableLookup("virtual-network", "blue");
+    ASSERT_TRUE(blue != NULL);
+    state = exporter_->NodeStateLookup(blue);
+    ASSERT_TRUE(state != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update == NULL);
+    update = state->GetUpdate(IFMapListEntry::DELETE);
     EXPECT_TRUE(update == NULL);
 }
 
@@ -558,6 +619,99 @@ TEST_F(IFMapExporterTest, PR1383393) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", name2) == NULL);
+}
+
+// Delete-link followed by add-link before delete-link completely cleaned up
+// the link.
+TEST_F(IFMapExporterTest, PR1454380) {
+    server_.SetSender(new IFMapUpdateSenderMock(&server_));
+    TestClient c1("vr-test");
+    server_.ClientRegister(&c1);
+
+    IFMapMsgLink("domain", "project", "user1", "vnc");
+    IFMapMsgLink("project", "virtual-network", "vnc", "blue");
+    IFMapMsgLink("project", "virtual-network", "vnc", "red");
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_x", "vm_x:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_x:veth0", "blue");
+    IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
+    task_util::WaitForIdle();
+
+    IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>
+        (db_.FindTable("__ifmap_metadata__.0"));
+    if (link_table == NULL) {
+        assert(false);
+    }
+
+    // Check node, state and update for VR.
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "vr-test") != NULL);
+    IFMapNode *vr_node = TableLookup("virtual-router", "vr-test");
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(vr_node) != NULL);
+    IFMapNodeState *vr_state = exporter_->NodeStateLookup(vr_node);
+    TASK_UTIL_EXPECT_TRUE(vr_state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    IFMapUpdate *vr_update = vr_state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(vr_update != NULL);
+    TASK_UTIL_EXPECT_TRUE(vr_update->advertise().test(c1.index()));
+
+    // Check node, state and update for VM.
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", "vm_x") != NULL);
+    IFMapNode *vm_node = TableLookup("virtual-machine", "vm_x");
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(vm_node) != NULL);
+    IFMapNodeState *vm_state = exporter_->NodeStateLookup(vm_node);
+    TASK_UTIL_EXPECT_TRUE(vm_state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    IFMapUpdate *vm_update = vm_state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(vm_update != NULL);
+    TASK_UTIL_EXPECT_TRUE(vm_update->advertise().test(c1.index()));
+
+    // Check node, state and update for link VR-VM.
+    string link_name = link_table->LinkKey("virtual-router-virtual-machine",
+                                           vr_node, vm_node);
+    ASSERT_TRUE(link_name.size() != 0);
+    TASK_UTIL_EXPECT_TRUE(LinkTableLookup(link_name) != NULL);
+    IFMapLink *vr_vm_link = LinkTableLookup(link_name);
+    ASSERT_TRUE(vr_vm_link != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->LinkStateLookup(vr_vm_link) != NULL);
+    IFMapLinkState *link_state = exporter_->LinkStateLookup(vr_vm_link);
+    ASSERT_TRUE(link_state != NULL);
+    TASK_UTIL_EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    IFMapUpdate *link_update = link_state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(link_update != NULL);
+    TASK_UTIL_EXPECT_TRUE(link_update->advertise().test(c1.index()));
+
+    // Now drain the Q.
+    ProcessQueue();
+    EXPECT_TRUE(vr_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    EXPECT_TRUE(vm_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+
+    // Delete the link between VR-VM but dont process the Q. The delete-update
+    // should remain in the state's list.
+    EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::DELETE) == NULL);
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "vr-test", "vm_x");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(
+        link_state->GetUpdate(IFMapListEntry::DELETE) != NULL);
+    link_update = link_state->GetUpdate(IFMapListEntry::DELETE);
+    ASSERT_TRUE(link_update != NULL);
+    TASK_UTIL_EXPECT_TRUE(link_update->advertise().test(c1.index()));
+    link_state = exporter_->LinkStateLookup(vr_vm_link);
+    EXPECT_TRUE(link_state->IsInvalid());
+    EXPECT_FALSE(link_state->HasDependency());
+
+    // We have not processed the Q and so that delete-update is still in the
+    // queue. Add the VR-VM link again. Since, advertised and interest are the
+    // same, add-update will not be added and delete-update will be dequeued.
+    link_update = link_state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(link_update == NULL);
+    IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(link_state->IsValid());
+    TASK_UTIL_EXPECT_TRUE(link_state->HasDependency());
+    TASK_UTIL_EXPECT_TRUE(
+        link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        link_state->GetUpdate(IFMapListEntry::DELETE) == NULL);
 }
 
 int main(int argc, char **argv) {
