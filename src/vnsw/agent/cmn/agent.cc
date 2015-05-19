@@ -70,6 +70,14 @@ bool Agent::isXenMode() {
     return params_->isXenMode();
 }
 
+bool Agent::isKvmMode() {
+    return params_->isKvmMode();
+}
+
+bool Agent::isDockerMode() {
+    return params_->isDockerMode();
+}
+
 static void SetTaskPolicyOne(const char *task, const char *exclude_list[],
                              int count) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
