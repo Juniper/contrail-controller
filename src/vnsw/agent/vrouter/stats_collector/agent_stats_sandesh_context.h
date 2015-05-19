@@ -62,6 +62,7 @@ public:
     virtual void FlowMsgHandler(vr_flow_req *req) {
         assert(0);
     }
+    virtual void VrouterOpsMsgHandler(vrouter_ops *req) { }
 private:
     AgentDropStats GetDropStats(vr_drop_stats_req *req);
 

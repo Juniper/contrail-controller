@@ -49,6 +49,7 @@ public:
     }
     virtual int VrResponseMsgHandler(vr_response *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
+    virtual void VrouterOpsMsgHandler(vrouter_ops *r);
     
     int response_code() const { return response_code_; }
     int context_marker() const { return context_marker_; }
