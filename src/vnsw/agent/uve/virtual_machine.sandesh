@@ -26,6 +26,7 @@ struct UveVirtualMachineAgent {
     12: optional list<u32>  tcp_dport_bitmap;
     14: optional VmCpuStats cpu_info;
     15: optional string uuid;
+    16: optional string vm_name;
 }
 
 uve sandesh UveVirtualMachineAgentTrace {
