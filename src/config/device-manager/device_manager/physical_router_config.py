@@ -10,6 +10,8 @@ configuration manager
 from lxml import etree
 from ncclient import manager
 import copy
+import time
+import datetime
 
 class PhysicalRouterConfig(object):
     # mapping from contrail family names to junos
@@ -28,6 +30,14 @@ class PhysicalRouterConfig(object):
         self.vnc_managed = vnc_managed
         self.reset_bgp_config()
         self._logger = logger
+        self.commit_stats = {   
+                                'netconf_enabled':False,
+                                'netconf_enabled_status':'',
+                                'last_commit_time': '',
+                                'last_commit_duration': '',
+                                'commit_status_message': '',
+                                'total_commits_sent_since_up': 0,
+                            }
         self.bgp_config_sent = False
     # end __init__
 
@@ -39,18 +49,27 @@ class PhysicalRouterConfig(object):
         self.vnc_managed = vnc_managed
     # end update
 
+    def get_commit_stats():
+        return self.commit_stats
+    #end get_commit_stats
+
     def send_netconf(self, new_config, default_operation="merge",
                      operation="replace"):
         if (self.vendor is None or self.product is None or
                self.vendor.lower() != "juniper" or self.product.lower() != "mx"):
             self._logger.info("auto configuraion of physical router is not supported \
                 on the configured vendor family, ip: %s, not pushing netconf message" % (self.management_ip))
+            self.commit_stats['netconf_enabled'] = False
+            self.commit_stats['netconf_enabled_status'] = "netconf configuraion is not supported on this vendor/product family"
             return
         if (self.vnc_managed is None or self.vnc_managed == False):
             self._logger.info("vnc managed property must be set for a physical router to get auto \
                 configured, ip: %s, not pushing netconf message" % (self.management_ip))
+            self.commit_stats['netconf_enabled'] = False
+            self.commit_stats['netconf_enabled_status'] = "netconf auto configuraion is not enabled on this physical router"
             return
-
+        self.commit_stats['netconf_enabled'] = True
+        self.commit_stats['netconf_enabled_status'] = ''
         try:
             with manager.connect(host=self.management_ip, port=22,
                                  username=self.user_creds['username'],
@@ -75,11 +94,20 @@ class PhysicalRouterConfig(object):
                     target='candidate', config=etree.tostring(add_config),
                     test_option='test-then-set',
                     default_operation=default_operation)
+                self.commit_stats['total_commits_sent_since_up'] += 1
+                start_time = time.time()
                 m.commit()
+                end_time = time.time()
+                self.commit_stats['commit_status_message'] = 'success'
+                self.commit_stats['last_commit_time'] = datetime.datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')
+                self.commit_stats['last_commit_duration'] = str(end_time - start_time)
         except Exception as e:
             if self._logger:
                 self._logger.error("Router %s: %s" % (self.management_ip,
                                                       e.message))
+                self.commit_stats['commit_status_message'] = 'failed to apply config, router response: ' + e.message
+                self.commit_stats['last_commit_time'] = datetime.datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')
+                self.commit_stats['last_commit_duration'] = str(time.time() - start_time)
     # end send_config
 
     def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets, bgp_router_ips):
