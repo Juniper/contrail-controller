@@ -1214,3 +1214,21 @@ struct PhysicalDeviceVnObjectLogInfo {
 objectlog sandesh PhysicalDeviceVnObjectLog {
     1: PhysicalDeviceVnObjectLogInfo port;
 }
+
+struct VrouterObjectLimits {
+    1: i32 max_labels;
+    2: i32 max_nexthops;
+    3: i32 max_interfaces;
+    4: i32 max_vrfs;
+    5: i32 max_mirror_entries;
+    6: i32 vrouter_max_bridge_entries;
+    7: i32 vrouter_max_oflow_bridge_entries;
+    8: string vrouter_build_info;
+}
+
+request sandesh VrouterObjectLimitsReq {
+}
+
+response sandesh VrouterObjectLimitsResp {
+    1: VrouterObjectLimits vrouter_object_limit;
+}

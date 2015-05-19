@@ -217,12 +217,10 @@ void Agent::CopyConfig(AgentParam *params) {
     int dns_count = 0;
 
     if (params_->xmpp_server_1().to_ulong()) {
-        SetAgentMcastLabelRange(count);
         xs_addr_[count++] = params_->xmpp_server_1().to_string();
     }
 
     if (params_->xmpp_server_2().to_ulong()) {
-        SetAgentMcastLabelRange(count);
         xs_addr_[count++] = params_->xmpp_server_2().to_string();
     }
 

@@ -1405,6 +1405,40 @@ TEST_F(MulticastTest, McastSubnet_VN2MultipleVRFtest_negative) {
     DelVn("vn1");
     client->WaitForIdle();
 }
+//Test case to check multicast label range
+TEST_F(MulticastTest, LabelRange) {
+    //Set no if VN to be 100
+    //Set label range to be 5000
+    //Expected Multicast label range
+    //CN1 - 4800-4899
+    //CN2 - 4900-4999
+    agent_->set_vrouter_max_labels(5000);
+    agent_->set_vrouter_max_vrfs(100);
+    agent_->SetAgentMcastLabelRange(0);
+    agent_->SetAgentMcastLabelRange(1);
+    EXPECT_TRUE(agent_->multicast_label_range(0) == "4900-4999");
+    EXPECT_TRUE(agent_->multicast_label_range(1) == "4800-4899");
+
+    //Set VN count to be 1000
+    //Since there is not enough space for VN label
+    //allocation, agent allocates 50 labels to each control node
+    agent_->set_vrouter_max_labels(4198);
+    agent_->set_vrouter_max_vrfs(1000);
+    agent_->SetAgentMcastLabelRange(0);
+    agent_->SetAgentMcastLabelRange(1);
+    EXPECT_TRUE(agent_->multicast_label_range(0) == "4148-4197");
+    EXPECT_TRUE(agent_->multicast_label_range(1) == "4098-4147");
+
+    //Set VN count to be 1000
+    //Since there is not enough space for VN label
+    //allocation, agent allocates 49 labels to each control node
+    agent_->set_vrouter_max_labels(4197);
+    agent_->set_vrouter_max_vrfs(1000);
+    agent_->SetAgentMcastLabelRange(0);
+    agent_->SetAgentMcastLabelRange(1);
+    EXPECT_TRUE(agent_->multicast_label_range(0) == "4148-4196");
+    EXPECT_TRUE(agent_->multicast_label_range(1) == "4099-4147");
+}
 
 int main(int argc, char **argv) {
     GETUSERARGS();

@@ -182,6 +182,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define MULTICAST_LABEL_RANGE_START 1024
 #define MULTICAST_LABEL_BLOCK_SIZE 2048        
 
+#define MIN_UNICAST_LABEL_RANGE 4098
 #define MAX_XMPP_SERVERS 2
 #define XMPP_SERVER_PORT 5269
 #define DISCOVERY_SERVER_PORT 5998
@@ -560,13 +561,31 @@ public:
     }
     void SetAgentMcastLabelRange(uint8_t idx) {
         std::stringstream str;
-        str << (MULTICAST_LABEL_RANGE_START + 
-                (idx * MULTICAST_LABEL_BLOCK_SIZE)) << "-"
-            << (MULTICAST_LABEL_RANGE_START + 
-                ((idx + 1) * MULTICAST_LABEL_BLOCK_SIZE) - 1); 
+        //Logic for multicast label allocation
+        //  1> Reserve minimum 4k label for unicast
+        //  2> In the remaining label space
+        //       * Try allocating labels equal to no. of VN
+        //         for each control node
+        //       * If label space is not huge enough
+        //         split remaining unicast label for both control
+        //         node
+        //  Remaining label would be used for unicast mpls label
+        uint32_t max_mc_labels = 2 * vrouter_max_vrfs_;
+        uint32_t mc_label_count = 0;
+        if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels_) {
+            mc_label_count = vrouter_max_vrfs_;
+        } else {
+            mc_label_count = (vrouter_max_labels_ - MIN_UNICAST_LABEL_RANGE)/2;
+        }
+
+        str << (vrouter_max_labels_ -
+                ((idx + 1) * mc_label_count)) << "-"
+            << (vrouter_max_labels_ -
+                ((idx) * mc_label_count) - 1);
         label_range_[idx] = str.str();
     }
     void ResetAgentMcastLabelRange(uint8_t idx) {
+
         label_range_[idx].clear();
     }
 
@@ -815,6 +834,65 @@ public:
 
     // Default concurrency checker. Checks for "Agent::KSync" and "db::DBTable"
     void ConcurrencyCheck();
+
+    uint32_t vrouter_max_labels() const {
+        return vrouter_max_labels_;
+    }
+    void set_vrouter_max_labels(uint32_t max_labels) {
+        vrouter_max_labels_ = max_labels;
+    }
+
+    uint32_t vrouter_max_nexthops() const {
+        return vrouter_max_nexthops_;
+    }
+    void set_vrouter_max_nexthops(uint32_t max_nexthop) {
+        vrouter_max_nexthops_ = max_nexthop;
+    }
+
+    uint32_t vrouter_max_interfaces() const {
+        return vrouter_max_interfaces_;
+    }
+    void set_vrouter_max_interfaces(uint32_t max_interfaces) {
+        vrouter_max_interfaces_ = max_interfaces;
+    }
+
+    uint32_t vrouter_max_vrfs() const {
+        return vrouter_max_vrfs_;
+    }
+    void set_vrouter_max_vrfs(uint32_t max_vrf) {
+        vrouter_max_vrfs_ = max_vrf;
+    }
+
+    uint32_t vrouter_max_mirror_entries() const {
+        return vrouter_max_mirror_entries_;
+    }
+    void set_vrouter_max_mirror_entries(uint32_t max_mirror_entries) {
+        vrouter_max_mirror_entries_ = max_mirror_entries;
+    }
+
+
+    uint32_t vrouter_max_bridge_entries() const {
+        return vrouter_max_bridge_entries_;
+    }
+    void set_vrouter_max_bridge_entries(uint32_t bridge_entries) {
+        vrouter_max_bridge_entries_ = bridge_entries;
+    }
+
+    uint32_t vrouter_max_oflow_bridge_entries() const {
+        return vrouter_max_oflow_bridge_entries_;
+    }
+    void set_vrouter_max_oflow_bridge_entries(uint32_t
+                                                  oflow_bridge_entries) {
+        vrouter_max_oflow_bridge_entries_ = oflow_bridge_entries;
+    }
+
+    void set_vrouter_build_info(std::string version) {
+        vrouter_build_info_ = version;
+    }
+    std::string vrouter_build_info() const {
+        return vrouter_build_info_;
+    }
+
 private:
 
     AgentParam *params_;
@@ -963,6 +1041,20 @@ private:
     Ip4Address vrouter_server_ip_;
     //TCP port number to be used for sending vrouter sandesh messages
     uint32_t vrouter_server_port_;
+    //Max label space of vrouter
+    uint32_t vrouter_max_labels_;
+    //Max nexthop supported by vrouter
+    uint32_t vrouter_max_nexthops_;
+    //Max interface supported by vrouter
+    uint32_t vrouter_max_interfaces_;
+    //Max VRF supported by vrouter
+    uint32_t vrouter_max_vrfs_;
+    //Max Mirror entries
+    uint32_t vrouter_max_mirror_entries_;
+    //Bridge entries that can be porgrammed in vrouter
+    uint32_t vrouter_max_bridge_entries_;
+    uint32_t vrouter_max_oflow_bridge_entries_;
+    std::string vrouter_build_info_;
 
     // Constants
     static const std::string config_file_;
