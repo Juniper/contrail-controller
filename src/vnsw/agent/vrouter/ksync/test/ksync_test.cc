@@ -68,13 +68,28 @@ void KSyncTest::RegisterDBClients(DB *db) {
     agent_->set_router_id_configured(false);
 }
 
-void KSyncTest::GenericNetlinkInitTest() const {
+void KSyncTest::GenericNetlinkInitTest() {
     LOG(DEBUG, "Vrouter family is 24");
     KSyncSock::SetNetlinkFamilyId(24);
+
+    int len = 0;
+    vrouter_ops encoder;
+    encoder.set_h_op(sandesh_op::GET);
+    uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
+    len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
+
+    KSyncSockTypeMap::SetVRouterOps(encoder);
+    //Get configured mpls, vmi, vni and nexthop parameters
+    //from vrouter
+    KSyncSock *sock = KSyncSock::Get(0);
+    sock->BlockingSend((char *)msg, len);
+    if (sock->BlockingRecv()) {
+        LOG(ERROR, "Error getting configured parameter for vrouter");
+    }
     return;
 }
 
-void KSyncTest::NetlinkInitTest() const {
+void KSyncTest::NetlinkInitTest() {
     EventManager *event_mgr;
 
     event_mgr = agent_->event_manager();

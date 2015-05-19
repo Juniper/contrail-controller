@@ -735,8 +735,3 @@ void vr_response::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->SetErrno(ioc->VrResponseMsgHandler(this));
 }
-
-void vrouter_ops::Process(SandeshContext *context) {
-    assert(0);
-}
-

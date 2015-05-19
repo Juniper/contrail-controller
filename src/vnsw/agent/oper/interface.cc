@@ -139,6 +139,7 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     intf->GetOsParams(agent());
 
     intf->Add();
+
     intf->SendTrace(Interface::ADD);
     return intf;
 }
