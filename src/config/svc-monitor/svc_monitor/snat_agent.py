@@ -89,7 +89,7 @@ class SNATAgent(object):
         virtual_network = router_obj.virtual_network
         vn_obj = VirtualNetworkSM.get(virtual_network)
         right_if = ServiceInstanceInterfaceType(
-            virtual_network=vn_obj.fq_name)
+            virtual_network=':'.join(vn_obj.fq_name))
         si_prop_obj.set_interface_list([right_if, left_if])
         si_prop_obj.set_ha_mode('active-standby')
 
