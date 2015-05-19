@@ -5,6 +5,7 @@
 #include "bgp/bgp_attr.h"
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
+#include "net/bgp_af.h"
 
 BgpProtoPrefix::BgpProtoPrefix() : prefixlen(0), type(0) {
 }
@@ -12,7 +13,7 @@ BgpProtoPrefix::BgpProtoPrefix() : prefixlen(0), type(0) {
 int BgpAttribute::CompareTo(const BgpAttribute &rhs) const {
     KEY_COMPARE(code, rhs.code);
     KEY_COMPARE(subcode, rhs.subcode);
-    KEY_COMPARE(flags, rhs.flags);
+    KEY_COMPARE(flags & ~ExtendedLength, rhs.flags & ~ExtendedLength);
     return 0;
 }
 
@@ -20,6 +21,14 @@ std::string BgpAttribute::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "<code: %d, flags: %02x>", code, flags);
     return std::string(repr);
+}
+
+uint8_t BgpAttribute::GetEncodeFlags() const {
+    uint8_t value = flags;
+    if (EncodeLength() >= sizeof(uint8_t) << 8) {
+        value |= BgpAttribute::ExtendedLength;
+    }
+    return value;
 }
 
 int BgpAttrOrigin::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -146,6 +155,25 @@ int BgpMpNlri::CompareTo(const BgpAttribute &rhs_attr) const {
 void BgpMpNlri::ToCanonical(BgpAttr *attr) {
 }
 
+size_t BgpMpNlri::EncodeLength() const {
+    size_t sz = 2 /* safi */ + 1 /* afi */ +
+                1 /* NlriNextHopLength */ +
+                1 /* Reserved */;
+    sz += nexthop.size();
+    for (std::vector<BgpProtoPrefix*>::const_iterator iter = nlri.begin();
+         iter != nlri.end(); ++iter) {
+        size_t bytes = 0;
+        if (afi == BgpAf::L2Vpn &&
+            (safi == BgpAf::EVpn || safi == BgpAf::ErmVpn)) {
+            bytes = (*iter)->prefixlen;
+        } else {
+            bytes = ((*iter)->prefixlen + 7) / 8;
+        }
+        sz += 1 + bytes;
+    }
+    return sz;
+}
+
 EdgeDiscoverySpec::EdgeDiscoverySpec()
     : BgpAttribute(McastEdgeDiscovery, kFlags) {
 }
@@ -192,9 +220,6 @@ void EdgeDiscoverySpec::Edge::SetLabels(
 int EdgeDiscoverySpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    const EdgeDiscoverySpec &rhs =
-        static_cast<const EdgeDiscoverySpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
     return 0;
 }
 
@@ -217,6 +242,17 @@ std::string EdgeDiscoverySpec::ToString() const {
     }
 
     return oss.str();
+}
+
+size_t EdgeDiscoverySpec::EncodeLength() const {
+    size_t sz = 0;
+    for (EdgeList::const_iterator iter = edge_list.begin();
+         iter != edge_list.end(); ++iter) {
+        sz += 2; /* AddressLen + LabelLen */
+        sz += (*iter)->address.size();
+        sz += (*iter)->labels.size() * sizeof(uint32_t);
+    }
+    return sz;
 }
 
 EdgeDiscovery::Edge::Edge(const EdgeDiscoverySpec::Edge *spec_edge) {
@@ -286,9 +322,6 @@ void EdgeForwardingSpec::Edge::SetOutboundIp4Address(Ip4Address addr) {
 int EdgeForwardingSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    const EdgeForwardingSpec &rhs =
-        static_cast<const EdgeForwardingSpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
     return 0;
 }
 
@@ -312,6 +345,18 @@ std::string EdgeForwardingSpec::ToString() const {
     }
 
     return oss.str();
+}
+
+size_t EdgeForwardingSpec::EncodeLength() const {
+    size_t sz = 0;
+    for (EdgeList::const_iterator iter = edge_list.begin();
+         iter != edge_list.end(); ++iter) {
+        sz += 1 /* address len */ + 8 /* 2 labels */;
+        sz += (*iter)->inbound_address.size();
+        sz += (*iter)->outbound_address.size();
+    }
+
+    return sz;
 }
 
 EdgeForwarding::Edge::Edge(const EdgeForwardingSpec::Edge *spec_edge) {
