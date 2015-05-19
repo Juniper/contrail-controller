@@ -134,6 +134,7 @@ class DeviceManager(object):
                                          file=args.log_file,
                                          enable_syslog=args.use_syslog,
                                          syslog_facility=args.syslog_facility)
+        PhysicalRouterDM._sandesh = self._sandesh
         ConnectionState.init(
             self._sandesh, hostname, module_name, instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
