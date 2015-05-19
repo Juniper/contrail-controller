@@ -29,6 +29,11 @@ void vr_vrf_stats_req::Process(SandeshContext *context) {
     ioc->VrfStatsMsgHandler(this);
 }
 
+void vrouter_ops::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->VrouterOpsMsgHandler(this);
+}
+
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
@@ -127,4 +132,18 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {
     flow_ksync_->ksync()->interface_scanner()->KernelInterfaceData(r); 
     context_marker_ = r->get_vifr_idx();
+}
+
+void KSyncSandeshContext::VrouterOpsMsgHandler(vrouter_ops *r) {
+    Agent *agent = flow_ksync_->ksync()->agent();
+    agent->set_vrouter_max_labels(r->get_vo_mpls_labels());
+    agent->set_vrouter_max_nexthops(r->get_vo_nexthops());
+    agent->set_vrouter_max_bridge_entries(r->get_vo_bridge_entries());
+    agent->set_vrouter_max_oflow_bridge_entries(
+            r->get_vo_oflow_bridge_entries());
+    agent->set_vrouter_max_interfaces(r->get_vo_interfaces());
+    agent->set_vrouter_max_mirror_entries(r->get_vo_mirror_entries());
+    agent->set_vrouter_max_vrfs(r->get_vo_vrfs());
+    agent->set_vrouter_build_info(r->get_vo_build_info());
+    return;
 }

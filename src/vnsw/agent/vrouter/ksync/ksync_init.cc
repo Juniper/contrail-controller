@@ -144,6 +144,15 @@ void KSync::ResetVRouter(bool run_sync_mode) {
         return;
     }
 
+    //Get configured mpls, vmi, vni and nexthop parameters
+    //from vrouter
+    encoder.set_h_op(sandesh_op::GET);
+    len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
+    sock->BlockingSend((char *)msg, len);
+    if (sock->BlockingRecv()) {
+        LOG(ERROR, "Error getting configured parameter for vrouter");
+    }
+
     KSyncSock::Start(run_sync_mode);
 }
 

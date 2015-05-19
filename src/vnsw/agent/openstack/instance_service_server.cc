@@ -485,7 +485,7 @@ InstanceServiceAsyncHandler::ConvertToUuid(const tuuid &id) {
 InstanceServiceAsyncHandler::uuid 
 InstanceServiceAsyncHandler::MakeUuid(int id) {
     char str[50];
-    sprintf(str, "00000000-0000-0000-0000-0000000000%02x", id);
+    sprintf(str, "00000000-0000-0000-0000-00%010x", id);
     boost::uuids::uuid u1 = StringToUuid(std::string(str));
 
     return u1;

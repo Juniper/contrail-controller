@@ -16,8 +16,8 @@ public:
     virtual void RegisterDBClients(DB *db);
     void Shutdown();
 private:
-    void GenericNetlinkInitTest() const;
-    void NetlinkInitTest() const;
+    void GenericNetlinkInitTest();
+    void NetlinkInitTest();
     void NetlinkShutdownTest();
     DISALLOW_COPY_AND_ASSIGN(KSyncTest);
 };

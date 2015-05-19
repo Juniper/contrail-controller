@@ -44,10 +44,6 @@ vr_flow_entry *KSyncSockTypeMap::flow_table_;
 int KSyncSockTypeMap::error_code_;
 using namespace boost::asio;
 
-//store ops data
-void vrouter_ops_test::Process(SandeshContext *context) {
-}
-
 //process sandesh messages that are being sent from the agent
 //this is used to store a local copy of what is being send to kernel
 void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len, 
@@ -166,6 +162,11 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
 void KSyncSockTypeMap::SetDropStats(const vr_drop_stats_req &req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     sock->drop_stats = req;
+}
+
+void KSyncSockTypeMap::SetVRouterOps(const vrouter_ops &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    sock->ksync_vrouter_ops = req;
 }
 
 void KSyncSockTypeMap::InterfaceAdd(int id, int flags, int mac_size) {
@@ -619,10 +620,6 @@ void KSyncSockTypeMap::Init(boost::asio::io_service &ios, int count) {
     singleton_->sock_.bind(singleton_->local_ep_);
     singleton_->local_ep_ = singleton_->sock_.local_endpoint();
 
-    //update map for Sandesh callback of Process()
-    SandeshBaseFactory::map_type update_map;
-    update_map["vrouter_ops"] = &createT<vrouter_ops_test>;
-    SandeshBaseFactory::Update(update_map);
     for (int i = 0; i < count; i++) {
         KSyncSock::SetSockTableEntry(i, singleton_);
     }
@@ -895,6 +892,21 @@ void KSyncUserSockContext::VxLanMsgHandler(vr_vxlan_req *req) {
     } else {
         vxlanctx->Process();
         delete vxlanctx;
+    }
+    SetResponseReqd(false);
+}
+
+void KSyncUserSockContext::VrouterOpsMsgHandler(vrouter_ops *req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncUserVrouterOpsContext *vrouter_ops =
+        new KSyncUserVrouterOpsContext(GetSeqNum(), req);
+
+    if (sock->IsBlockMsgProcessing()) {
+        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
+        sock->ctx_queue_.push(vrouter_ops);
+    } else {
+        vrouter_ops->Process();
+        delete vrouter_ops;
     }
     SetResponseReqd(false);
 }
@@ -1487,3 +1499,12 @@ Sandesh* VxLanDumpHandler::GetNext(Sandesh *input) {
     return NULL;
 }
 
+void KSyncUserVrouterOpsContext::Process() {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    if (req_->get_h_op() == sandesh_op::GET) {
+        VRouterOpsDumpHandler dump;
+        sock->ksync_vrouter_ops.set_vo_mpls_labels(10000);
+        dump.SendGetResponse(GetSeqNum(), 0);
+        return;
+    }
+}
