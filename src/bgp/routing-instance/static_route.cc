@@ -217,7 +217,7 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst,
             Ip4Prefix &static_route, const std::vector<std::string> &rtargets, 
             IpAddress nexthop)
     : routing_instance_(rtinst), static_route_prefix_(static_route), 
-    nexthop_(nexthop), unregistered_(false) {
+    nexthop_(nexthop), nexthop_route_(NULL), unregistered_(false) {
     for(std::vector<std::string>::const_iterator it = rtargets.begin();
         it != rtargets.end(); it++) {
         error_code ec;
