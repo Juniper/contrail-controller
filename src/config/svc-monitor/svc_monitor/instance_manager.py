@@ -164,7 +164,10 @@ class InstanceManager(object):
             vn_obj.set_id_perms(id_perms)
         domain_name, project_name = proj_obj.get_fq_name()
         ipam_fq_name = [domain_name, project_name, 'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        try:
+            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        except NoIdError:
+            ipam_obj = NetworkIpam()
         cidr = vn_subnet.split('/')
         pfx = cidr[0]
         pfx_len = int(cidr[1])
