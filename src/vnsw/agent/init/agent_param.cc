@@ -334,6 +334,8 @@ void AgentParam::ParseHypervisor() {
             hypervisor_mode_ = AgentParam::MODE_VMWARE;
             GetValueFromTree<string>(vmware_physical_port_, 
                                      "HYPERVISOR.vmware_physical_interface");
+        } else if (opt_str.get() == "docker") {
+            hypervisor_mode_ = AgentParam::MODE_DOCKER;
         } else {
             hypervisor_mode_ = AgentParam::MODE_KVM;
         }
