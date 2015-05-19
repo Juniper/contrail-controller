@@ -10,7 +10,7 @@ using namespace std;
 VmUveEntryBase::VmUveEntryBase(Agent *agent, const string &vm_name)
     : agent_(agent), interface_tree_(), uve_info_(), changed_(true),
     deleted_(false), renewed_(false), add_by_vm_notify_(false),
-    vm_config_name_(vm_name) {
+    vm_config_name_(vm_name), vm_name_() {
 }
 
 VmUveEntryBase::~VmUveEntryBase() {
@@ -40,6 +40,9 @@ void VmUveEntryBase::InterfaceDelete(const std::string &intf_cfg_name) {
         renewed_ = false;
         deleted_ = true;
     }
+    if (interface_tree_.size() == 0) {
+        vm_name_ = "";
+    }
 }
 
 bool VmUveEntryBase::FrameVmMsg(const boost::uuids::uuid &u,
@@ -54,6 +57,12 @@ bool VmUveEntryBase::FrameVmMsg(const boost::uuids::uuid &u,
         uve_info_.set_uuid(to_string(u));
         changed = true;
     }
+    if (!uve_info_.__isset.vm_name ||
+        (uve_info_.get_vm_name() != vm_name_)) {
+        uve->set_vm_name(vm_name_);
+        uve_info_.set_vm_name(vm_name_);
+    }
+
     InterfaceSet::iterator it = interface_tree_.begin();
     while(it != interface_tree_.end()) {
         s_intf_list.push_back(*it);
