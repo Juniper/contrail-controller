@@ -43,6 +43,7 @@ public:
     bool deleted() const { return deleted_; }
     void set_renewed(bool value) { renewed_ = value; }
     bool renewed() const { return renewed_; }
+    void set_vm_name(const std::string name) { vm_name_.assign(name); }
     virtual void Reset();
 protected:
 
@@ -60,6 +61,7 @@ private:
 
     bool add_by_vm_notify_;
     std::string vm_config_name_;
+    std::string vm_name_; /* Name given by Nova during port notification */
     DISALLOW_COPY_AND_ASSIGN(VmUveEntryBase);
 };
 #endif // vnsw_agent_vm_uve_entry_base_h

@@ -91,11 +91,6 @@ void InterfaceUveTable::UveInterfaceEntry::SetVnVmInfo(UveVMInterfaceAgent *uve)
     } else {
         uve->set_virtual_network("");
     }
-    if (vm) {
-        uve->set_vm_uuid(to_string(vm->GetUuid()));
-    } else {
-        uve->set_vm_uuid("");
-    }
 }
 
 
