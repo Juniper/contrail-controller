@@ -528,6 +528,24 @@ TEST_F(TestAap, StaticMachine_11) {
     EXPECT_TRUE(path->path_preference().static_preference() == false);
 }
 
+//Verify that static preference is not populated
+//when preference value is set to 0
+TEST_F(TestAap, StateMachine_12) {
+    AddStaticPreference("intf1", 1, 0);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == false);
+}
+
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
