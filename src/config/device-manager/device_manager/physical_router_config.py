@@ -244,7 +244,7 @@ class PhysicalRouterConfig(object):
             evpn_proto_config = etree.SubElement(ri, "protocols")
             evpn = etree.SubElement(evpn_proto_config, "evpn")
             etree.SubElement(evpn, "encapsulation").text = "vxlan"
-            etree.SubElement(evpn, "extended-vni-all")
+            etree.SubElement(evpn, "extended-vni-list").text = "all"
 
             interfaces_config = self.interfaces_config or etree.Element("interfaces")
             irb_intf = etree.SubElement(interfaces_config, "interface")
