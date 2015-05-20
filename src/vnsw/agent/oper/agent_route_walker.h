@@ -88,8 +88,11 @@ public:
 
     void WalkDoneCallback(WalkDone cb);
     void RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb);
+    int queued_walk_count() const {return queued_walk_count_;}
+    bool AllWalksDequeued() const {return (queued_walk_count_ ==
+                                           kInvalidWalkCount);}
     int walk_count() const {return walk_count_;}
-    bool IsWalkCompleted() const {return (walk_count_ == 0);}
+    bool IsWalkCompleted() const {return (walk_count_ == kInvalidWalkCount);}
     //Callback for start of a walk issued from Agent::RouteWalker
     //task context.
     virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry> data);
@@ -108,9 +111,12 @@ private:
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
     void IncrementWalkCount() {walk_count_++;}
+    void IncrementQueuedWalkCount() {queued_walk_count_++;}
+    void DecrementQueuedWalkCount();
 
     Agent *agent_;
     AgentRouteWalker::WalkType walk_type_;    
+    tbb::atomic<int> queued_walk_count_;
     tbb::atomic<int> walk_count_;
     DBTableWalker::WalkId vrf_walkid_;
     VrfRouteWalkerIdMap route_walkid_[Agent::ROUTE_TABLE_MAX];
