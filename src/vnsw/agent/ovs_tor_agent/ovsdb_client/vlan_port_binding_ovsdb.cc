@@ -263,7 +263,7 @@ OvsdbDBEntry *VlanPortBindingTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     return NULL;
 }
 
-KSyncDBObject::DBFilterResp VlanPortBindingTable::DBEntryFilter(
+KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
         const DBEntry *entry) {
     const VlanLogicalInterface *l_port =
         dynamic_cast<const VlanLogicalInterface *>(entry);

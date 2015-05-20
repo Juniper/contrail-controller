@@ -63,9 +63,12 @@ public:
     void DeleteTable(void);
 
     virtual void EmptyTable(void);
+    virtual DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry);
 
     OvsdbClientIdl *client_idl() { return client_idl_.get();}
 protected:
+    DBFilterResp DBEntryFilter(const DBEntry *entry);
+
     OvsdbClientIdlPtr client_idl_;
 private:
     friend class OvsdbDBEntry;

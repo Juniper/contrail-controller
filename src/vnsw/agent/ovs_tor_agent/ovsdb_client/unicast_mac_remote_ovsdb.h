@@ -31,7 +31,7 @@ public:
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
     OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row);
 
-    KSyncDBObject::DBFilterResp DBEntryFilter(const DBEntry *entry);
+    DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry);
 
     void ManagedDelete();
     virtual void EmptyTable();

@@ -436,7 +436,7 @@ OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     return static_cast<OvsdbDBEntry *>(CreateStale(&key));
 }
 
-KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
+KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
         const DBEntry *db_entry) {
     const PhysicalDeviceVn *entry =
         static_cast<const PhysicalDeviceVn *>(db_entry);

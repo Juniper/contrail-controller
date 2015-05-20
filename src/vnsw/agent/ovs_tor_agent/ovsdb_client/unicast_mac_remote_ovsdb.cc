@@ -333,15 +333,8 @@ OvsdbDBEntry *UnicastMacRemoteTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     return static_cast<OvsdbDBEntry *>(CreateStale(&key));
 }
 
-KSyncDBObject::DBFilterResp UnicastMacRemoteTable::DBEntryFilter(
+KSyncDBObject::DBFilterResp UnicastMacRemoteTable::OvsdbDBEntryFilter(
         const DBEntry *db_entry) {
-    // Since Object delete for unicast remote table happens by db
-    // walk on vrf table, it needs to implement filter to ignore
-    // db Add/Change notifications if idl is marked deleted.
-    if (client_idl()->deleted()) {
-        return DBFilterIgnore;
-    }
-
     const BridgeRouteEntry *entry =
         static_cast<const BridgeRouteEntry *>(db_entry);
     //Locally programmed multicast route should not be added in
