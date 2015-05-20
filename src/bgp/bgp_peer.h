@@ -197,8 +197,10 @@ public:
     void inc_tx_end_of_rib();
 
     uint64_t get_rx_keepalive() const;
+    uint64_t get_rx_update() const;
     uint64_t get_rx_notification() const;
     uint64_t get_tx_keepalive() const;
+    uint64_t get_tx_update() const;
 
     uint64_t get_rx_end_of_rib() const;
     uint64_t get_rx_route_reach() const;

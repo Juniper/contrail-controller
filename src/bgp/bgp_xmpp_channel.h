@@ -102,6 +102,14 @@ public:
 
     const XmppChannel *channel() const { return channel_; }
 
+    uint64_t get_rx_route_reach() const { return stats_[RX].reach; }
+    uint64_t get_rx_route_unreach() const { return stats_[RX].unreach; }
+    uint64_t get_rx_update() const { return stats_[RX].rt_updates; }
+
+    uint64_t get_tx_route_reach() const { return stats_[TX].reach; }
+    uint64_t get_tx_route_unreach() const { return stats_[TX].unreach; }
+    uint64_t get_tx_update() const { return stats_[TX].rt_updates; }
+
 protected:
     XmppChannel *channel_;
 

@@ -455,7 +455,10 @@ private:
     SchedulingGroup *group_;
 };
 
-SchedulingGroup::SchedulingGroup() : running_(false), worker_task_(NULL) {
+SchedulingGroup::SchedulingGroup()
+    : running_(false),
+      disabled_(false),
+      worker_task_(NULL) {
     if (send_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         send_task_id_ = scheduler->GetTaskId("bgp::SendTask");
@@ -812,6 +815,19 @@ bool SchedulingGroup::IsSendReady(IPeerUpdate *peer) const {
 }
 
 //
+// Create a Worker if warranted and enqueue it to the TaskScheduler.
+// Assumes that the caller holds the SchedulingGroup mutex.
+//
+void SchedulingGroup::MaybeStartWorker() {
+    if (!running_ && !disabled_) {
+        worker_task_ = new Worker(this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(worker_task_);
+        running_ = true;
+    }
+}
+
+//
 // Dequeue the first WorkBase item from the work queue and return an
 // auto_ptr to it.  Clear out Worker related state if the work queue
 // is empty.
@@ -839,12 +855,17 @@ void SchedulingGroup::WorkEnqueue(WorkBase *wentry) {
 
     tbb::mutex::scoped_lock lock(mutex_);
     work_queue_.push_back(wentry);
-    if (!running_) {
-        worker_task_ = new Worker(this);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Enqueue(worker_task_);
-        running_ = true;
-    }
+    MaybeStartWorker();
+}
+
+//
+// Disable or enable the worker.
+// For unit testing.
+//
+void SchedulingGroup::set_disabled(bool disabled) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    disabled_ = disabled;
+    MaybeStartWorker();
 }
 
 //
@@ -1443,6 +1464,26 @@ bool SchedulingGroupManager::CheckInvariants() const {
         }
     }
     return true;
+}
+
+//
+// Disable all scheduling groups.
+//
+void SchedulingGroupManager::DisableGroups() {
+    for (GroupList::iterator it = groups_.begin(); it != groups_.end(); ++it) {
+        SchedulingGroup *sg = *it;
+        sg->set_disabled(true);
+    }
+}
+
+//
+// Enable all scheduling groups.
+//
+void SchedulingGroupManager::EnableGroups() {
+    for (GroupList::iterator it = groups_.begin(); it != groups_.end(); ++it) {
+        SchedulingGroup *sg = *it;
+        sg->set_disabled(false);
+    }
 }
 
 //

@@ -103,8 +103,8 @@ public:
     void clear();
     bool empty() const;
 
-protected:
-    bool running_;
+    // For unit testing.
+    void set_disabled(bool disabled);
 
 private:
     friend class RibOutUpdatesTest;
@@ -127,6 +127,7 @@ private:
 
     class PeerIterator;
 
+    void MaybeStartWorker();
     std::auto_ptr<WorkBase> WorkDequeue();
     void WorkEnqueue(WorkBase *wentry);
     void WorkPeerEnqueue(IPeerUpdate *peer);
@@ -157,8 +158,11 @@ private:
     RibOut *PeerRibOutFirst(PeerState *ps, size_t *start);
     RibOut *PeerRibOutNext(PeerState *ps, size_t start);
 
+
     // The mutex controls access to WorkQueue and related Worker state.
     tbb::mutex mutex_;
+    bool running_;
+    bool disabled_;
     WorkQueue work_queue_;
     Worker *worker_task_;
 
@@ -211,6 +215,10 @@ public:
 
     // Number of SchedulingGroups.
     int size() const { return groups_.size(); }
+
+    // For unit testing.
+    void DisableGroups();
+    void EnableGroups();
 
 private:
     // Merge two existing scheduling groups.
