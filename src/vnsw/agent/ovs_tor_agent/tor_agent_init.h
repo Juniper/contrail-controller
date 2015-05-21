@@ -29,7 +29,7 @@ class TorAgentInit : public AgentInit {
     int Start();
 
     virtual std::string InstanceId();
-    virtual std::string ModuleName();
+    virtual int ModuleType();
     // Initialization virtual methods
     void FactoryInit();
     void CreatePeers();

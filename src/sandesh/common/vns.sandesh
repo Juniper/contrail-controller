@@ -182,6 +182,7 @@ enum Module {
     CONTRAIL_TOPOLOGY,
     INVENTORY_AGENT,
     ALARM_GENERATOR,
+    TOR_AGENT,
     MAX_MODULE,
 }
 
@@ -222,6 +223,7 @@ const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
 const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = "contrail-snmp-collector"
 const string MODULE_CONTRAIL_TOPOLOGY_NAME = "contrail-topology"
 const string MODULE_SERVER_INVENTORY_AGENT_NAME = "InventoryAgent"
+const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -249,6 +251,7 @@ const map<Module, string> ModuleNames = {
     Module.CONTRAIL_TOPOLOGY  : MODULE_CONTRAIL_TOPOLOGY_NAME,
     Module.INVENTORY_AGENT    : MODULE_SERVER_INVENTORY_AGENT_NAME,
     Module.ALARM_GENERATOR    : MODULE_ALARM_GENERATOR_NAME,
+    Module.TOR_AGENT          : MODULE_TOR_AGENT_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -330,6 +333,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.CONTRAIL_SNMP_COLLECTOR : NodeType.ANALYTICS,
     Module.CONTRAIL_TOPOLOGY  : NodeType.ANALYTICS,
     Module.INVENTORY_AGENT    : NodeType.COMPUTE,
+    Module.TOR_AGENT          : NodeType.COMPUTE,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"

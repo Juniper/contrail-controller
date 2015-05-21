@@ -48,8 +48,12 @@ void AgentInit::ProcessOptions
     agent_param_->Init(config_file, program_name);
 }
 
+int AgentInit::ModuleType() {
+    return Module::VROUTER_AGENT;
+}
+
 string AgentInit::ModuleName() {
-    Module::type module = Module::VROUTER_AGENT;
+    Module::type module = static_cast<Module::type>(ModuleType());
     return g_vns_constants.ModuleNames.find(module)->second;
 }
 
@@ -77,6 +81,7 @@ int AgentInit::Start() {
     agent_->set_discovery_client_name(module_name);
     agent_->set_agent_name(AgentName());
     agent_->set_instance_id(InstanceId());
+    agent_->set_module_type(ModuleType());
 
     LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
                 agent_param_->log_files_count(), agent_param_->use_syslog(),

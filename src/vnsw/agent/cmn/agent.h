@@ -554,6 +554,9 @@ public:
     const std::string &instance_id() const { return instance_id_; }
     void set_instance_id(const std::string &id) { instance_id_ = id; }
 
+    const int &module_type() const { return module_type_; }
+    void set_module_type(int id) { module_type_ = id; }
+
     // Multicast related
     const std::string &multicast_label_range(uint8_t idx) { 
         return label_range_[idx]; 
@@ -852,6 +855,7 @@ private:
     std::string prog_name_;
     int introspect_port_;
     std::string instance_id_;
+    int module_type_;
 
     // DB handles
     DB *db_;
