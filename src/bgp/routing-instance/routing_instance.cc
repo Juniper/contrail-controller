@@ -315,7 +315,7 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
         RTINSTANCE_LOG_MESSAGE(server_,
             SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
             "Instance not found during update");
-        assert(rtinstance != NULL);
+        return;
     }
 
     InstanceTargetRemove(rtinstance);
@@ -362,7 +362,7 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
         RTINSTANCE_LOG_MESSAGE(server_,
             SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, name,
             "Instance not found during delete");
-        assert(rtinstance != NULL);
+        return;
     }
 
     InstanceVnIndexRemove(rtinstance);
