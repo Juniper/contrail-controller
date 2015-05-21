@@ -100,7 +100,8 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
         MplsLabelKey key(MplsLabel::MCAST_NH, label_);
         MplsLabel *mpls = static_cast<MplsLabel *>(agent->mpls_table()->
                                                    FindActiveEntry(&key));
-        ret = agent->mpls_table()->ChangeNH(mpls, nh);
+        if (agent->mpls_table()->ChangeNH(mpls, nh))
+            ret = true;
         if (mpls) {
             //Send notify of change
             mpls->get_table_partition()->Notify(mpls);
