@@ -13,7 +13,7 @@
 
 using namespace boost::assign;
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/task_annotations.h"
 #include "base/util.h"

@@ -5,7 +5,7 @@
 #include "ifmap/ifmap_agent_parser.h"
 
 #include <vector>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "base/logging.h"
 #include "db/db_entry.h"
 #include "ifmap/ifmap_agent_table.h"

@@ -5,7 +5,7 @@
 #include "service_instance.h"
 
 #include <boost/uuid/random_generator.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 

@@ -21,7 +21,7 @@
 #include <ifmap/ifmap_agent_table.h>
 #include <ifmap/ifmap_node.h>
 #include <ifmap/ifmap_agent_types.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 using namespace boost::assign;
 using namespace std;

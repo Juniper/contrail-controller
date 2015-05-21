@@ -26,7 +26,7 @@
 #include <base/test/task_test_util.h>
 #include <base/util.h>
 #include <io/event_manager.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "xmpp/xmpp_channel.h"
 

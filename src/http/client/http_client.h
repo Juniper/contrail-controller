@@ -14,7 +14,7 @@
 #include "base/timer.h"
 #include "io/tcp_server.h"
 #include "io/tcp_session.h"
-#include "http_parser/http_parser.h"
+#include <http_parser.h>
 
 class LifetimeActor;
 class LifetimeManager;

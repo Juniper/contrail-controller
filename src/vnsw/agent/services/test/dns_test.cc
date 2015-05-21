@@ -18,7 +18,7 @@
 #include <services/services_init.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <oper/vrf.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <services/dns_proto.h>
 #include <vr_interface.h>
 #include "bind/bind_util.h"

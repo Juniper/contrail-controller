@@ -5,7 +5,7 @@
 #include "bgp/xmpp_message_builder.h"
 
 #include <boost/foreach.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <string>
 #include <vector>

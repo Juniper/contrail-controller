@@ -9,7 +9,7 @@
 #include <sandesh/sandesh_trace.h>
 #include "cmn/agent_cmn.h"
 #include "xmpp/xmpp_init.h"
-#include "pugixml/pugixml.hpp"
+#include <pugixml.hpp>
 #include "oper/vrf.h"
 #include "oper/peer.h"
 #include "oper/mirror_table.h"

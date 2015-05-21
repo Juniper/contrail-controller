@@ -30,7 +30,7 @@
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_uuid_mapper.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 using namespace boost::assign;
 using namespace std;

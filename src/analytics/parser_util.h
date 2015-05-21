@@ -7,7 +7,7 @@
 #include <vector>
 #include <map>
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 class LineParser
 {

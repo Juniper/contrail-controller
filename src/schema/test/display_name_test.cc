@@ -3,7 +3,7 @@
  */
 #include "schema/vnc_cfg_types.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/logging.h"
 #include "ifmap/ifmap_server_parser.h"

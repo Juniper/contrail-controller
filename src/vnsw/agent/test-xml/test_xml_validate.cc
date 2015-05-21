@@ -4,7 +4,7 @@
 #include "base/os.h"
 #include <iostream>
 #include <fstream>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <boost/uuid/uuid.hpp>
 
 #include <test/test_cmn_util.h>

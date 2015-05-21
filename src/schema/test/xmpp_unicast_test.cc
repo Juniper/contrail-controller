@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <boost/algorithm/string/erase.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "ifmap/autogen.h"
 
 #include "base/logging.h"

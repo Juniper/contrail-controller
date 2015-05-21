@@ -8,7 +8,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #include <map>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <tbb/compat/condition_variable>
 #include <tbb/mutex.h>
 

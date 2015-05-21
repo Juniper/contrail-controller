@@ -4,7 +4,7 @@
 
 #include "testing/gunit.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <base/logging.h>
 #include <boost/bind.hpp>

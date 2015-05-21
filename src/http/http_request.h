@@ -9,7 +9,7 @@
 #include <string>
 
 #include "io/tcp_session.h"
-#include "http_parser/http_parser.h"
+#include <http_parser.h>
 
 class HttpRequest {
 public:

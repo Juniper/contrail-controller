@@ -11,7 +11,7 @@
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/util.h"
 #include "base/test/task_test_util.h"

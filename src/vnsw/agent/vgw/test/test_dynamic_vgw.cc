@@ -15,7 +15,7 @@
 #include "oper/mpls.h"
 
 #include <async/TAsioAsync.h>
-#include <protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TBinaryProtocol.h>
 #include <gen-cpp/InstanceService.h>
 #include <async/TFuture.h>
 #include <base/test/task_test_util.h>

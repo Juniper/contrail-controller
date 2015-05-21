@@ -23,7 +23,7 @@
 #include "oper/vxlan.h"
 #include "oper/agent_path.h"
 #include "pkt/agent_stats.h"
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp_multicast_types.h"

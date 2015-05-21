@@ -9,7 +9,7 @@
 #include <boost/assign/list_of.hpp>
 using namespace boost::assign;
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/util.h"
 #include "base/test/task_test_util.h"

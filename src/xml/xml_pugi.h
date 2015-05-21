@@ -5,7 +5,7 @@
 #ifndef __XML_PUGI_H__
 #define __XML_PUGI_H__
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 class XmlPugi : public XmlBase {
 public:

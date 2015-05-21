@@ -5,7 +5,7 @@
 #include "ifmap/test/ifmap_client_mock.h"
 
 #include <boost/tuple/tuple.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "testing/gunit.h"
 

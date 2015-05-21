@@ -4,7 +4,7 @@
 
 #include "base/logging.h"
 #include "base/task_trigger.h"
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "agent/agent_xmpp_channel.h"
 
 #include "xml/xml_pugi.h"

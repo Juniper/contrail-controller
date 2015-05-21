@@ -4,7 +4,7 @@
 
 #include <boost/foreach.hpp>
 #include "xmpp/test/xmpp_sample_peer.h"
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "base/util.h"
 #include "base/logging.h"
 #include "xml/xml_pugi.h"

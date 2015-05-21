@@ -5,7 +5,7 @@
 #include "ifmap_link.h"
 
 #include <sstream>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "ifmap/ifmap_table.h"
 
 using namespace std;

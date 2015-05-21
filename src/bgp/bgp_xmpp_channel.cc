@@ -6,7 +6,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <vector>
 #include <sstream>

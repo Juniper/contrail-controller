@@ -5,7 +5,7 @@
 #include "schema/test/ifmap_identity_property_types.h"
 #include <fstream>
 #include <boost/foreach.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"

@@ -19,7 +19,7 @@
 #include <vrouter/ksync/ksync_init.h>
 #include <oper/vrf.h>
 #include <oper/mirror_table.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <services/arp_proto.h>
 #include <vr_interface.h>
 #include <test/test_cmn_util.h>

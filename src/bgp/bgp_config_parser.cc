@@ -10,7 +10,7 @@
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <map>
 #include <set>

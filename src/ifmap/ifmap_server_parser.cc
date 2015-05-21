@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include "ifmap/ifmap_server_parser.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "db/db.h"
 #include "ifmap/ifmap_server_table.h"
 #include "ifmap/ifmap_log.h"

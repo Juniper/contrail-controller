@@ -5,7 +5,7 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "xmpp/xmpp_init.h"
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "bind/bind_util.h"
 #include "bind/xmpp_dns_agent.h"

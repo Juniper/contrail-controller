@@ -10,7 +10,7 @@
 #include <boost/format.hpp>
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"

@@ -9,7 +9,7 @@
 #include "controller/controller_dns.h"
 #include "controller/controller_init.h"
 #include "xmpp/xmpp_channel.h"
-#include "pugixml/pugixml.hpp"
+#include <pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
 #include <cfg/discovery_agent.h>

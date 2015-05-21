@@ -6,7 +6,7 @@
 #include "testing/gunit.h"
 
 #include <base/logging.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
 #include <oper/operdb_init.h>

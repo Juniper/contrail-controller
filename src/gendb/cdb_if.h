@@ -11,7 +11,7 @@
 #include <boost/unordered_map.hpp>
 #include <boost/ptr_container/ptr_unordered_map.hpp>
 
-#include <protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TBinaryProtocol.h>
 #include <transport/TSocketPool.h>
 #include <transport/TTransportUtils.h>
 #include "gen-cpp/Cassandra.h"

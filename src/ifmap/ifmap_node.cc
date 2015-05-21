@@ -4,7 +4,7 @@
 
 #include "ifmap_node.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "ifmap/ifmap_table.h"
 

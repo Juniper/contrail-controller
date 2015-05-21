@@ -8,7 +8,7 @@
 #include <string>
 #include <boost/uuid/uuid.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <sandesh/sandesh_types.h>
 

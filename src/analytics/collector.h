@@ -27,7 +27,7 @@
 #include <sandesh/sandesh_server.h>
 #include <sandesh/sandesh_session.h>
 
-#include "Thrift.h"
+#include <thrift/Thrift.h>
 #include "viz_constants.h"
 #include "generator.h"
 #include <string>

@@ -9,7 +9,7 @@
 #include <boost/ptr_container/ptr_list.hpp>
 
 #include "base/logging.h"
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "schema/routing_policy_types.h"
 
 

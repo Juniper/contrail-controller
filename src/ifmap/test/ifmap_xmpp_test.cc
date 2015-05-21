@@ -32,7 +32,7 @@
 #include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "xml/xml_pugi.h"
 
 #include "xmpp/xmpp_state_machine.h"

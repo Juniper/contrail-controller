@@ -8,7 +8,7 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/assign/list_of.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"

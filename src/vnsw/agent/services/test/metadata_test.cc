@@ -8,7 +8,7 @@
 #include <boost/scoped_array.hpp>
 #include <base/logging.h>
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <io/event_manager.h>
 #include "http/http_request.h"
 #include "http/http_session.h"

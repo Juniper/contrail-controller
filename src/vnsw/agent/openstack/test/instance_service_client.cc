@@ -13,7 +13,7 @@
 #include <boost/bind.hpp>
 
 #include <async/TAsioAsync.h>
-#include <protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TBinaryProtocol.h>
 
 #include "io/event_manager.h"
 #include "gen-cpp/InstanceService.h"

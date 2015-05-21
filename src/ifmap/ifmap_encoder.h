@@ -5,7 +5,7 @@
 #ifndef __ctrlplane__ifmap_encoder__
 #define __ctrlplane__ifmap_encoder__
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 class IFMapNode;
 class IFMapLink;

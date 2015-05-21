@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "Thrift.h"
+#include <thrift/Thrift.h>
 
 #include "io/event_manager.h"
 #include "base/logging.h"

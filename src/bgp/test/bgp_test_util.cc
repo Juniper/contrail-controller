@@ -6,7 +6,7 @@
 
 #include <assert.h>
 #include <stdio.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 using pugi::xml_document;
 using pugi::xml_node;

@@ -5,7 +5,7 @@
 #ifndef __control_node_mock__
 #define __control_node_mock__
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 namespace pugi {
 class xml_document;

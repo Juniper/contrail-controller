@@ -6,7 +6,7 @@
 #include <base/logging.h>
 #include <base/contrail_ports.h>
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <base/task.h>
 #include <io/event_manager.h>

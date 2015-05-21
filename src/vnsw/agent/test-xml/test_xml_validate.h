@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <vector>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <boost/uuid/uuid.hpp>
 
 #include <base/util.h>

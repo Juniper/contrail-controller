@@ -6,7 +6,7 @@
 #include <boost/random.hpp>
 
 #include <iostream>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>

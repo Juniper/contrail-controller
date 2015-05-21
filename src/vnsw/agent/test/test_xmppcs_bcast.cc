@@ -5,7 +5,7 @@
 #include "testing/gunit.h"
 
 #include <net/bgp_af.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <base/logging.h>
 #include <boost/bind.hpp>

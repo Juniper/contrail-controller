@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <xml/xml_base.h>
 #include <xml/xml_pugi.h>
 

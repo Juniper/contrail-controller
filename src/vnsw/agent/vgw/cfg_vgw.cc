@@ -12,7 +12,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <vector>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <base/logging.h>
 
 #include <cmn/agent_cmn.h>

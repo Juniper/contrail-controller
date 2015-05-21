@@ -8,7 +8,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/logging.h"
 #include "base/queue_task.h"

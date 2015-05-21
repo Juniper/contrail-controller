@@ -22,7 +22,7 @@
 
 #include <boost/tuple/tuple.hpp>
 
-#include "Thrift.h"
+#include <thrift/Thrift.h>
 #include "base/parse_object.h"
 #include "io/event_manager.h"
 #include "base/random_generator.h"

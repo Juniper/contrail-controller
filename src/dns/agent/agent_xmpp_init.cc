@@ -5,7 +5,7 @@
 #include "base/logging.h"
 #include "base/contrail_ports.h"
 #include "xmpp/xmpp_init.h"
-#include "pugixml/pugixml.hpp"
+#include <pugixml.hpp>
 #include "cmn/dns.h"
 #include "agent/agent_xmpp_init.h"
 #include "agent/agent_xmpp_channel.h"

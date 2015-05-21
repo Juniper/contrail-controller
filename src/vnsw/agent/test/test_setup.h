@@ -3,7 +3,7 @@
  */
 #include <iostream>
 #include <boost/property_tree/xml_parser.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include <stdlib.h>
 
 #include "base/logging.h"
@@ -11,7 +11,7 @@
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <db/db_entry.h>
 #include <db/db_table.h>

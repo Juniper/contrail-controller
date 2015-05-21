@@ -44,7 +44,7 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"

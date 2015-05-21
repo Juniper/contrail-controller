@@ -9,7 +9,7 @@
 #include <tbb/concurrent_queue.h>
 
 #include <fstream>
-#include <pugixml/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "base/logging.h"
 #include "base/util.h"
