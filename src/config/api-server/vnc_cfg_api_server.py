@@ -1520,7 +1520,7 @@ class VncApiServer(VncApiServerGen):
         # publish API server
         if publish_api:
             data = {
-                'ip-address': self._args.ifmap_server_ip,
+                'ip-address': self._args.listen_ip_addr,
                 'port': self._args.listen_port,
             }
             self.api_server_task = self._disc.publish(
@@ -1540,7 +1540,7 @@ class VncApiServer(VncApiServerGen):
         if un_publish_api:
             # un publish api server
             data = {
-                'ip-address': self._args.ifmap_server_ip,
+                'ip-address': self._args.listen_ip_addr,
                 'port': self._args.listen_port,
             }
             self._disc.un_publish(
