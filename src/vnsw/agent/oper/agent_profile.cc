@@ -6,6 +6,7 @@
 #include <vnc_cfg_types.h>
 #include <base/util.h>
 
+#include <db/db_partition.h>
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
 #include <oper/operdb_init.h>
@@ -42,10 +43,10 @@ bool AgentProfile::TimerRun() {
 string GetProfileString(DBTable *table, const char *name) {
     stringstream str;
     str << setw(16) << name
-        << " Size " << setw(6) << table->Size()
-        << " Enqueue " << setw(6) << table->enqueue_count()
-        << " Input " << setw(6) << table->input_count()
-        << " Notify " << setw(6) << table->notify_count();
+        << " Size " << setw(8) << table->Size()
+        << " Enqueue " << setw(8) << table->enqueue_count()
+        << " Input " << setw(8) << table->input_count()
+        << " Notify " << setw(8) << table->notify_count();
     return str.str();
 }
 
@@ -62,9 +63,24 @@ string GetInterfaceProfileString(InterfaceTable *table, const char *name) {
 void AgentProfile::Log() {
     time_t now;
     time(&now);
-    AgentConfig *cfg = agent_->cfg();
 
-    cout << "Time : " << setw(4) << (now - start_time_) << endl;
+    DBPartition *partition = agent_->db()->GetPartition(0);
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    TaskScheduler *sched = agent_->task_scheduler();
+    cout << "Time : " << setw(4) << (now - start_time_)
+        << " #DBQueueLen(Curr/Total/Max) <"
+        << " " << partition->request_queue_len()
+        << " " << partition->total_request_count()
+        << " " << partition->max_request_queue_len() << ">"
+        << " #Walk(Req/Done/Cancel) <" << walker->walk_request_count()
+        << " " << walker->walk_complete_count()
+        << " " << walker->walk_cancel_count() << ">"
+        << " #Task(Req/Done/Cancel) <" << sched->enqueue_count()
+        << " " << sched->done_count()
+        << " " << sched->cancel_count() << ">"
+        << endl;
+
+    AgentConfig *cfg = agent_->cfg();
     cout << "    " << GetInterfaceProfileString(agent_->interface_table(),
                                                 "Interface") << endl;
     cout << "    " << GetProfileString(agent_->vn_table(), "VN") << endl;
