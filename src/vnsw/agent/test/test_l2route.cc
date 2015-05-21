@@ -615,6 +615,41 @@ TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, RemoteVxlanEncapRoute_1) {
+    client->Reset();
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    RouteTest::SetTunnelType(TunnelType::MPLS_GRE);
+    DelEncapList();
+    client->WaitForIdle();
+
+    TunnelType::TypeBmap bmap = TunnelType::VxlanType();
+    AddRemoteVmRoute(remote_vm_mac_, remote_vm_ip4_, server1_ip_,
+                     MplsTable::kStartLabel, bmap);
+    WAIT_FOR(1000, 100,
+             (L2RouteFind(vrf_name_, remote_vm_mac_, remote_vm_ip4_) == true));
+
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
+                                      remote_vm_ip4_);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->tunnel_type() != TunnelType::VXLAN);
+
+    //Update VXLAN in encap prio
+    AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
+    client->WaitForIdle();
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path->tunnel_type() == TunnelType::VXLAN);
+    const TunnelNH *nh =
+        static_cast<const TunnelNH *>(path->nexthop());
+    EXPECT_TRUE(nh->GetDip()->to_string() == server1_ip_.to_string());
+
+    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
+                remote_vm_ip4_);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
 TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
