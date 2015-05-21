@@ -263,3 +263,15 @@ void DBPartition::EnqueueRemove(DBTablePartBase *tpart, DBEntryBase *db_entry) {
 void DBPartition::OnTableChange(DBTablePartBase *tablepart) {
     work_queue_->SetActive(tablepart);
 }
+
+long DBPartition::request_queue_len() const {
+    return work_queue_->request_queue_len();
+}
+
+uint64_t DBPartition::total_request_count() const {
+    return work_queue_->total_request_count();
+}
+
+uint64_t DBPartition::max_request_queue_len() const {
+    return work_queue_->max_request_queue_len();
+}
