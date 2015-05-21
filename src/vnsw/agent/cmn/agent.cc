@@ -296,12 +296,12 @@ void Agent::InitCollector() {
      * collector. If not we still need to invoke InitGenerator to initialize
      * introspect.
      */
-    Module::type module = Module::VROUTER_AGENT;
+    Module::type module = static_cast<Module::type>(module_type_);
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
     if (params_->collector_server_list().size() != 0) {
         Sandesh::InitGenerator(discovery_client_name_,
-                agent_name(),
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -310,7 +310,7 @@ void Agent::InitCollector() {
                 NULL);
     } else {
         Sandesh::InitGenerator(discovery_client_name_,
-                agent_name(),
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -394,7 +394,8 @@ Agent::Agent() :
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
     cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""), agent_name_(""),
     prog_name_(""), introspect_port_(0),
-    instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT), db_(NULL),
+    instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
+    module_type_(Module::VROUTER_AGENT), db_(NULL),
     task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
     nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL), vrf_table_(NULL),
     vm_table_(NULL), vn_table_(NULL), sg_table_(NULL), mpls_table_(NULL),
@@ -431,7 +432,8 @@ Agent::Agent() :
     SetAgentTaskPolicy();
     CreateLifetimeManager();
 
-    discovery_client_name_ = g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second;
+    Module::type module = static_cast<Module::type>(module_type_);
+    discovery_client_name_ = g_vns_constants.ModuleNames.find(module)->second;
 
     agent_signal_.reset(
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
