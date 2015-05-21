@@ -9,6 +9,7 @@
 
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "net/bgp_af.h"
 
 using std::sort;
@@ -825,6 +826,20 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
 
 // TODO(nsheth): Return the left-most AS number in the path.
 uint32_t BgpAttr::neighbor_as() const {
+    return 0;
+}
+
+uint32_t BgpAttr::sequence_number() const {
+    if (!ext_community_)
+        return 0;
+    for (ExtCommunity::ExtCommunityList::const_iterator it =
+         ext_community_->communities().begin();
+         it != ext_community_->communities().end(); ++it) {
+        if (ExtCommunity::is_mac_mobility(*it)) {
+            MacMobility mm(*it);
+            return mm.sequence_number();
+        }
+    }
     return 0;
 }
 

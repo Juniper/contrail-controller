@@ -13,6 +13,7 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "bgp/inet/inet_route.h"
 #include "control-node/control_node.h"
 #include "io/event_manager.h"
@@ -218,6 +219,96 @@ TEST_F(RibOutAttributesTest, Paths) {
     (void) route.RemovePath(&peer1);
     (void) route.RemovePath(&peer2);
     (void) route.RemovePath(&peer3);
+}
+
+// Higher sequence number wins.
+TEST_F(RibOutAttributesTest, SequenceNumber1) {
+    Ip4Prefix prefix;
+    InetRoute route(prefix);
+
+    BgpAttrLocalPref local_pref1(100);
+    BgpAttrNextHop nexthop1(0x01010101);
+    ExtCommunitySpec extcomm_spec1;
+    MacMobility mm1(101);
+    extcomm_spec1.communities.push_back(mm1.GetExtCommunityValue());
+    BgpAttrSpec spec1;
+    spec1.push_back(&local_pref1);
+    spec1.push_back(&nexthop1);
+    spec1.push_back(&extcomm_spec1);
+    BgpAttrPtr attr1 = server_.attr_db()->Locate(spec1);
+    BgpPeerMock peer1;
+    BgpPath *path1 = new BgpPath(&peer1, BgpPath::BGP_XMPP, attr1, 0, 101);
+
+    BgpAttrLocalPref local_pref2(100);
+    BgpAttrNextHop nexthop2(0x01010102);
+    ExtCommunitySpec extcomm_spec2;
+    MacMobility mm2(102);
+    extcomm_spec2.communities.push_back(mm2.GetExtCommunityValue());
+    BgpAttrSpec spec2;
+    spec2.push_back(&local_pref2);
+    spec2.push_back(&nexthop2);
+    spec2.push_back(&extcomm_spec2);
+    BgpAttrPtr attr2 = server_.attr_db()->Locate(spec2);
+    BgpPeerMock peer2;
+    BgpPath *path2 = new BgpPath(&peer2, BgpPath::BGP_XMPP, attr2, 0, 102);
+
+    route.InsertPath(path1);
+    route.InsertPath(path2);
+
+    // RibOutAttr should have only path2.
+    RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
+    EXPECT_EQ(1, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(attr2->nexthop(), ribout_attr.nexthop_list().at(0).address());
+
+    // Cleanup.
+    route.RemovePath(&peer1);
+    route.RemovePath(&peer2);
+}
+
+// Same sequence numbers result in ECMP.
+TEST_F(RibOutAttributesTest, SequenceNumber2) {
+    Ip4Prefix prefix;
+    InetRoute route(prefix);
+
+    BgpAttrLocalPref local_pref1(100);
+    BgpAttrNextHop nexthop1(0x01010101);
+    ExtCommunitySpec extcomm_spec1;
+    MacMobility mm1(100);
+    extcomm_spec1.communities.push_back(mm1.GetExtCommunityValue());
+    BgpAttrSpec spec1;
+    spec1.push_back(&local_pref1);
+    spec1.push_back(&nexthop1);
+    spec1.push_back(&extcomm_spec1);
+    BgpAttrPtr attr1 = server_.attr_db()->Locate(spec1);
+    BgpPeerMock peer1;
+    BgpPath *path1 = new BgpPath(&peer1, BgpPath::BGP_XMPP, attr1, 0, 101);
+
+    BgpAttrLocalPref local_pref2(100);
+    BgpAttrNextHop nexthop2(0x01010102);
+    ExtCommunitySpec extcomm_spec2;
+    MacMobility mm2(100);
+    extcomm_spec2.communities.push_back(mm2.GetExtCommunityValue());
+    BgpAttrSpec spec2;
+    spec2.push_back(&local_pref2);
+    spec2.push_back(&nexthop2);
+    spec2.push_back(&extcomm_spec2);
+    BgpAttrPtr attr2 = server_.attr_db()->Locate(spec2);
+    BgpPeerMock peer2;
+    BgpPath *path2 = new BgpPath(&peer2, BgpPath::BGP_XMPP, attr2, 0, 102);
+
+    route.InsertPath(path1);
+    route.InsertPath(path2);
+
+    // RibOutAttr should have both paths.
+    RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
+    EXPECT_EQ(2, ribout_attr.nexthop_list().size());
+    EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
+    EXPECT_NE(ribout_attr.nexthop_list().at(0).address(),
+              ribout_attr.nexthop_list().at(1).address());
+
+    // Cleanup.
+    route.RemovePath(&peer1);
+    route.RemovePath(&peer2);
 }
 
 }  // namespace
