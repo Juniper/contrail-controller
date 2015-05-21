@@ -61,8 +61,8 @@ string TorAgentInit::InstanceId() {
     return param->tor_id();
 }
 
-string TorAgentInit::ModuleName() {
-    return "TorAgent-" + InstanceId();
+int TorAgentInit::ModuleType() {
+    return Module::TOR_AGENT;
 }
 
 void TorAgentInit::FactoryInit() {
