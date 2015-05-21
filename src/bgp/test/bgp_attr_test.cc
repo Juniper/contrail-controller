@@ -14,6 +14,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
 #include "io/event_manager.h"
@@ -351,6 +352,26 @@ TEST_F(BgpAttrTest, ExtCommunityAppend2) {
     ExtCommunity extcomm2(extcomm_db_, spec2);
 
     EXPECT_EQ(0, extcomm1.CompareTo(extcomm2));
+}
+
+TEST_F(BgpAttrTest, SequenceNumber1) {
+    BgpAttrSpec attr_spec;
+    ExtCommunitySpec spec;
+    for (int idx = 1; idx < 5; idx++)
+        spec.communities.push_back(100 * idx);
+    attr_spec.push_back(&spec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(0, attr->sequence_number());
+}
+
+TEST_F(BgpAttrTest, SequenceNumber2) {
+    BgpAttrSpec attr_spec;
+    ExtCommunitySpec spec;
+    MacMobility mm(13);
+    spec.communities.push_back(mm.GetExtCommunityValue());
+    attr_spec.push_back(&spec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(13, attr->sequence_number());
 }
 
 TEST_F(BgpAttrTest, OriginVnPathToString) {
