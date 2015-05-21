@@ -635,7 +635,9 @@ class OpServer(object):
         self._analytics_db = AnalyticsDb(self._logger,
                                          self._args.cassandra_server_list,
                                          self._args.redis_query_port,
-                                         self._args.redis_password)
+                                         self._args.redis_password,
+                                         self._args.cassandra_name,
+                                         self._args.cassandra_password)
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -779,6 +781,10 @@ class OpServer(object):
             'disc_server_ip'     : None,
             'disc_server_port'   : 5998,
         }
+        cassandra_opts = {
+            'cassandra_name'     : None,
+            'cassandra_password' : None,
+        }
 
         # read contrail-analytics-api own conf file
         config = None
@@ -791,6 +797,8 @@ class OpServer(object):
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
+            if 'CASSANDRA' in config.sections():
+                cassandra_opts.update(dict(config.items('CASSANDRA')))
 
         # update ttls
         if (defaults['analytics_config_audit_ttl'] == -1):
@@ -811,6 +819,7 @@ class OpServer(object):
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         defaults.update(redis_opts)
         defaults.update(disc_opts)
+        defaults.update(cassandra_opts)
         defaults.update()
         parser.set_defaults(**defaults)
 
@@ -874,6 +883,10 @@ class OpServer(object):
         parser.add_argument(
             "--logger_class",
             help=("Optional external logger class, default: None"))
+        parser.add_argument("--cassandra_name",
+            help="Cassandra user name")
+        parser.add_argument("--cassandra_password",
+            help="Cassandra password")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
