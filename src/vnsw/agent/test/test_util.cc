@@ -1754,9 +1754,9 @@ void AddSubnetType(const char *name, int id, const char *addr, uint8_t plen) {
 }
 
 void AddPhysicalDevice(const char *name, int id) {
-    char buf[128];
+    char buf[1024];
     sprintf(buf, "<physical-router-vendor-name>Juniper</physical-router-vendor-name>"
-                 "<display-name>physicaldevice%d</display-name>", id);
+                 "<display-name>%s</display-name>", name);
     AddNode("physical-router", name, id, buf);
 }
 
@@ -2295,7 +2295,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr,
                      bool l2_vn, bool with_ip, bool ecmp,
-                     bool vn_admin_state, bool with_ip6) {
+                     bool vn_admin_state, bool with_ip6, bool send_nova_msg) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -2332,7 +2332,9 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
 
         //AddNode("virtual-machine-interface-routing-instance", input[i].name,
         //        input[i].intf_id);
-        IntfCfgAdd(input, i);
+        if (send_nova_msg) {
+            IntfCfgAdd(input, i);
+        }
         AddPort(input[i].name, input[i].intf_id, vm_interface_attr);
         if (with_ip) {
             if (ecmp) {
@@ -2397,6 +2399,12 @@ void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id,
                           const char *vn, const char *vrf) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false,
                             true, true, true);
+}
+
+void CreateVmportWithoutNova(struct PortInfo *input, int count, int acl_id,
+                          const char *vn, const char *vrf) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false,
+                            true, true, true, false, false);
 }
 
 void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id,

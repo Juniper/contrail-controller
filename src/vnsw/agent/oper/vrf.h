@@ -110,6 +110,7 @@ public:
     AgentRouteTable *GetBridgeRouteTable() const;
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
+    void CreateTableLabel();
 private:
     friend class VrfTable;
     class DeleteActor;
