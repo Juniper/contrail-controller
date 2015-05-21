@@ -161,6 +161,49 @@ class TestDM(test_case.DMTestCase):
 
     #end test_dm_md5_auth_config
 
+    def test_tunnels_dm(self):
+        b1 = """
+gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+gs.set_ip_fabric_subnets(SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 32)]))
+self._vnc_lib.global_system_config_update(gs)
+        """
+
+        b2 = """
+bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        """
+        
+        b3 = """
+pr.physical_router_dataplane_ip = "5.5.5.5"
+self._vnc_lib.physical_router_update(pr)
+        """
+
+        # clean up code
+        b4 = """  
+gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+gs.set_ip_fabric_subnets(SubnetListType([]))
+self._vnc_lib.global_system_config_update(gs)
+self._vnc_lib.physical_router_delete(pr.get_fq_name())
+self._vnc_lib.bgp_router_delete(bgp_router.get_fq_name())
+        """
+
+        code_blocks_seq = [[b1, b2, b3], [b2, b3, b1], [b2, b1, b3]]   #b3 is dependent on b2 execution, so b2 comes first always
+        cleanup_block = b4
+
+        for code_blocks in code_blocks_seq:
+            for code in code_blocks: 
+                obj = compile(code, '<string>', 'exec')
+                exec obj
+            gevent.sleep(2)
+            xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks><destination-networks><name>1.1.1.1/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+            print "Checking xml tags"
+            self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+            obj = compile(cleanup_block, '<string>', 'exec')
+            exec obj
+            gevent.sleep(2)
+
+    #end test_tunnels_dm
+
     #dynamic tunnel test case - 1
     # 1. configure ip fabric subnets, 
     # 2. create physical  router with data plane source ip
@@ -330,45 +373,55 @@ class TestDM(test_case.DMTestCase):
     #end test_tunnels_dm_6
  
     def test_basic_dm(self):
-        vn1_name = 'vn1'
-        vn2_name = 'vn2'
-        vn1_obj = VirtualNetwork(vn1_name)
-        vn2_obj = VirtualNetwork(vn2_name)
+        b1 = """
+vn1_obj = VirtualNetwork('vn1')
+vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+        """
 
-        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
-        vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
+        b2 = """
+bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        """
 
-        bgp_router, pr = self.create_router('router1', '1.1.1.1')
-        pr.set_virtual_network(vn1_obj)
-        self._vnc_lib.physical_router_update(pr)
+        b3 = """
+pr.set_virtual_network(vn1_obj)
+self._vnc_lib.physical_router_update(pr)
+        """
 
-        pi = PhysicalInterface('pi1', parent_obj = pr)
-        pi_id = self._vnc_lib.physical_interface_create(pi)
+        b4 = """
+pi = PhysicalInterface('pi1', parent_obj = pr)
+pi_id = self._vnc_lib.physical_interface_create(pi)
+        """
 
-        li = LogicalInterface('li1', parent_obj = pi)
-        li_id = self._vnc_lib.logical_interface_create(li)
-        
-        for obj in [vn1_obj, vn2_obj]:
-            ident_name = self.get_obj_imid(obj)
+        b5 = """
+li = LogicalInterface('li1', parent_obj = pi)
+li_id = self._vnc_lib.logical_interface_create(li)
+        """
+
+        cleanup_block = """
+self._vnc_lib.logical_interface_delete(li.get_fq_name())
+self._vnc_lib.physical_interface_delete(pi.get_fq_name())
+self._vnc_lib.physical_router_delete(pr.get_fq_name())
+self._vnc_lib.bgp_router_delete(bgp_router.get_fq_name())
+
+self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        """
+        #dependency b3 =>(b1, b2), b4=>(b2), b5=>(b4)
+        code_blocks_seq = [[b1, b2, b3, b4, b5], [b2, b1, b3, b4, b5], [b1, b2, b4, b3, b5], [b1, b2, b4, b5, b3], [b2, b4, b5, b1,b3], [b2, b4, b1, b5,b3]]
+ 
+        for code_blocks in code_blocks_seq:
+            for code in code_blocks:
+                obj = compile(code, '<string>', 'exec')
+                exec obj
             gevent.sleep(2)
-            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
-
-
-        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><vrf-import>__contrail__default-domain_default-project_vn1-import</vrf-import><vrf-export>__contrail__default-domain_default-project_vn1-export</vrf-export><vrf-target/><vrf-table-label/></instance></routing-instances><policy-options><policy-statement><name>__contrail__default-domain_default-project_vn1-export</name><term><name>t1</name><then><community><add/><target_64512_8000001/></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__default-domain_default-project_vn1-import</name><term><name>t1</name><from><community>target_64512_8000001</community></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>target_64512_8000001</name><members>target:64512:8000001</members></community></policy-options></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
-        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
-
-        self._vnc_lib.logical_interface_delete(li.get_fq_name())
-        self._vnc_lib.physical_interface_delete(pi.get_fq_name())
-        self._vnc_lib.physical_router_delete(pr.get_fq_name())
-        self._vnc_lib.bgp_router_delete(bgp_router.get_fq_name())
-
-        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
-        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+            xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-instances><instance operation="replace"><name>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1</name><instance-type>vrf</instance-type><vrf-import>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-import</vrf-import><vrf-export>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-export</vrf-export><vrf-table-label/></instance></routing-instances><policy-options><policy-statement><name>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-export</name><term><name>t1</name><then><community><add/><community-name>target_64512_8000001</community-name></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-import</name><term><name>t1</name><from><community>target_64512_8000001</community></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>target_64512_8000001</name><members>target:64512:8000001</members></community></policy-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+            self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+            obj = compile(cleanup_block, '<string>', 'exec')
+            exec obj
+            gevent.sleep(2)
 
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name operation="delete">__contrail__</name></groups></configuration></config>'
         self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
     # end test_basic_dm
-#end
 
     def test_advance_dm(self):
         vn1_name = 'vn1'
