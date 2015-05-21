@@ -39,6 +39,7 @@ public:
 
     virtual std::string InstanceId();
     virtual std::string ModuleName();
+    virtual int ModuleType();
     virtual std::string AgentName();
 
     // Init has two set of routines
