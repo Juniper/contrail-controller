@@ -33,12 +33,6 @@ using tbb::mutex;
 
 const CurlErrorCategory curl_error_category;
 
-/* boost::asio related objects
- * using global variables for simplicity
- */
-std::map<curl_socket_t, HttpClientSession *> socket_map;
-
-
 /* Update the event timer after curl_multi library calls */
 static int multi_timer_cb(CURLM *multi, long timeout_ms, HttpClient *client)
 {
@@ -98,12 +92,12 @@ static void check_multi_info(GlobalInfo *g)
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
 
-      boost::system::error_code error(res, curl_error_category);
-      std::string empty_str("");
-      if (conn->connection->HttpClientCb() != NULL)
-          conn->connection->HttpClientCb()(empty_str, error);
-
       if (conn) {
+        boost::system::error_code error(res, curl_error_category);
+        std::string empty_str("");
+        if (conn->connection->HttpClientCb() != NULL)
+            conn->connection->HttpClientCb()(empty_str, error);
+
         conn->connection->set_curl_handle(NULL);
         del_curl_handle(conn, g);
       }
@@ -165,30 +159,28 @@ bool timer_cb(GlobalInfo *g)
 }
 
 /* Clean up any data */
-static void remsock(int *f, GlobalInfo *g)
+static void remsock(SockInfo *sock_info, GlobalInfo *g)
 {
-  if ( f )
+  if ( sock_info )
   {
-    free(f);
+    free(sock_info);
   }
 }
 
-static bool setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
+static bool setsock(SockInfo *sock_info, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
 {
-  std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(s);
-
-  if ( it == socket_map.end() )
+  if (!sock_info || !sock_info->conn_info || !sock_info->conn_info->connection)
   {
     return false;
   }
 
-  HttpClientSession *session = it->second;
+  HttpClientSession *session = sock_info->conn_info->connection->session();
   if (session->IsClosed())
        return false;
 
   boost::asio::ip::tcp::socket * tcp_socket = session->socket();
 
-  *fdp = act;
+  sock_info->action = act;
 
   if ( act == CURL_POLL_IN )
   {
@@ -217,35 +209,37 @@ static bool setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
 
 static void addsock(curl_socket_t s, CURL *easy, int action, GlobalInfo *g)
 {
-  int *fdp = (int *)calloc(sizeof(int), 1); /* fdp is used to store current action */
+  // store socket details in SockInfo
+  SockInfo *sock_info = (SockInfo *)calloc(sizeof(SockInfo), 1);
+  curl_easy_getinfo(easy, CURLINFO_PRIVATE, sock_info->conn_info);
 
-  if (!setsock(fdp, s, easy, action, g)) {
-      free(fdp);
+  if (!setsock(sock_info, s, easy, action, g)) {
+      free(sock_info);
       return;
   }
 
-  curl_multi_assign(g->multi, s, fdp);
+  curl_multi_assign(g->multi, s, sock_info);
 }
 
 /* CURLMOPT_SOCKETFUNCTION */
 static int sock_cb(CURL *e, curl_socket_t s, int what, void *cbp, void *sockp)
 {
   GlobalInfo *g = (GlobalInfo*) cbp;
-  int *actionp = (int*) sockp;
+  SockInfo *sock_info = (SockInfo *)sockp;
 
   if ( what == CURL_POLL_REMOVE )
   {
-    remsock(actionp, g);
+    remsock(sock_info, g);
   }
   else
   {
-    if ( !actionp )
+    if ( !sockp )
     {
       addsock(s, e, what, g);
     }
     else
     {
-      setsock(actionp, s, e, what, g);
+      setsock(sock_info, s, e, what, g);
     }
   }
   return 0;
@@ -313,8 +307,6 @@ static curl_socket_t opensocket(void *data,
       HttpClientSession *session = conn->CreateSession();
       if (session) {
           sockfd = session->socket()->native_handle();
-          socket_map.insert(std::pair<curl_socket_t, HttpClientSession *>(
-                  sockfd, static_cast<HttpClientSession *>(session)));
           conn->set_session(session);
       }
   }
@@ -326,11 +318,6 @@ static curl_socket_t opensocket(void *data,
 /* CURLOPT_CLOSESOCKETFUNCTION */
 static int closesocket(void *clientp, curl_socket_t item)
 {
-  std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(item);
-  if ( it != socket_map.end() ) {
-      socket_map.erase(it);
-  }
-
   return 0;
 }
 
@@ -374,6 +361,7 @@ void del_conn(HttpConnection *connection, GlobalInfo *g) {
 
 void del_curl_handle(ConnInfo *curl_handle, GlobalInfo *g) {
     if (curl_handle) {
+        curl_easy_setopt(curl_handle->easy, CURLOPT_PRIVATE, NULL);
         curl_multi_remove_handle(g->multi, curl_handle->easy);
         curl_slist_free_all(curl_handle->headers);
         free(curl_handle->post);
@@ -417,9 +405,7 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 30L);
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
   }
-  if (!reuse) {
-      curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
-  }
+  curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
 
   /* to include the header in the body */
   if (header)
@@ -490,7 +476,6 @@ int http_delete(ConnInfo *conn, GlobalInfo *g) {
 
 int curl_init(HttpClient *client)
 {
-  
   struct _GlobalInfo *g = client->GlobalInfo();
 
   memset(g, 0, sizeof(GlobalInfo));
