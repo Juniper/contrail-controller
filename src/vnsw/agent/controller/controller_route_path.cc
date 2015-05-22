@@ -169,17 +169,31 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    if (new_tunnel_type == TunnelType::VXLAN) {
-        if (path->vxlan_id() != label_) {
-            path->set_vxlan_id(label_);
-            path->set_label(MplsTable::kInvalidLabel);
-            ret = true;
-        }
+    //Interpret label sent by control node
+    if (tunnel_bmap_ == TunnelType::VxlanType()) {
+        //Only VXLAN encap is sent, so label is VXLAN
+        path->set_vxlan_id(label_);
+        path->set_label(MplsTable::kInvalidLabel);
+    } else if (tunnel_bmap_ == TunnelType::MplsType()) {
+        //MPLS (GRE/UDP) is the only encap sent,
+        //so label is MPLS.
+        path->set_label(label_);
+        path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
     } else {
-        if (path->label() != label_) {
-            path->set_label(label_);
-            path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
-            ret = true;
+        //Got a mix of Vxlan and Mpls, so interpret label
+        //as per the computed tunnel type.
+        if (new_tunnel_type == TunnelType::VXLAN) {
+            if (path->vxlan_id() != label_) {
+                path->set_vxlan_id(label_);
+                path->set_label(MplsTable::kInvalidLabel);
+                ret = true;
+            }
+        } else {
+            if (path->label() != label_) {
+                path->set_label(label_);
+                path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
+                ret = true;
+            }
         }
     }
 
