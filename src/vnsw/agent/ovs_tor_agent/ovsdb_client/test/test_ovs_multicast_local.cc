@@ -173,8 +173,8 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
               Find(MakeUuid(1)) == NULL));
     VrfDelReq("vrf1");
     VnDelReq(1);
-    WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) != NULL));
-    WAIT_FOR(1000, 10000, (VnGet(1) != NULL));
+    WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) == NULL));
+    WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
 
 int main(int argc, char *argv[]) {
