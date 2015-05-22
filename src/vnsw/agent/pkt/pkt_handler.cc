@@ -610,9 +610,11 @@ void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
 }
 
 bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
-    if (pkt_info->ip &&
-        ((pkt_info->ip->ip_off & IP_MF) ||
-         (pkt_info->ip->ip_off & IP_OFFMASK)) &&
+    if (!pkt_info->ip)
+        return false;
+
+    uint16_t offset = htons(pkt_info->ip->ip_off);
+    if (((offset & IP_MF) || (offset & IP_OFFMASK)) &&
         (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_FLOW_MISS) &&
         (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ECMP_RESOLVE))
         return true;
