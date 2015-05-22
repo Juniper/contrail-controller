@@ -306,7 +306,7 @@ public:
         ip->ip_dst.s_addr = inet_addr(dip);
         ip->ip_p = proto;
         if (fragment)
-            ip->ip_off = IP_MF;
+            ip->ip_off = htons(IP_MF);
         len += sizeof(struct ip);
     };
 
