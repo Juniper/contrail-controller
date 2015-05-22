@@ -76,6 +76,12 @@ void ovsdb_wrapper_idl_txn_ack(void *idl_base, struct ovsdb_idl_txn *txn) {
     client_idl->DeleteTxn(txn);
     if (entry)
         entry->Ack(success);
+
+    // if there are pending txn messages to be scheduled, pick one and schedule
+    if (!client_idl->pending_send_msgs_.empty()) {
+        client_idl->session_->SendJsonRpc(client_idl->pending_send_msgs_.front());
+        client_idl->pending_send_msgs_.pop();
+    }
 }
 
 void intrusive_ptr_add_ref(OvsdbClientIdl *p) {
@@ -184,7 +190,7 @@ void OvsdbClientIdl::OnEstablish() {
     monitor_request_id_ = ovsdb_wrapper_jsonrpc_clone_id(monitor_request);
 
     OVSDB_TRACE(Trace, "Sending Monitor Request");
-    SendJsonRpc(monitor_request);
+    session_->SendJsonRpc(monitor_request);
 
     int keepalive_intv = session_->keepalive_interval();
     if (keepalive_intv < 0) {
@@ -205,8 +211,15 @@ void OvsdbClientIdl::OnEstablish() {
             boost::bind(&OvsdbClientIdl::KeepAliveTimerCb, this));
 }
 
-void OvsdbClientIdl::SendJsonRpc(struct jsonrpc_msg *msg) {
-    session_->SendJsonRpc(msg);
+void OvsdbClientIdl::TxnScheduleJsonRpc(struct jsonrpc_msg *msg) {
+    if (!session_->ThrottleInFlightTxnMessages() ||
+        OVSDBMaxInFlightPendingTxn >= pending_txn_.size()) {
+        session_->SendJsonRpc(msg);
+    } else {
+        // throttle txn messages, push the message to pending send
+        // msg queue to be scheduled later.
+        pending_send_msgs_.push(msg);
+    }
 }
 
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
@@ -360,7 +373,7 @@ bool OvsdbClientIdl::KeepAliveTimerCb() {
         // send echo request and restart the timer to wait for reply
         struct jsonrpc_msg *req = ovsdb_wrapper_jsonrpc_create_echo_request();
         connection_state_ = OvsdbSessionEchoWait;
-        SendJsonRpc(req);
+        session_->SendJsonRpc(req);
         }
         return true;
     case OvsdbSessionEchoWait:
@@ -395,6 +408,12 @@ void OvsdbClientIdl::TriggerDeletion() {
         if (entry)
             entry->Ack(false);
         it = pending_txn_.begin();
+    }
+
+    while (!pending_send_msgs_.empty()) {
+        // flush and destroy all the pending send messages
+        ovsdb_wrapper_jsonrpc_msg_destroy(pending_send_msgs_.front());
+        pending_send_msgs_.pop();
     }
 
     // trigger KSync Object delete for all objects.

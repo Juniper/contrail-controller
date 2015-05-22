@@ -6,6 +6,7 @@
 #define SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_IDL_H_
 
 #include <assert.h>
+#include <queue>
 
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
@@ -72,6 +73,8 @@ public:
     // minimum value of keep alive interval
     static const int OVSDBMinKeepAliveTimer = 2000; // in millisecond
 
+    static const std::size_t OVSDBMaxInFlightPendingTxn = 1;
+
     enum Op {
         OVSDB_DEL = 0,
         OVSDB_ADD,
@@ -99,6 +102,7 @@ public:
 
     typedef boost::function<void(OvsdbClientIdl::Op, struct ovsdb_idl_row *)> NotifyCB;
     typedef std::map<struct ovsdb_idl_txn *, OvsdbEntryBase *> PendingTxnMap;
+    typedef std::queue<struct jsonrpc_msg *> ThrottledTxnMsgs;
 
     OvsdbClientIdl(OvsdbClientSession *session, Agent *agent, OvsPeerManager *manager);
     virtual ~OvsdbClientIdl();
@@ -111,7 +115,7 @@ public:
 
     // Encode and send json rpc message to OVSDB server
     // takes ownership of jsonrpc message, and free memory
-    void SendJsonRpc(struct jsonrpc_msg *msg);
+    void TxnScheduleJsonRpc(struct jsonrpc_msg *msg);
 
     // Process the recevied message and trigger update to ovsdb client
     void MessageProcess(const u_int8_t *buf, std::size_t len);
@@ -172,6 +176,7 @@ private:
     Agent *agent_;
     NotifyCB callback_[OVSDB_TYPE_COUNT];
     PendingTxnMap pending_txn_;
+    ThrottledTxnMsgs pending_send_msgs_;
     bool deleted_;
     // Queue for handling OVS messages. Message processing accesses many of the
     // OPER-DB and KSync structures. So, this queue will run in context KSync

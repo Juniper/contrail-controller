@@ -33,6 +33,14 @@ public:
 
     int keepalive_interval();
 
+    // Throttle in flight message to ovsdb-server with ssl.
+    // without throttling, during scaled config ssl message gets corrupted
+    // in send resulting in connection drop by ovsdb-server and lots of
+    // churn in processing of config and ovsdb data.
+    // TODO(prabhjot) need to remove this throttling once we find the
+    // appropriate reason for write message corruption in SSL.
+    bool ThrottleInFlightTxnMessages() { return true; }
+
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();
