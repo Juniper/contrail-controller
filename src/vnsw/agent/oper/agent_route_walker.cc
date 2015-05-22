@@ -24,6 +24,8 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
                 GetTaskId("Agent::RouteWalker"), 0,
                 boost::bind(&AgentRouteWalker::RouteWalker, this, _1)) {
     walk_count_ = AgentRouteWalker::kInvalidWalkCount;
+    queued_walk_count_ = AgentRouteWalker::kInvalidWalkCount;
+    queued_walk_done_count_ = AgentRouteWalker::kInvalidWalkCount;
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
@@ -39,18 +41,21 @@ bool AgentRouteWalker::RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry>
     VrfEntry *vrf = data->vrf_ref_.get();
     switch (data->type_) {
       case AgentRouteWalkerQueueEntry::START_VRF_WALK:
+          DecrementQueuedWalkCount();
           StartVrfWalkInternal();
           break;
       case AgentRouteWalkerQueueEntry::CANCEL_VRF_WALK:
           CancelVrfWalkInternal();
           break;
       case AgentRouteWalkerQueueEntry::START_ROUTE_WALK:
+          DecrementQueuedWalkCount();
           StartRouteWalkInternal(vrf);
           break;
       case AgentRouteWalkerQueueEntry::CANCEL_ROUTE_WALK:
           CancelRouteWalkInternal(vrf);
           break;
       case AgentRouteWalkerQueueEntry::DONE_WALK:
+          DecrementQueuedWalkDoneCount();
           CallbackInternal(vrf, data->all_walks_done_);
           break;
       default:
@@ -122,7 +127,7 @@ void AgentRouteWalker::StartVrfWalk() {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(NULL,
                                       AgentRouteWalkerQueueEntry::START_VRF_WALK,
                                       false));
-    IncrementWalkCount();
+    IncrementQueuedWalkCount();
     work_queue_.Enqueue(data);
 }
 
@@ -140,14 +145,11 @@ void AgentRouteWalker::StartVrfWalkInternal()
                                     boost::bind(&AgentRouteWalker::VrfWalkDone, 
                                                 this, _1));
     if (vrf_walkid_ != DBTableWalker::kInvalidWalkerId) {
+        IncrementWalkCount();
         AGENT_DBWALK_TRACE(AgentRouteWalkerTrace,
                            "VRF table walk started",
                            walk_type_, "", vrf_walkid_,
                            0, "", DBTableWalker::kInvalidWalkerId);
-    } else {
-        //As walk didnt start because of some failure decrement the
-        //walk count, as there will be no walk done.
-        DecrementWalkCount();
     }
 }
 
@@ -159,7 +161,7 @@ void AgentRouteWalker::StartRouteWalk(VrfEntry *vrf) {
     boost::shared_ptr<AgentRouteWalkerQueueEntry> data(new AgentRouteWalkerQueueEntry(vrf,
                                       AgentRouteWalkerQueueEntry::START_ROUTE_WALK,
                                       false));
-    IncrementWalkCount();
+    IncrementQueuedWalkCount();
     work_queue_.Enqueue(data);
 }
 
@@ -185,14 +187,11 @@ void AgentRouteWalker::StartRouteWalkInternal(const VrfEntry *vrf) {
                                          this, _1));
         if (walkid != DBTableWalker::kInvalidWalkerId) {
             route_walkid_[table_type][vrf_id] = walkid;
+            IncrementWalkCount();
             AGENT_DBWALK_TRACE(AgentRouteWalkerTrace,
                                "Route table walk started for vrf", walk_type_,
                                (vrf != NULL) ? vrf->GetName() : "Unknown",
                                vrf_walkid_, table_type, "", walkid);
-        } else {
-            //As walk didnt start because of some failure decrement the
-            //walk count, as there will be no walk done.
-            DecrementWalkCount();
         }
     }
 }
@@ -284,7 +283,19 @@ void AgentRouteWalker::RouteWalkDone(DBTableBase *part) {
 
 void AgentRouteWalker::DecrementWalkCount() {
     if (walk_count_ != AgentRouteWalker::kInvalidWalkCount) {
-        walk_count_--;
+        walk_count_.fetch_and_decrement();
+    }
+}
+
+void AgentRouteWalker::DecrementQueuedWalkCount() {
+    if (queued_walk_count_ != AgentRouteWalker::kInvalidWalkCount) {
+        queued_walk_count_.fetch_and_decrement();
+    }
+}
+
+void AgentRouteWalker::DecrementQueuedWalkDoneCount() {
+    if (queued_walk_done_count_ != AgentRouteWalker::kInvalidWalkCount) {
+        queued_walk_done_count_.fetch_and_decrement();
     }
 }
 
@@ -293,6 +304,7 @@ void AgentRouteWalker::Callback(VrfEntry *vrf) {
         (new AgentRouteWalkerQueueEntry(vrf,
                                         AgentRouteWalkerQueueEntry::DONE_WALK,
                                         AreAllWalksDone()));
+    IncrementQueuedWalkDoneCount();
     work_queue_.Enqueue(data);
 }
 
@@ -341,7 +353,8 @@ bool AgentRouteWalker::AreAllWalksDone() const {
             }
         }
     }
-    if (walk_done && walk_count_) {
+    if (walk_done && (walk_count_ != AgentRouteWalker::kInvalidWalkCount)
+        && (queued_walk_count_ != AgentRouteWalker::kInvalidWalkCount)) {
         walk_done = false;
     }
     return walk_done;
@@ -351,7 +364,10 @@ bool AgentRouteWalker::AreAllWalksDone() const {
  * Check if all walks are over.
  */
 void AgentRouteWalker::OnWalkComplete() {
-   if (!walk_count_ && walk_done_cb_) {
+   if ((walk_count_ == AgentRouteWalker::kInvalidWalkCount) &&
+       (queued_walk_count_ == AgentRouteWalker::kInvalidWalkCount) &&
+       (queued_walk_done_count_ == AgentRouteWalker::kInvalidWalkCount) &&
+       walk_done_cb_) {
         walk_done_cb_();
     }
 }
