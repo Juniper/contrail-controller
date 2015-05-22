@@ -198,7 +198,6 @@ class PhysicalRouterDM(DBBase):
                         if ri2 is None:
                             continue
                         import_set |= ri2.export_targets
-                        export_set |= ri2.import_targets
                     self.config_manager.add_routing_instance(vrf_name,
                                                              import_set,
                                                              export_set,
