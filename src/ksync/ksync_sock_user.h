@@ -47,6 +47,7 @@ public:
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);
+    virtual void VrouterOpsMsgHandler(vrouter_ops *req);
     virtual void Process() {}
 private:
     bool response_reqd_; 
@@ -117,6 +118,7 @@ public:
     typedef std::map<int, vr_vrf_stats_req> ksync_map_vrf_stats;
     ksync_map_vrf_stats vrf_stats_map; 
     vr_drop_stats_req drop_stats;
+    vrouter_ops ksync_vrouter_ops;
     typedef std::map<int, vr_vxlan_req> ksync_map_vxlan;
     ksync_map_vxlan vxlan_map; 
 
@@ -170,6 +172,7 @@ public:
     static void VxlanDelete(int id);
 
     static void SetDropStats(const vr_drop_stats_req &req);
+    static void SetVRouterOps(const vrouter_ops &req);
     static int IfCount();
     static int NHCount();
     static int MplsCount();
@@ -306,6 +309,18 @@ public:
         return &sock->drop_stats;
     }
 };
+
+class VRouterOpsDumpHandler : public MockDumpHandlerBase {
+public:
+    VRouterOpsDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *) { return NULL;}
+    virtual Sandesh* GetNext(Sandesh *) { return NULL;}
+    virtual Sandesh* Get(int idx) {
+        KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+        return &sock->ksync_vrouter_ops;
+    }
+};
+
 
 class KSyncUserSockIfContext : public KSyncUserSockContext {
 public:
@@ -496,5 +511,28 @@ public:
 private:
     vr_drop_stats_req *req_;
 };
+
+class KSyncUserVrouterOpsContext : public KSyncUserSockContext {
+public:
+    KSyncUserVrouterOpsContext(uint32_t seq_num, vrouter_ops *req) :
+        KSyncUserSockContext(false, seq_num) {
+        if (req) {
+            req_ = new vrouter_ops(*req);
+        } else {
+            req_ = NULL;
+        }
+    }
+    ~KSyncUserVrouterOpsContext() {
+        if (req_) {
+            delete req_;
+            req_ = NULL;
+        }
+    }
+
+    virtual void Process();
+private:
+    vrouter_ops *req_;
+};
+
 
 #endif // ctrlplane_ksync_sock_user_h

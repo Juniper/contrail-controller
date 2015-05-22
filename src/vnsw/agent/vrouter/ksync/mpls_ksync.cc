@@ -126,7 +126,7 @@ KSyncEntry *MplsKSyncEntry::UnresolvedReference() {
 }
 
 MplsKSyncObject::MplsKSyncObject(KSync *ksync) : 
-    KSyncDBObject(kMplsIndexCount), ksync_(ksync) {
+    KSyncDBObject(), ksync_(ksync) {
 }
 
 MplsKSyncObject::~MplsKSyncObject() {
