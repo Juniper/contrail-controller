@@ -41,6 +41,9 @@ public:
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp);
 
 private:
+    static const uint32_t kMaxReachCount = 32;
+    static const uint32_t kMaxUnreachCount = 256;
+
     void EncodeNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
                        autogen::ItemType &item);
     void AddIpReach(const BgpRoute *route, const RibOutAttr *roattr);
@@ -141,6 +144,11 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
 }
 
 bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
+    if (is_reachable_ && num_reach_route_ >= kMaxReachCount)
+        return false;
+    if (!is_reachable_ && num_unreach_route_ >= kMaxUnreachCount)
+        return false;
+
     if (table_->family() == Address::ERMVPN) {
         return AddMcastRoute(route, roattr);
     } else if (table_->family() == Address::EVPN) {
