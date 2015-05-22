@@ -34,6 +34,7 @@ public:
             : vm_uuid_(u), interface_cfg_name_(cfg_name) {}
         boost::uuids::uuid vm_uuid_;
         std::string interface_cfg_name_;
+        std::string vm_name_;
     };
 
     class VmUveVmState: public DBState {
@@ -64,9 +65,10 @@ private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void InterfaceAddHandler(const VmEntry* vm, const std::string &if_cfg_name);
+    void InterfaceAddHandler(const VmEntry* vm, const VmInterface *vmi);
     void InterfaceDeleteHandler(const boost::uuids::uuid &u,
                                 const std::string &intf_cfg_name);
+    void UpdateVmName(const boost::uuids::uuid &u, const std::string &vm_name);
     void MarkChanged(const boost::uuids::uuid &u);
     VmUveEntryBase* Add(const VmEntry *vm, bool vm_notify);
     void Delete(const boost::uuids::uuid &u);
