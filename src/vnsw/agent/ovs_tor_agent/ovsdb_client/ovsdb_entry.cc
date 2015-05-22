@@ -90,7 +90,7 @@ bool OvsdbDBEntry::Add() {
         object->client_idl()->DeleteTxn(txn);
         return true;
     }
-    object->client_idl_->SendJsonRpc(msg);
+    object->client_idl_->TxnScheduleJsonRpc(msg);
     return false;
 }
 
@@ -123,7 +123,7 @@ bool OvsdbDBEntry::Change() {
         object->client_idl()->DeleteTxn(txn);
         return true;
     }
-    object->client_idl_->SendJsonRpc(msg);
+    object->client_idl_->TxnScheduleJsonRpc(msg);
     return false;
 }
 
@@ -152,7 +152,7 @@ bool OvsdbDBEntry::Delete() {
         object->client_idl()->DeleteTxn(txn);
         return true;
     }
-    object->client_idl_->SendJsonRpc(msg);
+    object->client_idl_->TxnScheduleJsonRpc(msg);
     return false;
 }
 
