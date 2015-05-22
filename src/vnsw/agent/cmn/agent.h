@@ -557,6 +557,9 @@ public:
     const int &module_type() const { return module_type_; }
     void set_module_type(int id) { module_type_ = id; }
 
+    const std::string &module_name() const { return module_name_; }
+    void set_module_name(const std::string &name) { module_name_ = name; }
+
     // Multicast related
     const std::string &multicast_label_range(uint8_t idx) { 
         return label_range_[idx]; 
@@ -805,6 +808,8 @@ public:
     bool vrouter_on_host() const;
     void SetAgentTaskPolicy();
     void CopyConfig(AgentParam *params);
+    const std::string BuildDiscoveryClientName(std::string mod_name,
+                                               std::string id);
 
     void Init(AgentParam *param);
     void InitPeers();
@@ -856,6 +861,7 @@ private:
     int introspect_port_;
     std::string instance_id_;
     int module_type_;
+    std::string module_name_;
 
     // DB handles
     DB *db_;

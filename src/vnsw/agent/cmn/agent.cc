@@ -300,7 +300,7 @@ void Agent::InitCollector() {
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
     if (params_->collector_server_list().size() != 0) {
-        Sandesh::InitGenerator(discovery_client_name_,
+        Sandesh::InitGenerator(module_name(),
                 host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
@@ -309,7 +309,7 @@ void Agent::InitCollector() {
                 params_->collector_server_list(),
                 NULL);
     } else {
-        Sandesh::InitGenerator(discovery_client_name_,
+        Sandesh::InitGenerator(module_name(),
                 host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
@@ -433,7 +433,9 @@ Agent::Agent() :
     CreateLifetimeManager();
 
     Module::type module = static_cast<Module::type>(module_type_);
-    discovery_client_name_ = g_vns_constants.ModuleNames.find(module)->second;
+    module_name_ = g_vns_constants.ModuleNames.find(module)->second;
+    discovery_client_name_ = BuildDiscoveryClientName(module_name_,
+                                                      instance_id_);
 
     agent_signal_.reset(
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
@@ -596,4 +598,8 @@ bool Agent::vrouter_on_host_dpdk() const {
 
 bool Agent::vrouter_on_host() const {
     return params_->vrouter_on_host();
+}
+
+const string Agent::BuildDiscoveryClientName(string mod_name, string id) {
+    return (mod_name + ":" + id);
 }

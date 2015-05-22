@@ -56,7 +56,7 @@ void AgentUveBase::Shutdown() {
 }
 
 void AgentUveBase::Init() {
-    std::string module_id(agent_->discovery_client_name());
+    std::string module_id(agent_->module_name());
     std::string instance_id(agent_->instance_id());
     EventManager *evm = agent_->event_manager();
     boost::asio::io_service &io = *evm->io_service();

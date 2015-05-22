@@ -78,10 +78,16 @@ int AgentInit::Start() {
     agent_->CopyConfig(agent_param_);
 
     string module_name = ModuleName();
-    agent_->set_discovery_client_name(module_name);
+    /* Discovery client name should have InstanceId as well because multiple
+     * instances of tor-agent can run on a single node.
+     */
+    string ds_client_name =
+        agent_->BuildDiscoveryClientName(module_name, InstanceId());
+    agent_->set_discovery_client_name(ds_client_name);
     agent_->set_agent_name(AgentName());
     agent_->set_instance_id(InstanceId());
     agent_->set_module_type(ModuleType());
+    agent_->set_module_name(module_name);
 
     LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
                 agent_param_->log_files_count(), agent_param_->use_syslog(),
