@@ -295,7 +295,8 @@ public:
         len += sizeof(struct ether_header);
     };
 
-    void AddIpHdr(const char *sip, const char *dip, uint16_t proto) {
+    void AddIpHdr(const char *sip, const char *dip, uint16_t proto,
+                  bool fragment = false) {
         struct ip *ip = (struct ip *)(buff + len);
 
         ip->ip_hl = 5;
@@ -304,6 +305,8 @@ public:
         ip->ip_src.s_addr = inet_addr(sip);
         ip->ip_dst.s_addr = inet_addr(dip);
         ip->ip_p = proto;
+        if (fragment)
+            ip->ip_off = htons(IP_MF);
         len += sizeof(struct ip);
     };
 
