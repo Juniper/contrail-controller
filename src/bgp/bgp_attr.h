@@ -736,6 +736,7 @@ public:
     BgpOListPtr olist() const { return olist_; }
     BgpOListPtr leaf_olist() const { return leaf_olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
+    uint32_t sequence_number() const;
 
 private:
     friend class BgpAttrDB;
