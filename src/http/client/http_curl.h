@@ -28,6 +28,12 @@ typedef struct _ConnInfo
   HttpConnection *connection;
 } ConnInfo;
 
+typedef struct _SockInfo
+{
+  int action;
+  ConnInfo *conn_info;
+} SockInfo;
+
 class CurlErrorCategory : public boost::system::error_category
 {
  public:

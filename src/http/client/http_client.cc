@@ -67,14 +67,7 @@ HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id,
 }
 
 HttpConnection::~HttpConnection() {
-    if (session_) {
-        {
-            tbb::mutex::scoped_lock lock(session_->mutex());
-            session_->SetConnection(NULL);
-        }
-        client_->DeleteSession(session_);
-        set_session(NULL);
-    }
+    delete_session();
 }
 
 std::string HttpConnection::make_url(std::string &path) {
@@ -96,6 +89,18 @@ HttpClientSession *HttpConnection::CreateSession() {
         session->SetConnection(this);
     }
     return session;
+}
+
+void HttpConnection::delete_session() {
+    HttpClientSession *session = session_;
+    if (session_) {
+        {
+            tbb::mutex::scoped_lock lock(session_->mutex());
+            session_->SetConnection(NULL);
+            session_ = NULL;
+        }
+        client_->DeleteSession(session);
+    }
 }
 
 void HttpConnection::set_session(HttpClientSession *session) {
