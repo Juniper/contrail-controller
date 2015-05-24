@@ -394,8 +394,7 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                                               const AgentRouteData *data,
                                               bool force_delete) {
     Route::PathList::iterator it;
-    for (it = GetPathList().begin(); it != GetPathList().end();
-         it++) {
+    for (it = GetPathList().begin(); it != GetPathList().end(); ) {
         AgentPath *path = static_cast<AgentPath *>(it.operator->());
         bool delete_path = false;
         if (key->peer() == path->peer()) {
@@ -419,8 +418,10 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                     const MulticastRoute *multicast_data =
                         dynamic_cast<const MulticastRoute *>(data);
                     assert(multicast_data != NULL);
-                    if (multicast_data->vxlan_id() != path->vxlan_id())
+                    if (multicast_data->vxlan_id() != path->vxlan_id()) {
+                        it++;
                         continue;
+                    }
                     delete_path = true;
                 } else if (path->peer()->GetType() == Peer::EVPN_PEER) {
                     const EvpnDerivedPath *evpn_path =
@@ -429,17 +430,23 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                         dynamic_cast<const EvpnDerivedPathData *>(data);
                     assert(evpn_path != NULL);
                     assert(evpn_data != NULL);
-                    if (evpn_path->ethernet_tag() != evpn_data->ethernet_tag())
+                    if (evpn_path->ethernet_tag() != evpn_data->ethernet_tag()) {
+                        it++;
                         continue;
-                    if (evpn_path->ip_addr() != evpn_data->ip_addr())
+                    }
+                    if (evpn_path->ip_addr() != evpn_data->ip_addr()) {
+                        it++;
                         continue;
+                    }
                     delete_path = true;
                 }
             }
 
+            // In case of multicast routes, BGP can give multiple paths.
+            // So, continue looking for other paths for this peer
+            it++;
             if (delete_path) {
                 DeletePathInternal(path);
-                return;
             }
         }
     }
