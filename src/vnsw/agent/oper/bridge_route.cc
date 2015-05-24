@@ -394,8 +394,7 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                                               const AgentRouteData *data,
                                               bool force_delete) {
     Route::PathList::iterator it;
-    for (it = GetPathList().begin(); it != GetPathList().end();
-         it++) {
+    for (it = GetPathList().begin(); it != GetPathList().end(); ) {
         AgentPath *path = static_cast<AgentPath *>(it.operator->());
         bool delete_path = false;
         if (key->peer() == path->peer()) {
@@ -437,9 +436,11 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                 }
             }
 
+            // In case of multicast routes, BGP can give multiple paths.
+            // So, continue looking for other paths for this peer
+            it++;
             if (delete_path) {
                 DeletePathInternal(path);
-                return;
             }
         }
     }
