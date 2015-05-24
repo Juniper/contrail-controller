@@ -1145,6 +1145,71 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     EXPECT_EQ(0U, ksock->flow_map.size());
 }
 
+TEST_F(UveVnUveTest, VnBandwidth) {
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->stats_collector());
+    collector->interface_stats_responses_ = 0;
+
+    KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, ksock->flow_map.size());
+
+    struct PortInfo stats_if[] = {
+        {"test0", 8, "3.1.1.1", "00:00:00:01:01:01", 6, 3},
+        {"test1", 9, "3.1.1.2", "00:00:00:01:01:02", 6, 4},
+    };
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    vnut->ClearCount();
+
+    client->Reset();
+    CreateVmportEnv(stats_if, 2);
+    client->WaitForIdle(10);
+
+    WAIT_FOR(1000, 500, (VmPortActive(stats_if, 0) == true));
+    WAIT_FOR(1000, 500, (VmPortActive(stats_if, 1) == true));
+
+    VmInterface *test0, *test1;
+    test0 = VmInterfaceGet(stats_if[0].intf_id);
+    assert(test0);
+    test1 = VmInterfaceGet(stats_if[1].intf_id);
+    assert(test1);
+
+    //Change the stats
+    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 5000, 100, 0, 2000, 20, 0);
+    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 5000, 100, 0, 2000, 20, 0);
+
+    collector->SendInterfaceBulkGet();
+    client->WaitForIdle(2);
+    WAIT_FOR(1000, 500, ((collector->interface_stats_responses_) > 0));
+
+    const VnEntry *vn = VnGet(stats_if[0].vn_id);
+    EXPECT_TRUE(vn != NULL);
+    VnUveEntry* vne = vnut->GetVnUveEntry(vn->GetName());
+    EXPECT_TRUE(vne != NULL);
+
+    //Update prev_time to current_time - 1 sec
+    uint64_t t = UTCTimestampUsec() - 1000000;
+    vne->set_prev_stats_update_time(t);
+
+    //Trigger framing of UVE message
+    UveVirtualNetworkAgent uve;
+    vne->FrameVnStatsMsg(vn, uve, false);
+
+    //Verify that UVE msg has bandwidth
+    EXPECT_TRUE(uve.get_in_bandwidth_usage() == 80000);
+    EXPECT_TRUE(uve.get_out_bandwidth_usage() == 32000);
+
+    //Reset the stats so that repeat of this test case works
+    KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
+
+    //cleanup
+    DeleteVmportEnv(stats_if, 2, 1);
+    client->WaitForIdle(10);
+    WAIT_FOR(1000, 500, (VmInterfaceGet(stats_if[0].intf_id) == NULL));
+    WAIT_FOR(1000, 500, (VmInterfaceGet(stats_if[1].intf_id) == NULL));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     /* Sent AgentStatsCollector and FlowStatsCollector timer intervals to 10
