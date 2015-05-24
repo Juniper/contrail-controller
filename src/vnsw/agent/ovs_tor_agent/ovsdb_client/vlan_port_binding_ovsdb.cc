@@ -99,7 +99,7 @@ void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
 void VlanPortBindingEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
     PhysicalPortEntry *port =
         static_cast<PhysicalPortEntry *>(physical_port_.get());
-    OVSDB_TRACE(Trace, "Deleting port vlan binding port " +
+    OVSDB_TRACE(Trace, "Changing port vlan binding port " +
             physical_port_name_ + " vlan " + integerToString(vlan_));
     port->DeleteBinding(vlan_, NULL);
 
