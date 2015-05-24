@@ -1096,8 +1096,12 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_lb_ssl_cert_path_(),
         vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_(),
+        nexthop_server_add_pid_(0),
         vrouter_on_nic_mode_(false),
-        exception_packet_interface_(""), physical_interface_mac_addr_("") {
+        exception_packet_interface_(""),
+        platform_(VROUTER_ON_HOST),
+        physical_interface_pci_addr_(""),
+        physical_interface_mac_addr_("") {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
