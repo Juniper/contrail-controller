@@ -1380,6 +1380,9 @@ class VncDbClient(object):
         (ok, obj_dicts) = self._cassandra_db.read(
                                obj_type, obj_uuids, field_names=obj_fields)
         for obj_dict in obj_dicts:
+            # give chance for zk heartbeat/ping
+            gevent.sleep(0)
+
             try:
                 obj_uuid = obj_dict['uuid']
                 # TODO remove backward compat (use RT instead of VN->LR ref)
