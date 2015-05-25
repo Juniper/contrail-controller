@@ -76,7 +76,8 @@ bool ControllerRouteWalker::VrfNotifyAll(DBTablePartBase *partition,
 
         //Pass this object pointer so that VrfExport::Notify can start the route
         //walk if required on this VRF. Also it adds state if none is found.
-        VrfExport::Notify(bgp_peer->GetBgpXmppPeer(), partition, entry);
+        VrfExport::Notify(agent(), bgp_peer->GetBgpXmppPeer(),
+                          partition, entry);
         CONTROLLER_TRACE(Walker, "Vrf Notify all", vrf->GetName(),
                          bgp_peer->GetName());
         return true;
@@ -183,8 +184,8 @@ bool ControllerRouteWalker::RouteNotifyInternal(DBTablePartBase *partition,
         (bgp_peer->GetVrfExportState(vrf_partition, vrf));
 
     vs->rt_export_[table_type]->
-      Notify(bgp_peer->GetBgpXmppPeer(), associate_, table_type, partition, 
-             entry);
+      Notify(agent(), bgp_peer->GetBgpXmppPeer(), associate_, table_type,
+             partition, entry);
     return true;
 }
 
