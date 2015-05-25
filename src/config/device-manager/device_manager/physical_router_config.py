@@ -68,7 +68,10 @@ class PhysicalRouterConfig(object):
                         config_group.append(nc)
                 else:
                     config_group.append(new_config)
-                apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
+                if operation == "delete":
+                    apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
+                else:
+                    apply_groups = etree.SubElement(config, "apply-groups")
                 apply_groups.text = "__contrail__"
                 self._logger.info("\nsend netconf message: %s\n" % (etree.tostring(add_config, pretty_print=True)))
                 m.edit_config(
