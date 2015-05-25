@@ -293,6 +293,7 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
     assert(msgsize > BgpProto::kMinMessageSize);
     session_->Send(data, msgsize, NULL);
     inc_tx_end_of_rib();
+    inc_tx_update();
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
         "EndOfRib marker family " << Address::FamilyToString(family) <<
@@ -1791,8 +1792,16 @@ void BgpPeer::inc_rx_update() {
     peer_stats_->proto_stats_[0].update++;
 }
 
+uint64_t BgpPeer::get_rx_update() const {
+    return peer_stats_->proto_stats_[0].update;
+}
+
 void BgpPeer::inc_tx_update() {
     peer_stats_->proto_stats_[1].update++;
+}
+
+uint64_t BgpPeer::get_tx_update() const {
+    return peer_stats_->proto_stats_[1].update;
 }
 
 void BgpPeer::inc_rx_notification() {

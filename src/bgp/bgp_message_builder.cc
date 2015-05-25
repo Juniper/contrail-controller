@@ -182,16 +182,19 @@ bool BgpMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
         route->BuildProtoPrefix(prefix);
     }
     nlri.nlri.push_back(prefix);
+
+    int result = BgpProto::Encode(&nlri, data, size);
+    if (result <= 0) {
+        return false;
+    }
+
+    datalen_ += result;
     if (roattr->IsReachable()) {
         num_reach_route_++;
     } else {
         num_unreach_route_++;
     }
 
-    int result = BgpProto::Encode(&nlri, data, size);
-    if (result <= 0) return false;
-
-    datalen_ += result;
     if (!UpdateLength("BgpMsgLength", 2, result)) {
         assert(false);
         return false;
