@@ -22,7 +22,7 @@ const VnUveEntry::VnStatsSet* VnUveTableTest::FindInterVnStats
     return uve->inter_vn_stats();
 }
 
-const VnUveEntry* VnUveTableTest::GetVnUveEntry(const string &vn) {
+VnUveEntry* VnUveTableTest::GetVnUveEntry(const string &vn) {
     UveVnMap::iterator it = uve_vn_map_.find(vn);
     if (it == uve_vn_map_.end()) {
         return NULL;

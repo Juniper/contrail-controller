@@ -335,6 +335,16 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
 
         const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
         fip_count += vm_port->GetFloatingIpCount();
+
+        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
+        const StatsManager::InterfaceStats *s =
+            uve->stats_manager()->GetInterfaceStats(intf);
+        if (s == NULL) {
+            continue;
+        }
+        in_bytes += s->in_bytes;
+        out_bytes += s->out_bytes;
+
     }
 
     uint64_t diff_in_bytes = 0;

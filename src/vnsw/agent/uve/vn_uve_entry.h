@@ -69,6 +69,7 @@ public:
                             uint64_t pkts, bool outgoing);
     void ClearInterVnStats();
     virtual void Reset();
+    void set_prev_stats_update_time(uint64_t t) { prev_stats_update_time_ = t; }
 protected:
     L4PortBitmap port_bitmap_;
     VnStatsSet inter_vn_stats_;
