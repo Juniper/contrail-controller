@@ -135,11 +135,10 @@ void DiscoveryAgentClient::DiscoverServices() {
 
             //subscribe to collector service
             if (param_->collector_server_list().size() == 0) {
-                Module::type module = Module::VROUTER_AGENT;
+                Module::type module = static_cast<Module::type>
+                    (agent->module_type());
                 NodeType::type node_type = 
                     g_vns_constants.Module2NodeType.find(module)->second;
-                std::string subscriber_name =
-                    agent->discovery_client_name();
                 std::string node_type_name = 
                     g_vns_constants.NodeTypeNames.find(node_type)->second;
 
@@ -148,8 +147,8 @@ void DiscoveryAgentClient::DiscoverServices() {
                                   ds_client, _1, _2, _3);
                 std::vector<std::string> list;
                 list.clear();
-                Sandesh::InitGenerator(subscriber_name,
-                                       agent->agent_name(),
+                Sandesh::InitGenerator(agent->module_name(),
+                                       agent->host_name(),
                                        node_type_name,
                                        agent->instance_id(),
                                        agent->event_manager(),
