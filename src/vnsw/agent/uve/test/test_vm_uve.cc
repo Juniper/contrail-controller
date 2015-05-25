@@ -1020,6 +1020,140 @@ TEST_F(UveVmUveTest, SIP_override) {
         EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
     }
     f->ClearList();
+
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+    client->Reset();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+    vmut->ClearCount();
+}
+
+TEST_F(UveVmUveTest, VmName_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+    vmut->ClearCount();
+    EXPECT_EQ(0U, vmut->VmUveCount());
+
+    //Add VN
+    util_.VnAdd(input[0].vn_id);
+
+    // Nova Port add message
+    util_.NovaPortAdd(input);
+
+    // Config Port add
+    util_.ConfigPortAdd(input);
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Since the port is inactive, verify that no VM UVE send has
+    //happened since port addition
+    EXPECT_EQ(0U, vmut->send_count());
+
+    //Add VM
+    util_.VmAdd(input[0].vm_id);
+    client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
+    //Verify send_count after VM addition
+    EXPECT_EQ(1U, vmut->send_count());
+
+    //Verify Uve
+    VmEntry *vm = VmGet(input[0].vm_id);
+    EXPECT_TRUE(vm != NULL);
+    UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
+    EXPECT_TRUE(uve1 != NULL);
+    EXPECT_STREQ(uve1->get_vm_name().c_str(), "");
+
+    //Add necessary objects and links to make vm-intf active
+    util_.VrfAdd(input[0].vn_id);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddVmPortVrf("vnet1", "", 0);
+    client->WaitForIdle();
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    //Trigger UVE send
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
+    //Verify UVE
+    uve1 =  vmut->VmUveObject(vm);
+    EXPECT_TRUE(uve1 != NULL);
+    EXPECT_STREQ(uve1->get_vm_name().c_str(), "vm1");
+    EXPECT_EQ(2U, vmut->send_count());
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    DelNode("virtual-machine-interface-routing-instance", "vnet1");
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    uint32_t send_count = vmut->send_count();
+
+    //Trigger UVE send
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
+    //Verify that vm name is not sent in VM UVE
+    uve1 =  vmut->VmUveObject(vm);
+    EXPECT_TRUE(uve1 != NULL);
+    EXPECT_TRUE((vmut->send_count() > send_count));
+    EXPECT_STREQ(uve1->get_vm_name().c_str(), "");
+
+    //other cleanup
+    util_.VnDelete(input[0].vn_id);
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelNode("virtual-machine", "vm1");
+    DelNode("routing-instance", "vrf1");
+    DelNode("virtual-network", "vn1");
+    DelInstanceIp("instance0");
+    client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
+    //Verify UVE
+    EXPECT_EQ(1U, vmut->delete_count());
+
+    //clear counters at the end of test case
+    client->Reset();
+    vmut->ClearCount();
 }
 
 int main(int argc, char **argv) {

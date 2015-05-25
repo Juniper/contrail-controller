@@ -155,10 +155,11 @@ void VmUveTableBase::MarkChanged(const boost::uuids::uuid &u) {
 }
 
 void VmUveTableBase::InterfaceAddHandler(const VmEntry* vm,
-                                         const string &intf_cfg_name) {
+                                         const VmInterface *vmi) {
     VmUveEntryBase *vm_uve_entry = Add(vm, false);
 
-    vm_uve_entry->InterfaceAdd(intf_cfg_name);
+    vm_uve_entry->InterfaceAdd(vmi->cfg_name());
+    vm_uve_entry->set_vm_name(vmi->vm_name());
     vm_uve_entry->set_changed(true);
 }
 
@@ -170,6 +171,17 @@ void VmUveTableBase::InterfaceDeleteHandler(const boost::uuids::uuid &u,
     }
 
     entry->InterfaceDelete(intf_cfg_name);
+    entry->set_changed(true);
+}
+
+void VmUveTableBase::UpdateVmName(const boost::uuids::uuid &u,
+                                  const string &vm_name) {
+    VmUveEntryBase* entry = UveEntryFromVm(u);
+    if (entry == NULL) {
+        return;
+    }
+
+    entry->set_vm_name(vm_name);
     entry->set_changed(true);
 }
 
@@ -211,10 +223,14 @@ void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition,
             }
             if (vm->GetUuid() != nil_uuid() &&
                 !vm_port->cfg_name().empty()) {
-                InterfaceAddHandler(vm, vm_port->cfg_name());
+                InterfaceAddHandler(vm, vm_port);
             }
             state->vm_uuid_ = vm->GetUuid();
             state->interface_cfg_name_ = vm_port->cfg_name();
+            state->vm_name_ = vm_port->vm_name();
+        } else if (vm_port->vm_name() != state->vm_name_) {
+            UpdateVmName(state->vm_uuid_, vm_port->vm_name());
+            state->vm_name_ = vm_port->vm_name();
         }
     }
 }
