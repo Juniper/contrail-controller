@@ -16,7 +16,7 @@ public:
 
     void ClearCount();
     const VnUveEntry::VnStatsSet* FindInterVnStats(const std::string &vn);
-    const VnUveEntry* GetVnUveEntry(const std::string &vn);
+    VnUveEntry* GetVnUveEntry(const std::string &vn);
     int GetVnUveInterfaceCount(const std::string &vn);
     int GetVnUveVmCount(const std::string &vn);
     int VnUveCount() const;
