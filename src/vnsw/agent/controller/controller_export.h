@@ -34,8 +34,8 @@ public:
     RouteExport(AgentRouteTable *rt);
     ~RouteExport();
 
-    void Notify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
-                Agent::RouteTableType type,
+    void Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
+                bool associate, Agent::RouteTableType type,
                 DBTablePartBase *partition, DBEntryBase *e);
     void ManagedDelete();
     DBTableBase::ListenerId GetListenerId() const {return id_;};
