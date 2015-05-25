@@ -202,7 +202,7 @@ struct ActiveActiveState : sc::state<ActiveActiveState, PathPreferenceSM> {
 
 
 PathPreferenceSM::PathPreferenceSM(Agent *agent, const Peer *peer,
-    InetUnicastRouteEntry *rt): agent_(agent), peer_(peer), rt_(rt),
+    AgentRoute *rt): agent_(agent), peer_(peer), rt_(rt),
     path_preference_(0, PathPreference::LOW, false, false), max_sequence_(0) {
     initiate();
     process_event(EvStart());
@@ -257,15 +257,24 @@ void PathPreferenceSM::Log(std::string state) {
 }
 
 void PathPreferenceSM::EnqueuePathChange() {
-    std::string vrf_name = rt_->vrf()->GetName();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    InetUnicastRouteKey *rt_key =
-        new InetUnicastRouteKey(peer_, vrf_name, rt_->addr(), rt_->plen());
-    rt_key->sub_op_ = AgentKey::RESYNC;
-    req.key.reset(rt_key);
+    req.key = rt_->GetDBRequestKey();
+    AgentRouteKey *key = static_cast<AgentRouteKey *>(req.key.get());
+    key->sub_op_ = AgentKey::RESYNC;
+    key->set_peer(peer_);
     req.data.reset(new PathPreferenceData(path_preference_));
-    AgentRouteTable *table =
-        agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+
+    if (rt_->vrf() == NULL) {
+        return;
+    }
+
+    AgentRouteTable *table = NULL;
+    if (rt_->GetTableType() == Agent::EVPN) {
+        table = rt_->vrf()->GetEvpnRouteTable();
+    } else if (rt_->GetTableType() == Agent::INET4_UNICAST) {
+        table = rt_->vrf()->GetInet4UnicastRouteTable();
+    }
+
     if (table) {
         table->Enqueue(&req);
     }
@@ -363,7 +372,7 @@ void PathPreferenceIntfState::UpdateDependentRoute(std::string vrf_name,
 
         const PathPreferenceState *cpath_preference =
             static_cast<const PathPreferenceState *>(
-            rt->GetState(vrf->GetInet4UnicastRouteTable(), state->id()));
+            rt->GetState(vrf->GetInet4UnicastRouteTable(), state->uc_rt_id_));
         if (!cpath_preference) {
             continue;
         }
@@ -441,7 +450,7 @@ void PathPreferenceIntfState::Notify() {
 }
 
 PathPreferenceState::PathPreferenceState(Agent *agent,
-    InetUnicastRouteEntry *rt): agent_(agent), rt_(rt) {
+    AgentRoute *rt): agent_(agent), rt_(rt) {
 }
 
 PathPreferenceState::~PathPreferenceState() {
@@ -514,36 +523,41 @@ PathPreferenceSM* PathPreferenceState::GetSM(const Peer *peer) {
     return path_preference_peer_map_.find(peer)->second;
 }
 
-PathPreferenceVrfState::PathPreferenceVrfState(Agent *agent,
+PathPreferenceRouteListener::PathPreferenceRouteListener(Agent *agent,
     AgentRouteTable *table): agent_(agent), rt_table_(table),
     id_(DBTableBase::kInvalidId), table_delete_ref_(this, table->deleter()),
     deleted_(false) {
 }
 
-void PathPreferenceVrfState::Init() {
-    id_ = rt_table_->Register(boost::bind(&PathPreferenceVrfState::Notify, this,
+void PathPreferenceRouteListener::Init() {
+    id_ = rt_table_->Register(boost::bind(&PathPreferenceRouteListener::Notify,
+                                          this,
                                           _1, _2));
 }
 
-void PathPreferenceVrfState::Delete() {
+void PathPreferenceRouteListener::Delete() {
     deleted_ = true;
     DBTableWalker *walker = agent_->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL,
-                      boost::bind(&PathPreferenceVrfState::DeleteState,
+                      boost::bind(&PathPreferenceRouteListener::DeleteState,
                                   this, _1, _2),
-                      boost::bind(&PathPreferenceVrfState::Walkdone, this,
+                      boost::bind(&PathPreferenceRouteListener::Walkdone, this,
                                   _1, this));
 }
 
-void PathPreferenceVrfState::Walkdone(DBTableBase *partition,
-                                       PathPreferenceVrfState *state) {
+void PathPreferenceRouteListener::ManagedDelete() {
+    Delete();
+}
+
+void PathPreferenceRouteListener::Walkdone(DBTableBase *partition,
+                                       PathPreferenceRouteListener *state) {
     rt_table_->Unregister(id_);
     table_delete_ref_.Reset(NULL);
     delete state;
 }
 
-bool PathPreferenceVrfState::DeleteState(DBTablePartBase *partition,
-                                          DBEntryBase *e) {
+bool PathPreferenceRouteListener::DeleteState(DBTablePartBase *partition,
+                                              DBEntryBase *e) {
     PathPreferenceState *state =
         static_cast<PathPreferenceState *>(e->GetState(rt_table_, id_));
     if (state) {
@@ -553,8 +567,8 @@ bool PathPreferenceVrfState::DeleteState(DBTablePartBase *partition,
     return true;
 }
 
-void PathPreferenceVrfState::Notify(DBTablePartBase *partition, 
-                                     DBEntryBase *e) {
+void PathPreferenceRouteListener::Notify(DBTablePartBase *partition,
+                                         DBEntryBase *e) {
     PathPreferenceState *state =
         static_cast<PathPreferenceState *>(e->GetState(rt_table_, id_));
     if (e->IsDeleted()) {
@@ -566,9 +580,7 @@ void PathPreferenceVrfState::Notify(DBTablePartBase *partition,
         return;
     }
 
-    InetUnicastRouteEntry *rt =
-                static_cast<InetUnicastRouteEntry *>(e);
-
+    AgentRoute *rt = static_cast<AgentRoute *>(e);
     for (Route::PathList::iterator it = rt->GetPathList().begin();
           it != rt->GetPathList().end(); ++it) {
         const AgentPath *path =
@@ -620,6 +632,30 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
         return true;
     }
 
+    PathPreferenceState *path_preference = NULL;
+    PathPreferenceSM *path_preference_sm = NULL;
+    const PathPreferenceState *cpath_preference = NULL;
+
+    EvpnRouteKey evpn_key(NULL, vrf->GetName(), event.mac_,
+                          event.ip_, event.vxlan_id_);
+    const EvpnRouteEntry *evpn_rt =
+              static_cast<const EvpnRouteEntry *>(
+              vrf->GetEvpnRouteTable()->FindActiveEntry(&evpn_key));
+
+    if (evpn_rt) {
+        cpath_preference = static_cast<const PathPreferenceState *>(
+                               evpn_rt->GetState(vrf->GetEvpnRouteTable(),
+                               state->evpn_rt_id_));
+        if (cpath_preference) {
+            path_preference = const_cast<PathPreferenceState *>(cpath_preference);
+            path_preference_sm = path_preference->GetSM(vm_intf->peer());
+            if (path_preference_sm) {
+                EvTrafficSeen ev;
+                path_preference_sm->process_event(ev);
+            }
+        }
+    }
+
     InetUnicastRouteKey rt_key(NULL, vrf->GetName(), event.ip_, event.plen_);
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(
@@ -628,17 +664,14 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
         return true;
     }
 
-    const PathPreferenceState *cpath_preference =
-        static_cast<const PathPreferenceState *>(
-        rt->GetState(vrf->GetInet4UnicastRouteTable(), state->id()));
+    cpath_preference = static_cast<const PathPreferenceState *>(
+        rt->GetState(vrf->GetInet4UnicastRouteTable(), state->uc_rt_id_));
     if (!cpath_preference) {
         return true;
     }
 
-    PathPreferenceState *path_preference =
-        const_cast<PathPreferenceState *>(cpath_preference);
-    PathPreferenceSM *path_preference_sm =
-        path_preference->GetSM(vm_intf->peer());
+    path_preference = const_cast<PathPreferenceState *>(cpath_preference);
+    path_preference_sm = path_preference->GetSM(vm_intf->peer());
     if (path_preference_sm) {
         EvTrafficSeen ev;
         path_preference_sm->process_event(ev);
@@ -658,7 +691,8 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
 
 void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
                                               uint32_t interface_index,
-                                              uint32_t vrf_index) {
+                                              uint32_t vrf_index,
+                                              const MacAddress &mac) {
     const Interface *intf =
         agent_->interface_table()->FindInterface(interface_index);
     if (intf == NULL || (intf->type() != Interface::VM_INTERFACE)) {
@@ -680,12 +714,25 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
     }
 
     InetUnicastRouteEntry *rt = vrf->GetUcRoute(ip);
-    if (!rt) {
+    EvpnRouteKey key(vm_intf->peer(), vrf->GetName(), mac, ip,
+                     vm_intf->ethernet_tag());
+    EvpnRouteEntry *evpn_rt = static_cast<EvpnRouteEntry *>(
+        vrf->GetEvpnRouteTable()->FindActiveEntry(&key));
+    if (!rt && !evpn_rt) {
         return;
     }
 
-    const AgentPath *path = rt->FindPath(vm_intf->peer());
-    if (!path|| path->path_preference().wait_for_traffic() == false) {
+    const AgentPath *path = NULL;
+    const AgentPath *evpn_path = NULL;
+
+    if (rt) {
+        path = rt->FindPath(vm_intf->peer());
+    }
+    if (evpn_path) {
+        evpn_path = evpn_rt->FindPath(vm_intf->peer());
+    }
+
+    if (!path && !evpn_path) {
         return;
     }
 
@@ -694,6 +741,8 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
     event.plen_ = rt->plen();
     event.interface_index_ = interface_index;
     event.vrf_index_ = vrf_index;
+    event.mac_ = mac;
+    event.vxlan_id_ = vm_intf->ethernet_tag();
     work_queue_.Enqueue(event);
 }
 
@@ -705,8 +754,8 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
                                                           vrf_id_));
 
    if (vrf->IsDeleted() && vrf_state) {
-       vrf_state->Delete();
        e->ClearState(partition->parent(), vrf_id_);
+       delete vrf_state;
        return;
    }
 
@@ -714,9 +763,19 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
        return;
    }
 
-   vrf_state = new PathPreferenceVrfState(agent_,
-                                           vrf->GetInet4UnicastRouteTable());
-   vrf_state->Init();
+   PathPreferenceRouteListener *uc_rt_listener =
+       new PathPreferenceRouteListener(agent_,
+                                       vrf->GetInet4UnicastRouteTable());
+   uc_rt_listener->Init();
+
+   PathPreferenceRouteListener *evpn_rt_listener =
+       new PathPreferenceRouteListener(agent_,
+                                       vrf->GetEvpnRouteTable());
+   evpn_rt_listener->Init();
+
+   vrf_state =
+       new PathPreferenceVrfState(uc_rt_listener->id(),
+                                  evpn_rt_listener->id());
    e->SetState(partition->parent(), vrf_id_, vrf_state);
    return;
 }
