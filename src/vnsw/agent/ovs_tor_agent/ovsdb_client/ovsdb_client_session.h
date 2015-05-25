@@ -35,6 +35,9 @@ public:
 
     virtual int keepalive_interval() = 0;
 
+    // maximum number of inflight txn messages allowed
+    virtual bool ThrottleInFlightTxnMessages() { return false; }
+
     virtual ConnectionStateTable *connection_table() = 0;
     virtual KSyncObjectManager *ksync_obj_manager() = 0;
     virtual Ip4Address remote_ip() const { return Ip4Address(); }

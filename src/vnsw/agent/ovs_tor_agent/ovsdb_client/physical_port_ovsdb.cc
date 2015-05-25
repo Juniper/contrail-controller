@@ -138,7 +138,7 @@ bool PhysicalPortEntry::OverrideOvs() {
     }
     OVSDB_TRACE(Trace, "Sending Vlan Port Binding update for Physical route " +
                        dev_name_ + " Physical Port " + name_);
-    table_->client_idl()->SendJsonRpc(msg);
+    table_->client_idl()->TxnScheduleJsonRpc(msg);
     return false;
 }
 
