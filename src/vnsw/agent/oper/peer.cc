@@ -93,7 +93,7 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
         // other new peer.
         if (bgp_xmpp_peer_ &&
             (bgp_xmpp_peer_->bgp_peer_id() == this) &&
-            AgentXmppChannel::IsBgpPeerActive(bgp_xmpp_peer_)) {
+            AgentXmppChannel::IsBgpPeerActive(agent(), bgp_xmpp_peer_)) {
             AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer_, vrf, 
                                                       false); 
         }

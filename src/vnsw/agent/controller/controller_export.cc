@@ -74,7 +74,8 @@ void RouteExport::ManagedDelete() {
 }
 
 // Route entry add/change/del notification handler
-void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
+void RouteExport::Notify(const Agent *agent,
+                         AgentXmppChannel *bgp_xmpp_peer,
                          bool associate, Agent::RouteTableType type, 
                          DBTablePartBase *partition, DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
@@ -83,7 +84,7 @@ void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
     if (!route->IsDeleted()) {
         // If there is no active BGP peer attached to channel, ignore 
         // non-delete notification for this channel
-        if (!AgentXmppChannel::IsBgpPeerActive(bgp_xmpp_peer))
+        if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer))
             return;
 
         // Extract the listener ID of active BGP peer for route table to which
@@ -397,8 +398,8 @@ RouteExport* RouteExport::Init(AgentRouteTable *table,
     RouteExport *rt_export = new RouteExport(table);
     bool associate = true;
     rt_export->id_ = table->Register(boost::bind(&RouteExport::Notify,
-                                     rt_export, bgp_xmpp_peer, associate, 
-                                     table->GetTableType(), _1, _2));
+                                     rt_export, table->agent(), bgp_xmpp_peer,
+                                     associate, table->GetTableType(), _1, _2));
     return rt_export;
 }
 

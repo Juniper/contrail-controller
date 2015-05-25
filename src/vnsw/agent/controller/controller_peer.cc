@@ -105,7 +105,7 @@ void AgentXmppChannel::CreateBgpPeer() {
     assert(bgp_peer_id_.get() == NULL);
     DBTableBase::ListenerId id =
         agent_->vrf_table()->Register(boost::bind(&VrfExport::Notify,
-                                       this, _1, _2));
+                                       agent_, this, _1, _2));
     boost::system::error_code ec;
     const string &addr = agent_->controller_ifmap_xmpp_server(xs_idx_);
     Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
@@ -1238,7 +1238,19 @@ void AgentXmppChannel::MulticastPeerDown(AgentXmppChannel *old_mcast_builder,
  * 2) xmpp channel is in READY state
  * 3) Valid XMPP channel
  */
-bool AgentXmppChannel::IsBgpPeerActive(AgentXmppChannel *peer) {
+bool AgentXmppChannel::IsBgpPeerActive(const Agent *agent,
+                                       AgentXmppChannel *peer) {
+    //Verify if channel registered is stiil active or has been deleted
+    //after bgp peer was down. This is checked under existing agent
+    //xmpp channels in agent.
+    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
+        if (agent->controller_xmpp_channel(idx) == peer)
+            break;
+        return false;
+    }
+    //Reach here if channel is present. Now check for BGP peer
+    //as channel may have come up and created another BGP peer.
+    //Also check for the state of channel.
     if (peer && peer->GetXmppChannel() && peer->bgp_peer_id() &&
         (peer->GetXmppChannel()->GetPeerState() == xmps::READY)) {
         return true;
@@ -1456,7 +1468,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             agent->reset_ifmap_active_xmpp_server();
             AgentXmppChannel *new_cfg_peer = agent->controller_xmpp_channel(idx);
 
-            if (IsBgpPeerActive(new_cfg_peer) &&
+            if (IsBgpPeerActive(agent, new_cfg_peer) &&
                 AgentXmppChannel::SetConfigPeer(new_cfg_peer)) {
                 AgentXmppChannel::CleanConfigStale(new_cfg_peer);
                 CONTROLLER_TRACE(Session, new_cfg_peer->GetXmppServer(),
@@ -1493,7 +1505,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             // 2) Channel is in READY state
             // 3) BGP peer is commissioned for channel
             bool evaluate_new_mcast_builder =
-                IsBgpPeerActive(new_mcast_builder);
+                IsBgpPeerActive(agent, new_mcast_builder);
 
             if (!evaluate_new_mcast_builder) {
                 new_mcast_builder = NULL;

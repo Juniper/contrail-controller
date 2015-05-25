@@ -22,7 +22,7 @@ public:
         RouteExport *rt_export_[Agent::ROUTE_TABLE_MAX];
     };
 
-    static void Notify(AgentXmppChannel *, 
+    static void Notify(const Agent *agent, AgentXmppChannel *,
                        DBTablePartBase *partition, DBEntryBase *e);
 };
 
