@@ -8,6 +8,7 @@
 #include <string>
 #include <stdint.h>
 #include <boost/shared_ptr.hpp>
+#include <boost/shared_array.hpp>
 #include <base/util.h>
 
 class PacketBuffer;
@@ -43,7 +44,7 @@ private:
                  uint16_t len, uint16_t data_offset, uint16_t data_len,
                  uint32_t mdata);
 
-    boost::shared_ptr<uint8_t> buffer_;
+    boost::shared_array<uint8_t> buffer_;
     uint16_t buffer_len_;
 
     uint8_t *data_;

@@ -293,7 +293,9 @@ void InetInterface::DeActivateHostInterface() {
 // Inet Interface methods
 /////////////////////////////////////////////////////////////////////////////
 InetInterface::InetInterface(const std::string &name) :
-    Interface(Interface::INET, nil_uuid(), name, NULL) {
+    Interface(Interface::INET, nil_uuid(), name, NULL),
+    sub_type_(VHOST), ip_addr_(0), plen_(0), gw_(0), xconnect_(NULL),
+    vn_name_("") {
     ipv4_active_ = false;
     l2_active_ = false;
 }

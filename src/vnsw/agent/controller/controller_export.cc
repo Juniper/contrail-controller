@@ -19,7 +19,8 @@
 
 RouteExport::State::State() : 
     DBState(), exported_(false), fabric_multicast_exported_(false),
-    force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(""), sg_list_() {
+    force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(""), sg_list_(),
+    tunnel_type_(TunnelType::INVALID), path_preference_() {
 }
 
 bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path) const {

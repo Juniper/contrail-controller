@@ -65,7 +65,8 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
  public:
     PhysicalDeviceVn(const boost::uuids::uuid &device_uuid,
                           const boost::uuids::uuid &vn_uuid) :
-        device_uuid_(device_uuid), vn_uuid_(vn_uuid), device_(), vn_() { }
+        device_uuid_(device_uuid), vn_uuid_(vn_uuid), device_(), vn_(),
+        vxlan_id_(0), tor_ip_(Ip4Address(0)) { }
     virtual ~PhysicalDeviceVn() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;

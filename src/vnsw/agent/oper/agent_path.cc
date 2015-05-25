@@ -1173,7 +1173,7 @@ const Ip4Address *AgentPath::NexthopIp(Agent *agent) const {
 }
 
 MacVmBindingPath::MacVmBindingPath(const Peer *peer) :
-    AgentPath(peer, NULL) {
+    AgentPath(peer, NULL), vm_interface_(NULL), flood_dhcp_(false) {
 }
 
 bool MacVmBindingPath::IsLess(const AgentPath &r_path) const {

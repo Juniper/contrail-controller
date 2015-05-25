@@ -387,11 +387,14 @@ void Agent::InitPeers() {
 }
 
 Agent::Agent() :
-    params_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
+    params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
+    stats_collector_(NULL), flow_stats_collector_(NULL), pkt_(NULL),
+    services_(NULL), rest_server_(NULL), oper_db_(NULL), diag_table_(NULL),
+    controller_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
     ifmap_channel_(), xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(),
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
-    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""), agent_name_(""),
-    prog_name_(""), introspect_port_(0),
+    cn_mcast_builder_(NULL), ds_client_(NULL),
+    host_name_(""), agent_name_(""), prog_name_(""), introspect_port_(0),
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
     module_type_(Module::VROUTER_AGENT), db_(NULL),
     task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
@@ -415,6 +418,7 @@ Agent::Agent() :
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
+    vhost_interface_(NULL),
     connection_state_(NULL), debug_(false), test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
     tor_agent_enabled_(false) {
