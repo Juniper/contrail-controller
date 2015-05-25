@@ -907,6 +907,7 @@ TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelArTypeString) {
 TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelFlagsStrings) {
     PmsiTunnelSpec pmsi_spec;
     vector<string> flags;
+    flags = list_of("None");
     EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
     flags = list_of("LeafInfoRequired");

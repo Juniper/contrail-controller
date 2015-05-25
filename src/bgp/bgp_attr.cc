@@ -280,6 +280,9 @@ std::vector<std::string> PmsiTunnelSpec::GetTunnelFlagsStrings() const {
     if (tunnel_flags & EdgeReplicationSupported) {
         flags.push_back("EdgeReplicationSupported");
     }
+    if (flags.empty()) {
+        flags.push_back("None");
+    }
     return flags;
 }
 
