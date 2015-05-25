@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
-#
+# testing CI for tempest
 
 SConscript(dirs=['lib', 'src'])
 
