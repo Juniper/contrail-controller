@@ -422,6 +422,11 @@ class FlowEntry {
     void set_underlay_source_port(uint16_t port) {
         underlay_source_port_ = port;
     }
+    bool underlay_sport_exported() const { return underlay_sport_exported_; }
+    void set_underlay_sport_exported(bool value) {
+        underlay_sport_exported_ = value;
+    }
+
     uint16_t short_flow_reason() const { return short_flow_reason_; }
     bool set_pending_recompute(bool value);
     const MacAddress &smac() const { return data_.smac; }
@@ -465,6 +470,7 @@ private:
     TunnelType tunnel_type_;
     //Underlay source port. 0 for local flows. Used during flow-export
     uint16_t underlay_source_port_;
+    bool underlay_sport_exported_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
@@ -771,6 +777,7 @@ private:
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };

@@ -98,7 +98,7 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     linklocal_src_port_(),
     linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
     peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
-    underlay_source_port_(0) {
+    underlay_source_port_(0), underlay_sport_exported_(false) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -3450,6 +3450,31 @@ FlowTable::~FlowTable() {
     delete nh_listener_;
 }
 
+bool FlowTable::SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow) {
+    uint16_t underlay_src_port = 0;
+    bool exported = false;
+    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
+        /* Set source_port as 0 for local flows. Source port is calculated by
+         * vrouter irrespective of whether flow is local or not. So for local
+         * flows we need to ignore port given by vrouter
+         */
+        s_flow.set_underlay_source_port(0);
+        exported = true;
+    } else {
+        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
+            underlay_src_port = flow->underlay_source_port();
+            if (underlay_src_port) {
+                exported = true;
+            }
+        } else {
+            exported = true;
+        }
+        s_flow.set_underlay_source_port(underlay_src_port);
+    }
+    flow->set_underlay_sport_exported(exported);
+    return exported;
+}
+
 void FlowTable::SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow) {
     string rid = agent_->router_id().to_string();
     uint16_t underlay_src_port = 0;
@@ -3461,11 +3486,17 @@ void FlowTable::SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow) {
          * flows we need to ignore port given by vrouter
          */
         s_flow.set_underlay_source_port(0);
+        flow->set_underlay_sport_exported(true);
     } else {
         s_flow.set_vrouter_ip(rid);
         s_flow.set_other_vrouter_ip(flow->peer_vrouter());
         if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
             underlay_src_port = flow->underlay_source_port();
+            if (underlay_src_port) {
+                flow->set_underlay_sport_exported(true);
+            }
+        } else {
+            flow->set_underlay_sport_exported(true);
         }
         s_flow.set_underlay_source_port(underlay_src_port);
     }
@@ -3545,7 +3576,23 @@ void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         stats.exported = true;
         level = SandeshLevel::SYS_ERR;
         SetUnderlayInfo(flow, s_flow);
+    } else {
+        /* When the flow is being exported for first time, underlay port
+         * info is set as part of SetUnderlayInfo. At this point it is possible
+         * that port is not yet populated to flow-entry because of either
+         * (i) flow-entry has not got chance to be evaluated by
+         *     flow-stats-collector
+         * (ii) there is no flow entry in vrouter yet
+         * (iii) the flow entry in vrouter does not have underlay source port
+         *       populated yet
+         */
+        if (!flow->underlay_sport_exported()) {
+            if (SetUnderlayPort(flow, s_flow)) {
+                level = SandeshLevel::SYS_ERR;
+            }
+        }
     }
+
     if (stats.teardown_time) {
         s_flow.set_teardown_time(stats.teardown_time);
         //Teardown time will be set in flow only when flow is deleted.
@@ -3553,6 +3600,7 @@ void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         //handle flow entry reuse case (Flow add request coming for flows
         //marked as deleted)
         stats.exported = false;
+        flow->set_underlay_sport_exported(false);
         level = SandeshLevel::SYS_ERR;
     }
 
