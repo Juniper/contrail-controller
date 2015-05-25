@@ -1206,7 +1206,8 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr,
                            bool old_layer3_forwarding) {
-    if (device_type() == VmInterface::TOR)
+    if (device_type() == VmInterface::TOR ||
+        device_type() == VmInterface::DEVICE_TYPE_INVALID)
         return;
 
     UpdateVxLan();
@@ -1307,7 +1308,10 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
-    if (device_type_ == VmInterface::TOR &&
+    //Also, when parent is not updated for a non-Nova interface, device type
+    //remains invalid.
+    if ((device_type_ == VmInterface::TOR ||
+         device_type_ == VmInterface::DEVICE_TYPE_INVALID) &&
         (old_subnet.is_unspecified() && old_subnet_plen == 0)) {
         return;
     }
