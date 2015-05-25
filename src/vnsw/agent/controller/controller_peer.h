@@ -78,7 +78,8 @@ public:
                                            std::string vn,
                                            uint32_t mpls_label,
                                            uint32_t tunnel_bmap,
-                                           const SecurityGroupList *sg_list);
+                                           const SecurityGroupList *sg_list,
+                                           const PathPreference &path_preference);
     static bool ControllerSendMcastRouteAdd(AgentXmppChannel *peer,
                                             AgentRoute *route);
     //Deletes to control node
@@ -130,6 +131,7 @@ public:
                                        const SecurityGroupList *sg_list,
                                        uint32_t mpls_label,
                                        uint32_t tunnel_bmap,
+                                       const PathPreference &path_preference,
                                        bool associate);
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
@@ -187,6 +189,7 @@ private:
                                  const SecurityGroupList *sg_list,
                                  uint32_t label,
                                  uint32_t tunnel_bmap,
+                                 const PathPreference &path_prefernce,
                                  bool associate);
     bool BuildAndSendEvpnDom(autogen::EnetItemType &item,
                              std::stringstream &ss_node,

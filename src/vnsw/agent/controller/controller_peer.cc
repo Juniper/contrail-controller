@@ -745,6 +745,12 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     uint32_t label = item->entry.next_hops.next_hop[0].label;
     TunnelType::TypeBmap encap = GetEnetTypeBitmap
         (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+    PathPreference::Preference preference = PathPreference::LOW;
+    if (item->entry.local_preference == PathPreference::HIGH) {
+        preference = PathPreference::HIGH;
+    }
+    PathPreference path_preference(item->entry.sequence_number, preference,
+                                   false, false);
 
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
     IpAddress nh_ip = IpAddress::from_string(nexthop_addr, ec);
@@ -775,7 +781,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      encap, label,
                                                      item->entry.virtual_network,
                                                      item->entry.security_group_list.security_group,
-                                                     PathPreference());
+                                                     path_preference);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
@@ -837,7 +843,6 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     }
 
     SecurityGroupList sg_list = item->entry.security_group_list.security_group;
-    PathPreference path_preference;
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_nh->GetIfUuid(), "");
     ControllerLocalVmRoute *local_vm_route = NULL;
     if (encap == TunnelType::VxlanType()) {
@@ -1955,11 +1960,13 @@ bool AgentXmppChannel::BuildEvpnUnicastMessage(EnetItemType &item,
                                                const SecurityGroupList *sg_list,
                                                uint32_t label,
                                                uint32_t tunnel_bmap,
+                                               const PathPreference
+                                               &path_preference,
                                                bool associate) {
     assert(route->is_multicast() == false);
     assert(route->GetTableType() == Agent::EVPN);
-    item.entry.local_preference = PathPreference::LOW;
-    item.entry.sequence_number = 0;
+    item.entry.local_preference = path_preference.preference();
+    item.entry.sequence_number = path_preference.sequence();
     item.entry.assisted_replication_supported = false;
     item.entry.edge_replication_not_supported = false;
     item.entry.nlri.af = BgpAf::L2Vpn;
@@ -2091,6 +2098,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
                                                      const SecurityGroupList *sg_list,
                                                      uint32_t label,
                                                      uint32_t tunnel_bmap,
+                                                     const PathPreference
+                                                     &path_preference,
                                                      bool associate) {
     EnetItemType item;
     stringstream ss_node;
@@ -2129,7 +2138,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
         }
     } else {
         if (BuildEvpnUnicastMessage(item, ss_node, route, nh_ip, vn, sg_list,
-                                label, tunnel_bmap, associate) == false)
+                                label, tunnel_bmap, path_preference,
+                                associate) == false)
             return false;;
             ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
     }
@@ -2240,7 +2250,9 @@ bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                                   std::string vn,
                                                   uint32_t label,
                                                   uint32_t tunnel_bmap,
-                                                  const SecurityGroupList *sg_list) {
+                                                  const SecurityGroupList *sg_list,
+                                                  const PathPreference
+                                                  &path_preference) {
     if (!peer) return false;
 
     CONTROLLER_TRACE(RouteExport, peer->GetBgpPeerName(),
@@ -2252,6 +2264,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                                 sg_list,
                                                 label,
                                                 tunnel_bmap,
+                                                path_preference,
                                                 true));
 }
 
@@ -2272,6 +2285,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
                                                 NULL,
                                                 label,
                                                 tunnel_bmap,
+                                                PathPreference(),
                                                 false));
 }
 
@@ -2303,7 +2317,8 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
     }
     if (type == Agent::EVPN) {
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
-                                                  sg_list, label, bmap, true);
+                                                  sg_list, label, bmap,
+                                                  path_preference, true);
     }
     return ret;
 }
@@ -2338,7 +2353,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
     if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn, NULL,
-                                                  label, bmap, false);
+                                                  label, bmap,
+                                                  path_preference, false);
     }
     return ret;
 }
