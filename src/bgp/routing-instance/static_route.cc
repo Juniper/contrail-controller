@@ -132,7 +132,8 @@ public:
              it != rtargets.end(); ++it) {
             error_code ec;
             RouteTarget rtarget = RouteTarget::FromString(*it, &ec);
-            assert(ec == 0);
+            if (ec != 0)
+                continue;
             rtarget_list_.insert(rtarget);
         }
 
@@ -208,7 +209,8 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst,
         it != rtargets.end(); it++) {
         error_code ec;
         RouteTarget rtarget = RouteTarget::FromString(*it, &ec);
-        assert(ec == 0);
+        if (ec != 0)
+            continue;
         rtarget_list_.insert(rtarget);
     }
 }
@@ -565,11 +567,9 @@ void
 StaticRouteMgr::LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg) {
     CHECK_CONCURRENCY("bgp::Config");
     error_code ec;
-    IpAddress nexthop = Ip4Address::from_string(cfg.next_hop, ec);
-    assert(ec == 0);
-
     Ip4Prefix prefix = Ip4Prefix::FromString(cfg.prefix, &ec);
-    assert(ec == 0);
+    if (ec != 0)
+        return;
 
     BgpConditionListener *listener =
         routing_instance()->server()->condition_listener();
@@ -609,6 +609,10 @@ StaticRouteMgr::LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg) {
         return;
     }
 
+    IpAddress nexthop = Ip4Address::from_string(cfg.next_hop, ec);
+    if (ec != 0)
+        return;
+
     StaticRoute *match =
         new StaticRoute(routing_instance(), prefix, cfg.route_target, nexthop);
     StaticRoutePtr static_route_match = StaticRoutePtr(match);
@@ -617,8 +621,6 @@ StaticRouteMgr::LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg) {
 
     listener->AddMatchCondition(match->bgp_table(), static_route_match.get(),
                                 BgpConditionListener::RequestDoneCb());
-
-    return;
 }
 
 void StaticRouteMgr::StopStaticRouteDone(BgpTable *table,
@@ -673,15 +675,9 @@ StaticRouteMgr::~StaticRouteMgr() {
 bool CompareStaticRouteConfig(autogen::StaticRouteType lhs,
                               autogen::StaticRouteType rhs) {
     error_code ec;
-    Ip4Prefix lhs_static_route_prefix =
-        Ip4Prefix::FromString(lhs.prefix, &ec);
-    assert(*ec == 0);
-
-    Ip4Prefix rhs_static_route_prefix =
-        Ip4Prefix::FromString(rhs.prefix, &ec);
-    assert(*ec == 0);
-
-    return (lhs_static_route_prefix < rhs_static_route_prefix);
+    Ip4Prefix lhs_static_route_prefix = Ip4Prefix::FromString(lhs.prefix, &ec);
+    Ip4Prefix rhs_static_route_prefix = Ip4Prefix::FromString(rhs.prefix, &ec);
+    return (lhs_static_route_prefix < rhs_static_route_prefix); 
 }
 
 
@@ -702,7 +698,6 @@ void StaticRouteMgr::UpdateStaticRouteConfig() {
         error_code ec;
         Ip4Prefix static_route_prefix =
             Ip4Prefix::FromString(static_route_cfg_it->prefix, &ec);
-        assert(*ec == 0);
         if (static_route_prefix < oper_it->first) {
             LocateStaticRoutePrefix(*static_route_cfg_it);
             static_route_cfg_it++;
