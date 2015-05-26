@@ -79,7 +79,7 @@ TEST_F(IdentityPropertyTest, Parse) {
 
     IFMapServerParser::RequestList requests;
     xparser_->ParseResults(xdoc_, &requests);
-    EXPECT_EQ(5, requests.size());
+    EXPECT_EQ(7, requests.size());
     DBRequest *req = requests.front();
     IFMapServerTable::RequestData *data =
             static_cast<IFMapServerTable::RequestData *>(req->data.get());
@@ -89,17 +89,19 @@ TEST_F(IdentityPropertyTest, Parse) {
     ASSERT_TRUE(attr);
     EXPECT_EQ(10, attr->attr1);
     EXPECT_EQ("baz", attr->attr2);
+    EXPECT_EQ(true, attr->attr3);
     STLDeleteValues(&requests);
 }
 
 TEST_F(IdentityPropertyTest, EncodeDecode) {
     pugi::xml_parse_result result =
-    xdoc_.load_file("controller/src/schema/testdata/ifmap_identity_property_1.xml");
+    xdoc_.load_file(
+        "controller/src/schema/testdata/ifmap_identity_property_1.xml");
     EXPECT_TRUE(result);
 
     IFMapServerParser::RequestList requests;
     xparser_->ParseResults(xdoc_, &requests);
-    EXPECT_EQ(5, requests.size());
+    EXPECT_EQ(7, requests.size());
     
     IFMapServerTable *table = static_cast<IFMapServerTable *>(
         IFMapTable::FindTable(&db_, "foo"));
@@ -115,7 +117,7 @@ TEST_F(IdentityPropertyTest, EncodeDecode) {
     pugi::xml_node config = xmsg.append_child("config");
     pugi::xml_node update = config.append_child("update");
 
-    const char *objs[] = {"a", "b", "c", "d"};
+    const char *objs[] = {"a", "b", "c", "d", "e"};
     BOOST_FOREACH(const char *name, objs) {
         IFMapNode *node = table->FindNode(name);
         Foo *foo = static_cast<Foo *>(node->GetObject());
@@ -126,6 +128,18 @@ TEST_F(IdentityPropertyTest, EncodeDecode) {
             EXPECT_EQ(2, foo->complex_list().size());
         } else if (node->name() == "d") {
             EXPECT_EQ(3, foo->value().size());
+        } else if (node->name() == "e") {
+            EXPECT_EQ(5, foo->complex_list().size());
+            // Check default value for bool is false.
+            autogen::AttributeType attr = foo->complex_list().at(0);
+            EXPECT_FALSE(attr.attr3);
+            // Check explicitly setting true works correctly.
+            attr = foo->complex_list().at(1);
+            EXPECT_TRUE(attr.attr3);
+            // Check explicitly setting false works correctly.
+            attr = foo->complex_list().at(4);
+            EXPECT_FALSE(attr.attr3);
+            EXPECT_EQ(true, foo->bool_value());
         }
         node->EncodeNodeDetail(&update);
     }
@@ -149,6 +163,18 @@ TEST_F(IdentityPropertyTest, EncodeDecode) {
         } else if (id_name == "d") {
             EXPECT_EQ(1, obj->complex_list().size());
             EXPECT_EQ(3, obj->value().size());
+        } else if (id_name == "e") {
+            EXPECT_EQ(5, obj->complex_list().size());
+            // Check default value for bool is false.
+            autogen::AttributeType attr = obj->complex_list().at(0);
+            EXPECT_FALSE(attr.attr3);
+            // Check explicitly setting true works correctly.
+            attr = obj->complex_list().at(1);
+            EXPECT_TRUE(attr.attr3);
+            // Check explicitly setting false works correctly.
+            attr = obj->complex_list().at(4);
+            EXPECT_FALSE(attr.attr3);
+            EXPECT_EQ(true, obj->bool_value());
         }
         node = node.next_sibling();
     }
@@ -182,6 +208,36 @@ TEST_F(IdentityPropertyTest, UnsignedLong) {
     string id_name;
     EXPECT_TRUE(Foo::Decode(node, &id_name, result.get()));
     EXPECT_EQ(prop.data, result->long_value());
+}
+
+TEST_F(IdentityPropertyTest, Bool) {
+    IFMapServerTable *table = static_cast<IFMapServerTable *>(
+        IFMapTable::FindTable(&db_, "foo"));
+    IFMapTable::RequestKey key;
+    key.id_name = "a";
+    auto_ptr<IFMapNode> node_ptr(static_cast<IFMapNode *>(
+        table->AllocEntry(&key).release()));
+    Foo *obj = static_cast<Foo *>(table->AllocObject());
+    node_ptr->Insert(obj);
+    Foo::OolProperty bool_prop;
+    bool_prop.data = true;
+    obj->SetProperty("bool-value", &bool_prop);
+    EXPECT_EQ(bool_prop.data, obj->bool_value());
+
+    pugi::xml_document xmsg;
+    pugi::xml_node config = xmsg.append_child("config");
+    pugi::xml_node update = config.append_child("update");
+    node_ptr->EncodeNodeDetail(&update);
+
+    string filename = CreateTmpFilename("bool.xml");
+    xmsg.save_file(filename.c_str());
+    pugi::xml_node node = update.first_child();
+    EXPECT_TRUE(node);
+
+    auto_ptr<Foo> result(static_cast<Foo *>(table->AllocObject()));
+    string id_name;
+    EXPECT_TRUE(Foo::Decode(node, &id_name, result.get()));
+    EXPECT_EQ(bool_prop.data, result->bool_value());
 }
 
 int main(int argc, char **argv) {
