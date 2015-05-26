@@ -131,7 +131,8 @@ public:
              it != rtargets.end(); ++it) {
             error_code ec;
             RouteTarget rtarget = RouteTarget::FromString(*it, &ec);
-            assert(ec == 0);
+            if (ec != 0)
+                continue;
             rtarget_list_.insert(rtarget);
         }
 
@@ -211,7 +212,8 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst,
         it != rtargets.end(); it++) {
         error_code ec;
         RouteTarget rtarget = RouteTarget::FromString(*it, &ec);
-        assert(ec == 0);
+        if (ec != 0)
+            continue;
         rtarget_list_.insert(rtarget);
     }
 }
@@ -613,8 +615,6 @@ StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
 
     listener_->AddMatchCondition(match->bgp_table(), static_route_match.get(),
                                 BgpConditionListener::RequestDoneCb());
-
-    return;
 }
 
 void StaticRouteMgr::StopStaticRouteDone(BgpTable *table,
