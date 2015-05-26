@@ -14,6 +14,7 @@
     <xsd:all>
         <xsd:element name="attr1" type="xsd:integer"/>
         <xsd:element name="attr2" type="xsd:string"/>
+        <xsd:element name="attr3" type="xsd:boolean"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -41,5 +42,8 @@
 
 <xsd:element name='long-value' type='xsd:unsignedLong'/>
 <!-- #IFMAP-SEMANTICS-IDL Property('long-value', 'foo') -->
+
+<xsd:element name='bool-value' type='xsd:boolean'/>
+<!-- #IFMAP-SEMANTICS-IDL Property('bool-value', 'foo') -->
 
 </xsd:schema>
