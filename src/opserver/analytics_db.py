@@ -155,21 +155,26 @@ class AnalyticsDb(object):
 
     def db_purge(self, purge_cutoff, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
+        purge_error_details = []
         if (self._pool == None):
             self.connect_db()
         if not self._pool:
             self._logger.error('Connection to AnalyticsDb has Timed out')
-            return -1
+            purge_error_details.append('Connection to AnalyticsDb has Timed out')
+            return (-1, purge_error_details)
         sysm = self._get_sysm()
         if (sysm == None):
             self._logger.error('Failed to connect SystemManager')
-            return -1
+            purge_error_details.append('Failed to connect SystemManager')
+            return (-1, purge_error_details)
         try:
             table_list = sysm.get_keyspace_column_families(COLLECTOR_KEYSPACE)
         except Exception as e:
             self._logger.error("Exception: Purge_id %s Failed to get "
                 "Analytics Column families %s" % (purge_id, e))
-            return -1
+            purge_error_details.append("Exception: Purge_id %s Failed to get "
+                "Analytics Column families %s" % (purge_id, e))
+            return (-1, purge_error_details)
 
         # delete entries from message table
         msg_table = COLLECTOR_GLOBAL_TABLE
@@ -180,7 +185,9 @@ class AnalyticsDb(object):
         except Exception as e:
             self._logger.error("purge_id %s Failure in fetching "
                 "message table columnfamily %s" % e)
-            return -1
+            purge_error_details.append("purge_id %s Failure in fetching "
+                "message table columnfamily %s" % e)
+            return (-1, purge_error_details)
 
         for table in table_list:
             # purge from index tables
@@ -207,7 +214,9 @@ class AnalyticsDb(object):
                 except Exception as e:
                     self._logger.error("purge_id %s Failure in fetching "
                         "the columnfamily %s" % e)
-                    return -1
+                    purge_error_details.append("purge_id %s Failure in fetching "
+                        "the columnfamily %s" % e)
+                    return (-1, purge_error_details)
                 b = cf.batch()
                 try:
                     # get all columns only in case of one message index table
@@ -251,10 +260,14 @@ class AnalyticsDb(object):
                         except Exception as e:
                             self._logger.error("Exception: Purge_id %s message table "
                                 "doesnot have uuid %s" % (purge_id, e))
+                            purge_error_details.append("Exception: Purge_id %s message table "
+                                "doesnot have uuid %s" % (purge_id, e))
 
 
                 except Exception as e:
                     self._logger.error("Exception: Purge_id:%s table:%s "
+                            "error: %s" % (purge_id, table, e))
+                    purge_error_details.append("Exception: Purge_id:%s table:%s "
                             "error: %s" % (purge_id, table, e))
                     continue
                 self._logger.info("Purge_id %s deleted %d rows from table: %s"
@@ -267,7 +280,7 @@ class AnalyticsDb(object):
 
         self._logger.info("Purge_id %s total rows deleted: %s"
             % (purge_id, total_rows_deleted))
-        return total_rows_deleted
+        return (total_rows_deleted, purge_error_details)
     # end purge_data
 
     def get_dbusage_info(self, rest_api_port):
