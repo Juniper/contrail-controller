@@ -33,6 +33,9 @@
 using namespace std;
 using boost::system::error_code;
 
+const char *XmppConnection::kAuthTypeNil = "NIL";
+const char *XmppConnection::kAuthTypeTls = "TLS";
+
 XmppConnection::XmppConnection(TcpServer *server, 
                                const XmppChannelConfig *config)
     : server_(server),
@@ -48,6 +51,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       disable_read_(false),
       from_(config->FromAddr),
       to_(config->ToAddr),
+      auth_enabled_(config->auth_enabled),
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
           this, config->ClientOnly(), config->auth_enabled)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
@@ -60,6 +64,14 @@ XmppConnection::~XmppConnection() {
                FromString(), ToString());
     last_msg_.release();
 
+}
+
+std::string XmppConnection::GetXmppAuthenticationType() const {
+    if (auth_enabled_) {
+        return (XmppConnection::kAuthTypeTls);
+    } else {
+        return (XmppConnection::kAuthTypeNil);
+    }
 }
 
 void XmppConnection::SetConfig(const XmppChannelConfig *config) {

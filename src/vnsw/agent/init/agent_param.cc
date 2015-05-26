@@ -434,6 +434,14 @@ void AgentParam::ParseDefaultSection() {
     } else {
         log_flow_ = false;
     }
+
+    if (!GetValueFromTree<bool>(xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable")) {
+        xmpp_auth_enable_ = false;
+    }
+
+    if (!GetValueFromTree<string>(xmpp_server_cert_, "DEFAULT.xmpp_server_cert")) {
+        xmpp_server_cert_ = "/etc/contrail/ssl/certs/server.pem";
+    }
 }
 
 void AgentParam::ParseMetadataProxy() { 
@@ -622,7 +630,10 @@ void AgentParam::ParseDefaultSectionArguments
     if (var_map.count("DEFAULT.log_flow")) {
          log_flow_ = true;
     }
+    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
+    GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
 }
+
 
 void AgentParam::ParseMetadataProxyArguments
     (const boost::program_options::variables_map &var_map) {
@@ -959,6 +970,10 @@ void AgentParam::LogConfig() const {
         << "/" << vhost_.plen_);
     LOG(DEBUG, "vhost gateway               : " << vhost_.gw_.to_string());
     LOG(DEBUG, "Ethernet port               : " << eth_port_);
+    LOG(DEBUG, "Xmpp Authentication         : " << xmpp_auth_enable_);
+    if (xmpp_auth_enable_) {
+        LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_);
+    }
     LOG(DEBUG, "XMPP Server-1               : " << xmpp_server_1_);
     LOG(DEBUG, "XMPP Server-2               : " << xmpp_server_2_);
     LOG(DEBUG, "DNS Server-1                : " << dns_server_1_);
@@ -1072,6 +1087,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), dhcp_relay_mode_(false),
+        xmpp_auth_enable_(false), xmpp_server_cert_(""),
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
@@ -1124,6 +1140,11 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
+        ("DEFAULT.xmpp_auth_enable", opt::value<bool>(),
+         "Enable authentication over Xmpp")
+        ("DEFAULT.xmpp_server_cert",
+          opt::value<string>()->default_value("/etc/contrail/ssl/certs/server.pem"),
+          "XMPP Server ssl certificate")
         ("METADATA.metadata_proxy_secret", opt::value<string>(),
          "Shared secret for metadata proxy service")
         ("NETWORKS.control_network_ip", opt::value<string>(),
