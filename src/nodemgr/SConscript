@@ -21,17 +21,6 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'analytics_event_manager.py',
-           'control_event_manager.py',
-           'config_event_manager.py',
-           'vrouter_event_manager.py',
-           'database_event_manager.py',
-           'event_manager.py',
-           'vrouter_process_stat.py',
-           'process_stat.py',
-           'event_listener_protocol_nodemgr.py',
-           'loadbalancer_stats.py',
-           'haproxy_stats.py',
            'main.py'
           ]
 
@@ -39,7 +28,63 @@ local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(OpEnv.Install(Dir("nodemgr"), file))
 
-sdist_depends = [setup_sources_rules, local_sources_rules]
+analytics_sources = [
+           '__init__.py',
+           'analytics_nodemgr/analytics_event_manager.py'
+          ]
+analytics_sources_rules = []
+for file in analytics_sources:
+    analytics_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_nodemgr"), file))
+
+control_sources = [
+           '__init__.py',
+           'control_nodemgr/control_event_manager.py'
+          ]
+control_sources_rules = []
+for file in control_sources:
+    control_sources_rules.append(OpEnv.Install(Dir("nodemgr/control_nodemgr"), file))
+
+config_sources = [
+           '__init__.py',
+           'config_nodemgr/config_event_manager.py'
+          ]
+config_sources_rules = []
+for file in config_sources:
+    config_sources_rules.append(OpEnv.Install(Dir("nodemgr/config_nodemgr"), file))
+
+vrouter_sources = [
+           '__init__.py',
+           'vrouter_nodemgr/vrouter_process_stat.py',
+           'vrouter_nodemgr/loadbalancer_stats.py',
+           'vrouter_nodemgr/haproxy_stats.py',
+           'vrouter_nodemgr/vrouter_event_manager.py'
+          ]
+vrouter_sources_rules = []
+for file in vrouter_sources:
+    vrouter_sources_rules.append(OpEnv.Install(Dir("nodemgr/vrouter_nodemgr"), file))
+
+database_sources = [
+           '__init__.py',
+           'database_nodemgr/database_event_manager.py'
+          ]
+database_sources_rules = []
+for file in database_sources:
+    database_sources_rules.append(OpEnv.Install(Dir("nodemgr/database_nodemgr"), file))
+
+common_sources = [
+           '__init__.py',
+           'common/event_manager.py',
+           'common/process_stat.py',
+           'common/event_listener_protocol_nodemgr.py',
+          ]
+common_sources_rules = []
+for file in common_sources:
+    common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common"), file))
+
+sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rules,
+                 control_sources_rules, config_sources_rules, common_sources_rules,
+                 vrouter_sources_rules, database_sources_rules
+                ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')

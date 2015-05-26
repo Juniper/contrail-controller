@@ -17,9 +17,9 @@ import supervisor.xmlrpc
 import xmlrpclib
 
 from supervisor import childutils
-from nodemgr.event_listener_protocol_nodemgr import \
+from nodemgr.common.event_listener_protocol_nodemgr import \
     EventListenerProtocolNodeMgr
-from nodemgr.process_stat import ProcessStat
+from nodemgr.common.process_stat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
 

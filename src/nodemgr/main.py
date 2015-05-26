@@ -41,11 +41,11 @@ import argparse
 import socket
 import gevent
 import ConfigParser
-from nodemgr.analytics_event_manager import AnalyticsEventManager
-from nodemgr.control_event_manager import ControlEventManager
-from nodemgr.config_event_manager import ConfigEventManager
-from nodemgr.vrouter_event_manager import VrouterEventManager
-from nodemgr.database_event_manager import DatabaseEventManager
+from nodemgr.analytics_nodemgr.analytics_event_manager import AnalyticsEventManager
+from nodemgr.control_nodemgr.control_event_manager import ControlEventManager
+from nodemgr.config_nodemgr.config_event_manager import ConfigEventManager
+from nodemgr.vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
+from nodemgr.database_nodemgr.database_event_manager import DatabaseEventManager
 
 
 def usage():
