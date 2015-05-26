@@ -80,15 +80,14 @@ void Icmpv6Proto::VrfNotify(DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
-        static_cast<InetUnicastAgentRouteTable *>
-            (vrf->GetInet6UnicastRouteTable())->DeleteReq(agent_->local_peer(),
-                                                          vrf->GetName(),
-                                                          addr, 128, NULL);
+        // enqueue delete request on fabric VRF
+        agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+                                                        vrf->GetName(),
+                                                        addr, 128, NULL);
         addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
-        static_cast<InetUnicastAgentRouteTable *>
-            (vrf->GetInet6UnicastRouteTable())->DeleteReq(agent_->local_peer(),
-                                                          vrf->GetName(),
-                                                          addr, 128, NULL);
+        agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+                                                        vrf->GetName(),
+                                                        addr, 128, NULL);
     }
 }
 
