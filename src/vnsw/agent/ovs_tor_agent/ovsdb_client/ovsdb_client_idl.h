@@ -17,6 +17,7 @@
 #include <ksync/ksync_entry.h>
 
 extern SandeshTraceBufferPtr OvsdbTraceBuf;
+extern SandeshTraceBufferPtr OvsdbSMTraceBuf;
 extern SandeshTraceBufferPtr OvsdbPktTraceBuf;
 
 #define OVSDB_TRACE(obj, ...)\

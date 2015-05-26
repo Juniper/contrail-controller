@@ -30,6 +30,7 @@ extern "C" {
 #include <vrf_ovsdb.h>
 
 SandeshTraceBufferPtr OvsdbTraceBuf(SandeshTraceBufferCreate("Ovsdb", 5000));
+SandeshTraceBufferPtr OvsdbSMTraceBuf(SandeshTraceBufferCreate("Ovsdb SM", 5000));
 SandeshTraceBufferPtr OvsdbPktTraceBuf(SandeshTraceBufferCreate("Ovsdb Pkt", 5000));
 
 class PhysicalDeviceTable;
@@ -96,7 +97,8 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
         // intrusive pointer for IDL is always taken first by session while
         // creating new object, and the last reference remaining is always
         // with the session object which on cleanup release idl object.
-        OVSDB_TRACE(Trace, "Triggered Session Cleanup on Close");
+        OVSDB_SESSION_TRACE(Trace, p->session_,
+                            "Triggered Session Cleanup on Close");
 
         // intrusive pointer reference to idl is removed only when ksync
         // object is empty, with this assumption trigger delete for KsyncDb
@@ -108,7 +110,7 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
         p->session_->OnCleanup();
         break;
     case 0:
-        OVSDB_TRACE(Trace, "Deleted IDL associated to Closed Session");
+        OVSDB_SM_TRACE(Trace, "Deleted IDL associated to Closed Session");
         delete p;
         break;
     default:
@@ -178,7 +180,8 @@ OvsdbClientIdl::OvsdbMsg::~OvsdbMsg() {
 
 void OvsdbClientIdl::OnEstablish() {
     if (deleted_) {
-        OVSDB_TRACE(Trace, "IDL deleted skipping Monitor Request");
+        OVSDB_SESSION_TRACE(Trace, session_,
+                            "IDL deleted skipping Monitor Request");
         return;
     }
 
@@ -189,7 +192,7 @@ void OvsdbClientIdl::OnEstablish() {
     // clone and save json for monitor request
     monitor_request_id_ = ovsdb_wrapper_jsonrpc_clone_id(monitor_request);
 
-    OVSDB_TRACE(Trace, "Sending Monitor Request");
+    OVSDB_SESSION_TRACE(Trace, session_, "Sending Monitor Request");
     session_->SendJsonRpc(monitor_request);
 
     int keepalive_intv = session_->keepalive_interval();
@@ -379,7 +382,8 @@ bool OvsdbClientIdl::KeepAliveTimerCb() {
     case OvsdbSessionEchoWait:
         // echo reply not recevied ovsdb-server is not responding,
         // close the session
-        OVSDB_TRACE(Error, "KeepAlive failed, Closing Session");
+        OVSDB_SESSION_TRACE(Error, session_,
+                            "KeepAlive failed, Closing Session");
         session_->TriggerClose();
         // Connection is closed, timer doesn't need restart
         return false;
@@ -433,7 +437,8 @@ void OvsdbClientIdl::TriggerDeletion() {
 }
 
 void OvsdbClientIdl::ConnectOperDB() {
-    OVSDB_TRACE(Trace, "Received Monitor Response connecting to OperDb");
+    OVSDB_SESSION_TRACE(Trace, session_,
+                        "Received Monitor Response connecting to OperDb");
     logical_switch_table_->OvsdbRegisterDBTable(
             (DBTable *)agent_->physical_device_vn_table());
     vlan_port_table_->OvsdbRegisterDBTable(
