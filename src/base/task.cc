@@ -418,6 +418,7 @@ void TaskScheduler::Enqueue(Task *t) {
 void TaskScheduler::EnqueueUnLocked(Task *t) {
     // Ensure that task is enqueued only once.
     assert(t->GetSeqno() == 0);
+    enqueue_count_++;
     t->SetSeqNo(++seqno_);
     TaskGroup *group = GetTaskGroup(t->GetTaskId());
 
@@ -498,6 +499,7 @@ TaskScheduler::CancelReturnCode TaskScheduler::Cancel(Task *t) {
             }
         }
         delete t;
+        cancel_count_++;
         return CANCELLED;
     } else {
         return FAILED;
@@ -509,6 +511,7 @@ TaskScheduler::CancelReturnCode TaskScheduler::Cancel(Task *t) {
 // Exit of a task can potentially start tasks in pendingq.
 void TaskScheduler::OnTaskExit(Task *t) {
     tbb::mutex::scoped_lock lock(mutex_);
+    done_count_++;
 
     TaskEntry *entry = QueryTaskEntry(t->GetTaskId(), t->GetTaskInstance());
     entry->TaskExited(t, GetTaskGroup(t->GetTaskId()));
