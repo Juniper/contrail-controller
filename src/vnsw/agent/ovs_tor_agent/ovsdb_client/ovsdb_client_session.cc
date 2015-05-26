@@ -64,11 +64,21 @@ void OvsdbClientSession::MessageProcess(const u_int8_t *buf, std::size_t len) {
         if (ovsdb_wrapper_json_parser_is_done(parser_)) {
             struct json *json = ovsdb_wrapper_json_parser_finish(parser_);
             parser_ = NULL;
-            struct jsonrpc_msg *msg;
+            struct jsonrpc_msg *msg = NULL;
             char *error = ovsdb_wrapper_jsonrpc_msg_from_json(json, &msg);
+
             if (error) {
-                assert(0);
+                assert(msg == NULL);
+
+                OVSDB_SESSION_TRACE(Trace, this,
+                                    "Error parsing incoming message: " +
+                                    std::string(error));
                 free(error);
+                // trigger close due to message parse failure.
+                TriggerClose();
+
+                // bail out, skip processing further.
+                return;
             }
 
             if (ovsdb_wrapper_msg_echo_req(msg)) {
@@ -103,14 +113,14 @@ void OvsdbClientSession::SendJsonRpc(struct jsonrpc_msg *msg) {
 }
 
 void OvsdbClientSession::OnEstablish() {
-    OVSDB_TRACE(Trace, "Connection to client established");
+    OVSDB_SESSION_TRACE(Trace, this, "Connection to client established");
     client_idl_ = new OvsdbClientIdl(this, agent_, manager_);
     idl_inited_ = true;
     client_idl_->OnEstablish();
 }
 
 void OvsdbClientSession::OnClose() {
-    OVSDB_TRACE(Trace, "Connection to client Closed");
+    OVSDB_SESSION_TRACE(Trace, this, "Connection to client Closed");
     client_idl_->TriggerDeletion();
 }
 
