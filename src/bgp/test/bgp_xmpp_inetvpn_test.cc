@@ -4,6 +4,7 @@
 
 #include <sstream>
 #include <boost/assign/list_of.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
@@ -1039,6 +1040,348 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, SecurityGroupsDifferentAsn) {
     agent_a_->SessionDown();
     agent_b_->SessionDown();
 }
+
+class BgpXmppInetvpnJoinLeaveTest :
+    public BgpXmppInetvpn2ControlNodeTest,
+    public ::testing::WithParamInterface<bool> {
+
+protected:
+    BgpXmppInetvpnJoinLeaveTest() : unique_prefs_(false) {
+    }
+
+    virtual void SetUp() {
+        unique_prefs_ = GetParam();
+        BgpXmppInetvpn2ControlNodeTest::SetUp();
+        Configure();
+        task_util::WaitForIdle();
+        agent_a_.reset(
+            new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+                "127.0.0.1", "127.0.0.1"));
+        TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+        agent_b_.reset(
+            new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+                "127.0.0.2", "127.0.0.2"));
+        TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    }
+
+    virtual void TearDown() {
+        agent_a_->SessionDown();
+        agent_b_->SessionDown();
+        BgpXmppInetvpn2ControlNodeTest::TearDown();
+    }
+
+    uint32_t GetLocalPreference(uint32_t idx) {
+        return (unique_prefs_ ? (100 + idx) : 100);
+    }
+
+private:
+    bool unique_prefs_;
+};
+
+//
+// Multiple routes are advertised/withdrawn properly on Join/Leave.
+//
+TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave1) {
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->AddRoute(
+            "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Verify that routes showed up on agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_a_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Register to blue instance
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on agent B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_b_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Unregister to blue instance
+    agent_b_->Unsubscribe("blue");
+    task_util::WaitForIdle();
+
+    // Verify that routes are deleted at agent B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Verify that routes are deleted at agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+    }
+
+    // Unregister to blue instance
+    agent_a_->Unsubscribe("blue");
+}
+
+//
+// Multiple routes are advertised/withdrawn properly on Join/Leave.
+// New test agents join/leave the instance after the bgp server has routes.
+//
+TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave2) {
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->AddRoute(
+            "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_a_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+        VerifyRouteExists(agent_b_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Create a bunch of test agents.
+    vector<test::NetworkAgentMockPtr> agent_list;
+    for (int idx = 0; idx <= 8; ++idx) {
+        string name = string("agent") + integerToString(idx);
+        test::NetworkAgentMockPtr agent;
+        agent.reset(new test::NetworkAgentMock(
+            &evm_, name, xs_y_->GetPort(), "127.0.0.2", "127.0.0.2"));
+        agent_list.push_back(agent);
+        TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
+    }
+
+    // Register all test agents to blue instance.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Subscribe("blue", 1);
+    }
+
+    // Verify that routes showed up on all test agents.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+            VerifyRouteExists(agent, "blue",
+                BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+        }
+    }
+
+    // Unregister all test agents to blue instance.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Unsubscribe("blue");
+    }
+    task_util::WaitForIdle();
+
+    // Delete all test agents.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Delete();
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Multiple routes are advertised/withdrawn properly on Join/Leave.
+// New test agents join/leave the instance while the bgp server is receiving
+// updates/withdraws.
+//
+TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave3) {
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Create a bunch of test agents.
+    vector<test::NetworkAgentMockPtr> agent_list;
+    for (int idx = 0; idx <= 8; ++idx) {
+        string name = string("agent") + integerToString(idx);
+        test::NetworkAgentMockPtr agent;
+        agent.reset(new test::NetworkAgentMock(
+            &evm_, name, xs_y_->GetPort(), "127.0.0.2", "127.0.0.2"));
+        agent_list.push_back(agent);
+        TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
+    }
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->AddRoute(
+            "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Register all test agents to blue instance.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Subscribe("blue", 1);
+    }
+
+    // Verify that routes showed up on all test agents.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+            VerifyRouteExists(agent, "blue",
+                BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+        }
+    }
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_a_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+        VerifyRouteExists(agent_b_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Unregister all test agents to blue instance.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Unsubscribe("blue");
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Delete all test agents.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Delete();
+    }
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Multiple routes are advertised/withdrawn properly on Join/Leave.
+// New test agents simultaneously join/leave the instance after the bgp server
+// has routes.
+//
+TEST_P(BgpXmppInetvpnJoinLeaveTest, JoinLeave4) {
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->AddRoute(
+            "blue", BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_a_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+        VerifyRouteExists(agent_b_, "blue",
+            BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+    }
+
+    // Create a bunch of test agents.
+    vector<test::NetworkAgentMockPtr> agent_list;
+    for (int idx = 0; idx <= 8; ++idx) {
+        string name = string("agent") + integerToString(idx);
+        test::NetworkAgentMockPtr agent;
+        agent.reset(new test::NetworkAgentMock(
+            &evm_, name, xs_y_->GetPort(), "127.0.0.2", "127.0.0.2"));
+        agent_list.push_back(agent);
+        TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
+    }
+
+    // Register odd test agents to blue instance.
+    int agent_idx = 0;
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        if (agent_idx++ % 2 != 0) {
+            agent->Subscribe("blue", 1);
+        }
+    }
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on odd test agents.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_idx = 0;
+        BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+            if (agent_idx++ % 2 == 0) {
+                VerifyRouteNoExists(agent, "blue", BuildPrefix(idx));
+            } else {
+                VerifyRouteExists(agent, "blue",
+                    BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+            }
+        }
+    }
+
+    // Register even and unregister odd test agents to blue instance.
+    agent_idx = 0;
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        if (agent_idx++ % 2 == 0) {
+            agent->Subscribe("blue", 1);
+        } else {
+            agent->Unsubscribe("blue");
+        }
+    }
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on even test agents.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_idx = 0;
+        BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+            if (agent_idx++ % 2 == 0) {
+                VerifyRouteExists(agent, "blue",
+                    BuildPrefix(idx), "192.168.1.1", GetLocalPreference(idx));
+            } else {
+                VerifyRouteNoExists(agent, "blue", BuildPrefix(idx));
+            }
+        }
+    }
+
+    // Unregister even test agents to blue instance.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent_idx = 0;
+        if (agent_idx++ % 2 == 0) {
+            agent->Unsubscribe("blue");
+        }
+    }
+    task_util::WaitForIdle();
+
+    // Delete all test agents.
+    BOOST_FOREACH(test::NetworkAgentMockPtr agent, agent_list) {
+        agent->Delete();
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+}
+
+INSTANTIATE_TEST_CASE_P(Test, BgpXmppInetvpnJoinLeaveTest, ::testing::Bool());
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
