@@ -74,9 +74,12 @@ traceobject sandesh AgentXmppSession {
 }
 
 trace sandesh AgentXmppDiscoveryConnection {
-    1: string servertype;
-    2: string server;
-    3: string message;
+    1: string message;
+    2: "index =";
+    3: u16 index;
+    4: "server =";
+    5: string server;
+    6: string data;
 }
 
 trace sandesh AgentXmppWalker {

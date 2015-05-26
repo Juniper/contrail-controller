@@ -50,9 +50,9 @@ void VNController::XmppServerConnect() {
             AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
             if (ch) {
                 // Channel is created, do not disturb
-                CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 ch->GetXmppServer(), 
-                                 "is already present, ignore discovery response");
+                CONTROLLER_TRACE(DiscoveryConnection, 
+                    "XMPP Server is already present, ignore discovery response",
+                    count, ch->GetXmppServer(), "");
                 count++;
                 continue; 
             }
@@ -118,9 +118,9 @@ void VNController::DnsXmppServerConnect() {
             AgentDnsXmppChannel *ch = agent_->dns_xmpp_channel(count);
             if (ch) {
                 // Channel is up and running, do not disturb
-                CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 ch->GetXmppServer(), 
-                                 "is already present, ignore discovery response");
+                CONTROLLER_TRACE(DiscoveryConnection,
+                    "DNS Server is already present, ignore discovery response",
+                    count, ch->GetXmppServer(), "");
                 count++;
                 continue; 
             }
@@ -301,88 +301,99 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
         agent_->reset_controller_ifmap_xmpp_server(idx);
 }
 
-void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
+bool VNController::AgentXmppServerExists(const std::string &server_ip,
+                                         std::vector<DSResponse> resp) {
 
-    std::list<AgentXmppChannel *>AgentXmppChannelList;
     std::vector<DSResponse>::iterator iter;
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
-        
-        CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server", dr.ep.address().to_string(),
-                         "Discovery Server Response"); 
+        if (dr.ep.address().to_string().compare(server_ip) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
+
+    std::vector<DSResponse>::iterator iter;
+    int8_t count = -1;
+    for (iter = resp.begin(); iter != resp.end(); iter++) {
+        DSResponse dr = *iter;
+        count ++;
+
+        CONTROLLER_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
+            count, dr.ep.address().to_string(), integerToString(dr.ep.port()));
+
         AgentXmppChannel *chnl = FindAgentXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
-            AgentXmppChannelList.push_back(chnl);
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
-                CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->GetXmppServer(), "is UP and running, ignore");
+                CONTROLLER_TRACE(DiscoveryConnection, 
+                    "XMPP Server is READY and running, ignore", count,
+                    chnl->GetXmppServer(), "");
                 continue;
             } else { 
-                CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->GetXmppServer(), "is NOT_READY, ignore");
+                CONTROLLER_TRACE(DiscoveryConnection, 
+                    "XMPP Server is NOT_READY, ignore", count,
+                    chnl->GetXmppServer(), "");
                 continue;
-            } 
+            }
 
         } else { 
-            if (agent_->controller_ifmap_xmpp_server(0).empty()) {
-                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 0);
-                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 0);
-                CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel[0] = ", 
-                                 dr.ep.address().to_string(), ""); 
-            } else if (agent_->controller_ifmap_xmpp_server(1).empty()) {
-                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 1);
-                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 1);
-                CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel[1] = ", 
-                                 dr.ep.address().to_string(), ""); 
-            } else if (agent_->controller_xmpp_channel(0) &&
-                       (agent_->controller_xmpp_channel(0)->GetXmppChannel()->
-                        GetPeerState() == xmps::NOT_READY)) {
 
-                DisConnectControllerIfmapServer(0);
+            for (uint8_t xs_idx = 0; xs_idx < MAX_XMPP_SERVERS; xs_idx++) {
 
-                CONTROLLER_TRACE(DiscoveryConnection, 
-                                "Refresh Xmpp Channel[0] = ", dr.ep.address().to_string(), ""); 
-                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(),0);
-                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 0);
+                if (agent_->controller_ifmap_xmpp_server(xs_idx).empty()) {
 
-            } else if (agent_->controller_xmpp_channel(1) && 
-                       (agent_->controller_xmpp_channel(1)->GetXmppChannel()->
-                        GetPeerState() == xmps::NOT_READY)) {
+                    CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel",
+                        xs_idx, dr.ep.address().to_string(), 
+                        integerToString(dr.ep.port())); 
 
-                DisConnectControllerIfmapServer(1);
+                    agent_->set_controller_ifmap_xmpp_server(
+                        dr.ep.address().to_string(), xs_idx);
+                    agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), xs_idx);
+                    break; 
 
-                CONTROLLER_TRACE(DiscoveryConnection, 
-                                 "Refresh Xmpp Channel[1] = ", dr.ep.address().to_string(), ""); 
-                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 1);
-                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 1);
-           }
+                } else if (agent_->controller_xmpp_channel(xs_idx) &&
+                    (agent_->controller_xmpp_channel(xs_idx)->GetXmppChannel()->
+                     GetPeerState() == xmps::NOT_READY)) {
+
+                    if (AgentXmppServerExists(
+                        agent_->controller_ifmap_xmpp_server(xs_idx), resp)) {
+
+                        CONTROLLER_TRACE(DiscoveryConnection,
+                            "Retain Xmpp Channel ", xs_idx,
+                             agent_->controller_ifmap_xmpp_server(xs_idx), "");
+                        continue;
+                    }
+
+                    CONTROLLER_TRACE(DiscoveryConnection, 
+                        "ReSet Xmpp Channel ", xs_idx, 
+                        agent_->controller_ifmap_xmpp_server(xs_idx),
+                        dr.ep.address().to_string());
+
+                    DisConnectControllerIfmapServer(xs_idx);
+                    agent_->set_controller_ifmap_xmpp_server(
+                         dr.ep.address().to_string(),xs_idx);
+                    agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), xs_idx);
+                    break;
+                }
+            }
         }
     }
 
     /* Remove stale Servers */
     for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
         if (agent_->controller_xmpp_channel(idx) != NULL) {
-             std::list<AgentXmppChannel *>::iterator it;
-             for (it = AgentXmppChannelList.begin();
-                  it != AgentXmppChannelList.end();  it++) {
 
-                 if (agent_->controller_xmpp_channel(idx) == *it) {
-                     // in the list, nothing to do
-                     break;
-                 }
-             }
+            if (!AgentXmppServerExists(
+                 agent_->controller_ifmap_xmpp_server(idx), resp)) {
 
-             if (it == AgentXmppChannelList.end()) {
-                 // not in list, cleanup only if DOWN as new set of hints from
-                 // discovery shud take effect only if agent detects the server DOWN
-                 if (agent_->controller_xmpp_channel(idx)->GetXmppChannel()->
-                     GetPeerState() == xmps::NOT_READY) {
-                     CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
-                         agent_->controller_ifmap_xmpp_server(idx), "");
-                     DisConnectControllerIfmapServer(idx);
-                     agent_->reset_controller_ifmap_xmpp_server(idx);
-                 }
+                CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
+                     idx, agent_->controller_ifmap_xmpp_server(idx), "");
+                DisConnectControllerIfmapServer(idx);
+                agent_->reset_controller_ifmap_xmpp_server(idx);
             }
         }
     }
@@ -432,61 +443,67 @@ void VNController::DisConnectDnsServer(uint8_t idx) {
 
 void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
 
-    std::list<AgentDnsXmppChannel *>AgentDnsXmppChannelList;
     std::vector<DSResponse>::iterator iter;
+    int8_t count = -1;
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
-        
-        CONTROLLER_TRACE(DiscoveryConnection, "DNS Server", dr.ep.address().to_string(),
-                         "Discovery Server Response"); 
+        count++;
+
+        CONTROLLER_TRACE(DiscoveryConnection, "DNS Discovery Server Response", count,
+            dr.ep.address().to_string(), integerToString(dr.ep.port()));
+
         AgentDnsXmppChannel *chnl = FindAgentDnsXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
-            AgentDnsXmppChannelList.push_back(chnl);
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
-                CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->GetXmppServer(), "is UP and running, ignore");
+                CONTROLLER_TRACE(DiscoveryConnection, 
+                    "DNS Server is READY and running, ignore", count,
+                    chnl->GetXmppServer(), "");
                 continue;
             } else { 
-                CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->GetXmppServer(), "is NOT_READY, ignore");
+                CONTROLLER_TRACE(DiscoveryConnection, 
+                    "DNS Server is NOT_READY, ignore", count,
+                    chnl->GetXmppServer(), "");
                 continue;
             } 
 
         } else { 
-            if (agent_->dns_server(0).empty()) {
-                agent_->set_dns_server(dr.ep.address().to_string(), 0);
-                agent_->set_dns_server_port(dr.ep.port(), 0);
-                CONTROLLER_TRACE(DiscoveryConnection, "Set Dns Xmpp Channel[0] = ", 
-                                 dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-            } else if (agent_->dns_server(1).empty()) {
-                agent_->set_dns_server(dr.ep.address().to_string(), 1);
-                agent_->set_dns_server_port(dr.ep.port(), 1);
-                CONTROLLER_TRACE(DiscoveryConnection, "Set Dns Xmpp Channel[1] = ", 
-                                 dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-            } else if (agent_->dns_xmpp_channel(0) &&
-                       (agent_->dns_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
-                        == xmps::NOT_READY)) {
 
-                DisConnectDnsServer(0);
+            for (uint8_t xs_idx = 0; xs_idx < MAX_XMPP_SERVERS; xs_idx++) {
 
-                CONTROLLER_TRACE(DiscoveryConnection,   
-                                "Refresh Dns Xmpp Channel[0] = ", 
-                                 dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-                agent_->set_dns_server(dr.ep.address().to_string(), 0);
-                agent_->set_dns_server_port(dr.ep.port(), 0);
+                if (agent_->dns_server(xs_idx).empty()) {
 
-            } else if (agent_->dns_xmpp_channel(1) && 
-                       (agent_->dns_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
-                        == xmps::NOT_READY)) {
+                    CONTROLLER_TRACE(DiscoveryConnection, 
+                        "Set Dns Xmpp Channel ", xs_idx,
+                        dr.ep.address().to_string(), integerToString(dr.ep.port()));
 
-                DisConnectDnsServer(1);
+                    agent_->set_dns_server(dr.ep.address().to_string(), xs_idx);
+                    agent_->set_dns_server_port(dr.ep.port(), xs_idx);
+                    break;
+            
+                } else if (agent_->dns_xmpp_channel(xs_idx) &&
+                    (agent_->dns_xmpp_channel(xs_idx)->GetXmppChannel()->GetPeerState()
+                     == xmps::NOT_READY)) {
 
-                CONTROLLER_TRACE(DiscoveryConnection, 
-                                 "Refresh Dns Xmpp Channel[1] = ", 
-                                 dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-                agent_->set_dns_server(dr.ep.address().to_string(), 1);
-                agent_->set_dns_server_port(dr.ep.port(), 1);
+                    if (AgentXmppServerExists(
+                        agent_->dns_server(xs_idx), resp)) {
+
+                        CONTROLLER_TRACE(DiscoveryConnection,
+                            "Retain Dns Xmpp Channel ", xs_idx,
+                            agent_->dns_server(xs_idx), "");
+                        continue;
+                    }
+
+                    CONTROLLER_TRACE(DiscoveryConnection,   
+                        "ReSet Dns Xmpp Channel ", xs_idx,
+                        agent_->dns_server(xs_idx),
+                        dr.ep.address().to_string());
+
+                    DisConnectDnsServer(xs_idx);
+                    agent_->set_dns_server(dr.ep.address().to_string(), xs_idx);
+                    agent_->set_dns_server_port(dr.ep.port(), xs_idx);
+                    break;
+               }
            }
         }
     } 
@@ -494,26 +511,14 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
     /* Remove stale Servers */
     for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
         if (agent_->dns_xmpp_channel(idx) != NULL) {
-             std::list<AgentDnsXmppChannel *>::iterator it;
-             for (it = AgentDnsXmppChannelList.begin();
-                  it != AgentDnsXmppChannelList.end();  it++) {
 
-                 if (agent_->dns_xmpp_channel(idx) == *it) {
-                     // in the list, nothing to do
-                     break;
-                 }
-             }
+            if (AgentXmppServerExists(
+                agent_->dns_server(idx), resp)) {
 
-             if (it == AgentDnsXmppChannelList.end()) {
-                 // not in list, cleanup only if DOWN as new set of hints from
-                 // discovery shud take effect only if agent detects the server DOWN
-                 if (agent_->dns_xmpp_channel(idx)->GetXmppChannel()->GetPeerState()
-                     == xmps::NOT_READY) {
-                     CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Dns Xmpp ",
-                         agent_->dns_server(idx), "");
-                     DisConnectDnsServer(idx);
-                     agent_->reset_dns_server(idx);
-                 }
+                CONTROLLER_TRACE(DiscoveryConnection, "Cleanup Older Dns Xmpp",
+                    idx, agent_->dns_server(idx), "");
+                DisConnectDnsServer(idx);
+                agent_->reset_dns_server(idx);
             }
         }
     }
