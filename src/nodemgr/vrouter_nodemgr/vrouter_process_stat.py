@@ -8,7 +8,7 @@ import ConfigParser
 import sys
 import socket
 
-from nodemgr.process_stat import ProcessStat
+from nodemgr.common.process_stat import ProcessStat
 
 
 class VrouterProcessStat(ProcessStat):

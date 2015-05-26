@@ -16,7 +16,7 @@ import select
 import gevent
 import ConfigParser
 
-from nodemgr.event_manager import EventManager
+from nodemgr.common.event_manager import EventManager
 
 from ConfigParser import NoOptionError
 
@@ -31,31 +31,31 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import \
-    NodeStatusUVE, NodeStatus
-from cfgm_common.uve.cfgm_cpuinfo.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
-from cfgm_common.uve.cfgm_cpuinfo.process_info.constants import \
+from control_node.control_node.ttypes \
+    import NodeStatusUVE, NodeStatus
+from control_node.control_node.process_info.ttypes \
+    import ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
+from control_node.control_node.process_info.constants import \
     ProcessStateNames
 
 
-class ConfigEventManager(EventManager):
+class ControlEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr):
         EventManager.__init__(
             self, rule_file, discovery_server,
             discovery_port, collector_addr)
-        self.node_type = "contrail-config"
-        self.module = Module.CONFIG_NODE_MGR
+        self.node_type = "contrail-control"
+        self.module = Module.CONTROL_NODE_MGR
         self.module_id = ModuleNames[self.module]
-        self.supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
+        self.supervisor_serverurl = "unix:///tmp/supervisord_control.sock"
         self.add_current_process()
     # end __init__
 
     def process(self):
-        if self.rule_file is '':
+        if self.rule_file == '':
             self.rule_file = "/etc/contrail/" + \
-                "supervisord_config_files/contrail-config.rules"
+                "supervisord_control_files/contrail-control.rules"
         json_file = open(self.rule_file)
         self.rules_data = json.load(json_file)
         node_type = Module2NodeType[self.module]
@@ -64,7 +64,7 @@ class ConfigEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8100, ['cfgm_common.uve'], _disc)
+            self.module_id, 8101, ['control_node.control_node'], _disc)
         # sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 

@@ -16,8 +16,8 @@ import select
 import gevent
 import ConfigParser
 
-from nodemgr.event_manager import EventManager
-from nodemgr.vrouter_process_stat import VrouterProcessStat
+from nodemgr.common.event_manager import EventManager
+from nodemgr.vrouter_nodemgr.vrouter_process_stat import VrouterProcessStat
 
 from ConfigParser import NoOptionError
 

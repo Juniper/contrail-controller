@@ -15,7 +15,7 @@ import platform
 import gevent
 import ConfigParser
 
-from nodemgr.event_manager import EventManager
+from nodemgr.common.event_manager import EventManager
 
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
