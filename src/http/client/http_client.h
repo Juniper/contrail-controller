@@ -97,6 +97,7 @@ public:
     void set_curl_handle(struct _ConnInfo *handle) { curl_handle_ = handle; }
     HttpClientSession *CreateSession();
     void set_session(HttpClientSession *session);
+    void delete_session();
     void AssignData(const char *ptr, size_t size);
     void UpdateOffset(size_t bytes);
     size_t GetOffset();
