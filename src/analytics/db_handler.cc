@@ -61,7 +61,7 @@ DbHandler::DbHandler(EventManager *evm,
             analytics_ttl = 0;
         }
         dbif_.reset(GenDb::GenDbIf::GenDbIfImpl(err_handler,
-          cassandra_ips, cassandra_ports, analytics_ttl*3600, name, false));
+          cassandra_ips, cassandra_ports, analytics_ttl, name, false));
 
         error_code error;
         col_name_ = boost::asio::ip::host_name(error);
