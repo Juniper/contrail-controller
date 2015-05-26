@@ -1,5 +1,4 @@
 import os
-import sys
 
 from haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
@@ -33,12 +32,7 @@ def _uve_get_member_stats(stats):
     return member_stats
 
 def _send_loadbalancer_uve(driver):
-    try:
-        pool_uuids = os.listdir(LB_BASE_DIR)
-    except OSError:
-        return
-
-    for pool_uuid in pool_uuids:
+    for pool_uuid in os.listdir(LB_BASE_DIR):
         stats = driver.get_stats(pool_uuid)
         if not len(stats) or not stats.get('vip') or not stats.get('pool'):
             continue
@@ -53,7 +47,4 @@ def _send_loadbalancer_uve(driver):
 
 def send_loadbalancer_stats():
     driver = HaproxyStats()
-    try:
-        _send_loadbalancer_uve(driver)
-    except Exception as e:
-        sys.stderr.write('LB stats failure ' + str(e) + '\n')
+    _send_loadbalancer_uve(driver)

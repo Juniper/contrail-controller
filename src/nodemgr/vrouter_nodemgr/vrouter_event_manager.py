@@ -39,7 +39,7 @@ from vrouter.vrouter.process_info.ttypes import \
 from vrouter.vrouter.process_info.constants import \
     ProcessStateNames
 
-import loadbalancer_stats as lb_stats
+import load_balancer_stats as lb_stats
 
 
 class VrouterEventManager(EventManager):
