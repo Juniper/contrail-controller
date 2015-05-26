@@ -516,7 +516,8 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
             (GetInstanceTargetRouteTarget(graph, adj, &target))) {
             const autogen::InstanceTarget *itarget =
                     dynamic_cast<autogen::InstanceTarget *>(adj->GetObject());
-            assert(itarget);
+            if (!itarget)
+                continue;
             const autogen::InstanceTargetType &itt = itarget->data();
             if (itt.import_export != "import")
                 target_list->push_back(target);
@@ -635,7 +636,8 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
             if (GetInstanceTargetRouteTarget(graph, adj, &target)) {
                 const autogen::InstanceTarget *itarget =
                     dynamic_cast<autogen::InstanceTarget *>(adj->GetObject());
-                assert(itarget);
+                if (!itarget)
+                    continue;
                 const autogen::InstanceTargetType &itt = itarget->data();
                 if (itt.import_export == "import") {
                     import_list.insert(target);
@@ -1335,7 +1337,9 @@ void BgpIfmapConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
         event = BgpConfigManager::CFG_ADD;
         string instance_name(IdentifierParent(routers.first->name()));
         BgpIfmapInstanceConfig *rti = config_->FindInstance(instance_name);
-        assert(rti != NULL);
+        if (rti == NULL) {
+            return;
+        }
         peering = config_->CreatePeering(rti, proxy);
     } else {
         const IFMapNode *node = peering->node();
