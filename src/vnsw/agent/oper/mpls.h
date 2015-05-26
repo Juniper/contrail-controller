@@ -164,6 +164,12 @@ public:
         uint32_t index = label_table_.Insert(NULL);
         return index << mpls_shift_bits_;
     }
+
+    uint32_t InsertAtIndex(uint32_t label, MplsLabel *entry) {
+        uint32_t index = label_table_.InsertAtIndex(label, entry);
+        return index << mpls_shift_bits_;
+    }
+
     void UpdateLabel(uint32_t label, MplsLabel *entry) {
         uint32_t index = label >> mpls_shift_bits_;
         return label_table_.Update(index, entry);
@@ -188,7 +194,7 @@ public:
     void set_mpls_shift_bits(uint32_t shift) {
         mpls_shift_bits_ = shift;
     }
-    void ReserveLabel();
+    void ReserveLabel(uint32_t start, uint32_t end);
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);

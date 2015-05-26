@@ -51,6 +51,18 @@ public:
         return index;
     }
 
+    size_t InsertAtIndex(uint32_t index, EntryType *entry) {
+        size_t size = bitmap_.size();
+        if (size == 0 || size <= index) {
+            bitmap_.resize(index + kGrowSize, 1);
+            entries_.resize(index + kGrowSize);
+        }
+
+        bitmap_.set(index, 0);
+        entries_[index] = entry;
+        return index;
+    }
+
     void Update(size_t index, EntryType *entry) {
         assert(index < bitmap_.size());
         assert(bitmap_[index] == 0);

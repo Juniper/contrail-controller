@@ -125,19 +125,19 @@ void MplsTable::CreateTableLabel(const Agent *agent,
     return;
 }
 
-void MplsTable::ReserveLabel() {
+void MplsTable::ReserveLabel(uint32_t start, uint32_t end) {
     if (agent()->vrouter_on_host_dpdk() == true) {
         //In case of vrouter running in dpdk mode,
         //label allocation has to be done at interval
         //of 16, for example 16,32 and 48 are valid label
         //Reserver label 0
-        AllocLabel();
+        InsertAtIndex(start, NULL);
         set_mpls_shift_bits(kDpdkShiftBits);
     } else {
         // We want to allocate labels from an offset
         // Pre-allocate entries
-        for (unsigned int i = 0; i < kStartLabel; i++) {
-            AllocLabel();
+        for (unsigned int i = start; i < end; i++) {
+            InsertAtIndex(i, NULL);
         }
     }
 }
