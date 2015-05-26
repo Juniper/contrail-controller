@@ -21,18 +21,18 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'analytics_event_manager.py',
-           'control_event_manager.py',
-           'config_event_manager.py',
-           'vrouter_event_manager.py',
-           'database_event_manager.py',
-           'event_manager.py',
-           'vrouter_process_stat.py',
-           'process_stat.py',
-           'event_listener_protocol_nodemgr.py',
-           'loadbalancer_stats.py',
-           'haproxy_stats.py',
-           'main.py'
+           'analytics_nodemgr/analytics_event_manager.py',
+           'control_nodemgr/control_event_manager.py',
+           'config_nodemgr/config_event_manager.py',
+           'database_nodemgr/database_event_manager.py',
+           'vrouter_nodemgr/vrouter_event_manager.py',
+           'vrouter_nodemgr/vrouter_process_stat.py',
+           'vrouter_nodemgr/load_balancer_stats.py',
+           'vrouter_nodemgr/haproxy_stats.py',
+           'common_files/event_manager.py',
+           'common_files/process_stat.py',
+           'common_files/event_listener_protocol_nodemgr.py',
+           'common_files/main.py'
           ]
 
 local_sources_rules = []
