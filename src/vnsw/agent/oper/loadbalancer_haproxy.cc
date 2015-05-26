@@ -62,6 +62,8 @@ void LoadbalancerHaproxy::GenerateGlobal(
     *out << string(4, ' ') << "daemon" << endl;
     *out << string(4, ' ') << "user nobody" << endl;
     *out << string(4, ' ') << "group nogroup" << endl;
+    *out << string(4, ' ') << "stats socket " << filename
+                           << ".sock mode 0666 level user" << endl;
     *out << endl;
 }
 
