@@ -7,7 +7,12 @@ from setuptools import setup, find_packages
 setup(
     name='nodemgr',
     version='0.1dev',
-    packages=['nodemgr'],
+    packages=['nodemgr', 'nodemgr.analytics_nodemgr',
+              'nodemgr.control_nodemgr',
+              'nodemgr.config_nodemgr',
+              'nodemgr.database_nodemgr',
+              'nodemgr.vrouter_nodemgr',
+              'nodemgr.common'],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="Nodemgr Implementation",
