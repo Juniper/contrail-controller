@@ -8,6 +8,7 @@
 
 #include "testing/gunit.h"
 #include <boost/bind.hpp>
+#include <boost/assign/list_of.hpp>
 #include "base/logging.h"
 #include "base/queue_task.h"
 #include "base/test/task_test_util.h"
@@ -941,6 +942,51 @@ TEST_F(QueueTaskWaterMarkTest, Basic) {
     EXPECT_EQ(18, wm_cb_count_);
     EXPECT_EQ(0, qsize_);
     EXPECT_TRUE(qcount_.empty());
+}
+
+TEST_F(QueueTaskWaterMarkTest, Duplicates) {
+    // Setup high watermarks
+    WaterMarkInfo hwm3(12 * 1024, NULL);
+    work_queue_.SetHighWaterMark(hwm3);
+    WaterMarkInfo hwm1(4 * 1024, NULL);
+    work_queue_.SetHighWaterMark(hwm1);
+    WaterMarkInfo hwm2(8 * 1024, NULL);
+    work_queue_.SetHighWaterMark(hwm2);
+    WaterMarkInfo hwm5(8 * 1024, NULL);
+    work_queue_.SetHighWaterMark(hwm5);
+    WaterMarkInfo hwm4(4 * 1024, NULL);
+    work_queue_.SetHighWaterMark(hwm4);
+    WaterMarkInfo hwm6(12 * 1024, NULL);
+    work_queue_.SetHighWaterMark(hwm6);
+    // Verify that no duplicates exist and the watermarks are sorted
+    WaterMarkInfos expected_hwms = boost::assign::list_of
+        (WaterMarkInfo(4 * 1024, NULL))
+        (WaterMarkInfo(8 * 1024, NULL))
+        (WaterMarkInfo(12 * 1024, NULL));
+    WaterMarkInfos actual_hwms = work_queue_.GetHighWaterMark();
+    EXPECT_EQ(actual_hwms, expected_hwms);
+    // Setup low watermarks
+    WaterMarkInfo lwm1(10 * 1024, NULL);
+    WaterMarkInfo lwm2(6 * 1024, NULL);
+    WaterMarkInfo lwm3(2 * 1024, NULL);
+    WaterMarkInfo lwm4(10 * 1024, NULL);
+    WaterMarkInfo lwm5(6 * 1024, NULL);
+    WaterMarkInfo lwm6(2 * 1024, NULL);
+    WaterMarkInfos lwm;
+    lwm.push_back(lwm1);
+    lwm.push_back(lwm2);
+    lwm.push_back(lwm3);
+    lwm.push_back(lwm4);
+    lwm.push_back(lwm5);
+    lwm.push_back(lwm6);
+    work_queue_.SetLowWaterMark(lwm);
+    // Verify that no duplicates exist and the watermarks are sorted
+    WaterMarkInfos expected_lwms = boost::assign::list_of
+        (WaterMarkInfo(2 * 1024, NULL))
+        (WaterMarkInfo(6 * 1024, NULL))
+        (WaterMarkInfo(10 * 1024, NULL));
+    WaterMarkInfos actual_lwms(work_queue_.GetLowWaterMark());
+    EXPECT_EQ(actual_lwms, expected_lwms);
 }
 
 int main(int argc, char *argv[]) {
