@@ -314,7 +314,10 @@ class InstanceIpServer(InstanceIpServerGen):
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
-        ip_addr = obj_dict['instance_ip_address']
+        try:
+            ip_addr = obj_dict['instance_ip_address']
+        except KeyError:
+            return
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
     # end dbe_delete_notification
