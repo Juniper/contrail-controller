@@ -103,9 +103,7 @@ void OvsdbClientTcp::AddSessionInfo(SandeshOvsdbClient &client){
     if (session_ != NULL) {
         OvsdbClientTcpSession *tcp =
             static_cast<OvsdbClientTcpSession *>(session_);
-        session.set_status(tcp->status());
-        session.set_remote_ip(tcp->remote_endpoint().address().to_string());
-        session.set_remote_port(tcp->remote_endpoint().port());
+        tcp->AddSessionInfo(session);
     }
     session_list.push_back(session);
     client.set_sessions(session_list);

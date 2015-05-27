@@ -58,18 +58,43 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
+class OvsdbClientSandesTask : public Task {
+public:
+    OvsdbClientSandesTask(std::string resp_ctx) :
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
+        resp_(new OvsdbClientResp()), resp_data_(resp_ctx) {
+    }
+
+    virtual ~OvsdbClientSandesTask() {}
+
+    virtual bool Run() {
+        SandeshOvsdbClient client_data;
+        OvsdbClient *client = Agent::GetInstance()->ovsdb_client();
+        client_data.set_protocol(client->protocol());
+        client_data.set_server(client->server());
+        client_data.set_port(client->port());
+        client_data.set_tor_service_node(client->tsn_ip().to_string());
+        client->AddSessionInfo(client_data);
+        resp_->set_client(client_data);
+        SendResponse();
+        return true;
+    }
+
+private:
+    void SendResponse() {
+        resp_->set_context(resp_data_);
+        resp_->set_more(false);
+        resp_->Response();
+    }
+
+    OvsdbClientResp *resp_;
+    std::string resp_data_;
+    DISALLOW_COPY_AND_ASSIGN(OvsdbClientSandesTask);
+};
+
 void OvsdbClientReq::HandleRequest() const {
-    OvsdbClientResp *resp = new OvsdbClientResp();
-    SandeshOvsdbClient client_data;
-    OvsdbClient *client = Agent::GetInstance()->ovsdb_client();
-    client_data.set_protocol(client->protocol());
-    client_data.set_server(client->server());
-    client_data.set_port(client->port());
-    client_data.set_tor_service_node(client->tsn_ip().to_string());
-    client->AddSessionInfo(client_data);
-    resp->set_client(client_data);
-    resp->set_context(context());
-    resp->set_more(false);
-    resp->Response();
+    OvsdbClientSandesTask *task = new OvsdbClientSandesTask(context());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
 }
 

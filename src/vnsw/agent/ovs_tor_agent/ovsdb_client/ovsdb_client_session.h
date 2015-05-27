@@ -15,6 +15,7 @@
 class OvsPeer;
 class OvsPeerManager;
 class KSyncObjectManager;
+class SandeshOvsdbClientSession;
 
 namespace OVSDB {
 class OvsdbClientIdl;
@@ -43,6 +44,7 @@ public:
     virtual Ip4Address remote_ip() const { return Ip4Address(); }
     virtual uint16_t remote_port() const { return 0; }
     virtual Ip4Address tsn_ip() = 0;
+    virtual std::string status() = 0;
     virtual void SendMsg(u_int8_t *buf, std::size_t len) = 0;
     void MessageProcess(const u_int8_t *buf, std::size_t len);
     // Send encode json rpc messgage to OVSDB server
@@ -50,6 +52,8 @@ public:
     void OnEstablish();
     void OnClose();
     OvsdbClientIdl *client_idl();
+
+    void AddSessionInfo(SandeshOvsdbClientSession &session);
 
 protected:
     // ovsdb io task ID.
@@ -62,7 +66,7 @@ private:
     OvsPeerManager *manager_;
     struct json_parser * parser_;
     tbb::atomic<bool> idl_inited_;
-    Timer *monitor_req_timer_;
+    std::string connection_time_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientSession);
 };
 };  // namespace OVSDB
