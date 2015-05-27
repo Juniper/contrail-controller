@@ -10,21 +10,23 @@
 
 class BgpMessage : public Message {
 public:
-    BgpMessage();
+    BgpMessage(const BgpTable *table = NULL);
     virtual ~BgpMessage();
-    void Start(const RibOutAttr *roattr, const BgpRoute *route);
+    bool Start(const RibOutAttr *roattr, const BgpRoute *route);
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
     virtual void Finish();
     virtual const uint8_t *GetData(IPeerUpdate *ipeer_update, size_t *lenp);
 
 private:
-    void StartReach(const RibOutAttr *roattr, const BgpRoute *route);
-    void StartUnreach(const BgpRoute *route);
+    bool StartReach(const RibOutAttr *roattr, const BgpRoute *route);
+    bool StartUnreach(const BgpRoute *route);
     bool UpdateLength(const char *tag, int size, int delta);
 
+    const BgpTable *table_;
     EncodeOffsets encode_offsets_;
     uint8_t data_[BgpProto::kMaxMessageSize];
     size_t datalen_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpMessage);
 };
 
