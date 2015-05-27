@@ -5,16 +5,19 @@
 #include "bgp/bgp_message_builder.h"
 
 #include "base/parse_object.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_route.h"
 #include "net/bgp_af.h"
 
-BgpMessage::BgpMessage() {
+using std::auto_ptr;
+
+BgpMessage::BgpMessage(const BgpTable *table) : table_(table), datalen_(0) {
 }
 
 BgpMessage::~BgpMessage() {
 }
 
-void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
+bool BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
     BgpProto::Update update;
     const BgpAttr *attr = roattr->attr();
 
@@ -103,42 +106,56 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         new BgpMpNlri(BgpAttribute::MPReachNlri, route->Afi(), route->Safi(), nh);
     update.path_attributes.push_back(nlri);
 
-    if (route) {
-        BgpProtoPrefix *prefix = new BgpProtoPrefix;
-        route->BuildProtoPrefix(prefix, attr, roattr->label());
-        nlri->nlri.push_back(prefix);
-        num_reach_route_++;
+    BgpProtoPrefix *prefix = new BgpProtoPrefix;
+    route->BuildProtoPrefix(prefix, attr, roattr->label());
+    nlri->nlri.push_back(prefix);
+
+    int result =
+        BgpProto::Encode(&update, data_, sizeof(data_), &encode_offsets_);
+    if (result <= 0) {
+        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Error encoding reach message for route " << route->ToString() <<
+            " in table " << (table_ ? table_->name() : "unknown"));
+        table_->server()->increment_message_build_error();
+        return false;
     }
 
-    datalen_ = BgpProto::Encode(&update, data_, sizeof(data_),
-            &encode_offsets_);
-    assert(datalen_ > 0);
+    num_reach_route_++;
+    datalen_ = result;
+    return true;
 }
 
-void BgpMessage::StartUnreach(const BgpRoute *route) {
+bool BgpMessage::StartUnreach(const BgpRoute *route) {
     BgpProto::Update update;
 
     BgpMpNlri *nlri =
         new BgpMpNlri(BgpAttribute::MPUnreachNlri, route->Afi(), route->Safi());
     update.path_attributes.push_back(nlri);
 
-    if (route) {
-        BgpProtoPrefix *prefix = new BgpProtoPrefix;
-        route->BuildProtoPrefix(prefix);
-        nlri->nlri.push_back(prefix);
-        num_unreach_route_++;
+    BgpProtoPrefix *prefix = new BgpProtoPrefix;
+    route->BuildProtoPrefix(prefix);
+    nlri->nlri.push_back(prefix);
+
+    int result =
+        BgpProto::Encode(&update, data_, sizeof(data_), &encode_offsets_);
+    if (result <= 0) {
+        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Error encoding unreach message for route " << route->ToString() <<
+            " in table " << (table_ ? table_->name() : "unknown"));
+        table_->server()->increment_message_build_error();
+        return false;
     }
 
-    datalen_ = BgpProto::Encode(&update, data_, sizeof(data_),
-            &encode_offsets_);
-    assert(datalen_ > 0);
+    num_unreach_route_++;
+    datalen_ = result;
+    return true;
 }
 
-void BgpMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
+bool BgpMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
     if (roattr->IsReachable()) {
-        StartReach(roattr, route);
+        return StartReach(roattr, route);
     } else {
-        StartUnreach(route);
+        return StartUnreach(route);
     }
 }
 
@@ -205,9 +222,12 @@ const uint8_t *BgpMessage::GetData(IPeerUpdate *ipeer_update, size_t *lenp) {
 
 Message *BgpMessageBuilder::Create(const BgpTable *table,
         const RibOutAttr *roattr, const BgpRoute *route) const {
-    BgpMessage *msg = new BgpMessage();
-    msg->Start(roattr, route);
-    return msg;
+    auto_ptr<BgpMessage> msg(new BgpMessage(table));
+    if (msg->Start(roattr, route)) {
+        return msg.release();
+    } else {
+        return NULL;
+    }
 }
 
 BgpMessageBuilder BgpMessageBuilder::instance_;
