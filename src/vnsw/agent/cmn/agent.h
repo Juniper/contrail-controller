@@ -565,31 +565,7 @@ public:
     const std::string &multicast_label_range(uint8_t idx) { 
         return label_range_[idx]; 
     }
-    void SetAgentMcastLabelRange(uint8_t idx) {
-        std::stringstream str;
-        //Logic for multicast label allocation
-        //  1> Reserve minimum 4k label for unicast
-        //  2> In the remaining label space
-        //       * Try allocating labels equal to no. of VN
-        //         for each control node
-        //       * If label space is not huge enough
-        //         split remaining unicast label for both control
-        //         node
-        //  Remaining label would be used for unicast mpls label
-        uint32_t max_mc_labels = 2 * vrouter_max_vrfs_;
-        uint32_t mc_label_count = 0;
-        if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels_) {
-            mc_label_count = vrouter_max_vrfs_;
-        } else {
-            mc_label_count = (vrouter_max_labels_ - MIN_UNICAST_LABEL_RANGE)/2;
-        }
-
-        str << (vrouter_max_labels_ -
-                ((idx + 1) * mc_label_count)) << "-"
-            << (vrouter_max_labels_ -
-                ((idx) * mc_label_count) - 1);
-        label_range_[idx] = str.str();
-    }
+    void SetAgentMcastLabelRange(uint8_t idx);
     void ResetAgentMcastLabelRange(uint8_t idx) {
 
         label_range_[idx].clear();
