@@ -17,7 +17,6 @@ from sandesh.viz.constants import *
 from sandesh.viz.constants import _NO_AUTO_PURGE_TABLES, \
         _FLOW_TABLES, _STATS_TABLES, _MSG_TABLES
 from pysandesh.util import UTCTimestampUsec
-import readline
 import code
 import urllib2
 import time
