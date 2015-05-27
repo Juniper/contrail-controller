@@ -13,6 +13,7 @@
 	    <contrail:foo-property>
 	      <attr1>10</attr1>
 	      <attr2>baz</attr2>
+	      <attr3>true</attr3>
 	    </contrail:foo-property>
 	  </meta:metadata>
 	</resultItem>
@@ -43,6 +44,19 @@
                   <contrail:value>bar</contrail:value>
               </metadata>
           </resultItem>
+        <resultItem>
+              <identity name="contrail:foo:e" type="other"/>
+              <metadata>
+                  <contrail:complex-list>
+                      <attr><attr1>1</attr1></attr>
+                      <attr><attr3>true</attr3></attr>
+                      <attr><attr1>2</attr1><attr3>true</attr3></attr>
+                      <attr><attr2>three</attr2><attr3>false</attr3></attr>
+                      <attr><attr3>false</attr3></attr>
+                  </contrail:complex-list>
+                  <contrail:bool-value>true</contrail:bool-value>
+              </metadata>
+        </resultItem>
       </searchResult>
     </ifmap:response>
   </env:Body>
