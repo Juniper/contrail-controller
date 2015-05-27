@@ -1975,8 +1975,9 @@ class DBInterface(object):
 
                 ip_q_dict = {}
                 ip_q_dict['ip_address'] = ip_addr
-                ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
-                                              net_obj, port_req_memo)
+                if ip_addr:
+                    ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
+                            net_obj, port_req_memo)
 
                 port_q_dict['fixed_ips'].append(ip_q_dict)
 
