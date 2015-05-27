@@ -1668,7 +1668,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         *ecmp_changed = true;
     }
 
-    if (device_type_ != data->device_type_) {
+    if (data->device_type_ !=  VmInterface::DEVICE_TYPE_INVALID &&
+        device_type_ != data->device_type_) {
         device_type_= data->device_type_;
         ret = true;
     }
