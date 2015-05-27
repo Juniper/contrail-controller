@@ -323,6 +323,7 @@ class ServiceInstanceSM(DBBase):
         self.availability_zone = None
         self.ha_mode = None
         self.vr_id = None
+        self.vn_changed = False
         self.local_preference = [None, None]
         self.vn_info = []
         self.update(obj_dict)
@@ -338,6 +339,7 @@ class ServiceInstanceSM(DBBase):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.proj_name = obj['fq_name'][-2]
+        self.check_vn_changes(obj)
         self.params = obj['service_instance_properties']
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
@@ -350,6 +352,27 @@ class ServiceInstanceSM(DBBase):
             if scale_out:
                 self.max_instances = scale_out.get('max_instances', 1)
     # end update
+
+    def check_vn_changes(self, obj):
+        self.vn_changed = False
+        if not self.params:
+            return
+        old_ifs = self.params.get('interface_list', [])
+        new_ifs = obj['service_instance_properties'].get('interface_list', [])
+        for index in range(0, len(old_ifs)):
+            try:
+                old_if = old_ifs[index]
+                new_if = new_ifs[index]
+            except IndexError:
+                continue
+
+            if not old_if['virtual_network'] or not new_if['virtual_network']:
+                continue
+
+            if old_if['virtual_network'] != new_if['virtual_network']:
+                self.vn_changed = True
+                return
+    #end check_vn_changes
 
     @classmethod
     def delete(cls, uuid):
