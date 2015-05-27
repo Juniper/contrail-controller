@@ -542,6 +542,14 @@ class NetworkNamespaceManager(VRouterHostedManager):
             vm = VirtualMachineSM.get(vm_id)
             vm_list[vm.index] = vm
 
+        # if vn has changed then delete VMs
+        if si.vn_changed:
+            for vm in vm_list:
+                if vm:
+                    self.delete_service(vm)
+            vm_list = [None] * si.max_instances
+            si.vn_changed = False
+
         # create and launch vm
         si.state = 'launching'
         instances = []
