@@ -68,11 +68,16 @@ void ovsdb_wrapper_idl_txn_ack(void *idl_base, struct ovsdb_idl_txn *txn) {
     OvsdbEntryBase *entry = client_idl->pending_txn_[txn];
     bool success = ovsdb_wrapper_is_txn_success(txn);
     if (!success) {
+        // increment stats.
+        client_idl->stats_.txn_failed++;
         OVSDB_TRACE(Error, "Transaction failed: " +
                 std::string(ovsdb_wrapper_txn_get_error(txn)));
         // we don't handle the case where txn fails, when entry is not present
         // case of unicast_mac_remote entry.
         assert(entry != NULL);
+    } else {
+        // increment stats.
+        client_idl->stats_.txn_succeeded++;
     }
     client_idl->DeleteTxn(txn);
     if (entry)
@@ -128,7 +133,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Keep Alive Timer",
                 TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)),
-    monitor_request_id_(NULL) {
+    monitor_request_id_(NULL), stats_() {
     refcount_ = 0;
     vtep_global_= ovsdb_wrapper_vteprec_global_first(idl_);
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
@@ -178,6 +183,10 @@ OvsdbClientIdl::OvsdbMsg::~OvsdbMsg() {
     }
 }
 
+OvsdbClientIdl::TxnStats::TxnStats() : txn_initiated(0), txn_succeeded(0),
+    txn_failed(0) {
+}
+
 void OvsdbClientIdl::OnEstablish() {
     if (deleted_) {
         OVSDB_SESSION_TRACE(Trace, session_,
@@ -215,6 +224,9 @@ void OvsdbClientIdl::OnEstablish() {
 }
 
 void OvsdbClientIdl::TxnScheduleJsonRpc(struct jsonrpc_msg *msg) {
+    // increment stats.
+    stats_.txn_initiated++;
+
     if (!session_->ThrottleInFlightTxnMessages() ||
         OVSDBMaxInFlightPendingTxn >= pending_txn_.size()) {
         session_->SendJsonRpc(msg);
@@ -434,6 +446,14 @@ void OvsdbClientIdl::TriggerDeletion() {
     // trigger delete table for vrf table, which internally handles
     // deletion of route table.
     vrf_ovsdb_->DeleteTable();
+}
+
+const OvsdbClientIdl::TxnStats &OvsdbClientIdl::stats() const {
+    return stats_;
+}
+
+uint64_t OvsdbClientIdl::pending_txn_count() const {
+    return pending_txn_.size();
 }
 
 void OvsdbClientIdl::ConnectOperDB() {

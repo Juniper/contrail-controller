@@ -144,9 +144,7 @@ void OvsdbClientSsl::AddSessionInfo(SandeshOvsdbClient &client) {
     std::vector<SandeshOvsdbClientSession> session_list;
     OvsdbClientSslSession *ssl = static_cast<OvsdbClientSslSession *>(NextSession(NULL));
     while (ssl != NULL) {
-        session.set_status(ssl->status());
-        session.set_remote_ip(ssl->remote_endpoint().address().to_string());
-        session.set_remote_port(ssl->remote_endpoint().port());
+        ssl->AddSessionInfo(session);
         session_list.push_back(session);
         ssl = static_cast<OvsdbClientSslSession *>(NextSession(ssl));
     }
