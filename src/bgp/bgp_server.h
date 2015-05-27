@@ -127,6 +127,9 @@ public:
     LifetimeActor *deleter();
     boost::asio::io_service *ioservice();
 
+    void increment_message_build_error() const { ++message_build_error_; }
+    uint64_t message_build_error() const { return message_build_error_; }
+
     int RegisterASNUpdateCallback(ASNUpdateCb callback);
     void UnregisterASNUpdateCallback(int listener);
     void NotifyASNUpdate(as_t old_asn, as_t old_local_asn);
@@ -186,6 +189,8 @@ private:
     // configuration
     boost::scoped_ptr<BgpConfigManager> config_mgr_;
     boost::scoped_ptr<ConfigUpdater> updater_;
+
+    mutable uint64_t message_build_error_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpServer);
 };
