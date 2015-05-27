@@ -94,7 +94,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
-    subnet_plen_(0), logical_interface_(nil_uuid()) {
+    subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
