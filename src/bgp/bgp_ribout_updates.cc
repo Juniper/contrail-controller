@@ -105,15 +105,21 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
             continue;
         }
 
-        // Generate the update and merge additional updates into that message.
+        // Generate the update, merge additional updates into that message and
+        // send it message to the target RibPeerSet.
+        //
+        // In the rare case that the first route and it's attributes don't fit
+        // into the message, pretend that the route was sent out successfully.
+        // The Create routine has the responsibility of logging an error and
+        // incrementing any counters.
+        RibPeerSet msg_blocked;
         auto_ptr<Message> message(
             builder_->Create(table, &uinfo->roattr, rt_update->route()));
-        UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);
-        message->Finish();
-
-        // Send the message to the target RibPeerSet.
-        RibPeerSet msg_blocked;
-        UpdateSend(message.get(), msgset, &msg_blocked);
+        if (message.get() != NULL) {
+            UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);
+            message->Finish();
+            UpdateSend(message.get(), msgset, &msg_blocked);
+        }
 
         // Reset bits in the UpdateInfo.  Note that this has already been done
         // via UpdatePack for all the other UpdateInfo elements that we packed
