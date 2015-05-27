@@ -101,6 +101,13 @@ public:
         struct jsonrpc_msg *msg;
     };
 
+    struct TxnStats {
+        TxnStats();
+        uint64_t txn_initiated;
+        uint64_t txn_succeeded;
+        uint64_t txn_failed;
+    };
+
     typedef boost::function<void(OvsdbClientIdl::Op, struct ovsdb_idl_row *)> NotifyCB;
     typedef std::map<struct ovsdb_idl_txn *, OvsdbEntryBase *> PendingTxnMap;
     typedef std::queue<struct jsonrpc_msg *> ThrottledTxnMsgs;
@@ -163,6 +170,9 @@ public:
     bool IsDeleted() const { return deleted_; }
     int refcount() const { return refcount_; }
 
+    const TxnStats &stats() const;
+    uint64_t pending_txn_count() const;
+
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);
     friend void ovsdb_wrapper_idl_txn_ack(void *, struct ovsdb_idl_txn *);
@@ -191,6 +201,9 @@ private:
     // request, reset to NULL once response if feed to idl for processing
     // as it free the json for monitor request id
     struct json *monitor_request_id_;
+
+    // transaction stats per IDL
+    TxnStats stats_;
 
     tbb::atomic<int> refcount_;
     std::auto_ptr<OvsPeer> route_peer_;

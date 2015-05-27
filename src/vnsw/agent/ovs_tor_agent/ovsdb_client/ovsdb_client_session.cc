@@ -25,10 +25,7 @@ int OvsdbClientSession::ovsdb_io_task_id_ = -1;
 
 OvsdbClientSession::OvsdbClientSession(Agent *agent, OvsPeerManager *manager) :
     client_idl_(NULL), agent_(agent), manager_(manager), parser_(NULL),
-    monitor_req_timer_(TimerManager::CreateTimer(
-                *(agent->event_manager())->io_service(),
-                "OVSDB Client Send Monitor Request Wait",
-                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
+    connection_time_("-") {
 
     idl_inited_ = false;
     // initialize ovsdb_io task id on first constructor.
@@ -39,7 +36,6 @@ OvsdbClientSession::OvsdbClientSession(Agent *agent, OvsPeerManager *manager) :
 }
 
 OvsdbClientSession::~OvsdbClientSession() {
-    TimerManager::DeleteTimer(monitor_req_timer_);
 }
 
 // This is invoked from OVSDB::IO task context. Handle the keepalive messages
@@ -113,6 +109,7 @@ void OvsdbClientSession::SendJsonRpc(struct jsonrpc_msg *msg) {
 }
 
 void OvsdbClientSession::OnEstablish() {
+    connection_time_ = UTCUsecToString(UTCTimestampUsec());
     OVSDB_SESSION_TRACE(Trace, this, "Connection to client established");
     client_idl_ = new OvsdbClientIdl(this, agent_, manager_);
     idl_inited_ = true;
@@ -126,5 +123,26 @@ void OvsdbClientSession::OnClose() {
 
 OvsdbClientIdl *OvsdbClientSession::client_idl() {
     return client_idl_.get();
+}
+
+void OvsdbClientSession::AddSessionInfo(SandeshOvsdbClientSession &session) {
+    session.set_status(status());
+    session.set_remote_ip(remote_ip().to_string());
+    session.set_remote_port(remote_port());
+    SandeshOvsdbTxnStats sandesh_stats;
+    if (client_idl_.get() != NULL) {
+        const OvsdbClientIdl::TxnStats &stats = client_idl_->stats();
+        sandesh_stats.set_txn_initiated(stats.txn_initiated);
+        sandesh_stats.set_txn_succeeded(stats.txn_succeeded);
+        sandesh_stats.set_txn_failed(stats.txn_failed);
+        sandesh_stats.set_txn_pending(client_idl_->pending_txn_count());
+    } else {
+        sandesh_stats.set_txn_initiated(0);
+        sandesh_stats.set_txn_succeeded(0);
+        sandesh_stats.set_txn_failed(0);
+        sandesh_stats.set_txn_pending(0);
+    }
+    session.set_connection_time(connection_time_);
+    session.set_txn_stats(sandesh_stats);
 }
 
