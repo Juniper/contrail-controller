@@ -8,7 +8,6 @@
 # Client of Operational State Server for VNC
 #
 
-import readline
 import code
 import urllib2
 import time
