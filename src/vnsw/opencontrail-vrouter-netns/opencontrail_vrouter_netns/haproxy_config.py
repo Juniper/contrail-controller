@@ -1,3 +1,6 @@
+import json
+import os
+
 PROTO_TCP = 'TCP'
 PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
@@ -25,24 +28,28 @@ PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 
 HTTPS_PORT = 443
 
-def build_config(config, conf_dir):
+def build_config(conf_file):
+    with open(conf_file) as data_file:
+        config = json.load(data_file)
+    conf_dir = os.path.dirname(conf_file)
+
     conf = []
-    sock_path = conf_dir + 'sock'
+    sock_path = conf_dir + '/haproxy.sock'
     conf = _set_global_config(config, sock_path) + '\n\n'
     conf += _set_defaults(config) + '\n\n'
     conf += _set_frontend(config) + '\n\n'
     conf += _set_backend(config) + '\n'
-    print conf
-    filename = conf_dir + 'conf'
+    filename = conf_dir + '/haproxy.conf'
     conf_file = open(filename, 'w')
     conf_file.write(conf)
+    return filename
 
 def _set_global_config(config, sock_path):
     conf = [
         'global',
         'daemon',
         'user nobody',
-        'group nogroup'
+        'group nogroup',
         'log /dev/log local0',
         'log /dev/log local1 notice'
     ]
