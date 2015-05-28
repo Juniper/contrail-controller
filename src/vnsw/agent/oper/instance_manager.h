@@ -215,6 +215,19 @@ class InstanceState : public DBState {
         return status_type_;
     }
 
+    int tasks_running() const {
+        return tasks_running_;
+    }
+
+    int incr_tasks_running() {
+        return ++tasks_running_;
+    }
+
+    int decr_tasks_running() {
+        return --tasks_running_;
+    }
+
+
     void Clear();
 
  private:
@@ -223,6 +236,7 @@ class InstanceState : public DBState {
     std::string errors_;
     std::string cmd_;
     int status_type_;
+    int tasks_running_;
 
     ServiceInstance::Properties properties_;
 
