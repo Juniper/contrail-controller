@@ -1405,6 +1405,7 @@ TEST_F(MulticastTest, McastSubnet_VN2MultipleVRFtest_negative) {
     DelVn("vn1");
     client->WaitForIdle();
 }
+
 //Test case to check multicast label range
 TEST_F(MulticastTest, LabelRange) {
     //Set no if VN to be 100
@@ -1419,6 +1420,11 @@ TEST_F(MulticastTest, LabelRange) {
     EXPECT_TRUE(agent_->multicast_label_range(0) == "4900-4999");
     EXPECT_TRUE(agent_->multicast_label_range(1) == "4800-4899");
 
+    for (uint32_t i = 4800; i <= 4999; i++) {
+        //Update label to verify that indices
+        //have been reserved
+        agent_->mpls_table()->UpdateLabel(i, NULL);
+    }
     //Set VN count to be 1000
     //Since there is not enough space for VN label
     //allocation, agent allocates 50 labels to each control node
