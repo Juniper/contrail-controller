@@ -454,7 +454,7 @@ public:
         xs_stime_[idx] = time;
     }
  
-    AgentXmppChannel *controller_xmpp_channel(uint8_t idx) { 
+    AgentXmppChannel *controller_xmpp_channel(uint8_t idx) const {
         return agent_xmpp_channel_[idx];
     }
 
