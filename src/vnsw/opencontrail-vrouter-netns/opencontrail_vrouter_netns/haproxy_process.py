@@ -2,10 +2,12 @@ import itertools
 import os
 import shlex
 import subprocess
+import haproxy_config
 
 SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
 
-def stop_haproxy(pool_id, daemon_mode=False):
+def stop_haproxy(conf_file, daemon_mode=False):
+    pool_id = os.path.split(os.path.dirname(conf_file))[1]
     try:
         if daemon_mode:
             _stop_haproxy_daemon(pool_id)
@@ -14,12 +16,14 @@ def stop_haproxy(pool_id, daemon_mode=False):
     except Exception as e:
         pass
 
-def start_update_haproxy(pool_id, netns, conf_file, daemon_mode=False):
+def start_update_haproxy(conf_file, netns, daemon_mode=False):
+    pool_id = os.path.split(os.path.dirname(conf_file))[1]
+    haproxy_cfg_file = haproxy_config.build_config(conf_file)
     try:
         if daemon_mode:
-            _start_haproxy_daemon(pool_id, netns, conf_file)
+            _start_haproxy_daemon(pool_id, netns, haproxy_cfg_file)
         else:
-            _start_supervisor_haproxy(pool_id, netns, conf_file)
+            _start_supervisor_haproxy(pool_id, netns, haproxy_cfg_file)
     except Exception as e:
         pass
 
@@ -49,7 +53,9 @@ def _start_haproxy_daemon(pool_id, netns, conf_file):
         sf_opt = '-sf ' + last_pid
     else:
         sf_opt = ''
-    pid_file = conf_file + '.pid'
+    conf_dir = os.path.dirname(conf_file)
+    pid_file = conf_dir + '/haproxy.pid'
+
     cmd = 'ip netns exec %s haproxy -f %s -p %s %s' % \
         (netns, conf_file, pid_file, sf_opt)
     cmd_list = shlex.split(cmd)

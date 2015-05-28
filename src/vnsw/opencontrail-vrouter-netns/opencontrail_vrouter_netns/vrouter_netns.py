@@ -34,6 +34,7 @@ import requests
 import json
 
 from linux import ip_lib
+import haproxy_process
 
 
 def validate_uuid(val):
@@ -147,21 +148,9 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before set '
                              'up the lbaas')
-        pid_file = self.cfg_file + ".pid"
-        pid = self._get_lbaas_pid()
-        if (self.update is False):
-            if pid is not None:
-                self.release_lbaas()
 
-            self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
-                                    '-p', pid_file])
-            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
-        else:
-            if pid is not None:
-                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
-            else:
-                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
-                                    '-p', pid_file])
+        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace)
+
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
@@ -171,17 +160,9 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
-        pid = self._get_lbaas_pid()
-        if pid is not None:
-            cmd = """kill -9 %(pid)s""" % {'pid':pid}
-            try:
-                if "check_output" not in dir(subprocess):
-                    s = _check_output(cmd)
-                else:
-                    s = subprocess.check_output(cmd, shell=True)
-                print ("Haproxy process with pid %d config file %s killed" %(pid, self.cfg_file), file=sys.stderr)
-            except subprocess.CalledProcessError:
-                print ("SIGKILL Error for pid %d %s" %(pid, self.cfg_file), file=sys.stderr)
+       
+        haproxy_process.stop_haproxy(self.cfg_file)
+
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
