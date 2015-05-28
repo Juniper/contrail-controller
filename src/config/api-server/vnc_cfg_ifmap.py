@@ -10,7 +10,7 @@ from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
 import gevent.event
-from gevent.queue import Queue
+from gevent.queue import Queue, Empty
 import sys
 import time
 from pprint import pformat
@@ -102,6 +102,8 @@ class VncIfmapClient(VncIfmapClientGen):
         self._username = uname
         self._password = passwd
         self._ssl_options = ssl_options
+        self._queue = Queue(100000)
+        self._dequeue_greenlet = gevent.spawn(self._publish_to_ifmap_dequeue)
         self._CONTRAIL_XSD = "http://www.contrailsystems.com/vnc_cfg.xsd"
         self._IPERMS_NAME = "id-perms"
         self._IPERMS_FQ_NAME = "contrail:" + self._IPERMS_NAME
@@ -126,7 +128,7 @@ class VncIfmapClient(VncIfmapClientGen):
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
 
-        self._reset_cache_and_accumulator()
+        self._reset_cache()
 
         # Set the signal handler
         signal.signal(signal.SIGUSR2, self.handler)
@@ -165,13 +167,11 @@ class VncIfmapClient(VncIfmapClientGen):
         mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
     # end _init_conn
 
-    def _reset_cache_and_accumulator(self):
+    def _reset_cache(self):
         # Cache of metas populated in ifmap server. Useful in update to find
         # what things to remove in ifmap server
         self._id_to_metas = {}
-        self.accumulator = None
-        self.accumulated_request_len = 0
-    # end _reset_cache_and_accumulator
+    # end _reset_cache
 
 
     def _publish_config_root(self):
@@ -203,24 +203,47 @@ class VncIfmapClient(VncIfmapClientGen):
         return ifmap_trace
     # end _generate_ifmap_trace
 
-    # end _generate_ifmap_trace
-    def publish_accumulated(self):
-        if self.accumulated_request_len:
-            upd_str = ''.join(''.join(request)
-                              for request in self.accumulator)
-            self._publish_to_ifmap('update', upd_str, do_trace=False)
-        self.accumulator = None
-        self.accumulated_request_len = 0
-    # end publish_accumulated
-
-    def _publish_to_ifmap(self, oper, oper_body, do_trace=True):
+    def _publish_to_ifmap_enqueue(self, oper, oper_body, do_trace=True):
         # safety check, if we proceed ifmap-server reports error
         # asking for update|delete in publish
         if not oper_body:
             return
-        if do_trace:
-            trace = self._generate_ifmap_trace(oper, oper_body)
+        self._queue.put((oper, oper_body, do_trace))
+    # end _publish_to_ifmap_enqueue
 
+    def _publish_to_ifmap_dequeue(self):
+        while self._queue.peek():
+            publish_discovery = False
+            request = ''
+            traces = []
+            while True:
+                try:
+                    (oper, oper_body, do_trace) = self._queue.get_nowait()
+                    if oper == 'publish_discovery':
+                        publish_discovery = True
+                        break
+                    if do_trace:
+                        trace = self._generate_ifmap_trace(oper, oper_body)
+                        traces.append(trace)
+                    request += oper_body
+                    if len(request) > 1024*1024:
+                        break
+                except Empty:
+                    break
+            ok = True
+            if request:
+                ok, msg = self._publish_to_ifmap(request)
+            for trace in traces:
+                if ok:
+                    trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
+                else:
+                    trace_msg(trace, 'IfmapTraceBuf', self._sandesh,
+                              error_msg=msg)
+            if publish_discovery and ok:
+                self._db_client_mgr._api_svr_mgr.publish_ifmap_to_discovery()
+    # end _publish_to_ifmap_dequeue
+
+    def _publish_to_ifmap(self, oper_body):
         try:
             not_published = True
             retry_count = 0
@@ -257,17 +280,12 @@ class VncIfmapClient(VncIfmapClientGen):
                           %(retry_count)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
 
-            if do_trace:
-                trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
-
-            return resp_xml
+            return True, resp_xml
         except Exception as e:
             if (isinstance(e, socket.error) and
                 self._conn_state != ConnectionStatus.DOWN):
-                log_str = 'Connection to IFMAP down. Failed to publish %s body %s' %(
-                    oper, oper_body)
-                if do_trace:
-                    trace_msg(trace, 'IfmapTraceBuf', self._sandesh, error_msg=log_str)
+                log_str = 'Connection to IFMAP down. Failed to publish %s' %(
+                    oper_body)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 self._conn_state = ConnectionStatus.DOWN
                 ConnectionState.update(
@@ -276,24 +294,18 @@ class VncIfmapClient(VncIfmapClientGen):
                     server_addrs=["%s:%s" % (self._ifmap_srv_ip,
                                              self._ifmap_srv_port)])
 
+                self._reset_cache()
+                self._db_client_mgr._api_svr_mgr.un_publish_ifmap_to_discovery()
                 # this will block till connection is re-established
-                self._reset_cache_and_accumulator()
-                self._db_client_mgr._api_svr_mgr.un_publish(
-                    un_publish_api=False, un_publish_ifmap=True)
                 self._init_conn()
-                self._db_client_mgr._api_svr_mgr.publish(
-                    publish_api=False, publish_ifmap=True)
                 self._publish_config_root()
                 self._db_client_mgr.db_resync()
-                return
+                return False, log_str
             else:
-                log_str = 'Failed to publish %s body %s to ifmap: %s' %(oper,
-                    oper_body, str(e))
-                if do_trace:
-                    trace_msg(trace, 'IfmapTraceBuf', self._sandesh, error_msg=log_str)
+                log_str = 'Failed to publish %s to ifmap: %s' %(oper_body,
+                                                                str(e))
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-
-            raise
+                return False, log_str
     # end _publish_to_ifmap
 
     def _build_request(self, id1_name, id2_name, meta_list, delete=False):
@@ -321,7 +333,7 @@ class VncIfmapClient(VncIfmapClientGen):
         mapclient = self._mapclient
 
         del_str = self._build_request(self_imid, 'self', [meta_name], True)
-        self._publish_to_ifmap('delete', del_str)
+        self._publish_to_ifmap_enqueue('delete', del_str)
 
         # del meta from cache and del id if this was last meta
         if meta_name:
@@ -339,7 +351,7 @@ class VncIfmapClient(VncIfmapClientGen):
         for id2, metadata in meta_list:
             del_str += self._build_request(id1, id2, [metadata], True)
 
-        self._publish_to_ifmap('delete', del_str)
+        self._publish_to_ifmap_enqueue('delete', del_str)
 
         # del meta,id2 from cache and del id if this was last meta
         def _id_to_metas_delete(id1, id2, meta_name):
@@ -429,18 +441,8 @@ class VncIfmapClient(VncIfmapClientGen):
                 else:
                    self._id_to_metas[id2][meta_name] = [{'meta':m,
                                                          'id': self_imid}]
-        if self.accumulator is not None:
-            self.accumulator.append(requests)
-            self.accumulated_request_len += len(requests)
-            if self.accumulated_request_len >= 1024*1024:
-                upd_str = ''.join(
-                    ''.join(request) for request in self.accumulator)
-                self._publish_to_ifmap('update', upd_str)
-                self.accumulator = []
-                self.accumulated_request_len = 0
-        else:
-            upd_str = ''.join(requests)
-            self._publish_to_ifmap('update', upd_str)
+        upd_str = ''.join(requests)
+        self._publish_to_ifmap_enqueue('update', upd_str)
     # end _publish_update
 
     def fq_name_to_ifmap_id(self, obj_type, fq_name):
@@ -1112,13 +1114,11 @@ class VncDbClient(object):
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
         mapclient = self._ifmap_db._mapclient
-        self._ifmap_db.accumulator = []
-        self._ifmap_db.accumulated_request_len = 0
         start_time = datetime.datetime.utcnow()
         self._cassandra_db.walk(self._dbe_resync)
+        self._ifmap_db._publish_to_ifmap_enqueue('publish_discovery', 1)
         self.config_log("Cassandra DB walk completed.",
             level=SandeshLevel.SYS_INFO)
-        self._ifmap_db.publish_accumulated()
         self._update_default_quota()
         end_time = datetime.datetime.utcnow()
         msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
