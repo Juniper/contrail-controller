@@ -176,9 +176,9 @@ def _access_control_list_update(acl_obj, name, obj, entries):
         try:
             _vnc_lib.access_control_list_create(acl_obj)
             return acl_obj
-        except BadRequest as e:
+        except (NoIdError, BadRequest) as e:
             _sandesh._logger.error(
-                "Bad request while creating acl %s for %s: %s",
+                "Error while creating acl %s for %s: %s",
                 name, obj.get_fq_name_str(), str(e))
         return None
     else:
@@ -1339,8 +1339,10 @@ class SecurityGroupST(DictST):
         sg = cls._dict.get(name)
         if sg is None:
             return
-        _vnc_lib.access_control_list_delete(id=sg.ingress_acl.uuid)
-        _vnc_lib.access_control_list_delete(id=sg.egress_acl.uuid)
+        if sg.ingress_acl:
+            _vnc_lib.access_control_list_delete(id=sg.ingress_acl.uuid)
+        if sg.egress_acl:
+            _vnc_lib.access_control_list_delete(id=sg.egress_acl.uuid)
         sg_id = sg.obj.get_security_group_id()
         if sg_id is not None and not sg.config_sgid:
             if sg_id < SGID_MIN_ALLOC:
@@ -1757,6 +1759,10 @@ class ServiceChain(DictST):
 
             for service_vm in vm_refs:
                 vm_obj = VirtualMachineST.get(':'.join(service_vm['to']))
+                if vm_obj is None:
+                    _sandesh._logger.info('virtual machine %s not found' %
+                                          service_vm['to'])
+                    continue
                 if transparent:
                     result = self.process_transparent_service(
                         service_vm['uuid'], vm_obj, sc_ip_address, service_ri1,
