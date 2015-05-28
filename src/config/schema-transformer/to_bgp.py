@@ -275,12 +275,13 @@ class VirtualNetworkST(DictST):
             self._default_ri_name = self.obj.name
             ri_obj = self.locate_routing_instance(self._default_ri_name, None,
                                                   ri_dict)
-            # if primary RI is connected to another primary RI, we need to 
-            # also create connection between the VNs
-            for connection in ri_obj.connections:
-                remote_ri_fq_name = connection.split(':')
-                if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
-                    self.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
+            if ri_obj is not None:
+                # if primary RI is connected to another primary RI, we need to
+                # also create connection between the VNs
+                for connection in ri_obj.connections:
+                    remote_ri_fq_name = connection.split(':')
+                    if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
+                        self.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
 
         for ri in self.obj.get_routing_instances() or []:
             ri_name = ri['to'][-1]
@@ -847,6 +848,8 @@ class VirtualNetworkST(DictST):
                                          import_export="import")
         update = False
         static_route_entries = left_ri.obj.get_static_route_entries()
+        if static_route_entries is None:
+            return
         for static_route in static_route_entries.get_route() or []:
             if static_route.prefix != prefix:
                 continue
@@ -2697,7 +2700,7 @@ class SchemaTransformer(object):
             if ri.parent_uuid not in vn_id_list:
                 delete = True
             else:
-                ri_name = ri.get_fq_name_str()
+                ri_name = ri.get_fq_name()[-1]
                 # if the RI was for a service chain and service chain no
                 # longer exists, delete the RI
                 sc_id = VirtualNetworkST._get_service_id_from_ri(ri_name)
