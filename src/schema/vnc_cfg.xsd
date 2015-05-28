@@ -118,20 +118,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
-<xsd:simpleType name="ProtocolType">
-    <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="tcp"/>
-        <xsd:enumeration value="udp"/>
-        <xsd:enumeration value="icmp"/>
-        <xsd:enumeration value="any"/>
-        <xsd:enumeration value="1"/>
-        <xsd:enumeration value="6"/>
-        <xsd:enumeration value="17"/>
-    </xsd:restriction>
-</xsd:simpleType>
-<!--#IFMAP-SEMANTICS-IDL 
-     Type('ProtocolType', ['string-enum']) -->
-
 <xsd:complexType name="AddressType">
     <xsd:choice>
         <xsd:element name="subnet" type="SubnetType"/>
@@ -232,7 +218,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="rule-sequence"    type="SequenceType"/> <!-- dummy till ui etc. remove it -->
         <xsd:element name="rule-uuid"        type="xsd:string"/>
         <xsd:element name="direction"        type="DirectionType"/>
-        <xsd:element name="protocol"         type="ProtocolType"/>
+        <xsd:element name="protocol"         type="xsd:string"/>
         <xsd:element name="src-addresses"      type="AddressType"
                                              maxOccurs="unbounded"/>
         <xsd:element name="src-ports"         type="PortType"
