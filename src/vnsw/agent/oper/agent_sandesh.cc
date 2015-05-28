@@ -765,3 +765,22 @@ void AgentInitStateReq::HandleRequest() const {
     }
     resp->Response();
 }
+
+void VrouterObjectLimitsReq::HandleRequest() const {
+   VrouterObjectLimitsResp *resp = new VrouterObjectLimitsResp();
+   resp->set_context(context());
+
+   Agent *agent = Agent::GetInstance();
+   VrouterObjectLimits vr_limits;
+   vr_limits.set_max_labels(agent->vrouter_max_labels());
+   vr_limits.set_max_nexthops(agent->vrouter_max_nexthops());
+   vr_limits.set_max_interfaces(agent->vrouter_max_interfaces());
+   vr_limits.set_max_vrfs(agent->vrouter_max_vrfs());
+   vr_limits.set_max_mirror_entries(agent->vrouter_max_mirror_entries());
+   vr_limits.set_vrouter_max_bridge_entries(agent->vrouter_max_bridge_entries());
+   vr_limits.set_vrouter_max_oflow_bridge_entries(agent->
+           vrouter_max_oflow_bridge_entries());
+   vr_limits.set_vrouter_build_info(agent->vrouter_build_info());
+   resp->set_vrouter_object_limit(vr_limits);
+   resp->Response();
+}
