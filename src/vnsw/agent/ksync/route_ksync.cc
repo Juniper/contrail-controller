@@ -367,7 +367,8 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
     // IF multicast or EVPN delete unconditionally
     if (rt_type_ == RT_MCAST || rt_type_ == RT_LAYER2) {
-        return DeleteInternal(nh(), 0, 0, false, buf, buf_len);
+        return DeleteInternal(nh(), 0, 0, false, false, false,
+                              buf, buf_len);
     }
 
     // For INET routes, we need to give replacement NH and prefixlen
@@ -391,7 +392,9 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
                 if(ksync_nh && ksync_nh->IsResolved()) {
                     return DeleteInternal(ksync_nh, route->label(),
                                           route->prefix_len(),
-                                          route->proxy_arp(), buf, buf_len);
+                                          route->proxy_arp(), route->flood(),
+                                          route->wait_for_traffic(),
+                                          buf, buf_len);
                 }
                 ksync_nh = NULL;
             }
@@ -410,16 +413,20 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
         ksync_nh = static_cast<NHKSyncEntry *>(ksync_nh_object->Find(&nh_key));
     }
 
-    return DeleteInternal(ksync_nh, 0, 0, false, buf, buf_len);
+    return DeleteInternal(ksync_nh, 0, 0, false, false, false, buf, buf_len);
+
 }
 
 
 int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
                                     uint8_t replace_plen, bool proxy_arp,
+                                    bool flood_arp, bool wait_for_traffic,
                                     char *buf, int buf_len) {
     nh_ = nexthop;
     label_ = lbl;
     proxy_arp_ = proxy_arp;
+    flood_ = flood_arp;
+    wait_for_traffic_ = wait_for_traffic;
 
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
