@@ -960,6 +960,18 @@ class SecurityGroupServer(SecurityGroupServerGen):
     # end http_post_collection
 
     @classmethod
+    def _validate_protocol(cls, rule):
+        protocol = rule['protocol']
+        if protocol.isdigit():
+            if int(protocol) < 0 or int(protocol) > 255:
+                return False
+        else:
+            valids = ['any', 'icmp', 'tcp', 'udp']
+            if protocol not in valids:
+                return False
+        return True
+
+    @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
         (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
         if not ok:
@@ -970,6 +982,9 @@ class SecurityGroupServer(SecurityGroupServerGen):
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
         if 'security_group_entries' in obj_dict:
+            for rule in obj_dict['security_group_entries']['policy_rule']:
+                if not cls._validate_protocol(rule):
+                    return (False, (400, 'Rule with invalid protocol : %s' % rule['protocol']))
             rule_count = len(obj_dict['security_group_entries']['policy_rule'])
             obj_type = 'security-group-rule'
             for sg in proj_dict.get('security_groups', []):
