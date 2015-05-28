@@ -110,6 +110,7 @@ class InstanceManager {
     InstanceState *GetState(InstanceTask* task) const;
     void SetState(ServiceInstance *svc_instance, InstanceState *state);
     void ClearState(ServiceInstance *svc_instance);
+    bool DeleteState(ServiceInstance *svc_instance);
     void UpdateStateStatusType(InstanceTask* task, int status);
 
     void SetLastCmdType(ServiceInstance *svc_instance, int last_cmd_type);
@@ -215,6 +216,21 @@ class InstanceState : public DBState {
         return status_type_;
     }
 
+    int tasks_running() const {
+        return tasks_running_;
+    }
+
+    int incr_tasks_running() {
+        return ++tasks_running_;
+    }
+
+    int decr_tasks_running() {
+        tasks_running_--;
+        assert(!(tasks_running_ < 0));
+        return tasks_running_;
+    }
+
+
     void Clear();
 
  private:
@@ -223,6 +239,7 @@ class InstanceState : public DBState {
     std::string errors_;
     std::string cmd_;
     int status_type_;
+    int tasks_running_;
 
     ServiceInstance::Properties properties_;
 
