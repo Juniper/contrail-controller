@@ -718,8 +718,6 @@ class SvcMonitor(object):
             self._create_service_instance(si)
 
     def _check_service_running(self, si):
-        if si.state != 'active':
-            return
         st = ServiceTemplateSM.get(si.service_template)
         if st.virtualization_type == 'virtual-machine':
             status = self.vm_manager.check_service(si)
