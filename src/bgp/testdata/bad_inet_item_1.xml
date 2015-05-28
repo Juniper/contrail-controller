@@ -1,0 +1,26 @@
+<item>
+    <entry>
+        <nlri>
+            <af>1</af>
+            <safi>1</safi>
+            <address>10.1.1.1/32</address>
+        </nlri>
+        <next-hops>
+            <next-hop>
+                <af>1</af>
+                <address>192.168.1.1</address>
+                <label>10000</label>
+                <tunnel-encapsulation-list>
+                    <tunnel-encapsulation>gre</tunnel-encapsulation>
+                </tunnel-encapsulation-list>
+            </next-hop>
+        </next-hops>
+        <version>ZZZZZZ</version> <!-- XXXXXXXXXXXXXXX -->
+        <virtual-network></virtual-network>
+        <sequence-number>0</sequence-number>
+        <security-group-list>
+            <security-group>7999998</security-group>>
+        </security-group-list>
+        <local-preference>100</local-preference>
+    </entry>
+</item>
