@@ -446,9 +446,18 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
             s_right = NodeStateLocate(link->right());
             add_link = true;
         } else {
-            assert(state->HasDependency());
-            s_left = state->left();
-            s_right = state->right();
+            if (state->IsValid()) {
+                // Link change
+                assert(state->HasDependency());
+                s_left = state->left();
+                s_right = state->right();
+            } else {
+                // Link revival i.e. delete quickly followed by add
+                assert(!state->HasDependency());
+                s_left = NodeStateLocate(link->left());
+                s_right = NodeStateLocate(link->right());
+                add_link = true;
+            }
         }
 
         // If one of the nodes is a vswitch node, then the interest mask
