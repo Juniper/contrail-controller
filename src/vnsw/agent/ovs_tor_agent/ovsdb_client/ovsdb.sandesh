@@ -6,10 +6,19 @@
   Sandesh definitions for OVSDB Client
  ****************************************************************************/
 
+struct SandeshOvsdbTxnStats {
+    1: u64 txn_initiated;
+    2: u64 txn_succeeded;
+    3: u64 txn_failed;
+    4: u64 txn_pending;
+}
+
 struct SandeshOvsdbClientSession {
     1: string status;
     2: string remote_ip;
     3: u16 remote_port;
+    4: string connection_time;
+    5: SandeshOvsdbTxnStats txn_stats;
 }
 
 struct SandeshOvsdbClient {
