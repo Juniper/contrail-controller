@@ -76,6 +76,7 @@ class NeutronPluginInterface(object):
 
         global LOG
         LOG = sandesh.logger()
+        self.logger = LOG
 
     def _connect_to_db(self):
         """

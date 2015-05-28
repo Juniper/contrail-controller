@@ -712,6 +712,9 @@ class DBInterface(object):
                 port_info = self._port_vnc_to_neutron(port_obj, memo_req)
             except NoIdError:
                 continue
+            except Exception as e:
+                self.manager.logger.error("Error in _port_list: %s", str(e))
+                continue
             ret_q_ports.append(port_info)
 
         return ret_q_ports
@@ -2295,7 +2298,10 @@ class DBInterface(object):
                                                         net_repr='LIST')
                     ret_dict[net_id] = net_info
                 except NoIdError:
-                    pass
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in network_list: %s", str(e))
+                    continue
         #end _collect_without_prune
 
         # collect phase
@@ -2349,14 +2355,26 @@ class DBInterface(object):
             if filters['shared'][0] == True:
                 nets = self._network_list_shared()
                 for net in nets:
-                    net_info = self._network_vnc_to_neutron(net,
-                                                            net_repr='LIST')
+                    try:
+                        net_info = self._network_vnc_to_neutron(net,
+                                                                net_repr='LIST')
+                    except NoIdError:
+                        continue
+                    except Exception as e:
+                        self.manager.logger.error("Error in network_list: %s", str(e))
+                        continue
                     ret_dict[net.uuid] = net_info
         elif filters and 'router:external' in filters:
             nets = self._network_list_router_external()
             if filters['router:external'][0] == True:
                 for net in nets:
-                    net_info = self._network_vnc_to_neutron(net, net_repr='LIST')
+                    try:
+                        net_info = self._network_vnc_to_neutron(net, net_repr='LIST')
+                    except NoIdError:
+                        continue
+                    except Exception as e:
+                        self.manager.logger.error("Error in network_list: %s", str(e))
+                        continue
                     ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
@@ -2385,7 +2403,11 @@ class DBInterface(object):
                                                         net_repr='LIST')
             except NoIdError:
                 continue
+            except Exception as e:
+                self.manager.logger.error("Error in network_list: %s", str(e))
+                continue
             ret_dict[net_obj.uuid] = net_info
+
         ret_list = []
         for net in ret_dict.values():
             ret_list.append(net)
@@ -2652,9 +2674,13 @@ class DBInterface(object):
                 for ipam_ref in ipam_refs:
                     subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                     for subnet_vnc in subnet_vncs:
-                        sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
-                                                              net_obj,
-                                                              ipam_ref['to'])
+                        try:
+                            sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
+                                                                  net_obj,
+                                                                  ipam_ref['to'])
+                        except Exception as e:
+                            self.manager.logger.error("Error in subnets_list: %s", str(e))
+                            continue
                         sn_id = sn_info['id']
                         sn_proj_id = sn_info['tenant_id']
                         sn_net_id = sn_info['network_id']
@@ -2755,7 +2781,13 @@ class DBInterface(object):
                 proj_ipam_id = proj_ipam['uuid']
                 if not self._filters_is_present(filters, 'id', proj_ipam_id):
                     continue
-                ipam_info = self.ipam_read(proj_ipam['uuid'])
+                try:
+                    ipam_info = self.ipam_read(proj_ipam['uuid'])
+                except NoIdError:
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in ipam_list: %s", str(e))
+                    continue
                 ret_list.append(ipam_info)
 
         return ret_list
@@ -2833,7 +2865,13 @@ class DBInterface(object):
                 proj_policy_id = proj_policy['uuid']
                 if not self._filters_is_present(filters, 'id', proj_policy_id):
                     continue
-                policy_info = self.policy_read(proj_policy['uuid'])
+                try:
+                    policy_info = self.policy_read(proj_policy['uuid'])
+                except NoIdError:
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in policy_list: %s", str(e))
+                    continue
                 ret_list.append(policy_info)
 
         return ret_list
@@ -3132,8 +3170,14 @@ class DBInterface(object):
             for rtr_id in filters['id']:
                 try:
                     rtr_obj = self._logical_router_read(rtr_id)
-                    rtr_info = self._router_vnc_to_neutron(rtr_obj,
+                    try:
+                        rtr_info = self._router_vnc_to_neutron(rtr_obj,
                                                            rtr_repr='LIST')
+                    except NoIdError:
+                        continue
+                    except Exception as e:
+                        self.manager.logger.error("Error in router_list: %s", str(e))
+                        continue
                     ret_list.append(rtr_info)
                 except NoIdError:
                     pass
@@ -3393,7 +3437,13 @@ class DBInterface(object):
                 if (fip_obj.get_floating_ip_address() not in
                         filters['floating_ip_address']):
                     continue
-            ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
+            try:
+                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
+            except NoIdError:
+                continue
+            except Exception as e:
+                self.manager.logger.error("Error in floatingip_list: %s", str(e))
+                continue
 
         return ret_list
     #end floatingip_list
@@ -3798,7 +3848,13 @@ class DBInterface(object):
                 if not self._filters_is_present(filters, 'name',
                                                 sg_obj.get_display_name() or sg_obj.name):
                     continue
-                sg_info = self._security_group_vnc_to_neutron(sg_obj)
+                try:
+                    sg_info = self._security_group_vnc_to_neutron(sg_obj)
+                except NoIdError:
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in security_group_list: %s", str(e))
+                    continue
                 ret_list.append(sg_info)
 
         return ret_list
@@ -3925,7 +3981,13 @@ class DBInterface(object):
                 # TODO implement same for name specified in filter
                 if not self._filters_is_present(filters, 'id', sg_obj.uuid):
                     continue
-                sgr_info = self.security_group_rules_read(sg_obj.uuid, sg_obj)
+                try:
+                    sgr_info = self.security_group_rules_read(sg_obj.uuid, sg_obj)
+                except NoIdError:
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in security_group_rule_list: %s", str(e))
+                    continue
                 if sgr_info:
                     ret_list.extend(sgr_info)
 
@@ -3994,7 +4056,13 @@ class DBInterface(object):
                 proj_rt_id = proj_rt['uuid']
                 if not self._filters_is_present(filters, 'id', proj_rt_id):
                     continue
-                rt_info = self.route_table_read(proj_rt_id)
+                try:
+                    rt_info = self.route_table_read(proj_rt_id)
+                except NoIdError:
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in route_table_list: %s", str(e))
+                    continue
                 if not self._filters_is_present(filters, 'name',
                                                 rt_info['name']):
                     continue
@@ -4054,7 +4122,13 @@ class DBInterface(object):
                 proj_si_id = proj_si['uuid']
                 if not self._filters_is_present(filters, 'id', proj_si_id):
                     continue
-                si_info = self.svc_instance_read(proj_si_id)
+                try:
+                    si_info = self.svc_instance_read(proj_si_id)
+                except NoIdError:
+                    continue
+                except Exception as e:
+                    self.manager.logger.error("Error in svc_instance_list: %s", str(e))
+                    continue
                 if not self._filters_is_present(filters, 'name',
                                                 si_info['name']):
                     continue
