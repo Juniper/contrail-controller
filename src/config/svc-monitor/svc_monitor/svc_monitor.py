@@ -613,10 +613,6 @@ class SvcMonitor(object):
             # cleanup service instance
             return 'DELETE'
 
-        # check status only if service is active
-        if si_info['state'] != 'active':
-            return ''
-
         if si_info['instance_type'] == 'virtual-machine':
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
             status = self.vm_manager.check_service(si_obj, proj_name)
