@@ -6,6 +6,39 @@
 
 #include "uve/agent_uve_stats.h"
 
+class ProuterUveSendTask : public Task {
+public:
+    ProuterUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->prouter_uve_table()->TimerExpiry();
+        return true;
+    }
+};
+
+class PIUveSendTask : public Task {
+public:
+    PIUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->prouter_uve_table()->PITimerExpiry();
+        return true;
+    }
+};
+
+class LIUveSendTask : public Task {
+public:
+    LIUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->prouter_uve_table()->LITimerExpiry();
+        return true;
+    }
+};
+
 class AgentStatsCollectorTask : public Task {
 public:
     AgentStatsCollectorTask(int count) :
@@ -86,6 +119,21 @@ public:
 
 class TestUveUtil {
 public:
+    void EnqueueSendProuterUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        ProuterUveSendTask *task = new ProuterUveSendTask();
+        scheduler->Enqueue(task);
+    }
+    void EnqueueSendPIUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        PIUveSendTask *task = new PIUveSendTask();
+        scheduler->Enqueue(task);
+    }
+    void EnqueueSendLIUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        LIUveSendTask *task = new LIUveSendTask();
+        scheduler->Enqueue(task);
+    }
     void EnqueueAgentStatsCollectorTask(int count) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         AgentStatsCollectorTask *task = new AgentStatsCollectorTask(count);

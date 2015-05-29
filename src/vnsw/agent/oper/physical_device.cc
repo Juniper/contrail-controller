@@ -68,9 +68,11 @@ void PhysicalDevice::SetKey(const DBRequestKey *key) {
     uuid_ = k->uuid_;
 }
 
-bool PhysicalDevice::Copy(const PhysicalDeviceTable *table,
-                               const PhysicalDeviceData *data) {
+bool PhysicalDevice::Copy(PhysicalDeviceTable *table,
+                          const PhysicalDeviceData *data) {
     bool ret = false;
+    bool ip_updated = false;
+    IpAddress old_ip;
 
     if (fq_name_ != data->fq_name_) {
         fq_name_ = data->fq_name_;
@@ -88,6 +90,8 @@ bool PhysicalDevice::Copy(const PhysicalDeviceTable *table,
     }
 
     if (ip_ != data->ip_) {
+        old_ip = ip_;
+        ip_updated = true;
         ip_ = data->ip_;
         ret = true;
     }
@@ -106,6 +110,10 @@ bool PhysicalDevice::Copy(const PhysicalDeviceTable *table,
     if (protocol_ != proto) {
         protocol_ = proto;
         ret = true;
+    }
+
+    if (ip_updated) {
+        table->UpdateIpToDevMap(old_ip, ip_, this);
     }
 
     return ret;
@@ -135,13 +143,14 @@ bool PhysicalDeviceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
     PhysicalDeviceData *data = static_cast<PhysicalDeviceData *>
         (req->data.get());
-    bool ret = dev->Copy(this, data);
+    bool ret = data->HandleChange(dev, this);
     dev->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
 
 bool PhysicalDeviceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
+    DeleteIpToDevEntry(dev->ip());
     dev->SendObjectLog(AgentLogEvent::DELETE);
     return true;
 }
@@ -245,6 +254,20 @@ bool PhysicalDeviceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
+bool PhysicalDeviceData::HandleChange(PhysicalDevice *dev,
+                                      PhysicalDeviceTable *table) {
+    return dev->Copy(table, this);
+}
+
+bool PhysicalDeviceTsnManagedData::HandleChange(PhysicalDevice *dev,
+                                      PhysicalDeviceTable *table) {
+    if (dev->master() != master_) {
+        dev->set_master(master_);
+        return true;
+    }
+    return false;
+
+}
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
@@ -271,6 +294,7 @@ static void SetDeviceSandeshData(const PhysicalDevice *entry,
     data->set_vendor(entry->vendor());
     data->set_ip_address(entry->ip().to_string());
     data->set_management_protocol(ToString(entry->protocol()));
+    data->set_master(entry->master());
 }
 
 bool PhysicalDevice::DBEntrySandesh(Sandesh *resp, std::string &name)
@@ -330,4 +354,34 @@ void PhysicalDevice::SendObjectLog(AgentLogEvent::type event) const {
     info.set_management_protocol(::ToString(protocol_));
     info.set_ref_count(GetRefCount());
     DEVICE_OBJECT_LOG_LOG("Device", SandeshLevel::SYS_INFO, info);
+}
+
+void PhysicalDeviceTable::UpdateIpToDevMap(IpAddress old_ip, IpAddress new_ip,
+                                           PhysicalDevice *p) {
+    DeleteIpToDevEntry(old_ip);
+    if (!new_ip.is_unspecified()) {
+        IpToDeviceMap::iterator it = ip_tree_.find(new_ip);
+        if (it == ip_tree_.end()) {
+            ip_tree_.insert(IpToDevicePair(new_ip, p));
+        }
+    }
+}
+
+void PhysicalDeviceTable::DeleteIpToDevEntry(IpAddress ip) {
+    if (!ip.is_unspecified()) {
+        IpToDeviceMap::iterator it = ip_tree_.find(ip);
+        if (it != ip_tree_.end()) {
+            ip_tree_.erase(it);
+        }
+    }
+}
+
+PhysicalDevice *PhysicalDeviceTable::IpToPhysicalDevice(IpAddress ip) {
+    if (!ip.is_unspecified()) {
+        IpToDeviceMap::iterator it = ip_tree_.find(ip);
+        if (it != ip_tree_.end()) {
+            return it->second;
+        }
+    }
+    return NULL;
 }

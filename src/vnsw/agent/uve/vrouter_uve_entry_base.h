@@ -30,6 +30,11 @@ public:
         bool vmport_ipv4_active_;
         bool vmport_l2_active_;
     };
+    struct VrouterPhysicalDeviceState : public DBState {
+        VrouterPhysicalDeviceState() : master_(false) {}
+        bool master_;
+    };
+
     // The below const values are dependent on value of
     // VrouterStatsCollector::VrouterStatsInterval
     static const uint8_t bandwidth_mod_1min = 2;
@@ -50,10 +55,12 @@ public:
     void VnWalkDone(DBTableBase *base, StringVectorPtr list);
     bool AppendInterface(DBTablePartBase *part, DBEntryBase *entry,
                          StringVectorPtr intf_list, StringVectorPtr err_list,
-                         StringVectorPtr nova_if_list);
+                         StringVectorPtr nova_if_list,
+                         StringVectorPtr unmanaged_list);
     void InterfaceWalkDone(DBTableBase *base, StringVectorPtr if_l,
                            StringVectorPtr err_if_l,
-                           StringVectorPtr nova_if_l);
+                           StringVectorPtr nova_if_l,
+                           StringVectorPtr unmanaged_list);
     virtual bool SendVrouterMsg();
     void SendVrouterProuterAssociation(const std::vector<std::string> &list);
     bool TimerExpiry();
@@ -61,6 +68,7 @@ protected:
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;
     VrouterStatsAgent prev_stats_;
+    VrouterAgent prev_vrouter_;
     uint8_t cpu_stats_count_;
     bool do_vn_walk_;
     bool do_vm_walk_;
@@ -78,6 +86,7 @@ private:
     //in derived class they need to be non-const
     virtual void DispatchVrouterMsg(const VrouterAgent &uve);
     void BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info);
+    void PhysicalDeviceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -90,11 +99,15 @@ private:
     void SubnetToStringList(VirtualGatewayConfig::SubnetList &l1,
                             std::vector<std::string> &l2);
     void BuildAgentConfig(VrouterAgent &vrouter_agent);
+    void AppendInterfaceInternal(const VmInterface *port,
+        StringVectorPtr intf_list, StringVectorPtr err_if_list);
+    PhysicalDevice *VmiToPhysicalDevice(const VmInterface *port);
+    PhysicalDevice *InterfaceToPhysicalDevice(Interface *intf);
 
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
-    VrouterAgent prev_vrouter_;
+    DBTableBase::ListenerId physical_device_listener_id_;
     Timer *timer_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntryBase);
 };
