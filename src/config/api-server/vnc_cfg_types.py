@@ -778,12 +778,13 @@ class VirtualDnsServer(VirtualDnsServerGen):
 
     @classmethod
     def validate_dns_server(cls, obj_dict, db_conn):
-        virtual_dns = obj_dict['fq_name'][1]
-        disallowed = re.compile("[^A-Z\d-]", re.IGNORECASE)
-        if disallowed.search(virtual_dns) or virtual_dns.startswith("-"):
-            return (False, (403,
-                    "Special characters are not allowed in " +
-                    "Virtual DNS server name"))
+        if 'fq_name' in obj_dict:
+            virtual_dns = obj_dict['fq_name'][1]
+            disallowed = re.compile("[^A-Z\d-]", re.IGNORECASE)
+            if disallowed.search(virtual_dns) or virtual_dns.startswith("-"):
+                return (False, (403,
+                        "Special characters are not allowed in " +
+                        "Virtual DNS server name"))
 
         vdns_data = obj_dict['virtual_DNS_data']
         if not cls.is_valid_dns_name(vdns_data['domain_name']):

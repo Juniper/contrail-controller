@@ -71,11 +71,18 @@ class TestCrudBasic(object):
     # end tearDown
 
     def test_virtual_DNS_crud(self):
-        pass
+        vdns_fixt = self.useFixture(VirtualDnsTestFixtureGen(self._vnc_lib))
+        vdns = vdns_fixt._obj
+        d = vdns.get_virtual_DNS_data()
+        d.set_domain_name('test-domain')
+        vdns.set_virtual_DNS_data(d)
+        self._vnc_lib.virtual_DNS_update(vdns)
     # end test_virtual_DNS_crud
 
     def test_virtual_DNS_record_crud(self):
-        pass
+        vdns_fixt = self.useFixture(VirtualDnsTestFixtureGen(self._vnc_lib))
+        self.useFixture(VirtualDnsRecordTestFixtureGen(self._vnc_lib,
+                                                       parent_fixt=vdns_fixt))
     # end test_virtual_DNS_record_crud
 
     def test_access_control_list_crud(self):
@@ -106,16 +113,6 @@ class TestCrudBasic(object):
         # update id, verify fails
         pass
     # end test_id_perms
-
-    def test_access_control_list_crud(self):
-        sg_fixt = self.useFixture(SecurityGroupTestFixtureGen(self._vnc_lib))
-        self.useFixture(AccessControlListTestFixtureGen(
-            self._vnc_lib, parent_fixt=sg_fixt))
-
-        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib))
-        self.useFixture(AccessControlListTestFixtureGen(
-            self._vnc_lib, parent_fixt=vn_fixt))
-    # end test_access_control_list_crud
 # end class TestCrudBasic
 
 
