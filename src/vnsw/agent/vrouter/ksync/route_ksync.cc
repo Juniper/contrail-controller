@@ -602,18 +602,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     }
 
     /* If better route is not found, send discardNH for route */
-    DiscardNHKey nh_oper_key;
-    NextHop *nexthop = static_cast<NextHop *>
-        (ksync_obj_->ksync()->agent()->nexthop_table()->
-                     FindActiveEntry(&nh_oper_key));
-    if (nexthop != NULL) {
-        NHKSyncObject *ksync_nh_object = 
-            ksync_obj_->ksync()->nh_ksync_obj();
-        NHKSyncEntry nh_key(ksync_nh_object, nexthop);
-        ksync_nh = static_cast<NHKSyncEntry *>(ksync_nh_object->Find(&nh_key));
-    }
-
-    return DeleteInternal(ksync_nh, NULL, buf, buf_len);
+    return DeleteInternal(NULL, NULL, buf, buf_len);
 }
 
 uint8_t RouteKSyncEntry::CopyReplacementData(NHKSyncEntry *nexthop,
