@@ -90,7 +90,7 @@ class VncIfmapClient(VncIfmapClientGen):
 
     def handler(self, signum, frame):
         file = open("/tmp/api-server-ifmap-cache.txt", "w")
-        file.write(str(self._id_to_metas))
+        file.write(pformat(self._id_to_metas))
         file.close()
 
     def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
