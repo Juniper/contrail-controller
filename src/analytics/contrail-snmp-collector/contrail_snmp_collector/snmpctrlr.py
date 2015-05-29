@@ -54,6 +54,7 @@ class Controller(object):
         self._mnt = MaxNinTtime(3, self._sleep_time)
         self._state = 'full_scan' # replace it w/ fsm
         self._if_data = None # replace it w/ fsm
+        self._cleanup = None
 
     def _make_if_cdata(self, data):
         if_cdata = {}
@@ -190,8 +191,11 @@ class Controller(object):
     def _run_scanner(self, input_file, output_file, i):
         proc = subprocess.Popen('contrail-snmp-scanner --input %s' % (
                     input_file), shell=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                close_fds=True)
+        self._cleanup = (proc, output_file)
         o,e = proc.communicate()
+        self._cleanup = None
         self._logger.debug('@run_scanner(%d): scan done with %d\nstdout:' \
                 '\n%s\nstderr:\n%s\n' % (i, proc.returncode, o, e))
         with open(output_file, 'rb') as f:
@@ -206,10 +210,11 @@ class Controller(object):
 
     def _send_uve(self, d):
         for dev, data in d.items():
-            self.uve.send(data['snmp'])
-            self.uve.send_flow_uve({'name': dev,
-                'flow_export_source_ip': data['flow_export_source_ip']})
-            self.find_fix_name(data['name'], dev)
+            if dev:
+                self.uve.send(data['snmp'])
+                self.uve.send_flow_uve({'name': dev,
+                    'flow_export_source_ip': data['flow_export_source_ip']})
+                self.find_fix_name(data['name'], dev)
         self._logger.debug('@send_uve:Processed %d!' % (len(d)))
 
     def _del_uves(self, l):
