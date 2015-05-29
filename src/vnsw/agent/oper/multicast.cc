@@ -16,6 +16,7 @@
 #include <oper/multicast.h>
 #include <oper/mirror_table.h>
 #include <oper/mpls.h>
+#include <oper/physical_device.h>
 #include <controller/controller_init.h>
 #include <controller/controller_route_path.h>
 
@@ -675,6 +676,49 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
+void MulticastHandler::EnqueueDeviceChange(const boost::uuids::uuid &u,
+                                           bool tsn_managed) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new PhysicalDeviceKey(u));
+
+    req.data.reset(new PhysicalDeviceTsnManagedData(agent_, tsn_managed));
+    agent_->physical_device_table()->Enqueue(&req);
+}
+
+void MulticastHandler::UpdateDeviceMastership(const TunnelOlist &olist) {
+    PhysicalDeviceSet new_set;
+    for (TunnelOlist::const_iterator it = olist.begin();
+         it != olist.end(); it++) {
+        PhysicalDevice *dev = agent_->physical_device_table()->
+            IpToPhysicalDevice(it->daddr_);
+        if (dev == NULL) {
+            continue;
+        }
+        /* Enqueue the change as true only if it was not earlier enqueued.
+         * List of previously enqueued devices (with tsn_managed as true) is
+         * present in managed_pd_set_ */
+        PhysicalDeviceSet::iterator pit = managed_pd_set_.find(dev->uuid());
+        if (pit == managed_pd_set_.end()) {
+            EnqueueDeviceChange(dev->uuid(), true);
+        }
+        new_set.insert(dev->uuid());
+    }
+
+    /* Iterate through the old managed physical device list. If any of them are
+     * not present in new list, enqueue change on those devices with tsn_managed
+     * as false */
+    PhysicalDeviceSet::iterator it = managed_pd_set_.begin();
+    while (it != managed_pd_set_.end()) {
+        PhysicalDeviceSet::iterator pit = new_set.find(*it);
+        if (pit == new_set.end()) {
+            EnqueueDeviceChange(*it, false);
+        }
+        ++it;
+    }
+    /* Replace old set with new */
+    managed_pd_set_ = new_set;
+}
+
 void MulticastHandler::ModifyTorMembers(const Peer *peer,
                                         const std::string &vrf_name,
                                         const TunnelOlist &olist,
@@ -682,6 +726,8 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
                                         uint64_t peer_identifier)
 {
     boost::system::error_code ec;
+
+    UpdateDeviceMastership(olist);
     Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
     MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     MCTRACE(Log, "TOR multicast handler ", vrf_name, grp.to_string(), 0);
@@ -717,7 +763,7 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
 }
 
 MulticastHandler::MulticastHandler(Agent *agent)
-        : agent_(agent),
+        : agent_(agent), managed_pd_set_(),
           vn_listener_id_(DBTable::kInvalidId),
           interface_listener_id_(DBTable::kInvalidId) { 
     obj_ = this; 

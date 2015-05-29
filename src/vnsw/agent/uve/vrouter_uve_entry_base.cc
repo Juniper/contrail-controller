@@ -23,15 +23,16 @@
 using namespace std;
 
 VrouterUveEntryBase::VrouterUveEntryBase(Agent *agent)
-    : agent_(agent), phy_intf_set_(), prev_stats_(), cpu_stats_count_(0),
-      do_vn_walk_(false), do_vm_walk_(false), do_interface_walk_(false),
+    : agent_(agent), phy_intf_set_(), prev_stats_(), prev_vrouter_(),
+      cpu_stats_count_(0), do_vn_walk_(false), do_vm_walk_(false),
+      do_interface_walk_(false),
       vn_walk_id_(DBTableWalker::kInvalidWalkerId),
       vm_walk_id_(DBTableWalker::kInvalidWalkerId),
       interface_walk_id_(DBTableWalker::kInvalidWalkerId),
       vn_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId),
       intf_listener_id_(DBTableBase::kInvalidId),
-      prev_vrouter_(),
+      physical_device_listener_id_(DBTableBase::kInvalidId),
       timer_(TimerManager::CreateTimer(
                  *(agent_->event_manager())->io_service(), "UveDBWalkTimer",
                  TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
@@ -77,6 +78,31 @@ bool VrouterUveEntryBase::Run() {
     return false;
 }
 
+void VrouterUveEntryBase::PhysicalDeviceNotify(DBTablePartBase *partition,
+                                               DBEntryBase *e) {
+    const PhysicalDevice *pr = static_cast<const PhysicalDevice *>(e);
+    VrouterPhysicalDeviceState *state = static_cast<VrouterPhysicalDeviceState *>
+        (e->GetState(partition->parent(), physical_device_listener_id_));
+    if (e->IsDeleted()) {
+        if (state) {
+            e->ClearState(partition->parent(), physical_device_listener_id_);
+            delete state;
+        }
+    } else {
+        if (!state) {
+            state = new VrouterPhysicalDeviceState();
+            e->SetState(partition->parent(), physical_device_listener_id_,
+                        state);
+            do_interface_walk_ = true;
+        } else {
+            if (state->tsn_managed_ != pr->tsn_managed()) {
+                do_interface_walk_ = true;
+            }
+        }
+        state->tsn_managed_ = pr->tsn_managed();
+    }
+}
+
 void VrouterUveEntryBase::RegisterDBClients() {
     VnTable *vn_table = agent_->vn_table();
     vn_listener_id_ = vn_table->Register
@@ -89,9 +115,16 @@ void VrouterUveEntryBase::RegisterDBClients() {
     InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
         (boost::bind(&VrouterUveEntryBase::InterfaceNotify, this, _1, _2));
+
+    PhysicalDeviceTable *pd_table = agent_->physical_device_table();
+    physical_device_listener_id_ = pd_table->Register
+        (boost::bind(&VrouterUveEntryBase::PhysicalDeviceNotify, this, _1, _2));
 }
 
 void VrouterUveEntryBase::Shutdown(void) {
+    if (physical_device_listener_id_ != DBTableBase::kInvalidId)
+        agent_->physical_device_table()->
+            Unregister(physical_device_listener_id_);
     if (intf_listener_id_ != DBTableBase::kInvalidId)
         agent_->interface_table()->Unregister(intf_listener_id_);
     if (vm_listener_id_ != DBTableBase::kInvalidId)
@@ -190,7 +223,12 @@ void VrouterUveEntryBase::VnWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
     vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_connected_networks(*(list.get()));
+    vrouter_agent.set_vn_count((*list).size());
     DispatchVrouterMsg(vrouter_agent);
+
+    //Update prev_vrouter_ fields. Currently used only in UT
+    prev_vrouter_.set_connected_networks(*(list.get()));
+    prev_vrouter_.set_vn_count((*list).size());
     vn_walk_id_ = DBTableWalker::kInvalidWalkerId;
 
     /* Start Vm Walk after we are done with Vn Walk */
@@ -256,18 +294,33 @@ void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
 void VrouterUveEntryBase::InterfaceWalkDone(DBTableBase *base,
                                         StringVectorPtr if_list,
                                         StringVectorPtr err_if_list,
-                                        StringVectorPtr nova_if_list) {
+                                        StringVectorPtr nova_if_list,
+                                        StringVectorPtr unmanaged_list) {
     VrouterAgent vrouter_agent;
     vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_interface_list(*(if_list.get()));
     vrouter_agent.set_error_intf_list(*(err_if_list.get()));
     vrouter_agent.set_no_config_intf_list(*(nova_if_list.get()));
+    if (agent_->tsn_enabled()) {
+        vrouter_agent.set_unmanaged_if_list(*(unmanaged_list.get()));
+        prev_vrouter_.set_unmanaged_if_list(*(unmanaged_list.get()));
+    }
+
     vrouter_agent.set_total_interface_count((if_list.get()->size() +
                                              nova_if_list.get()->size()));
     vrouter_agent.set_down_interface_count((err_if_list.get()->size() +
                                             nova_if_list.get()->size()));
     DispatchVrouterMsg(vrouter_agent);
     interface_walk_id_ = DBTableWalker::kInvalidWalkerId;
+
+    //Update prev_vrouter_ fields. This is being used now only for UT
+    prev_vrouter_.set_interface_list(*(if_list.get()));
+    prev_vrouter_.set_error_intf_list(*(err_if_list.get()));
+    prev_vrouter_.set_no_config_intf_list(*(nova_if_list.get()));
+    prev_vrouter_.set_total_interface_count
+        (vrouter_agent.get_total_interface_count());
+    prev_vrouter_.set_down_interface_count
+        (vrouter_agent.get_down_interface_count());
 
     /* Restart the timer after we are done with the walk */
     StartTimer();
@@ -277,7 +330,8 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
                                       DBEntryBase *entry,
                                       StringVectorPtr intf_list,
                                       StringVectorPtr err_if_list,
-                                      StringVectorPtr nova_if_list) {
+                                      StringVectorPtr nova_if_list,
+                                      StringVectorPtr unmanaged_list) {
     Interface *intf = static_cast<Interface *>(entry);
 
     if (intf->type() == Interface::VM_INTERFACE) {
@@ -286,14 +340,62 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
             if (port->cfg_name() == agent_->NullString()) {
                 nova_if_list.get()->push_back(UuidToString(port->GetUuid()));
             } else {
-                intf_list.get()->push_back(port->cfg_name());
-                if (!intf->ipv4_active() && !intf->l2_active()) {
-                    err_if_list.get()->push_back(port->cfg_name());
+                if (agent_->tsn_enabled()) {
+                    /* For TSN nodes send VMI in interface_list if the VMI's
+                     * physical device has tsn_enabled set to true. Otherwise
+                     * send the VMI in unmanaged_list */
+                    PhysicalDevice *pd = VmiToPhysicalDevice(port);
+                    if (!pd || !pd->tsn_managed()) {
+                        unmanaged_list.get()->push_back(port->cfg_name());
+                        return true;
+                    }
+                    AppendInterfaceInternal(port, intf_list, err_if_list);
+                } else {
+                    AppendInterfaceInternal(port, intf_list, err_if_list);
                 }
             }
         }
     }
     return true;
+}
+
+void VrouterUveEntryBase::AppendInterfaceInternal(const VmInterface *port,
+                                                  StringVectorPtr intf_list,
+                                                  StringVectorPtr err_if_list) {
+    intf_list.get()->push_back(port->cfg_name());
+    if (!port->ipv4_active() && !port->l2_active()) {
+        err_if_list.get()->push_back(port->cfg_name());
+    }
+}
+
+PhysicalDevice *VrouterUveEntryBase::VmiToPhysicalDevice
+    (const VmInterface *port) {
+    const boost::uuids::uuid u = port->logical_interface();
+    if (u == nil_uuid()) {
+        return NULL;
+    }
+    LogicalInterface *intf;
+    VlanLogicalInterfaceKey key(u, "");
+    intf = static_cast<LogicalInterface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    if (!intf || !intf->physical_interface()) {
+        return NULL;
+    }
+    return InterfaceToPhysicalDevice(intf->physical_interface());
+}
+
+PhysicalDevice *VrouterUveEntryBase::InterfaceToPhysicalDevice(Interface *intf) {
+    PhysicalDevice *pde = NULL;
+    const RemotePhysicalInterface *rpintf;
+    const PhysicalInterface *pintf;
+    if (intf->type() == Interface::REMOTE_PHYSICAL) {
+        rpintf = static_cast<const RemotePhysicalInterface *>(intf);
+        pde = rpintf->physical_device();
+    } else if (intf->type() == Interface::PHYSICAL) {
+        pintf = static_cast<const PhysicalInterface *>(intf);
+        pde = pintf->physical_device();
+    }
+    return pde;
 }
 
 bool VrouterUveEntryBase::StartInterfaceWalk() {
@@ -306,13 +408,14 @@ bool VrouterUveEntryBase::StartInterfaceWalk() {
     StringVectorPtr intf_list(new std::vector<std::string>());
     StringVectorPtr err_if_list(new std::vector<std::string>());
     StringVectorPtr nova_if_list(new std::vector<std::string>());
+    StringVectorPtr unmanaged_list(new std::vector<std::string>());
 
     DBTableWalker *walker = agent_->db()->GetWalker();
     interface_walk_id_ = walker->WalkTable(agent_->interface_table(), NULL,
         boost::bind(&VrouterUveEntryBase::AppendInterface, this, _1, _2,
-                    intf_list, err_if_list, nova_if_list),
-        boost::bind(&VrouterUveEntryBase::InterfaceWalkDone, this, _1, intf_list,
-                    err_if_list, nova_if_list));
+                    intf_list, err_if_list, nova_if_list, unmanaged_list),
+        boost::bind(&VrouterUveEntryBase::InterfaceWalkDone, this, _1, intf_list
+                    , err_if_list, nova_if_list, unmanaged_list));
     do_interface_walk_ = false;
     return true;
 }

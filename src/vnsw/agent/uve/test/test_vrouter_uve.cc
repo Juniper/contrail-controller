@@ -30,6 +30,7 @@
 #include <uve/test/vrouter_uve_entry_test.h>
 #include "uve/test/test_uve_util.h"
 #include "ksync/ksync_sock_user.h"
+#include "uve/test/prouter_uve_table_test.h"
 
 using namespace std;
 
@@ -60,6 +61,8 @@ VmInterface *flow0, *flow1;
 
 class UveVrouterUveTest : public ::testing::Test {
 public:
+    UveVrouterUveTest() : util_(), agent_(Agent::GetInstance()) {
+    }
     static void TestSetup() {
     }
     void EnqueueSendVrouterUveTask() {
@@ -68,7 +71,7 @@ public:
         scheduler->Enqueue(task);
     }
     void FlowSetUp() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -93,7 +96,7 @@ public:
         client->PortDelNotifyWait(2);
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
     }
 
     bool ValidateBmap(const std::vector<uint32_t> &smap, const std::vector<uint32_t> &dmap, 
@@ -267,11 +270,12 @@ public:
         return true;
     }
     TestUveUtil util_;
+    Agent *agent_;
 };
 
 TEST_F(UveVrouterUveTest, VmAddDel) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
 
     const VrouterAgent &uve = vr->last_sent_vrouter();
@@ -319,7 +323,7 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
 
 TEST_F(UveVrouterUveTest, VnAddDel) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
 
     const VrouterAgent &uve = vr->last_sent_vrouter();
@@ -334,6 +338,7 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
 
     EXPECT_EQ(1U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_connected_networks().size());
+    EXPECT_EQ(1U, uve.get_vn_count());
 
     util_.VnAdd(2);
     client->WaitForIdle();
@@ -343,6 +348,7 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
 
     EXPECT_EQ(2U, vr->vrouter_msg_count());
     EXPECT_EQ(2U, uve.get_connected_networks().size());
+    EXPECT_EQ(2U, uve.get_vn_count());
 
     util_.VnDelete(2);
     client->WaitForIdle();
@@ -352,6 +358,7 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
 
     EXPECT_EQ(3U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_connected_networks().size());
+    EXPECT_EQ(1U, uve.get_vn_count());
 
     util_.VnDelete(1);
     client->WaitForIdle();
@@ -361,13 +368,14 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
 
     EXPECT_EQ(4U, vr->vrouter_msg_count());
     EXPECT_EQ(0U, uve.get_connected_networks().size());
+    EXPECT_EQ(0U, uve.get_vn_count());
     vr->clear_count();
 }
 
 TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
     vr->ResetCpuStatsCount();
     util_.EnqueueVRouterStatsCollectorTask(1);
@@ -389,11 +397,11 @@ TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 }
 
 TEST_F(UveVrouterUveTest, DropStatsAddChange) {
-    Agent *agent = Agent::GetInstance();
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    Agent *agent = agent_;
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
 
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -463,11 +471,11 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_1) {
-    Agent *agent = Agent::GetInstance();
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    Agent *agent = agent_;
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
     //Reset bandwidth counter which controls when bandwidth is updated
     VrouterStatsAgent &uve = vr->prev_stats();
@@ -475,9 +483,9 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     vector<AgentIfBandwidth> empty_list;
     uve.set_phy_if_1min_usage(empty_list);
 
-    PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
+    PhysicalInterfaceKey key(agent_->params()->eth_port());
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
+        (agent_->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
@@ -532,16 +540,16 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_2) {
-    Agent *agent = Agent::GetInstance();
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    Agent *agent = agent_;
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
     VrouterStatsAgent &uve = vr->prev_stats();
 
-    PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
+    PhysicalInterfaceKey key(agent_->params()->eth_port());
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
+        (agent_->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
@@ -632,17 +640,17 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_3) {
-    Agent *agent = Agent::GetInstance();
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    Agent *agent = agent_;
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
     VrouterStatsAgent &uve = vr->prev_stats();
 
-    PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
+    PhysicalInterfaceKey key(agent_->params()->eth_port());
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
+        (agent_->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
@@ -732,11 +740,11 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
 }
 
 TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
-    Agent::GetInstance()->stats()->Reset();
+    agent_->stats()->Reset();
 
     u->vrouter_stats_collector()->run_counter_ = 0;
     util_.EnqueueVRouterStatsCollectorTask(1);
@@ -750,11 +758,11 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
     EXPECT_EQ(0U, uve.get_exception_packets_allowed());
 
     //Update exception stats 
-    Agent::GetInstance()->stats()->incr_pkt_exceptions();
-    Agent::GetInstance()->stats()->incr_pkt_exceptions();
-    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+    agent_->stats()->incr_pkt_exceptions();
+    agent_->stats()->incr_pkt_exceptions();
+    agent_->stats()->incr_pkt_exceptions();
 
-    Agent::GetInstance()->stats()->incr_pkt_dropped();
+    agent_->stats()->incr_pkt_dropped();
 
     //Run vrouter_stats_collector to update the UVE with updated exception stats
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -767,14 +775,14 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
     EXPECT_EQ(1U, uve.get_exception_packets_dropped());
     EXPECT_EQ(2U, uve.get_exception_packets_allowed());
     vr->clear_count();
-    Agent::GetInstance()->stats()->Reset();
+    agent_->stats()->Reset();
 }
 
 //Flow creation using IP and TCP packets
 TEST_F(UveVrouterUveTest, Bitmap_1) {
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
     vr->ResetPortBitmap();
 
@@ -798,9 +806,9 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
         }
     };
 
-    EXPECT_EQ(0, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0, agent_->pkt()->flow_table()->Size());
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
 
     u->vrouter_stats_collector()->run_counter_ = 0;
     util_.EnqueueVRouterStatsCollectorTask(1);
@@ -838,7 +846,7 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
     u->vrouter_stats_collector()->run_counter_ = 0;
     vr->clear_count();
     CreateFlow(flow2, 2);
-    EXPECT_EQ(8U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(8U, agent_->pkt()->flow_table()->Size());
 
     util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
@@ -860,9 +868,9 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
 
 /* Verifies agent configuration sent via vrouter UVE. */
 TEST_F(UveVrouterUveTest, config_1) {
-    AgentUveStats *u = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+        (agent_->uve()->vrouter_uve_entry());
     vr->clear_count();
     u->vrouter_stats_collector()->run_counter_ = 0;
     if (!vr->first_uve_dispatched()) {
@@ -897,9 +905,97 @@ TEST_F(UveVrouterUveTest, config_1) {
     }
 }
 
+TEST_F(UveVrouterUveTest, TSN_intf_list1) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (agent_->uve()->vrouter_uve_entry());
+    vr->clear_count();
+    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
+    ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
+        (u->prouter_uve_table());
+
+    agent_->set_tsn_enabled(true);
+    const VrouterAgent &uve = vr->last_sent_vrouter();
+    EXPECT_EQ(0U, vr->vrouter_msg_count());
+    EXPECT_EQ(0U, uve.get_interface_list().size());
+    EXPECT_EQ(0U, uve.get_unmanaged_if_list().size());
+
+    struct PortInfo input[] = {
+        {"vmi1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IntfCfgAdd(input, 0);
+    AddPhysicalDevice("prouter1", 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("li1", 1, "lid1");
+    AddPort("vmi1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("physical-interface", "pi1", "logical-interface", "li1");
+    AddLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) != NULL));
+    WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") != NULL));
+    WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") != NULL));
+    WAIT_FOR(1000, 500, (VmInterfaceGet(1) != NULL));
+
+    //Update tsn_managed flag for PhysicalDevice as 'true'
+    PhysicalDevice *pd = PhysicalDeviceGet(1);
+    MulticastHandler::GetInstance()->EnqueueDeviceChange(pd->uuid(), true);
+    client->WaitForIdle();
+
+    EnqueueSendVrouterUveTask();
+    client->WaitForIdle();
+    vr->WaitForWalkCompletion();
+
+    //Verify the UVEs
+    const VrouterAgent &uve2 = vr->prev_vrouter();
+    EXPECT_EQ(1U, uve2.get_interface_list().size());
+    EXPECT_EQ(0U, uve2.get_unmanaged_if_list().size());
+
+    //Update tsn_managed flag for PhysicalDevice as 'false'
+    MulticastHandler::GetInstance()->EnqueueDeviceChange(pd->uuid(), false);
+    client->WaitForIdle();
+
+    EnqueueSendVrouterUveTask();
+    client->WaitForIdle();
+    vr->WaitForWalkCompletion();
+
+    //Verify the UVEs
+    EXPECT_EQ(0U, uve2.get_interface_list().size());
+    EXPECT_EQ(1U, uve2.get_unmanaged_if_list().size());
+
+    //cleanup
+    DelLink("physical-interface", "pi1", "logical-interface", "li1");
+    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
+    DeleteLogicalInterface("li1");
+    DeletePhysicalInterface("pi1");
+    DeletePhysicalDevice("prouter1");
+    DelPort("vmi1");
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") == NULL));
+    WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) == NULL));
+    WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") == NULL));
+
+    util_.EnqueueSendProuterUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (pr->ProuterUveCount() == 0U));
+
+    util_.EnqueueSendPIUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+
+    util_.EnqueueSendLIUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (pr->LogicalIntfListCount() == 0U));
+    WAIT_FOR(1000, 500, (1U == pr->li_delete_count()));
+    agent_->set_tsn_enabled(false);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini", ksync_init,
+    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini",
+                      ksync_init,
                       true, false, true, (10 * 60 * 1000), (10 * 60 * 1000),
                       true, true, (10 * 60 * 1000));
 

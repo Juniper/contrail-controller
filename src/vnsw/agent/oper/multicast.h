@@ -141,6 +141,7 @@ private:
 class MulticastHandler {
 public:
     static const uint32_t kMulticastTimeout = 5 * 60 * 1000;
+    typedef std::set<boost::uuids::uuid> PhysicalDeviceSet;
     MulticastHandler(Agent *agent);
     virtual ~MulticastHandler() { }
 
@@ -221,6 +222,8 @@ public:
 
     const Agent *agent() const {return agent_;}
     void Terminate();
+    void UpdateDeviceMastership(const TunnelOlist &olist);
+    void EnqueueDeviceChange(const boost::uuids::uuid &u, bool tsn_managed);
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -272,6 +275,7 @@ private:
     std::set<MulticastGroupObject *> multicast_obj_list_;
     //Reference mapping of VM to participating multicast object list
     std::map<uuid, std::list<MulticastGroupObject *> > vm_to_mcobj_list_;
+    PhysicalDeviceSet managed_pd_set_;
 
     DBTable::ListenerId vn_listener_id_;
     DBTable::ListenerId interface_listener_id_;
