@@ -34,6 +34,8 @@ def parse_args(args_str):
         'admin_port': _ADMIN_PORT,
         'ifmap_server_ip': '127.0.0.1',
         'ifmap_server_port': "8443",
+        'ifmap_queue_size': 10000,
+        'ifmap_max_message_size': 1024*1024,
         'collectors': None,
         'http_server_port': '8084',
         'log_local': True,
@@ -121,6 +123,12 @@ def parse_args(args_str):
         "--ifmap_server_ip", help="IP address of ifmap server")
     parser.add_argument(
         "--ifmap_server_port", help="Port of ifmap server")
+    parser.add_argument(
+        "--ifmap_queue_size", help="Size of the queue that holds pending "
+                                   "messages to be sent to ifmap server")
+    parser.add_argument(
+        "--ifmap_max_message_size", help="Maximum size of message sent to "
+                                         "ifmap server")
 
     # TODO should be from certificate
     parser.add_argument(
