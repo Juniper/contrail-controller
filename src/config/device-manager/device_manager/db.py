@@ -11,6 +11,8 @@ from physical_router_config import PhysicalRouterConfig
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 import copy
+import gevent
+from gevent import queue
 
 class BgpRouterDM(DBBase):
     _dict = {}
@@ -90,6 +92,8 @@ class PhysicalRouterDM(DBBase):
         self.virtual_networks = set()
         self.bgp_router = None
         self.config_manager = None
+        self.nc_handler_gl = None
+        self.nc_q = queue.JoinableQueue(maxsize=1)
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
             self.management_ip, self.user_credentials, self.vendor,
@@ -134,6 +138,21 @@ class PhysicalRouterDM(DBBase):
             return True
         return False
     #end is_junos_service_ports_enabled
+
+    def set_config_state(self):
+        if self.nc_q.empty() == True:
+            self.nc_q.put(1)
+            if self.nc_handler_gl is None:
+                self.nc_handler_gl = gevent.spawn(self.nc_handler)
+    #end
+
+    def nc_handler(self):
+        try:
+            while self.nc_q.get(block = False) is not None:
+                self.push_config()
+        except queue.Empty:
+            self.nc_q.task_done()
+            self.nc_handler_gl = None
 
     def push_config(self):
         self.config_manager.reset_bgp_config()

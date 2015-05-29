@@ -251,7 +251,7 @@ class DeviceManager(object):
                     vn.update_instance_ip_map()
 
             for pr in PhysicalRouterDM.values():
-                pr.push_config()
+                pr.set_config_state()
         self._db_resync_done.set()
         while 1:
             # Just wait indefinitely
@@ -344,7 +344,7 @@ class DeviceManager(object):
         for pr_id in dependency_tracker.resources.get('physical_router', []):
             pr = PhysicalRouterDM.get(pr_id)
             if pr is not None:
-                pr.push_config()
+                pr.set_config_state()
 
     # end _vnc_subscribe_callback
 
