@@ -43,6 +43,8 @@ public:
     virtual uint32_t tx_keepalive() const;
     virtual uint32_t FlapCount() const;
     virtual std::string LastFlap() const;
+    virtual std::string AuthType() const;
+    virtual std::string PeerAddress() const;
 
     virtual void ProcessXmppMessage(const XmppStanza::XmppMessage *msg);
     void WriteReady(const boost::system::error_code &ec);
