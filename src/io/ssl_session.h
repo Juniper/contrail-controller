@@ -71,6 +71,13 @@ private:
     static void ConnectHandShakeHandler(TcpSessionPtr session, Endpoint remote,
                                         const boost::system::error_code& error);
 
+    // SslSession do actual ssl socket read for data in this context with
+    // session mutex held, to avoid concurrent read and write operations
+    // on same socket.
+    bool AsyncReadHandlerProcess(boost::asio::mutable_buffer buffer,
+                                 size_t &bytes_transferred,
+                                 boost::system::error_code &error);
+
     void AsyncReadSome(boost::asio::mutable_buffer buffer);
     std::size_t WriteSome(const uint8_t *data, std::size_t len,
                           boost::system::error_code &error);
