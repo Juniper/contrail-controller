@@ -139,9 +139,26 @@ void SslSession::ConnectHandShakeHandler(TcpSessionPtr session, Endpoint remote,
     }
 }
 
+bool SslSession::AsyncReadHandlerProcess(boost::asio::mutable_buffer buffer,
+                                         size_t &bytes_transferred,
+                                         boost::system::error_code &error) {
+    // no processing needed if ssl handshake is not complete.
+    if (!IsSslHandShakeSuccessLocked()) {
+        return false;
+    }
+
+    // do ssl read here in IO context, ignore errors
+    bytes_transferred = ssl_socket_->read_some(mutable_buffers_1(buffer), error);
+
+    return true;
+}
+
 void SslSession::AsyncReadSome(boost::asio::mutable_buffer buffer) {
     if (IsSslHandShakeSuccessLocked()) {
-        ssl_socket_->async_read_some(mutable_buffers_1(buffer),
+        // trigger read with null buffer to get indication for data available
+        // on the socket and then do the actuall socket read in
+        // AsyncReadHandlerProcess
+        socket()->async_read_some(boost::asio::null_buffers(),
             boost::bind(&TcpSession::AsyncReadHandler, SslSessionPtr(this), buffer,
                          boost::asio::placeholders::error,
                          boost::asio::placeholders::bytes_transferred));
