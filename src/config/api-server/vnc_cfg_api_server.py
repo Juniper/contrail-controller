@@ -1511,46 +1511,41 @@ class VncApiServer(VncApiServerGen):
         return {}
     # end
 
-    def publish(self, publish_api=True, publish_ifmap=True):
+    def publish_self_to_discovery(self):
         # publish API server
-        if publish_api:
-            data = {
-                'ip-address': self._args.ifmap_server_ip,
-                'port': self._args.listen_port,
-            }
-            self.api_server_task = self._disc.publish(
-                API_SERVER_DISCOVERY_SERVICE_NAME, data)
+        data = {
+            'ip-address': self._args.ifmap_server_ip,
+            'port': self._args.listen_port,
+        }
+        self.api_server_task = self._disc.publish(
+            API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
+    def publish_ifmap_to_discovery(self):
         # publish ifmap server
-        if publish_ifmap:
-            data = {
-                'ip-address': self._args.ifmap_server_ip,
-                'port': self._args.ifmap_server_port,
-            }
-            self.ifmap_task = self._disc.publish(
-                IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
-    # end
+        data = {
+            'ip-address': self._args.ifmap_server_ip,
+            'port': self._args.ifmap_server_port,
+        }
+        self.ifmap_task = self._disc.publish(
+            IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+    # end publish_ifmap_to_discovery
 
-    def un_publish(self, un_publish_api=True, un_publish_ifmap=True):
-        if un_publish_api:
-            # un publish api server
-            data = {
-                'ip-address': self._args.ifmap_server_ip,
-                'port': self._args.listen_port,
-            }
-            self._disc.un_publish(
-                API_SERVER_DISCOVERY_SERVICE_NAME, data)
+    def un_publish_self_to_discovery(self):
+        # un publish api server
+        data = {
+            'ip-address': self._args.ifmap_server_ip,
+            'port': self._args.listen_port,
+        }
+        self._disc.un_publish(API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
+    def un_publish_ifmap_to_discovery(self):
         # un publish ifmap server
-        if un_publish_ifmap:
-            data = {
-                'ip-address': self._args.ifmap_server_ip,
-                'port': self._args.ifmap_server_port,
-            }
-            self._disc.un_publish(
-                IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
-
-    # end un_publish
+        data = {
+            'ip-address': self._args.ifmap_server_ip,
+            'port': self._args.ifmap_server_port,
+        }
+        self._disc.un_publish(IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+    # end un_publish_ifmap_to_discovery
 
 # end class VncApiServer
 
@@ -1567,9 +1562,9 @@ def main(args_str=None):
     server_port = vnc_api_server.get_server_port()
 
     # Advertise services
-    if vnc_api_server._args.disc_server_ip and\
-            vnc_api_server._args.disc_server_port:
-        vnc_api_server.publish()
+    if (vnc_api_server._args.disc_server_ip and
+            vnc_api_server._args.disc_server_port):
+        vnc_api_server.publish_self_to_discovery()
 
     """ @sigchld
     Disable handling of SIG_CHLD for now as every keystone request to validate
