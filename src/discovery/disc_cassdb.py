@@ -223,8 +223,8 @@ class DiscoveryCassandraClient(object):
     # forget service and subscribers
     @cass_error_handler
     def delete_service(self, entry):
-        col_name = ('service', entry['service_id'], 'service-entry')
-        self._disco_cf.remove(entry['service_type'])
+        self._disco_cf.remove(entry['service_type'],
+            columns = [('service', entry['service_id'], 'service-entry')])
      #end delete_service
 
     # return service entry
