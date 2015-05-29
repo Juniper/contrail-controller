@@ -72,49 +72,47 @@ class DatabaseEventManager(EventManager):
         # sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 
-        (linux_dist, x, y) = platform.linux_distribution()
-        if (linux_dist == 'Ubuntu'):
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-'" + \
-                " -f2 \`/ContrailAnalytics | grep %` && echo $3 |" + \
-                " cut -d'%' -f1"
-            (disk_space_used, error_value) = \
+        try:
+            (linux_dist, x, y) = platform.linux_distribution()
+            if (linux_dist == 'Ubuntu'):
+                popen_cmd = "grep -A 1 'data_file_directories:'" + \
+                    "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2"
+            else:
+                popen_cmd = "grep -A 1 'data_file_directories:'" + \
+                    "  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2"
+
+            (cassandra_data_dir, error_value) = \
                 Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-'" + \
-                " -f2\`/ContrailAnalytics | grep %` && echo $4" + \
-                "  | cut -d'%' -f1"
-            (disk_space_available, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `du -skL \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-'" + \
-                " -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1"
-            (analytics_db_size, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-        else:
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/conf/cassandra.yaml | grep '-' |" + \
-                " cut -d'-' -f2 \`/ContrailAnalytics | grep %` &&" + \
-                " echo $3 | cut -d'%' -f1"
-            (disk_space_used, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/conf/cassandra.yaml | grep '-' |" + \
-                " cut -d'-' -f2\`/ContrailAnalytics | grep %` && echo $4" + \
-                "  | cut -d'%' -f1"
-            (disk_space_available, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `du -skL \`grep -A 1 'data_file_directories:'" + \
-                " /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d" + \
-                "'-' -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1"
-            (analytics_db_size, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-        disk_space_total = int(disk_space_used) + int(disk_space_available)
-        if (disk_space_total / (1024 * 1024) < self.minimum_diskgb):
-            cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
-            (ret_value, error_value) = Popen(
-                cmd_str, shell=True, stdout=PIPE).communicate()
-            self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
+            cassandra_data_dir = cassandra_data_dir.strip()
+            analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            if os.path.exists(analytics_dir):
+                self.stderr.write("analytics_dir is " + analytics_dir + "\n")
+                popen_cmd = "set `df -Pk " + analytics_dir + " | grep %` && echo $3 |" + \
+                    " cut -d'%' -f1"
+                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                (disk_space_used, error_value) = \
+                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                popen_cmd = "set `df -Pk " + analytics_dir + " | grep %` && echo $4 |" + \
+                    " cut -d'%' -f1"
+                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                (disk_space_available, error_value) = \
+                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                popen_cmd = "set `du -skL " + analytics_dir + "` && echo $1 | cut -d'%' -f1"
+                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                (analytics_db_size, error_value) = \
+                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                disk_space_total = int(disk_space_used) + int(disk_space_available)
+                if (disk_space_total / (1024 * 1024) < self.minimum_diskgb):
+                    cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
+                    (ret_value, error_value) = Popen(
+                        cmd_str, shell=True, stdout=PIPE).communicate()
+                    self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
+                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
+            else:
+                self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
+        except:
+            sys.stderr.write("Failed to get database usage" + "\n")
+            self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
@@ -138,59 +136,57 @@ class DatabaseEventManager(EventManager):
             if description != "":
                 description += " "
             description += "Cassandra state detected DOWN."
+        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE_NA:
+            description += "Disk space for analytics db not retrievable."
         return description
 
     def database_periodic(self):
-        (linux_dist, x, y) = platform.linux_distribution()
-        if (linux_dist == 'Ubuntu'):
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d" + \
-                "'-' -f2 \`/ContrailAnalytics | grep %` && echo $3 |" + \
-                " cut -d'%' -f1"
-            (disk_space_used, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-'" + \
-                " -f2\`/ContrailAnalytics | grep %` && echo $4  |" + \
-                " cut -d'%' -f1"
-            (disk_space_available, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `du -skL \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-'" + \
-                " -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1"
-            (analytics_db_size, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-        else:
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/conf/cassandra.yaml | grep '-' |" + \
-                " cut -d'-' -f2 \`/ContrailAnalytics | grep %` && echo" + \
-                " $3 | cut -d'%' -f1"
-            (disk_space_used, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `df -Pk \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d" + \
-                "'-' -f2\`/ContrailAnalytics | grep %` && echo $4" + \
-                "  | cut -d'%' -f1"
-            (disk_space_available, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            popen_cmd = "set `du -skL \`grep -A 1 'data_file_directories:'" + \
-                "  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d" + \
-                "'-' -f2\`/ContrailAnalytics` && echo $1 | cut -d'%' -f1"
-            (analytics_db_size, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-        db_stat = DatabaseUsageStats()
-        db_info = DatabaseUsageInfo()
         try:
-            db_stat.disk_space_used_1k = int(disk_space_used)
-            db_stat.disk_space_available_1k = int(disk_space_available)
-            db_stat.analytics_db_size_1k = int(analytics_db_size)
-        except ValueError:
+            (linux_dist, x, y) = platform.linux_distribution()
+            if (linux_dist == 'Ubuntu'):
+                popen_cmd = "grep -A 1 'data_file_directories:'" + \
+                    "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2"
+            else:
+                popen_cmd = "grep -A 1 'data_file_directories:'" + \
+                    "  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2"
+
+            (cassandra_data_dir, error_value) = \
+                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+            cassandra_data_dir = cassandra_data_dir.strip()
+            analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            if os.path.exists(analytics_dir):
+                popen_cmd = "set `df -Pk " + analytics_dir + " | grep %` && echo $3 |" + \
+                    " cut -d'%' -f1"
+                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                (disk_space_used, error_value) = \
+                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                popen_cmd = "set `df -Pk " + analytics_dir + " | grep %` && echo $4 |" + \
+                    " cut -d'%' -f1"
+                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                (disk_space_available, error_value) = \
+                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                popen_cmd = "set `du -skL " + analytics_dir + "` && echo $1 | cut -d'%' -f1"
+                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                (analytics_db_size, error_value) = \
+                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
+
+                db_stat = DatabaseUsageStats()
+                db_info = DatabaseUsageInfo()
+
+                db_stat.disk_space_used_1k = int(disk_space_used)
+                db_stat.disk_space_available_1k = int(disk_space_available)
+                db_stat.analytics_db_size_1k = int(analytics_db_size)
+
+                db_info.name = socket.gethostname()
+                db_info.database_usage = [db_stat]
+                usage_stat = DatabaseUsage(data=db_info)
+                usage_stat.send()
+            else:
+                self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
+        except:
             sys.stderr.write("Failed to get database usage" + "\n")
-        else:
-            db_info.name = socket.gethostname()
-            db_info.database_usage = [db_stat]
-            usage_stat = DatabaseUsage(data=db_info)
-            usage_stat.send()
+            self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
         cassandra_cli_cmd = "cassandra-cli --host " + self.hostip + \
             " --batch  < /dev/null | grep 'Connected to:'"
