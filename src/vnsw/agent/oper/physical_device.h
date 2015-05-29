@@ -11,6 +11,8 @@
 #include <string>
 
 class IFMapDependencyManager;
+class PhysicalDevice;
+class PhysicalDeviceTable;
 
 struct PhysicalDeviceKey : public AgentOperDBKey {
     explicit PhysicalDeviceKey(const boost::uuids::uuid &id) :
@@ -20,15 +22,25 @@ struct PhysicalDeviceKey : public AgentOperDBKey {
     boost::uuids::uuid uuid_;
 };
 
-struct PhysicalDeviceData : public AgentOperDBData {
+struct PhysicalDeviceDataBase : public AgentOperDBData {
+    PhysicalDeviceDataBase(Agent *agent, IFMapNode *ifmap_node) :
+        AgentOperDBData(agent, ifmap_node) {
+    }
+    virtual ~PhysicalDeviceDataBase() { }
+    virtual bool HandleChange(PhysicalDevice *, PhysicalDeviceTable *) = 0;
+};
+
+struct PhysicalDeviceData : public PhysicalDeviceDataBase {
     PhysicalDeviceData(Agent *agent, const std::string &fq_name,
                        const std::string &name, const std::string &vendor,
                        const IpAddress &ip, const IpAddress &mgmt_ip,
                        const std::string &protocol, IFMapNode *ifmap_node) :
-        AgentOperDBData(agent, ifmap_node), fq_name_(fq_name), name_(name),
-        vendor_(vendor), ip_(ip), management_ip_(mgmt_ip), protocol_(protocol) {
+        PhysicalDeviceDataBase(agent, ifmap_node), fq_name_(fq_name),
+        name_(name), vendor_(vendor), ip_(ip), management_ip_(mgmt_ip),
+        protocol_(protocol) {
     }
     virtual ~PhysicalDeviceData() { }
+    virtual bool HandleChange(PhysicalDevice *, PhysicalDeviceTable *);
 
     std::string fq_name_;
     std::string name_;
@@ -36,6 +48,16 @@ struct PhysicalDeviceData : public AgentOperDBData {
     IpAddress ip_;
     IpAddress management_ip_;
     std::string protocol_;
+};
+
+struct PhysicalDeviceTsnManagedData : public PhysicalDeviceDataBase {
+    PhysicalDeviceTsnManagedData(Agent *agent, bool master) :
+        PhysicalDeviceDataBase(agent, NULL), master_(master) {
+    }
+    virtual ~PhysicalDeviceTsnManagedData() { }
+    virtual bool HandleChange(PhysicalDevice *, PhysicalDeviceTable *);
+
+    bool master_;
 };
 
 class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
@@ -47,7 +69,7 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
 
     explicit PhysicalDevice(const boost::uuids::uuid &id) :
         AgentOperDBEntry(), uuid_(id), name_(""), vendor_(""), ip_(),
-        protocol_(INVALID) { }
+        protocol_(INVALID), master_(false) { }
     virtual ~PhysicalDevice() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -58,7 +80,7 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
         return AgentRefCount<PhysicalDevice>::GetRefCount();
     }
 
-    bool Copy(const PhysicalDeviceTable *table, const PhysicalDeviceData *data);
+    bool Copy(PhysicalDeviceTable *table, const PhysicalDeviceData *data);
     const boost::uuids::uuid &uuid() const { return uuid_; }
     const std::string &fq_name() const { return fq_name_; }
     const std::string &name() const { return name_; }
@@ -66,6 +88,8 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
     const IpAddress &ip() const { return ip_; }
     const IpAddress &management_ip() const { return management_ip_; }
     ManagementProtocol protocol() const { return protocol_; }
+    bool master() const { return master_; }
+    void set_master(bool value) { master_ = value; }
 
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *resp, std::string &name) const;
@@ -79,11 +103,14 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
     IpAddress ip_;
     IpAddress management_ip_;
     ManagementProtocol protocol_;
+    bool master_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDevice);
 };
 
 class PhysicalDeviceTable : public AgentOperDBTable {
  public:
+    typedef std::map<IpAddress, PhysicalDevice *> IpToDeviceMap;
+    typedef std::pair<IpAddress, PhysicalDevice *> IpToDevicePair;
     PhysicalDeviceTable(DB *db, const std::string &name) :
         AgentOperDBTable(db, name) { }
     virtual ~PhysicalDeviceTable() { }
@@ -105,8 +132,12 @@ class PhysicalDeviceTable : public AgentOperDBTable {
 
     void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    void UpdateIpToDevMap(IpAddress old, IpAddress new_ip, PhysicalDevice *p);
+    void DeleteIpToDevEntry(IpAddress ip);
+    PhysicalDevice *IpToPhysicalDevice(IpAddress ip);
 
  private:
+    IpToDeviceMap ip_tree_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceTable);
 };
 
