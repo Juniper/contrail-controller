@@ -742,7 +742,7 @@ class DBInterface(object):
             if key_name in filters:
                 try:
                     if key_name == 'tenant_id':
-                        filter_value = [str(uuid.UUID(t_id)) \
+                        filter_value = [str(uuid.UUID(t_id))
                                         for t_id in filters[key_name]]
                     else:
                         filter_value = filters[key_name]
@@ -1068,8 +1068,8 @@ class DBInterface(object):
             remote_cidr = '%s/%s' % (addr.get_subnet().get_ip_prefix(),
                                      addr.get_subnet().get_ip_prefix_len())
         elif addr.get_security_group():
-            if addr.get_security_group() != 'any' and \
-                addr.get_security_group() != 'local':
+            if (addr.get_security_group() != 'any' and
+                addr.get_security_group() != 'local'):
                 remote_sg = addr.get_security_group()
                 try:
                     if remote_sg != ':'.join(sg_obj.get_fq_name()):
@@ -1264,13 +1264,13 @@ class DBInterface(object):
                     net_policy_refs,
                     key=lambda t:(t['attr'].sequence.major,
                                   t['attr'].sequence.minor))
-                extra_dict['contrail:policys'] = \
-                    [np_ref['to'] for np_ref in sorted_refs]
+                extra_dict['contrail:policys'] = [np_ref['to']
+                                                  for np_ref in sorted_refs]
 
         rt_refs = net_obj.get_route_table_refs()
         if rt_refs:
-            extra_dict['contrail:route_table'] = \
-                [rt_ref['to'] for rt_ref in rt_refs]
+            extra_dict['contrail:route_table'] = [rt_ref['to']
+                                                  for rt_ref in rt_refs]
 
         ipam_refs = net_obj.get_network_ipam_refs()
         net_q_dict['subnets'] = []
@@ -1784,9 +1784,9 @@ class DBInterface(object):
             dhcp_options = []
             if port_q['extra_dhcp_opts']:
                 for option_pair in port_q['extra_dhcp_opts']:
-                    option = \
-                       DhcpOptionType(dhcp_option_name=option_pair['opt_name'],
-                                    dhcp_option_value=option_pair['opt_value'])
+                    option = DhcpOptionType(
+                        dhcp_option_name=option_pair['opt_name'],
+                        dhcp_option_value=option_pair['opt_value'])
                     dhcp_options.append(option)
             if dhcp_options:
                 olist = DhcpOptionsListType(dhcp_options)
@@ -2087,7 +2087,7 @@ class DBInterface(object):
                 subnet_cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                          subnet.subnet.get_ip_prefix_len())
 
-                for ip_addr in [fixed_ip['ip_address'] for fixed_ip in \
+                for ip_addr in [fixed_ip['ip_address'] for fixed_ip in
                                 fixed_ips if fixed_ip['subnet_id'] == sn_id]:
                     host_prefixes = self._port_get_host_prefixes(host_routes.route,
                                                                  subnet_cidr)
@@ -2387,9 +2387,8 @@ class DBInterface(object):
 
         json_resource = resource.replace("_", "-")
         if resource == "floating_ips":
-            count = lambda pid: self._vnc_lib. \
-                floating_ips_list(back_ref_id=pid,
-                                  count=True)[json_resource]['count']
+            count = lambda pid: self._vnc_lib.floating_ips_list(
+                          back_ref_id=pid, count=True)[json_resource]['count']
         else:
             method = getattr(self._vnc_lib, resource + "_list")
             count = lambda pid: method(parent_id=pid,
@@ -2490,8 +2489,8 @@ class DBInterface(object):
             for ipam_ref in ipam_refs:
                 subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                 for subnet_vnc in subnet_vncs:
-                    if self._subnet_vnc_get_key(subnet_vnc, net_id) == \
-                        subnet_key:
+                    if (self._subnet_vnc_get_key(subnet_vnc, net_id) ==
+                        subnet_key):
                         ret_subnet_q = self._subnet_vnc_to_neutron(
                             subnet_vnc, net_obj, ipam_ref['to'])
                         return ret_subnet_q
@@ -3449,6 +3448,11 @@ class DBInterface(object):
                 instance_id = vm_refs[0]['uuid']
             else:
                 instance_id = None
+        if port_obj.get_logical_interface_back_refs():
+            self._raise_contrail_exception(
+               'BadRequest', resource='port',
+               msg='port has logical interface attached')
+
         if port_obj.get_logical_router_back_refs():
             self._raise_contrail_exception('L3PortInUse', port_id=port_id,
                 device_owner=constants.DEVICE_OWNER_ROUTER_INTF)
@@ -3560,9 +3564,9 @@ class DBInterface(object):
                 if not self._filters_is_present(filters, 'device_owner',
                                                 port_obj["device_owner"]):
                     continue
-                if 'fixed_ips' in filters and \
+                if ('fixed_ips' in filters and
                     not self._port_fixed_ips_is_present(filters['fixed_ips'],
-                                                        port_obj['fixed_ips']):
+                                                        port_obj['fixed_ips'])):
                     continue
                 if not self._filters_is_present(filters,'network_id',
                                                 port_obj['network_id']):
@@ -3670,8 +3674,8 @@ class DBInterface(object):
     def security_group_delete(self, context, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
-            if sg_obj.name == 'default' and \
-               str(uuid.UUID(context['tenant_id'])) == sg_obj.parent_uuid:
+            if (sg_obj.name == 'default' and
+                str(uuid.UUID(context['tenant_id'])) == sg_obj.parent_uuid):
                 # Deny delete if the security group name is default and
                 # the owner of the SG is deleting it.
                 self._raise_contrail_exception(
