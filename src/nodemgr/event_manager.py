@@ -32,6 +32,7 @@ class EventManager(object):
     FAIL_STATUS_DISK_SPACE = 0x2
     FAIL_STATUS_SERVER_PORT = 0x4
     FAIL_STATUS_NTP_SYNC = 0x8
+    FAIL_STATUS_DISK_SPACE_NA = 0x10
 
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr):
