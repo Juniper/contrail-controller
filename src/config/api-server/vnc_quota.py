@@ -30,7 +30,7 @@ class QuotaHelper(object):
     @classmethod
     def check_quota_limit(cls, proj_dict, obj_type, quota_count):
         quota_limit = cls.get_quota_limit(proj_dict, obj_type)
-        if quota_limit > 0 and quota_count >= quota_limit:
+        if quota_limit >= 0 and quota_count >= quota_limit:
             return (False, 'quota limit (%d) exceeded for resource %s'
                     % (quota_limit, obj_type))
         return (True, quota_limit)
