@@ -86,7 +86,7 @@ private:
     // Remove the advertised bits on an update. This updates the history
     // information. Returns true if the UpdateInfo should be deleted.
     bool ClearAdvertisedBits(RouteUpdate *rt_update, UpdateInfo *uinfo,
-                             const RibPeerSet &bits);
+                             const RibPeerSet &bits, bool update_history);
 
     void StoreHistory(RouteUpdate *rt_update);
     void ClearState(RouteUpdate *rt_update);

@@ -15,6 +15,7 @@
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
+#include "ifmap/test/ifmap_test_util.h"
 #include "schema/xmpp_unicast_types.h"
 #include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
@@ -199,6 +200,48 @@ protected:
                  bs_y_->session_manager()->GetPort());
         bs_x_->Configure(config);
         bs_y_->Configure(config);
+    }
+
+    void AddRouteTarget(BgpServerTestPtr server, const string name,
+        const string target) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            server->routing_instance_mgr()->GetRoutingInstance(name));
+
+        ifmap_test_util::IFMapMsgLink(server->config_db(),
+                                      "routing-instance", name,
+                                      "route-target", target,
+                                      "instance-target");
+    }
+
+    void RemoveRouteTarget(BgpServerTestPtr server, const string name,
+        const string target) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            server->routing_instance_mgr()->GetRoutingInstance(name));
+
+        ifmap_test_util::IFMapMsgUnlink(server->config_db(),
+                                      "routing-instance", name,
+                                      "route-target", target,
+                                      "instance-target");
+    }
+
+    size_t GetExportRouteTargetListSize(BgpServerTestPtr server,
+        const string &instance) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            server->routing_instance_mgr()->GetRoutingInstance(instance));
+        RoutingInstance *rti =
+            server->routing_instance_mgr()->GetRoutingInstance(instance);
+        task_util::WaitForIdle();
+        return rti->GetExportList().size();
+    }
+
+    size_t GetImportRouteTargetListSize(BgpServerTestPtr server,
+        const string &instance) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            server->routing_instance_mgr()->GetRoutingInstance(instance));
+        RoutingInstance *rti =
+            server->routing_instance_mgr()->GetRoutingInstance(instance);
+        task_util::WaitForIdle();
+        return rti->GetImportList().size();
     }
 
     bool CheckEncap(autogen::TunnelEncapsulationListType &rt_encap,
@@ -546,6 +589,166 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAdd) {
     TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
         2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Generate big update message.
+// Each route has a very large number of attributes such that only a single
+// route fits into each update.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Add a bunch of route targets to blue instance.
+    static const int kRouteTargetCount = 498;
+    for (int idx = 0; idx < kRouteTargetCount; ++idx) {
+        string target = string("target:1:") + integerToString(10000 + idx);
+        AddRouteTarget(bs_x_, "blue", target);
+        task_util::WaitForIdle();
+    }
+    TASK_UTIL_EXPECT_EQ(1 + kRouteTargetCount,
+        GetExportRouteTargetListSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1 + kRouteTargetCount,
+        GetImportRouteTargetListSize(bs_x_, "blue"));
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < 4; ++idx) {
+        agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < 4; ++idx) {
+        VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
+        VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < 4; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < 4; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+
+    // Unregister to blue instance
+    agent_a_->Unsubscribe("blue");
+    agent_b_->Unsubscribe("blue");
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+
+    TASK_UTIL_EXPECT_EQ(0, bs_x_->message_build_error());
+}
+
+//
+// Generate big update message.
+// Each route has a very large number of attributes such that even a single
+// route doesn't fit into an update.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Add extra route targets to blue instance.
+    static const int kRouteTargetCount = 512;
+    for (int idx = 0; idx < kRouteTargetCount; ++idx) {
+        string target = string("target:1:") + integerToString(10000 + idx);
+        AddRouteTarget(bs_x_, "blue", target);
+        task_util::WaitForIdle();
+    }
+    TASK_UTIL_EXPECT_EQ(1 + kRouteTargetCount,
+        GetExportRouteTargetListSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1 + kRouteTargetCount,
+        GetImportRouteTargetListSize(bs_x_, "blue"));
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < 4; ++idx) {
+        agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Verify that we're unable to build the messages.
+    TASK_UTIL_EXPECT_EQ(4, bs_x_->message_build_error());
+
+    // Verify that routes showed up on agent A, but not on B.
+    for (int idx = 0; idx < 4; ++idx) {
+        VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+
+    // Remove extra route targets from blue instance.
+    for (int idx = 0; idx < kRouteTargetCount; ++idx) {
+        string target = string("target:1:") + integerToString(10000 + idx);
+        RemoveRouteTarget(bs_x_, "blue", target);
+        task_util::WaitForIdle();
+    }
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetListSize(bs_x_, "blue"));
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < 4; ++idx) {
+        VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
+        VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < 4; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < 4; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+
+    // Unregister to blue instance
+    agent_a_->Unsubscribe("blue");
+    agent_b_->Unsubscribe("blue");
 
     // Close the sessions.
     agent_a_->SessionDown();

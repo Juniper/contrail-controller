@@ -104,20 +104,31 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
             continue;
         }
 
-        // Generate the update and merge additional updates into that message.
+        // Generate the update, merge additional updates into that message and
+        // send it message to the target RibPeerSet.
+        //
+        // In the rare case that the first route and it's attributes don't fit
+        // into the message, clear the target bits in the UpdateInfo to ensure
+        // that the UpdateQueue doesn't get wedged. However, don't update the
+        // history bits in the RouteUpdate since the message did not get sent.
+        //
+        // The Create routine has the responsibility of logging an error and
+        // incrementing any counters.
+        RibPeerSet msg_blocked;
+        bool msg_sent = false;
         auto_ptr<Message> message(
             builder_->Create(table, &uinfo->roattr, rt_update->route()));
-        UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);
-        message->Finish();
-
-        // Send the message to the target RibPeerSet.
-        RibPeerSet msg_blocked;
-        UpdateSend(message.get(), msgset, &msg_blocked);
+        if (message.get() != NULL) {
+            UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);
+            message->Finish();
+            UpdateSend(message.get(), msgset, &msg_blocked);
+            msg_sent = true;
+        }
 
         // Reset bits in the UpdateInfo.  Note that this has already been done
         // via UpdatePack for all the other UpdateInfo elements that we packed
         // into this message.
-        bool empty = ClearAdvertisedBits(rt_update, uinfo, msgset);
+        bool empty = ClearAdvertisedBits(rt_update, uinfo, msgset, msg_sent);
         if (empty) {
             rt_update->RemoveUpdateInfo(uinfo);
         }
@@ -359,7 +370,7 @@ void RibOutUpdates::UpdatePack(int queue_id, Message *message,
         //
         // If the RouteUpdate itself is now empty i.e. there are no more
         // UpdateInfo elements associated with it, we can get rid of it.
-        bool empty = ClearAdvertisedBits(update.get(), uinfo, msgset);
+        bool empty = ClearAdvertisedBits(update.get(), uinfo, msgset, true);
         if (empty && update->RemoveUpdateInfo(uinfo)) {
             ClearUpdate(&update);
         }
@@ -493,11 +504,13 @@ void RibOutUpdates::ClearUpdate(RouteUpdatePtr *update) {
 // Return true if the UpdateInfo was removed from the set container.
 //
 bool RibOutUpdates::ClearAdvertisedBits(RouteUpdate *rt_update,
-        UpdateInfo *uinfo, const RibPeerSet &isect) {
+        UpdateInfo *uinfo, const RibPeerSet &isect, bool update_history) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
+    if (update_history) {
+        rt_update->UpdateHistory(ribout_, &uinfo->roattr, isect);
+    }
     uinfo->target.Reset(isect);
-    rt_update->UpdateHistory(ribout_, &uinfo->roattr, isect);
     bool empty = uinfo->target.empty();
     if (empty) {
         UpdateQueue *queue = queue_vec_[rt_update->queue_id()];
