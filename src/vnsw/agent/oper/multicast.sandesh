@@ -1,0 +1,14 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct PDeviceData {
+    1: string uuid;
+}
+
+request sandesh MasterPhysicalDevicesReq {
+}
+
+response sandesh MasterPhysicalDevicesResp {
+    1: list<PDeviceData> dev_list;
+}
