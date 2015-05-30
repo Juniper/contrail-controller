@@ -1138,6 +1138,7 @@ struct SandeshDevice {
     4: string vendor;
     5: string ip_address;
     6: string management_protocol;
+    7: bool master;
 }
 
 response sandesh SandeshDeviceListResp {

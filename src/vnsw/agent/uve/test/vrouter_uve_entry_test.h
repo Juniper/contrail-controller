@@ -30,6 +30,9 @@ public:
     const VrouterAgent &last_sent_vrouter() const {
         return last_sent_vrouter_;
     }
+    const VrouterAgent &prev_vrouter() const {
+        return prev_vrouter_;
+    }
     const VrouterAgent &first_vrouter_uve() const {
         return first_vrouter_uve_;
     }
