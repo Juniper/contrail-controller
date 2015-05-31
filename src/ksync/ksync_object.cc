@@ -41,13 +41,17 @@ void TestTriggerStaleEntryCleanupCb(KSyncObject *obj) {
 
 KSyncObject::KSyncObject() : need_index_(false), index_table_(),
                          delete_scheduled_(false), stale_entry_tree_(),
-                         stale_entry_cleanup_timer_(NULL) {
+                         stale_entry_cleanup_timer_(NULL),
+                         stale_entry_cleanup_intvl_(0),
+                         stale_entries_per_intvl_(0) {
 }
 
 KSyncObject::KSyncObject(int max_index) : 
                          need_index_(true), index_table_(max_index),
                          delete_scheduled_(false), stale_entry_tree_(),
-                         stale_entry_cleanup_timer_(NULL) {
+                         stale_entry_cleanup_timer_(NULL),
+                         stale_entry_cleanup_intvl_(0),
+                         stale_entries_per_intvl_(0) {
 }
 
 KSyncObject::~KSyncObject() {

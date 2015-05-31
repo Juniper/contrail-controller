@@ -287,7 +287,8 @@ public:
     InterfaceTable(DB *db, const std::string &name) :
         AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
         walkid_(DBTableWalker::kInvalidWalkerId), index_table_(),
-        vmi_count_(0), li_count_(0), active_vmi_count_(0) {
+        vmi_count_(0), li_count_(0), active_vmi_count_(0),
+        vmi_ifnode_to_req_(0), li_ifnode_to_req_(0) {
     }
     virtual ~InterfaceTable() { }
 

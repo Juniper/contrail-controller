@@ -35,13 +35,13 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         uint16_t vlan_tag, const std::string &logical_switch) :
     OvsdbDBEntry(table_), logical_switch_name_(logical_switch),
     physical_port_name_(physical_port), physical_device_name_(physical_device),
-    vlan_(vlan_tag) {
+    vlan_(vlan_tag), vmi_uuid_(nil_uuid()) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
     logical_switch_name_(), physical_port_name_(),
-    physical_device_name_(""), vlan_(entry->vlan()) {
+    physical_device_name_(""), vlan_(entry->vlan()), vmi_uuid_(nil_uuid()) {
     RemotePhysicalInterface *phy_intf = dynamic_cast<RemotePhysicalInterface *>
         (entry->physical_interface());
     assert(phy_intf);
@@ -53,7 +53,8 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanPortBindingEntry *key) : OvsdbDBEntry(table),
     logical_switch_name_(key->logical_switch_name_),
     physical_port_name_(key->physical_port_name_),
-    physical_device_name_(key->physical_device_name_), vlan_(key->vlan_) {
+    physical_device_name_(key->physical_device_name_), vlan_(key->vlan_),
+    vmi_uuid_(nil_uuid()) {
 }
 
 void VlanPortBindingEntry::PreAddChange() {
@@ -123,7 +124,7 @@ bool VlanPortBindingEntry::Sync(DBEntry *db_entry) {
     VlanLogicalInterface *entry =
         static_cast<VlanLogicalInterface *>(db_entry);
     std::string ls_name;
-    boost::uuids::uuid vmi_uuid;
+    boost::uuids::uuid vmi_uuid(nil_uuid());
     bool change = false;
 
     if (entry->vm_interface()) {
