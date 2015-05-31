@@ -294,7 +294,8 @@ int TaskScheduler::GetThreadCount() {
 // part of tbb. So, initialize TBB with one thread more than its default
 TaskScheduler::TaskScheduler() : 
     task_scheduler_(GetThreadCount() + 1),
-    running_(true), seqno_(0), id_max_(0) {
+    running_(true), seqno_(0), id_max_(0), enqueue_count_(0), done_count_(0),
+    cancel_count_(0) {
     hw_thread_count_ = GetThreadCount();
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
     stop_entry_ = new TaskEntry(-1);
