@@ -28,9 +28,10 @@ using OVSDB::OvsdbClient;
 using OVSDB::OvsdbClientSession;
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
-        const std::string &name) : OvsdbDBEntry(table), name_(name),
-    vxlan_id_(0), mcast_local_row_(NULL), mcast_remote_row_(NULL),
-    tor_ip_(), mc_flood_entry_(NULL) {
+                                       const std::string &name) :
+    OvsdbDBEntry(table), name_(name), device_name_(), vxlan_id_(0),
+    mcast_local_row_(NULL), mcast_remote_row_(NULL), tor_ip_(),
+    mc_flood_entry_(NULL) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
