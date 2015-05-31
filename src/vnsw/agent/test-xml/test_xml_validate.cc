@@ -163,7 +163,7 @@ AgentUtXmlValidationNode::~AgentUtXmlValidationNode() {
 bool AgentUtXmlValidationNode::ReadCmnXml() {
     std::string str;
     if (GetStringAttribute(node_, "present", &str)) {
-        if (str == "no")
+        if (str == "no" || str == "0")
             present_ = false;
         else
             present_ = true;
