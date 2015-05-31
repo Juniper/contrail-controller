@@ -192,7 +192,10 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
 
     // If physical-router does not match agent_name, treat as remote interface
     if (elements.size() == 3 && device != agent()->agent_name()) {
-        return RemotePhysicalInterfaceIFNodeToReq(node, req);
+        if (RemotePhysicalInterfaceIFNodeToReq(node, req))
+            Enqueue(&req);
+        VmInterface::PhysicalPortSync(this, node);
+        return false;
     }
 
     req.key.reset(BuildKey(node->name()));
