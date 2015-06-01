@@ -79,11 +79,15 @@ public:
 
     void Close();
     IPeer *Peer();
+    virtual boost::asio::ip::tcp::endpoint endpoint() const;
 
     std::string ToString() const;
+    std::string ToUVEKey() const;
     std::string StateName() const;
     boost::asio::ip::tcp::endpoint remote_endpoint();
     boost::asio::ip::tcp::endpoint local_endpoint();
+
+    void set_peer_deleted(); // For unit testing only.
     bool peer_deleted() const;
     uint64_t peer_deleted_at() const;
 
@@ -116,6 +120,7 @@ protected:
 private:
     friend class BgpXmppChannelMock;
     friend class BgpXmppChannelManager;
+    friend class BgpXmppParseTest;
     friend class BgpXmppUnitTest;
     class XmppPeer;
     class PeerClose;
@@ -126,6 +131,7 @@ private:
     // Also remember we received unregister request
     //
     enum RequestType {
+        NONE,
         SUBSCRIBE,
         UNSUBSCRIBE,
     };
@@ -167,13 +173,18 @@ private:
 
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
 
-    void ProcessItem(std::string rt_instance, const pugi::xml_node &item,
+    virtual bool GetMembershipInfo(BgpTable *table,
+        int *instance_id, RequestType *req_type);
+    virtual bool GetMembershipInfo(const std::string &vrf_name,
+        int *instance_id);
+
+    bool ProcessItem(std::string vrf_name, const pugi::xml_node &node,
                      bool add_change);
-    void ProcessInet6Item(std::string vrf_name, const pugi::xml_node &node,
+    bool ProcessInet6Item(std::string vrf_name, const pugi::xml_node &node,
                           bool add_change);
-    void ProcessMcastItem(std::string rt_instance,
+    bool ProcessMcastItem(std::string vrf_name,
                           const pugi::xml_node &item, bool add_change);
-    void ProcessEnetItem(std::string rt_instance,
+    bool ProcessEnetItem(std::string vrf_name,
                          const pugi::xml_node &item, bool add_change);
     void PublishRTargetRoute(RoutingInstance *instance, bool add_change,
                              int index);
