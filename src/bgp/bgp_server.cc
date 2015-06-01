@@ -242,6 +242,7 @@ BgpServer::BgpServer(EventManager *evm)
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     num_up_peer_ = 0;
+    message_build_error_ = 0;
 }
 
 BgpServer::~BgpServer() {
