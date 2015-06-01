@@ -1559,7 +1559,7 @@ class RoutingInstanceST(object):
             _vnc_lib.virtual_machine_interface_update(vmi_obj)
         # end for vmi
         _vnc_lib.routing_instance_delete(id=self.obj.uuid)
-        for rtgt in rtgt_list:
+        for rtgt in rtgt_list or []:
             try:
                 RouteTargetST.delete(rtgt['to'][0])
             except RefsExistError:
