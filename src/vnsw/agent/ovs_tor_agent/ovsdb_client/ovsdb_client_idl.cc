@@ -259,6 +259,11 @@ bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
             // after processing the response to monitor request
             // connect to oper db.
             if (connect_oper_db) {
+                // enable physical port updation, before connect to
+                // Oper DB, to allow creation of stale entries for
+                // vlan port bindings.
+                physical_switch_table_->StartUpdatePorts();
+
                 ConnectOperDB();
             }
         }

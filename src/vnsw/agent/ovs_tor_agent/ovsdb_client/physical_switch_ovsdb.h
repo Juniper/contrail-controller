@@ -9,6 +9,8 @@
 #include <ovsdb_object.h>
 
 namespace OVSDB {
+class PhysicalSwitchEntry;
+
 class PhysicalSwitchTable : public OvsdbObject {
 public:
     PhysicalSwitchTable(OvsdbClientIdl *idl);
@@ -16,7 +18,20 @@ public:
 
     void Notify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
+
+    void StartUpdatePorts();
+
 private:
+    void UpdatePorts(PhysicalSwitchEntry *entry);
+
+    // By default update ports is set to false to avoid updation
+    // of physical port entries in ovsdb client context, which
+    // helps to ignore partial updates on physical ports from
+    // ovsdb library to avoid useless processing on half cooked
+    // information. once the initial monitor request processing
+    // is complete OvsdbClientIdl triggers StartUpdatePorts to
+    // update the pending ports and allow further ports updation
+    bool update_ports_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalSwitchTable);
 };
 
@@ -40,10 +55,11 @@ public:
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Physical Switch";}
     KSyncEntry* UnresolvedReference();
+
 private:
+    friend class PhysicalSwitchTable;
     void SendTrace(Trace event) const;
 
-    friend class PhysicalSwitchTable;
     std::string name_;
     Ip4Address tunnel_ip_;
     InterfaceList intf_list_;
