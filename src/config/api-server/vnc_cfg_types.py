@@ -265,7 +265,13 @@ class InstanceIpServer(InstanceIpServerGen):
             # Ignore ip-fabric and link-local address allocations
             return True,  ""
 
-        ip_addr = obj_dict['instance_ip_address']
+        try:
+            ip_addr = obj_dict['instance_ip_address']
+        except KeyError:
+            db_conn.config_log('AddrMgmt: IP Not allocated to iip = %s, vn=%s'
+                           % (id, vn_fq_name),
+                           level=SandeshLevel.SYS_DEBUG)
+            return True, ""
         db_conn.config_log('AddrMgmt: free IP %s, vn=%s'
                            % (ip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
@@ -304,7 +310,10 @@ class InstanceIpServer(InstanceIpServerGen):
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
-        ip_addr = obj_dict['instance_ip_address']
+        try:
+            ip_addr = obj_dict['instance_ip_address']
+        except KeyError:
+            return
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
     # end dbe_delete_notification
