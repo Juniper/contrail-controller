@@ -837,7 +837,7 @@ protected:
     test::RouteParams tsn_params_;
     bool single_server_;
     bool vxlan_;
-    uint32_t tag_;
+    int tag_;
 };
 
 static const char *config_template = "\
