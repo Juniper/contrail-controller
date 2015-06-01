@@ -23,6 +23,17 @@
 
 import urllib
 from collections import OrderedDict
+import sys
+import cgitb
+import cStringIO
+
+def detailed_traceback():
+    buf = cStringIO.StringIO()
+    cgitb.Hook(format="text", file=buf).handle(sys.exc_info())
+    tb_txt = buf.getvalue()
+    buf.close()
+    return tb_txt
+# end detailed_traceback
 
 def encode_string(enc_str, encoding='utf-8'):
     """Encode the string using urllib.quote_plus

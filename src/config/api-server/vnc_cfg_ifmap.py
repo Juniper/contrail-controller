@@ -102,16 +102,9 @@ class VncIfmapClient(VncIfmapClientGen):
         self._username = uname
         self._password = passwd
         self._ssl_options = ssl_options
-        self._queue = Queue(100000)
-        self._dequeue_greenlet = gevent.spawn(self._publish_to_ifmap_dequeue)
+        self._dequeue_greenlet = None
         self._CONTRAIL_XSD = "http://www.contrailsystems.com/vnc_cfg.xsd"
         self._IPERMS_NAME = "id-perms"
-        self._IPERMS_FQ_NAME = "contrail:" + self._IPERMS_NAME
-        self._SUBNETS_NAME = "contrail:subnets"
-        self._IPAMS_NAME = "contrail:ipams"
-        self._SG_RULE_NAME = "contrail:sg_rules"
-        self._POLICY_ENTRY_NAME = "contrail:policy_entry"
-        
         self._NAMESPACES = {
             'env':   "http://www.w3.org/2003/05/soap-envelope",
             'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
@@ -128,7 +121,7 @@ class VncIfmapClient(VncIfmapClientGen):
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
 
-        self._reset_cache()
+        self._reset()
 
         # Set the signal handler
         signal.signal(signal.SIGUSR2, self.handler)
@@ -167,11 +160,18 @@ class VncIfmapClient(VncIfmapClientGen):
         mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
     # end _init_conn
 
-    def _reset_cache(self):
+    def _get_api_server(self):
+        return self._db_client_mgr._api_svr_mgr
+    # end _get_api_server
+
+    def _reset(self):
         # Cache of metas populated in ifmap server. Useful in update to find
         # what things to remove in ifmap server
         self._id_to_metas = {}
-    # end _reset_cache
+        self._queue = Queue(self._get_api_server()._args.ifmap_queue_size)
+        if self._dequeue_greenlet is None:
+            self._dequeue_greenlet = gevent.spawn(self._ifmap_dequeue_task)
+    # end _reset
 
 
     def _publish_config_root(self):
@@ -211,10 +211,19 @@ class VncIfmapClient(VncIfmapClientGen):
         self._queue.put((oper, oper_body, do_trace))
     # end _publish_to_ifmap_enqueue
 
+    def _ifmap_dequeue_task(self):
+        while True:
+            try:
+                self._publish_to_ifmap_dequeue()
+            except Exception as e:
+                tb = utils.detailed_traceback()
+                self.config_log(tb, level=SandeshLevel.SYS_ERROR)
+
     def _publish_to_ifmap_dequeue(self):
         while self._queue.peek():
             publish_discovery = False
-            request = ''
+            requests = []
+            requests_len = 0
             traces = []
             while True:
                 try:
@@ -225,14 +234,16 @@ class VncIfmapClient(VncIfmapClientGen):
                     if do_trace:
                         trace = self._generate_ifmap_trace(oper, oper_body)
                         traces.append(trace)
-                    request += oper_body
-                    if len(request) > 1024*1024:
+                    requests.append(oper_body)
+                    requests_len += len(oper_body)
+                    if (requests_len >
+                        self._get_api_server()._args.ifmap_max_message_size):
                         break
                 except Empty:
                     break
             ok = True
-            if request:
-                ok, msg = self._publish_to_ifmap(request)
+            if requests:
+                ok, msg = self._publish_to_ifmap(''.join(requests))
             for trace in traces:
                 if ok:
                     trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
@@ -240,7 +251,7 @@ class VncIfmapClient(VncIfmapClientGen):
                     trace_msg(trace, 'IfmapTraceBuf', self._sandesh,
                               error_msg=msg)
             if publish_discovery and ok:
-                self._db_client_mgr._api_svr_mgr.publish_ifmap_to_discovery()
+                self._get_api_server().publish_ifmap_to_discovery()
     # end _publish_to_ifmap_dequeue
 
     def _publish_to_ifmap(self, oper_body):
@@ -294,8 +305,8 @@ class VncIfmapClient(VncIfmapClientGen):
                     server_addrs=["%s:%s" % (self._ifmap_srv_ip,
                                              self._ifmap_srv_port)])
 
-                self._reset_cache()
-                self._db_client_mgr._api_svr_mgr.un_publish_ifmap_to_discovery()
+                self._reset()
+                self._get_api_server().un_publish_ifmap_to_discovery()
                 # this will block till connection is re-established
                 self._init_conn()
                 self._publish_config_root()
