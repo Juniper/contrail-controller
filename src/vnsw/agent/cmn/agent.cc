@@ -422,7 +422,12 @@ Agent::Agent() :
     vhost_interface_(NULL),
     connection_state_(NULL), debug_(false), test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
-    tor_agent_enabled_(false) {
+    tor_agent_enabled_(false),
+    flow_table_size_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
+    vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
+    vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
+    vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
+    vrouter_max_oflow_bridge_entries_(0) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

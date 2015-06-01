@@ -1826,6 +1826,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
     rstr << route->ToString();
     item.entry.nlri.mac = rstr.str();
     item.entry.assisted_replication_supported = false;
+    item.entry.edge_replication_not_supported = false;
 
     rstr.str("");
     //TODO fix this when multicast moves to evpn
