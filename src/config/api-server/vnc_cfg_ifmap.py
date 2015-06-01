@@ -720,7 +720,7 @@ class VncServerCassandraClient(VncCassandraClient):
                 obj_type = json.loads(obj_col['type'])
                 obj_fq_name = json.loads(obj_col['fq_name'])
                 # prep cache to avoid n/w round-trip in db.read for ref
-                self.cache_uuid_to_fq_name_add(obj_uuid, obj_fq_name)
+                self.cache_uuid_to_fq_name_add(obj_uuid, obj_fq_name, obj_type)
 
                 try:
                     type_to_object[obj_type].append(obj_uuid)
