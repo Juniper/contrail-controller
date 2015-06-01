@@ -49,6 +49,10 @@ class InstanceManager(object):
     def check_service(self, si):
         pass
 
+    def mac_alloc(self, uuid):
+        return '02:%s:%s:%s:%s:%s' % (uuid[0:2], uuid[2:4],
+            uuid[4:6], uuid[6:8], uuid[9:11])
+
     def _get_default_security_group(self, vn):
         sg_fq_name = vn.fq_name[:-1] + ['default']
         for sg in SecurityGroupSM.values():
@@ -258,6 +262,7 @@ class InstanceManager(object):
             nic['static-route-enable'] = st_if.get('static_route_enable')
             nic['static-routes'] = si_if.get('static_routes')
             nic['user-visible'] = user_visible
+            nic['mac-address'] = self.mac_alloc(vn_id)
             si.vn_info.insert(index, nic)
 
         if config_complete:
@@ -396,6 +401,8 @@ class InstanceManager(object):
                 vmi_updated = True
 
         if vmi_create:
+            mac_addrs_obj = MacAddressesType([nic['mac-address']])
+            vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
             try:
                 self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             except RefsExistError:
