@@ -195,6 +195,15 @@ void RoutePathReplicator::DeleteTableState(BgpTable *table) {
     delete ts;
 }
 
+void RoutePathReplicator::UnregisterTableState(BgpTable *table) {
+    CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
+    const TableState *ts = FindTableState(table);
+    if (!ts->empty())
+        return;
+    unreg_table_list_.insert(table);
+    unreg_trigger_->Set();
+}
+
 TableState *RoutePathReplicator::FindTableState(BgpTable *table) {
     TableStateList::iterator loc = table_state_list_.find(table);
     return (loc != table_state_list_.end() ? loc->second : NULL);
@@ -280,10 +289,7 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *dbtable) {
     }
     delete bulk_sync_state;
     bulk_sync_.erase(loc);
-    const TableState *ts = FindTableState(table);
-    if (ts->empty())
-        unreg_table_list_.insert(table);
-    unreg_trigger_->Set();
+    UnregisterTableState(table);
 }
 
 void RoutePathReplicator::JoinVpnTable(RtGroup *group) {
@@ -326,7 +332,7 @@ void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
         first = group->AddImportTable(family(), table);
         server()->rtarget_group_mgr()->NotifyRtGroup(rt);
         BOOST_FOREACH(BgpTable *sec_table, group->GetExportTables(family())) {
-            if (sec_table->IsVpnTable())
+            if (sec_table->IsVpnTable() || sec_table->empty())
                 continue;
             RequestWalk(sec_table);
         }
@@ -334,8 +340,10 @@ void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
     } else {
         first = group->AddExportTable(family(), table);
         AddTableState(table, group);
-        RequestWalk(table);
-        walk_trigger_->Set();
+        if (!table->empty()) {
+            RequestWalk(table);
+            walk_trigger_->Set();
+        }
     }
 
     // Join the vpn table when group is created.
@@ -360,7 +368,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
         group->RemoveImportTable(family(), table);
         server()->rtarget_group_mgr()->NotifyRtGroup(rt);
         BOOST_FOREACH(BgpTable *sec_table, group->GetExportTables(family())) {
-            if (sec_table->IsVpnTable())
+            if (sec_table->IsVpnTable() || sec_table->empty())
                 continue;
             RequestWalk(sec_table);
         }
@@ -368,8 +376,12 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
     } else {
         group->RemoveExportTable(family(), table);
         RemoveTableState(table, group);
-        RequestWalk(table);
-        walk_trigger_->Set();
+        if (!table->empty()) {
+            RequestWalk(table);
+            walk_trigger_->Set();
+        } else {
+            UnregisterTableState(table);
+        }
     }
 
     // Leave the vpn table when the last VRF has left the group.
