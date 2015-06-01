@@ -216,7 +216,7 @@ private:
     boost::scoped_ptr<BgpConfigManager> config_mgr_;
     boost::scoped_ptr<ConfigUpdater> updater_;
 
-    mutable uint64_t message_build_error_;
+    mutable tbb::atomic<uint64_t> message_build_error_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpServer);
 };
