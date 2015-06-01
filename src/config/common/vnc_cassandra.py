@@ -191,8 +191,8 @@ class VncCassandraClient(VncCassandraClientGen):
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
     # end _cassandra_init_conn_pools
 
-    def cache_uuid_to_fq_name_add(self, id, fq_name):
-        self._cache_uuid_to_fq_name[id] = fq_name
+    def cache_uuid_to_fq_name_add(self, id, fq_name, obj_type):
+        self._cache_uuid_to_fq_name[id] = (fq_name, obj_type)
     # end cache_uuid_to_fq_name_add
 
     def cache_uuid_to_fq_name_del(self, id):
@@ -204,26 +204,34 @@ class VncCassandraClient(VncCassandraClientGen):
 
     def uuid_to_fq_name(self, id):
         try:
-            return self._cache_uuid_to_fq_name[id]
+            return self._cache_uuid_to_fq_name[id][0]
         except KeyError:
             try:
-                fq_name_json = self._obj_uuid_cf.get(
-                    id, columns=['fq_name'])['fq_name']
+                obj = self._obj_uuid_cf.get(id, columns=['fq_name', 'type'])
             except pycassa.NotFoundException:
                 raise NoIdError(id)
 
-            fq_name = json.loads(fq_name_json)
-            self.cache_uuid_to_fq_name_add(id, fq_name)
+            fq_name = json.loads(obj['fq_name'])
+            obj_type = json.loads(obj['type'])
+            self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
             return fq_name
     # end uuid_to_fq_name
 
     def uuid_to_obj_type(self, id):
         try:
-            type_json = self._obj_uuid_cf.get(id, columns=['type'])['type']
-        except pycassa.NotFoundException:
-            raise NoIdError(id)
-        return json.loads(type_json)
-    # end uuid_to_fq_name
+            return self._cache_uuid_to_fq_name[id][1]
+        except KeyError:
+            try:
+                obj = self._obj_uuid_cf.get(id, columns=['fq_name', 'type'])
+            except pycassa.NotFoundException:
+                raise NoIdError(id)
+
+            fq_name = json.loads(obj['fq_name'])
+            obj_type = json.loads(obj['type'])
+            self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
+            return obj_type
+    # end uuid_to_obj_type
+
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
