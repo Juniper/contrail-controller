@@ -272,6 +272,7 @@ private:
     TableState *AddTableState(BgpTable *table, RtGroup *group = NULL);
     void RemoveTableState(BgpTable *table, RtGroup *group);
     void DeleteTableState(BgpTable *table);
+    void UnregisterTableState(BgpTable *table);
     TableState *FindTableState(BgpTable *table);
     const TableState *FindTableState(BgpTable *table) const;
 

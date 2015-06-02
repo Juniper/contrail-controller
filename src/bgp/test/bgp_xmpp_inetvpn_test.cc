@@ -706,8 +706,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     // Verify table walk count for blue.inet.0.
     BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
     BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
-    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Register to blue instance
@@ -716,8 +716,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Verify that subscribe completed.
-    TASK_UTIL_EXPECT_EQ(2, blue_x->walk_complete_count());
-    TASK_UTIL_EXPECT_EQ(2, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
     task_util::WaitForIdle();
 
     // Pause update generation on X.

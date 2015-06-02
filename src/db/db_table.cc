@@ -290,6 +290,11 @@ DBEntry *DBTable::Find(const DBRequestKey *key) {
     return tbl_partition->Find(key);
 }
 
+//
+// Concurrency: called from task that's mutually exclusive with db::DBTable.
+//
+// Calculate the size across all partitions.
+//
 size_t DBTable::Size() const {
     size_t total = 0;
     for (vector<DBTablePartition *>::const_iterator iter = partitions_.begin();
