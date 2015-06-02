@@ -1894,18 +1894,6 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
 
     // Erase all elements for the table
     defer_q_.erase(vrf_n_table);
-
-    vector<string> registered_tables;
-    mgr->FillRegisteredTable(peer_.get(), &registered_tables);
-    if (registered_tables.empty())
-        return true;
-
-    XmppPeerInfoData peer_info;
-    peer_info.set_name(peer_->ToUVEKey());
-    peer_info.set_routing_tables(registered_tables);
-    peer_info.set_send_state("in sync");
-    XMPPPeerInfo::Send(peer_info);
-
     return true;
 }
 
