@@ -1393,7 +1393,7 @@ protected:
     vector<PeerMock *> xmpp_peers_;
     vector<PeerMock *> leaf_peers_;
     vector<PeerMock *> replicator_peers_;
-    uint32_t tag_;
+    int tag_;
 };
 
 // Add Broadcast MAC routes from all XMPP peers.
