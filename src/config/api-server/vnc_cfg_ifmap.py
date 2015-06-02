@@ -219,25 +219,26 @@ class VncIfmapClient(VncIfmapClientGen):
                 self.config_log(tb, level=SandeshLevel.SYS_ERROR)
 
     def _publish_to_ifmap_dequeue(self):
-        while self._queue.peek():
+        while True:
+            (oper, oper_body, do_trace) = self._queue.get()
             publish_discovery = False
             requests = []
             requests_len = 0
             traces = []
             while True:
+                if oper == 'publish_discovery':
+                    publish_discovery = True
+                    break
+                if do_trace:
+                    trace = self._generate_ifmap_trace(oper, oper_body)
+                    traces.append(trace)
+                requests.append(oper_body)
+                requests_len += len(oper_body)
+                if (requests_len >
+                    self._get_api_server()._args.ifmap_max_message_size):
+                    break
                 try:
                     (oper, oper_body, do_trace) = self._queue.get_nowait()
-                    if oper == 'publish_discovery':
-                        publish_discovery = True
-                        break
-                    if do_trace:
-                        trace = self._generate_ifmap_trace(oper, oper_body)
-                        traces.append(trace)
-                    requests.append(oper_body)
-                    requests_len += len(oper_body)
-                    if (requests_len >
-                        self._get_api_server()._args.ifmap_max_message_size):
-                        break
                 except Empty:
                     break
             ok = True
