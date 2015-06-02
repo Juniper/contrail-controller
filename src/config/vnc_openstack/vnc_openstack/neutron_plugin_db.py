@@ -641,8 +641,8 @@ class DBInterface(object):
 
         # Read only the nets associated to port_objs
         net_refs = [port_obj.get_virtual_network_refs() for port_obj in port_objs]
-        net_ids = [ref[0]['uuid'] for ref in net_refs if ref]
-        net_objs = self._virtual_network_list(obj_uuids=net_ids,
+        net_ids = {ref[0]['uuid'] for ref in net_refs if ref}
+        net_objs = self._virtual_network_list(obj_uuids=list(net_ids),
                                               detail=True)
         for net_obj in net_objs:
             # dictionary of iip_uuid to iip_obj
