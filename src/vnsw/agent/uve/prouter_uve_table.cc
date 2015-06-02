@@ -657,8 +657,8 @@ void ProuterUveTable::VmInterfaceHandler(DBTablePartBase *partition,
             VMInterfaceRemove(state->logical_interface_, intf);
             e->ClearState(partition->parent(), interface_listener_id_);
             delete state;
-            return;
         }
+        return;
     }
     if (!state) {
         state = new VmInterfaceState();
