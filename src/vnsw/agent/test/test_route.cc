@@ -595,6 +595,11 @@ TEST_F(RouteTest, RemoteVmRoute_4) {
     client->NHWait(6);
     EXPECT_TRUE(addr_nh->IsValid() == false);
 
+    //Readd ARP and verify tunnel NH is changed
+    AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0e", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(addr_nh->IsValid() == true);
+
     //Delete Remote VM route
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));

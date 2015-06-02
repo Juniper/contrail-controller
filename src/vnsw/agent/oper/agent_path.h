@@ -210,6 +210,7 @@ public:
 
     bool arp_valid() const { return arp_valid_;}
     void set_arp_valid(bool valid) { arp_valid_ = valid;}
+    bool CopyArpData();
 
 private:
     const Peer *peer_;
