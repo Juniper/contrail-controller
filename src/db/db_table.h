@@ -85,7 +85,9 @@ public:
     void AddToDBStateCount(ListenerId listener, int count);
 
     // Calculate the size across all partitions.
+    // Must be called from Task which is mutually exclusive with db::DBTable.
     virtual size_t Size() const { return 0; }
+    bool empty() const { return (Size() == 0); }
 
     // Suspended deletion resume hook for user function
     virtual void RetryDelete() { }
