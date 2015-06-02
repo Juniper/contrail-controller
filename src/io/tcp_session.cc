@@ -125,6 +125,12 @@ void TcpSession::ReleaseBufferLocked(Buffer buffer) {
     assert(false);
 }
 
+bool TcpSession::AsyncReadHandlerProcess(boost::asio::mutable_buffer buffer,
+                                         size_t &bytes_transferred,
+                                         boost::system::error_code &error) {
+    return false;
+}
+
 void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
     // Update socket read block time.
     if (stats_.read_block_start_time) {
@@ -419,6 +425,20 @@ void TcpSession::AsyncReadHandler(
         lock.release();
         session->CloseInternal(true);
         return;
+    }
+
+    boost::system::error_code err;
+    if (session->AsyncReadHandlerProcess(buffer, bytes_transferred, err)) {
+        // check error code if session needs to be closed
+        if (IsSocketErrorHard(err)) {
+            session->ReleaseBufferLocked(buffer);
+            TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
+                                     "Read failed due to error " << err.value()
+                                         << " : " << err.message());
+            lock.release();
+            session->CloseInternal(true);
+            return;
+        }
     }
 
     // Update read statistics.
