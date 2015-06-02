@@ -14,6 +14,7 @@ import testtools
 from testtools import content, content_type
 from flexmock import flexmock, Mock
 from webtest import TestApp
+import contextlib
 
 from vnc_api.vnc_api import *
 import cfgm_common.ifmap.client as ifmap_client
@@ -236,6 +237,19 @@ def setup_common_flexmock():
     flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
 #end setup_common_flexmock
 
+@contextlib.contextmanager
+def patch(target_obj, target_method_name, patched):
+    orig_method = getattr(target_obj, target_method_name)
+    def patched_wrapper(*args, **kwargs):
+        return patched(orig_method, *args, **kwargs)
+
+    setattr(target_obj, target_method_name, patched_wrapper)
+    try:
+        yield
+    finally:
+        setattr(target_obj, target_method_name, orig_method)
+#end patch
+
 cov_handle = None
 class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     _HTTP_HEADERS =  {
@@ -248,6 +262,18 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             ('DEFAULTS', '', ''),
             ]
         super(TestCase, self).__init__(*args, **kwargs)
+        self.addOnException(self._add_detailed_traceback)
+
+    def _add_detailed_traceback(self, exc_info):
+        import cgitb
+        cgitb.enable(format='text')
+        from cStringIO  import StringIO
+
+        tmp_file = StringIO()
+        cgitb.Hook(format="text", file=tmp_file).handle(exc_info)
+        tb_str = tmp_file.getvalue()
+        tmp_file.close()
+        self.addDetail('detailed-traceback', content.text_content(tb_str))
 
     def _add_detail(self, detail_str):
         frame = inspect.stack()[1]
