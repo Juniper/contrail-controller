@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/scheduling_group.h"
+#include <boost/foreach.hpp>
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
@@ -12,6 +12,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
+#include "bgp/scheduling_group.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
@@ -448,6 +449,51 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesMultiplePeers) {
     Register(&tbl1, peer);
     Register(&tbl2, peer);
     
+    STLDeleteValues(&peers);
+}
+
+//
+// Exercise the Leave code with a large number of RibOuts.
+// Test is constructed such that there's only a single SchedulingGroup.
+// Intention is to test the performance of SchedulingGroup::GetPeerRibList.
+//
+TEST_F(SchedulingGroupManagerTest, LeaveScaling1) {
+    // Create 2 peers and join them to a common ribout.
+    vector<BgpTestPeer *> peers;
+    BgpTestPeer *test_peer(new BgpTestPeer());
+    BgpTestPeer *other_peer(new BgpTestPeer());
+    peers.push_back(test_peer);
+    peers.push_back(other_peer);
+    RibOut ribout_common(inetvpn_table_, &sgman_, RibExportPolicy());
+    Join(&ribout_common, test_peer);
+    Join(&ribout_common, other_peer);
+    EXPECT_EQ(1, sgman_.size());
+
+    // Create large number of additional RibOuts.
+    vector<RibOut *> ribouts;
+    for (int idx = 0; idx < 8192; ++idx) {
+        RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
+            RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
+        ribouts.push_back(ribout);
+    }
+
+    // Join the test peer to all the additional RibOuts.
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Join(ribout, test_peer);
+    }
+    EXPECT_EQ(1, sgman_.size());
+
+    // Leave the test peer from all the additional RibOuts.
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Leave(ribout, test_peer);
+    }
+    EXPECT_EQ(1, sgman_.size());
+
+    // Cleanup.
+    Leave(&ribout_common, test_peer);
+    Leave(&ribout_common, other_peer);
+    EXPECT_EQ(0, sgman_.size());
+    STLDeleteValues(&ribouts);
     STLDeleteValues(&peers);
 }
 
