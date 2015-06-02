@@ -2091,6 +2091,9 @@ class BgpRouterST(DictST):
 
 class VirtualMachineInterfaceST(DictST):
     _dict = {}
+    _vn_dict = {}
+    _service_vmi_list = []
+
     def __init__(self, name, obj=None):
         self.name = name
         self.service_interface_type = None
@@ -2105,12 +2108,26 @@ class VirtualMachineInterfaceST(DictST):
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
     # end __init__
     @classmethod
-    
+
     def delete(cls, name):
+        try:
+            if self.virtual_network and self.virtual_network in self._vn_dict:
+                self._vn_dict[self.virtual_network].remove(self)
+            self._service_vmi_list.remove(self)
+        except ValueError:
+            pass
         if name in cls._dict:
             del cls._dict[name]
     # end delete
-    
+
+    @classmethod
+    def get_vmi_on_network(cls, network_name):
+        return cls._vn_dict.get(network_name, [])
+
+    @classmethod
+    def get_service_interfaces(cls):
+        return cls._service_vmi_list
+
     def add_instance_ip(self, ip_name):
         self.instance_ips.add(ip_name)
     # end add_instance_ip
@@ -2138,6 +2155,8 @@ class VirtualMachineInterfaceST(DictST):
     def set_service_interface_type(self, service_interface_type):
         if self.service_interface_type == service_interface_type:
             return
+        if service_interface_type is not None:
+            self._service_vmi_list.append(self)
         self.service_interface_type = service_interface_type
         self._add_pbf_rules()
     # end set_service_interface_type
@@ -2191,6 +2210,7 @@ class VirtualMachineInterfaceST(DictST):
 
     def set_virtual_network(self, vn_name):
         self.virtual_network = vn_name
+        self._vn_dict.setdefault(vn_name, []).append(self)
         virtual_network = VirtualNetworkST.locate(vn_name)
         if virtual_network is None:
             return
@@ -3347,9 +3367,8 @@ class SchemaTransformer(object):
                 virtual_network.dynamic_acl, 'dynamic', virtual_network.obj,
                 dynamic_acl_entries)
 
-            for vmi in VirtualMachineInterfaceST.values():
-                if (vmi.virtual_network == network_name and
-                    vmi.interface_mirror is not None and
+            for vmi in VirtualMachineInterfaceST.get_vmi_on_network(network_name):
+                if (vmi.interface_mirror is not None and
                     vmi.interface_mirror.mirror_to is not None and
                     vmi.interface_mirror.mirror_to.analyzer_name is not None):
                         vmi.process_analyzer()
@@ -3433,7 +3452,7 @@ class SchemaTransformer(object):
             virtual_network.uve_send()
         # end for self.current_network_set
 
-        for vmi in VirtualMachineInterfaceST.values():
+        for vmi in VirtualMachineInterfaceST.get_service_interfaces():
             vmi.recreate_vrf_assign_table()
     # end process_poll_result
 
