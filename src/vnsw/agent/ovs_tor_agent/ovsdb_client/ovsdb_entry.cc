@@ -147,12 +147,15 @@ bool OvsdbDBEntry::Delete() {
     }
     DeleteMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
-    PostDelete();
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        // current transaction deleted trigger post delete
+        PostDelete();
         return true;
     }
     object->client_idl_->TxnScheduleJsonRpc(msg);
+    // current transaction send completed trigger post delete
+    PostDelete();
     return false;
 }
 

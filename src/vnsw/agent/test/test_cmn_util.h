@@ -444,4 +444,6 @@ void DisableUnknownBroadcast(const std::string &vn_name, int vn_id);
 void AddInterfaceVrfAssignRule(const char *intf_name, int intf_id,
                                const char *sip, const char *dip, int proto,
                                const char *vrf, const char *ignore_acl);
+void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
+void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 #endif // vnsw_agent_test_cmn_util_h

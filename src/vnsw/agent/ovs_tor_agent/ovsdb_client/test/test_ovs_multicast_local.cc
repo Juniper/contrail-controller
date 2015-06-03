@@ -88,26 +88,6 @@ protected:
     virtual void TearDown() {
     }
 
-    void AddPhysicalDeviceVn(int dev_id, int vn_id) {
-        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
-                                              MakeUuid(vn_id)));
-        agent_->physical_device_vn_table()->Enqueue(&req);
-        PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
-        WAIT_FOR(100, 10000,
-               (agent_->physical_device_vn_table()->Find(&key, false) != NULL));
-    }
-
-    void DelPhysicalDeviceVn(int dev_id, int vn_id) {
-        DBRequest req(DBRequest::DB_ENTRY_DELETE);
-        req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
-                                              MakeUuid(vn_id)));
-        agent_->physical_device_vn_table()->Enqueue(&req);
-        PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
-        WAIT_FOR(100, 10000,
-                (agent_->physical_device_vn_table()->Find(&key, false) == NULL));
-    }
-
     Agent *agent_;
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
@@ -154,7 +134,7 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
     WAIT_FOR(100, 10000,
              (agent_->physical_device_table()->Find(MakeUuid(1)) != NULL));
     //Add device_vn
-    AddPhysicalDeviceVn(1, 1);
+    AddPhysicalDeviceVn(agent_, 1, 1, true);
 
     //Initialization done, now delete VRF VN link and then update VXLAN id in
     //VN.
@@ -163,7 +143,7 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
     TestClient::WaitForIdle();
 
     //Delete
-    DelPhysicalDeviceVn(1, 1);
+    DelPhysicalDeviceVn(agent_, 1, 1, true);
     DBRequest del_dev_req(DBRequest::DB_ENTRY_DELETE);
     del_dev_req.key.reset(new PhysicalDeviceVnKey(MakeUuid(1),
                                                   MakeUuid(1)));
