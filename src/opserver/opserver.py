@@ -1421,7 +1421,7 @@ class OpServer(object):
             first = True
             for key in filters['kfilt']:
                 uve_name = uve_tbl + ':' + key
-                rsp = self._uve_server.get_uve(uve_name, True, filters,
+                _, rsp = self._uve_server.get_uve(uve_name, True, filters,
                                                is_alarm=is_alarm,
                                                base_url=base_url)
                 if rsp != {}:
@@ -1484,7 +1484,7 @@ class OpServer(object):
                         yield u', ' + json.dumps(gen)
                 yield u']}'
             else:
-                rsp = self._uve_server.get_uve(uve_name, flat, filters,
+                _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
                                                is_alarm=is_alarm,
                                                base_url=base_url)
                 yield json.dumps(rsp)

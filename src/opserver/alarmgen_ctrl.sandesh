@@ -41,7 +41,45 @@ struct UVECollInfo {
 response sandesh PartitionStatusResp {
     1: bool                     enabled
     2: u32                      partition
-    3: list<UVECollInfo>        uves
+    3: u64                      offset
+    4: list<UVECollInfo>        uves
+}
+
+request sandesh UVETableInfoReq {
+    1: u32                     partition
+}
+
+struct UVEStructInfo {
+    1: string                  type
+    2: string                  content
+}
+
+struct UVEObjectInfo {
+    1: string                  name
+    3: list<UVEStructInfo>     structs
+}
+
+struct UVETableInfo {
+    1: string table
+    7: list<UVEObjectInfo> uves
+}
+
+
+response sandesh UVETableInfoResp {
+    2: u32 partition
+    7: list<UVETableInfo> tables
+}
+
+request sandesh UVETablePerfReq {
+    1: string                      table
+}
+
+response sandesh UVETablePerfResp {
+    1: string table
+    3: u64 updates
+    4: u64 get_time
+    5: u64 pub_time
+    6: u64 call_time
 }
 
 request sandesh UVETableAlarmReq {

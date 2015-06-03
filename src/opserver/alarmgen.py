@@ -42,13 +42,132 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionStatusResp, UVETableAlarmReq, UVETableAlarmResp, \
     AlarmgenTrace, UVEKeyInfo, UVETypeInfo, AlarmgenStatusTrace, \
     AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
-    AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate
+    AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
+    UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
+    UVETablePerfReq, UVETablePerfResp, UVETableInfo
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
 from stevedore import hook
 from pysandesh.util import UTCTimestampUsec
+
+class AGTabStats(object):
+    """ This class is used to store per-UVE-table information
+        about the time taken and number of instances when
+        a UVE was retrieved, published or evaluated for alarms
+    """
+    def __init__(self):
+        self.reset()
+
+    def record_get(self, get_time):
+        self.get_time += get_time
+        self.get_n += 1
+
+    def record_pub(self, get_time):
+        self.pub_time += get_time
+        self.pub_n += 1
+
+    def record_call(self, get_time):
+        self.call_time += get_time
+        self.call_n += 1
+    
+    def get_result(self):
+        if self.get_n:
+            return self.get_time / self.get_n
+        else:
+            return 0
+
+    def pub_result(self):
+        if self.pub_n:
+            return self.pub_time / self.pub_n
+        else:
+            return 0
+
+    def call_result(self):
+        if self.call_n:
+            return self.call_time / self.call_n
+        else:
+            return 0
+
+    def reset(self):
+        self.call_time = 0
+        self.call_n = 0
+        self.get_time = 0
+        self.get_n = 0
+        self.pub_time = 0
+        self.pub_n = 0
+        
+    
+class AGKeyInfo(object):
+    """ This class is used to maintain UVE contents
+    """
+
+    def __init__(self, part):
+        self._part = part
+        # key of struct name, value of content dict
+
+        self.current_dict = {}
+        self.update({})
+        
+    def update_single(self, typ, val):
+        # A single UVE struct has changed
+        # If the UVE has gone away, the val is passed in as None
+
+        self.set_removed = set()
+        self.set_added = set()
+        self.set_changed = set()
+        self.set_unchanged = self.current_dict.keys()
+
+        if typ in self.current_dict:
+            # the "added" set must stay empty in this case
+            if val is None:
+                self.set_unchanged.remove(typ)
+                self.set_removed.add(typ)
+                del self.current_dict[typ]
+            else:
+                # both "added" and "removed" will be empty
+                if val != self.current_dict[typ]:
+                    self.set_unchanged.remove(typ)
+                    self.set_changed.add(typ)
+                    self.current_dict[typ] = val
+        else:
+            if val != None:
+                self.set_added.add(typ)
+                self.current_dict[typ] = val
+
+    def update(self, new_dict):
+        # A UVE has changed, and we have the entire new 
+        # content of the UVE available in new_dict
+        set_current = set(new_dict.keys())
+        set_past = set(self.current_dict.keys())
+        set_intersect = set_current.intersection(set_past)
+
+        self.set_added = set_current - set_intersect
+        self.set_removed = set_past - set_intersect
+        self.set_changed = set()
+        self.set_unchanged = set()
+        for o in set_intersect:
+            if new_dict[o] != self.current_dict[o]:
+                self.set_changed.add(o)
+            else:
+                self.set_unchanged.add(o)
+        self.current_dict = new_dict
+
+    def values(self):
+        return self.current_dict
+
+    def added(self):
+        return self.set_added
+
+    def removed(self):
+        return self.set_removed
+
+    def changed(self):
+        return self.set_changed
+
+    def unchanged(self):
+        return self.set_unchanged
 
 class Controller(object):
     
@@ -80,7 +199,6 @@ class Controller(object):
             enable_syslog=self._conf.use_syslog(),
             syslog_facility=self._conf.syslog_facility())
         self._logger = sandesh_global._logger
-
         # Trace buffer list
         self.trace_buf = [
             {'name':'DiscoveryMsg', 'size':1000}
@@ -96,6 +214,9 @@ class Controller(object):
                    "ObjectConfigNode" ] 
         self.mgrs = {}
         self.tab_alarms = {}
+        self.ptab_info = {}
+        self.tab_perf = {}
+        self.tab_perf_prev = {}
         for table in tables:
             self.mgrs[table] = hook.HookManager(
                 namespace='contrail.analytics.alarms',
@@ -110,6 +231,7 @@ class Controller(object):
                     (table, extn.name, extn.entry_point_target, extn.obj.__doc__))
 
             self.tab_alarms[table] = {}
+            self.tab_perf[table] = AGTabStats()
 
         ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
             self._instance_id,
@@ -119,6 +241,8 @@ class Controller(object):
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 
         self._workers = {}
+        self._uveq = {}
+        self._uveqf = {}
 
         self.disc = None
         self._libpart_name = self._hostname + ":" + self._instance_id
@@ -156,6 +280,8 @@ class Controller(object):
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
         UVETableAlarmReq.handle_request = self.handle_UVETableAlarmReq 
+        UVETableInfoReq.handle_request = self.handle_UVETableInfoReq
+        UVETablePerfReq.handle_request = self.handle_UVETablePerfReq
 
     def libpart_cb(self, part_list):
 
@@ -184,6 +310,9 @@ class Controller(object):
         for delpart in (oldset-newset):
             self._logger.error('Partition Del : %s' % delpart)
             self.partition_change(delpart, False)
+
+        self._logger.error('Partition List done : new %s old %s' % \
+            (str(newset),str(oldset)))
 
     def start_libpart(self, ag_list):
         if not self._conf.zk_list():
@@ -216,31 +345,175 @@ class Controller(object):
             self._logger.error('Could not import libpartition: %s' % str(e))
             return None
 
-    def handle_uve_notif(self, uves, remove = False):
-        self._logger.debug("Changed UVEs : %s" % str(uves))
-        no_handlers = set()
-        for uv in uves:
-            tab = uv.split(':',1)[0]
-            uve_name = uv.split(':',1)[1]
-            if not self.mgrs.has_key(tab):
-                no_handlers.add(tab)
-                continue
-            if remove:
-                uve_data = []
+    def handle_uve_notifq(self, part, uves):
+        if part not in self._uveq:
+            self._uveq[part] = {}
+        for uv,types in uves.iteritems():
+            if types is None:
+                self._uveq[part][uv] = None
             else:
-                filters = {'kfilt': [uve_name]}
-                itr = self._us.multi_uve_get(tab, True, filters)
-                uve_data = itr.next()['value']
-            if len(uve_data) == 0:
-                self._logger.info("UVE %s deleted" % uv)
-                if self.tab_alarms[tab].has_key(uv):
-                    del self.tab_alarms[tab][uv]
-                    ustruct = UVEAlarms(name = uve_name, deleted = True)
-                    alarm_msg = AlarmTrace(data=ustruct, table=tab)
-                    self._logger.info('send del alarm: %s' % (alarm_msg.log()))
-                    alarm_msg.send()
+                if uv in self._uveq[part]:
+                    if self._uveq[part][uv] is not None:
+                        self._uveq[part][uv].update(types)
+                else:
+                    self._uveq[part][uv] = set()
+                    self._uveq[part][uv].update(types)
+
+    def run_uve_processing(self):
+        """
+        This function runs in its own gevent, and provides state compression
+        for UVEs.
+        Kafka worker (PartitionHandler)  threads detect which UVE have changed
+        and accumulate them onto a set. When this gevent runs, it processes
+        all UVEs of the set. Even if this gevent cannot run for a while, the
+        set should not grow in an unbounded manner (like a queue can)
+        """
+
+        while True:
+            for part in self._uveqf.keys():
+                self._logger.error("Stop UVE processing for %d" % part)
+                self.stop_uve_partition(part)
+                del self._uveqf[part]
+                if part in self._uveq:
+                    del self._uveq[part]
+            prev = time.time()
+            gevs = {}
+            for part in self._uveq.keys():
+                if not len(self._uveq[part]):
+                    continue
+                self._logger.info("UVE Process for %d" % part)
+
+                # Allow the partition handlers to queue new UVEs without
+                # interfering with the work of processing the current UVEs
+                workingset = copy.deepcopy(self._uveq[part])
+                self._uveq[part] = {}
+
+                gevs[part] = gevent.spawn(self.handle_uve_notif,part,workingset)
+            if len(gevs):
+                gevent.joinall(gevs.values())
+                for part in gevs.keys():
+                    # If UVE processing failed, requeue the working set
+                    if not gevs[part].get():
+                        self._logger.error("UVE Process failed for %d" % part)
+                        self.handle_uve_notifq(part, workingset)
+            curr = time.time()
+            if (curr - prev) < 0.1:
+                gevent.sleep(0.1 - (curr - prev))
+            else:
+                self._logger.info("UVE Process saturated")
+                gevent.sleep(0)
+             
+    def stop_uve_partition(self, part):
+        for tk in self.ptab_info[part].keys():
+            for uk in self.ptab_info[part][tk].keys():
+                if tk in self.tab_alarms:
+                    if uk in self.tab_alarms[tk]:
+                        del self.tab_alarms[tk][uk]
+                        ustruct = UVEAlarms(name = ok, deleted = True)
+                        alarm_msg = AlarmTrace(data=ustruct, table=tk)
+                        self._logger.info('send del alarm: %s' % (alarm_msg.log()))
+                        alarm_msg.send()
+                del self.ptab_info[part][tk][uk]
+                self._logger.info("UVE %s deleted" % (uk))
+            del self.ptab_info[part][tk]
+        del self.ptab_info[part]
+
+    def handle_uve_notif(self, part, uves):
+        """
+        Call this function when a UVE has changed. This can also
+        happed when taking ownership of a partition, or when a
+        generator is deleted.
+        Args:
+            part   : Partition Number
+            uve    : dict, where the key is the UVE Name.
+                     The value is either a set of UVE structs, or "None",
+                     which means that all UVE structs should be processed
+
+        Returns: 
+            status of operation (True for success)
+        """
+        self._logger.debug("Changed part %d UVEs : %s" % (part, str(uves)))
+        success = True
+        for uv,types in uves.iteritems():
+            tab = uv.split(':',1)[0]
+            if tab not in self.tab_perf:
+                self.tab_perf[tab] = AGTabStats()
+
+            uve_name = uv.split(':',1)[1]
+            prevt = UTCTimestampUsec() 
+            filters = {}
+            if types:
+                filters["cfilt"] = {}
+                for typ in types:
+                    filters["cfilt"][typ] = set()
+            failures, uve_data = self._us.get_uve(uv, True, filters)
+            if failures:
+                success = False
+            self.tab_perf[tab].record_get(UTCTimestampUsec() - prevt)
+            # Handling Agg UVEs
+            if not part in self.ptab_info:
+                self.ptab_info[part] = {}
+
+            if not tab in self.ptab_info[part]:
+                self.ptab_info[part][tab] = {}
+
+            if uve_name not in self.ptab_info[part][tab]:
+                self.ptab_info[part][tab][uve_name] = AGKeyInfo(part)
+
+            prevt = UTCTimestampUsec()       
+            if not types:
+                self.ptab_info[part][tab][uve_name].update(uve_data)
+                if len(self.ptab_info[part][tab][uve_name].removed()):
+                    self._logger.info("UVE %s removed structs %s" % (uve_name, \
+                            self.ptab_info[part][tab][uve_name].removed()))
+                if len(self.ptab_info[part][tab][uve_name].changed()):
+                    self._logger.debug("UVE %s changed structs %s" % (uve_name, \
+                            self.ptab_info[part][tab][uve_name].changed()))
+                if len(self.ptab_info[part][tab][uve_name].added()):
+                    self._logger.debug("UVE %s added structs %s" % (uve_name, \
+                            self.ptab_info[part][tab][uve_name].added()))
+            else:
+                for typ in types:
+                    val = None
+                    if typ in uve_data:
+                        val = uve_data[typ]
+                    self.ptab_info[part][tab][uve_name].update_single(typ, val)
+                    if len(self.ptab_info[part][tab][uve_name].removed()):
+                        self._logger.info("UVE %s removed structs %s" % (uve_name, \
+                                self.ptab_info[part][tab][uve_name].removed()))
+                    if len(self.ptab_info[part][tab][uve_name].changed()):
+                        self._logger.debug("UVE %s changed structs %s" % (uve_name, \
+                                self.ptab_info[part][tab][uve_name].changed()))
+                    if len(self.ptab_info[part][tab][uve_name].added()):
+                        self._logger.debug("UVE %s added structs %s" % (uve_name, \
+                                self.ptab_info[part][tab][uve_name].added()))
+
+            local_uve = self.ptab_info[part][tab][uve_name].values()
+            
+            if len(local_uve.keys()) == 0:
+                self._logger.info("UVE %s deleted" % (uve_name))
+                del self.ptab_info[part][tab][uve_name]
+
+            self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
+
+            # Withdraw the alarm if the UVE has no non-alarm structs
+            if len(local_uve.keys()) == 0 or \
+                    (len(local_uve.keys()) == 1 and "UVEAlarms" in local_uve):
+                if tab in self.tab_alarms:
+                    if uv in self.tab_alarms[tab]:
+                        del self.tab_alarms[tab][uv]
+                        ustruct = UVEAlarms(name = uve_name, deleted = True)
+                        alarm_msg = AlarmTrace(data=ustruct, table=tab)
+                        self._logger.info('send del alarm: %s' % (alarm_msg.log()))
+                        alarm_msg.send()
+                        continue
+
+            # Handing Alarms
+            if not self.mgrs.has_key(tab):
                 continue
-            results = self.mgrs[tab].map_method("__call__", uv, uve_data)
+            prevt = UTCTimestampUsec()
+            results = self.mgrs[tab].map_method("__call__", uv, local_uve)
+            self.tab_perf[tab].record_call(UTCTimestampUsec() - prevt)
             new_uve_alarms = {}
             for res in results:
                 nm, sev, errs = res
@@ -296,9 +569,39 @@ class Controller(object):
                 alarm_msg = AlarmTrace(data=ustruct, table=tab)
                 self._logger.info('send alarm: %s' % (alarm_msg.log()))
                 alarm_msg.send()
-            
-        if len(no_handlers):
-            self._logger.debug('No Alarm Handlers for %s' % str(no_handlers))
+        return success
+ 
+    def handle_UVETableInfoReq(self, req):
+        if req.partition == -1:
+            parts = self.ptab_info.keys()
+        else:
+            parts = [req.partition]
+        
+        self._logger.info("Got UVETableInfoReq : %s" % str(parts))
+        np = 1
+        for part in parts:
+            if part not in self.ptab_info:
+                continue
+            tables = []
+            for tab in self.ptab_info[part].keys():
+                uvel = []
+                for uk,uv in self.ptab_info[part][tab].iteritems():
+                    types = []
+                    for tk,tv in uv.values().iteritems():
+                        types.append(UVEStructInfo(type = tk,
+                                content = json.dumps(tv)))
+                    uvel.append(UVEObjectInfo(
+                            name = uk, structs = types))
+                tables.append(UVETableInfo(table = tab, uves = uvel))
+            resp = UVETableInfoResp(partition = part)
+            resp.tables = tables
+
+            if np == len(parts):
+                mr = False
+            else:
+                mr = True
+            resp.response(req.context(), mr)
+            np = np + 1
 
     def handle_UVETableAlarmReq(self, req):
         status = False
@@ -324,6 +627,27 @@ class Controller(object):
             resp.response(req.context(), mr)
             np = np + 1
 
+    def handle_UVETablePerfReq(self, req):
+        status = False
+        if req.table == "all":
+            parts = self.tab_perf_prev.keys()
+        else:
+            parts = [req.table]
+        self._logger.info("Got UVETablePerfReq : %s" % str(parts))
+        np = 1
+        for pt in parts:
+            resp = UVETablePerfResp(table = pt)
+            resp.call_time = self.tab_perf_prev[pt].call_result()
+            resp.get_time = self.tab_perf_prev[pt].get_result()
+            resp.pub_time = self.tab_perf_prev[pt].pub_result()
+            resp.updates = self.tab_perf_prev[pt].get_n
+
+            if np == len(parts):
+                mr = False
+            else:
+                mr = True
+            resp.response(req.context(), mr)
+            np = np + 1
     
     def partition_change(self, partno, enl):
         """
@@ -337,19 +661,35 @@ class Controller(object):
         """
         status = False
         if enl:
-            if self._workers.has_key(partno):
+            if partno in self._workers:
                 self._logger.info("Dup partition %d" % partno)
             else:
-                #uvedb = self._us.get_part(partno)
                 ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
                                    partno, "uve-" + str(partno),
                                    self._logger, self._us.get_part,
-                                   self.handle_uve_notif)
+                                   self.handle_uve_notifq)
                 ph.start()
                 self._workers[partno] = ph
-                status = True
+                tout = 600
+                idx = 0
+                while idx < tout:
+                    # When this partitions starts,
+                    # uveq will get created
+                    if partno not in self._uveq:
+                        gevent.sleep(.1)
+                    else:
+                        break
+                    idx += 1
+                if partno in self._uveq:
+                    status = True 
+                else:
+                    # TODO: The partition has not started yet,
+                    #       but it still might start later.
+                    #       We possibly need to exit
+                    status = False
+                    self._logger.error("Unable to start partition %d" % partno)
         else:
-            if self._workers.has_key(partno):
+            if partno in self._workers:
                 ph = self._workers[partno]
                 gevent.kill(ph)
                 res,db = ph.get()
@@ -358,7 +698,26 @@ class Controller(object):
                 for k,v in db.iteritems():
                     print "%s -> %s" % (k,str(v)) 
                 del self._workers[partno]
-                status = True
+                self._uveqf[partno] = True
+
+                tout = 600
+                idx = 0
+                while idx < tout:
+                    # When this partitions stop.s
+                    # uveq will get destroyed
+                    if partno in self._uveq:
+                        gevent.sleep(.1)
+                    else:
+                        break
+                    idx += 1
+                if partno not in self._uveq:
+                    status = True 
+                else:
+                    # TODO: The partition has not stopped yet
+                    #       but it still might stop later.
+                    #       We possibly need to exit
+                    status = False
+                    self._logger.error("Unable to stop partition %d" % partno)
             else:
                 self._logger.info("No partition %d" % partno)
 
@@ -377,6 +736,11 @@ class Controller(object):
             the previous time period over all partitions
             and send it out
         '''
+        self.tab_perf_prev = copy.deepcopy(self.tab_perf)
+        for kt in self.tab_perf.keys():
+            #self.tab_perf_prev[kt] = copy.deepcopy(self.tab_perf[kt])
+            self.tab_perf[kt].reset()
+
         s_partitions = set()
         s_keys = set()
         n_updates = 0
@@ -462,6 +826,7 @@ class Controller(object):
             resp.partition = pt
             if self._workers.has_key(pt):
                 resp.enabled = True
+                resp.offset = self._workers[pt]._partoffset
                 resp.uves = []
                 for kcoll,coll in self._workers[pt].contents().iteritems():
                     uci = UVECollInfo()
@@ -568,7 +933,7 @@ def setup_controller(argv):
 def main(args=None):
     controller = setup_controller(args or ' '.join(sys.argv[1:]))
     gevs = [ 
-        gevent.spawn(controller.run)]
+        gevent.spawn(controller.run), gevent.spawn(controller.run_uve_processing)]
 
     if controller.disc:
         sp1 = ServicePoller(controller._logger, CollectorTrace, controller.disc, \
