@@ -45,7 +45,7 @@ struct AgentRouteKey : public AgentKey {
 
     const std::string &vrf_name() const { return vrf_name_; }
     const Peer *peer() const { return peer_; }
-    void set_peer(Peer *peer) {peer_ = peer;}
+    void set_peer(const Peer *peer) {peer_ = peer;}
 
     const Peer *peer_;
     std::string vrf_name_;
