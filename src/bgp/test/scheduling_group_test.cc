@@ -455,7 +455,7 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesMultiplePeers) {
 //
 // Exercise the Leave code with a large number of RibOuts.
 // Test is constructed such that there's only a single SchedulingGroup.
-// Intention is to test the performance of SchedulingGroup::GetPeerRibList.
+// Intent is to test the performance of SchedulingGroup::GetPeerRibList.
 //
 TEST_F(SchedulingGroupManagerTest, LeaveScaling1) {
     // Create 2 peers and join them to a common ribout.
@@ -492,6 +492,110 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling1) {
     // Cleanup.
     Leave(&ribout_common, test_peer);
     Leave(&ribout_common, other_peer);
+    EXPECT_EQ(0, sgman_.size());
+    STLDeleteValues(&ribouts);
+    STLDeleteValues(&peers);
+}
+
+//
+// Exercise the Leave code with a large number of RibOuts.
+// Test is constructed such that there's only a single SchedulingGroup.
+// Intent is to test the performance of the logic to determine if the
+// SchedulingGroup can be split - focus is on the negative case.
+// The common RibOut which prevents the split has the lowest index.
+//
+TEST_F(SchedulingGroupManagerTest, LeaveScaling2) {
+    // Create 2 peers and join them to a common ribout.
+    vector<BgpTestPeer *> peers;
+    BgpTestPeer *test_peer1(new BgpTestPeer());
+    BgpTestPeer *test_peer2(new BgpTestPeer());
+    peers.push_back(test_peer1);
+    peers.push_back(test_peer2);
+    RibOut ribout_common(inetvpn_table_, &sgman_, RibExportPolicy());
+    Join(&ribout_common, test_peer1);
+    Join(&ribout_common, test_peer2);
+    EXPECT_EQ(1, sgman_.size());
+
+    // Create large number of additional ribouts.
+    vector<RibOut *> ribouts;
+    for (int idx = 0; idx < 8192; ++idx) {
+        RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
+            RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
+        ribouts.push_back(ribout);
+    }
+
+    // Join the test peers to odd/even additional ribouts.
+    size_t idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Join(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(1, sgman_.size());
+
+    // Leave the test peer from odd/even additional ribouts.
+    idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Leave(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(1, sgman_.size());
+
+    // Cleanup.
+    Leave(&ribout_common, test_peer1);
+    Leave(&ribout_common, test_peer2);
+    EXPECT_EQ(0, sgman_.size());
+    STLDeleteValues(&ribouts);
+    STLDeleteValues(&peers);
+}
+
+//
+// Exercise the Leave code with a large number of RibOuts.
+// Test is constructed such that there's only a single SchedulingGroup.
+// Intent is to test the performance of the logic to determine if the
+// SchedulingGroup can be split - focus is on the negative case.
+// The common RibOut which prevents the split has the highest index.
+//
+TEST_F(SchedulingGroupManagerTest, LeaveScaling3) {
+    // Create 2 peers.
+    vector<BgpTestPeer *> peers;
+    BgpTestPeer *test_peer1(new BgpTestPeer());
+    BgpTestPeer *test_peer2(new BgpTestPeer());
+    peers.push_back(test_peer1);
+    peers.push_back(test_peer2);
+
+    // Create large number of additional RibOuts.
+    vector<RibOut *> ribouts;
+    for (int idx = 0; idx < 8192; ++idx) {
+        RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
+            RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
+        ribouts.push_back(ribout);
+    }
+
+    // Join the test peers to odd/even additional RibOuts.
+    size_t idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Join(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(2, sgman_.size());
+
+    // Join the test peers to a common ribout so that the groups get merged.
+    RibOut ribout_common(inetvpn_table_, &sgman_, RibExportPolicy());
+    Join(&ribout_common, test_peer1);
+    Join(&ribout_common, test_peer2);
+    EXPECT_EQ(1, sgman_.size());
+
+    // Leave the test peers from odd/even additional RibOuts.
+    idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Leave(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(1, sgman_.size());
+
+    // Cleanup.
+    Leave(&ribout_common, test_peer1);
+    Leave(&ribout_common, test_peer2);
     EXPECT_EQ(0, sgman_.size());
     STLDeleteValues(&ribouts);
     STLDeleteValues(&peers);

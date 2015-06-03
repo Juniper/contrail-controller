@@ -534,25 +534,28 @@ bool SchedulingGroup::PeerInSync(IPeerUpdate *peer) const {
 }
 
 //
-// Build two RibOutLists. The first is the list of RibOuts advertised by the
-// IPeerUpdate and the second is the list of RibOuts that are not advertised
-// by the IPeerUpdate.
+// Build two RibStateLists.
+// The first is the list of RibStates advertised by the IPeerUpdate and the
+// second is the list of RibStates that are not advertised by the IPeerUpdate.
 //
-void SchedulingGroup::GetPeerRibList(
-        IPeerUpdate *peer, RibOutList *rlist, RibOutList *rcomplement) const {
+void SchedulingGroup::GetPeerRibList(IPeerUpdate *peer,
+    RibStateList *rs_list, RibStateList *rsc_list) const {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    PeerState *ps = peer_state_imap_.Find(peer);
+    rs_list->clear();
+    rsc_list->clear();
 
     // Go through all possible indices for the RibOuts.  Need to ignore the
     // ones for which there's no RibState since those RibOuts don't exist.
+    PeerState *ps = peer_state_imap_.Find(peer);
     for (size_t i = 0; i < rib_state_imap_.size(); i++) {
         RibState *rs = rib_state_imap_.At(i);
-        if (rs == NULL) continue;
+        if (rs == NULL)
+            continue;
         if (ps != NULL && ps->IsMember(i)) {
-            rlist->push_back(rs->ribout());
+            rs_list->push_back(rs);
         } else {
-            rcomplement->push_back(rs->ribout());
+            rsc_list->push_back(rs);
         }
     }
 }
@@ -574,16 +577,16 @@ void SchedulingGroup::GetRibPeerList(RibOut *ribout, PeerList *plist) const {
 }
 
 //
-// Build the bitset of peers advertising at least one RibOut in the specified
-// list.
+// Build the bitset of peers advertising at least one RibOut corresponding to
+// the RibState list.
 //
-void SchedulingGroup::GetSubsetPeers(const RibOutList &list, GroupPeerSet *pg) {
+void SchedulingGroup::GetSubsetPeers(const RibStateList &list, GroupPeerSet *pg) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
     pg->clear();
-    for (RibOutList::const_iterator iter = list.begin(); iter != list.end();
+    for (RibStateList::const_iterator iter = list.begin(); iter != list.end();
          ++iter) {
-        RibState *rs = rib_state_imap_.Find(*iter);
+        RibState *rs = *iter;
         *pg |= rs->peer_set();
     }
 }
@@ -760,6 +763,20 @@ void SchedulingGroup::GetRibOutList(RibOutList *rlist) const {
         RibState *rs = rib_state_imap_.At(i);
         if (rs == NULL) continue;
         rlist->push_back(rs->ribout());
+    }
+}
+
+//
+// Populate the RibOutList with RibOuts corresponding to the RibStateList.
+//
+void SchedulingGroup::GetRibOutList(const RibStateList &rs_list,
+    RibOutList *ro_list) const {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
+
+    ro_list->clear();
+    for (RibStateList::const_iterator iter = rs_list.begin();
+         iter != rs_list.end(); ++iter) {
+        ro_list->push_back((*iter)->ribout());
     }
 }
 
@@ -1329,24 +1346,37 @@ void SchedulingGroupManager::Leave(RibOut *ribout, IPeerUpdate *peer) {
     // Retrieve the list of ribs that this peer is still advertising along with
     // its complement. If either the advertised list or the complement list are
     // empty, the group can't be split.
-    RibOutList rlist;
-    RibOutList rcomplement;
-    sg->GetPeerRibList(peer, &rlist, &rcomplement);
-    if (rlist.empty() || rcomplement.empty()) {
+    RibStateList rs_list, rsc_list;
+    sg->GetPeerRibList(peer, &rs_list, &rsc_list);
+    if (rs_list.empty() || rsc_list.empty()) {
         return;
     }
 
-    // Get the bitsets of peers advertising one or more of the ribouts in the
-    // advertised list and the complement list respectively. If the two bitsets
-    // don't have any peers in common, the group can be split based on the two
-    // ribout lists.
-    GroupPeerSet s1;
-    sg->GetSubsetPeers(rlist, &s1);
-    GroupPeerSet s2;
-    sg->GetSubsetPeers(rcomplement, &s2);
-    if (!s1.intersects(s2)) {
-        Split(sg, rlist, rcomplement);
+    // Get the bitset of peers advertising one or more of the ribs in the
+    // advertised list. If this bitset has any peers in common with bitset
+    // of peers for the ribs in complement list, the group cannot be split.
+    //
+    // Since the list of complement ribs is usually larger than the list of
+    // advertised ribs we build the bitset only for the advertised list and
+    // check for intersection with peer set for each rib in the complement
+    // list.
+    GroupPeerSet bitset;
+    sg->GetSubsetPeers(rs_list, &bitset);
+    for (RibStateList::const_iterator iter = rsc_list.begin();
+         iter != rsc_list.end(); ++iter) {
+        RibState *rs = *iter;
+        if (bitset.intersects(rs->peer_set())) {
+            return;
+        }
     }
+
+    // Build the lists of advertised and complement RibOuts from the lists
+    // of advertised and complement RibStates and split the group.
+    RibOutList ro_list;
+    sg->GetRibOutList(rs_list, &ro_list);
+    RibOutList roc_list;
+    sg->GetRibOutList(rsc_list, &roc_list);
+    Split(sg, ro_list, roc_list);
 }
 
 //
