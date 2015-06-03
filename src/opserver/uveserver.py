@@ -237,28 +237,43 @@ class UVEServer(object):
                                        password=self._redis_password, db=1)
             try:
                 qmap = {}
-                origins = redish.smembers("ALARM_ORIGINS:" + key)
+                ppe = redish.pipeline()
+                ppe.smembers("ALARM_ORIGINS:" + key)
                 if not is_alarm:
-                    origins = origins.union(redish.smembers("ORIGINS:" + key))
+                    ppe.smembers("ORIGINS:" + key)
+                pperes = ppe.execute()
+                origins = set()
+                for origset in pperes:
+                    for smt in origset:
+                        tt = smt.rsplit(":",1)[1]
+                        sm = smt.rsplit(":",1)[0]
+                        source = sm.split(":", 1)[0]
+                        mdule = sm.split(":", 1)[1]
+                        if tfilter is not None:
+                            if tt not in tfilter:
+                                continue
+                        if sfilter is not None:
+                            if sfilter != source:
+                                continue
+                        if mfilter is not None:
+                            if mfilter != mdule:
+                                continue
+                        origins.add(smt)
+                        
+                ppeval = redish.pipeline()
                 for origs in origins:
+                    ppeval.hgetall("VALUES:" + key + ":" + origs)
+                odictlist = ppeval.execute()
+
+                idx = 0
+                for origs in origins:
+  
+                    odict = odictlist[idx]
+                    idx = idx + 1
+
                     info = origs.rsplit(":", 1)
-                    sm = info[0].split(":", 1)
-                    source = sm[0]
-                    if sfilter is not None:
-                        if sfilter != source:
-                            continue
-                    mdule = sm[1]
-                    if mfilter is not None:
-                        if mfilter != mdule:
-                            continue
-                    dsource = source + ":" + mdule
-
+                    dsource = info[0]
                     typ = info[1]
-                    if tfilter is not None:
-                        if typ not in tfilter:
-                            continue
-
-                    odict = redish.hgetall("VALUES:" + key + ":" + origs)
 
                     afilter_list = set()
                     if tfilter is not None:
