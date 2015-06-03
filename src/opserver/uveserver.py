@@ -225,7 +225,7 @@ class UVEServer(object):
             uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
         return uves
         
-    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False, base_url=None):
+    def get_uve(self, key, flat, filters=None, is_alarm=False, base_url=None):
         filters = filters or {}
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
@@ -240,10 +240,33 @@ class UVEServer(object):
                                        password=self._redis_password, db=1)
             try:
                 qmap = {}
-                origins = redish.smembers("ALARM_ORIGINS:" + key)
+
+                ppe = redish.pipeline()
+                ppe.smembers("ALARM_ORIGINS:" + key)
                 if not is_alarm:
-                    origins = origins.union(redish.smembers("ORIGINS:" + key))
+                    ppe.smembers("ORIGINS:" + key)
+                pperes = ppe.execute()
+                origins = set()
+                for origset in pperes:
+                    for smt in origset:
+                        if tfilter is None:
+                            origins.add(smt)
+                        else:
+                            tt = smt.rsplit(":",1)[1]
+                            if tt in tfilter:
+                                origins.add(smt)
+
+                ppeval = redish.pipeline()
                 for origs in origins:
+                    ppeval.hgetall("VALUES:" + key + ":" + origs)
+                odictlist = ppeval.execute()
+
+                idx = 0    
+                for origs in origins:
+
+                    odict = odictlist[idx]
+                    idx = idx + 1
+
                     info = origs.rsplit(":", 1)
                     sm = info[0].split(":", 1)
                     source = sm[0]
@@ -257,15 +280,10 @@ class UVEServer(object):
                     dsource = source + ":" + mdule
 
                     typ = info[1]
-                    if tfilter is not None:
-                        if typ not in tfilter:
-                            continue
-
-                    odict = redish.hgetall("VALUES:" + key + ":" + origs)
-
                     afilter_list = set()
                     if tfilter is not None:
                         afilter_list = tfilter[typ]
+
                     for attr, value in odict.iteritems():
                         if len(afilter_list):
                             if attr not in afilter_list:
@@ -361,7 +379,7 @@ class UVEServer(object):
         uve_list = self.get_uve_list(table, filters, False, is_alarm)
         for uve_name in uve_list:
             uve_val = self.get_uve(
-                table + ':' + uve_name, flat, filters, True, is_alarm, base_url)
+                table + ':' + uve_name, flat, filters, is_alarm, base_url)
             if uve_val == {}:
                 continue
             else:
