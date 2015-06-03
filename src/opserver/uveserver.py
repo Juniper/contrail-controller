@@ -237,10 +237,32 @@ class UVEServer(object):
                                        password=self._redis_password, db=1)
             try:
                 qmap = {}
-                origins = redish.smembers("ALARM_ORIGINS:" + key)
+                ppe = redish.pipeline()
+                ppe.smembers("ALARM_ORIGINS:" + key)
                 if not is_alarm:
-                    origins = origins.union(redish.smembers("ORIGINS:" + key))
+                    ppe.smembers("ORIGINS:" + key)
+                pperes = ppe.execute()
+                origins = set()
+                for origset in pperes:
+                    for smt in origset:
+                        if tfilter is None:
+                            origins.add(smt)
+                        else:
+                            tt = smt.rsplit(":",1)[1]
+                            if tt in tfilter:
+                                origins.add(smt)
+
+                ppeval = redish.pipeline()
                 for origs in origins:
+                    ppeval.hgetall("VALUES:" + key + ":" + origs)
+                odictlist = ppeval.execute()
+
+                idx = 0
+                for origs in origins:
+  
+                    odict = odictlist[idx]
+                    idx = idx + 1
+
                     info = origs.rsplit(":", 1)
                     sm = info[0].split(":", 1)
                     source = sm[0]
@@ -254,11 +276,6 @@ class UVEServer(object):
                     dsource = source + ":" + mdule
 
                     typ = info[1]
-                    if tfilter is not None:
-                        if typ not in tfilter:
-                            continue
-
-                    odict = redish.hgetall("VALUES:" + key + ":" + origs)
 
                     afilter_list = set()
                     if tfilter is not None:
