@@ -20,6 +20,31 @@ void LoadAndRun(const std::string &file_name);
 
 TestClient *OvsTestInit(const char *init_file, bool ovs_init);
 
+namespace OVSDB {
+// OVSDB::OvsdbClientTcp objects override for test code to
+// provide test functionality
+class OvsdbClientTcpSessionTest : public OvsdbClientTcpSession {
+public:
+    OvsdbClientTcpSessionTest(Agent *agent, OvsPeerManager *manager,
+                              TcpServer *server, Socket *sock,
+                              bool async_ready = true);
+    virtual ~OvsdbClientTcpSessionTest();
+
+    // maximum number of inflight txn messages allowed
+    virtual bool ThrottleInFlightTxnMessages() { return true; }
+};
+
+class OvsdbClientTcpTest : public OvsdbClientTcp {
+public:
+    OvsdbClientTcpTest(Agent *agent, IpAddress tor_ip, int tor_port,
+                       IpAddress tsn_ip, int keepalive_interval,
+                       OvsPeerManager *manager);
+    virtual ~OvsdbClientTcpTest();
+
+    virtual TcpSession *AllocSession(Socket *socket);
+};
+};
+
 // The class to drive agent initialization.
 // Defines control parameters used to enable/disable agent features
 class TestOvsAgentInit : public TestAgentInit {
