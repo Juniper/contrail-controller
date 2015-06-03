@@ -172,6 +172,7 @@ public:
 
     const TxnStats &stats() const;
     uint64_t pending_txn_count() const;
+    uint64_t pending_send_msg_count() const;
 
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);
