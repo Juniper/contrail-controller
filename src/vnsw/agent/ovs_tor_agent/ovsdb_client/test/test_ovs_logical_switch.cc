@@ -88,26 +88,6 @@ protected:
     virtual void TearDown() {
     }
 
-    void AddPhysicalDeviceVn(int dev_id, int vn_id) {
-        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
-                                              MakeUuid(vn_id)));
-        agent_->physical_device_vn_table()->Enqueue(&req);
-        PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
-        WAIT_FOR(100, 10000,
-               (agent_->physical_device_vn_table()->Find(&key, false) != NULL));
-    }
-
-    void DelPhysicalDeviceVn(int dev_id, int vn_id) {
-        DBRequest req(DBRequest::DB_ENTRY_DELETE);
-        req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
-                                              MakeUuid(vn_id)));
-        agent_->physical_device_vn_table()->Enqueue(&req);
-        PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
-        WAIT_FOR(100, 10000,
-                (agent_->physical_device_vn_table()->Find(&key, true) == NULL));
-    }
-
     Agent *agent_;
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
@@ -135,12 +115,12 @@ TEST_F(OvsBaseTest, LogicalSwitchBasic) {
 }
 
 TEST_F(OvsBaseTest, PhysicalDeviceVnWithNullDevice) {
-    AddPhysicalDeviceVn(1, 1);
+    AddPhysicalDeviceVn(agent_, 1, 1, true);
 
     VnAddReq(1, "vn1");
     WAIT_FOR(100, 10000, (VnGet(1) != NULL));
 
-    DelPhysicalDeviceVn(1, 1);
+    DelPhysicalDeviceVn(agent_, 1, 1, true);
 
     VnDelReq(1);
     WAIT_FOR(100, 10000, (VnGet(1) == NULL));

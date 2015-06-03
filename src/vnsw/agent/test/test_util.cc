@@ -6,6 +6,7 @@
 #include "test/test_cmn_util.h"
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
+#include "oper/physical_device_vn.h"
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
 
@@ -3354,4 +3355,28 @@ void AddInterfaceVrfAssignRule(const char *intf_name, int intf_id,
         ignore_acl);
         AddNode("virtual-machine-interface", intf_name, intf_id, buf);
         client->WaitForIdle();
+}
+
+void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
+                MakeUuid(vn_id)));
+    agent->physical_device_vn_table()->Enqueue(&req);
+    PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
+    if (validate) {
+        WAIT_FOR(100, 10000,
+                (agent->physical_device_vn_table()->Find(&key, false) != NULL));
+    }
+}
+
+void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
+                MakeUuid(vn_id)));
+    agent->physical_device_vn_table()->Enqueue(&req);
+    PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
+    if (validate) {
+        WAIT_FOR(100, 10000,
+                (agent->physical_device_vn_table()->Find(&key, true) == NULL));
+    }
 }

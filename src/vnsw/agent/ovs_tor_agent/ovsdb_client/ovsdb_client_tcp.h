@@ -46,7 +46,7 @@ public:
 
     OvsdbClientTcpSession(Agent *agent, OvsPeerManager *manager,
             TcpServer *server, Socket *sock, bool async_ready = true);
-    ~OvsdbClientTcpSession();
+    virtual ~OvsdbClientTcpSession();
 
     // Send message to OVSDB server
     void SendMsg(u_int8_t *buf, std::size_t len);
@@ -126,9 +126,11 @@ public:
     OvsdbClientSession *NextSession(OvsdbClientSession *session);
     void AddSessionInfo(SandeshOvsdbClient &client);
 
+protected:
+    Agent *agent_;
+
 private:
     friend class OvsdbClientTcpSession;
-    Agent *agent_;
     TcpSession *session_;
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
