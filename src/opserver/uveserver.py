@@ -20,13 +20,13 @@ import re
 from gevent.coros import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.connection_info import ConnectionState
-from sandesh.viz.constants import _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX
+import traceback
 
 class UVEServer(object):
 
     def __init__(self, redis_uve_server, logger, api_port=None, redis_password=None):
         self._local_redis_uve = redis_uve_server
-        self._redis_uve_list = []
+        self._redis_uve_map = {}
         self._logger = logger
         self._sem = BoundedSemaphore(1)
         self._redis = None
@@ -40,7 +40,21 @@ class UVEServer(object):
     #end __init__
 
     def update_redis_uve_list(self, redis_uve_list):
-        self._redis_uve_list = redis_uve_list
+        newlist = set()
+        for elem in redis_uve_list:
+            newlist.add((elem[0],elem[1]))
+
+        # if some redis instances are gone, remove them from our map
+        for test_elem in self._redis_uve_map.keys():
+            if test_elem not in newlist:
+                del self._redis_uve_map[test_elem]
+        
+        # new redis instances need to be inserted into the map
+        for test_elem in newlist:
+            if test_elem not in self._redis_uve_map:
+                (r_ip, r_port) = test_elem
+                self._redis_uve_map[test_elem] = redis.StrictRedis(
+                        r_ip, r_port, password=self._redis_password, db=1)
     # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
@@ -94,45 +108,6 @@ class UVEServer(object):
                 self._logger.debug("%s del received for " % value)
                 # value is of the format: 
                 # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
-                info = value.rsplit(":", 6)
-                key = info[0].split(":", 1)[1]
-                typ = info[5]
-
-                existing = self._redis.hgetall("PREVIOUS:" + key + ":" + typ)
-                tstate = {}
-                tstate[key] = {}
-                tstate[key][typ] = {}
-                state = UVEServer.convert_previous(existing, tstate, key, typ)
-
-                for attr, hval in self._redis.hgetall(value).iteritems():
-                    snhdict = xmltodict.parse(hval)
-
-                    if UVEServer._is_agg_list(snhdict[attr]):
-                        if snhdict[attr]['list']['@size'] == "0":
-                            continue
-                        if snhdict[attr]['list']['@size'] == "1":
-                            sname = ParallelAggregator.get_list_name(
-                                snhdict[attr])
-                            if not isinstance(
-                                    snhdict[attr]['list'][sname], list):
-                                snhdict[attr]['list'][sname] = \
-                                    [snhdict[attr]['list'][sname]]
-
-                    if (attr not in state[key][typ]):
-                        # There is no existing entry for the UVE
-                        vstr = json.dumps(snhdict[attr])
-                    else:
-                        # There is an existing entry
-                        # Merge the new entry with the existing one
-                        state = UVEServer.merge_previous(
-                            state, key, typ, attr, snhdict[attr])
-                        vstr = json.dumps(state[key][typ][attr]['previous'])
-
-                        # Store the merged result back in the database
-                    self._redis.sadd("PUVES:" + typ, key)
-                    self._redis.sadd("PTYPES:" + key, typ)
-                    self._redis.hset("PREVIOUS:" + key + ":" + typ, attr, vstr)
-
                 self._redis.delete(value)
             except redis.exceptions.ResponseError:
                 #send redis connection down msg. Coule be bcos of authentication
@@ -171,58 +146,35 @@ class UVEServer(object):
                     return True
         return False
 
-    @staticmethod
-    def convert_previous(existing, state, key, typ, afilter=None):
-        # Take the existing delete record, and load it into the state dict
-        for attr, hval in existing.iteritems():
-            hdict = json.loads(hval)
-
-            if afilter is not None and len(afilter):
-                if attr not in afilter:
-                    continue
-
-            # When recording deleted attributes, only record those
-            # for which delete-time aggregation is needed
-            if UVEServer._is_agg_item(hdict):
-                if (typ not in state[key]):
-                    state[key][typ] = {}
-                if (attr not in state[key][typ]):
-                    state[key][typ][attr] = {}
-                state[key][typ][attr]["previous"] = hdict
-
-            # For lists that require delete-time aggregation, we need
-            # to normailize lists of size 1, and ignore those of size 0
-            if UVEServer._is_agg_list(hdict):
-                if hdict['list']['@size'] != "0":
-                    if (typ not in state[key]):
-                        state[key][typ] = {}
-                    if (attr not in state[key][typ]):
-                        state[key][typ][attr] = {}
-                    state[key][typ][attr]["previous"] = hdict
-                if hdict['list']['@size'] == "1":
-                    sname = ParallelAggregator.get_list_name(hdict)
-                    if not isinstance(hdict['list'][sname], list):
-                        hdict['list'][sname] = [hdict['list'][sname]]
-
-        return state
-
     def get_part(self, part):
         uves = {}
-        for redis_uve in self._redis_uve_list:
-            gen_uves = {}
-            redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=1)
-            for elems in redish.smembers("PART2KEY:" + str(part)): 
-                info = elems.split(":", 5)
-                gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
-                key = info[5]
-                if not gen_uves.has_key(gen):
-                     gen_uves[gen] = {}
-                gen_uves[gen][key] = 0
-            uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
+        for r_inst in self._redis_uve_map.keys():
+            try:
+                (r_ip,r_port) = r_inst
+                if not self._redis_uve_map[r_inst]:
+                    self._redis_uve_map[r_inst] = redis.StrictRedis(
+                            host=r_ip, port=r_port,
+                            password=self._redis_password, db=1)
+
+                redish = self._redis_uve_map[r_inst]
+                gen_uves = {}
+                for elems in redish.smembers("PART2KEY:" + str(part)): 
+                    info = elems.split(":", 5)
+                    gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
+                    key = info[5]
+                    if not gen_uves.has_key(gen):
+                         gen_uves[gen] = {}
+                    gen_uves[gen][key] = 0
+                uves[r_ip + ":" + str(r_port)] = gen_uves
+            except Exception as e:
+                self._logger.error("get_part failed %s for : %s:%d tb %s" \
+                                   % (str(e), r_ip, r_port, traceback.format_exc()))
+                self._redis_uve_map[r_inst] = None
+                raise e
         return uves
         
-    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False):
+    def get_uve(self, key, flat, filters=None, is_alarm=False):
+
         filters = filters or {}
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
@@ -230,12 +182,18 @@ class UVEServer(object):
         ackfilter = filters.get('ackfilt')
         state = {}
         state[key] = {}
-        statdict = {}
-        for redis_uve in self._redis_uve_list:
-            redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1],
-                                       password=self._redis_password, db=1)
+        rsp = {}
+        failures = False
+       
+        for r_inst in self._redis_uve_map.keys():
             try:
+                (r_ip,r_port) = r_inst
+                if not self._redis_uve_map[r_inst]:
+                    self._redis_uve_map[r_inst] = redis.StrictRedis(
+                            host=r_ip, port=r_port,
+                            password=self._redis_password, db=1)
+
+                redish = self._redis_uve_map[r_inst]
                 qmap = {}
                 ppe = redish.pipeline()
                 ppe.smembers("ALARM_ORIGINS:" + key)
@@ -259,7 +217,6 @@ class UVEServer(object):
                             if mfilter != mdule:
                                 continue
                         origins.add(smt)
-                        
                 ppeval = redish.pipeline()
                 for origs in origins:
                     ppeval.hgetall("VALUES:" + key + ":" + origs)
@@ -278,6 +235,7 @@ class UVEServer(object):
                     afilter_list = set()
                     if tfilter is not None:
                         afilter_list = tfilter[typ]
+
                     for attr, value in odict.iteritems():
                         if len(afilter_list):
                             if attr not in afilter_list:
@@ -315,36 +273,6 @@ class UVEServer(object):
                                     snhdict[attr]['list']['@size'] = \
                                         str(len(alarms))
                         else:
-                            if not flat:
-                                continue
-                            if typ not in statdict:
-                                statdict[typ] = {}
-                            statdict[typ][attr] = []
-                            statsattr = json.loads(value)
-                            for elem in statsattr:
-                                edict = {}
-                                if elem["rtype"] == "list":
-                                    elist = redish.lrange(elem["href"], 0, -1)
-                                    for eelem in elist:
-                                        jj = json.loads(eelem).items()
-                                        edict[jj[0][0]] = jj[0][1]
-                                elif elem["rtype"] == "zset":
-                                    elist = redish.zrange(
-                                        elem["href"], 0, -1, withscores=True)
-                                    for eelem in elist:
-                                        tdict = json.loads(eelem[0])
-                                        tval = long(tdict["ts"])
-                                        dt = datetime.datetime.utcfromtimestamp(
-                                            float(tval) / 1000000)
-                                        tms = (tval % 1000000) / 1000
-                                        tstr = dt.strftime('%Y %b %d %H:%M:%S')
-                                        edict[tstr + "." + str(tms)] = eelem[1]
-                                elif elem["rtype"] == "hash":
-                                    elist = redish.hgetall(elem["href"])
-                                    edict = elist
-
-                                statdict[typ][attr].append(
-                                    {elem["aggtype"]: edict})
                             continue
 
                         # print "Attr %s Value %s" % (attr, snhdict)
@@ -356,35 +284,17 @@ class UVEServer(object):
                                 key][typ][attr][dsource])
                         state[key][typ][attr][dsource] = snhdict[attr]
 
-                if sfilter is None and mfilter is None:
-                    for ptyp in redish.smembers("PTYPES:" + key):
-                        afilter = None
-                        if tfilter is not None:
-                            if ptyp not in tfilter:
-                                continue
-                            afilter = tfilter[ptyp]
-                        existing = redish.hgetall("PREVIOUS:" + key + ":" + ptyp)
-                        nstate = UVEServer.convert_previous(
-                            existing, state, key, ptyp, afilter)
-                        state = copy.deepcopy(nstate)
-
                 pa = ParallelAggregator(state)
-                rsp = pa.aggregate(key, flat)
-            except redis.exceptions.ConnectionError:
-                self._logger.error("Failed to connect to redis-uve: %s:%d" \
-                                   % (redis_uve[0], redis_uve[1]))
+                rsp = pa.aggregate(key, flat,)
             except Exception as e:
-                self._logger.error("Exception: %s" % e)
-                return {}
+                self._logger.error("redis-uve failed %s for : %s:%d tb %s" \
+                                   % (str(e), r_ip, r_port, traceback.format_exc()))
+                self._redis_uve_map[r_inst] = None
+                failures = True
             else:
-                self._logger.debug("Computed %s" % key)
+                self._logger.debug("Computed %s as %s" % (key,str(rsp)))
 
-        for k, v in statdict.iteritems():               
-            if k in rsp:                
-                mp = dict(v.items() + rsp[k].items())           
-                statdict[k] = mp
-
-        return dict(rsp.items() + statdict.items())
+        return failures, rsp
     # end get_uve
 
     def get_uve_regex(self, key):
@@ -402,8 +312,8 @@ class UVEServer(object):
         # so we don't pass them here
         uve_list = self.get_uve_list(table, filters, False, is_alarm)
         for uve_name in uve_list:
-            uve_val = self.get_uve(
-                table + ':' + uve_name, flat, filters, True, is_alarm)
+            _,uve_val = self.get_uve(
+                table + ':' + uve_name, flat, filters, is_alarm,)
             if uve_val == {}:
                 continue
             else:
@@ -420,11 +330,17 @@ class UVEServer(object):
             patterns = set()
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
-        for redis_uve in self._redis_uve_list:
-            redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1],
-                                       password=self._redis_password, db=1)
+
+        for r_inst in self._redis_uve_map.keys():
             try:
+                (r_ip,r_port) = r_inst
+                if not self._redis_uve_map[r_inst]:
+                    self._redis_uve_map[r_inst] = redis.StrictRedis(
+                            host=r_ip, port=r_port,
+                            password=self._redis_password, db=1)
+
+                redish = self._redis_uve_map[r_inst]
+
                 # For UVE queries, we wanna read both UVE and Alarm table
                 entries = redish.smembers('ALARM_TABLE:' + table)
                 if not is_alarm:
@@ -466,12 +382,10 @@ class UVEServer(object):
                             if attrval is None:
                                 continue
                     uve_list.add(uve_key)
-            except redis.exceptions.ConnectionError:
-                self._logger.error('Failed to connect to redis-uve: %s:%d' \
-                                   % (redis_uve[0], redis_uve[1]))
             except Exception as e:
-                self._logger.error('Exception: %s' % e)
-                return set()
+                self._logger.error("get_uve_list failed %s for : %s:%d tb %s" \
+                                   % (str(e), r_ip, r_port, traceback.format_exc()))
+                self._redis_uve_map[r_inst] = None
         return uve_list
     # end get_uve_list
 
@@ -707,5 +621,5 @@ class ParallelAggregator:
 if __name__ == '__main__':
     uveserver = UVEServer(None, 0, None, None)
     gevent.spawn(uveserver.run())
-    uve_state = json.loads(uveserver.get_uve("abc-corp:vn02", False))
+    _, uve_state = json.loads(uveserver.get_uve("abc-corp:vn02", False))
     print json.dumps(uve_state, indent=4, sort_keys=True)

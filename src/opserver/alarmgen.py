@@ -198,12 +198,11 @@ class Controller(object):
             if not self.mgrs.has_key(tab):
                 no_handlers.add(tab)
                 continue
-            if remove:
-                uve_data = []
-            else:
-                filters = {'kfilt': [uve_name]}
-                itr = self._us.multi_uve_get(tab, True, filters)
-                uve_data = itr.next()['value']
+            uve_data = {}
+            if not remove:
+                filters = {}
+                _,uve_data = self._us.get_uve(uv, True, filters)
+
             if len(uve_data) == 0:
                 self._logger.info("UVE %s deleted" % uv)
                 if self.tab_alarms[tab].has_key(uv):
