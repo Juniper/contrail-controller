@@ -146,6 +146,7 @@ void AgentUveBase::VrouterAgentProcessState
         find(ConnectionStatus::UP)->second);
     bool is_cup = true;
     bool is_tor_cup = true;
+    bool is_tor_connected = false;
     string tor_type(g_process_info_constants.ConnectionTypeNames.
             find(ConnectionType::TOR)->second);
     // Iterate to determine process connectivity status
@@ -153,6 +154,9 @@ void AgentUveBase::VrouterAgentProcessState
          it != cinfos.end(); it++) {
         const ConnectionInfo &cinfo(*it);
         const std::string &conn_status(cinfo.get_status());
+        if (cinfo.get_type() == tor_type) {
+            is_tor_connected = true;
+        }
         if (conn_status != cup) {
             if (cinfo.get_type() == tor_type) {
                 is_tor_cup = false;
@@ -173,6 +177,10 @@ void AgentUveBase::VrouterAgentProcessState
     } else if (!is_tor_cup) {
         // waiting for TOR to connect
         pstate = ProcessState::NON_FUNCTIONAL;
+    } else if (!is_tor_connected && agent_->tor_agent_enabled()) {
+        // waiting for first TOR config to arrive
+        pstate = ProcessState::NON_FUNCTIONAL;
+        message += " No ToR Config";
     } else {
         pstate = ProcessState::FUNCTIONAL;
     }
