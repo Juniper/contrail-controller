@@ -74,7 +74,7 @@ public:
     // minimum value of keep alive interval
     static const int OVSDBMinKeepAliveTimer = 2000; // in millisecond
 
-    static const std::size_t OVSDBMaxInFlightPendingTxn = 1;
+    static const std::size_t OVSDBMaxInFlightPendingTxn = 100;
 
     enum Op {
         OVSDB_DEL = 0,

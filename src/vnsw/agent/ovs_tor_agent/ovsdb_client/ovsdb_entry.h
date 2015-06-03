@@ -57,6 +57,8 @@ public:
     // pre processing callback for add/change msg to take object reference
     virtual void PreAddChange() {}
     // post processing callback for delete msg to release object reference
+    // it can result in another delete transaction, so should be triggered
+    // after we are done with the current transaction
     virtual void PostDelete() {}
     // Encode add message for entry
     virtual void AddMsg(struct ovsdb_idl_txn *) = 0;

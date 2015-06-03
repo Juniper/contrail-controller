@@ -26,6 +26,8 @@
 #include "oper/mpls.h"
 #include "oper/vm.h"
 #include "oper/vn.h"
+#include "oper/physical_device.h"
+#include "oper/physical_device_vn.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
@@ -45,6 +47,8 @@
 #include "ovs_tor_agent/ovsdb_client/physical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/vrf_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/unicast_mac_remote_ovsdb.h"
 #include "test_ovs_agent_init.h"
 #include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
@@ -78,11 +82,10 @@ protected:
         init_ = static_cast<TestOvsAgentInit *>(client->agent_init());
         peer_manager_ = init_->ovs_peer_manager();
         WAIT_FOR(100, 10000,
-                 (tcp_session_ = static_cast<OvsdbClientTcpSession *>
-                  (init_->ovsdb_client()->NextSession(NULL))) != NULL);
-        WAIT_FOR(100, 10000,
-                 (tcp_session_->client_idl() != NULL));
-        WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+                 ((tcp_session_ = static_cast<OvsdbClientTcpSession *>
+                  (init_->ovsdb_client()->NextSession(NULL))) != NULL)
+                  && (tcp_session_->client_idl() != NULL) &&
+                  (tcp_session_->status() == string("Established")));
     }
 
     virtual void TearDown() {
@@ -112,6 +115,67 @@ protected:
 TEST_F(UnicastRemoteTest, UnicastRemoteEmptyVrfAddDel) {
     LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/"
             "test/xml/unicast-remote-empty-vrf.xml");
+}
+
+TEST_F(UnicastRemoteTest, NewTest) {
+    // Add VN
+    VnAddReq(2, "test-vn1");
+    // Add VRF
+    agent_->vrf_table()->CreateVrfReq("test-vrf1", MakeUuid(2));
+    // Add Physical Device
+    AddPhysicalDevice("test-router", 1);
+    client->WaitForIdle();
+
+    // Add DevVN
+    AddPhysicalDeviceVn(agent_, 1, 2, true);
+    client->WaitForIdle();
+
+    MacAddress mac("00:00:00:01:00:01");
+    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+                         (1 << TunnelType::VXLAN), "10.0.0.1",
+                         101, mac, "0.0.0.0", 32);
+    client->WaitForIdle();
+
+    VrfOvsdbObject *table = tcp_session_->client_idl()->vrf_ovsdb();
+    VrfOvsdbEntry vrf_key(table, UuidToString(MakeUuid(2)));
+    VrfOvsdbEntry *vrf_entry;
+    WAIT_FOR(100, 10000,
+             (vrf_entry =
+              static_cast<VrfOvsdbEntry *>(table->Find(&vrf_key))) != NULL);
+    if (vrf_entry != NULL) {
+        UnicastMacRemoteTable *u_table = vrf_entry->route_table();
+        UnicastMacRemoteEntry key(u_table, "00:00:00:01:00:01");
+        UnicastMacRemoteEntry *entry;
+        // Validate mac programmed in OVSDB
+        WAIT_FOR(100, 10000,
+                 ((entry =
+                  static_cast<UnicastMacRemoteEntry *>(u_table->Find(&key))) != NULL
+                  && entry->GetState() == KSyncEntry::IN_SYNC));
+    }
+
+    // Delete DevVN first to trigger delete for logical switch
+    // which will go to del defer due to reference and wait for
+    // delete of unicast remote mac entry
+    DelPhysicalDeviceVn(agent_, 1, 2, false);
+    client->WaitForIdle();
+
+    DeletePhysicalDevice("test-router");
+    client->WaitForIdle();
+
+    // Delete route
+    Ip4Address zero_ip;
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+                                   std::string("test-vrf1"),
+                                   mac, zero_ip, 0);
+    client->WaitForIdle();
+    agent_->vrf_table()->DeleteVrfReq("test-vrf1");
+    VnDelReq(2);
+    client->WaitForIdle();
+
+    // Validate Logical switch deleted
+    LogicalSwitchTable *l_table = tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry l_key(table, UuidToString(MakeUuid(2)));
+    WAIT_FOR(100, 10000, (l_table->Find(&l_key) == NULL));
 }
 
 TEST_F(UnicastRemoteTest, VrfNotifyWithIdlDeleted) {

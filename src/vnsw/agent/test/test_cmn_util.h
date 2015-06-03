@@ -457,4 +457,6 @@ bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Addres
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
                          const PathPreference &path_preference);
+void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
+void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 #endif // vnsw_agent_test_cmn_util_h

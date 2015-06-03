@@ -31,6 +31,7 @@
 #define OVSDB_SERVER "build/third_party/openvswitch/ovsdb/ovsdb-server"
 #define DB_FILE_TEMPLATE "controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/vtep.db"
 
+using namespace OVSDB;
 std::string db_file_name;
 std::string lock_file_name;
 bool server_inited = false;
@@ -114,6 +115,34 @@ static void start_ovsdb_server() {
     ovsdb_port = strtoul(port.c_str(), NULL, 0);
 }
 
+OvsdbClientTcpSessionTest::OvsdbClientTcpSessionTest(Agent *agent,
+                                                     OvsPeerManager *manager,
+                                                     TcpServer *server,
+                                                     Socket *sock,
+                                                     bool async_ready)
+    : OvsdbClientTcpSession(agent, manager, server, sock, async_ready) {
+}
+
+OvsdbClientTcpSessionTest::~OvsdbClientTcpSessionTest() {
+}
+
+OvsdbClientTcpTest::OvsdbClientTcpTest(Agent *agent, IpAddress tor_ip,
+                                       int tor_port, IpAddress tsn_ip,
+                                       int keepalive, OvsPeerManager *manager)
+    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, manager) {
+}
+
+OvsdbClientTcpTest::~OvsdbClientTcpTest() {
+}
+
+TcpSession *OvsdbClientTcpTest::AllocSession(Socket *socket) {
+    TcpSession *session = new OvsdbClientTcpSessionTest(agent_, peer_manager_,
+                                                        this, socket);
+    session->set_observer(boost::bind(&OvsdbClientTcp::OnSessionEvent,
+                                      this, _1, _2));
+    return session;
+}
+
 TestOvsAgentInit::TestOvsAgentInit() : TestAgentInit() {
 }
 
@@ -130,7 +159,7 @@ void TestOvsAgentInit::CreateModules() {
     TestAgentInit::CreateModules();
     if (ovs_init_) {
         start_ovsdb_server();
-        ovsdb_client_.reset(new OVSDB::OvsdbClientTcp(agent(),
+        ovsdb_client_.reset(new OVSDB::OvsdbClientTcpTest(agent(),
                     IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
                     IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
                     ovs_peer_manager()));
