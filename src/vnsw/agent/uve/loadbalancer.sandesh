@@ -10,6 +10,7 @@ struct UveLoadbalancerStats {
     10: string          obj_name;
     11: string          uuid;
     12: string          status;
+    13: string          vrouter;
     20: optional u64    active_connections;
     21: optional u64    max_connections;
     22: optional u64    current_sessions;
@@ -24,10 +25,10 @@ struct UveLoadbalancerStats {
 struct UveLoadbalancer {
     10: string                                  name (key="ObjectSITable")
     11: optional bool                           deleted
-    12: optional list<UveLoadbalancerStats>     virtual_ip_stats (tags=".uuid,.obj_name");
-    13: optional list<UveLoadbalancerStats>     listener_stats   (tags=".uuid,.obj_name");
-    14: optional list<UveLoadbalancerStats>     pool_stats       (tags=".uuid,.obj_name");
-    15: optional list<UveLoadbalancerStats>     member_stats     (tags=".uuid,.obj_name");
+    12: optional list<UveLoadbalancerStats>     virtual_ip_stats (tags=".uuid,.obj_name,.vrouter",aggtype="union");
+    13: optional list<UveLoadbalancerStats>     listener_stats   (tags=".uuid,.obj_name,.vrouter",aggtype="union");
+    14: optional list<UveLoadbalancerStats>     pool_stats       (tags=".uuid,.obj_name,.vrouter",aggtype="union");
+    15: optional list<UveLoadbalancerStats>     member_stats     (tags=".uuid,.obj_name,.vrouter",aggtype="union");
 }
 
 uve sandesh UveLoadbalancerTrace {
