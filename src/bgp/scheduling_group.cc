@@ -153,8 +153,8 @@ public:
 
     void Remove(RibState *rs);
 
-    bool IsMember(int index) const {
-        return rib_set_.count(index) > 0;
+    bool IsMember(size_t index) const {
+        return rib_bitset_.test(index);
     }
 
     iterator begin(const RibStateMap &indexmap) {
@@ -211,6 +211,7 @@ public:
         pair<Map::iterator, bool> result =
             rib_set_.insert(make_pair(index, loc->second));
         assert(result.second);
+        rib_bitset_.set(index);
         for (int i = 0; i < RibOutUpdates::QCOUNT; i++) {
             if (BitIsSet(loc->second.qactive, i)) {
                 qactive_cnt_[i] += 1;
@@ -248,8 +249,9 @@ public:
 
 private:
     IPeerUpdate *key_;
-    size_t index_;             // assigned from PeerStateMap in the group
+    size_t index_;          // assigned from PeerStateMap in the group
     Map rib_set_;           // list of RibOuts advertised by the peer.
+    BitSet rib_bitset_;     // bitset of RibOuts advertised by the peer
     vector<int> qactive_cnt_;
     bool in_sync_;          // whether the peer may dequeue tail markers.
     tbb::atomic<bool> send_ready_;    // whether the peer may send updates.
@@ -368,6 +370,7 @@ void SchedulingGroup::PeerState::Add(RibState *rs) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
     PeerRibState init;
     rib_set_.insert(make_pair(rs->index(), init));
+    rib_bitset_.set(rs->index());
 }
 
 void SchedulingGroup::PeerState::Remove(RibState *rs) {
@@ -376,6 +379,7 @@ void SchedulingGroup::PeerState::Remove(RibState *rs) {
         SetQueueInactive(rs->index(), queue_id);
     }
     rib_set_.erase(rs->index());
+    rib_bitset_.reset(rs->index());
 }
 
 void SchedulingGroup::PeerState::SetSync() {
