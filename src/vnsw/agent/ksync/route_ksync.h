@@ -34,6 +34,9 @@ public:
     uint32_t prefix_len() const { return prefix_len_; }
     uint32_t label() const { return label_; }
     bool proxy_arp() const { return proxy_arp_; }
+    bool flood() const { return flood_;}
+    bool wait_for_traffic() const { return wait_for_traffic_;}
+
     NHKSyncEntry* nh() const { 
         return static_cast<NHKSyncEntry *>(nh_.get());
     }
@@ -53,7 +56,8 @@ private:
     int Encode(sandesh_op::type op, uint8_t replace_plen,
                char *buf, int buf_len);
     int DeleteInternal(NHKSyncEntry *nh, uint32_t lbl, uint8_t replace_plen,
-                       bool proxy_arp, char *buf, int buf_len);
+                       bool proxy_arp, bool flood_arp, bool wait_for_traffic,
+                       char *buf, int buf_len);
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
     bool L2IsLess(const KSyncEntry &rhs) const;
