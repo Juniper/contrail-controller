@@ -32,6 +32,12 @@ def str_to_class(class_name):
         return None
 #end str_to_class
 
+def compare_refs(old_refs, new_refs):
+    # compare refs in an object
+    old_ref_dict = {':'.join(ref['to']): ref['attr'] for ref in old_refs}
+    new_ref_dict = {':'.join(ref['to']): ref['attr'] for ref in new_refs}
+    return old_ref_dict == new_ref_dict
+# end compare_refs
 
 def _read_cfg(cfg_parser, section, option, default):
         try:
