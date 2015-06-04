@@ -347,6 +347,34 @@ private:
     std::string dest_vrf_;
 };
 
+class VerifySrcDestVrf : public FlowVerify {
+public:
+    VerifySrcDestVrf(std::string src_vrf, std::string dest_vrf):
+        src_vrf_(src_vrf), dest_vrf_(dest_vrf) {};
+    virtual ~VerifySrcDestVrf() {};
+
+    void Verify(FlowEntry *fe) {
+        const VrfEntry *src_vrf =
+            Agent::GetInstance()->vrf_table()->FindVrfFromName(src_vrf_);
+        EXPECT_TRUE(src_vrf != NULL);
+
+        const VrfEntry *dest_vrf =
+            Agent::GetInstance()->vrf_table()->FindVrfFromName(dest_vrf_);
+        EXPECT_TRUE(dest_vrf != NULL);
+
+        EXPECT_TRUE((fe->data().flow_source_vrf == src_vrf->vrf_id()) && (fe->data().dest_vrf == src_vrf->vrf_id()));
+
+        if (true) {
+            FlowEntry *rev = fe->reverse_flow_entry();
+            EXPECT_TRUE(rev != NULL);
+            EXPECT_TRUE((rev->data().flow_source_vrf == dest_vrf->vrf_id()) && (rev->data().dest_vrf == dest_vrf->vrf_id()));
+        }
+    };
+
+private:
+    std::string src_vrf_;
+    std::string dest_vrf_;
+};
 struct VerifyNat : public FlowVerify {
 public:
     VerifyNat(std::string nat_sip, std::string nat_dip, uint32_t proto,

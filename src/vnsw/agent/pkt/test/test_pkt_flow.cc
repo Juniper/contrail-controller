@@ -590,14 +590,16 @@ TEST_F(FlowTest, FlowAdd_1) {
                        flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
+            new VerifyVrf("vrf5", "vrf5"),
+            new VerifySrcDestVrf("vrf5", "vrf5")
         }
         },
         {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                        flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
+            new VerifyVrf("vrf5", "vrf5"),
+            new VerifySrcDestVrf("vrf5", "vrf5")
         }
         },
         //Add a TCP forward and reverse flow
@@ -605,14 +607,16 @@ TEST_F(FlowTest, FlowAdd_1) {
                        "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
+            new VerifyVrf("vrf5", "vrf5"),
+            new VerifySrcDestVrf("vrf5", "vrf5")
         }
         },
         {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000,
                        "vrf5", flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
+            new VerifyVrf("vrf5", "vrf5"),
+            new VerifySrcDestVrf("vrf5", "vrf5")
         }
         }
     };
