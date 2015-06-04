@@ -97,9 +97,6 @@ static void check_multi_info(GlobalInfo *g)
         std::string empty_str("");
         if (conn->connection->HttpClientCb() != NULL)
             conn->connection->HttpClientCb()(empty_str, error);
-
-        conn->connection->set_curl_handle(NULL);
-        del_curl_handle(conn, g);
       }
     }
   }
