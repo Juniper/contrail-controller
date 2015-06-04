@@ -461,6 +461,10 @@ uint64_t OvsdbClientIdl::pending_txn_count() const {
     return pending_txn_.size();
 }
 
+uint64_t OvsdbClientIdl::pending_send_msg_count() const {
+    return pending_send_msgs_.size();
+}
+
 void OvsdbClientIdl::ConnectOperDB() {
     OVSDB_SESSION_TRACE(Trace, session_,
                         "Received Monitor Response connecting to OperDb");
