@@ -459,7 +459,12 @@ private:
     SchedulingGroup *group_;
 };
 
-SchedulingGroup::SchedulingGroup() : running_(false), worker_task_(NULL) {
+SchedulingGroup::SchedulingGroup()
+    : running_(false),
+      disabled_(false),
+      split_disabled_(false),
+      member_count_(0),
+      worker_task_(NULL) {
     if (send_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         send_task_id_ = scheduler->GetTaskId("bgp::SendTask");
@@ -488,6 +493,7 @@ void SchedulingGroup::Add(RibOut *ribout, IPeerUpdate *peer) {
     RibState *rs = rib_state_imap_.Locate(ribout);
     PeerState *ps = peer_state_imap_.Locate(peer);
     rs->Add(ps);
+    IncrementMemberCount();
     ps->Add(rs);
 }
 
@@ -504,6 +510,7 @@ void SchedulingGroup::Remove(RibOut *ribout, IPeerUpdate *peer) {
     assert(rs != NULL);
     assert(ps != NULL);
     rs->Remove(ps);
+    DecrementMemberCount();
     ps->Remove(rs);
     if (rs->empty()) {
         rib_state_imap_.Remove(ribout, rs->index());
@@ -654,6 +661,7 @@ void SchedulingGroup::Merge(SchedulingGroup *rhs) {
                 rs->RibStateMove(prev_rs);
             }
             rs->Add(ps);
+            IncrementMemberCount();
             ps->RibStateMove(prev_ps, rs->index(), ribiter.index());
         }
 
@@ -714,6 +722,7 @@ void SchedulingGroup::Split(SchedulingGroup *rhs, const RibOutList &rg1,
             // for the new PeerState.  Need to make sure that we do not lose
             // the PeerRibState information from the old PeerState.
             rs->Add(ps);
+            rhs->IncrementMemberCount();
             ps->RibStateMove(prev_ps, rs->index(), GetRibOutIndex(ribout));
 
             // Remove the (RibOut, IPeerUpdate) pair from this SchedulingGroup.
@@ -1157,6 +1166,25 @@ void SchedulingGroup::UpdatePeer(IPeerUpdate *peer) {
 }
 
 //
+// Decrement count of members in this SchedulingGroup.
+//
+void SchedulingGroup::DecrementMemberCount() {
+    member_count_--;
+}
+
+//
+// Increment count of members in this SchedulingGroup.
+// Mark the SchedulingGroup as split disabled if the count exceeds the split
+// threshold. Note that the split disabled property is sticky i.e. it's never
+// reset.
+//
+void SchedulingGroup::IncrementMemberCount() {
+    if (++member_count_ >= kSplitThreshold) {
+        split_disabled_ = true;
+    }
+}
+
+//
 // Check invariants for the SchedulingGroup.
 //
 bool SchedulingGroup::CheckInvariants() const {
@@ -1314,6 +1342,11 @@ void SchedulingGroupManager::Leave(RibOut *ribout, IPeerUpdate *peer) {
     if (sg->empty()) {
         groups_.remove(sg);
         delete sg;
+        return;
+    }
+
+    // Bail if the group is not eligible to be split.
+    if (sg->split_disabled()) {
         return;
     }
 
