@@ -116,7 +116,7 @@ OvsdbDBEntry *VnOvsdbObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
 }
 
 KSyncDBObject::DBFilterResp VnOvsdbObject::OvsdbDBEntryFilter(
-        const DBEntry *entry) {
+        const DBEntry *entry, const OvsdbDBEntry *ovsdb_entry) {
     const VnEntry *vn = static_cast<const VnEntry *>(entry);
     // only accept Virtual Networks with non-NULL vrf
     // and non zero vxlan id

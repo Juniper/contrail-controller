@@ -252,7 +252,8 @@ void KSyncDBObject::UnregisterDb(DBTableBase *table) {
     table_ = NULL;
 }
 
-KSyncDBObject::DBFilterResp KSyncDBObject::DBEntryFilter(const DBEntry *entry) {
+KSyncDBObject::DBFilterResp KSyncDBObject::DBEntryFilter(
+        const DBEntry *entry, const KSyncDBEntry *ksync) {
     // Default accept all
     return DBFilterAccept;
 }
@@ -309,7 +310,7 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     // Trigger DB Filter callback only for ADD/CHANGE, since we need to handle
     // cleanup for delete anyways.
     if (!entry->IsDeleted()) {
-        resp = DBEntryFilter(entry);
+        resp = DBEntryFilter(entry, ksync);
     }
 
     if (entry->IsDeleted() || resp == DBFilterDelete) {

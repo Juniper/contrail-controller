@@ -29,7 +29,8 @@ public:
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
     OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row);
-    DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry);
+    DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry,
+                                    const OvsdbDBEntry *ovsdb_entry);
 
 private:
     OvsdbIdlRowMap  idl_row_map_;
