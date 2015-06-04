@@ -13,7 +13,7 @@ import re
 import cfgm_common
 import netaddr
 import uuid
-import vnc_quota
+from vnc_quota import QuotaHelper
 
 from gen.resource_xsd import *
 from gen.resource_common import *
@@ -86,7 +86,7 @@ class FloatingIpServer(FloatingIpServerGen):
                                'obj_type': 'floating-ip',
                                'user_visibility': user_visibility,
                                'proj_uuid': proj_uuid}
-        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+        (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
 
         if not ok:
@@ -333,8 +333,7 @@ class LogicalRouterServer(LogicalRouterServerGen):
                                'obj_type': 'logical-router',
                                'user_visibility': user_visibility}
 
-        return vnc_quota.QuotaHelper.verify_quota_for_resource(
-            **verify_quota_kwargs)
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
     # end http_post_collection
 
 # end class LogicalRouterServer
@@ -366,7 +365,7 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                                'user_visibility': user_visibility,
                                'proj_uuid': proj_uuid}
 
-        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+        (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
 
         if not ok:
@@ -462,7 +461,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
                                'obj_type': 'virtual-network',
                                'user_visibility': user_visibility}
 
-        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+        (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
         if not ok:
             return (ok, response)
@@ -935,7 +934,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
                                'obj_type': 'security-group',
                                'user_visibility': user_visibility}
 
-        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+        (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
         if not ok:
             return (ok, response)
@@ -950,14 +949,15 @@ class SecurityGroupServer(SecurityGroupServerGen):
         (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
         if not ok:
             return (False, (500, 'Bad Security Group error : ' + pformat(sec_dict)))
-        (ok, proj_dict) = vnc_quota.QuotaHelper.get_project_dict_for_quota(
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
             sec_dict['parent_uuid'], db_conn)
         if not ok:
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
-        if 'security_group_entries' in obj_dict:
+        obj_type = 'security-group-rule'
+        if ('security_group_entries' in obj_dict and
+            QuotaHelper.get_quota_limit(proj_dict, obj_type) >= 0):
             rule_count = len(obj_dict['security_group_entries']['policy_rule'])
-            obj_type = 'security-group-rule'
             for sg in proj_dict.get('security_groups', []):
                 if sg['uuid'] == sec_dict['uuid']:
                     continue
@@ -968,7 +968,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 rule_count += len(sge.get('policy_rule', []))
 
             if sec_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = vnc_quota.QuotaHelper.check_quota_limit(
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(
                                         proj_dict, obj_type, rule_count-1)
                 if not ok:
                     return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
@@ -991,7 +991,7 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
                                'obj_type': 'network-policy',
                                'user_visibility': user_visibility}
 
-        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+        (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
         if not ok:
             return (ok, response)
@@ -1185,7 +1185,8 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
 
         if not user_visibility:
             return True, ""
-
+        if QuotaHelper.get_quota_limit(proj_dict, 'loadbalancer-member') < 0:
+            return True, ""
         lb_pools = proj_dict.get('loadbalancer_pools', [])
         quota_count = 0
 
@@ -1198,7 +1199,7 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
 
             quota_count += len(lb_pool_dict.get('loadbalancer_members', []))
 
-        (ok, quota_limit) = vnc_quota.QuotaHelper.check_quota_limit(
+        (ok, quota_limit) = QuotaHelper.check_quota_limit(
             proj_dict, 'loadbalancer-member', quota_count)
         if not ok:
             return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
@@ -1218,8 +1219,7 @@ class LoadbalancerPoolServer(LoadbalancerPoolServerGen):
                                'resource': 'loadbalancer_pools',
                                'obj_type': 'loadbalancer-pool',
                                'user_visibility': user_visibility}
-        return vnc_quota.QuotaHelper.verify_quota_for_resource(
-            **verify_quota_kwargs)
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class LoadbalancerPoolServer
 
@@ -1234,8 +1234,7 @@ class LoadbalancerHealthmonitorServer(LoadbalancerHealthmonitorServerGen):
                                'resource': 'loadbalancer_healthmonitors',
                                'obj_type': 'loadbalancer-healthmonitor',
                                'user_visibility': user_visibility}
-        return vnc_quota.QuotaHelper.verify_quota_for_resource(
-            **verify_quota_kwargs)
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class LoadbalancerHealthmonitorServer
 
@@ -1251,8 +1250,7 @@ class VirtualIpServer(VirtualIpServerGen):
                                'resource': 'virtual_ips',
                                'obj_type': 'virtual-ip',
                                'user_visibility': user_visibility}
-        return vnc_quota.QuotaHelper.verify_quota_for_resource(
-            **verify_quota_kwargs)
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class VirtualIpServer
 
