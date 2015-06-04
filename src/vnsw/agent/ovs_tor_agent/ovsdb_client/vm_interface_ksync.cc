@@ -130,7 +130,7 @@ OvsdbDBEntry *VMInterfaceKSyncObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
 }
 
 KSyncDBObject::DBFilterResp VMInterfaceKSyncObject::OvsdbDBEntryFilter(
-        const DBEntry *entry) {
+        const DBEntry *entry, const OvsdbDBEntry *ovsdb_entry) {
     const Interface *intf = static_cast<const Interface *>(entry);
     // only accept vm interfaces
     if (intf->type() != Interface::VM_INTERFACE) {

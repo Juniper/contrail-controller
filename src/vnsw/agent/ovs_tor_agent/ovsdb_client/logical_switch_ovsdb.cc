@@ -438,14 +438,19 @@ OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
 }
 
 KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
-        const DBEntry *db_entry) {
+        const DBEntry *db_entry, const OvsdbDBEntry *ovsdb_entry) {
     const PhysicalDeviceVn *entry =
         static_cast<const PhysicalDeviceVn *>(db_entry);
 
     // Physical Device missing, trigger delete
     if (entry->device() == NULL) {
-        OVSDB_TRACE(Trace, "Missing Physical Device info, triggering delete"
-                           " of logical switch");
+        if (ovsdb_entry != NULL) {
+            OVSDB_TRACE(Trace, "Missing Physical Device info, triggering delete"
+                               " of logical switch");
+        } else {
+            OVSDB_TRACE(Trace, "Missing Physical Device info, ignoring"
+                               " logical switch");
+        }
         return DBFilterDelete;
     }
 
