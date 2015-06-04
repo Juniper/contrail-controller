@@ -77,12 +77,12 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 void AgentDnsXmppConnectionStatusReq::HandleRequest() const {
     uint8_t dns_count = 0;
 
-    AgentXmppConnectionStatus *resp = new AgentXmppConnectionStatus();
+    AgentDnsXmppConnectionStatus *resp = new AgentDnsXmppConnectionStatus();
     while (dns_count < MAX_XMPP_SERVERS) {
         if (!Agent::GetInstance()->dns_server(dns_count).empty()) {
 
-            AgentXmppData data;
-            data.set_controller_ip(Agent::GetInstance()->dns_server(dns_count));
+            AgentXmppDnsData data;
+            data.set_dns_controller_ip(Agent::GetInstance()->dns_server(dns_count));
 
             AgentDnsXmppChannel *ch = Agent::GetInstance()->dns_xmpp_channel(dns_count);
             if (ch) {
@@ -95,8 +95,6 @@ void AgentDnsXmppConnectionStatusReq::HandleRequest() const {
 
                 data.set_peer_name(xc->ToString());
                 data.set_peer_address(xc->PeerAddress());
-                data.set_mcast_controller("-");
-                data.set_cfg_controller("-");
                 data.set_xmpp_auth_type(xc->AuthType());
 		data.set_last_state(xc->LastStateName());
 		data.set_last_event(xc->LastEvent());
@@ -120,8 +118,8 @@ void AgentDnsXmppConnectionStatusReq::HandleRequest() const {
                 data.set_tx_proto_stats(tx_proto_stats);
             }
 
-	    std::vector<AgentXmppData> &list =
-	        const_cast<std::vector<AgentXmppData>&>(resp->get_peer());
+	    std::vector<AgentXmppDnsData> &list =
+	        const_cast<std::vector<AgentXmppDnsData>&>(resp->get_peer());
 	    list.push_back(data);
         }
         dns_count++;

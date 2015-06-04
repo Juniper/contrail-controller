@@ -381,8 +381,9 @@ bool DnsHandler::SendDnsQuery() {
           ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
     if (BindResolver::Resolver()->DnsSend(pkt, agent()->dns_xmpp_server_index(),
                                           len)) {
-        DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to server; xid = " << 
-                       xid_ << " " << DnsItemsToString(items_));
+        DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to named server : " << 
+                       agent()->dns_server(agent()->dns_xmpp_server_index()) <<
+                       "; xid =" << xid_ << " " << DnsItemsToString(items_));
         timer_->Start(dns_proto->timeout(),
                       boost::bind(&DnsHandler::TimerExpiry, this, xid_));
         return true;
