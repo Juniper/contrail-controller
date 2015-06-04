@@ -120,12 +120,13 @@ response sandesh ArpStats {
 }
 
 response sandesh DnsStats {
-    1: i32 dns_requests;
-    2: i32 dns_resolved;
-    3: i32 dns_retransmit_reqs;
-    4: i32 dns_unsupported;
-    5: i32 dns_failures;
-    6: i32 dns_drops;
+    1: string dns_resolver;
+    2: i32 dns_requests;
+    3: i32 dns_resolved;
+    4: i32 dns_retransmit_reqs;
+    5: i32 dns_unsupported;
+    6: i32 dns_failures;
+    7: i32 dns_drops;
 }
 
 response sandesh IcmpStats {
