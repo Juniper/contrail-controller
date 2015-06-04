@@ -187,36 +187,43 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers1a) {
     EXPECT_EQ(1, sgman_.size());
     sg = rp1->GetSchedulingGroup();
     EXPECT_TRUE(sg != NULL);
+    EXPECT_EQ(1, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg);
 
     Join(rp2.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(2, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg);
 
     Join(rp1.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(3, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
     Join(rp2.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(4, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
     Leave(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(3, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg);
 
     Leave(rp2.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(2, sg->member_count());
     EXPECT_TRUE(sgman_.PeerGroup(p1.get()) == NULL);
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
 
     Leave(rp1.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(1, sg->member_count());
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
     EXPECT_TRUE(sgman_.RibOutGroup(rp1.get()) == NULL);
 
@@ -242,36 +249,43 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers1b) {
     EXPECT_EQ(1, sgman_.size());
     sg = rp1->GetSchedulingGroup();
     EXPECT_TRUE(sg != NULL);
+    EXPECT_EQ(1, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg);
 
     Join(rp1.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(2, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
     Join(rp2.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(3, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg);
 
     Join(rp2.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(4, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
     Leave(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(3, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg);
 
     Leave(rp1.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(2, sg->member_count());
     EXPECT_TRUE(sgman_.RibOutGroup(rp1.get()) == NULL);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
     Leave(rp2.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
+    EXPECT_EQ(1, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
     EXPECT_TRUE(sgman_.PeerGroup(p1.get()) == NULL);
 
@@ -297,6 +311,7 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
     EXPECT_EQ(1, sgman_.size());
     sg_a = rp1->GetSchedulingGroup();
     EXPECT_TRUE(sg_a != NULL);
+    EXPECT_EQ(1, sg_a->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg_a);
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg_a);
 
@@ -304,6 +319,7 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
     EXPECT_EQ(2, sgman_.size());
     sg_b = rp2->GetSchedulingGroup();
     EXPECT_TRUE(sg_b != NULL);
+    EXPECT_EQ(1, sg_b->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg_b);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg_b);
 
@@ -311,6 +327,7 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
     Join(rp2.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
     sg = rp1->GetSchedulingGroup();
+    EXPECT_EQ(3, sg->member_count());
     EXPECT_TRUE(sg_a == sg || sg_b == sg);
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.RibOutGroup(rp2.get()), sg);
@@ -319,11 +336,15 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
 
     Join(rp1.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    sg = rp1->GetSchedulingGroup();
+    EXPECT_EQ(4, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
     Leave(rp1.get(), p2.get());
     EXPECT_EQ(1, sgman_.size());
+    sg = rp1->GetSchedulingGroup();
+    EXPECT_EQ(3, sg->member_count());
     EXPECT_EQ(sgman_.RibOutGroup(rp1.get()), sg);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg);
 
@@ -333,6 +354,8 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
     sg_a = rp1->GetSchedulingGroup();
     sg_b = rp2->GetSchedulingGroup();
     EXPECT_TRUE(sg_a == sg || sg_b == sg);
+    EXPECT_EQ(1, sg_a->member_count());
+    EXPECT_EQ(1, sg_b->member_count());
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sg_a);
     EXPECT_EQ(sgman_.PeerGroup(p2.get()), sg_b);
 
@@ -471,7 +494,7 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling1) {
 
     // Create large number of additional RibOuts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < 8192; ++idx) {
+    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -518,7 +541,7 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling2) {
 
     // Create large number of additional ribouts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < 8192; ++idx) {
+    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -565,7 +588,7 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling3) {
 
     // Create large number of additional RibOuts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < 8192; ++idx) {
+    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -597,6 +620,121 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling3) {
     Leave(&ribout_common, test_peer1);
     Leave(&ribout_common, test_peer2);
     EXPECT_EQ(0, sgman_.size());
+    STLDeleteValues(&ribouts);
+    STLDeleteValues(&peers);
+}
+
+//
+// Exercise the split disable logic.
+//
+TEST_F(SchedulingGroupManagerTest, SplitDisabled1) {
+    // Create 2 peers and join them to a common ribout.
+    vector<BgpTestPeer *> peers;
+    BgpTestPeer *test_peer1(new BgpTestPeer());
+    BgpTestPeer *test_peer2(new BgpTestPeer());
+    peers.push_back(test_peer1);
+    peers.push_back(test_peer2);
+    RibOut ribout_common(inetvpn_table_, &sgman_, RibExportPolicy());
+    Join(&ribout_common, test_peer1);
+    Join(&ribout_common, test_peer2);
+    EXPECT_EQ(1, sgman_.size());
+
+    // Create large number of additional ribouts.
+    vector<RibOut *> ribouts;
+    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold; ++idx) {
+        RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
+            RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
+        ribouts.push_back(ribout);
+    }
+
+    // Join the test peers to odd/even additional ribouts.
+    size_t idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Join(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(1, sgman_.size());
+    SchedulingGroup *sg1 = ribouts[0]->GetSchedulingGroup();
+    EXPECT_TRUE(sg1->split_disabled());
+    EXPECT_EQ(SchedulingGroup::kSplitThreshold + 2, sg1->member_count());
+
+    // Leave test peers from common ribout and verify that group is not split.
+    Leave(&ribout_common, test_peer1);
+    Leave(&ribout_common, test_peer2);
+    EXPECT_EQ(1, sgman_.size());
+    SchedulingGroup *sg2 = ribouts[0]->GetSchedulingGroup();
+    EXPECT_TRUE(sg2->split_disabled());
+    EXPECT_EQ(SchedulingGroup::kSplitThreshold + 0, sg2->member_count());
+    EXPECT_EQ(sg1, sg2);
+
+    // Leave the test peer from odd/even additional ribouts.
+    idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Leave(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(0, sgman_.size());
+
+    STLDeleteValues(&ribouts);
+    STLDeleteValues(&peers);
+}
+
+//
+// Exercise the split disable logic after a merge.
+//
+TEST_F(SchedulingGroupManagerTest, SplitDisabled2) {
+    // Create 2 peers.
+    vector<BgpTestPeer *> peers;
+    BgpTestPeer *test_peer1(new BgpTestPeer());
+    BgpTestPeer *test_peer2(new BgpTestPeer());
+    peers.push_back(test_peer1);
+    peers.push_back(test_peer2);
+
+    // Create large number of additional RibOuts.
+    vector<RibOut *> ribouts;
+    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold; ++idx) {
+        RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
+            RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
+        ribouts.push_back(ribout);
+    }
+
+    // Join the test peers to odd/even additional RibOuts.
+    size_t idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Join(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(2, sgman_.size());
+    EXPECT_EQ(SchedulingGroup::kSplitThreshold / 2,
+        ribouts[0]->GetSchedulingGroup()->member_count());
+
+    // Join the test peers to a common ribout so that the groups get merged.
+    RibOut ribout_common(inetvpn_table_, &sgman_, RibExportPolicy());
+    Join(&ribout_common, test_peer1);
+    Join(&ribout_common, test_peer2);
+    EXPECT_EQ(1, sgman_.size());
+    SchedulingGroup *sg1 = ribouts[0]->GetSchedulingGroup();
+    EXPECT_TRUE(sg1->split_disabled());
+    EXPECT_EQ(SchedulingGroup::kSplitThreshold + 2, sg1->member_count());
+
+    // Leave test peers from common ribout and verify that group is not split.
+    Leave(&ribout_common, test_peer1);
+    Leave(&ribout_common, test_peer2);
+    EXPECT_EQ(1, sgman_.size());
+    SchedulingGroup *sg2 = ribouts[0]->GetSchedulingGroup();
+    EXPECT_TRUE(sg2->split_disabled());
+    EXPECT_EQ(SchedulingGroup::kSplitThreshold + 0, sg1->member_count());
+    EXPECT_EQ(sg1, sg2);
+
+    // Leave the test peers from odd/even additional RibOuts.
+    idx = 0;
+    BOOST_FOREACH(RibOut *ribout, ribouts) {
+        Leave(ribout, peers[idx % 2]);
+        idx++;
+    }
+    EXPECT_EQ(0, sgman_.size());
+
+    // Cleanup.
     STLDeleteValues(&ribouts);
     STLDeleteValues(&peers);
 }
