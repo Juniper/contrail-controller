@@ -39,7 +39,7 @@ from vrouter.vrouter.process_info.ttypes import \
 from vrouter.vrouter.process_info.constants import \
     ProcessStateNames
 
-import loadbalancer_stats as lb_stats
+from loadbalancer_stats import LoadbalancerStats
 
 
 class VrouterEventManager(EventManager):
@@ -69,6 +69,7 @@ class VrouterEventManager(EventManager):
         sys.stderr.write('Openstack Nova Compute status:' +
                          os_nova_comp.process_state + "\n")
         self.process_state_db['openstack-nova-compute'] = os_nova_comp
+        self.lb_stats = LoadbalancerStats()
     # end __init__
 
     def process(self):
@@ -182,6 +183,6 @@ class VrouterEventManager(EventManager):
                 prev_current_time = self.event_tick_60(prev_current_time)
 
                 # loadbalancer processing
-                lb_stats.send_loadbalancer_stats()
+                self.lb_stats.send_loadbalancer_stats()
 
             self.listener_nodemgr.ok(self.stdout)
