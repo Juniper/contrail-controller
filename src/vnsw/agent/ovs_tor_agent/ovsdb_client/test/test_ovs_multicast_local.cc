@@ -177,6 +177,49 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
 
+TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_del_mcast) {
+    //Add vrf
+    VrfAddReq("vrf1");
+    WAIT_FOR(100, 10000, (VrfGet("vrf1", false) != NULL));
+    //Add VN
+    VnAddReq(1, "vn1", "vrf1");
+    WAIT_FOR(100, 10000, (VnGet(1) != NULL));
+    //Add device
+    DBRequest device_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    device_req.key.reset(new PhysicalDeviceKey(MakeUuid(1)));
+    device_req.data.reset(new PhysicalDeviceData(agent_, "test-router",
+                                                 "test-router", "",
+                                                 Ip4Address::from_string("1.1.1.1"),
+                                                 Ip4Address::from_string("2.2.2.2"),
+                                                 "OVS", NULL));
+    agent_->physical_device_table()->Enqueue(&device_req);
+    WAIT_FOR(100, 10000,
+             (agent_->physical_device_table()->Find(MakeUuid(1)) != NULL));
+    //Add device_vn
+    AddPhysicalDeviceVn(1, 1);
+
+    //Delete
+    VrfDelReq("vrf1");
+    //To remove vrf from VN, add another non-existent vrf.
+    VnAddReq(1, "vn1", "vrf2");
+    //Since VRF is gone from VN even though VN is not gone, mcast entry shud be
+    //gone.
+    WAIT_FOR(1000, 10000, (L2RouteGet("vrf1", MacAddress::BroadcastMac()) == NULL));
+
+    //Delete
+    DelPhysicalDeviceVn(1, 1);
+    DBRequest del_dev_req(DBRequest::DB_ENTRY_DELETE);
+    del_dev_req.key.reset(new PhysicalDeviceVnKey(MakeUuid(1),
+                                                  MakeUuid(1)));
+    agent_->physical_device_table()->Enqueue(&del_dev_req);
+    WAIT_FOR(1000, 10000,
+             (agent_->physical_device_table()->
+              Find(MakeUuid(1)) == NULL));
+    VnDelReq(1);
+    WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) == NULL));
+    WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     // override with true to initialize ovsdb server and client

@@ -12,8 +12,13 @@ class OvsPeer;
 namespace OVSDB {
 class VnOvsdbEntry;
 
+class LogicalSwitchEntry;
+class MulticastMacLocalEntry;
 class MulticastMacLocalOvsdb : public OvsdbObject {
 public:
+    typedef std::pair<VrfEntry *, MulticastMacLocalEntry *> VrfDepEntry;
+    typedef std::set<VrfDepEntry> VrfDepList;
+
     MulticastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer);
     ~MulticastMacLocalOvsdb();
 
@@ -21,8 +26,13 @@ public:
     void Notify(OvsdbClientIdl::Op op, struct ovsdb_idl_row *row);
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
 
+    void VrfReEvalEnqueue(VrfEntry *vrf);
+    bool VrfReEval(VrfEntryRef vrf);
 private:
+    friend class MulticastMacLocalEntry;
     OvsPeer *peer_;
+    VrfDepList vrf_dep_list_;
+    WorkQueue<VrfEntryRef> *vrf_reeval_queue_;
     DISALLOW_COPY_AND_ASSIGN(MulticastMacLocalOvsdb);
 };
 
@@ -47,6 +57,8 @@ public:
     OVSDB::VnOvsdbEntry *GetVnEntry() const;
 
 private:
+    bool OnVrfDelete();
+
     friend class MulticastMacLocalOvsdb;
     std::string logical_switch_name_;
     // take reference to the vrf while exporting route, to assure sanity
