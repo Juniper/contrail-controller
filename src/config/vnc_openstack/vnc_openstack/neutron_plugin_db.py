@@ -875,6 +875,13 @@ class DBInterface(object):
                                       subnet_vnc.subnet.get_ip_prefix_len())
                     if IPAddress(ip_addr) in IPSet([cidr]):
                         subnet_id = subnet_vnc.subnet_uuid
+                        if not subnet_id:
+                            # subnet was created in <= R1.06. Read the subnet
+                            # id from kv_store
+                            subnet_key = self._subnet_vnc_get_key(subnet_vnc,
+                                                                  net_obj.uuid)
+                            subnet_id = self._subnet_vnc_read_mapping(
+                                key=subnet_key)
                         return subnet_id
         return None
     #end _ip_address_to_subnet_id
