@@ -219,28 +219,7 @@ class VncIfmapClient(VncIfmapClientGen):
                 self.config_log(tb, level=SandeshLevel.SYS_ERROR)
 
     def _publish_to_ifmap_dequeue(self):
-        while True:
-            (oper, oper_body, do_trace) = self._queue.get()
-            publish_discovery = False
-            requests = []
-            requests_len = 0
-            traces = []
-            while True:
-                if oper == 'publish_discovery':
-                    publish_discovery = True
-                    break
-                if do_trace:
-                    trace = self._generate_ifmap_trace(oper, oper_body)
-                    traces.append(trace)
-                requests.append(oper_body)
-                requests_len += len(oper_body)
-                if (requests_len >
-                    self._get_api_server()._args.ifmap_max_message_size):
-                    break
-                try:
-                    (oper, oper_body, do_trace) = self._queue.get_nowait()
-                except Empty:
-                    break
+        def _publish(requests, traces, publish_discovery=False):
             ok = True
             if requests:
                 ok, msg = self._publish_to_ifmap(''.join(requests))
@@ -252,6 +231,42 @@ class VncIfmapClient(VncIfmapClientGen):
                               error_msg=msg)
             if publish_discovery and ok:
                 self._get_api_server().publish_ifmap_to_discovery()
+        # end _publish
+
+        while True:
+            # block until there is data in the queue
+            (oper, oper_body, do_trace) = self._queue.get()
+            requests = []
+            requests_len = 0
+            traces = []
+            while True:
+                # drain the queue till empty or max message size 
+                # or change of oper because ifmap does not like
+                # different operations in same message
+                if oper == 'publish_discovery':
+                    _publish(requests, traces, True)
+                    break
+                if do_trace:
+                    trace = self._generate_ifmap_trace(oper, oper_body)
+                    traces.append(trace)
+                requests.append(oper_body)
+                requests_len += len(oper_body)
+                if (requests_len >
+                    self._get_api_server()._args.ifmap_max_message_size):
+                    _publish(requests, traces)
+                    break
+                old_oper = oper
+                try:
+                    (oper, oper_body, do_trace) = self._queue.get_nowait()
+                    if oper != old_oper:
+                        _publish(requests, traces)
+                        requests = []
+                        requests_len = 0
+                        traces = []
+                        continue
+                except Empty:
+                    _publish(requests, traces)
+                    break
     # end _publish_to_ifmap_dequeue
 
     def _publish_to_ifmap(self, oper_body):
