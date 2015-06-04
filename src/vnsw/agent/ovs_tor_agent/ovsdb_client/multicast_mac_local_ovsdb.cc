@@ -49,6 +49,17 @@ OVSDB::VnOvsdbEntry *MulticastMacLocalEntry::GetVnEntry() const {
     return vn_entry;
 }
 
+bool MulticastMacLocalEntry::OnVrfDelete() {
+    if (vrf_ == NULL)
+        return true;
+
+    MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
+    OVSDB_TRACE(Trace, "Deleting Multicast Route VN uuid " + logical_switch_name_);
+    table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_);
+    vrf_ = NULL;
+    return true;
+}
+
 bool MulticastMacLocalEntry::Add() {
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
     OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
@@ -56,6 +67,8 @@ bool MulticastMacLocalEntry::Add() {
     vrf_ = vn_entry->vrf();
     OVSDB_TRACE(Trace, "Adding multicast Route VN uuid " + logical_switch_name_);
     vxlan_id_ = logical_switch_->vxlan_id();
+    table->vrf_dep_list_.insert(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
+                                                                    this));
     table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
                                             vn_entry->name(),
                                             table_->client_idl()->tsn_ip(),
@@ -69,12 +82,12 @@ bool MulticastMacLocalEntry::Change() {
 
 bool MulticastMacLocalEntry::Delete() {
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
-    OVSDB_TRACE(Trace, "Deleting Multicast Route VN uuid " + logical_switch_name_);
-    table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_);
+    bool ret = true;
+    table->vrf_dep_list_.erase(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(), this));
+    ret = OnVrfDelete();
     // remove vrf reference after deleting route
-    vrf_ = NULL;
     logical_switch_ = NULL;
-    return true;
+    return ret;
 }
 
 bool MulticastMacLocalEntry::IsLess(const KSyncEntry& entry) const {
@@ -100,13 +113,42 @@ const std::string &MulticastMacLocalEntry::logical_switch_name() const {
 
 MulticastMacLocalOvsdb::MulticastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
     OvsdbObject(idl), peer_(peer) {
-}
+        vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
+                  TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+                  boost::bind(&MulticastMacLocalOvsdb::VrfReEval, this, _1));
+    }
 
 MulticastMacLocalOvsdb::~MulticastMacLocalOvsdb() {
+    vrf_reeval_queue_->Shutdown();
+    delete vrf_reeval_queue_;
 }
 
 OvsPeer *MulticastMacLocalOvsdb::peer() {
     return peer_;
+}
+
+void MulticastMacLocalOvsdb::VrfReEvalEnqueue(VrfEntry *vrf) {
+    vrf_reeval_queue_->Enqueue(vrf);
+}
+
+//Only executed for VRF delete
+bool MulticastMacLocalOvsdb::VrfReEval(VrfEntryRef vrf_ref) {
+    VrfEntry *vrf = vrf_ref.get();
+    if (vrf->IsDeleted() == false) {
+        return true;
+    }
+    // iterate through dependency list and trigger del and add
+    VrfDepList::iterator it =
+        vrf_dep_list_.upper_bound(VrfDepEntry(vrf, NULL));
+    while (it != vrf_dep_list_.end()) {
+        if (it->first != vrf_ref.get()) {
+            break;
+        }
+        MulticastMacLocalEntry *m_entry = it->second;
+        it++;
+        m_entry->OnVrfDelete();
+    }
+    return true;
 }
 
 KSyncEntry *MulticastMacLocalOvsdb::Alloc(const KSyncEntry *key, uint32_t index) {
