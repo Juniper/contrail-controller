@@ -11,6 +11,7 @@ struct SandeshOvsdbTxnStats {
     2: u64 txn_succeeded;
     3: u64 txn_failed;
     4: u64 txn_pending;
+    5: u64 pending_send_msg;
 }
 
 struct SandeshOvsdbClientSession {

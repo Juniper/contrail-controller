@@ -136,11 +136,14 @@ void OvsdbClientSession::AddSessionInfo(SandeshOvsdbClientSession &session) {
         sandesh_stats.set_txn_succeeded(stats.txn_succeeded);
         sandesh_stats.set_txn_failed(stats.txn_failed);
         sandesh_stats.set_txn_pending(client_idl_->pending_txn_count());
+        sandesh_stats.set_pending_send_msg(
+                client_idl_->pending_send_msg_count());
     } else {
         sandesh_stats.set_txn_initiated(0);
         sandesh_stats.set_txn_succeeded(0);
         sandesh_stats.set_txn_failed(0);
         sandesh_stats.set_txn_pending(0);
+        sandesh_stats.set_pending_send_msg(0);
     }
     session.set_connection_time(connection_time_);
     session.set_txn_stats(sandesh_stats);
