@@ -579,13 +579,22 @@ class VirtualNetworkST(DBBase):
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
                     rinst_obj = None
                 else:
+                    need_update = False
+                    if (rinst_obj.get_routing_instance_is_default() !=
+                            is_default):
+                        rinst_obj.set_routing_instance_is_default(is_default)
+                        need_update = True
+                    old_rt_refs = copy.deepcopy(rinst_obj.get_route_target_refs())
                     rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
-                    rinst_obj.set_routing_instance_is_default(is_default)
                     if inst_tgt_data:
                         for rt in self.rt_list:
                             rtgt_obj = RouteTarget(rt)
                             rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
-                    _vnc_lib.routing_instance_update(rinst_obj)
+                    if (not compare_refs(rinst_obj.get_route_target_refs(),
+                                         old_rt_refs)):
+                        need_update = True
+                    if need_update:
+                        _vnc_lib.routing_instance_update(rinst_obj)
             except (NoIdError, KeyError):
                 rinst_obj = None
             if rinst_obj is None:
@@ -1248,10 +1257,10 @@ class SecurityGroupST(DBBase):
             else:
                 _vnc_lib.access_control_list_delete(id=acl['uuid'])
         config_id = self.obj.get_configured_security_group_id() or 0
-        self.set_configured_security_group_id(config_id)
+        self.set_configured_security_group_id(config_id, False)
     # end __init__
 
-    def set_configured_security_group_id(self, config_id):
+    def set_configured_security_group_id(self, config_id, update_acl=True):
         if self.config_sgid == config_id:
             return
         self.config_sgid = config_id
@@ -1282,9 +1291,10 @@ class SecurityGroupST(DBBase):
         if sg_id != int(self.obj.get_security_group_id()):
             _vnc_lib.security_group_update(self.obj)
         from_value = self.sg_id or self.name
-        for sg in self._dict.values():
-            sg.update_acl(from_value=from_value,
-                          to_value=self.obj.get_security_group_id())
+        if update_acl:
+            for sg in self._dict.values():
+                sg.update_acl(from_value=from_value,
+                              to_value=self.obj.get_security_group_id())
         # end for sg
         self.sg_id = self.obj.get_security_group_id()
     # end set_configured_security_group_id
@@ -2492,11 +2502,12 @@ class VirtualMachineST(DBBase):
 class LogicalRouterST(DBBase):
     _dict = {}
 
-    def __init__(self, name):
+    def __init__(self, name, obj=None):
         self.name = name
         self.interfaces = set()
         self.virtual_networks = set()
-        obj = _vnc_lib.logical_router_read(fq_name_str=name)
+        if not obj:
+            obj = _vnc_lib.logical_router_read(fq_name_str=name)
         rt_ref = obj.get_route_target_refs()
         old_rt_key = None
         if rt_ref:
@@ -2697,6 +2708,9 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
+        lr_list = _vnc_lib.logical_routers_list(detail=True)
+        for lr in lr_list:
+           LogicalRouterST.locate(lr.get_fq_name_str(), lr)
         vn_list = _vnc_lib.virtual_networks_list(detail=True,
                                                  fields=['routing_instances',
                                                          'access_control_lists'])
@@ -2930,8 +2944,8 @@ class SchemaTransformer(object):
         vnp = VirtualNetworkPolicyType()
         vnp.build(meta)
         virtual_network.add_policy(policy_name, vnp)
-        self.current_network_set |= policy.networks_back_ref
-        self.current_network_set |= policy.analyzer_vn_set
+        self.current_network_set |= (
+            policy.networks_back_ref | policy.analyzer_vn_set)
         for pol in NetworkPolicyST.values():
             if policy_name in pol.policies:
                 self.current_network_set |= pol.networks_back_ref
