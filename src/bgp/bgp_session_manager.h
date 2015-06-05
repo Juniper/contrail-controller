@@ -27,7 +27,9 @@ public:
     virtual bool Initialize(short port);
     void Shutdown();
     void Terminate();
-    bool IsQueueEmpty() const { return session_queue_.IsQueueEmpty(); }
+    bool MayDelete() const;
+
+    void EnqueueWriteReady(BgpSession *session);
 
     BgpServer *server() { return server_; }
 
@@ -40,12 +42,14 @@ private:
 
     BgpPeer *FindPeer(Endpoint remote);
     bool ProcessSession(BgpSession *session);
-    void ProcessSessionDone(bool done);
-    size_t GetQueueSize() const;
-    void SetQueueDisable(bool disabled);
+    bool ProcessWriteReady(TcpSessionPtr tcp_session);
+    void WorkQueueExitCallback(bool done);
+    size_t GetSessionQueueSize() const;
+    void SetSessionQueueDisable(bool disabled);
 
     BgpServer *server_;
     WorkQueue<BgpSession *> session_queue_;
+    WorkQueue<TcpSessionPtr> write_ready_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpSessionManager);
 };

@@ -229,7 +229,7 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
-        BGP_LOG_PEER(Message, session->Peer(), SandeshLevel::SYS_INFO,
+        BGP_LOG_PEER(Message, session->peer(), SandeshLevel::SYS_INFO,
             BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
             "Open " << msg->ToString());
     }
@@ -270,14 +270,14 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
 
 struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     explicit EvBgpKeepalive(BgpSession *session) : session(session) {
-        const StateMachine *state_machine = session->Peer()->state_machine();
+        const StateMachine *state_machine = session->peer()->state_machine();
         SandeshLevel::type log_level;
         if (state_machine->get_state() == StateMachine::ESTABLISHED) {
             log_level = Sandesh::LoggingUtLevel();
         } else {
             log_level = SandeshLevel::SYS_INFO;
         }
-        BGP_LOG_PEER(Message, session->Peer(), log_level,
+        BGP_LOG_PEER(Message, session->peer(), log_level,
                      BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN, "Keepalive");
     }
     static const char *Name() {
@@ -302,7 +302,7 @@ struct EvBgpNotification : sc::event<EvBgpNotification> {
             log_level = SandeshLevel::SYS_NOTICE;
         }
         string peer_key =
-            session->Peer() ? session->Peer()->ToUVEKey() : session->ToString();
+            session->peer() ? session->peer()->ToUVEKey() : session->ToString();
         BGP_LOG(BgpPeerNotification, log_level, BGP_LOG_FLAG_ALL, peer_key,
                 BGP_PEER_DIR_IN, msg->error, msg->subcode, msg->ToString());
     }
@@ -1448,7 +1448,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
     case BgpProto::OPEN: {
         BgpProto::OpenMessage *open_msg =
             static_cast<BgpProto::OpenMessage *>(msg);
-        BgpPeer *peer = session->Peer();
+        BgpPeer *peer = session->peer();
         peer->inc_rx_open();
         if (int subcode = open_msg->Validate(peer)) {
             Enqueue(fsm::EvBgpOpenError(session, subcode));
@@ -1460,13 +1460,13 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
         break;
     }
     case BgpProto::KEEPALIVE: {
-        BgpPeer *peer = session->Peer();
+        BgpPeer *peer = session->peer();
         Enqueue(fsm::EvBgpKeepalive(session));
         if (peer) peer->inc_rx_keepalive();
         break;
     }
     case BgpProto::NOTIFICATION: {
-        BgpPeer *peer = session->Peer();
+        BgpPeer *peer = session->peer();
         if (peer)
             peer->inc_rx_notification();
         Enqueue(fsm::EvBgpNotification(session,
@@ -1478,7 +1478,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
         BgpProto::Update *update = static_cast<BgpProto::Update *>(msg);
         BgpPeer *peer = NULL;
         if (session)
-            peer = session->Peer();
+            peer = session->peer();
         if (peer)
             peer->inc_rx_update();
 
