@@ -242,6 +242,7 @@ class InstanceManager(object):
                      svc_info.get_lb_service_type())):
                 iip_id, vn_id = self._get_vip_vmi_iip(si)
                 nic['iip-id'] = iip_id
+                nic['mac-address'] = self.mac_alloc(vn_id)
                 user_visible = False
             elif not vn_fq_str or vn_fq_str == '':
                 vn_id = self._check_create_service_vn(itf_type, si)
@@ -259,7 +260,6 @@ class InstanceManager(object):
             nic['static-route-enable'] = st_if.get('static_route_enable')
             nic['static-routes'] = si_if.get('static_routes')
             nic['user-visible'] = user_visible
-            nic['mac-address'] = self.mac_alloc(vn_id)
             si.vn_info.insert(index, nic)
 
         if config_complete:
@@ -398,8 +398,10 @@ class InstanceManager(object):
                 vmi_updated = True
 
         if vmi_create:
-            mac_addrs_obj = MacAddressesType([nic['mac-address']])
-            vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
+            mac_address = nic.get('mac-address', None)
+            if mac_address:
+                mac_addrs_obj = MacAddressesType([mac_address])
+                vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
             try:
                 self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             except RefsExistError:
