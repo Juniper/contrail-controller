@@ -32,6 +32,7 @@
 #define ctrlplane_task_h
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/intrusive/set.hpp>
 #include <map>
 #include <vector>
 #include <tbb/mutex.h>
@@ -88,10 +89,10 @@ public:
     virtual void OnTaskCancel() { };
 
     // Accessor methods
-    State GetState() { return state_; };
-    int GetTaskId() { return task_id_; };
-    int GetTaskInstance() { return task_instance_; };
-    int GetSeqno() { return seqno_; };
+    State GetState() const { return state_; };
+    int GetTaskId() const { return task_id_; };
+    int GetTaskInstance() const { return task_instance_; };
+    uint64_t GetSeqno() const { return seqno_; };
     friend std::ostream& operator<<(std::ostream& out, const Task &task);
 
     // return a pointer to the current task the code is executing under.
@@ -103,7 +104,7 @@ private:
     friend class TaskEntry;
     friend class TaskScheduler;
     friend class TaskImpl;
-    void SetSeqNo(int seqno) {seqno_ = seqno;};
+    void SetSeqNo(uint64_t seqno) {seqno_ = seqno;};
     void SetState(State s) { state_ = s; };
     void SetTaskRecycle() { task_recycle_ = true; };
     void SetTaskComplete() { task_recycle_ = false; };
@@ -113,9 +114,11 @@ private:
     int                 task_instance_; // The dataset id within a code path.
     tbb::task           *task_impl_;
     State               state_;
-    uint32_t            seqno_;
+    uint64_t            seqno_;
     bool                task_recycle_;
     bool                task_cancel_;
+    // Hook in intrusive set for TaskEntry::waitq_
+    boost::intrusive::set_member_hook<> waitq_hook_;
 
     DISALLOW_COPY_AND_ASSIGN(Task);
 };
@@ -171,7 +174,8 @@ public:
     void Stop();                              // Stop scheduling of all tasks
     void Start();                             // Start scheduling of all tasks
     void Print();                             // Debug print routine
-    bool IsEmpty(bool running_only = false);  // Returns true if there are no tasks running and/or enqueued
+    // Returns true if there are no tasks running and/or enqueued
+    bool IsEmpty(bool running_only = false);
 
     void Terminate();
 
@@ -221,7 +225,7 @@ private:
     tbb::task_scheduler_init task_scheduler_;
     tbb::mutex              mutex_;
     bool                    running_;
-    int                     seqno_;
+    uint64_t                seqno_;
     TaskGroupDb             task_group_db_;
 
     tbb::reader_writer_lock id_map_mutex_;
