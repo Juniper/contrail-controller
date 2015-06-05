@@ -44,6 +44,7 @@ BgpSession::BgpSession(BgpSessionManager *session_mgr, Socket *socket)
     : TcpSession(session_mgr, socket),
       session_mgr_(session_mgr),
       peer_(NULL),
+      index_(-1),
       reader_(new BgpMessageReader(this,
               boost::bind(&BgpSession::ReceiveMsg, this, _1, _2))) {
 }
@@ -83,10 +84,6 @@ void BgpSession::WriteReady(const boost::system::error_code &error) {
     if (error)
         return;
     session_mgr_->EnqueueWriteReady(this);
-}
-
-int BgpSession::GetSessionInstance() const {
-    return peer_->GetIndex();
 }
 
 void BgpSession::SendNotification(int code, int subcode,
