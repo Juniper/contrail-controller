@@ -262,7 +262,13 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
                 VlanPortBindingEntry key(vp_binding_table, entry->dev_name(),
                                          entry->name(), ovs_it->first,
                                          ovs_it->second->name());
-                vp_binding_table->CreateStale(&key);
+                VlanPortBindingEntry *vp_entry =
+                    static_cast<VlanPortBindingEntry *>(
+                            vp_binding_table->CreateStale(&key));
+                // Trigger PreAddChange to hold reference to Logical Switch
+                // entry with VlanPortBindingEntry
+                vp_entry->PreAddChange();
+
                 ovs_it++;
             } else {
                 it++;
