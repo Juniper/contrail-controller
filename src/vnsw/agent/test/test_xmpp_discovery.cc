@@ -401,7 +401,7 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_TimedOut) {
     std::vector<DSResponse> ds_response;
     DSResponse resp;
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
-    int port = xs1->GetPort();
+    unsigned int port = xs1->GetPort();
     resp.ep.port(xs1->GetPort());
     ds_response.push_back(resp);
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
