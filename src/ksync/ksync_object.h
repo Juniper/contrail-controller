@@ -228,7 +228,8 @@ public:
     // Function to filter DB Entries to be used, default behaviour will accept
     // All DB Entries, needs to be overriden by derived class to get desired
     // behavior.
-    virtual DBFilterResp DBEntryFilter(const DBEntry *entry);
+    virtual DBFilterResp DBEntryFilter(const DBEntry *entry,
+                                       const KSyncDBEntry *ksync);
     // Populate Key in KSyncEntry from DB Entry.
     // Used for lookup of KSyncEntry from DBEntry
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry) = 0;

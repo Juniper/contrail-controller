@@ -156,7 +156,7 @@ OvsdbDBEntry *VrfOvsdbObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
 }
 
 KSyncDBObject::DBFilterResp VrfOvsdbObject::OvsdbDBEntryFilter(
-        const DBEntry *entry) {
+        const DBEntry *entry, const OvsdbDBEntry *ovsdb_entry) {
     const VrfEntry *vrf = static_cast<const VrfEntry *>(entry);
     // Delete Vrf if vn goes NULL
     if (vrf->vn() == NULL) {

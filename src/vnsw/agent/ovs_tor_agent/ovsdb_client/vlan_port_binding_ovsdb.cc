@@ -265,7 +265,7 @@ OvsdbDBEntry *VlanPortBindingTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
 }
 
 KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
-        const DBEntry *entry) {
+        const DBEntry *entry, const OvsdbDBEntry *ovsdb_entry) {
     const VlanLogicalInterface *l_port =
         dynamic_cast<const VlanLogicalInterface *>(entry);
     if (l_port == NULL) {
@@ -276,8 +276,13 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
     // Logical interface without vm interface is incomplete entry
     // for ovsdb, trigger delete.
     if (l_port->vm_interface() == NULL) {
-        OVSDB_TRACE(Trace, "VM Interface Unavialable, Deleting Logical "
-                    "Port " + l_port->name());
+        if (ovsdb_entry != NULL) {
+            OVSDB_TRACE(Trace, "VM Interface Unavialable, Deleting Logical "
+                        "Port " + l_port->name());
+        } else {
+            OVSDB_TRACE(Trace, "VM Interface Unavialable, Ignoring Logical "
+                        "Port " + l_port->name());
+        }
         return DBFilterDelete;
     }
 
