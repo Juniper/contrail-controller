@@ -35,13 +35,14 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         uint16_t vlan_tag, const std::string &logical_switch) :
     OvsdbDBEntry(table_), logical_switch_name_(logical_switch),
     physical_port_name_(physical_port), physical_device_name_(physical_device),
-    vlan_(vlan_tag), vmi_uuid_(nil_uuid()) {
+    vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
     logical_switch_name_(), physical_port_name_(),
-    physical_device_name_(""), vlan_(entry->vlan()), vmi_uuid_(nil_uuid()) {
+    physical_device_name_(""), vlan_(entry->vlan()), vmi_uuid_(nil_uuid()),
+    old_logical_switch_name_() {
     RemotePhysicalInterface *phy_intf = dynamic_cast<RemotePhysicalInterface *>
         (entry->physical_interface());
     assert(phy_intf);
@@ -54,7 +55,7 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
     logical_switch_name_(key->logical_switch_name_),
     physical_port_name_(key->physical_port_name_),
     physical_device_name_(key->physical_device_name_), vlan_(key->vlan_),
-    vmi_uuid_(nil_uuid()) {
+    vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
 }
 
 void VlanPortBindingEntry::PreAddChange() {
@@ -79,6 +80,11 @@ void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     PhysicalPortEntry *port =
         static_cast<PhysicalPortEntry *>(physical_port_.get());
 
+    // update logical switch name propagated to OVSDB server, this will
+    // be used in change Operation to reduce the unncessary computation
+    // when there is change which VlanPortBindingEntry is not
+    // interested into
+    old_logical_switch_name_ = logical_switch_name_;
     if (!logical_switch_name_.empty()) {
         port->AddBinding(vlan_,
                 static_cast<LogicalSwitchEntry *>(logical_switch_.get()));
@@ -98,6 +104,10 @@ void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void VlanPortBindingEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
+    if (logical_switch_name_ == old_logical_switch_name_) {
+        // no change return from here.
+        return;
+    }
     PhysicalPortEntry *port =
         static_cast<PhysicalPortEntry *>(physical_port_.get());
     OVSDB_TRACE(Trace, "Changing port vlan binding port " +
