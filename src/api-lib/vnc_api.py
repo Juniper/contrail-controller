@@ -596,7 +596,7 @@ class VncApi(VncApiClientGen):
 
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
-                      detail=False, count=False):
+                      detail=False, count=False, filters=None):
         if not obj_type:
             raise ResourceTypeUnknownError(obj_type)
 
@@ -640,6 +640,13 @@ class VncApi(VncApiClientGen):
         query_params['detail'] = detail
 
         query_params['count'] = count
+
+        if filters:
+            ffield_names = ','.join([f['field_name'] for f in filters])
+            ffield_values = ','.join(
+                [json.dumps(f['field_value']) for f in filters])
+            query_params['filter_field_names'] = ffield_names
+            query_params['filter_field_values'] = ffield_values
 
         if do_post_for_list:
             uri = self._action_uri.get('list-bulk-collection')
