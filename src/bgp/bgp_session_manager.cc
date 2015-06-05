@@ -13,8 +13,12 @@
 BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
     : TcpServer(evm),
       server_(server),
-      session_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-          boost::bind(&BgpSessionManager::ProcessSession, this, _1)) {
+      session_queue_(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+          boost::bind(&BgpSessionManager::ProcessSession, this, _1)),
+      write_ready_queue_(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+          boost::bind(&BgpSessionManager::ProcessWriteReady, this, _1)) {
 }
 
 BgpSessionManager::~BgpSessionManager() {
@@ -30,28 +34,64 @@ bool BgpSessionManager::Initialize(short port) {
 //
 // Called from BgpServer::DeleteActor's Shutdown method.
 // Shutdown the TcpServer.
-// Register an exit callback to the WorkQueue so that we can ask BgpServer
-// to retry deletion when the WorkQueue becomes empty.
+// Register an exit callback to the WorkQueues so that we can ask BgpServer
+// to retry deletion when a WorkQueue becomes empty.
 //
 void BgpSessionManager::Shutdown() {
     CHECK_CONCURRENCY("bgp::Config");
     TcpServer::Shutdown();
     session_queue_.SetExitCallback(
-        boost::bind(&BgpSessionManager::ProcessSessionDone, this, _1));
+        boost::bind(&BgpSessionManager::WorkQueueExitCallback, this, _1));
+    write_ready_queue_.SetExitCallback(
+        boost::bind(&BgpSessionManager::WorkQueueExitCallback, this, _1));
 }
 
 //
 // Called when the BgpServer is being destroyed.
 //
-// The WorkQueue needs to be shutdown as the last step to ensure that all
+// The WorkQueues need to be shutdown as the last step to ensure that all
 // entries get deleted. Note that there's no need to call DeleteSession on
-// the sessions in the WorkQueue since ClearSessions does the same thing.
+// the sessions in the WorkQueues since ClearSessions does the same thing.
 //
 void BgpSessionManager::Terminate() {
     CHECK_CONCURRENCY("bgp::Config");
     server_ = NULL;
     ClearSessions();
     session_queue_.Shutdown();
+    write_ready_queue_.Shutdown();
+}
+
+//
+// Return true if all WorkQueues are empty.
+//
+bool BgpSessionManager::MayDelete() const {
+    if (!session_queue_.IsQueueEmpty())
+        return false;
+    if (!write_ready_queue_.IsQueueEmpty())
+        return false;
+    return true;
+}
+
+//
+// Add a BgpSession to the write ready WorkQueue.
+// Take a reference to make sure that BgpSession doesn't get deleted before
+// it's processed.
+//
+void BgpSessionManager::EnqueueWriteReady(BgpSession *session) {
+    if (!server_ || server_->IsDeleted())
+        return;
+    write_ready_queue_.Enqueue(TcpSessionPtr(session));
+}
+
+//
+// Handler for BgpSessions that are dequeued from the write ready WorkQueue.
+//
+// The BgpServer does not get destroyed if the WorkQueue is non-empty.
+//
+bool BgpSessionManager::ProcessWriteReady(TcpSessionPtr tcp_session) {
+    BgpSession *session = static_cast<BgpSession *>(tcp_session.get());
+    session->ProcessWriteReady();
+    return true;
 }
 
 //
@@ -96,7 +136,7 @@ TcpSession *BgpSessionManager::AllocSession(Socket *socket) {
 }
 
 //
-// Accept incoming BgpSession and add it to the WorkQueue for processing.
+// Accept incoming BgpSession and add to session WorkQueue for processing.
 // This ensures that we don't try to access the BgpServer data structures
 // from the IO thread while they are being modified from bgp::Config task.
 //
@@ -114,7 +154,7 @@ bool BgpSessionManager::AcceptSession(TcpSession *tcp_session) {
 }
 
 //
-// Handler for BgpSessions that are dequeued from the WorkQueue.
+// Handler for BgpSessions that are dequeued from the session WorkQueue.
 //
 // The BgpServer does not get destroyed if the WorkQueue is non-empty.
 //
@@ -162,16 +202,16 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
 }
 
 //
-// Exit callback for the WorkQueue.
+// Exit callback for the session and write ready WorkQueues.
 //
-void BgpSessionManager::ProcessSessionDone(bool done) {
+void BgpSessionManager::WorkQueueExitCallback(bool done) {
     server_->RetryDelete();
 }
 
-size_t BgpSessionManager::GetQueueSize() const {
+size_t BgpSessionManager::GetSessionQueueSize() const {
     return session_queue_.Length();
 }
 
-void BgpSessionManager::SetQueueDisable(bool disabled) {
+void BgpSessionManager::SetSessionQueueDisable(bool disabled) {
     session_queue_.set_disable(disabled);
 }

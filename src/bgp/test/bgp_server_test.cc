@@ -150,11 +150,11 @@ protected:
     }
 
     size_t GetSessionQueueSize(BgpSessionManager *session_manager) {
-        return session_manager->GetQueueSize();
+        return session_manager->GetSessionQueueSize();
     }
 
     void SetSessionQueueDisable(BgpSessionManager *session_manager, bool flag) {
-        session_manager->SetQueueDisable(flag);
+        session_manager->SetSessionQueueDisable(flag);
     }
 
     void SetupPeers(int peer_count, unsigned short port_a,

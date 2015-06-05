@@ -40,8 +40,9 @@ BgpMessageReader::BgpMessageReader(TcpSession *session,
 BgpMessageReader::~BgpMessageReader() {
 }
 
-BgpSession::BgpSession(BgpSessionManager *session, Socket *socket)
-    : TcpSession(session, socket),
+BgpSession::BgpSession(BgpSessionManager *session_mgr, Socket *socket)
+    : TcpSession(session_mgr, socket),
+      session_mgr_(session_mgr),
       peer_(NULL),
       reader_(new BgpMessageReader(this,
               boost::bind(&BgpSession::ReceiveMsg, this, _1, _2))) {
@@ -51,22 +52,37 @@ BgpSession::~BgpSession() {
 }
 
 //
-// Handle write ready callback.
+// Concurrency: called in the context of bgp::Config task.
+//
+// Process write ready callback.
 //
 // 1. Tell SchedulingGroupManager that the IPeer is send ready.
 // 2. Tell BgpPeer that it's send ready so that it can resume Keepalives.
+//
+void BgpSession::ProcessWriteReady() {
+    if (!peer_)
+        return;
+    BgpServer *server = peer_->server();
+    SchedulingGroupManager *sg_mgr = server->scheduling_group_manager();
+    sg_mgr->SendReady(peer_);
+    peer_->SetSendReady();
+}
+
+//
+// Concurrency: called in the context of io thread.
+//
+// Handle write ready callback.  Enqueue the session to a WorkQueue in the
+// BgpSessionManager.  The WorkQueue gets processed in the context of the
+// bgp::Config task.  This ensures that we don't access the BgpPeer while
+// the BgpPeer is trying to clear our back pointer to it.
 //
 // We can ignore any errors since the StateMachine will get informed of the
 // TcpSession close independently and react to it.
 //
 void BgpSession::WriteReady(const boost::system::error_code &error) {
-    if (error || !peer_)
+    if (error)
         return;
-
-    BgpServer *server = peer_->server();
-    SchedulingGroupManager *sg_mgr = server->scheduling_group_manager();
-    sg_mgr->SendReady(peer_);
-    peer_->SetSendReady();
+    session_mgr_->EnqueueWriteReady(this);
 }
 
 int BgpSession::GetSessionInstance() const {
