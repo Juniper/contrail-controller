@@ -2107,17 +2107,19 @@ class VirtualMachineInterfaceST(DictST):
         self.uuid = self.obj.uuid
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
     # end __init__
-    @classmethod
 
+    @classmethod
     def delete(cls, name):
+        vmi = cls.get(name)
+        if vmi is None:
+            return
         try:
-            if self.virtual_network and self.virtual_network in self._vn_dict:
-                self._vn_dict[self.virtual_network].remove(self)
-            self._service_vmi_list.remove(self)
+            if vmi.virtual_network and vmi.virtual_network in cls._vn_dict:
+                cls._vn_dict[self.virtual_network].remove(vmi)
+            cls._service_vmi_list.remove(vmi)
         except ValueError:
             pass
-        if name in cls._dict:
-            del cls._dict[name]
+        del cls._dict[name]
     # end delete
 
     @classmethod
