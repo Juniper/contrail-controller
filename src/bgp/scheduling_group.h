@@ -57,8 +57,11 @@ class GroupPeerSet : public BitSet {
 //
 class SchedulingGroup {
 public:
+    class RibState;
+
     typedef std::vector<RibOut *> RibOutList;
     typedef std::vector<IPeerUpdate *> PeerList;
+    typedef std::vector<RibState *> RibStateList;
 
     SchedulingGroup();
     ~SchedulingGroup();
@@ -85,17 +88,15 @@ public:
     // The index for a specific ribout.
     size_t GetRibOutIndex(RibOut *ribout) const;
 
-    // Retrieve the list of all the ribs which this peer is advertising as
-    // well as its complement.
-    void GetPeerRibList(IPeerUpdate *peer, RibOutList *rlist,
-                        RibOutList *rcomplement) const;
-
+    void GetPeerRibList(IPeerUpdate *peer,
+        RibStateList *rs_list, RibStateList *rsc_list) const;
     void GetRibPeerList(RibOut *ribout, PeerList *plist) const;
 
     // Retrieve the list of peers with this specific set of ribs.
-    void GetSubsetPeers(const RibOutList &list, GroupPeerSet *pg);
+    void GetSubsetPeers(const RibStateList &list, GroupPeerSet *pg);
 
     void GetRibOutList(RibOutList *rlist) const;
+    void GetRibOutList(const RibStateList &rs_list, RibOutList *ro_list) const;
     void GetPeerList(PeerList *plist) const;
 
     bool CheckInvariants() const;
@@ -113,8 +114,9 @@ private:
     friend class SGTest;
     friend void IPeerSendReady(SchedulingGroup *sg, IPeerUpdate *peer);
 
-    class RibState;
     class PeerState;
+    class PeerIterator;
+    class Worker;
     struct PeerRibState;
     struct WorkBase;
     struct WorkRibOut;
@@ -123,9 +125,6 @@ private:
     typedef boost::ptr_list<WorkBase> WorkQueue;
     typedef IndexMap<IPeerUpdate *, PeerState, GroupPeerSet> PeerStateMap;
     typedef IndexMap<RibOut *, RibState> RibStateMap;
-    class Worker;
-
-    class PeerIterator;
 
     std::auto_ptr<WorkBase> WorkDequeue();
     void WorkEnqueue(WorkBase *wentry);
@@ -187,11 +186,6 @@ private:
 //
 class SchedulingGroupManager {
 public:
-    typedef SchedulingGroup::RibOutList RibOutList;
-    typedef std::list<SchedulingGroup *> GroupList;
-    typedef std::map<IPeerUpdate *, SchedulingGroup *> PeerMap;
-    typedef std::map<RibOut *, SchedulingGroup *> RibOutMap;
-
     SchedulingGroupManager();
     ~SchedulingGroupManager();
 
@@ -213,6 +207,13 @@ public:
     int size() const { return groups_.size(); }
 
 private:
+    typedef SchedulingGroup::RibOutList RibOutList;
+    typedef SchedulingGroup::RibState RibState;
+    typedef SchedulingGroup::RibStateList RibStateList;
+    typedef std::list<SchedulingGroup *> GroupList;
+    typedef std::map<IPeerUpdate *, SchedulingGroup *> PeerMap;
+    typedef std::map<RibOut *, SchedulingGroup *> RibOutMap;
+
     // Merge two existing scheduling groups.
     SchedulingGroup *Merge(SchedulingGroup *sg1, SchedulingGroup *sg2);
 
