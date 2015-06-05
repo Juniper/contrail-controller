@@ -734,9 +734,8 @@ class SvcMonitor(object):
         return True
 
     def _relaunch_service_instance(self, si):
-        if si.state == 'active':
-            si.state = 'relaunch'
-            self._create_service_instance(si)
+        si.state = 'relaunch'
+        self._create_service_instance(si)
 
     def _check_service_running(self, si):
         st = ServiceTemplateSM.get(si.service_template)

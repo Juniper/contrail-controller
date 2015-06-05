@@ -134,7 +134,7 @@ class NetnsManager(object):
             raise ValueError('Need to create the network namespace before set '
                              'up the lbaas')
 
-        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace)
+        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True)
 
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
@@ -146,7 +146,7 @@ class NetnsManager(object):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
        
-        haproxy_process.stop_haproxy(self.cfg_file)
+        haproxy_process.stop_haproxy(self.cfg_file, True)
 
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
