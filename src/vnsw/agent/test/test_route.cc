@@ -2124,6 +2124,43 @@ TEST_F(RouteTest, ArpRouteDelete) {
     EXPECT_FALSE(FindNH(&key));
 }
 
+TEST_F(RouteTest, verify_channel_delete_results_in_path_delete) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    BgpPeer *peer = CreateBgpPeer("127.0.0.1", "remote");
+    FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
+    client->WaitForIdle();
+    //Get Channel and delete it.
+    AgentXmppChannel *ch = peer->GetBgpXmppPeer();
+    XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>
+        (ch->GetXmppChannel());
+    delete ch; 
+    delete xmpp_channel;
+    client->WaitForIdle();
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    FlushEvpnNextHop(peer, "vrf1", 0);
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    DeleteBgpPeer(NULL);
+    client->WaitForIdle();
+}
+
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
