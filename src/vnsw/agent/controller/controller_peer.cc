@@ -81,6 +81,10 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
+    BgpPeer *bgp_peer = bgp_peer_id_.get();
+    if (bgp_peer != NULL) {
+        HandleAgentXmppClientChannelEvent(this, xmps::NOT_READY);
+    }
     channel_->UnRegisterReceive(xmps::BGP);
 }
 

@@ -3127,11 +3127,12 @@ BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
 
 void DeleteBgpPeer(Peer *peer) {
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
-    if (!bgp_peer)
-        return;
 
-    AgentXmppChannel *channel = bgp_peer->GetBgpXmppPeer();
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::NOT_READY);
+    AgentXmppChannel *channel = NULL;
+    if (bgp_peer) {
+        channel = bgp_peer->GetBgpXmppPeer();
+        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::NOT_READY);
+    }
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
@@ -3144,10 +3145,12 @@ void DeleteBgpPeer(Peer *peer) {
     client->WaitForIdle();
     Agent::GetInstance()->controller()->Cleanup();
     client->WaitForIdle();
-    XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>
-        (channel->GetXmppChannel());
-    delete channel;
-    delete xmpp_channel;
+    if (channel) {
+        XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>
+            (channel->GetXmppChannel());
+        delete channel;
+        delete xmpp_channel;
+    }
 }
 
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,

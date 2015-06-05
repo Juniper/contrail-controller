@@ -113,9 +113,12 @@ uint64_t ConfigCleanupTimer::GetTimerExtensionValue(AgentXmppChannel *ch) {
 }
 
 void ConfigCleanupTimer::TimerExpirationDone() {
-    uint64_t seq =  agent_->ifmap_xmpp_channel(agent_->
-            ifmap_active_xmpp_server_index())->GetSeqNumber();
+    if (agent_->ifmap_xmpp_channel(agent_->ifmap_active_xmpp_server_index()) !=
+        NULL) {
+        uint64_t seq =  agent_->ifmap_xmpp_channel(agent_->
+                              ifmap_active_xmpp_server_index())->GetSeqNumber();
 
-    agent_->ifmap_stale_cleaner()->StaleTimeout(seq);
+        agent_->ifmap_stale_cleaner()->StaleTimeout(seq);
+    }
     agent_->oper_db()->instance_manager()->StaleTimeout();
 }
