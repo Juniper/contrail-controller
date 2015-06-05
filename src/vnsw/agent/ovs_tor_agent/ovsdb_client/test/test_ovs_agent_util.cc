@@ -21,7 +21,6 @@ bool execute_vtep_cmd(const string &cmd) {
     vtep_cmd += " --db=tcp:127.0.0.1:" +
                       integerToString(ovsdb_port) + " " + cmd ;
     int ret = system(vtep_cmd.c_str());
-    //cout << ret << endl;
     return (ret == 0);
 }
 
@@ -37,12 +36,16 @@ bool del_physical_port(const string &physical_switch,
 
 bool add_ucast_mac_local(const string &logical_switch, const string &mac,
                          const string &dest_ip) {
-    return execute_vtep_cmd("add-ucast-local Contrail-" + logical_switch +
-                            " " + mac + " " + dest_ip);
+    execute_vtep_cmd("add-ucast-local Contrail-" + logical_switch +
+                     " " + mac + " " + dest_ip);
+    return execute_vtep_cmd("list-local-macs Contrail-" + logical_switch +
+                            " | grep " + mac);
 }
 
 bool del_ucast_mac_local(const string &logical_switch, const string &mac) {
-    return execute_vtep_cmd("del-ucast-local Contrail-" + logical_switch +
-                            " " + mac);
+    execute_vtep_cmd("del-ucast-local Contrail-" + logical_switch +
+                     " " + mac);
+    return !execute_vtep_cmd("list-local-macs Contrail-" + logical_switch +
+                            " | grep " + mac);
 }
 
