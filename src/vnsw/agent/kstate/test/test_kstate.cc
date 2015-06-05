@@ -299,9 +299,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     client->KStateResponseWait(1);
     mpls_count = TestKStateBase::fetched_count_;
 
-    uint32_t old_vn_count = agent_->vn_table()->Size();
     CreatePorts(0, 0, 0);
-    uint32_t vn_count = agent_->vn_table()->Size() - old_vn_count;
     CreatePorts(0, 0, 0);
     TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_MPLS);
     client->WaitForIdle(3);
