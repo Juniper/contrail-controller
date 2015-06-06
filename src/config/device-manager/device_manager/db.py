@@ -11,6 +11,7 @@ from physical_router_config import PhysicalRouterConfig
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 import copy
+import socket
 import gevent
 from gevent import queue
 
@@ -154,6 +155,14 @@ class PhysicalRouterDM(DBBase):
                 self._logger.error("Exception: " + str(e))
     #end
 
+    def is_valid_ip(self, ip_str):
+        try:
+            socket.inet_aton(ip_str)
+            return True
+        except socket.error:
+            return False
+    #end
+
     def push_config(self):
         self.config_manager.reset_bgp_config()
         bgp_router = BgpRouterDM.get(self.bgp_router)
@@ -168,7 +177,7 @@ class PhysicalRouterDM(DBBase):
                                                  params, external)
             self.config_manager.set_bgp_config(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
-            if self.dataplane_ip is not None:
+            if self.dataplane_ip is not None and self.is_valid_ip(self.dataplane_ip):
                 self.config_manager.add_dynamic_tunnels(self.dataplane_ip,
                               GlobalSystemConfigDM.ip_fabric_subnets, bgp_router_ips)
         vn_dict = {}
