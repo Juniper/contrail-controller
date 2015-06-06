@@ -47,6 +47,10 @@ class TestUT : public ::testing::Test {
 public:
     TestUT() { cout << "Creating TestTask" << endl; };
     void TestBody() {};
+
+    virtual void TearDown() {
+        EXPECT_TRUE(scheduler->IsEmpty());
+    }
 };
 
 class TestTask : public Task {
@@ -1325,7 +1329,7 @@ TEST_F(TestUT, test9_0)
     scheduler->Enqueue(task_ptr[0]);
 
     stats = scheduler->GetTaskStats(90, 1);
-    while ((stats->run_count_ < TEST9_0_MAX_RUNS) && !scheduler->IsEmpty()) {
+    while ((stats->run_count_ <= TEST9_0_MAX_RUNS) && !scheduler->IsEmpty()) {
         stats = scheduler->GetTaskStats(90, 1);
     } 
 
