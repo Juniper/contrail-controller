@@ -978,7 +978,10 @@ void ItfReq::HandleRequest() const {
                                               get_vn(), get_mac(),
                                               get_ipv4_address(),
                                               get_ipv6_address(),
-                                              get_parent_uuid()));
+                                              get_parent_uuid(),
+                                              get_ip_active(),
+                                              get_ip6_active(),
+                                              get_l2_active()));
     sand->DoSandesh(sand);
 }
 
@@ -989,7 +992,10 @@ AgentSandeshPtr InterfaceTable::GetAgentSandesh(const AgentSandeshArguments *arg
                               args->GetString("name"), args->GetString("uuid"),
                               args->GetString("vn"), args->GetString("mac"),
                               args->GetString("ipv4"), args->GetString("ipv6"),
-                              args->GetString("parent_uuid")));
+                              args->GetString("parent_uuid"),
+                              args->GetString("ip_active"),
+                              args->GetString("ip6_active"),
+                              args->GetString("l2_active")));
 }
 
 void Interface::SendTrace(Trace event) const {

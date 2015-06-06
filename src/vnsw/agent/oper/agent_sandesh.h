@@ -173,7 +173,9 @@ public:
                      const std::string &name, const std::string &u,
                      const std::string &vn, const std::string &mac,
                      const std::string &v4, const std::string &v6,
-                     const std::string &parent);
+                     const std::string &parent, const std::string &ip_active,
+                     const std::string &ip6_active,
+                     const std::string &l2_active);
     ~AgentIntfSandesh() { }
     virtual bool Filter(const DBEntryBase *entry);
     virtual bool FilterToArgs(AgentSandeshArguments *args);
@@ -192,6 +194,9 @@ private:
     std::string v4_str_;
     std::string v6_str_;
     std::string parent_uuid_str_;
+    std::string ip_active_str_;
+    std::string ip6_active_str_;
+    std::string l2_active_str_;
 
     boost::uuids::uuid uuid_;
     MacAddress mac_;

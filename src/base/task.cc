@@ -105,6 +105,7 @@ public:
     int GetTaskId() const { return task_id_; }
     int GetTaskInstance() const { return task_instance_; }
     int GetRunCount() const { return run_count_; }
+    void GetSandeshData(SandeshTaskEntry *resp) const;
 
 private:
     friend class TaskGroup;
@@ -161,7 +162,7 @@ public:
     TaskGroup(int task_id);
     ~TaskGroup();
 
-    TaskEntry *QueryTaskEntry(int task_instance);
+    TaskEntry *QueryTaskEntry(int task_instance) const;
     TaskEntry *GetTaskEntry(int task_instance);
     void AddPolicy(TaskGroup *group);
     void AddToDeferQ(TaskEntry *entry);
@@ -180,6 +181,7 @@ public:
     void ClearTaskGroupStats();
     void ClearTaskStats();
     void ClearTaskStats(int instance_id);
+    void GetSandeshData(SandeshTaskGroup *resp) const;
 
     int task_id() const { return task_id_; }
     int deferq_size() const { return deferq_.size(); }
@@ -269,7 +271,7 @@ TaskImpl::~TaskImpl() {
 }
 
 // XXX For testing purposes only. Limit the number of tbb worker threads.
-int TaskScheduler::GetThreadCount() {
+int TaskScheduler::GetThreadCount(int thread_count) {
     static bool init_;
     static int num_cores_;
 
@@ -279,7 +281,10 @@ int TaskScheduler::GetThreadCount() {
 
     char *num_cores_str = getenv("TBB_THREAD_COUNT");
     if (!num_cores_str) {
-        num_cores_ = tbb::task_scheduler_init::default_num_threads();
+        if (thread_count == 0)
+            num_cores_ = tbb::task_scheduler_init::default_num_threads();
+        else
+            num_cores_ = thread_count;
     } else {
         num_cores_ = strtol(num_cores_str, NULL, 0);
     }
@@ -296,11 +301,11 @@ int TaskScheduler::GetThreadCount() {
 // TBB assumes it can use the "thread" invoking tbb::scheduler can be used
 // for task scheduling. But, in our case we dont want "main" thread to be
 // part of tbb. So, initialize TBB with one thread more than its default
-TaskScheduler::TaskScheduler() : 
-    task_scheduler_(GetThreadCount() + 1),
+TaskScheduler::TaskScheduler(int task_count) : 
+    task_scheduler_(GetThreadCount(task_count) + 1),
     running_(true), seqno_(0), id_max_(0), enqueue_count_(0), done_count_(0),
     cancel_count_(0) {
-    hw_thread_count_ = GetThreadCount();
+    hw_thread_count_ = GetThreadCount(task_count);
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
     stop_entry_ = new TaskEntry(-1);
 }
@@ -428,6 +433,7 @@ void TaskScheduler::EnqueueUnLocked(Task *t) {
     TaskGroup *group = GetTaskGroup(t->GetTaskId());
 
     TaskEntry *entry = GetTaskEntry(t->GetTaskId(), t->GetTaskInstance());
+    entry->stats_.enqueue_count_++;
     // Add task to waitq_ if its already populated
     if (entry->WaitQSize() != 0) {
         entry->AddToWaitQ(t);
@@ -594,6 +600,15 @@ bool TaskScheduler::IsEmpty(bool running_only) {
     }
 
     return true;
+}
+std::string TaskScheduler::GetTaskName(int task_id) const {
+    for (TaskIdMap::const_iterator it = id_map_.begin(); it != id_map_.end();
+         it++) {
+        if (task_id == it->second)
+            return it->first;
+    }
+
+    return "ERROR";
 }
 
 int TaskScheduler::GetTaskId(const string &name) {
@@ -780,6 +795,12 @@ void TaskScheduler::ClearRunningTask() {
     running = NULL;
 }
 
+// following function allows one to increase max num of threads used by
+// TBB
+void TaskScheduler::SetThreadAmpFactor(int n) {
+    ThreadAmpFactor_ = n;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Implementation for class TaskGroup 
 ////////////////////////////////////////////////////////////////////////////
@@ -826,7 +847,7 @@ TaskEntry *TaskGroup::GetTaskEntry(int task_instance) {
     return entry;
 }
 
-TaskEntry *TaskGroup::QueryTaskEntry(int task_instance) {
+TaskEntry *TaskGroup::QueryTaskEntry(int task_instance) const {
     if (task_instance == -1) {
         return task_entry_;
     }
@@ -905,6 +926,7 @@ void TaskGroup::RunDeferQ() {
 
 inline void TaskGroup::TaskExited(Task *t) {
     run_count_--;
+    stats_.total_tasks_completed_++;
 }
 
 // Returns true, if the waiq_ of all the tasks in the group are empty.
@@ -921,7 +943,7 @@ bool TaskGroup::IsWaitQEmpty() {
         return false;
     }
 
-    // Walk thru the task_entry_db_ until the waitq_ of any of the task is non-zero
+    // Walk thru the task_entry_db_ until waitq_ of any of the task is non-zero
     for (TaskEntryList::iterator it = task_entry_db_.begin();
          it != task_entry_db_.end(); ++it) {
         if ((entry = *it) == NULL) {
@@ -1180,6 +1202,7 @@ void TaskEntry::TaskExited(Task *t, TaskGroup *group) {
     }
     
     run_count_--;
+    stats_.total_tasks_completed_++;
     group->TaskExited(t);
 
     if (!group->run_count_ && !run_count_) {
@@ -1252,198 +1275,64 @@ ostream& operator<<(ostream& out, const Task &t) {
 ////////////////////////////////////////////////////////////////////////////
 // Implementation for sandesh APIs for Task
 ////////////////////////////////////////////////////////////////////////////
-static const string TaskToString(Task *t) {
-    std::stringstream ss;
-    ss << t->GetTaskId() << ":" << t->GetTaskInstance() << ":" << t->GetSeqno();
-    return ss.str();
+void TaskEntry::GetSandeshData(SandeshTaskEntry *resp) const {
+    resp->set_instance_id(task_instance_);
+    resp->set_tasks_created(stats_.enqueue_count_);
+    resp->set_total_tasks_completed(stats_.total_tasks_completed_);
+    resp->set_tasks_running(run_count_);
+    resp->set_waitq_size(waitq_.size());
+    resp->set_deferq_size(deferq_->size());
 }
-
-static const string TaskEntryToString(TaskEntry *t) {
-    std::stringstream ss;
-    ss << t->GetTaskId() << ":" << t->GetTaskInstance();
-    return ss.str();
-}
-
-static const string TaskStateToString(Task::State state) {
-    switch (state) {
-    case Task::INIT:
-        return "Init";
-        break;
-
-    case Task::WAIT:
-        return "Wait";
-        break;
-
-    case Task::RUN:
-        return "Run";
-        break;
-
-    default:
-        return "Error";
-    }
-}
-
-void TaskScheduler::GetTaskEntrySummary(TaskEntry *entry,
-                                        SandeshTaskEntrySummary *summary) {
-    summary->set_task_entry_key(TaskEntryToString(entry));
-    summary->set_run_count(entry->run_count_);
-    summary->set_waitq_size(entry->waitq_.size());
-}
-
-void TaskScheduler::GetTaskGroupSandeshData(int task_id,
-                                            SandeshTaskGroupResp *resp) {
-    resp->set_task_id(task_id);
-    TaskGroup *group = QueryTaskGroup(task_id);
-    if (group == NULL)
-        return;
-
-    resp->set_run_count(group->TaskRunCount());
-
-    TaskEntry *entry = group->QueryTaskEntry(-1);
-    if (entry) {
-        SandeshTaskEntrySummary summary;
-        GetTaskEntrySummary(entry, &summary);
-        resp->set_task_with_no_instance(summary);
+void TaskGroup::GetSandeshData(SandeshTaskGroup *resp) const {
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    std::vector<SandeshTaskEntry> list;
+    TaskEntry *task_entry = QueryTaskEntry(-1);
+    if (task_entry) {
+        SandeshTaskEntry entry_resp;
+        task_entry->GetSandeshData(&entry_resp);
+        list.push_back(entry_resp);
     }
 
-    std::vector<SandeshTaskGroupSummary> policy_list;
-    for (TaskGroup::TaskGroupPolicyList::iterator it = group->policy_.begin();
-         it != group->policy_.end(); ++it) {
-        SandeshTaskGroupSummary summary;
-        summary.set_task_id((*it)->task_id_);
-        summary.set_run_count((*it)->run_count_);
-        policy_list.push_back(summary);
-    }
-    resp->set_policy_list(policy_list);
-
-    std::vector<SandeshTaskEntrySummary> entry_list;
-    for (TaskEntryList::iterator it = group->task_entry_db_.begin();
-         it != group->task_entry_db_.end(); ++it) {
-        TaskEntry *entry;
-        if ((entry = *it) == NULL) {
-            continue;
-        }
-        SandeshTaskEntrySummary summary;
-        GetTaskEntrySummary(entry, &summary);
-        entry_list.push_back(summary);
-    }
-    resp->set_task_entry_list(entry_list);
-
-    std::vector<SandeshTaskEntrySummary> defer_list;
-    for (TaskGroup::TaskDeferList::iterator it = group->deferq_.begin();
-         it != group->deferq_.end(); ++it) {
-        TaskEntry &entry = *it;
-        SandeshTaskEntrySummary summary;
-        GetTaskEntrySummary(&entry, &summary);
-        defer_list.push_back(summary);
-    }
-    resp->set_defer_list(defer_list);
-}
-
-void TaskScheduler::GetTaskEntrySandeshData(int task_id, int instance_id,
-                                            SandeshTaskEntryResp *resp) {
-    TaskEntry *entry = QueryTaskEntry(task_id, instance_id);
-    resp->set_task_id(task_id);
-    resp->set_instance_id(instance_id);
-
-    if (entry == NULL)
-        return;
-
-    resp->set_run_count(entry->GetRunCount());
-
-    std::vector<SandeshTaskEntrySummary> policy_list;
-    for (TaskEntryList::iterator it = entry->policyq_.begin();
-         it != entry->policyq_.end(); ++it) {
-        TaskEntry *entry;
-        if ((entry = *it) == NULL) {
-            continue;
-        }
-        SandeshTaskEntrySummary summary;
-        GetTaskEntrySummary(entry, &summary);
-        policy_list.push_back(summary);
-    }
-    resp->set_policy_list(policy_list);
-
-    if (entry->run_task_) {
-        SandeshTaskSummary task;
-        task.set_task_key(TaskToString(entry->run_task_));
-        task.set_state(TaskStateToString(entry->run_task_->GetState()));
-        resp->set_run_task(task);
-    }
-
-    std::vector<SandeshTaskSummary> wait_queue;
-    for (TaskEntry::TaskWaitQ::iterator it = entry->waitq_.begin();
-         it != entry->waitq_.end(); ++it) {
-        Task *t = &(*it);
-        SandeshTaskSummary task_summary;
-        task_summary.set_task_key(TaskToString(t));
-        task_summary.set_state(TaskStateToString(t->GetState()));
-        wait_queue.push_back(task_summary);
-    }
-    resp->set_wait_queue(wait_queue);
-
-    std::vector<SandeshTaskEntrySummary> defer_list;
-    for (TaskEntry::TaskDeferList::iterator it = entry->deferq_->begin();
-         it != entry->deferq_->end(); ++it) {
-        TaskEntry &entry = *it;
-        SandeshTaskEntrySummary summary;
-        GetTaskEntrySummary(&entry, &summary);
-        defer_list.push_back(summary);
-    }
-    resp->set_defer_list(defer_list);
-
-    SandeshTaskStats stats;
-    stats.set_wait_count(entry->GetTaskStats()->wait_count_);
-    stats.set_run_count(entry->GetTaskStats()->run_count_);
-    stats.set_defer_count(entry->GetTaskStats()->defer_count_);
-    resp->set_summary_stats(stats);
-
-    if (entry->deferq_task_entry_) {
-        SandeshTaskEntrySummary wait_task_entry;
-        GetTaskEntrySummary(entry->deferq_task_entry_, &wait_task_entry);
-        resp->set_wait_task_entry(wait_task_entry);
-    }
-
-    if (entry->deferq_task_group_) {
-        SandeshTaskGroupSummary wait_task_group;
-        wait_task_group.set_task_id(entry->deferq_task_group_->task_id_);
-        wait_task_group.set_run_count(entry->deferq_task_group_->run_count_);
-        resp->set_wait_task_group(wait_task_group);
-    }
-}
-
-void TaskScheduler::GetTaskSandeshData(int task_id, int instance_id,
-                                       uint32_t seqno, SandeshTaskResp *resp) {
-
-    resp->set_task_id(task_id);
-    resp->set_instance_id(instance_id);
-    resp->set_seqno(seqno);
-
-    TaskEntry *entry = QueryTaskEntry(task_id, instance_id);
-    if (entry == NULL)
-        return;
-
-    Task *t = NULL;
-    for (TaskEntry::TaskWaitQ::iterator it = entry->waitq_.begin();
-         it != entry->waitq_.end(); ++it) {
-        if ((*it).seqno_ == seqno) {
-            t = &(*it);
+    std::vector<SandeshTaskEntry> entry_list;
+    for (TaskEntryList::const_iterator it = task_entry_db_.begin();
+         it != task_entry_db_.end(); ++it) {
+        task_entry = *it;
+        if (task_entry) {
+            SandeshTaskEntry entry_resp;
+            task_entry->GetSandeshData(&entry_resp);
+            list.push_back(entry_resp);
         }
     }
+    resp->set_task_entry_list(list);
 
-    if (t == NULL)
-        return;
-
-    resp->set_state(TaskStateToString(t->GetState()));
-    resp->set_recycle(t->task_recycle_);
-    resp->set_cancel(t->task_cancel_);
-    if (t->task_impl_)
-        resp->set_task_spawned(true);
-    else
-        resp->set_task_spawned(false);
+    std::vector<SandeshTaskPolicyEntry> policy_list;
+    for (TaskGroupPolicyList::const_iterator it = policy_.begin();
+         it != policy_.end(); ++it) {
+        SandeshTaskPolicyEntry policy_entry;
+        policy_entry.set_task_name(scheduler->GetTaskName((*it)->task_id_));
+        policy_entry.set_tasks_running((*it)->run_count_);
+        policy_list.push_back(policy_entry);
+    }
+    resp->set_task_policy_list(policy_list);
 }
 
-// following function allows one to increase max num of threads used by
-// TBB
-void TaskScheduler::SetThreadAmpFactor(int n)
-{ ThreadAmpFactor_ = n; }
+void TaskScheduler::GetSandeshData(SandeshTaskScheduler *resp) {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    resp->set_running(running_);
+    resp->set_total_count(seqno_);
+    resp->set_thread_count(hw_thread_count_);
+
+    std::vector<SandeshTaskGroup> list;
+    for (TaskIdMap::const_iterator it = id_map_.begin(); it != id_map_.end();
+         it++) {
+        SandeshTaskGroup resp_group;
+        TaskGroup *group = QueryTaskGroup(it->second);
+        resp_group.set_task_id(it->second);
+        resp_group.set_name(it->first);
+        if (group)
+            group->GetSandeshData(&resp_group);
+        list.push_back(resp_group);
+    }
+    resp->set_task_group_list(list);
+}
