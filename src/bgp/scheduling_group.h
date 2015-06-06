@@ -57,6 +57,8 @@ class GroupPeerSet : public BitSet {
 //
 class SchedulingGroup {
 public:
+    static const uint32_t kSplitThreshold = 8192;
+
     class RibState;
 
     typedef std::vector<RibOut *> RibOutList;
@@ -99,13 +101,15 @@ public:
     void GetRibOutList(const RibStateList &rs_list, RibOutList *ro_list) const;
     void GetPeerList(PeerList *plist) const;
 
+    void DecrementMemberCount();
+    void IncrementMemberCount();
+
     bool CheckInvariants() const;
 
     void clear();
     bool empty() const;
-
-protected:
-    bool running_;
+    bool split_disabled() const { return split_disabled_; }
+    uint32_t member_count() const { return member_count_; }
 
 private:
     friend class RibOutUpdatesTest;
@@ -158,6 +162,10 @@ private:
 
     // The mutex controls access to WorkQueue and related Worker state.
     tbb::mutex mutex_;
+    bool running_;
+    bool disabled_;
+    bool split_disabled_;
+    uint32_t member_count_;
     WorkQueue work_queue_;
     Worker *worker_task_;
 
