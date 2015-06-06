@@ -109,8 +109,14 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
         // object is empty, with this assumption trigger delete for KsyncDb
         // Objects in KSync Context.
         KSyncObjectManager::Unregister(p->vm_interface_table_.release());
+        KSyncObjectManager::Unregister(p->physical_switch_table_.release());
         KSyncObjectManager::Unregister(p->logical_switch_table_.release());
+        KSyncObjectManager::Unregister(p->physical_port_table_.release());
+        KSyncObjectManager::Unregister(p->physical_locator_table_.release());
         KSyncObjectManager::Unregister(p->vlan_port_table_.release());
+        KSyncObjectManager::Unregister(p->unicast_mac_local_ovsdb_.release());
+        KSyncObjectManager::Unregister(p->multicast_mac_local_ovsdb_.release());
+        KSyncObjectManager::Unregister(p->vrf_ovsdb_.release());
         KSyncObjectManager::Unregister(p->vn_ovsdb_.release());
         p->session_->OnCleanup();
         break;
