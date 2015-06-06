@@ -17,6 +17,7 @@ import errno
 import re
 import copy
 import uuid
+import contextlib
 from lxml import etree
 try:
     from collections import OrderedDict
@@ -211,6 +212,15 @@ class FakeCF(object):
         pass
     # end send
 
+    @contextlib.contextmanager
+    def patch_row(self, key, new_columns):
+        orig_cols = self._rows[key]
+        self._rows[key] = new_columns
+        try:
+            yield
+        finally:
+            self._rows[key] = orig_cols
+    #end patch_row
 # end class FakeCF
 
 
@@ -781,8 +791,10 @@ class FakeRedis(object):
 
 class FakeExtensionManager(object):
     _entry_pt_to_classes = {}
+    _ext_objs = []
     class FakeExtObj(object):
-        def __init__(self, cls, *args, **kwargs):
+        def __init__(self, entry_pt, cls, *args, **kwargs):
+            self.entry_pt = entry_pt
             self.obj = cls(*args, **kwargs)
             self.name = repr(cls)
 
@@ -792,9 +804,9 @@ class FakeExtensionManager(object):
 
         classes = self._entry_pt_to_classes[ep_name]
         self._ep_name = ep_name
-        self._ext_objs = []
         for cls in classes:
-            ext_obj = FakeExtensionManager.FakeExtObj(cls, **kwargs) 
+            ext_obj = FakeExtensionManager.FakeExtObj(
+                ep_name, cls, **kwargs) 
             self._ext_objs.append(ext_obj)
     # end __init__
 
@@ -811,6 +823,10 @@ class FakeExtensionManager(object):
             if not method:
                 continue
             method(*args, **kwargs)
+
+    @classmethod
+    def get_extension_objects(cls, entry_pt):
+        return [e.obj for e in cls._ext_objs if e.entry_pt == entry_pt]
 # end class FakeExtensionManager
 
 
