@@ -403,6 +403,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
         UpdateRemove(node, state, rm_set);
     } else if (state != NULL) {
         // Link deletes must preceed node deletes.
+        ConfigChanged(node);
         state->ClearValid();
         if (!state->HasDependents()) {
             // enqueue delete.
