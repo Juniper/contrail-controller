@@ -43,16 +43,14 @@
 
 class TaskGroup;
 class TaskEntry;
-
-class SandeshTaskGroupResp;
-class SandeshTaskEntryResp;
-class SandeshTaskEntrySummary;
-class SandeshTaskResp;
+class SandeshTaskScheduler;
 
 struct TaskStats {
-    int     wait_count_;
-    int     run_count_;
-    int     defer_count_;
+    int     wait_count_;                // #Entries in waitq
+    int     run_count_;                 // #Entries currently running
+    int     defer_count_;               // #Entries in deferq
+    uint64_t enqueue_count_;            // #Tasks enqueued
+    uint64_t total_tasks_completed_;    // #Total tasks ran
 };
 
 struct TaskExclusion {
@@ -133,7 +131,7 @@ private:
 // task id or task instance to have a 0 count.
 class TaskScheduler {
 public:
-    TaskScheduler();
+    TaskScheduler(int thread_count = 0);
     ~TaskScheduler();
 
     static void Initialize();
@@ -157,6 +155,7 @@ public:
 
     bool GetRunStatus() { return running_; };
     int GetTaskId(const std::string &name);
+    std::string GetTaskName(int task_id) const;
 
     TaskStats *GetTaskGroupStats(int task_id);
     TaskStats *GetTaskStats(int task_id);
@@ -182,26 +181,19 @@ public:
     int HardwareThreadCount() { return hw_thread_count_; }
 
     // Get number of tbb worker threads.
-    static int GetThreadCount();
+    static int GetThreadCount(int thread_count = 0);
 
     uint64_t enqueue_count() const { return enqueue_count_; }
     uint64_t done_count() const { return done_count_; }
     uint64_t cancel_count() const { return cancel_count_; }
+    // Force number of threads
+    void SetMaxThreadCount(int n);
+    void GetSandeshData(SandeshTaskScheduler *resp);
+
     // following function allows one to increase max num of threads used by
     // TBB
     static void SetThreadAmpFactor(int n);
-private:
-    friend class SandeshTaskSchedulerReq;
-    friend class SandeshTaskGroupReq;
-    friend class SandeshTaskEntryReq;
-    friend class SandeshTaskReq;
-    void GetTaskGroupSandeshData(int task_id, SandeshTaskGroupResp *resp);
-    void GetTaskEntrySandeshData(int task_id, int instance_id,
-                                 SandeshTaskEntryResp *resp);
-    void GetTaskSandeshData(int task_id, int instance_id, uint32_t seqno,
-                            SandeshTaskResp *resp);
-    void GetTaskEntrySummary(TaskEntry *entry,
-                             SandeshTaskEntrySummary *summary);
+
 private:
     friend class ConcurrencyScope;
     typedef std::vector<TaskGroup *> TaskGroupDb;

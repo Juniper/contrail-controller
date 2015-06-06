@@ -449,6 +449,9 @@ request sandesh ItfReq {
     6: string ipv4_address;
     7: string ipv6_address;
     8: string parent_uuid;
+    9: string ip_active;
+    10: string ip6_active;
+    11: string l2_active;
 }
 
 response sandesh ItfResp {

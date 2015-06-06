@@ -77,10 +77,14 @@ AgentIntfSandesh::AgentIntfSandesh(const std::string &context,
                                    const std::string &mac,
                                    const std::string &v4,
                                    const std::string &v6,
-                                   const std::string &parent) :
+                                   const std::string &parent,
+                                   const std::string &ip_active,
+                                   const std::string &ip6_active,
+                                   const std::string &l2_active) :
         AgentSandesh(context, ""), type_(type), name_(name), uuid_str_(u),
         vn_(vn), mac_str_(mac), v4_str_(v4), v6_str_(v6),
-        parent_uuid_str_(parent) {
+        parent_uuid_str_(parent), ip_active_str_(ip_active),
+        ip6_active_str_(ip6_active), l2_active_str_(l2_active) {
 
     boost::system::error_code ec;
     uuid_ = StringToUuid(u);
@@ -129,6 +133,27 @@ bool AgentIntfSandesh::Filter(const DBEntryBase *entry) {
             return false;
     }
 
+    if (ip_active_str_.empty() == false) {
+        if (ip_active_str_ == "no" || ip_active_str_ == "inactive") {
+            if (intf->ipv4_active())
+                return false;
+        }
+    }
+
+    if (ip6_active_str_.empty() == false) {
+        if (ip6_active_str_ == "no" || ip6_active_str_ == "inactive") {
+            if (intf->ipv6_active())
+                return false;
+        }
+    }
+
+    if (l2_active_str_.empty() == false) {
+        if (l2_active_str_ == "no" || l2_active_str_ == "inactive") {
+            if (intf->l2_active())
+                return false;
+        }
+    }
+
     const LogicalInterface *li = dynamic_cast<const LogicalInterface *>(entry);
     if (li) {
         if (parent_uuid_str_.empty() == false && parent_uuid_.is_nil() == false
@@ -163,6 +188,7 @@ bool AgentIntfSandesh::Filter(const DBEntryBase *entry) {
             return false;
         }
     }
+
     return true;
 }
 
@@ -175,6 +201,9 @@ bool AgentIntfSandesh::FilterToArgs(AgentSandeshArguments *args) {
     args->Add("ipv4", v4_str_);
     args->Add("ipv6", v6_str_);
     args->Add("parent", parent_uuid_str_);
+    args->Add("ip-active", ip_active_str_);
+    args->Add("ip6-active", ip6_active_str_);
+    args->Add("l2-active", l2_active_str_);
     return true;
 }
 
