@@ -102,7 +102,7 @@ class InstanceManager(object):
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
-                pass
+                iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
 
         return iip_obj
 
@@ -262,7 +262,6 @@ class InstanceManager(object):
             nic['static-route-enable'] = st_if.get('static_route_enable')
             nic['static-routes'] = si_if.get('static_routes')
             nic['user-visible'] = user_visible
-            nic['mac-address'] = self.mac_alloc(vn_id)
             si.vn_info.insert(index, nic)
 
         if config_complete:
@@ -401,8 +400,6 @@ class InstanceManager(object):
                 vmi_updated = True
 
         if vmi_create:
-            mac_addrs_obj = MacAddressesType([nic['mac-address']])
-            vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
             try:
                 self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             except RefsExistError:
@@ -428,6 +425,11 @@ class InstanceManager(object):
                 "Instance IP not allocated for %s %s"
                 % (instance_name, proj_obj.name))
             return
+
+        # set mac address
+        mac_addrs_obj = MacAddressesType([self.mac_alloc(iip_obj.uuid)])
+        vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         # check if vmi already linked to iip
         iip_update = True
