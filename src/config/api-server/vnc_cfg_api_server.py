@@ -97,6 +97,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
 from sandesh.traces.ttypes import RestApiTrace
+from vnc_bottle import get_bottle_server
 
 _ACTION_RESOURCES = [
     {'uri': '/ref-update', 'link_name': 'ref-update',
@@ -1575,7 +1576,7 @@ def main(args_str=None):
 
     try:
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
-                   server='gevent')
+                   server=get_bottle_server(server._args.max_requests))
     except KeyboardInterrupt:
         # quietly handle Ctrl-C
         pass
