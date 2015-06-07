@@ -31,7 +31,49 @@ static void GetArgs(char *test_file, int argc, char *argv[]) {
 }
 
 class TestPhysicalDevice : public ::testing::Test {
+public:
+    TestPhysicalDevice() { }
+    ~TestPhysicalDevice() { }
+    void SetUp() {
+        agent_ = Agent::GetInstance();
+        table_ = agent_->physical_device_table();
+    }
+
+    Agent *agent_;
+    PhysicalDeviceTable *table_;
 };
+
+TEST_F(TestPhysicalDevice, device_master_1) {
+    MulticastHandler *mcast = agent_->oper_db()->multicast();
+    boost::uuids::uuid u = MakeUuid(1);
+
+    // When mastership for a ToR changes, multicast sets master_ field in
+    // physical-device table. Ensure, that multicast uses RESYNC operation
+    // for this.
+    // Check that calling EnqueueDeviceChange does not create DBEntry
+    mcast->EnqueueDeviceChange(u, true);
+    TestClient::WaitForIdle();
+    EXPECT_TRUE(PhysicalDeviceGet(1) == NULL);
+
+    AddPhysicalDevice("dev-1", 1);
+    TestClient::WaitForIdle();
+
+    PhysicalDevice *dev = PhysicalDeviceGet(1);
+    EXPECT_TRUE(dev != NULL);
+    EXPECT_FALSE(dev->master());
+
+    mcast->EnqueueDeviceChange(dev->uuid(), true);
+    TestClient::WaitForIdle();
+    EXPECT_TRUE(dev->master());
+
+    mcast->EnqueueDeviceChange(dev->uuid(), false);
+    TestClient::WaitForIdle();
+    EXPECT_FALSE(dev->master());
+
+    DeletePhysicalDevice("dev-1");
+    TestClient::WaitForIdle();
+    WAIT_FOR(1000, 100, (PhysicalDeviceGet(1) == NULL));
+}
 
 TEST_F(TestPhysicalDevice, device_1) {
     AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/physical-device.xml");
