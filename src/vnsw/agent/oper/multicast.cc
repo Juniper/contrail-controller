@@ -675,10 +675,12 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
+// Mastership changed for device, enqueue RESYNC to update master_ field if
+// physical-device already present
 void MulticastHandler::EnqueueDeviceChange(const boost::uuids::uuid &u,
                                            bool master) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PhysicalDeviceKey(u));
+    req.key.reset(new PhysicalDeviceKey(u, AgentKey::RESYNC));
 
     req.data.reset(new PhysicalDeviceTsnManagedData(agent_, master));
     agent_->physical_device_table()->Enqueue(&req);

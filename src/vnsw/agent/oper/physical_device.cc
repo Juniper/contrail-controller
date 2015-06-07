@@ -141,11 +141,24 @@ DBEntry *PhysicalDeviceTable::OperDBAdd(const DBRequest *req) {
 
 bool PhysicalDeviceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
-    PhysicalDeviceData *data = static_cast<PhysicalDeviceData *>
+    PhysicalDeviceData *data = dynamic_cast<PhysicalDeviceData *>
         (req->data.get());
-    bool ret = data->HandleChange(dev, this);
+    assert(data);
+    bool ret = dev->Copy(this, data);
     dev->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
+}
+
+bool PhysicalDeviceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
+    PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
+    PhysicalDeviceTsnManagedData *data =
+        dynamic_cast<PhysicalDeviceTsnManagedData *>(req->data.get());
+    assert(data);
+    if (dev->master() != data->master_) {
+        dev->set_master(data->master_);
+        return true;
+    }
+    return false;
 }
 
 bool PhysicalDeviceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
@@ -254,20 +267,6 @@ bool PhysicalDeviceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
-bool PhysicalDeviceData::HandleChange(PhysicalDevice *dev,
-                                      PhysicalDeviceTable *table) {
-    return dev->Copy(table, this);
-}
-
-bool PhysicalDeviceTsnManagedData::HandleChange(PhysicalDevice *dev,
-                                      PhysicalDeviceTable *table) {
-    if (dev->master() != master_) {
-        dev->set_master(master_);
-        return true;
-    }
-    return false;
-
-}
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
