@@ -54,7 +54,8 @@ void DoInterfaceSandesh(std::string name) {
 }
 
 AgentIntfSandesh *CreateAgentIntfSandesh(const char *name) {
-    return new AgentIntfSandesh("", "", "vnet1", "", "", "", "", "", "");
+    return new AgentIntfSandesh("", "", "vnet1", "", "", "", "", "", "",
+                                "", "", "");
 }
 
 class CfgTest : public ::testing::Test {
