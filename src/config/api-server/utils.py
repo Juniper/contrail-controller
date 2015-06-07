@@ -61,6 +61,7 @@ def parse_args(args_str):
         'rabbit_ha_mode': False,
         'rabbit_max_pending_updates': '4096',
         'cluster_id': '',
+        'max_requests': 1024,
     }
     # ssl options
     secopts = {
@@ -240,6 +241,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--cluster_id",
         help="Used for database keyspace separation")
+    parser.add_argument(
+        "--max_requests", type=int,
+        help="Maximum number of concurrent requests served by api server")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
