@@ -751,7 +751,7 @@ BgpSession *BgpPeer::CreateSession() {
 
     BgpSession *bgp_session = static_cast<BgpSession *>(session);
     BindLocalEndpoint(bgp_session);
-    bgp_session->SetPeer(this);
+    bgp_session->set_peer(this);
     return bgp_session;
 }
 
@@ -763,7 +763,7 @@ void BgpPeer::SetAdminState(bool down) {
 }
 
 bool BgpPeer::AcceptSession(BgpSession *session) {
-    session->SetPeer(this);
+    session->set_peer(this);
 
     // Set valid keys, if any, in the socket.
     InstallAuthKeys(session);
@@ -1509,6 +1509,7 @@ void BgpPeer::set_session(BgpSession *session) {
 void BgpPeer::clear_session() {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (session_) {
+        session_->clear_peer();
         session_->set_observer(NULL);
         session_->Close();
     }
