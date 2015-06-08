@@ -23,6 +23,7 @@ class PartitionHandler(gevent.Greenlet):
         self._limit = limit
         self._partdb = {}
         self._partoffset = None
+        self._kfk = None
 
     def msg_handler(self, om):
         self._partoffset = om.offset
@@ -43,9 +44,9 @@ class PartitionHandler(gevent.Greenlet):
         while True:
             try:
                 self._logger.info("New KafkaClient %d" % self._partition)
-                kafka = KafkaClient(self._brokers ,str(os.getpid()))
+                self._kfk = KafkaClient(self._brokers ,str(os.getpid()))
                 try:
-                    consumer = SimpleConsumer(kafka, self._group, self._topic, buffer_size = 4096*4, max_buffer_size=4096*32)
+                    consumer = SimpleConsumer(self._kfk, self._group, self._topic, buffer_size = 4096*4, max_buffer_size=4096*32)
                     #except:
                 except Exception as ex:
                     template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
@@ -75,15 +76,17 @@ class PartitionHandler(gevent.Greenlet):
 
                 while True:
                     try:
-                        mm = consumer.get_message(timeout=None)
-                        if mm is None:
-                            continue
-                        self._logger.debug("%d Reading offset %d" % (self._partition, mm.offset))
-                        consumer.commit()
-                        pcount += 1
-		        if not self.msg_handler(mm):
-                            self._logger.info("%d could not handle %s" % (self._partition, str(mm)))
-                            raise gevent.GreenletExit
+                        mlist = consumer.get_messages(10)
+                        for mm in mlist:
+                            if mm is None:
+                                continue
+                            self._logger.debug("%d Reading offset %d" % \
+                                    (self._partition, mm.offset))
+                            consumer.commit()
+                            pcount += 1
+                            if not self.msg_handler(mm):
+                                self._logger.info("%d could not handle %s" % (self._partition, str(mm)))
+                                raise gevent.GreenletExit
                     except TypeError:
                         gevent.sleep(0.1)
                     except common.FailedPayloadsError as ex:
@@ -126,17 +129,6 @@ class UveStreamProc(PartitionHandler):
 
     def __del__(self):
         self._logger.info("Destroying UVEStream for part %d" % self._partno)
-        self.stop_partition()
-
-    def stop_partition(self):
-        uves  = set()
-        for kcoll,coll in self._uvedb.iteritems():
-            for kgen,gen in coll.iteritems():
-                uves.update(set(gen.keys()))
-        self._logger.info("Stopping part %d with UVE keys %s" % \
-                          (self._partno, str(uves)))
-        self._callback(uves, True)
-        self._uvedb = {}
 
     def start_partition(self):
         ''' This function loads the initial UVE database.
@@ -145,13 +137,14 @@ class UveStreamProc(PartitionHandler):
         self._uvedb = self._uvecb(self._partno)
         self._logger.debug("Starting part %d with UVE db %s" % \
                            (self._partno,str(self._uvedb)))
-        uves  = set()
+        uves  = {}
         for kcoll,coll in self._uvedb.iteritems():
             for kgen,gen in coll.iteritems():
-                uves.update(set(gen.keys()))
+                for kk in gen.keys():
+                    uves[kk] = None
         self._logger.info("Starting part %d with UVE keys %s" % \
                           (self._partno,str(uves)))
-        self._callback(uves)
+        self._callback(self._partno, uves)
 
     def contents(self):
         return self._uvedb
@@ -171,7 +164,7 @@ class UveStreamProc(PartitionHandler):
     
     def msg_handler(self, om):
         self._partoffset = om.offset
-        chg = set()
+        chg = {}
         try:
             uv = json.loads(om.message.value)
             self._partdb[om.message.key] = uv
@@ -212,7 +205,8 @@ class UveStreamProc(PartitionHandler):
                 else:
                     self._uvein[tab][coll][gen][uv["type"]] += 1
 
-                chg.add(uv["key"])
+                chg[uv["key"]] = set()
+                chg[uv["key"]].add(uv["type"])
             else:
                 # Record stats on UVE Keys being processed
                 for uk in self._uvedb[coll][gen].keys():
@@ -225,9 +219,10 @@ class UveStreamProc(PartitionHandler):
                     else:
                         self._uveout[tab][uk] = 1
                 
-                # when a generator is delelted, we need to 
-                # notify for *ALL* its UVEs
-                chg = set(self._uvedb[coll][gen].keys())
+                    # when a generator is delelted, we need to 
+                    # notify for *ALL* its UVEs
+                    chg[uk] = None
+
                 del self._uvedb[coll][gen]
 
                 # TODO : For the collector's generator, notify all
@@ -238,7 +233,7 @@ class UveStreamProc(PartitionHandler):
             self._logger.info("%s" % messag)
             return False
         else:
-            self._callback(chg)
+            self._callback(self._partno, chg)
         return True
            
 if __name__ == '__main__':
