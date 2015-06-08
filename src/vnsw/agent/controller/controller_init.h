@@ -66,11 +66,21 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ControllerXmppData);
 };
 
+class ControllerDiscoveryData : public ControllerWorkQueueData {
+public:
+    ControllerDiscoveryData(std::vector<DSResponse> resp);
+    virtual ~ControllerDiscoveryData() {}
+
+    std::vector<DSResponse> discovery_response_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerDiscoveryData);
+};
+
 class VNController {
 public:
     typedef boost::shared_ptr<ControllerXmppData> ControllerXmppDataType;
     typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
+    typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
     typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
     typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
     VNController(Agent *agent);
@@ -86,8 +96,8 @@ public:
     void XmppServerDisConnect();
     void DnsXmppServerDisConnect();
 
-    void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp); 
-    void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp); 
+    void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp);
+    void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp);
 
     void DisConnectControllerIfmapServer(uint8_t idx);
     void DisConnectDnsServer(uint8_t idx);
@@ -129,6 +139,7 @@ public:
     bool XmppMessageProcess(ControllerXmppDataType data);
     Agent *agent() {return agent_;}
     void Enqueue(ControllerWorkQueueDataType data);
+    void DeleteAgentXmppChannel(AgentXmppChannel *ch);
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -137,6 +148,7 @@ private:
     const std::string MakeConnectionPrefix(bool is_dns) const;
     bool AgentXmppServerExists(const std::string &server_ip,
                                std::vector<DSResponse> resp);
+    bool  ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp);
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;
