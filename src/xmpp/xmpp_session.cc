@@ -7,6 +7,7 @@
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_proto.h"
+#include "xmpp/xmpp_server.h"
 #include "xmpp/xmpp_state_machine.h"
 
 #include "sandesh/sandesh_types.h"
@@ -27,32 +28,62 @@ const boost::regex XmppSession::starttls_patt_(rXMPP_STREAM_STARTTLS);
 const boost::regex XmppSession::proceed_patt_(rXMPP_STREAM_PROCEED);
 const boost::regex XmppSession::end_patt_(rXMPP_STREAM_STANZA_END);
 
-const std::string XmppStream::close_string = sXML_STREAM_C;
-
-XmppSession::XmppSession(SslServer *server, SslSocket *socket, bool async_ready)
-        : SslSession(server, socket, async_ready),
-          connection_(NULL),
-          buf_(""), offset_(), tag_known_(0), 
-          stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0,0)) {
-
+XmppSession::XmppSession(XmppConnectionManager *manager, SslSocket *socket,
+    bool async_ready)
+    : SslSession(manager, socket, async_ready),
+      manager_(manager),
+      connection_(NULL),
+      tag_known_(0),
+      index_(-1),
+      stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0, 0)) {
     buf_.reserve(kMaxMessageSize);
     offset_ = buf_.begin();
     stream_open_matched_ = false;
 }
-
 
 XmppSession::~XmppSession() {
     set_observer(NULL);
     connection_ = NULL;
 }
 
-int XmppSession::GetSessionInstance() const {
-    return (connection_->GetIndex());
+void XmppSession::SetConnection(XmppConnection *connection) {
+    connection_ = connection;
+    index_ = connection_->GetIndex();
 }
 
+void XmppSession::ClearConnection() {
+    connection_ = NULL;
+    index_ = -1;
+}
+
+//
+// Concurrency: called in the context of bgp::Config task.
+//
+// Process write ready callback.
+//
+void XmppSession::ProcessWriteReady() {
+    if (!connection_)
+        return;
+    connection_->WriteReady();
+}
+
+//
+// Concurrency: called in the context of io thread.
+//
+// Handle write ready callback.
+//
+// Enqueue session to the XmppConnectionManager. The session is added to a
+// WorkQueue gets processed in the context of bgp::Config task. Doing this
+// ensures that we don't access the XmppConnection while the XmppConnection
+// is trying to clear our back pointer to it.
+//
+// We can ignore any errors since the StateMachine will get informed of the
+// TcpSession close independently and react to it.
+//
 void XmppSession::WriteReady(const boost::system::error_code &error) {
-    if (connection_)
-        connection_->WriteReady(error);
+    if (error)
+        return;
+    manager_->EnqueueSession(this);
 }
 
 XmppSession::StatsPair XmppSession::Stats(unsigned int type) const {

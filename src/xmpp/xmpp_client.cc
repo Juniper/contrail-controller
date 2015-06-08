@@ -27,7 +27,8 @@ public:
     DeleteActor(XmppClient *client)
         : LifetimeActor(client->lifetime_manager()), client_(client) { }
     virtual bool MayDelete() const {
-        return true;
+        CHECK_CONCURRENCY("bgp::Config");
+        return (client_->GetSessionQueueSize() == 0);
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -41,7 +42,7 @@ private:
 };
 
 XmppClient::XmppClient(EventManager *evm) 
-    : SslServer(evm, ssl::context::tlsv1_client, false, false),
+    : XmppConnectionManager(evm, ssl::context::tlsv1_client, false, false),
       config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
@@ -50,7 +51,8 @@ XmppClient::XmppClient(EventManager *evm)
 }
 
 XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
-    : SslServer(evm, ssl::context::tlsv1_client, config->auth_enabled, true),
+    : XmppConnectionManager(
+          evm, ssl::context::tlsv1_client, config->auth_enabled, true),
       config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
@@ -131,7 +133,7 @@ TcpSession *XmppClient::CreateSession() {
 }
 
 void XmppClient::Shutdown() {
-    TcpServer::Shutdown();
+    XmppConnectionManager::Shutdown();
     deleter_->Delete();
 }
 

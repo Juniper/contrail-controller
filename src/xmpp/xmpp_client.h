@@ -11,15 +11,14 @@
 #include "io/ssl_session.h"
 #include "xmpp/xmpp_config.h"
 #include "xmpp/xmpp_connection.h"
+#include "xmpp/xmpp_connection_manager.h"
 
 class LifetimeActor;
 class LifetimeManager;
 class XmppSession;
 
 // Class to represent Xmpp Client
-// We derive from the common TCP server base class
-// which abstracts both server & client side methods.
-class XmppClient : public SslServer {
+class XmppClient : public XmppConnectionManager {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
 
@@ -50,7 +49,7 @@ public:
     XmppConfigManager *xmpp_config_mgr() { return config_mgr_.get(); }
 
     LifetimeManager *lifetime_manager();
-    LifetimeActor *deleter();
+    virtual LifetimeActor *deleter();
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
