@@ -1417,7 +1417,10 @@ class RoutingInstanceST(object):
     def delete_connection(self, ri2):
         self.connections.discard(ri2.get_fq_name_str())
         ri2.connections.discard(self.get_fq_name_str())
-        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+        try:
+            self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+        except NoIdError:
+            return
         self.obj.del_routing_instance(ri2.obj)
         _vnc_lib.routing_instance_update(self.obj)
     # end delete_connection
