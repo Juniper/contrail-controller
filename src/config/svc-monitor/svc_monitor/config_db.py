@@ -502,7 +502,7 @@ class InstanceIpSM(DBBase):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.address = obj['instance_ip_address']
+        self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
     # end update
 
