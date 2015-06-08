@@ -80,7 +80,16 @@ void XmppConnection::SetConfig(const XmppChannelConfig *config) {
 
 void XmppConnection::set_session(XmppSession *session) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    assert(session);
     session_ = session;
+}
+
+void XmppConnection::clear_session() {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    if (!session_)
+        return;
+    session_->ClearConnection();
+    session_ = NULL;
 }
 
 const XmppSession *XmppConnection::session() const {
@@ -91,8 +100,9 @@ XmppSession *XmppConnection::session() {
     return session_;
 }
 
-void XmppConnection::WriteReady(const boost::system::error_code &ec) {
-   mux_->WriteReady(ec);
+void XmppConnection::WriteReady() {
+    boost::system::error_code ec;
+    mux_->WriteReady(ec);
 }
 
 void XmppConnection::Shutdown() {
@@ -315,6 +325,8 @@ void XmppConnection::SendClose(XmppSession *session) {
 
 void XmppConnection::ProcessSslHandShakeResponse(SslSessionPtr session,
     const boost::system::error_code& error) {
+    if (!state_machine())
+        return;
 
     if (error) {
         inc_handshake_failure();

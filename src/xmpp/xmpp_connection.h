@@ -95,6 +95,7 @@ public:
     void StopKeepAliveTimer();
 
     void set_session(XmppSession *session);
+    void clear_session();
     void SetFrom(const std::string &);
     void SetTo(const std::string &);
 
@@ -145,7 +146,7 @@ public:
     virtual uint32_t flap_count() const = 0;
     virtual const std::string last_flap_at() const = 0;
 
-    virtual void WriteReady(const boost::system::error_code &ec);
+    virtual void WriteReady();
 
     friend class XmppStateMachineTest;
 
