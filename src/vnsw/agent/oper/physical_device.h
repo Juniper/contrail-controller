@@ -15,8 +15,10 @@ class PhysicalDevice;
 class PhysicalDeviceTable;
 
 struct PhysicalDeviceKey : public AgentOperDBKey {
-    explicit PhysicalDeviceKey(const boost::uuids::uuid &id) :
+    PhysicalDeviceKey(const boost::uuids::uuid &id) :
         AgentOperDBKey(), uuid_(id) { }
+    PhysicalDeviceKey(const boost::uuids::uuid &id, DBSubOperation sub_op) :
+        AgentOperDBKey(sub_op), uuid_(id) { }
     virtual ~PhysicalDeviceKey() { }
 
     boost::uuids::uuid uuid_;
@@ -27,7 +29,6 @@ struct PhysicalDeviceDataBase : public AgentOperDBData {
         AgentOperDBData(agent, ifmap_node) {
     }
     virtual ~PhysicalDeviceDataBase() { }
-    virtual bool HandleChange(PhysicalDevice *, PhysicalDeviceTable *) = 0;
 };
 
 struct PhysicalDeviceData : public PhysicalDeviceDataBase {
@@ -40,7 +41,6 @@ struct PhysicalDeviceData : public PhysicalDeviceDataBase {
         protocol_(protocol) {
     }
     virtual ~PhysicalDeviceData() { }
-    virtual bool HandleChange(PhysicalDevice *, PhysicalDeviceTable *);
 
     std::string fq_name_;
     std::string name_;
@@ -55,7 +55,6 @@ struct PhysicalDeviceTsnManagedData : public PhysicalDeviceDataBase {
         PhysicalDeviceDataBase(agent, NULL), master_(master) {
     }
     virtual ~PhysicalDeviceTsnManagedData() { }
-    virtual bool HandleChange(PhysicalDevice *, PhysicalDeviceTable *);
 
     bool master_;
 };
@@ -122,6 +121,7 @@ class PhysicalDeviceTable : public AgentOperDBTable {
     virtual DBEntry *OperDBAdd(const DBRequest *req);
     virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBResync(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     bool ProcessConfig(IFMapNode *node, DBRequest &req);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
