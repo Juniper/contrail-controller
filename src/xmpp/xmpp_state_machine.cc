@@ -1123,6 +1123,7 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
       is_active_(active),
       auth_enabled_(auth_enabled),
       state_(xmsm::IDLE),
+      last_state_(xmsm::IDLE),
       openconfirm_state_(xmsm::OPENCONFIRM_INIT) {
       handshake_cb_ = boost::bind(
           &XmppConnection::ProcessSslHandShakeResponse, connection, _1, _2);
@@ -1170,7 +1171,7 @@ void XmppStateMachine::clear_session() {
         session_->set_observer(NULL);
         session_->SetConnection(NULL);
         session_->Close();
-        connection_->set_session(NULL);
+        connection_->clear_session();
         session_ = NULL;
     }
 }
@@ -1186,7 +1187,7 @@ void XmppStateMachine::DeleteSession(XmppSession *session) {
 
 void XmppStateMachine::set_session(TcpSession *session) {
     if (session_ != NULL) {
-        connection_->set_session(NULL);
+        connection_->clear_session();
         DeleteSession(session_);
     }
     session_ = static_cast<XmppSession *>(session);

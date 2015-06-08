@@ -18,8 +18,8 @@ using namespace std;
 
 class XmppRegexMock : public XmppSession {
 public:
-    XmppRegexMock(SslServer *server, SslSocket *sock) :
-                  XmppSession(server, sock), p1("<(iq|message)"), bufx_("") { }
+    XmppRegexMock(XmppConnectionManager *manager, SslSocket *sock)
+        : XmppSession(manager, sock), p1("<(iq|message)"), bufx_("") { }
     ~XmppRegexMock() { }
 
     //boost::regex Regex() { return p1; }

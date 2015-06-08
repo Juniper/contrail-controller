@@ -35,7 +35,7 @@ public:
     }
     virtual bool MayDelete() const {
         CHECK_CONCURRENCY("bgp::Config");
-        return true;
+        return server_->MayDelete();
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -53,16 +53,16 @@ private:
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr,
                        const XmppChannelConfig *config)
-    : SslServer(evm, ssl::context::tlsv1_server, config->auth_enabled, true),
-
+    : XmppConnectionManager(
+          evm, ssl::context::tlsv1_server, config->auth_enabled, true),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       server_addr_(server_addr),
       log_uve_(false),
       auth_enabled_(config->auth_enabled),
-      work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-          boost::bind(&XmppServer::DequeueConnection, this, _1)) {
+      connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+          0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
     if (config->auth_enabled) {
 
@@ -86,28 +86,28 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
 }
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr)
-    : SslServer(evm, ssl::context::tlsv1_server, false, false),
+    : XmppConnectionManager(evm, ssl::context::tlsv1_server, false, false),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       server_addr_(server_addr),
       log_uve_(false),
       auth_enabled_(false),
-      work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-          boost::bind(&XmppServer::DequeueConnection, this, _1)) {
+      connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+          0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
 
 
 XmppServer::XmppServer(EventManager *evm) 
-    : SslServer(evm, ssl::context::tlsv1_server, false, false),
+    : XmppConnectionManager(evm, ssl::context::tlsv1_server, false, false),
       max_connections_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       log_uve_(false),
       auth_enabled_(false),
-      work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-          boost::bind(&XmppServer::DequeueConnection, this, _1)) {
+      connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+          0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
 
 bool XmppServer::IsPeerCloseGraceful() {
@@ -144,7 +144,17 @@ bool XmppServer::Initialize(short port, bool logUVE) {
 // Can be removed after Shutdown is renamed to ManagedDelete.
 //
 void XmppServer::SessionShutdown() {
-    TcpServer::Shutdown();
+    XmppConnectionManager::Shutdown();
+}
+
+//
+// Return true if it's possible to delete the XmppServer.
+//
+// No need to check the connection WorkQueue since XmppServerConnections on it
+// are dependents of the XmppServer.
+//
+bool XmppServer::MayDelete() const {
+    return (GetSessionQueueSize() == 0);
 }
 
 //
@@ -164,7 +174,7 @@ void XmppServer::Shutdown() {
 //
 void XmppServer::Terminate() {
     ClearSessions();
-    work_queue_.Shutdown();
+    connection_queue_.Shutdown();
 }
 
 LifetimeActor *XmppServer::deleter() {
@@ -296,7 +306,7 @@ bool XmppServer::AcceptSession(TcpSession *tcp_session) {
     session->set_read_on_connect(false);
     connection->set_session(session);
     connection->set_on_work_queue();
-    work_queue_.Enqueue(connection);
+    connection_queue_.Enqueue(connection);
     return true;
 }
 
@@ -357,8 +367,7 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
 //
 // Since the XmppServerConnections on the WorkQueue are dependents of the
 // XmppServer, we are guaranteed that the XmppServer won't get destroyed
-// before the WorkQueue is drained.  Hence we don't need to check for the
-// WorkQueue being empty in DeleteActor::MayDelete.
+// before the connection WorkQueue is drained.
 //
 bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config"); 
@@ -372,7 +381,7 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     }
 
     XmppSession *session = connection->session();
-    connection->set_session(NULL);
+    connection->clear_session();
     Endpoint remote_endpoint = session->remote_endpoint();
     XmppServerConnection *old_connection = FindConnection(remote_endpoint);
 
@@ -395,13 +404,12 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     return true;
 }
 
-
-size_t XmppServer::GetQueueSize() const {
-    return work_queue_.Length();
+size_t XmppServer::GetConnectionQueueSize() const {
+    return connection_queue_.Length();
 }
 
-void XmppServer::SetQueueDisable(bool disabled) {
-    work_queue_.set_disable(disabled);
+void XmppServer::SetConnectionQueueDisable(bool disabled) {
+    connection_queue_.set_disable(disabled);
 }
 
 //
