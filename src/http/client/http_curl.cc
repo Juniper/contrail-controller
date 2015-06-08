@@ -172,7 +172,7 @@ static bool setsock(SockInfo *sock_info, curl_socket_t s, CURL*e, int act, Globa
   }
 
   HttpClientSession *session = sock_info->conn_info->connection->session();
-  if (session->IsClosed())
+  if (!session || session->IsClosed())
        return false;
 
   boost::asio::ip::tcp::socket * tcp_socket = session->socket();
