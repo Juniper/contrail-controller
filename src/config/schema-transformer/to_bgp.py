@@ -2115,7 +2115,7 @@ class VirtualMachineInterfaceST(DictST):
             return
         try:
             if vmi.virtual_network and vmi.virtual_network in cls._vn_dict:
-                cls._vn_dict[self.virtual_network].remove(vmi)
+                cls._vn_dict[cls.virtual_network].remove(vmi)
             cls._service_vmi_list.remove(vmi)
         except ValueError:
             pass
