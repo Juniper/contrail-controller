@@ -37,13 +37,18 @@ public:
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
-    void MakeNode(string &dst, DBEntryBase *src);
+    void MakeNode(const string &name_sub_string,
+                  const string &link_type_sub_string,
+                  const string &link_node_sub_string,
+                  string &dst, DBEntryBase *src);
 
     bool BufferStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
                      int stage, int instNum, RequestPipeline::InstData *data);
     bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
                    int stage, int instNum, RequestPipeline::InstData *data);
-    void TableToBuffer(IFMapTable *table, ShowData *show_data);
+    void TableToBuffer(const ShowIFMapAgentReq *request, IFMapTable *table,
+                       ShowData *show_data);
+
     bool BufferAllTables(const RequestPipeline::PipeSpec ps,
                          RequestPipeline::InstData *data);
     bool BufferSomeTables(const RequestPipeline::PipeSpec ps,
@@ -141,10 +146,18 @@ void xml_parse(pugi::xml_node &node, string &s, int n) {
             break;
     }
 }
-void ShowIFMapAgentTable::MakeNode(string &dst, DBEntryBase *src) {
+void ShowIFMapAgentTable::MakeNode(const string &name_sub_string,
+                                   const string &link_node_sub_string,
+                                   const string &link_type_sub_string,
+                                   string &dst, DBEntryBase *src) {
     IFMapNode *node = static_cast<IFMapNode *>(src);
     pugi::xml_document doc;
     pugi::xml_node config;
+
+    if (name_sub_string.empty() == false) {
+        if (node->name().find(name_sub_string) == string::npos)
+            return;
+    }
 
     if (!node->IsDeleted()) {
         config = doc.append_child("config");
@@ -163,23 +176,37 @@ void ShowIFMapAgentTable::MakeNode(string &dst, DBEntryBase *src) {
     dst = dst + "Adjacencies:\n";
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator 
-            iter = node->begin(table->GetGraph()); 
-            iter != node->end(table->GetGraph()); ++iter) {
+         iter = node->begin(table->GetGraph());
+         iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        dst = dst + "\t" + adj_node->table()->Typename() + "  " + 
-                                                adj_node->name() +"\n";
+        if (link_type_sub_string.empty() == false) {
+            if (adj_node->name().find(link_type_sub_string) == string::npos)
+                continue;
+        }
+
+        if (link_node_sub_string.empty() == false) {
+            if (strstr(adj_node->table()->Typename(),
+                       link_node_sub_string.c_str()) == NULL)
+                continue;
+        }
+
+        dst = dst + "\t" + adj_node->table()->Typename() + "  " +
+            adj_node->name() +"\n";
     }
-
-
 }
 
-void ShowIFMapAgentTable::TableToBuffer(IFMapTable *table, ShowData *show_data) {
+void ShowIFMapAgentTable::TableToBuffer(const ShowIFMapAgentReq *request,
+                                        IFMapTable *table,
+                                        ShowData *show_data) {
     for (int i = 0; i < IFMapTable::kPartitionCount; i++) {
         DBTablePartBase *partition = table->GetTablePartition(i);
         DBEntryBase *src = partition->GetFirst();
         while (src) {
             string dst(1, '\n');
-            MakeNode(dst, src);
+            MakeNode(request->get_node_sub_string(),
+                     request->get_link_type_sub_string(),
+                     request->get_link_node_sub_string(),
+                     dst, src);
             show_data->send_buffer.push_back(dst);
             src = partition->GetNext(src);
         }
@@ -192,19 +219,26 @@ bool ShowIFMapAgentTable::BufferSomeTables(const RequestPipeline::PipeSpec ps,
         static_cast<const ShowIFMapAgentReq *>(ps.snhRequest_.get());
 
     IFMapTable *table = IFMapTable::FindTable(db_, request->get_table_name());
-    if (table) {
-        ShowData *show_data = static_cast<ShowData *>(data);
-        TableToBuffer(table, show_data);
-    } else {
+    if (table == NULL)  {
         LOG(DEBUG, "Invalid table name: " << request->get_table_name());
+        return true;
     }
 
+    if (table->name().find("__ifmap__.") != 0) {
+        LOG(DEBUG, "Invalid table name: " << request->get_table_name());
+        return true;
+    }
+
+    ShowData *show_data = static_cast<ShowData *>(data);
+    TableToBuffer(request, table, show_data);
     return true;
 }
 
 bool ShowIFMapAgentTable::BufferAllTables(const RequestPipeline::PipeSpec ps,
                                      RequestPipeline::InstData *data) {
 
+    const ShowIFMapAgentReq *request =
+        static_cast<const ShowIFMapAgentReq *>(ps.snhRequest_.get());
     for (DB::iterator iter = db_->lower_bound("__ifmap__.");
          iter != db_->end(); ++iter) {
         if (iter->first.find("__ifmap__.") != 0) {
@@ -212,7 +246,7 @@ bool ShowIFMapAgentTable::BufferAllTables(const RequestPipeline::PipeSpec ps,
         }
         IFMapTable *table = static_cast<IFMapTable *>(iter->second);
         ShowData *show_data = static_cast<ShowData *>(data);
-        TableToBuffer(table, show_data);
+        TableToBuffer(request, table, show_data);
     }
 
     return true;
