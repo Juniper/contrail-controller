@@ -885,7 +885,6 @@ def block_till_port_listened(server_ip, server_port):
                 gevent.sleep(2)
 # end block_till_port_listened
 
-
 def Fake_uuid_to_time(time_uuid_in_db):
     ts = time.mktime(time_uuid_in_db.timetuple())
     return ts

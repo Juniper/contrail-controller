@@ -202,7 +202,11 @@ class NovaTestResult(testtools.TestResult):
             name = test.id()
         except AttributeError:
             name = 'Unknown.unknown'
-        test_class, test_name = name.rsplit('.', 1)
+        try:
+            test_class, test_name = name.rsplit('.', 1)
+        except:
+            test_class = name
+            test_name = name
 
         elapsed = (self._now() - self.start_time).total_seconds()
         item = (elapsed, test_class, test_name)

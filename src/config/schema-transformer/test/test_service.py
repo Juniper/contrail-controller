@@ -515,9 +515,10 @@ class TestPolicy(test_case.STTestCase):
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
-    # test st restart while service chain is configured
 
+    # test st restart while service chain is configured
     def test_st_restart_service_chain_delete(self):
+        self.skipTest("restart test flaky")
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
@@ -577,6 +578,7 @@ class TestPolicy(test_case.STTestCase):
 
     # test service chain configuration while st is restarted
     def test_st_restart_service_chain(self):
+        self.skipTest("restart test flaky")
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
