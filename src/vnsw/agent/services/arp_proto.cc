@@ -189,9 +189,6 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
 
     wait_for_traffic_map_ = new_wait_for_traffic_map;
     if (wait_for_traffic_map_.size() > 0) {
-        if (arp_req_timer_ && arp_req_timer_->running()) {
-            return;
-        }
         SendArpRequest();
         StartTimer();
     }
