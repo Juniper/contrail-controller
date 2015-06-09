@@ -312,8 +312,7 @@ void IFMapExporter::MoveAdjacentNode(IFMapNodeState *state) {
     }
 }
 
-void IFMapExporter::RemoveDependentLinks(DBTablePartBase *partition,
-                                         IFMapNodeState *state,
+void IFMapExporter::RemoveDependentLinks(IFMapNodeState *state,
                                          const BitSet &rm_set) {
     for (IFMapNodeState::iterator iter = state->begin(), next = state->begin();
          iter != state->end(); iter = next) {
@@ -325,21 +324,20 @@ void IFMapExporter::RemoveDependentLinks(DBTablePartBase *partition,
         }
         BitSet common = ls->advertised() & rm_set;
         if (!common.empty()) {
-            LinkTableExport(partition, link);
+            LinkTableExport(link->get_table_partition(), link);
         }
     }
 }
 
-void IFMapExporter::ProcessAdjacentNode(
-    DBTablePartBase *partition, IFMapNode *node, const BitSet &add_set,
-    IFMapNodeState *state) {
+void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
+        IFMapNodeState *state) {
     BitSet current = state->advertised();
     IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
     if (update) {
         current |= update->advertise();
     }
     if (!current.Contains(add_set)) {
-        NodeTableExport(partition, node);
+        NodeTableExport(node->get_table_partition(), node);
     }
 }
 
@@ -398,7 +396,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
         // For the subset of clients being removed, make sure that all
         // dependent links are removed before.
         if (!rm_set.empty()) {
-            RemoveDependentLinks(partition, state, rm_set);
+            RemoveDependentLinks(state, rm_set);
         }
         UpdateRemove(node, state, rm_set);
     } else if (state != NULL) {
@@ -492,8 +490,8 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         rm_set.BuildComplement(state->advertised(), state->interest());
 
         if (!add_set.empty()) {
-            ProcessAdjacentNode(partition, link->left(), add_set, s_left);
-            ProcessAdjacentNode(partition, link->right(), add_set, s_right);
+            ProcessAdjacentNode(link->left(), add_set, s_left);
+            ProcessAdjacentNode(link->right(), add_set, s_right);
         }
 
         UpdateAddChange(link, state, add_set, rm_set, false);
