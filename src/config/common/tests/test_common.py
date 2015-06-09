@@ -225,6 +225,10 @@ def setup_common_flexmock():
 
     flexmock(disc_client.DiscoveryClient, __init__=stub)
     flexmock(disc_client.DiscoveryClient, publish_obj=stub)
+    flexmock(disc_client.DiscoveryClient, publish=stub)
+    flexmock(disc_client.DiscoveryClient, subscribe=stub)
+    flexmock(disc_client.DiscoveryClient, syslog=stub)
+    flexmock(disc_client.DiscoveryClient, def_pub=stub)
     flexmock(kazoo.client.KazooClient, __new__=FakeKazooClient)
     flexmock(kazoo.handlers.gevent.SequentialGeventHandler, __init__=stub)
 
@@ -413,9 +417,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._api_server_session.mount("https://", adapter)
         self._api_server = vnc_cfg_api_server.server
         self._api_server._sandesh.set_logging_params(level="SYS_WARN")
+        self.addCleanup(self.cleanUp)
     # end setUp
 
-    def tearDown(self):
+    def cleanUp(self):
         self._api_svr_greenlet.kill()
         self._api_server._db_conn._msgbus.shutdown()
         FakeKombu.reset()
@@ -423,8 +428,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         CassandraCFs.reset()
         #cov_handle.stop()
         #cov_handle.report(file=open('covreport.txt', 'w'))
-        super(TestCase, self).tearDown()
-    # end tearDown
+    # end cleanUp
 
     def get_obj_imid(self, obj):
         return 'contrail:%s:%s' %(obj._type, obj.get_fq_name_str())
