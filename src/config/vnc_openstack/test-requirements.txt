@@ -19,7 +19,6 @@ stevedore
 testscenarios
 distribute>=0.7.3
 ../../../../third_party/ifmap-python-client
-../../../../distro/third_party/kazoo
 ../../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
 ../../../../build/debug/api-lib/dist/vnc_api-0.1dev.tar.gz
 ../../../../build/debug/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz
