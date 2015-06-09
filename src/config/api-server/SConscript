@@ -71,6 +71,7 @@ local_sources = [
            'provision_defaults.py',
            'utils.py',
            'db_manage.py',
+           'vnc_bottle.py',
           ]
 
 local_sources_rules = []
