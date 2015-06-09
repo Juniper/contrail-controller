@@ -186,8 +186,8 @@ private:
     bool is_active_;
     bool auth_enabled_;
     xmsm::XmState state_;
-    xmsm::XmOpenConfirmState openconfirm_state_;
     xmsm::XmState last_state_;
+    xmsm::XmOpenConfirmState openconfirm_state_;
     uint64_t state_since_;
     std::string last_event_;
     uint64_t last_event_at_;
