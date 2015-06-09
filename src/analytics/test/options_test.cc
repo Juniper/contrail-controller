@@ -62,7 +62,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-collector.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -103,7 +103,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
               "controller/src/analytics/contrail-collector.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -146,7 +146,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
               "controller/src/analytics/contrail-collector.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -189,7 +189,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
               "controller/src/analytics/contrail-collector.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);

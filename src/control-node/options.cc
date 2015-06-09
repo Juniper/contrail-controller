@@ -136,18 +136,17 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
              "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>(),
+        ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
              "IP address of Discovery Server")
 
         ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
-        ("IFMAP.password", opt::value<string>()->default_value(
-                                                     "control_user_passwd"),
+        ("IFMAP.password", opt::value<string>()->default_value("control-node"),
              "IFMAP server password")
         ("IFMAP.server_url",
              opt::value<string>()->default_value(ifmap_server_url_),
              "IFMAP server URL")
-        ("IFMAP.user", opt::value<string>()->default_value("control_user"),
+        ("IFMAP.user", opt::value<string>()->default_value("control-node"),
              "IFMAP server username")
         ;
 
