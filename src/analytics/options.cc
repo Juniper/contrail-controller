@@ -149,7 +149,7 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
              "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>(),
+        ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
              "IP address of Discovery Server")
 
         ("REDIS.port",
