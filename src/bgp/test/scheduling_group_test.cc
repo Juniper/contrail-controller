@@ -494,7 +494,7 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling1) {
 
     // Create large number of additional RibOuts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
+    for (size_t idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -541,7 +541,7 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling2) {
 
     // Create large number of additional ribouts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
+    for (size_t idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -588,7 +588,7 @@ TEST_F(SchedulingGroupManagerTest, LeaveScaling3) {
 
     // Create large number of additional RibOuts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
+    for (size_t idx = 0; idx < SchedulingGroup::kSplitThreshold / 2; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -641,7 +641,7 @@ TEST_F(SchedulingGroupManagerTest, SplitDisabled1) {
 
     // Create large number of additional ribouts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold; ++idx) {
+    for (size_t idx = 0; idx < SchedulingGroup::kSplitThreshold; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
@@ -692,7 +692,7 @@ TEST_F(SchedulingGroupManagerTest, SplitDisabled2) {
 
     // Create large number of additional RibOuts.
     vector<RibOut *> ribouts;
-    for (int idx = 0; idx < SchedulingGroup::kSplitThreshold; ++idx) {
+    for (size_t idx = 0; idx < SchedulingGroup::kSplitThreshold; ++idx) {
         RibOut *ribout(new RibOut(inetvpn_table_, &sgman_,
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, idx, 0)));
         ribouts.push_back(ribout);
