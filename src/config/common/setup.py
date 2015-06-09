@@ -21,6 +21,7 @@ setup(
               'cfgm_common.uve.vnc_api',
               'cfgm_common.uve.virtual_machine',
               'cfgm_common.uve.virtual_network',
+              'cfgm_common.uve.physical_router',
               'cfgm_common.uve.cfgm_cpuinfo',
               'cfgm_common.uve.cfgm_cpuinfo.cpuinfo',
               'cfgm_common.uve.cfgm_cpuinfo.process_info'
