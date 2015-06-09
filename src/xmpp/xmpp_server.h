@@ -14,6 +14,7 @@
 #include "net/address.h"
 #include "xmpp/xmpp_session.h"
 #include "xmpp/xmpp_config.h"
+#include "xmpp/xmpp_connection_manager.h"
 #include "xmpp/xmpp_channel_mux.h"
 
 class LifetimeActor;
@@ -25,7 +26,7 @@ class XmppConnectionEndpoint;
 class XmppServerConnection;
 
 // Class to represent Xmpp Server
-class XmppServer : public SslServer {
+class XmppServer : public XmppConnectionManager {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
 
@@ -43,12 +44,13 @@ public:
     size_t ConnectionEventCount() const;
 
     LifetimeManager *lifetime_manager();
-    LifetimeActor *deleter();
+    virtual LifetimeActor *deleter();
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
     virtual bool Initialize(short port, bool logUVE);
     void SessionShutdown();
+    bool MayDelete() const;
     void Shutdown();
     void Terminate();
 
@@ -93,8 +95,9 @@ private:
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
     bool DequeueConnection(XmppServerConnection *connection);
-    size_t GetQueueSize() const;
-    void SetQueueDisable(bool disabled);
+    size_t GetConnectionQueueSize() const;
+    void SetConnectionQueueDisable(bool disabled);
+    void WorkQueueExitCallback(bool done);
 
     ConnectionMap connection_map_;
     ConnectionSet deleted_connection_set_;
@@ -111,7 +114,7 @@ private:
     std::string server_addr_;
     bool log_uve_;
     bool auth_enabled_;
-    WorkQueue<XmppServerConnection *> work_queue_;
+    WorkQueue<XmppServerConnection *> connection_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);
 };

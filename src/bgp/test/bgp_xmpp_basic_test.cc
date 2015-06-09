@@ -141,11 +141,11 @@ protected:
     }
 
     size_t GetConnectionQueueSize(XmppServer *xs) {
-        return xs->GetQueueSize();
+        return xs->GetConnectionQueueSize();
     }
 
     void SetConnectionQueueDisable(XmppServer *xs, bool flag) {
-        xs->SetQueueDisable(flag);
+        xs->SetConnectionQueueDisable(flag);
     }
 
     void SetLifetimeManagerDestroyDisable(bool disabled) {

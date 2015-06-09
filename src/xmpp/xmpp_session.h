@@ -10,24 +10,23 @@
 #include "io/ssl_server.h"
 #include "io/ssl_session.h"
 
-class XmppStream;
 class XmppServer;
 class XmppConnection;
+class XmppConnectionManager;
 class XmppRegexMock;
 
 class XmppSession : public SslSession {
 public:
-    XmppSession(SslServer *server, SslSocket *sock, bool async_ready = true);
+    XmppSession(XmppConnectionManager *manager, SslSocket *sock,
+        bool async_ready = true);
     virtual ~XmppSession();
 
-    void SetConnection(XmppConnection *connection) {
-        this->connection_ = connection; 
-    }
+    void SetConnection(XmppConnection *connection);
+    void ClearConnection();
     XmppConnection *Connection() { return connection_; }
-     
-    XmppStream *SessionStream() { return stream_; }
-    void SessionStreamSet(XmppStream *strm) { this->stream_ = strm;}
+
     virtual void WriteReady(const boost::system::error_code &error);
+    void ProcessWriteReady();
 
     typedef std::pair<uint64_t, uint64_t> StatsPair; // (packets, bytes)
     StatsPair Stats(unsigned int message_type) const;
@@ -35,13 +34,13 @@ public:
 
     static const int kMaxMessageSize = 4096;
     friend class XmppRegexMock;
-    
-    virtual int GetSessionInstance() const;
-   
+
+    virtual int GetSessionInstance() const { return index_; }
+
 protected:
     std::string jid;
     virtual void OnRead(Buffer buffer);
-    
+
 private:
     typedef std::deque<Buffer> BufferQueue;
 
@@ -52,13 +51,14 @@ private:
     void ReplaceBuf(const std::string &);
     bool LeftOver() const;
 
+    XmppConnectionManager *manager_;
     XmppConnection *connection_;
     BufferQueue queue_;
-    XmppStream *stream_;
     std::string begin_tag_;
     std::string buf_;
     std::string::const_iterator offset_;
     int tag_known_;
+    int index_;
     boost::match_results<std::string::const_iterator> res_;
     std::vector<StatsPair> stats_; // packet count
     bool stream_open_matched_;
@@ -74,28 +74,5 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(XmppSession);
 };
-
-class XmppStream {
-public:
-
-    enum XmppStreamNS {
-        JABBER_CLIENT = 1,
-        JABBER_SERVER = 2
-    };
-
-    XmppStream(std::string resource, XmppStreamNS ns) 
-        : resource(resource), ns(ns) {
-    }
-    std::string xmppStreamFQDNJid();
-    static const std::string close_string;
-    std::string resource;
-    XmppStreamNS ns;
-
-private:
-    std::string resource_ ;
-    XmppStreamNS ns_;
-    DISALLOW_COPY_AND_ASSIGN(XmppStream);
-};
-
 
 #endif // __XMPP_SESSION_H__
