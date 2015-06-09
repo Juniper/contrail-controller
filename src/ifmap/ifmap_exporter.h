@@ -80,11 +80,10 @@ private:
     void EnqueueDelete(ObjectType *obj, IFMapState *state);
 
     void MoveDependentLinks(IFMapNodeState *state);
-    void RemoveDependentLinks(DBTablePartBase *partition, IFMapNodeState *state,
-                              const BitSet &rm_set);
+    void RemoveDependentLinks(IFMapNodeState *state, const BitSet &rm_set);
     void MoveAdjacentNode(IFMapNodeState *state);
-    void ProcessAdjacentNode(DBTablePartBase *partition, IFMapNode *node,
-                             const BitSet &add_set, IFMapNodeState *state);
+    void ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
+                             IFMapNodeState *state);
 
     bool IsFeasible(const IFMapNode *node);
 
