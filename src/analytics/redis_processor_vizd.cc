@@ -203,10 +203,11 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
         const std::string &module, const std::string &instance_id) {
 
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
+    std::string generator(source + ":" + node_type + ":" + module +
+                          ":" + instance_id);
 
     if (c->err) {
-        LOG(ERROR, "No connection for SyncDeleteUVEs " << source << ":" << 
-            node_type << ":" << module << ":" << instance_id);
+        LOG(ERROR, "No connection for SyncDeleteUVEs : " << generator);
         redisFree(c); 
         return false;
     }
@@ -233,7 +234,8 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
             module.c_str(), instance_id.c_str(), integerToString(REDIS_DB_UVE).c_str());
 
     if (!reply) {
-        LOG(INFO, "SyncDeleteUVEs Error : " << c->errstr);
+        LOG(ERROR, "SyncDeleteUVEs failed for " << generator << " : " <<
+            c->errstr);
         redisFree(c);
         return false;
     }
@@ -243,11 +245,14 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
         redisFree(c);
         return true;
     }
-    LOG(ERROR, "Unrecognized reponse of type " << reply->type <<
-            " for SyncDeleteUVEs " << source << ":" << node_type << ":" <<
-            module << ":" << instance_id);
+    LOG(ERROR, "Unrecognized response of type " << reply->type <<
+        " for SyncDeleteUVEs : " << generator);
     freeReplyObject(reply);
-    redisFree(c); 
+    redisFree(c);
+    // Redis returns error if the time taken to execute the script is
+    // more than the lua-time-limit configured in redis.conf
+    // It is not easy to handle this case gracefully, hence assert.
+    assert(0);
     return false;
 }
 

@@ -351,6 +351,10 @@ class OpServerProxy::OpServerImpl {
                 LOG(DEBUG, "NULL Reply...\n");
                 return;
             }
+            // If redis returns error for async request, then perhaps it
+            // is busy executing a script and it has reached the maximum
+            // execution time limit.
+            assert(reply->type != REDIS_REPLY_ERROR);
 
             if (rpi) {
                 rpi->ProcessCallback(reply);
