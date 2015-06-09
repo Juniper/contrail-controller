@@ -494,6 +494,7 @@ void BgpStressTest::SetUp() {
     socket_buffer_size_ = 1 << 10;
 
     sandesh_context_.reset(new BgpSandeshContext());
+    RegisterSandeshShowXmppExtensions(sandesh_context_.get());
     if (!d_no_sandesh_server_) {
 
         //
@@ -509,7 +510,6 @@ void BgpStressTest::SetUp() {
                                 d_http_port_, sandesh_context_.get());
         Sandesh::ConnectToCollector("127.0.0.1",
                                     sandesh_server_->GetPort());
-        RegisterSandeshShowXmppExtensions(sandesh_context_.get());
         BGP_STRESS_TEST_LOG("Introspect at http://localhost:" <<
                             Sandesh::http_port());
     } else {
