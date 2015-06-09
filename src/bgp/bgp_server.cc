@@ -175,7 +175,7 @@ public:
     }
     virtual bool MayDelete() const {
         CHECK_CONCURRENCY("bgp::Config");
-        return server_->session_manager()->IsQueueEmpty();
+        return server_->session_manager()->MayDelete();
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");

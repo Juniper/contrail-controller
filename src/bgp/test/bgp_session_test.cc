@@ -83,7 +83,7 @@ protected:
         peer_ = static_cast<BgpPeerMock *>(
             rti->peer_manager()->PeerLocate(&server_, config_.get()));
         session_.reset(new BgpSessionTest(server_.session_manager()));
-        session_->SetPeer(peer_);
+        session_->set_peer(peer_);
     }
 
     virtual void TearDown() {

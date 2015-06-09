@@ -40,14 +40,17 @@ private:
 
 class BgpSession : public TcpSession {
 public:
-    BgpSession(BgpSessionManager *session, Socket *socket);
+    BgpSession(BgpSessionManager *session_mgr, Socket *socket);
     virtual ~BgpSession();
 
-    void SetPeer(BgpPeer *peer) { peer_ = peer; }
-    BgpPeer *Peer() { return peer_; }
     void SendNotification(int code, int subcode,
                           const std::string &data = std::string());
     virtual int GetSessionInstance() const;
+    void ProcessWriteReady();
+
+    void set_peer(BgpPeer *peer) { peer_ = peer; }
+    void clear_peer() { peer_ = NULL; }
+    BgpPeer *peer() { return peer_; }
 
 protected:
     virtual void OnRead(Buffer buffer) {
@@ -60,6 +63,7 @@ private:
     }
     virtual void WriteReady(const boost::system::error_code &error);
 
+    BgpSessionManager *session_mgr_;
     BgpPeer *peer_;
     boost::scoped_ptr<BgpMessageReader> reader_;
 
