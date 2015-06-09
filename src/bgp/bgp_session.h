@@ -45,11 +45,17 @@ public:
 
     void SendNotification(int code, int subcode,
                           const std::string &data = std::string());
-    virtual int GetSessionInstance() const;
+    virtual int GetSessionInstance() const { return index_; }
     void ProcessWriteReady();
 
-    void set_peer(BgpPeer *peer) { peer_ = peer; }
-    void clear_peer() { peer_ = NULL; }
+    void set_peer(BgpPeer *peer) {
+        peer_ = peer;
+        index_ = peer_->GetIndex();
+    }
+    void clear_peer() {
+        peer_ = NULL;
+        index_ = -1;
+    }
     BgpPeer *peer() { return peer_; }
 
 protected:
@@ -65,6 +71,7 @@ private:
 
     BgpSessionManager *session_mgr_;
     BgpPeer *peer_;
+    int index_;
     boost::scoped_ptr<BgpMessageReader> reader_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpSession);
