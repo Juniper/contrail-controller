@@ -473,6 +473,9 @@ class InstanceManager(object):
     def _update_local_preference(self, si, del_vm):
         if si.ha_mode != 'active-standby':
             return
+        st = ServiceTemplateSM.get(si.service_template)
+        if not st:
+            return
 
         if si.local_preference[del_vm.index] == \
                 svc_info.get_standby_preference():
