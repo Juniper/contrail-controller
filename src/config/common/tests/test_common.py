@@ -229,7 +229,6 @@ def setup_common_flexmock():
     flexmock(disc_client.DiscoveryClient, subscribe=stub)
     flexmock(disc_client.DiscoveryClient, syslog=stub)
     flexmock(disc_client.DiscoveryClient, def_pub=stub)
-
     flexmock(kazoo.client.KazooClient, __new__=FakeKazooClient)
     flexmock(kazoo.handlers.gevent.SequentialGeventHandler, __init__=stub)
 
@@ -429,7 +428,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         CassandraCFs.reset()
         #cov_handle.stop()
         #cov_handle.report(file=open('covreport.txt', 'w'))
-        super(TestCase, self).tearDown()
     # end cleanUp
 
     def get_obj_imid(self, obj):

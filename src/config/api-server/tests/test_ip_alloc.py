@@ -43,8 +43,6 @@ logger.setLevel(logging.DEBUG)
 class TestIpAlloc(test_case.ApiServerTestCase):
 
     def test_ip_alloction(self):
-        print 'test ip allocation'
-
         # Create Domain
         domain = Domain('my-v4-v6-domain')
         self._vnc_lib.domain_create(domain)
@@ -141,8 +139,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_ip_alloction_pools(self):
-        print 'test ip allocation'
-
         # Create Domain
         domain = Domain('my-v4-v6-domain')
         self._vnc_lib.domain_create(domain)
@@ -248,8 +244,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_subnet_gateway_ip_alloc(self):
-        print 'test ip allocation'
-
         # Create Domain
         domain = Domain('my-v4-v6-domain')
         self._vnc_lib.domain_create(domain)
@@ -314,8 +308,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_v4_ip_allocation_exhaust(self):
-        print 'test ip allocation to cover all ip addresses'
-
         # Create Domain
         domain = Domain('v4-domain')
         self._vnc_lib.domain_create(domain)
@@ -559,8 +551,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_req_ip_allocation(self):
-        print 'test requested ip allocation'
-
         # Create Domain
         domain = Domain('my-v4-v6-req-ip-domain')
         self._vnc_lib.domain_create(domain)
