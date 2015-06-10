@@ -15,7 +15,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import time
-import json
+from cfgm_common import jsonutils as json
 import utils
 
 class VncCassandraClient(VncCassandraClientGen):
