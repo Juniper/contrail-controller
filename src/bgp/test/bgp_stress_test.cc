@@ -633,17 +633,19 @@ void BgpStressTest::SandeshShutdown() {
     WaitForIdle();
 }
 
+bool BgpStressTest::CheckRoutingInstance(int instance_id) {
+    task_util::TaskSchedulerLock lock;
+    std::string name = GetInstanceName(instance_id);
+    return (server_->routing_instance_mgr()->GetRoutingInstance(name) != NULL);
+}
+
 void BgpStressTest::VerifyRoutingInstances() {
     for (int instance_id = 0; instance_id < (int) instances_.size();
             ++instance_id) {
         if (instances_[instance_id]) {
-            TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
-                    server_->routing_instance_mgr()->\
-                        GetRoutingInstance(GetInstanceName(instance_id)));
+            TASK_UTIL_EXPECT_TRUE(CheckRoutingInstance(instance_id));
         } else {
-            TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
-                    server_->routing_instance_mgr()->\
-                        GetRoutingInstance(GetInstanceName(instance_id)));
+            TASK_UTIL_EXPECT_FALSE(CheckRoutingInstance(instance_id));
         }
     }
 }
