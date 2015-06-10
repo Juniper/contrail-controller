@@ -199,6 +199,12 @@ class SvcMonitor(object):
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
         try:
+            self._vnc_subscribe_actions(oper_info)
+        except Exception:
+            cgitb_error_log(self)
+
+    def _vnc_subscribe_actions(self, oper_info):
+        try:
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             obj_type = oper_info['type'].replace('-', '_')
@@ -237,11 +243,8 @@ class SvcMonitor(object):
                                 obj_type, obj_id))
                 return
 
-
         except Exception:
-            string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-            self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+            cgitb_error_log(self)
 
         for sas_id in dependency_tracker.resources.get('service_appliance_set', []):
             sas_obj = ServiceApplianceSetSM.get(sas_id)
@@ -791,10 +794,9 @@ def launch_timer(monitor):
             cgitb_error_log(monitor)
 
 def cgitb_error_log(monitor):
-    tmp_file = cStringIO.StringIO()
-    cgitb.Hook(format="text", file=tmp_file).handle(sys.exc_info())
-    monitor._svc_err_logger.error("%s" % tmp_file.getvalue())
-    tmp_file.close()
+    string_buf = cStringIO.StringIO()
+    cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+    monitor.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
 def parse_args(args_str):
     '''
