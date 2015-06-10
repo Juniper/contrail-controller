@@ -175,7 +175,11 @@ class InstanceManager(object):
         subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
         subnet_data = VnSubnetsType([subnet_info])
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        self._vnc_lib.virtual_network_create(vn_obj)
+        try:
+            self._vnc_lib.virtual_network_create(vn_obj)
+        except RefsExistError:
+            vn_obj = self._vnc_lib.virtual_network_read(
+                fq_name=vn_obj.get_fq_name())
         VirtualNetworkSM.locate(vn_obj.uuid)
 
         return vn_obj.uuid

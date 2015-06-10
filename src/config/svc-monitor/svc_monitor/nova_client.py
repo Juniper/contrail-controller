@@ -46,6 +46,8 @@ class ServiceMonitorNovaClient(object):
                 "Multiple %s %s=%s found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
             return None
+        except nc_exc.Unauthorized:
+            raise
         except Exception as e:
             self.logger.log_error("nova error %s" % str(e))
             return None
@@ -56,6 +58,7 @@ class ServiceMonitorNovaClient(object):
                 proj_name, False, **kwargs)
         except nc_exc.Unauthorized:
             try:
+                self.logger.log_notice("nova refresh token")
                 return self._novaclient_exec(resource, oper,
                     proj_name, True, **kwargs)
             except nc_exc.Unauthorized:
