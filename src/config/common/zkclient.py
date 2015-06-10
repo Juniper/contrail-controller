@@ -210,7 +210,8 @@ class ZookeeperClient(object):
         self._election = None
         self._server_list = server_list
         # KazooRetry to retry keeper CRUD operations
-        self._retry = KazooRetry(max_tries=None, sleep_func=gevent.sleep)
+        self._retry = KazooRetry(max_tries=None, max_delay=300,
+                                 sleep_func=gevent.sleep)
 
         self._conn_state = None
         self._sandesh_connection_info_update(status='INIT', message='')
