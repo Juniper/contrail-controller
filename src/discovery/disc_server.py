@@ -19,7 +19,7 @@ import logging
 import signal
 import os
 import socket
-import json
+from cfgm_common import jsonutils as json
 import xmltodict
 import uuid
 import copy

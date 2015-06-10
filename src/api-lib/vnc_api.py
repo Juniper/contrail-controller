@@ -7,7 +7,7 @@ from requests.exceptions import ConnectionError
 
 import ConfigParser
 import pprint
-import json
+from cfgm_common import jsonutils as json
 import sys
 import time
 import platform

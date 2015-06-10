@@ -4,7 +4,7 @@ sys.setdefaultencoding('UTF8')
 import socket
 import re
 import logging
-import json
+from cfgm_common import jsonutils as json
 from netaddr import IPAddress, IPNetwork
 import argparse
 from cStringIO import StringIO
