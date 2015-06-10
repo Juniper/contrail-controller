@@ -648,11 +648,8 @@ class VncApi(VncApiClientGen):
         query_params['count'] = count
 
         if filters:
-            ffield_names = ','.join([f['field_name'] for f in filters])
-            ffield_values = ','.join(
-                [json.dumps(f['field_value']) for f in filters])
-            query_params['filter_field_names'] = ffield_names
-            query_params['filter_field_values'] = ffield_values
+            query_params['filters'] = ','.join(
+                '%s==%s' %(k,json.dumps(v)) for k,v in filters.items())
 
         if do_post_for_list:
             uri = self._action_uri.get('list-bulk-collection')
