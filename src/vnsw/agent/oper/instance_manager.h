@@ -145,7 +145,8 @@ class InstanceManager {
     WorkQueue<InstanceManagerChildEvent> work_queue_;
 
     std::vector<InstanceTaskQueue *> task_queues_;
-    std::map<InstanceTask *, ServiceInstance *> task_svc_instances_;
+    typedef std::map<InstanceTask *, ServiceInstance *> TaskSvcMap;
+    TaskSvcMap task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
     std::string loadbalancer_config_path_;
     std::string namespace_store_path_;

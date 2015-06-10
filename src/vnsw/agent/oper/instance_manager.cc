@@ -409,7 +409,7 @@ void InstanceManager::Enqueue(InstanceTask *task,
 
 InstanceTaskQueue *InstanceManager::GetTaskQueue(const std::string &str) {
     boost::hash<std::string> hash;
-    int index = hash(str) % task_queues_.capacity();
+    int index = hash(str) % task_queues_.size();
     return task_queues_[index];
 }
 
@@ -438,7 +438,7 @@ bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
     }
 
     task_queue->Pop();
-    task_svc_instances_.erase(task);
+    UnregisterSvcInstance(task);
     delete task;
 
     return false;
@@ -488,7 +488,7 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 }
 
 ServiceInstance *InstanceManager::GetSvcInstance(InstanceTask *task) const {
-    std::map<InstanceTask *, ServiceInstance*>::const_iterator iter =
+    TaskSvcMap::const_iterator iter =
                     task_svc_instances_.find(task);
     if (iter != task_svc_instances_.end()) {
         return iter->second;
@@ -498,14 +498,17 @@ ServiceInstance *InstanceManager::GetSvcInstance(InstanceTask *task) const {
 
 void InstanceManager::RegisterSvcInstance(InstanceTask *task,
                                           ServiceInstance *svc_instance) {
-    task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    pair<TaskSvcMap::iterator, bool> result =
+               task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    assert(result.second);
+
     InstanceState *state = GetState(svc_instance);
     assert(state);
     state->incr_tasks_running();
 }
 
 ServiceInstance *InstanceManager::UnregisterSvcInstance(InstanceTask *task) {
-    for (std::map<InstanceTask *, ServiceInstance*>::iterator iter =
+    for (TaskSvcMap::iterator iter =
                     task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
         if (task == iter->first) {
@@ -526,8 +529,7 @@ void InstanceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
     InstanceState *state = GetState(svc_instance);
     assert(state);
 
-    std::map<InstanceTask *, ServiceInstance*>::iterator iter =
-        task_svc_instances_.begin();
+    TaskSvcMap::iterator iter = task_svc_instances_.begin();
     while(iter != task_svc_instances_.end()) {
         if (svc_instance == iter->second) {
             task_svc_instances_.erase(iter++);
