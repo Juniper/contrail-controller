@@ -396,7 +396,7 @@ TEST_F(VizdTest, MessagesTest) {
     EXPECT_CALL(*osp_mock(),
             UVENotif("UveVirtualNetworkAgent",
                       "127.0.0.1", "GeneratorTest",
-                      "abc-corp:vn02"));
+                      "abc-corp:vn02", false));
         .Times(1)
         .WillOnce(Return(true));
 

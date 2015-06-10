@@ -61,7 +61,7 @@ class ServicePoller(gevent.Greenlet):
                     disc_trace.trace_msg(name='DiscoveryMsg')
                     if old_list != svc_list:
                         self.callbk(svc_list)
-                    old_list = svc_list
+                    old_list = copy.deepcopy(svc_list)
          
             gevent.sleep(10)
 

@@ -21,7 +21,7 @@ public:
 
     MOCK_METHOD4(UVENotif, bool(const std::string &type,
                        const std::string &source, const std::string &module,
-                       const std::string &key));
+                       const std::string &key, bool deleted));
 
     bool 
     GetSeq(const std::string &source, const std::string &module, GetSeqReply gsr) {

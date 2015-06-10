@@ -39,7 +39,7 @@ class GeneratorFixture(fixtures.Fixture):
     _VN_PREFIX = 'default-domain:vn'
 
     def __init__(self, name, collectors, logger,
-                 opserver_port, start_time=None, node_type="Test", hostname=socket.gethostname()):
+                 opserver_port, start_time=None, node_type="Test", hostname=socket.gethostname(), inst = "0"):
         self._hostname = hostname
         self._name = name
         self._logger = logger
@@ -47,7 +47,8 @@ class GeneratorFixture(fixtures.Fixture):
         self._opserver_port = opserver_port
         self._start_time = start_time
         self._node_type = node_type
-        self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':0'
+        self._inst = inst
+        self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':' + self._inst
     # end __init__
 
     def setUp(self):
@@ -57,7 +58,7 @@ class GeneratorFixture(fixtures.Fixture):
         sandesh_pkg = ['opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base',
                        'sandesh']
         self._sandesh_instance.init_generator(
-            self._name, self._hostname, self._node_type, "0", self._collectors,
+            self._name, self._hostname, self._node_type, self._inst, self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=sandesh_pkg)
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
@@ -394,14 +395,19 @@ class GeneratorFixture(fixtures.Fixture):
         vn_uve.send(sandesh=self._sandesh_instance)
     # end send_vn_config_uve
 
-    def send_vrouterinfo(self, name, b_info = False):
+    def send_vrouterinfo(self, name, b_info = False, deleted = False):
         vinfo = None
-        if b_info:
+
+        if deleted:
             vinfo = VrouterAgent(name=name,
-                                 build_info="testinfo",
-                                 state="OK")
+                                 deleted = True)
         else:
-            vinfo = VrouterAgent(name=name, state="OK")
+            if b_info:
+                vinfo = VrouterAgent(name=name,
+                                     build_info="testinfo",
+                                     state="OK")
+            else:
+                vinfo = VrouterAgent(name=name, state="OK")
         v_uve = VrouterAgentTest(data=vinfo,
                     sandesh=self._sandesh_instance)
         self._logger.info('send uve: %s' % (v_uve.log()))
