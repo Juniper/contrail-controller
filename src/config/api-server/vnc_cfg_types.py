@@ -7,7 +7,7 @@
 # to type of resource. For eg. allocation of mac/ip-addr for a port during its
 # creation.
 
-import json
+from cfgm_common import jsonutils as json
 import re
 
 import cfgm_common
