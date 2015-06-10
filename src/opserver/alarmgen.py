@@ -40,7 +40,7 @@ from partition_handler import PartitionHandler, UveStreamProc
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVETableAlarmReq, UVETableAlarmResp, \
-    AlarmgenTrace, UVEKeyInfo, UVETypeInfo, AlarmgenStatusTrace, \
+    AlarmgenTrace, UVEKeyInfo, UVETypeCount, UVETypeInfo, AlarmgenStatusTrace, \
     AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
     AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
@@ -397,8 +397,8 @@ class Controller(object):
                         self._logger.error("UVE Process failed for %d" % part)
                         self.handle_uve_notifq(part, workingset)
             curr = time.time()
-            if (curr - prev) < 0.1:
-                gevent.sleep(0.1 - (curr - prev))
+            if (curr - prev) < 0.2:
+                gevent.sleep(0.2 - (curr - prev))
             else:
                 self._logger.info("UVE Process saturated")
                 gevent.sleep(0)
@@ -411,7 +411,8 @@ class Controller(object):
                         del self.tab_alarms[tk][uk]
                         ustruct = UVEAlarms(name = ok, deleted = True)
                         alarm_msg = AlarmTrace(data=ustruct, table=tk)
-                        self._logger.info('send del alarm: %s' % (alarm_msg.log()))
+                        self._logger.info('send del alarm for stop: %s' % \
+                                (alarm_msg.log()))
                         alarm_msg.send()
                 del self.ptab_info[part][tk][uk]
                 self._logger.info("UVE %s deleted" % (uk))
@@ -447,6 +448,10 @@ class Controller(object):
                 for typ in types:
                     filters["cfilt"][typ] = set()
             failures, uve_data = self._us.get_uve(uv, True, filters)
+            # Do not store alarms in the UVE Cache
+            if "UVEAlarms" in uve_data:
+                del uve_data["UVEAlarms"]
+
             if failures:
                 success = False
             self.tab_perf[tab].record_get(UTCTimestampUsec() - prevt)
@@ -459,7 +464,6 @@ class Controller(object):
 
             if uve_name not in self.ptab_info[part][tab]:
                 self.ptab_info[part][tab][uve_name] = AGKeyInfo(part)
-
             prevt = UTCTimestampUsec()       
             if not types:
                 self.ptab_info[part][tab][uve_name].update(uve_data)
@@ -497,8 +501,7 @@ class Controller(object):
             self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
 
             # Withdraw the alarm if the UVE has no non-alarm structs
-            if len(local_uve.keys()) == 0 or \
-                    (len(local_uve.keys()) == 1 and "UVEAlarms" in local_uve):
+            if len(local_uve.keys()) == 0:
                 if tab in self.tab_alarms:
                     if uv in self.tab_alarms[tab]:
                         del self.tab_alarms[tab][uv]
@@ -667,7 +670,7 @@ class Controller(object):
                 ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
                                    partno, "uve-" + str(partno),
                                    self._logger, self._us.get_part,
-                                   self.handle_uve_notifq)
+                                   self.handle_uve_notifq, self._conf.host_ip())
                 ph.start()
                 self._workers[partno] = ph
                 tout = 600
@@ -836,11 +839,18 @@ class Controller(object):
                         ugi = UVEGenInfo()
                         ugi.generator = kgen
                         ugi.uves = []
-                        for uk,uc in gen.iteritems():
-                            ukc = UVEKeyInfo()
-                            ukc.key = uk
-                            ukc.count = uc
-                            ugi.uves.append(ukc)
+                        for tabk,tabc in gen.iteritems():
+                            for uk,uc in tabc.iteritems():
+                                ukc = UVEKeyInfo()
+                                ukc.key = tabk + ":" + uk
+                                ukc.types = []
+                                for tk,tc in uc.iteritems():
+                                    uvtc = UVETypeCount()
+                                    uvtc.type = tk
+                                    uvtc.count = tc["c"]
+                                    uvtc.agg_uuid = str(tc["u"])
+                                    ukc.types.append(uvtc)
+                                ugi.uves.append(ukc)
                         uci.uves.append(ugi)
                     resp.uves.append(uci)
             else:

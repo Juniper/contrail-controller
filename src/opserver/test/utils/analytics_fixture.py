@@ -691,7 +691,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.logger.info("Did not expect UVEs for %s" % table)
                 return False
         if not ret['uves']:
-            return False
+            ret['uves'] = []
         alarms = set()
         for elem in ret['uves']:
             if elem['name'] != name:

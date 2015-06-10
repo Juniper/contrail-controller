@@ -574,7 +574,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         LOG(DEBUG, __func__ << " Deleted " << key);
         if (!is_alarm) {
             osp_->UVENotif(object.name(), 
-                source, node_type, module, instance_id, key);
+                source, node_type, module, instance_id, key, deleted);
         }
         return true;
     }
@@ -643,7 +643,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     // Publish on the Kafka bus that this UVE has changed
     if (!is_alarm) {
         osp_->UVENotif(object.name(), 
-            source, node_type, module, instance_id, key);
+            source, node_type, module, instance_id, key, deleted);
     }
     return true;
 }

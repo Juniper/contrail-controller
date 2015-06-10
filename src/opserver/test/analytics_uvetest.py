@@ -365,9 +365,32 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             "ObjectVRouter:myvrouter", "PartialSysinfoCompute"))
 
         # Now try to clear the alarm by sending build_info
-        alarm_gen1.send_vrouterinfo("myvrouter", True)
+        alarm_gen1.send_vrouterinfo("myvrouter", b_info = True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter", "PartialSysinfoCompute", is_set = False))
+
+        # send vrouter UVE without build_info !!!
+        # check for PartialSysinfo alarm
+        alarm_gen1.send_vrouterinfo("myvrouter1")
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+
+        # Now try to clear the alarm by deleting the UVE
+        alarm_gen1.send_vrouterinfo("myvrouter1", deleted = True)
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute", is_set = False))
+
+        # send vrouter UVE without build_info !!!
+        # check for PartialSysinfo alarm
+        alarm_gen1.send_vrouterinfo("myvrouter2")
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter2", "PartialSysinfoCompute"))
+
+        # Now try to clear the alarm by deleting the Generator
+        #del alarm_gen1
+        alarm_gen1.cleanUp()
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter2", "PartialSysinfoCompute", is_set = False))
 
         # Verify that we can give up partition ownership 
         assert(vizd_obj.set_alarmgen_partition(0,0) == 'true')

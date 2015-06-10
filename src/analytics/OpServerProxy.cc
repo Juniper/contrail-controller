@@ -592,7 +592,7 @@ OpServerProxy::UVENotif(const std::string &type,
                        const std::string &source, const std::string &node_type,
                        const std::string &module, 
                        const std::string &instance_id,
-                       const std::string &key) {
+                       const std::string &key, bool deleted) {
 
     // Hashing into a partition is based on UVE Key
     unsigned int pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
@@ -641,7 +641,15 @@ OpServerProxy::UVENotif(const std::string &type,
         rapidjson::Value val(rapidjson::kStringType);
         val.SetString(collstr.c_str());
         dd.AddMember("coll", val, dd.GetAllocator());
-    } 
+    }
+ 
+    if (deleted) {
+        rapidjson::Value val(rapidjson::kTrueType);
+        dd.AddMember("deleted", val, dd.GetAllocator());
+    } else {
+        rapidjson::Value val(rapidjson::kFalseType);
+        dd.AddMember("deleted", val, dd.GetAllocator());
+    }
 
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> writer(sb);

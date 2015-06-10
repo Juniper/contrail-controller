@@ -11,6 +11,9 @@ import os
 import json
 import copy
 import traceback
+import uuid
+import struct
+import socket
 
 class PartitionHandler(gevent.Greenlet):
     def __init__(self, brokers, partition, group, topic, logger, limit):
@@ -118,7 +121,8 @@ class UveStreamProc(PartitionHandler):
     #              which leads to set of UVE Keys
     #  callback  : Callback function for reporting the set of the UVEs
     #              that may have changed for a given notification
-    def __init__(self, brokers, partition, uve_topic, logger, uvecb, callback):
+    def __init__(self, brokers, partition, uve_topic, logger, uvecb, callback,
+            host_ip):
         super(UveStreamProc, self).__init__(brokers, partition, "workers", uve_topic, logger, False)
         self._uvedb = {}
         self._uvein = {}
@@ -126,6 +130,8 @@ class UveStreamProc(PartitionHandler):
         self._uvecb = uvecb
         self._callback = callback
         self._partno = partition
+        self._host_ip, = struct.unpack('>I', socket.inet_pton(
+                                        socket.AF_INET, host_ip))
 
     def __del__(self):
         self._logger.info("Destroying UVEStream for part %d" % self._partno)
@@ -134,13 +140,30 @@ class UveStreamProc(PartitionHandler):
         ''' This function loads the initial UVE database.
             for the partition
         '''
-        self._uvedb = self._uvecb(self._partno)
+        cbdb = self._uvecb(self._partno)
+
         self._logger.debug("Starting part %d with UVE db %s" % \
-                           (self._partno,str(self._uvedb)))
+                           (self._partno,str(cbdb)))
         uves  = {}
-        for kcoll,coll in self._uvedb.iteritems():
+        self._uvedb = {}
+        for kcoll,coll in cbdb.iteritems():
+            self._uvedb[kcoll] = {}
             for kgen,gen in coll.iteritems():
+                self._uvedb[kcoll][kgen] = {}
                 for kk in gen.keys():
+                    tabl = kk.split(":",1)
+                    tab = tabl[0]
+                    rkey = tabl[1]
+                    if not tab in self._uvedb[kcoll][kgen]:
+                        self._uvedb[kcoll][kgen][tab] = {}
+                    self._uvedb[kcoll][kgen][tab][rkey] = {}
+
+                    for typ in gen[kk]:
+                        self._uvedb[kcoll][kgen][tab][rkey][typ] = {}
+                        self._uvedb[kcoll][kgen][tab][rkey][typ]["c"] = 0
+                        self._uvedb[kcoll][kgen][tab][rkey][typ]["u"] = \
+                                uuid.uuid1(self._host_ip)
+                    
                     uves[kk] = None
         self._logger.info("Starting part %d with UVE keys %s" % \
                           (self._partno,str(uves)))
@@ -178,12 +201,33 @@ class UveStreamProc(PartitionHandler):
                 self._uvedb[coll][gen] = {}
 
             if (uv["message"] == "UVEUpdate"):
-                if self._uvedb[coll][gen].has_key(uv["key"]):
-                    self._uvedb[coll][gen][uv["key"]] += 1
-                else:
-                    self._uvedb[coll][gen][uv["key"]] = 1
+                tabl = uv["key"].split(":",1)
+                tab = tabl[0]
+                rkey = tabl[1]
 
-                tab = uv["key"].split(":")[0]
+                if tab not in self._uvedb[coll][gen]:
+                    self._uvedb[coll][gen][tab] = {}
+
+                if not rkey in self._uvedb[coll][gen][tab]:
+                    self._uvedb[coll][gen][tab][rkey] = {}
+
+                removed = False
+                if "deleted" in uv:
+                    if uv["deleted"]:
+                        if uv["type"] in self._uvedb[coll][gen][tab][rkey]:
+                            del self._uvedb[coll][gen][tab][rkey][uv["type"]]
+                        if not len(self._uvedb[coll][gen][tab][rkey]):
+                            del self._uvedb[coll][gen][tab][rkey]
+                        removed = True
+
+                if not removed: 
+                    if uv["type"] in self._uvedb[coll][gen][tab][rkey]:
+                        self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] +=1
+                    else:
+                        self._uvedb[coll][gen][tab][rkey][uv["type"]] = {}
+                        self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] = 1
+                        self._uvedb[coll][gen][tab][rkey][uv["type"]]["u"] = \
+                            uuid.uuid1(self._host_ip)
 
                 # Record stats on UVE Keys being processed
                 if not self._uveout.has_key(tab):
@@ -209,19 +253,21 @@ class UveStreamProc(PartitionHandler):
                 chg[uv["key"]].add(uv["type"])
             else:
                 # Record stats on UVE Keys being processed
-                for uk in self._uvedb[coll][gen].keys():
-                    tab = uk.split(":")[0]
-                    if not self._uveout.has_key(tab):
-                        self._uveout[tab] = {}
+                for tab in self._uvedb[coll][gen].keys():
+                    for rkey in self._uvedb[coll][gen][tab].keys():
+                        uk = tab + ":" + rkey
 
-                    if self._uveout[tab].has_key(uk):
-                        self._uveout[tab][uk] += 1
-                    else:
-                        self._uveout[tab][uk] = 1
+                        if not self._uveout.has_key(tab):
+                            self._uveout[tab] = {}
+
+                        if self._uveout[tab].has_key(uk):
+                            self._uveout[tab][uk] += 1
+                        else:
+                            self._uveout[tab][uk] = 1
                 
-                    # when a generator is delelted, we need to 
-                    # notify for *ALL* its UVEs
-                    chg[uk] = None
+                        # when a generator is delelted, we need to 
+                        # notify for *ALL* its UVEs
+                        chg[uk] = None
 
                 del self._uvedb[coll][gen]
 
