@@ -45,7 +45,7 @@ public:
                            const std::string &source, const std::string &node_type,
                            const std::string &module, 
                            const std::string &instance_id,
-                           const std::string &key);
+                           const std::string &key, bool deleted);
 
     // Use this to delete the object when the deleted attribute is set
     virtual bool UVEDelete(const std::string &type,
