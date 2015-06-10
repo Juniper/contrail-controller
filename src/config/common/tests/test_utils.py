@@ -123,7 +123,13 @@ class FakeCF(object):
         if columns:
             col_dict = {}
             for col_name in columns:
-                col_value = self._rows[key][col_name][0]
+                try:
+                    col_value = self._rows[key][col_name][0]
+                except KeyError:
+                    if len(columns) > 1:
+                        continue
+                    else:
+                        raise pycassa.NotFoundException
                 if include_timestamp:
                     col_tstamp = self._rows[key][col_name][1]
                     col_dict[col_name] = (col_value, col_tstamp)
