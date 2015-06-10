@@ -51,6 +51,7 @@ class VrouterProvisioner(object):
         '''
         Eg: python provision_physical_device.py --device_name my_router 
                                                 --vendor_name Juniper  
+                                                --product_name QFX5100
                                                 --device_mgmt_ip 10.204.217.39
                                                 --device_tunnel_ip 34.34.34.34
                                                 --device_tor_agent nodec45-1 
@@ -108,6 +109,8 @@ class VrouterProvisioner(object):
         parser.add_argument(
             "--vendor_name", help="Vendor type of the device", required=True)
         parser.add_argument(
+            "--product_name", default='', help="Product name of the device")
+        parser.add_argument(
             "--device_mgmt_ip", help="Management IP of the device")
         parser.add_argument(
             "--device_tunnel_ip", help="Tunnel IP of the device")
@@ -128,7 +131,7 @@ class VrouterProvisioner(object):
         parser.add_argument(
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
-            "--admin_tenant_name", help="Tenamt name for keystone admin user")
+            "--admin_tenant_name", help="Tenant name for keystone admin user")
         self._args = parser.parse_args(remaining_argv)
 
     # end _parse_args
@@ -138,6 +141,7 @@ class VrouterProvisioner(object):
         pr.physical_router_dataplane_ip = self._args.device_tunnel_ip
         pr.physical_router_management_ip = self._args.device_mgmt_ip
         pr.physical_router_vendor_name = self._args.vendor_name
+        pr.physical_router_product_name = self._args.product_name
         pr_check=GetDevice(self._vnc_lib, self._args.device_name)
         if pr_check.Get():
             pr_id = self._vnc_lib.physical_router_update(pr)
