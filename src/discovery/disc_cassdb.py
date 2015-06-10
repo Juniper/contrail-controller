@@ -3,7 +3,7 @@
 #
 
 import re
-import json
+from cfgm_common import jsonutils as json
 import time
 import gevent
 import disc_consts
