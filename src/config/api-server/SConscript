@@ -70,6 +70,7 @@ local_sources = [
            'vnc_quota.py',
            'provision_defaults.py',
            'utils.py',
+           'context.py',
            'db_manage.py',
            'vnc_bottle.py',
           ]
