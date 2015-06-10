@@ -946,6 +946,8 @@ class VncZkClient(object):
             try:
                 self._zk_client = ZookeeperClient(client_name, zk_server_ip,
                                                   self._sandesh)
+                # set the lost callback to stub function untill resync is done
+                self._zk_client.set_lost_cb(lambda x=None:x)
                 break
             except gevent.event.Timeout as e:
                 pass
@@ -1103,6 +1105,7 @@ class VncDbClient(object):
         msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
         self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         self._db_resync_done.set()
+        self._zk_db._zk_client.set_lost_cb()
     # end db_resync
 
     def wait_for_resync_done(self):
