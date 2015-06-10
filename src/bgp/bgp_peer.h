@@ -223,12 +223,12 @@ public:
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 
     bool ResumeClose();
-    void MembershipRequestCallback(IPeer *ipeer, BgpTable *table, bool start);
+    void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
 
     virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
 
-    void RegisterToVpnTables(bool established);
+    void RegisterToVpnTables();
 
     StateMachine *state_machine() { return state_machine_.get(); }
     const StateMachine *state_machine() const { return state_machine_.get(); }

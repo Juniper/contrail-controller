@@ -274,7 +274,7 @@ void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
     if (family != Address::RTARGET)
         return;
     end_of_rib_timer_->Cancel();
-    RegisterToVpnTables(true);
+    RegisterToVpnTables();
 }
 
 void BgpPeer::SendEndOfRIB(Address::Family family) {
@@ -301,13 +301,22 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
         " size " << msgsize);
 }
 
-void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table, 
-                                        bool established) {
+//
+// Callback from PeerRibMembershipManager.
+// Update pending membership request count and send EndOfRib for the family
+// in question.
+//
+void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     assert(membership_req_pending_);
     membership_req_pending_--;
-    if (!membership_req_pending_ && defer_close_) {
-        defer_close_ = false;
-        trigger_.Set();
+
+    // Resume close if it was deferred and this is the last pending callback.
+    // Don't bother sending EndOfRib if close is deferred.
+    if (defer_close_) {
+        if (!membership_req_pending_) {
+            defer_close_ = false;
+            trigger_.Set();
+        }
         return;
     }
 
@@ -315,10 +324,8 @@ void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table,
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("in sync");
     BGPPeerInfo::Send(peer_info);
-    if (established) {
-        // Generate End-Of-RIB message
-        SendEndOfRIB(table->family());
-    }
+
+    SendEndOfRIB(table->family());
 }
 
 bool BgpPeer::ResumeClose() {
@@ -783,15 +790,14 @@ void BgpPeer::RegisterAllTables() {
                            table, "Register peer with the table");
         if (table) {
             membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, 
-                            true));
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
             membership_req_pending_++;
         }
     }
 
     vpn_tables_registered_ = false;
     if (!IsFamilyNegotiated(Address::RTARGET)) {
-        RegisterToVpnTables(true);
+        RegisterToVpnTables();
         return;
     }
 
@@ -799,7 +805,7 @@ void BgpPeer::RegisterAllTables() {
     BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         table, "Register peer with the table");
     membership_mgr->Register(this, table, policy_, -1,
-        boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, true));
+        boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
     membership_req_pending_++;
     StartEndOfRibTimer();
 
@@ -1360,7 +1366,7 @@ void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
                  "Timer error: " << error_name << " " << error_message);
 }
 
-void BgpPeer::RegisterToVpnTables(bool established) {
+void BgpPeer::RegisterToVpnTables() {
     CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
 
     if (vpn_tables_registered_)
@@ -1369,57 +1375,19 @@ void BgpPeer::RegisterToVpnTables(bool established) {
 
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
-
-    if (IsFamilyNegotiated(Address::INETVPN)) {
-        BgpTable *table = instance->GetTable(Address::INETVPN);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           table, "Register peer with the table");
-        if (table) {
-            membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, 
-                            established));
-            membership_req_pending_++;
-        }
-    }
-
-    if (IsFamilyNegotiated(Address::ERMVPN)) {
-        BgpTable *table = instance->GetTable(Address::ERMVPN);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           table, "Register peer with the table");
-        if (table) {
-            membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
-                            established));
-            membership_req_pending_++;
-        }
-    }
-
-    if (IsFamilyNegotiated(Address::INET6VPN)) {
-        BgpTable *vtable = instance->GetTable(Address::INET6VPN);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           vtable, "Register peer with the table");
-        if (vtable) {
-            membership_mgr->Register(this, vtable, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
-                            established));
-            membership_req_pending_++;
-        }
-    }
-
-    if (IsFamilyNegotiated(Address::EVPN)) {
-        BgpTable *table = instance->GetTable(Address::EVPN);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           table, "Register peer with the table");
-        if (table) {
-            membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
-                            established));
-            membership_req_pending_++;
-        }
+    vector<Address::Family> vpn_family_list = list_of
+        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
+    BOOST_FOREACH(Address::Family vpn_family, vpn_family_list) {
+        if (!IsFamilyNegotiated(vpn_family))
+            continue;
+        BgpTable *table = instance->GetTable(vpn_family);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_TRACE,
+            table, "Register peer with the table");
+        membership_mgr->Register(this, table, policy_, -1,
+            boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+        membership_req_pending_++;
     }
 }
-
-
 
 void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
                                          string error_message) {
@@ -1429,7 +1397,7 @@ void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
 }
 
 bool BgpPeer::EndOfRibTimerExpired() {
-    RegisterToVpnTables(true);
+    RegisterToVpnTables();
     return false;
 }
 
