@@ -675,8 +675,11 @@ class VncCassandraClient(object):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
-        fq_name = json.loads(
-            obj_uuid_cf.get(obj_uuid, columns=['fq_name'])['fq_name'])
+        try:
+            fq_name = json.loads(
+                obj_uuid_cf.get(obj_uuid, columns=['fq_name'])['fq_name'])
+        except pycassa.NotFoundException:
+            raise NoIdError(obj_uuid)
         bch = obj_uuid_cf.batch()
 
         # unlink from parent
