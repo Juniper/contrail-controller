@@ -11,7 +11,7 @@ from pycassa.system_manager import *
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 
 import inspect
-import json
+from cfgm_common import jsonutils as json
 import time
 
 
