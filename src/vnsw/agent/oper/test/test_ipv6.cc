@@ -370,7 +370,7 @@ TEST_F(Ipv6Test, VnNotifyRoutes_1) {
 int main(int argc, char **argv) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, false, false, false);
+    client = TestInit(init_file, ksync_init, false, true, false);
 
     int ret = RUN_ALL_TESTS();
 
