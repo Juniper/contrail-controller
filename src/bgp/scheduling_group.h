@@ -76,7 +76,7 @@ public:
     void Remove(RibOut *ribout, IPeerUpdate *peer);
 
     // When an update is enqueued at the tail of a particular RibOut,
-    // the peers that are in-sync across all ribs can start dequeing
+    // the peers that are in-sync across all ribs can start dequeuing
     // updates.
     void RibOutActive(RibOut *ribout, int queue_id);
 
@@ -118,13 +118,37 @@ private:
     friend class SGTest;
     friend void IPeerSendReady(SchedulingGroup *sg, IPeerUpdate *peer);
 
+    struct WorkBase {
+        enum Type {
+            WPeer,
+            WRibOut
+        };
+        explicit WorkBase(Type type)
+            : type(type), valid(true) {
+        }
+        Type type;
+        bool valid;
+    };
+
+    struct WorkRibOut : public WorkBase {
+        WorkRibOut(RibOut *ribout, int queue_id)
+            : WorkBase(WRibOut), ribout(ribout), queue_id(queue_id) {
+        }
+        RibOut *ribout;
+        int queue_id;
+    };
+
+    struct WorkPeer : public WorkBase {
+        explicit WorkPeer(IPeerUpdate *peer)
+            : WorkBase(WPeer), peer(peer) {
+        }
+        IPeerUpdate *peer;
+    };
+
     class PeerState;
     class PeerIterator;
     class Worker;
     struct PeerRibState;
-    struct WorkBase;
-    struct WorkRibOut;
-    struct WorkPeer;
 
     typedef boost::ptr_list<WorkBase> WorkQueue;
     typedef IndexMap<IPeerUpdate *, PeerState, GroupPeerSet> PeerStateMap;
@@ -133,7 +157,9 @@ private:
     std::auto_ptr<WorkBase> WorkDequeue();
     void WorkEnqueue(WorkBase *wentry);
     void WorkPeerEnqueue(IPeerUpdate *peer);
+    void WorkPeerInvalidate(IPeerUpdate *peer);
     void WorkRibOutEnqueue(RibOut *ribout, int queue_id);
+    void WorkRibOutInvalidate(RibOut *ribout);
 
     void UpdateRibOut(RibOut *ribout, int queue_id);
     void UpdatePeer(IPeerUpdate *peer);

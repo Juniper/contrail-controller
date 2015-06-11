@@ -402,28 +402,6 @@ RibOut &SchedulingGroup::PeerState::circular_iterator::dereference() const {
     return *indexmap_.At(index_)->ribout();
 }
 
-struct SchedulingGroup::WorkBase {
-    enum Type {
-        WPeer,
-        WRibOut
-    };
-    explicit WorkBase(Type type) : type(type) { }
-    Type type;
-};
-
-struct SchedulingGroup::WorkRibOut : public SchedulingGroup::WorkBase {
-    WorkRibOut(RibOut *ribout, int queue_id)
-        : WorkBase(WRibOut), ribout(ribout), queue_id(queue_id) {
-    }
-    RibOut *ribout;
-    int queue_id;
-};
-
-struct SchedulingGroup::WorkPeer : public SchedulingGroup::WorkBase {
-    explicit WorkPeer(IPeerUpdate *peer) : WorkBase(WPeer), peer(peer) { }
-    IPeerUpdate *peer;
-};
-
 class SchedulingGroup::Worker : public Task {
 public:
     explicit Worker(SchedulingGroup *group)
@@ -437,6 +415,9 @@ public:
             auto_ptr<WorkBase> wentry = group_->WorkDequeue();
             if (wentry.get() == NULL) {
                 break;
+            }
+            if (!wentry->valid) {
+                continue;
             }
             switch (wentry->type) {
             case WorkBase::WRibOut: {
@@ -514,9 +495,11 @@ void SchedulingGroup::Remove(RibOut *ribout, IPeerUpdate *peer) {
     ps->Remove(rs);
     if (rs->empty()) {
         rib_state_imap_.Remove(ribout, rs->index());
+        WorkRibOutInvalidate(ribout);
     }
     if (ps->empty())  {
         peer_state_imap_.Remove(peer, ps->index());
+        WorkPeerInvalidate(peer);
     }
 }
 
@@ -888,6 +871,26 @@ void SchedulingGroup::WorkPeerEnqueue(IPeerUpdate *peer) {
 }
 
 //
+// Invalidate all WorkBases for the given IPeerUpdate.
+// Used when a IPeerUpdate is removed.
+//
+void SchedulingGroup::WorkPeerInvalidate(IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
+
+    tbb::mutex::scoped_lock lock(mutex_);
+    for (WorkQueue::iterator iter = work_queue_.begin();
+         iter != work_queue_.end(); ++iter) {
+        WorkBase *wentry = iter.operator->();
+        if (wentry->type != WorkBase::WPeer)
+            continue;
+        WorkPeer *wpeer = static_cast<WorkPeer *>(wentry);
+        if (wpeer->peer != peer)
+            continue;
+        wpeer->valid = false;
+    }
+}
+
+//
 // Enqueue a WorkRibOut to the work queue.
 //
 void SchedulingGroup::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
@@ -895,6 +898,26 @@ void SchedulingGroup::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
 
     WorkBase *wentry = new WorkRibOut(ribout, queue_id);
     WorkEnqueue(wentry);
+}
+
+//
+// Invalidate all WorkBases for the given RibOut.
+// Used when a RibOut is removed.
+//
+void SchedulingGroup::WorkRibOutInvalidate(RibOut *ribout) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
+
+    tbb::mutex::scoped_lock lock(mutex_);
+    for (WorkQueue::iterator iter = work_queue_.begin();
+         iter != work_queue_.end(); ++iter) {
+        WorkBase *wentry = iter.operator->();
+        if (wentry->type != WorkBase::WRibOut)
+            continue;
+        WorkRibOut *wribout = static_cast<WorkRibOut *>(wentry);
+        if (wribout->ribout != ribout)
+            continue;
+        wribout->valid = false;
+    }
 }
 
 //
