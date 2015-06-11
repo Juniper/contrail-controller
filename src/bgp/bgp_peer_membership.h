@@ -213,6 +213,7 @@ public:
     virtual void Register(IPeer *ipeer, BgpTable *table,
                   const RibExportPolicy &policy, int instance_id,
                   NotifyCompletionFn notify_completion_fn = NULL);
+    void RegisterRibIn(IPeer *ipeer, BgpTable *table);
     virtual void Unregister(IPeer *ipeer, BgpTable *table,
                     NotifyCompletionFn notify_completion_fn = NULL);
     void UnregisterPeer(IPeer *ipeer,
@@ -275,6 +276,7 @@ private:
     void ProcessUnregisterRibCompleteEvent(IPeerRibEvent *event);
 
     IPeerRib *IPeerRibInsert(IPeer *ipeer, BgpTable *table);
+    IPeerRib *IPeerRibLocate(IPeer *ipeer, BgpTable *table);
     void IPeerRibRemove(IPeerRib *peer_rib);
 
     bool IPeerRibEventCallback(IPeerRibEvent *event);
