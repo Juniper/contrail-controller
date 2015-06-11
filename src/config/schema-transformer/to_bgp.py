@@ -382,13 +382,13 @@ class VirtualNetworkST(DictST):
                 pass
         # end for vn
 
+        cls._autonomous_system = int(new_asn)
         for router in BgpRouterST.values():
-            router.update_autonomous_system(new_asn)
+            router.update_global_asn(new_asn)
         # end for router
         for router in LogicalRouterST.values():
             router.update_autonomous_system(new_asn)
         # end for router
-        cls._autonomous_system = int(new_asn)
     # end update_autonomous_system
 
     def add_policy(self, policy_name, attrib=None):
@@ -2011,11 +2011,11 @@ class AclRuleListST(object):
 class BgpRouterST(DictST):
     _dict = {}
     _ibgp_auto_mesh = None
-    def __init__(self, name):
+    def __init__(self, name, params):
         self.name = name
-        self.vendor = None
+        self.vendor = (params.vendor or 'contrail').lower()
         self.asn = None
-        self.identifier = None
+        self.identifier = params.identifier
 
         if self._ibgp_auto_mesh is None:
             gsc = _vnc_lib.global_system_config_read(
@@ -2023,7 +2023,6 @@ class BgpRouterST(DictST):
             self._ibgp_auto_mesh = gsc.get_ibgp_auto_mesh()
             if self._ibgp_auto_mesh is None:
                 self._ibgp_auto_mesh = True
-
     # end __init__
 
     @classmethod
@@ -2032,20 +2031,27 @@ class BgpRouterST(DictST):
             del cls._dict[name]
     # end delete
 
-    def update_autonomous_system(self, asn):
-        if self.vendor not in ["contrail", None]:
-            self.asn = asn
+    def set_params(self, params):
+        if self.vendor == 'contrail':
+            self.update_global_asn(VirtualNetworkST.get_autonomous_system())
+        else:
+            self.update_autonomous_system(params.autonomous_system)
+    # end set_params
+
+    def update_global_asn(self, asn):
+        if self.vendor != 'contrail' or self.asn == int(asn):
             return
-        my_asn = int(VirtualNetworkST.get_autonomous_system())
-        if asn == my_asn:
-            self.asn = asn
-            self.update_peering()
-            return
-        bgp_router_obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
-        params = bgp_router_obj.get_bgp_router_parameters()
+        router_obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
+        params = router_obj.get_bgp_router_parameters()
         params.autonomous_system = int(asn)
-        bgp_router_obj.set_bgp_router_parameters(params)
-        _vnc_lib.bgp_router_update(bgp_router_obj)
+        router_obj.set_bgp_router_parameters(params)
+        _vnc_lib.bgp_router_update(router_obj)
+        self.update_autonomous_system(asn)
+    # end update_global_asn
+
+    def update_autonomous_system(self, asn):
+        if self.asn == int(asn):
+            return
         self.asn = int(asn)
         self.update_peering()
     # end update_autonomous_system
@@ -2064,8 +2070,8 @@ class BgpRouterST(DictST):
     def update_peering(self):
         if not self._ibgp_auto_mesh:
             return
-        my_asn = int(VirtualNetworkST.get_autonomous_system())
-        if self.asn != my_asn:
+        global_asn = int(VirtualNetworkST.get_autonomous_system())
+        if self.asn != global_asn:
             return
         try:
             obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
@@ -2074,14 +2080,14 @@ class BgpRouterST(DictST):
                                    "%s: %s", self.name, str(e))
             return
 
+        peerings = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
         for router in self._dict.values():
             if router.name == self.name:
                 continue
-            if router.asn != my_asn:
+            if router.asn != global_asn:
                 continue
             router_fq_name = router.name.split(':')
-            if (router_fq_name in
-                    [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]):
+            if router_fq_name in peerings:
                 continue
             router_obj = BgpRouter()
             router_obj.fq_name = router_fq_name
@@ -3123,7 +3129,11 @@ class SchemaTransformer(object):
 
     def add_bgp_router_parameters(self, idents, meta):
         router_name = idents['bgp-router']
-        router = BgpRouterST.locate(router_name)
+        params = BgpRouterParams()
+        params.build(meta)
+        router = BgpRouterST.locate(router_name, params)
+        if router:
+            router.set_params(params)
     # end add_bgp_router_parameters
 
     def delete_bgp_router_parameters(self, idents, meta):
