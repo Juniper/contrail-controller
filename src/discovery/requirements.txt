@@ -1,0 +1,8 @@
+gevent
+pycassa
+discoveryclient
+sandesh
+sandesh-common
+pysandesh
+ConfigParser
+xmltodict

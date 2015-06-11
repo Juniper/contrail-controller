@@ -17,6 +17,7 @@ from webtest import TestApp
 import contextlib
 
 from vnc_api.vnc_api import *
+import cfgm_common.vnc_cpu_info
 import cfgm_common.ifmap.client as ifmap_client
 import cfgm_common.ifmap.response as ifmap_response
 import kombu
