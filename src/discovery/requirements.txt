@@ -1,0 +1,8 @@
+gevent==1.1a2
+pycassa
+discoveryclient
+sandesh
+sandesh-common
+pysandesh
+ConfigParser
+xmltodict
