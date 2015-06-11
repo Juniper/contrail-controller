@@ -78,7 +78,9 @@ public:
                                            std::string vn,
                                            uint32_t mpls_label,
                                            uint32_t tunnel_bmap,
-                                           const SecurityGroupList *sg_list);
+                                           const SecurityGroupList *sg_list,
+                                           const std::string &destination,
+                                           const std::string &source);
     static bool ControllerSendMcastRouteAdd(AgentXmppChannel *peer,
                                             AgentRoute *route);
     //Deletes to control node
@@ -94,6 +96,8 @@ public:
                                               AgentRoute *route,
                                               std::string vn,
                                               uint32_t mpls_label,
+                                              const std::string &destination,
+                                              const std::string &source,
                                               uint32_t tunnel_bmap);
     static bool ControllerSendMcastRouteDelete(AgentXmppChannel *peer,
                                                AgentRoute *route);
@@ -130,6 +134,8 @@ public:
                                        const SecurityGroupList *sg_list,
                                        uint32_t mpls_label,
                                        uint32_t tunnel_bmap,
+                                       const std::string &destination,
+                                       const std::string &source,
                                        bool associate);
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
@@ -167,6 +173,8 @@ private:
                                   const SecurityGroupList *sg_list,
                                   uint32_t label,
                                   uint32_t tunnel_bmap,
+                                  const std::string &destination,
+                                  const std::string &source,
                                   bool associate);
     bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
                                    std::stringstream &node_id,
