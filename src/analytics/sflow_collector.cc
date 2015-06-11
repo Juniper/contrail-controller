@@ -65,7 +65,6 @@ void SFlowCollector::Shutdown() {
 void SFlowCollector::ProcessSFlowPacket(boost::asio::const_buffer& buffer,
                                         size_t length, 
                                         const std::string& generator_ip) {
-   LOG(DEBUG, "Received sFlow packet from " << generator_ip);
    num_packets_++;
    time_last_pkt_seen_ = UTCTimestampUsec();
    if (!time_first_pkt_seen_) {
