@@ -276,11 +276,15 @@ class SvcMonitor(object):
         if st_props is None:
             self.logger.log("Cannot find service template associated to "
                              "service instance %s" % si_obj.get_fq_name_str())
+
         virt_type = self._get_virtualization_type(st_props)
+        self.logger.log("Creating SI %s (%s)" %
+                        (si_obj.get_fq_name_str(), virt_type))
         if virt_type == 'virtual-machine':
             self.vm_manager.create_service(st_obj, si_obj)
         elif virt_type == 'network-namespace':
             self.netns_manager.create_service(st_obj, si_obj)
+        self.logger.log("SI %s creation succeed" % si_obj.get_fq_name_str())
 
     def _delete_svc_instance(self, vm_uuid, proj_name,
                              si_fq_str=None, virt_type=None):
@@ -314,6 +318,9 @@ class SvcMonitor(object):
         si_info = self.db.service_instance_get(si_fq_str)
         if not si_info:
             return
+
+        if si_info['state'] != 'deleting':
+            self.logger.log("Deleting SI %s" % si_fq_str)
         cleaned_up = True
         state = {}
         state['state'] = 'deleting'
@@ -341,6 +348,7 @@ class SvcMonitor(object):
                 if vn_name in si_info.keys():
                     self._delete_shared_vn(si_info[vn_name], proj_name)
             self.db.service_instance_remove(si_fq_str)
+            self.logger.log("SI %s deletion succeed" % si_fq_str)
 
     def _check_si_status(self, si_fq_name_str, si_info):
         try:
