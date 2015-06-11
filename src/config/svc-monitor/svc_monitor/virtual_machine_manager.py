@@ -152,12 +152,20 @@ class VirtualMachineManager(InstanceManager):
 
         # nova vm delete
         proj_name = vm.proj_fq_name[-1]
-        vm = self._nc.oper('servers', 'get', proj_name, id=vm.uuid)
-        if vm:
+        nova_vm = self._nc.oper('servers', 'get', proj_name, id=vm.uuid)
+        if nova_vm:
             try:
-                vm.delete()
-            except Exception:
+                nova_vm.delete()
+            except Exception as e:
+                self.logger.log_error("%s nova delete failed with error %s" %
+                    (vm.uuid, str(e)))
+        else:
+            try:
+                self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+            except NoIdError:
                 pass
+            except RefsExistError:
+                self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
 
     def check_service(self, si):
         vm_id_list = list(si.virtual_machines)
