@@ -62,9 +62,11 @@ void ContrailInitCommon::CreateModules() {
     pkt_.reset(new PktModule(agent()));
     agent()->set_pkt(pkt_.get());
 
-    services_.reset
-        (new ServicesModule(agent(), agent_param()->metadata_shared_secret()));
-    agent()->set_services(services_.get());
+    if (services_enable_) {
+        services_.reset
+            (new ServicesModule(agent(), agent_param()->metadata_shared_secret()));
+        agent()->set_services(services_.get());
+    }
     if (vgw_enable_) {
         vgw_.reset(new VirtualGateway(agent()));
         agent()->set_vgw(vgw_.get());

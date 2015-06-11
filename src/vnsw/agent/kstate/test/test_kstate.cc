@@ -474,7 +474,7 @@ int main(int argc, char *argv[]) {
     /* Supported only with non-ksync mode for now */
     ksync_init = false;
 
-    client = TestInit(init_file, ksync_init, true, false);
+    client = TestInit(init_file, ksync_init, true, true);
     KStateTest::TestSetup(ksync_init);
 
     ::testing::InitGoogleTest(&argc, argv);
