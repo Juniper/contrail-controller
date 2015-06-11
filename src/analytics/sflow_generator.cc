@@ -7,6 +7,7 @@
 #include "sflow_parser.h"
 #include "uflow_constants.h"
 #include "uflow_types.h"
+#include "sflow_types.h"
 
 SFlowQueueEntry::SFlowQueueEntry(boost::asio::const_buffer buf, size_t len,
                                  uint64_t ts, SFlowCollector* collector) 
@@ -25,7 +26,8 @@ SFlowGenerator::SFlowGenerator(const std::string& ip_address,
       db_handler_(db_handler),
       sflow_pkt_queue_(TaskScheduler::GetInstance()->GetTaskId(
             "SFlowGenerator:"+ip_address), 0,
-            boost::bind(&SFlowGenerator::ProcessSFlowPacket, this, _1)) {
+            boost::bind(&SFlowGenerator::ProcessSFlowPacket, this, _1)),
+      trace_buf_(SandeshTraceBufferCreate("SFlowGenerator:"+ip_address, 1000)) {
 }
 
 SFlowGenerator::~SFlowGenerator() {
@@ -46,13 +48,16 @@ bool SFlowGenerator::EnqueueSFlowPacket(boost::asio::const_buffer& buffer,
 bool SFlowGenerator::ProcessSFlowPacket(
         boost::shared_ptr<SFlowQueueEntry> qentry) {
     SFlowParser parser(boost::asio::buffer_cast<const uint8_t* const>(
-                       qentry->buffer), qentry->length);
+                       qentry->buffer), qentry->length, trace_buf_);
     SFlowData sflow_data;
     if (parser.Parse(&sflow_data) < 0) {
         LOG(ERROR, "Error parsing sFlow packet");
         return false;
     }
-    LOG(DEBUG, "sFlow Packet: " << sflow_data);
+    std::stringstream sflow_data_str;
+    sflow_data_str << "sFlow Packet: " << sflow_data;
+    SFLOW_PACKET_TRACE(trace_buf_, sflow_data_str.str());
+
     UFlowData flow_data;
     flow_data.set_name(ip_address_);
     std::string flow_type =
@@ -82,7 +87,6 @@ bool SFlowGenerator::ProcessSFlowPacket(
     }
     if (samples.size()) {
         flow_data.set_flow(samples);
-        LOG(DEBUG, "Add Flow samples from prouter <" << ip_address_ << "> in DB");
         db_handler_->UnderlayFlowSampleInsert(flow_data, qentry->timestamp);
     }
     return true;
