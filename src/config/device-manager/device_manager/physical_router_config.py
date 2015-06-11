@@ -70,6 +70,7 @@ class PhysicalRouterConfig(object):
             return
         self.commit_stats['netconf_enabled'] = True
         self.commit_stats['netconf_enabled_status'] = ''
+        start_time = None
         try:
             with manager.connect(host=self.management_ip, port=22,
                                  username=self.user_creds['username'],
@@ -109,8 +110,9 @@ class PhysicalRouterConfig(object):
                 self._logger.error("Router %s: %s" % (self.management_ip,
                                                       e.message))
                 self.commit_stats['commit_status_message'] = 'failed to apply config, router response: ' + e.message
-                self.commit_stats['last_commit_time'] = datetime.datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')
-                self.commit_stats['last_commit_duration'] = str(time.time() - start_time)
+                if start_time is not None:
+                    self.commit_stats['last_commit_time'] = datetime.datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')
+                    self.commit_stats['last_commit_duration'] = str(time.time() - start_time)
     # end send_config
 
     def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets, bgp_router_ips):
