@@ -1807,13 +1807,15 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
                                                 const SecurityGroupList *sg_list,
                                                 uint32_t label,
                                                 uint32_t tunnel_bmap,
+                                                const std::string &destination,
+                                                const std::string &source,
                                                 bool associate) {
     assert(route->GetTableType() == Agent::BRIDGE);
     const AgentPath *path = NULL;
     BridgeRouteEntry *l2_route =
         dynamic_cast<BridgeRouteEntry *>(route);
     path = l2_route->FindOvsPath();
-    if (path == NULL) {
+    if ((path == NULL) && (associate)) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(),
                          route->vrf()->GetName(),
                          "OVS path not found for ff:ff:ff:ff:ff:ff, skip send");
@@ -1822,9 +1824,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
 
     item.entry.local_preference = PathPreference::LOW;
     item.entry.sequence_number = 0;
-    const TunnelNH *tnh =
-        dynamic_cast<const TunnelNH *>(path->nexthop());
-    item.entry.replicator_address = tnh->GetSip()->to_string();
+    item.entry.replicator_address = source;
     item.entry.nlri.af = BgpAf::L2Vpn;
     item.entry.nlri.safi = BgpAf::Enet;
     stringstream rstr;
@@ -1836,7 +1836,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
     rstr.str("");
     //TODO fix this when multicast moves to evpn
     assert(l2_route->is_multicast());
-    rstr << tnh->GetDip()->to_string();
+    rstr << destination;
     rstr << "/32";
     item.entry.nlri.ethernet_tag = 0;
     if (associate == false)
@@ -1847,7 +1847,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
 
     autogen::EnetNextHopType nh;
     nh.af = Address::INET;
-    nh.address = tnh->GetDip()->to_string();
+    nh.address = destination;
     nh.label = label;
 
     node_id << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
@@ -2118,6 +2118,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
                                                      uint32_t tunnel_bmap,
                                                      const PathPreference
                                                      &path_preference,
+                                                     const std::string &destination,
+                                                     const std::string &source,
                                                      bool associate) {
     EnetItemType item;
     stringstream ss_node;
@@ -2142,6 +2144,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
         } else if (agent_->tor_agent_enabled()) {
             if (BuildTorMulticastMessage(item, ss_node, route, nh_ip,
                                          vn, sg_list, label, tunnel_bmap,
+                                         destination, source,
                                          associate) == false)
                 return false;;
             ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
@@ -2269,6 +2272,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                                   uint32_t label,
                                                   uint32_t tunnel_bmap,
                                                   const SecurityGroupList *sg_list,
+                                                  const std::string &destination,
+                                                  const std::string &source,
                                                   const PathPreference
                                                   &path_preference) {
     if (!peer) return false;
@@ -2283,6 +2288,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                                 label,
                                                 tunnel_bmap,
                                                 path_preference,
+                                                destination,
+                                                source,
                                                 true));
 }
 
@@ -2290,6 +2297,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
                                                      AgentRoute *route,
                                                      std::string vn,
                                                      uint32_t label,
+                                                     const std::string &destination,
+                                                     const std::string &source,
                                                      uint32_t tunnel_bmap) {
     if (!peer) return false;
 
@@ -2304,6 +2313,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
                                                 label,
                                                 tunnel_bmap,
                                                 PathPreference(),
+                                                destination,
+                                                source,
                                                 false));
 }
 
@@ -2336,7 +2347,8 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
     if (type == Agent::EVPN) {
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
                                                   sg_list, label, bmap,
-                                                  path_preference, true);
+                                                  path_preference, "", "",
+                                                  true);
     }
     return ret;
 }
@@ -2372,7 +2384,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
         Ip4Address nh_ip(0);
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn, NULL,
                                                   label, bmap,
-                                                  path_preference, false);
+                                                  path_preference, "", "",
+                                                  false);
     }
     return ret;
 }
