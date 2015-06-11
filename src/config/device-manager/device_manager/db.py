@@ -537,8 +537,8 @@ class VirtualNetworkDM(DBBase):
                 self.vxlan_configured = True
                 self.vxlan_vni = prop['vxlan_network_identifier']
         except KeyError:
-            self.vxlan_configured = False 
-            self.vxlan_vni = None
+            self.vxlan_configured = True
+            self.vxlan_vni = obj['virtual_network_network_id']
 
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
