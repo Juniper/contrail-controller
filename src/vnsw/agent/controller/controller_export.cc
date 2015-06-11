@@ -10,6 +10,7 @@
 #include <oper/nexthop.h>
 #include <oper/peer.h>
 #include <oper/mirror_table.h>
+#include "oper/tunnel_nh.h"
 
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_init.h>
@@ -20,7 +21,8 @@
 RouteExport::State::State() : 
     DBState(), exported_(false), fabric_multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(""), sg_list_(),
-    tunnel_type_(TunnelType::INVALID), path_preference_() {
+    tunnel_type_(TunnelType::INVALID), path_preference_(),
+    destination_(), source_() {
 }
 
 bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path) const {
@@ -255,6 +257,8 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                                                       route,
                                                       state->vn_,
                                                       state->label_,
+                                                      state->destination_,
+                                                      state->source_,
                                                       TunnelType::AllType());
             state->fabric_multicast_exported_ = false;
         }
@@ -324,6 +328,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 if (withdraw) {
                     AgentXmppChannel::ControllerSendEvpnRouteDelete
                         (bgp_xmpp_peer, route, state->vn_, withdraw_label,
+                         state->destination_, state->source_,
                          state->tunnel_type_);
                     state->fabric_multicast_exported_ = false;
                 }
@@ -346,6 +351,13 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 state->label_ = active_path->GetActiveLabel();
                 state->vn_ = route->dest_vn_name();
                 if (associate) {
+                    const TunnelNH *tnh =
+                        dynamic_cast<const TunnelNH *>(active_path->nexthop());
+                    if (tnh) {
+                        state->destination_ = tnh->GetDip()->to_string();
+                        state->source_ = tnh->GetSip()->to_string();
+                    }
+
                     SecurityGroupList sg;
                     state->fabric_multicast_exported_ =
                         AgentXmppChannel::ControllerSendEvpnRouteAdd
@@ -353,13 +365,16 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                          active_path->NexthopIp(table->agent()),
                          route->dest_vn_name(), state->label_,
                          TunnelType::GetTunnelBmap(state->tunnel_type_),
-                         &sg, PathPreference());
+                         &sg, state->destination_,
+                         state->source_, PathPreference());
                 } else {
                     state->fabric_multicast_exported_ =
                         AgentXmppChannel::ControllerSendEvpnRouteDelete(bgp_xmpp_peer,
                                                         route,
                                                         route->dest_vn_name(),
                                                         state->label_,
+                                                        state->destination_,
+                                                        state->source_,
                                                         TunnelType::AllType());
                 }
             }

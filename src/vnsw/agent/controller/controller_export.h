@@ -27,6 +27,9 @@ public:
         SecurityGroupList sg_list_;
         TunnelType::Type tunnel_type_;
         PathPreference path_preference_;
+        //destination and source are valid for tunnel NH.
+        std::string destination_;
+        std::string source_;
 
         bool Changed(const AgentRoute *route, const AgentPath *path) const;
         void Update(const AgentRoute *route, const AgentPath *path);
