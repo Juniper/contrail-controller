@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
+import os
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -33,6 +33,11 @@ generated_rule = env.Command(generated_files,
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
+           'run_tests.sh',
+           'requirements.txt',
+           'test-requirements.txt',
+           '.testr.conf',
+           'tests',
           ]
 setup_sources_rules = []
 for file in setup_sources:
@@ -98,3 +103,22 @@ subdirs = [
 
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+cov_cmd = env.Command('coveragetest.log', sdist_gen,
+                      'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
+
+test_cmd = env.Command('test.log', sdist_gen,
+                      'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
+
+
+env.Alias('controller/src/discovery:test', test_cmd)
+env.Alias('controller/src/discovery:coverage', cov_cmd)
