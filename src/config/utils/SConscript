@@ -45,6 +45,7 @@ utils_scripts = [
   'provision_analytics_node.py',
   'provision_database_node.py',
   'provision_config_node.py',
+  'discovery_cli.py',
 ]
 
 for utils in utils_scripts:
