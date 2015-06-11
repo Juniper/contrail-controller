@@ -101,11 +101,25 @@ class FakeCF(object):
     # end __init__
 
     def get_range(self, *args, **kwargs):
+        columns = kwargs.get('columns', None)
+        column_start = kwargs.get('column_start', None)
+        column_finish = kwargs.get('column_finish', None)
+        column_count = kwargs.get('column_count', 0)
+        include_timestamp = kwargs.get('include_timestamp', False)
+
         for key in self._rows:
-            yield (key, self.get(key))
+            yield (key, self.get(key, columns, column_start, column_finish,
+                     column_count, include_timestamp))
     # end get_range
 
     def _column_within_range(self, column_name, column_start, column_finish):
+        if type(column_start) is tuple:
+            for i in range(len(column_start), len(column_name)):
+                column_start = column_start + (column_name[i],)
+        if type(column_finish) is tuple:
+            for i in range(len(column_finish), len(column_name)):
+                column_finish = column_finish + (column_name[i],)
+
         if column_start and column_name < column_start:
             return False
         if column_finish and column_name > column_finish:
@@ -116,7 +130,7 @@ class FakeCF(object):
 
     def get(
         self, key, columns=None, column_start=None, column_finish=None,
-            column_count=0, include_timestamp=False):
+            column_count=0, include_timestamp=False, include_ttl=False):
         if not key in self._rows:
             raise pycassa.NotFoundException
 
@@ -130,9 +144,15 @@ class FakeCF(object):
                         continue
                     else:
                         raise pycassa.NotFoundException
-                if include_timestamp:
-                    col_tstamp = self._rows[key][col_name][1]
-                    col_dict[col_name] = (col_value, col_tstamp)
+                if include_timestamp or include_ttl:
+                    ret = (col_value,)
+                    if include_timestamp:
+                        col_tstamp = self._rows[key][col_name][1]
+                        ret += (col_tstamp,)
+                    if include_ttl:
+                        col_ttl = self._rows[key][col_name][2]
+                        ret += (col_ttl,)
+                    col_dict[col_name] = ret
                 else:
                     col_dict[col_name] = col_value
         else:
@@ -143,9 +163,15 @@ class FakeCF(object):
                     continue
 
                 col_value = self._rows[key][col_name][0]
-                if include_timestamp:
-                    col_tstamp = self._rows[key][col_name][1]
-                    col_dict[col_name] = (col_value, col_tstamp)
+                if include_timestamp or include_ttl:
+                    ret = (col_value,)
+                    if include_timestamp:
+                        col_tstamp = self._rows[key][col_name][1]
+                        ret += (col_tstamp,)
+                    if include_ttl:
+                        col_ttl = self._rows[key][col_name][2]
+                        ret += (col_ttl,)
+                    col_dict[col_name] = ret
                 else:
                     col_dict[col_name] = col_value
 
@@ -167,13 +193,13 @@ class FakeCF(object):
         return result
     # end multiget
 
-    def insert(self, key, col_dict):
+    def insert(self, key, col_dict, ttl=None):
         if key not in self._rows:
             self._rows[key] = {}
 
         tstamp = datetime.now()
         for col_name in col_dict.keys():
-            self._rows[key][col_name] = (col_dict[col_name], tstamp)
+            self._rows[key][col_name] = (col_dict[col_name], tstamp, ttl)
 
     # end insert
 
@@ -202,13 +228,33 @@ class FakeCF(object):
                 continue
 
             col_value = self._rows[key][col_name][0]
-            if include_timestamp:
-                col_tstamp = self._rows[key][col_name][1]
-                yield (col_name, (col_value, col_tstamp))
+            if include_timestamp or include_ttl:
+                ret = (col_value,)
+                if include_timestamp:
+                    col_tstamp = self._rows[key][col_name][1]
+                    ret += (col_tstamp,)
+                if include_ttl:
+                    col_ttl = self._rows[key][col_name][2]
+                    ret += (col_ttl,)
+                yield (col_name, ret)
             else:
                 yield (col_name, col_value)
 
     # end xget
+
+    def get_count(self, key, column_start=None, column_finish=None):
+        col_names = []
+        if key in self._rows:
+            col_names = self._rows[key].keys()
+
+        counter = 0
+        for col_name in col_names:
+            if self._column_within_range(col_name,
+                                column_start, column_finish):
+                counter += 1
+
+        return counter
+    # end get_count
 
     def batch(self):
         return self
