@@ -262,10 +262,12 @@ class SvcMonitor(object):
                 si.state = 'launch'
                 self._create_service_instance(si)
             else:
+                self.logger.log_info("Deleting SI %s" % si_id)
                 for vm_id in dependency_tracker.resources.get(
                         'virtual_machine', []):
                     vm = VirtualMachineSM.get(vm_id)
                     self._delete_service_instance(vm)
+                self.logger.log_info("SI %s deletion succeed" % si_id)
 
         for vn_id in dependency_tracker.resources.get('virtual_network', []):
             vn = VirtualNetworkSM.get(vn_id)
@@ -769,6 +771,8 @@ class SvcMonitor(object):
                 ((':').join(si.fq_name)))
             return
 
+        self.logger.log_info("Creating SI %s (%s)" %
+                             ((':').join(si.fq_name), st.virtualization_type))
         try:
             if st.virtualization_type == 'virtual-machine':
                 self.vm_manager.create_service(st, si)
@@ -782,6 +786,7 @@ class SvcMonitor(object):
         except Exception:
             cgitb_error_log(self)
         si.launch_count += 1
+        self.logger.log_info("SI %s creation succeed" % (':').join(si.fq_name))
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
