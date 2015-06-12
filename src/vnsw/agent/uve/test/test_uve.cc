@@ -665,7 +665,12 @@ TEST_F(UveTest, NodeStatus_Functional_3) {
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini", ksync_init, true, false);
+    /* Services Module should be initialized because test cases which start with
+     * NodeStatus_ExpectedConnections_* name check for expected connections and
+     * these expected connections are dependent on services module to check for
+     * number of dns-xmpp connections */
+    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini",
+                      ksync_init, true, true);
     UveTest::TestSetup(vrf_array, 2);
 
     int ret = RUN_ALL_TESTS();
