@@ -291,6 +291,7 @@ protected:
     void AgentCleanup();
     void Cleanup();
     void SandeshShutdown();
+    bool CheckRoutingInstance(int instance_id);
     void VerifyRoutingInstances();
     Ip4Prefix GetAgentRoute(int agent_id, int instance_id, int route_id);
 
