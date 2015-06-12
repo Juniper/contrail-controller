@@ -108,6 +108,48 @@ protected:
        return sg->IsQueueActive(ribout, queue_id, peer);
     }
 
+    size_t GetWorkQueueInvalidSize(SchedulingGroup *sg) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        size_t count = 0;
+        for (SchedulingGroup::WorkQueue::iterator it = sg->work_queue_.begin();
+            it != sg->work_queue_.end(); ++it) {
+            SchedulingGroup::WorkBase *wentry = it.operator->();
+            if (!wentry->valid)
+                count++;
+        }
+        return count;
+    }
+
+    void VerifyRibOutInvalid(SchedulingGroup *sg, RibOut *ribout) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        for (SchedulingGroup::WorkQueue::iterator it = sg->work_queue_.begin();
+            it != sg->work_queue_.end(); ++it) {
+            SchedulingGroup::WorkBase *wentry = it.operator->();
+            if (wentry->type != SchedulingGroup::WorkBase::WRibOut)
+                continue;
+            SchedulingGroup::WorkRibOut *wribout =
+                static_cast<SchedulingGroup::WorkRibOut *>(wentry);
+            if (wribout->ribout != ribout)
+                continue;
+            EXPECT_FALSE(wribout->valid);
+        }
+    }
+
+    void VerifyPeerInvalid(SchedulingGroup *sg, IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        for (SchedulingGroup::WorkQueue::iterator it = sg->work_queue_.begin();
+            it != sg->work_queue_.end(); ++it) {
+            SchedulingGroup::WorkBase *wentry = it.operator->();
+            if (wentry->type != SchedulingGroup::WorkBase::WPeer)
+                continue;
+            SchedulingGroup::WorkPeer *wpeer =
+                static_cast<SchedulingGroup::WorkPeer *>(wentry);
+            if (wpeer->peer != peer)
+                continue;
+            EXPECT_FALSE(wpeer->valid);
+        }
+    }
+
     SchedulingGroupManager sgman_;
     DB db_;
     InetVpnTable *inetvpn_table_;
@@ -737,6 +779,71 @@ TEST_F(SchedulingGroupManagerTest, SplitDisabled2) {
     // Cleanup.
     STLDeleteValues(&ribouts);
     STLDeleteValues(&peers);
+}
+
+TEST_F(SchedulingGroupManagerTest, WorkRibOutInvalidate) {
+    // Create 1 test peer and 2 ribouts.
+    boost::scoped_ptr<BgpTestPeer> test_peer(new BgpTestPeer());
+    boost::scoped_ptr<RibOut> ribout1(new RibOut(inetvpn_table_, &sgman_,
+        RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, 1, 0)));
+    boost::scoped_ptr<RibOut> ribout2(new RibOut(inetvpn_table_, &sgman_,
+        RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, 2, 0)));
+
+    // Join the test peer to ribout1 and ribout2.
+    Join(ribout1.get(), test_peer.get());
+    Join(ribout2.get(), test_peer.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    // Add multiple WorkRibOut entries for both ribouts to the group.
+    SchedulingGroup *sg = ribout1->GetSchedulingGroup();
+    WorkRibOutEnqueue(sg, ribout1.get());
+    WorkRibOutEnqueue(sg, ribout2.get());
+    WorkRibOutEnqueue(sg, ribout1.get());
+    WorkRibOutEnqueue(sg, ribout2.get());
+    EXPECT_EQ(4, GetWorkQueueSize(sg));
+
+    // Leave the test peer from ribout2.
+    // The WorkRibOut items for ribout1 will get invalidated at this point.
+    Leave(ribout2.get(), test_peer.get());
+    EXPECT_EQ(4, GetWorkQueueSize(sg));
+    EXPECT_EQ(2, GetWorkQueueInvalidSize(sg));
+    VerifyRibOutInvalid(sg, ribout2.get());
+
+    // Leave the test peer from ribout1.
+    Leave(ribout1.get(), test_peer.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_F(SchedulingGroupManagerTest, WorkPeerInvalidate) {
+    // Create 2 test peers and 1 ribout.
+    boost::scoped_ptr<BgpTestPeer> test_peer1(new BgpTestPeer());
+    boost::scoped_ptr<BgpTestPeer> test_peer2(new BgpTestPeer());
+    boost::scoped_ptr<RibOut> ribout(new RibOut(inetvpn_table_, &sgman_,
+        RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, 0, 0)));
+
+    // Join test peers 1 and 2 to ribout.
+    Join(ribout.get(), test_peer1.get());
+    Join(ribout.get(), test_peer2.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    // Add multiple WorkPeer entries for both test peers to group.
+    SchedulingGroup *sg = ribout->GetSchedulingGroup();
+    WorkPeerEnqueue(sg, test_peer1.get());
+    WorkPeerEnqueue(sg, test_peer2.get());
+    WorkPeerEnqueue(sg, test_peer1.get());
+    WorkPeerEnqueue(sg, test_peer2.get());
+    EXPECT_EQ(4, GetWorkQueueSize(sg));
+
+    // Leave test peer 1 from ribout.
+    // The WorkPeer items for test peer1 will get invalidated at this point.
+    Leave(ribout.get(), test_peer1.get());
+    EXPECT_EQ(4, GetWorkQueueSize(sg));
+    EXPECT_EQ(2, GetWorkQueueInvalidSize(sg));
+    VerifyPeerInvalid(sg, test_peer1.get());
+
+    // Leave test peer 1 from ribout.
+    Leave(ribout.get(), test_peer2.get());
+    EXPECT_EQ(0, sgman_.size());
 }
 
 // Parameterize number of entries in the work queue and the order in which
