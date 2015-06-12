@@ -752,7 +752,7 @@ class VirtualNetworkST(DictST):
                         update = True
                 for rt in rt_add:
                     if rt not in static_route.route_target:
-                        static_route.route_target.add(rt)
+                        static_route.route_target.append(rt)
                         update = True
                 if static_route.route_target == []:
                     static_route_entries.delete_route(static_route)
