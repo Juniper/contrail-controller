@@ -17,6 +17,7 @@
 #include <init/agent_param.h>
 #include <oper/mirror_table.h>
 #include <uve/vrouter_stats_collector.h>
+#include <pkt/agent_stats.h>
 
 using process::ConnectionInfo;
 using process::ConnectionType;
@@ -187,6 +188,19 @@ void AgentUveBase::VrouterAgentProcessState
     if (!is_cup) {
         message += " connection down";
     }
+    bool reconnects = false;
+    for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+        if (!agent_->controller_ifmap_xmpp_server(i).empty()) {
+            if (agent_->stats()->xmpp_reconnects(i) >= 1) {
+                reconnects = true;
+                break;
+	    }
+        }
+    }
+    if (agent_->headless_agent_mode() && reconnects && (num_control_nodes == down_control_nodes)) {
+        message += ", vrouter running in headless mode";
+    }
+
     if (num_conns != expected_conns) {
         message += " Number of connections:" + integerToString(num_conns) +
             ", Expected: " + integerToString(expected_conns);
