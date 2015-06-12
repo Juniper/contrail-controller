@@ -94,6 +94,15 @@ void OvsdbClientSession::MessageProcess(const u_int8_t *buf, std::size_t len) {
             }
 
             ovsdb_wrapper_jsonrpc_msg_destroy(msg);
+        } else {
+            // enqueue a NULL message to idl (to track activity), so that
+            // if we keep on reading partial data for a very long time
+            // particularly during initial response for monitor request
+            // with scaled config/routes in OVSDB-server
+            if (idl_inited_ == true && !client_idl_->deleted()) {
+                client_idl_->MessageProcess(NULL);
+            }
+
         }
     }
 }

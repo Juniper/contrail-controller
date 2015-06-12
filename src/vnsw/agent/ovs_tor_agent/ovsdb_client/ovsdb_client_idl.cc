@@ -245,10 +245,11 @@ void OvsdbClientIdl::TxnScheduleJsonRpc(struct jsonrpc_msg *msg) {
 
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
     if (!deleted_) {
-        // echo req and reply messages are just enqueued to identify
-        // session activity, since they need no further processing
+        // NULL message, echo req and reply messages are just enqueued to
+        // identify session activity, since they need no further processing
         // skip and delete the message
-        if (!ovsdb_wrapper_msg_echo_req(msg->msg) &&
+        if (msg->msg != NULL &&
+            !ovsdb_wrapper_msg_echo_req(msg->msg) &&
             !ovsdb_wrapper_msg_echo_reply(msg->msg)) {
             bool connect_oper_db = false;
             if (ovsdb_wrapper_idl_msg_is_monitor_response(monitor_request_id_,
