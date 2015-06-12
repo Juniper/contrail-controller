@@ -635,4 +635,61 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj, sc_ri_name))
     #end
 
+    @retries(5, hook=retry_exc_handler)
+    def check_bgp_peering(self, router1, router2, length):
+        r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
+        ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
+        self.assertEqual(len(ref_names), length)
+        self.assertThat(ref_names, Contains(router2.get_fq_name()))
+
+    def create_bgp_router(self, name, vendor, asn=None):
+        ip_fabric_ri = self._vnc_lib.routing_instance_read(
+            fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
+        router = BgpRouter(name, parent_obj=ip_fabric_ri)
+        params = BgpRouterParams()
+        params.vendor = 'contrail'
+        params.autonomous_system = asn
+        router.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_create(router)
+        return router
+
+    def test_ibgp_auto_mesh(self):
+
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router(r1_name, 'contrail')
+
+        # create router2
+        r2_name = self.id() + 'router2'
+        router2 = self.create_bgp_router(r2_name, 'contrail')
+
+        self.check_bgp_peering(router1, router2, 1)
+
+        r3_name = self.id() + 'router3'
+        router3 = self.create_bgp_router(r3_name, 'juniper', 1)
+
+        self.check_bgp_peering(router1, router2, 1)
+
+        params = router3.get_bgp_router_parameters()
+        params.autonomous_system = 64512
+        router3.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_update(router3)
+
+        self.check_bgp_peering(router1, router3, 2)
+
+        r4_name = self.id() + 'router4'
+        router4 = self.create_bgp_router(r4_name, 'juniper', 1)
+
+        gsc = self._vnc_lib.global_system_config_read(
+            fq_name=['default-global-system-config'])
+
+        gsc.set_autonomous_system(1)
+        self.check_bgp_peering(router1, router4, 3)
+
+	self._vnc_lib.bgp_router_delete(id=router1.uuid)
+	self._vnc_lib.bgp_router_delete(id=router2.uuid)
+	self._vnc_lib.bgp_router_delete(id=router3.uuid)
+	self._vnc_lib.bgp_router_delete(id=router4.uuid)
+        gevent.sleep(1)
+
 # end class TestRouteTable
