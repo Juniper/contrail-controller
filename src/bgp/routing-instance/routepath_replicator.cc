@@ -195,10 +195,19 @@ void RoutePathReplicator::DeleteTableState(BgpTable *table) {
     delete ts;
 }
 
+//
+// Enqueue BgpTable to unregister list if the TableState is empty.
+//
+// Skip if the BgpTable is still on the bulk sync list.  This can
+// happen if we're called from the bgp::Config Task and a previous
+// walk is still in progress.
+//
 void RoutePathReplicator::UnregisterTableState(BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
     const TableState *ts = FindTableState(table);
     if (!ts->empty())
+        return;
+    if (bulk_sync_.find(table) != bulk_sync_.end())
         return;
     unreg_table_list_.insert(table);
     unreg_trigger_->Set();
