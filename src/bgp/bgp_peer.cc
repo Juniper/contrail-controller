@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_peer.h"
 
+#include <boost/assign/list_of.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/foreach.hpp>
 #include <boost/throw_exception.hpp>
@@ -43,6 +44,7 @@
 #include "net/address.h"
 #include "net/bgp_af.h"
 
+using boost::assign::list_of;
 using boost::system::error_code;
 using namespace std;
 
@@ -665,7 +667,6 @@ uint32_t BgpPeer::bgp_identifier() const {
 // Reset all stored capabilities information and cancel outstanding timers.
 //
 void BgpPeer::CustomClose() {
-    assert(vpn_tables_registered_);
     negotiated_families_.clear();
     ResetCapabilities();
     keepalive_timer_->Cancel();
@@ -675,23 +676,7 @@ void BgpPeer::CustomClose() {
 //
 // Close this peer by closing all of it's RIBs.
 //
-// If we haven't registered to VPN tables, do it now before we kick off
-// the peer close. This ensures that we will clean up all the VPN routes
-// when we do eventually perform the peer close. This handles the corner
-// case where the peer has to be closed before VPN tables are registered.
-// Need to do this since we add VPN routes before we've registered to the
-// VPN tables.
-//
-// Note that registering to VPN tables will bump membership_req_pending_
-// in most normal cases i.e. when at least one VPN family is negotiated.
-// Hence we must register to the VPN tables if needed before deciding if
-// we need to defer peer close.
-//
 void BgpPeer::Close() {
-    if (!vpn_tables_registered_) {
-        RegisterToVpnTables(false);
-    }
-
     if (membership_req_pending_) {
         defer_close_ = true;
         return;
@@ -773,18 +758,24 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
 //
 // Register to tables for negotiated address families.
 //
-// If the route-target family has been negotiated, defer registration to
-// VPN tables till we receive an End-Of-RIB marker for the route-target
+// If the route-target family is negotiated, defer ribout registration
+// to VPN tables till we receive End-Of-RIB marker for the route-target
 // NLRI or till the EndOfRibTimer expires.  This ensures that we do not
 // start sending VPN routes to the peer till we know what route targets
 // the peer is interested in.
 //
-// Note that received VPN routes are still processed normally even if we
-// haven't registered this BgpPeer to the VPN table in question.
+// Note that we do ribin registration right away even if the route-target
+// family is negotiated. This allows received VPN routes to be processed
+// normally before ribout registration to VPN tables is completed.
 //
 void BgpPeer::RegisterAllTables() {
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
+
+    BgpPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    peer_info.set_send_state("not advertising");
+    BGPPeerInfo::Send(peer_info);
 
     if (IsFamilyNegotiated(Address::INET)) {
         BgpTable *table = instance->GetTable(Address::INET);
@@ -799,25 +790,29 @@ void BgpPeer::RegisterAllTables() {
     }
 
     vpn_tables_registered_ = false;
-    if (IsFamilyNegotiated(Address::RTARGET)) {
-        BgpTable *table = instance->GetTable(Address::RTARGET);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           table, "Register peer with the table");
-        if (table) {
-            membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
-                            true));
-            membership_req_pending_++;
-        }
-        StartEndOfRibTimer();
-    } else {
+    if (!IsFamilyNegotiated(Address::RTARGET)) {
         RegisterToVpnTables(true);
+        return;
     }
 
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_send_state("not advertising");
-    BGPPeerInfo::Send(peer_info);
+    BgpTable *table = instance->GetTable(Address::RTARGET);
+    BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        table, "Register peer with the table");
+    membership_mgr->Register(this, table, policy_, -1,
+        boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, true));
+    membership_req_pending_++;
+    StartEndOfRibTimer();
+
+    vector<Address::Family> vpn_family_list = list_of
+        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
+    BOOST_FOREACH(Address::Family vpn_family, vpn_family_list) {
+        if (!IsFamilyNegotiated(vpn_family))
+            continue;
+        BgpTable *table = instance->GetTable(vpn_family);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_TRACE,
+            table, "Register ribin for peer with the table");
+        membership_mgr->RegisterRibIn(this, table);
+    }
 }
 
 void BgpPeer::SendOpen(TcpSession *session) {

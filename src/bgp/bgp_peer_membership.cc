@@ -375,6 +375,8 @@ void PeerRibMembershipManager::UnregisterPeerRegistrationCallback(int id) {
 void PeerRibMembershipManager::NotifyPeerRegistration(IPeer *ipeer,
     BgpTable *table, bool unregister) {
     tbb::mutex::scoped_lock lock(registration_mutex_);
+    if (!ipeer->IsXmppPeer())
+        return;
 
     for (PeerRegistrationListenerList::iterator iter =
          registration_callbacks_.begin();
@@ -635,6 +637,21 @@ void PeerRibMembershipManager::Register(
 //
 // Concurrency: Runs in the context of the BGP state machine task.
 //
+// Synchronously register the IPeer to the BgpTable for RIBIN_ADD.
+//
+void PeerRibMembershipManager::RegisterRibIn(IPeer *ipeer, BgpTable *table) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    IPeerRib *peer_rib = IPeerRibLocate(ipeer, table);
+    peer_rib->RegisterRibIn();
+    BGP_LOG_PEER_TABLE(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,
+        BGP_LOG_FLAG_SYSLOG, peer_rib->table(),
+        "Register routing-table for " <<
+        MembershipRequest::ActionMaskToString(MembershipRequest::RIBIN_ADD));
+}
+
+//
+// Concurrency: Runs in the context of the BGP state machine task.
+//
 // Unregister the IPeer from the BgpTable. We first post a LEAVE event to
 // the BGP peer membership task, which will start a table walk. Once that's
 // done we will post a UNREGISTER_RIB event to the BGP peer membership task.
@@ -787,6 +804,15 @@ IPeerRib *PeerRibMembershipManager::IPeerRibFind(IPeer *ipeer,
     IPeerRib peer_rib(ipeer, table, NULL);
     PeerRibSet::iterator iter = peer_rib_set_.find(&peer_rib);
     return (iter != peer_rib_set_.end() ? *iter : NULL);
+}
+
+//
+// Find or create the IPeerRib corresponding to the given IPeer and BgpTable.
+//
+IPeerRib *PeerRibMembershipManager::IPeerRibLocate(IPeer *ipeer,
+                                                   BgpTable *table) {
+    IPeerRib *peer_rib = IPeerRibFind(ipeer, table);
+    return (peer_rib ? peer_rib : IPeerRibInsert(ipeer, table));
 }
 
 //
