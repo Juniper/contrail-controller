@@ -1140,10 +1140,18 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
         (ok, physical_router) = db_conn.dbe_read(
                                             obj_type='physical-router',
                                             obj_ids={'uuid': router_uuid},
-                                            obj_fields=['physical_interfaces'])
+                                            obj_fields=['physical_interfaces',
+                                                        'physical_router_product_name'])
         if not ok:
             return (False, (500, 'Internal error : Physical router ' +
                                  ":".join(router) + ' not found'))
+
+        # In case of QFX, check that VLANs 1, 2 and 4094 are not used
+        product_name = physical_router.get('physical_router_product_name', "")
+        if product_name.lower().startswith("qfx") and vlan_tag != None:
+            if vlan_tag == 1 or vlan_tag == 2 or vlan_tag == 4094:
+                return (False, (403, "Vlan id " + str(vlan_tag) + " is not allowed on QFX"))
+
         for physical_interface in physical_router.get('physical_interfaces', []):
             # Read only the display name of the physical interface
             (ok, interface_object) = db_conn.dbe_read(
