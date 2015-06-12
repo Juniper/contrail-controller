@@ -94,8 +94,8 @@ struct BgpProtoPrefix : public ParseObject {
 
     BgpProtoPrefix();
 
-    uint32_t ReadLabel(size_t label_offset) const;
-    void WriteLabel(size_t label_offset, uint32_t label);
+    uint32_t ReadLabel(size_t label_offset, bool is_vni = false) const;
+    void WriteLabel(size_t label_offset, uint32_t label, bool is_vni = false);
 
     std::vector<uint8_t> prefix;
     int prefixlen;
