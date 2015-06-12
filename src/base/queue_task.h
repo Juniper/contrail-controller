@@ -212,7 +212,8 @@ public:
         // Eliminate duplicates and sort by converting to set
         std::set<WaterMarkInfo> hwater_set(high_water.begin(),
             high_water.end());
-        hwater_index_ = -1;
+        // Update both high and low water mark indexes
+        SetWaterMarkIndexes(-1, -1);
         high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
     }
 
@@ -222,13 +223,15 @@ public:
         std::set<WaterMarkInfo> hwater_set(high_water_.begin(),
             high_water_.end());
         hwater_set.insert(hwm_info);
-        hwater_index_ = -1;
+        // Update both high and low water mark indexes
+        SetWaterMarkIndexes(-1, -1);
         high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
     }
 
     void ResetHighWaterMark() {
         tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
-        hwater_index_ = -1;
+        // Update both high and low water mark indexes
+        SetWaterMarkIndexes(-1, -1);
         high_water_.clear();
     }
 
@@ -242,7 +245,8 @@ public:
         // Eliminate duplicates and sort by converting to set
         std::set<WaterMarkInfo> lwater_set(low_water.begin(),
             low_water.end());
-        lwater_index_ = -1;
+        // Update both high and low water mark indexes
+        SetWaterMarkIndexes(-1, -1);
         low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
      }
 
@@ -252,13 +256,15 @@ public:
         std::set<WaterMarkInfo> lwater_set(low_water_.begin(),
             low_water_.end());
         lwater_set.insert(lwm_info);
-        lwater_index_ = -1;
+        // Update both high and low water mark indexes
+        SetWaterMarkIndexes(-1, -1);
         low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
      }
 
     void ResetLowWaterMark() {
         tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
-        lwater_index_ = -1;
+        // Update both high and low water mark indexes
+        SetWaterMarkIndexes(-1, -1);
         low_water_.clear();
     }
 
@@ -417,18 +423,19 @@ private:
         // If the first element is greater than count, then we have not
         // yet crossed any water marks
         if (ubound == high_water_.begin()) {
-            hwater_index_ = -1;
-            lwater_index_ = -1;
+            SetWaterMarkIndexes(-1, -1);
             return;
         }
         int nhwater_index(ubound - high_water_.begin() - 1);
-        if (hwater_index_ == nhwater_index) {
+        // Get high and low water mark indexes
+        int hwater_index, lwater_index;
+        GetWaterMarkIndexes(&hwater_index, &lwater_index);
+        if (hwater_index == nhwater_index) {
             return;
         }
         // Update the high and low water indexes
-        hwater_index_ = nhwater_index;
-        lwater_index_ = nhwater_index + 1;
-        const WaterMarkInfo &wm_info(high_water_[hwater_index_]);
+        SetWaterMarkIndexes(nhwater_index, nhwater_index + 1);
+        const WaterMarkInfo &wm_info(high_water_[nhwater_index]);
         assert(count >= wm_info.count_);
         wm_info.cb_(count);
     }
@@ -438,8 +445,11 @@ private:
         if (low_water_.size() == 0) {
             return;
         }
+        // Get the high and low water indexes
+        int hwater_index, lwater_index;
+        GetWaterMarkIndexes(&hwater_index, &lwater_index);
         // Return if we have not crossed any high water marks
-        if (hwater_index_ == -1) {
+        if (hwater_index == -1) {
             return;
         }
         // Are we crossing any new low water marks ? Assumption here is that
@@ -455,13 +465,12 @@ private:
             return;
         }
         int nlwater_index(lbound - low_water_.begin());
-        if (lwater_index_ == nlwater_index) {
+        if (lwater_index == nlwater_index) {
             return;
         }
         // Update the high and low water indexes
-        lwater_index_ = nlwater_index;
-        hwater_index_ = nlwater_index - 1;
-        const WaterMarkInfo &wm_info(low_water_[lwater_index_]);
+        SetWaterMarkIndexes(nlwater_index - 1, nlwater_index);
+        const WaterMarkInfo &wm_info(low_water_[nlwater_index]);
         assert(count <= wm_info.count_);
         wm_info.cb_(count);
     }
@@ -517,6 +526,18 @@ private:
         return done;
     }
 
+    void GetWaterMarkIndexes(int *hwater_index, int *lwater_index) const {
+        tbb::mutex::scoped_lock lock(water_index_mutex_);
+        *hwater_index = hwater_index_;
+        *lwater_index = lwater_index_;
+    }
+
+    void SetWaterMarkIndexes(int hwater_index, int lwater_index) {
+        tbb::mutex::scoped_lock lock(water_index_mutex_);
+        hwater_index_ = hwater_index;
+        lwater_index_ = lwater_index;
+    }
+
     Queue queue_;
     tbb::atomic<size_t> count_;
     tbb::mutex mutex_;
@@ -545,8 +566,9 @@ private:
     WaterMarkInfos low_water_; // When queue count goes below
     mutable tbb::spin_rw_mutex hwater_mutex_;
     mutable tbb::spin_rw_mutex lwater_mutex_;
-    tbb::atomic<int> hwater_index_;
-    tbb::atomic<int> lwater_index_;
+    int hwater_index_;
+    int lwater_index_;
+    mutable tbb::mutex water_index_mutex_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;
