@@ -11,16 +11,32 @@ const size_t BgpProtoPrefix::kLabelSize = 3;
 BgpProtoPrefix::BgpProtoPrefix() : prefixlen(0), type(0) {
 }
 
-uint32_t BgpProtoPrefix::ReadLabel(size_t label_offset) const {
+//
+// Extract the label from the BgpProtorefix.
+// EVPN extensions for VXLAN use the label to convey a 24-bit VNI.
+//
+uint32_t BgpProtoPrefix::ReadLabel(size_t label_offset, bool is_vni) const {
     assert((label_offset + kLabelSize) <= prefix.size());
+    if (is_vni)
+        return get_value(&prefix[label_offset], kLabelSize);
     uint32_t label = (prefix[label_offset] << 16 |
         prefix[label_offset + 1] << 8 |
         prefix[label_offset + 2]) >> 4;
     return label;
 }
 
-void BgpProtoPrefix::WriteLabel(size_t label_offset, uint32_t label) {
+//
+// Write the label to the BgpProtorefix.
+// EVPN extensions for VXLAN use the label to convey a 24-bit VNI.
+//
+void BgpProtoPrefix::WriteLabel(size_t label_offset, uint32_t label,
+    bool is_vni) {
     assert((label_offset + kLabelSize) <= prefix.size());
+    if (is_vni) {
+        assert(label <= 0xFFFFFF);
+        put_value(&prefix[label_offset], kLabelSize, label);
+        return;
+    }
     assert(label <= 0xFFFFF);
     uint32_t tmp = (label << 4 | 0x1);
     for (size_t idx = 0; idx < kLabelSize; ++idx) {

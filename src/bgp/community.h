@@ -164,6 +164,7 @@ public:
     }
 
     std::vector<std::string> GetTunnelEncap() const;
+    bool ContainsTunnelEncapVxlan() const;
 
     static bool is_origin_vn(const ExtCommunityValue &val) {
         //
