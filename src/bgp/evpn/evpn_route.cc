@@ -34,6 +34,36 @@ const size_t EvpnPrefix::kMinInclusiveMulticastRouteSize =
 const size_t EvpnPrefix::kMinSegmentRouteSize =
     kRdSize + kEsiSize + 1;
 
+//
+// Read label from the BgpProtoPrefix.
+// If the encapsulation is VXLAN and ethernet tag is non-zero use that as
+// the label for backward compatibility with older JUNOS code.
+//
+static uint32_t ReadLabel(const BgpProtoPrefix &proto_prefix,
+    const BgpAttr *attr, size_t offset, uint32_t tag) {
+    if (!attr)
+        return 0;
+    const ExtCommunity *extcomm = attr->ext_community();
+    if (extcomm && extcomm->ContainsTunnelEncapVxlan()) {
+        return (tag ? tag : proto_prefix.ReadLabel(offset, true));
+    } else {
+        return proto_prefix.ReadLabel(offset, false);
+    }
+}
+
+//
+// Write label to the BgpProtoPrefix.
+//
+static void WriteLabel(BgpProtoPrefix *proto_prefix,
+    const BgpAttr *attr, size_t offset, uint32_t label) {
+    const ExtCommunity *extcomm = attr ? attr->ext_community() : NULL;
+    if (extcomm && extcomm->ContainsTunnelEncapVxlan()) {
+        proto_prefix->WriteLabel(offset, label, true);
+    } else {
+        proto_prefix->WriteLabel(offset, label, false);
+    }
+}
+
 EvpnPrefix::EvpnPrefix()
     : type_(Unspecified), tag_(EvpnPrefix::kNullTag), family_(Address::UNSPEC) {
 }
@@ -111,10 +141,8 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         prefix->esi_ = EthernetSegmentId(&proto_prefix.prefix[esi_offset]);
         size_t tag_offset = esi_offset + kEsiSize;
         prefix->tag_ = get_value(&proto_prefix.prefix[tag_offset], kTagSize);
-        if (attr) {
-            size_t label_offset = tag_offset + kTagSize;
-            *label = proto_prefix.ReadLabel(label_offset);
-        }
+        size_t label_offset = tag_offset + kTagSize;
+        *label = ReadLabel(proto_prefix, attr, label_offset, prefix->tag_);
         break;
     }
     case MacAdvertisementRoute: {
@@ -146,10 +174,8 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
             return -1;
         size_t ip_offset = ip_len_offset + 1;
         prefix->ReadIpAddress(proto_prefix, ip_offset, ip_size);
-        if (attr) {
-            size_t label_offset = ip_offset + ip_size;
-            *label = proto_prefix.ReadLabel(label_offset);
-        }
+        size_t label_offset = ip_offset + ip_size;
+        *label = ReadLabel(proto_prefix, attr, label_offset, prefix->tag_);
         break;
     }
     case InclusiveMulticastRoute: {
@@ -229,7 +255,7 @@ void EvpnPrefix::BuildProtoPrefix(const BgpAttr *attr, uint32_t label,
         size_t tag_offset = esi_offset + kEsiSize;
         put_value(&proto_prefix->prefix[tag_offset], kTagSize, tag_);
         size_t label_offset = tag_offset + kTagSize;
-        proto_prefix->WriteLabel(label_offset, label);
+        WriteLabel(proto_prefix, attr, label_offset, label);
         break;
     }
     case MacAdvertisementRoute: {
@@ -258,7 +284,7 @@ void EvpnPrefix::BuildProtoPrefix(const BgpAttr *attr, uint32_t label,
         size_t ip_offset = ip_len_offset + 1;
         WriteIpAddress(proto_prefix, ip_offset);
         size_t label_offset = ip_offset + ip_size;
-        proto_prefix->WriteLabel(label_offset, label);
+        WriteLabel(proto_prefix, attr, label_offset, label);
         break;
     }
     case InclusiveMulticastRoute: {
