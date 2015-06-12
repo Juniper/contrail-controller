@@ -16,7 +16,7 @@ import select
 import gevent
 import ConfigParser
 
-from nodemgr.event_manager import EventManager
+from nodemgr.common.event_manager import EventManager
 
 from ConfigParser import NoOptionError
 
