@@ -166,7 +166,7 @@ class VncKombuClientV1(VncKombuClientBase):
                                       userid=self._rabbit_user,
                                       password=self._rabbit_password,
                                       virtual_host=self._rabbit_vhost)
-        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange)
+        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, durable=False)
         self._start()
     # end __init__
 
@@ -211,7 +211,9 @@ class VncKombuClientV2(VncKombuClientBase):
         self._conn_state = ConnectionStatus.INIT
         self._conn = kombu.Connection(self._urls)
         queue_args = {"x-ha-policy": "all"} if rabbit_ha_mode else None
-        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, queue_arguments=queue_args)
+        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
+                                             durable=False,
+                                             queue_arguments=queue_args)
 
         self._start()
     # end __init__
