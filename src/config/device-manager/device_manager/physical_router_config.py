@@ -152,8 +152,9 @@ class PhysicalRouterConfig(object):
             for interface in interfaces:
                 if_element = etree.SubElement(ri, "interface")
                 etree.SubElement(if_element, "name").text = interface
-        etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
-        etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
+        if vni is None:
+            etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
+            etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
         if vni is None:
             etree.SubElement(ri, "vrf-table-label")
         ri_opt = None
