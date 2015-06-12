@@ -7,8 +7,8 @@ namespace java net.juniper.contrail.contrail_vrouter_api
 typedef list<i16> tuuid
 
 enum PortTypes {
-    NovaVMPort,
-    NameSpacePort,
+    VMPort,
+    ServiceInstancePort,
 }
 
 struct Port {

@@ -185,12 +185,12 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
     uuid port_uuid = StringToUuid(r.port_id);
     uuid instance_uuid = StringToUuid(r.instance_id);
 
-    /* VN UUID is optional for CfgIntNameSpacePort */
+    /* VN UUID is optional for CfgIntServiceInstancePort*/
     uuid vn_uuid = nil_uuid();
     if (r.vn_id.length() != 0) {
         vn_uuid = StringToUuid(r.vn_id);
     }
-    /* VM Project UUID is optional for CfgIntNameSpacePort */
+    /* VM Project UUID is optional for CfgIntServiceInstancePort*/
     uuid vm_project_uuid = nil_uuid();
     if (r.vm_project_id.length() != 0) {
         vm_project_uuid = StringToUuid(r.vm_project_id);
@@ -200,7 +200,7 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
 
     intf_type = CfgIntEntry::CfgIntVMPort;
     if (port_type) {
-        intf_type = CfgIntEntry::CfgIntNameSpacePort;
+        intf_type = CfgIntEntry::CfgIntServiceInstancePort;
     }
     boost::system::error_code ec, ec6;
     IpAddress ip(IpAddress::from_string(r.ip_address, ec));

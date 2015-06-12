@@ -106,8 +106,8 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     std::stringstream vmid, vmiid;
     vmid << entry->GetVmUuid();
     vmiid << entry->GetUuid();
-    if (entry->port_type() == CfgIntEntry::CfgIntNameSpacePort) {
-        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "NameSpacePort",
+    if (entry->port_type() == CfgIntEntry::CfgIntServiceInstancePort) {
+        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "ServiceInstanePort",
                          "Ignore Sending Subscribe/Unsubscribe");
         return;
     }

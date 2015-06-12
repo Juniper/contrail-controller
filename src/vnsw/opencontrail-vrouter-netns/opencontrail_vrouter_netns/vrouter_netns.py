@@ -52,7 +52,7 @@ class NetnsManager(object):
     LEFT_DEV_PREFIX = 'int-'
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
-    PORT_TYPE = 'NameSpacePort'
+    PORT_TYPE = 'ServiceInstancePort'
     LBAAS_PROCESS = 'haproxy'
     BASE_URL = "http://localhost:9091/port"
     HEADERS = {'content-type': 'application/json'}
@@ -217,9 +217,9 @@ class NetnsManager(object):
             raise ValueError(error_str)
 
     def _add_port_to_agent(self, nic, display_name=None):
-        if self.PORT_TYPE == "NovaVMPort":
+        if self.PORT_TYPE == "VMPort":
             port_type_value = 0
-        elif self.PORT_TYPE == "NameSpacePort":
+        elif self.PORT_TYPE == "ServiceInstancePort":
             port_type_value = 1
         payload = {"ip-address": str(nic['ip'].ip), "tx-vlan-id": -1,
                    "display-name": display_name, "id": nic['uuid'],

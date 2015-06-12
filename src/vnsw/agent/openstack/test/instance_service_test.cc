@@ -266,7 +266,7 @@ TEST_F(NovaInfoClientServerTest, KeepAliveTest) {
 
 TEST_F(NovaInfoClientServerTest, PortAdd) {
     // Add and delete port check the status of the cfg intf db
-    AddVmPort(client_service, 1, 1, 1, PortTypes::NovaVMPort);
+    AddVmPort(client_service, 1, 1, 1, PortTypes::VMPort);
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
@@ -296,7 +296,7 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
     // 3) Run stale timer
     // 4) Verifuy nova port deleted and name space port exists
     // 5) Delete name space port
-    AddVmPort(client_service, 1, 1, 1, PortTypes::NameSpacePort);
+    AddVmPort(client_service, 1, 1, 1, PortTypes::ServiceInstancePort);
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
@@ -304,9 +304,9 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
                         (cfg_entry =
                          static_cast<CfgIntEntry *>(Agent::GetInstance()->interface_config_table()->Find(&key))));
     EXPECT_EQ(cfg_entry->GetVersion(), 0);
-    EXPECT_EQ(cfg_entry->port_type(), CfgIntEntry::CfgIntNameSpacePort);
+    EXPECT_EQ(cfg_entry->port_type(), CfgIntEntry::CfgIntServiceInstancePort);
 
-    AddVmPort(client_service, 2, 2, 2, PortTypes::NovaVMPort);
+    AddVmPort(client_service, 2, 2, 2, PortTypes::VMPort);
     CfgIntKey key1(MakeUuid(2));
     TASK_UTIL_EXPECT_EQ(2, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry1;
@@ -325,14 +325,14 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
     TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL,
                         (cfg_entry2 =
                          static_cast<CfgIntEntry *>(Agent::GetInstance()->interface_config_table()->Find(&key2))));
-    EXPECT_EQ(cfg_entry2->port_type(), CfgIntEntry::CfgIntNameSpacePort);
+    EXPECT_EQ(cfg_entry2->port_type(), CfgIntEntry::CfgIntServiceInstancePort);
 
     DelVmPort(client_service, 1);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, ReconnectVersionCheck) {
-    AddVmPort(client_service, 1, 1, 1, PortTypes::NovaVMPort);
+    AddVmPort(client_service, 1, 1, 1, PortTypes::VMPort);
     ConnectToServer(client_service);
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
@@ -351,9 +351,9 @@ TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
     Port port1;
     Port port2;
     Port port3;
-    CreatePort(port1, 3, 3, 1, PortTypes::NovaVMPort);
-    CreatePort(port2, 4, 4, 1, PortTypes::NovaVMPort);
-    CreatePort(port3, 5, 5, 1, PortTypes::NovaVMPort);
+    CreatePort(port1, 3, 3, 1, PortTypes::VMPort);
+    CreatePort(port2, 4, 4, 1, PortTypes::VMPort);
+    CreatePort(port3, 5, 5, 1, PortTypes::VMPort);
     std::vector<Port> pl;
     pl.clear();
     pl.push_back(port1);
@@ -385,7 +385,7 @@ TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
     // Wrong IP address
     Port port;
     std::vector<Port> pl;
-    CreatePort(port, 2, 2, 2, PortTypes::NovaVMPort);
+    CreatePort(port, 2, 2, 2, PortTypes::VMPort);
     port.ip_address = "TestIP";
     pl.push_back(port);
     client_service->AddPort(pl).setCallback(
@@ -398,7 +398,7 @@ TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
 TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
     Port port;
     // Null uuids, we are allowing them
-    CreatePort(port, 3, 3, 3, PortTypes::NovaVMPort);
+    CreatePort(port, 3, 3, 3, PortTypes::VMPort);
     tuuid null_tuuid;
     int8_t t_port_id[sizeof(port_id)];
     memcpy(t_port_id, port_id, sizeof(t_port_id));
@@ -423,7 +423,7 @@ TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
 TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
     // Send extra bytes in the uuid, and it shouldn't get added
     Port port;
-    CreatePort(port, 4, 4, 4, PortTypes::NovaVMPort);
+    CreatePort(port, 4, 4, 4, PortTypes::VMPort);
     tuuid extra_tuuid;
     int8_t t_extraport_id[sizeof(port_id) + 1];
     memcpy(t_extraport_id, port_id, sizeof(port_id));
@@ -445,7 +445,7 @@ TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
 TEST_F(NovaInfoClientServerTest, WrongUUIDTest2) {
     // Send less number of bytes in uuids, and it shouldn't get added
     Port port;
-    CreatePort(port, 5, 5, 5, PortTypes::NovaVMPort);
+    CreatePort(port, 5, 5, 5, PortTypes::VMPort);
     tuuid small_tuuid;
     int8_t s_port_id[sizeof(port_id)];
     memcpy(s_port_id, port_id, sizeof(port_id));

@@ -111,7 +111,7 @@ class ContrailVRouterApi(object):
                 data.port_type = \
                     ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
             else:
-                data.port_type = ttypes.PortTypes.NameSpacePort
+                data.port_type = ttypes.PortTypes.ServiceInstancePort
             if 'ip6_address' in kwargs:
                 data.ip6_address = kwargs['ip6_address']
 

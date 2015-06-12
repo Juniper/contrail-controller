@@ -16,7 +16,7 @@ public:
 
     enum CfgIntType {
         CfgIntVMPort,
-        CfgIntNameSpacePort,
+        CfgIntServiceInstancePort,
     };
 
     CfgIntEntry();

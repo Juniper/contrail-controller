@@ -81,8 +81,8 @@ std::string CfgIntEntry::ToString() const {
 std::string CfgIntEntry::CfgIntTypeToString(CfgIntEntry::CfgIntType type) {
     if (type == CfgIntEntry::CfgIntVMPort)
         return "CfgIntVMPort";
-    if (type == CfgIntEntry::CfgIntNameSpacePort)
-        return "CfgIntNameSpacePort";
+    if (type == CfgIntEntry::CfgIntServiceInstancePort)
+        return "CfgIntServiceInstancePort";
     return "CfgIntInvalid";
 }
 

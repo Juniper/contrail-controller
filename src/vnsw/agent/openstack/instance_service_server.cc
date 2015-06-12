@@ -120,9 +120,9 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         uint32_t version = version_;
         CfgIntEntry::CfgIntType port_type = CfgIntEntry::CfgIntVMPort;
         if (port.__isset.port_type) {
-            if (port.port_type == PortTypes::NameSpacePort) {
+            if (port.port_type == PortTypes::ServiceInstancePort) {
                 version = 0;
-                port_type = CfgIntEntry::CfgIntNameSpacePort;
+                port_type = CfgIntEntry::CfgIntServiceInstancePort;
             }
         }
 
@@ -586,7 +586,7 @@ void AddPortReq::HandleRequest() const {
     CfgIntData *cfg_int_data = new CfgIntData();
     intf_type = CfgIntEntry::CfgIntVMPort;
     if (port_type) {
-        intf_type = CfgIntEntry::CfgIntNameSpacePort;
+        intf_type = CfgIntEntry::CfgIntServiceInstancePort;
     }
 
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
