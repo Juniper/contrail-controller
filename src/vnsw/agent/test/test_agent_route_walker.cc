@@ -166,6 +166,7 @@ public:
         //2.2.2.20/32; 255.255.255.255; 0:0:2:2:2:20; ff:ff:ff:ff:ff:ff
         route_notifications_++;
         route_table_walk_started_ = true;
+        assert(AreAllWalksDone() == false);
         return true;
     }
 
@@ -178,6 +179,7 @@ public:
         vrf_notifications_++;
         VrfEntry *vrf = static_cast<VrfEntry *>(e);
         StartRouteWalk(vrf);
+        assert(AreAllWalksDone() == false);
         return true;
     }
 

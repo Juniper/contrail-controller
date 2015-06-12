@@ -24,7 +24,7 @@ VrfExport::State::State() : DBState(), exported_(false),
 VrfExport::State::~State() {
 };
 
-void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
+void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
                        DBTablePartBase *partition, DBEntryBase *e) {
 
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
@@ -33,7 +33,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
     //Peer is decommissioned so ignore the notification as there is no active
     //listener. Deletion of state for decommisioned peer will happen via delpeer
     //walk.
-    if (!AgentXmppChannel::IsBgpPeerActive(bgp_xmpp_peer) 
+    if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer)
         && !(vrf->IsDeleted())) {
         return;
     }
@@ -49,7 +49,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
         return;
     }
 
-    if (!AgentXmppChannel::IsBgpPeerActive(bgp_xmpp_peer))
+    if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer))
         return;
 
     DBTableBase::ListenerId id = bgp_peer->GetVrfExportListenerId();

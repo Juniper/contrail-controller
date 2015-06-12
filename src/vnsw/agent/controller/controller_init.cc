@@ -30,6 +30,10 @@ using namespace boost::asio;
 SandeshTraceBufferPtr ControllerTraceBuf(SandeshTraceBufferCreate(
     "Controller", 1000));
 
+ControllerDiscoveryData::ControllerDiscoveryData(std::vector<DSResponse> resp) :
+    ControllerWorkQueueData(), discovery_response_(resp) {
+}
+
 VNController::VNController(Agent *agent) 
     : agent_(agent), multicast_sequence_number_(0),
     unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
@@ -230,6 +234,22 @@ void VNController::DnsXmppServerDisConnect() {
 
 }
 
+//During delete of xmpp channel, check if BGP peer is deleted.
+//If not agent never got a channel down state and is being removed
+//as it is not part of discovery list.
+//Artificially inject NOT_READY in agent xmpp channel.
+void VNController::DeleteAgentXmppChannel(AgentXmppChannel *channel) {
+    if (!channel)
+        return;
+
+    BgpPeer *bgp_peer = channel->bgp_peer_id();
+    if (bgp_peer != NULL) {
+        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
+                                                            xmps::NOT_READY);
+    }
+    delete channel;
+}
+
 //Trigger shutdown and cleanup of routes for the client
 void VNController::DisConnect() {
     XmppServerDisConnect();
@@ -303,11 +323,11 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
 
 	//cleanup AgentXmppChannel
 	agent_->ResetAgentMcastLabelRange(idx);
-	delete agent_->controller_xmpp_channel(idx);
+    DeleteAgentXmppChannel(agent_->controller_xmpp_channel(idx));
 	agent_->set_controller_xmpp_channel(NULL, idx);
 
 	//cleanup AgentIfmapXmppChannel
-	delete agent_->ifmap_xmpp_channel(idx);
+    delete agent_->ifmap_xmpp_channel(idx);
 	agent_->set_ifmap_xmpp_channel(NULL, idx);
 
 	agent_->controller_ifmap_xmpp_init(idx)->Reset();
@@ -331,7 +351,13 @@ bool VNController::AgentXmppServerExists(const std::string &server_ip,
 }
 
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
+    ControllerDiscoveryDataType data(new ControllerDiscoveryData(resp));
+    ControllerWorkQueueDataType base_data =
+        boost::static_pointer_cast<ControllerWorkQueueData>(data);
+    work_queue_.Enqueue(base_data);
+}
 
+bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp) {
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
     for (iter = resp.begin(); iter != resp.end(); iter++) {
@@ -415,6 +441,7 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
     }
 
     XmppServerConnect();
+    return true;
 }
 
 AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
@@ -696,6 +723,13 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
     if (derived_walk_done_data) {
         return ControllerPeerHeadlessAgentDelDone(derived_walk_done_data->
                                                   bgp_peer());
+    }
+    //Discovery response for servers
+    ControllerDiscoveryDataType discovery_data =
+        boost::dynamic_pointer_cast<ControllerDiscoveryData>(data);
+    if (discovery_data) {
+        return ApplyDiscoveryXmppServicesInternal(discovery_data->
+                                                  discovery_response_);
     }
     return true;
 }
