@@ -61,6 +61,45 @@ static const char *config_2_control_nodes = "\
 </config>\
 ";
 
+static const char *config_2_control_nodes_no_rtf = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
+        <vrf-target>target:1:2</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 static const char *config_2_control_nodes_no_vn_info = "\
 <config>\
     <bgp-router name=\'X\'>\
@@ -1027,6 +1066,83 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage2) {
     // Unregister to blue instance
     agent_a_->Unsubscribe("blue");
     agent_b_->Unsubscribe("blue");
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// SchedulingGroup WorkQueue processing code should not crash if a RibOut
+// gets deleted while there's a WorkRibOut for the RibOut on the WorkQueue.
+// The pink instance is used to ensure that the SchedulingGroup containing
+// agent B does not get deleted when agent B unsubscribes from blue.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, SchedulingGroupRibOutInvalidate) {
+    Configure(config_2_control_nodes_no_rtf);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Verify table walk count for blue.inet.0.
+    BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
+    BgpTable *pink_x = VerifyTableExists(bs_x_, "pink.inet.0");
+    BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
+    BgpTable *pink_y = VerifyTableExists(bs_y_, "pink.inet.0");
+    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, pink_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, pink_y->walk_complete_count());
+    task_util::WaitForIdle();
+
+    // Register to blue and pink instances.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Subscribe("pink", 2);
+    agent_b_->Subscribe("blue", 1);
+    agent_b_->Subscribe("pink", 2);
+    task_util::WaitForIdle();
+
+    // Verify that subscribe completed.
+    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, pink_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, pink_y->walk_complete_count());
+    task_util::WaitForIdle();
+
+    // Pause update generation on Y.
+    bs_y_->scheduling_group_manager()->DisableGroups();
+
+    // Add blue routes from agent A.
+    for (int idx = 0; idx < 4; ++idx) {
+        agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
+    }
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues have built up on Y.
+    VerifyOutputQueueDepth(bs_y_, 4);
+    task_util::WaitForIdle();
+
+    // Unregister to blue instance on B.
+    agent_b_->Unsubscribe("blue");
+
+    // Verify that blue.inet.0 output queues are cleaned up on Y.
+    VerifyOutputQueueDepth(bs_y_, 0);
+    task_util::WaitForIdle();
+
+    // Resume update generation on Y.
+    // Should not crash even though the XMPP RibOut for blue.inet.0 is gone.
+    bs_y_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
 
     // Close the sessions.
     agent_a_->SessionDown();
