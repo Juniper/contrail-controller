@@ -495,11 +495,9 @@ void SchedulingGroup::Remove(RibOut *ribout, IPeerUpdate *peer) {
     ps->Remove(rs);
     if (rs->empty()) {
         rib_state_imap_.Remove(ribout, rs->index());
-        WorkRibOutInvalidate(ribout);
     }
     if (ps->empty())  {
         peer_state_imap_.Remove(peer, ps->index());
-        WorkPeerInvalidate(peer);
     }
 }
 
@@ -874,7 +872,7 @@ void SchedulingGroup::WorkPeerEnqueue(IPeerUpdate *peer) {
 // Invalidate all WorkBases for the given IPeerUpdate.
 // Used when a IPeerUpdate is removed.
 //
-void SchedulingGroup::WorkPeerInvalidate(IPeerUpdate *peer) {
+void SchedulingGroup::PeerInvalidate(IPeerUpdate *peer) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
     tbb::mutex::scoped_lock lock(mutex_);
@@ -904,7 +902,7 @@ void SchedulingGroup::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
 // Invalidate all WorkBases for the given RibOut.
 // Used when a RibOut is removed.
 //
-void SchedulingGroup::WorkRibOutInvalidate(RibOut *ribout) {
+void SchedulingGroup::RibOutInvalidate(RibOut *ribout) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
     tbb::mutex::scoped_lock lock(mutex_);
@@ -1353,12 +1351,14 @@ void SchedulingGroupManager::Leave(RibOut *ribout, IPeerUpdate *peer) {
     // from the RiboutMap.
     if (sg->GetRibOutIndex(ribout) == BitSet::npos) {
         ribout_map_.erase(ribout);
+        sg->RibOutInvalidate(ribout);
     }
 
     // If there are no more ribouts that the peer is interested in, remove the
     // peer from the PeerMap.
     if (sg->GetPeerIndex(peer) == BitSet::npos) {
         peer_map_.erase(peer);
+        sg->PeerInvalidate(peer);
     }
 
     // Get rid of the group itself if it's empty.
