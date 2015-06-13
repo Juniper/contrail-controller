@@ -30,22 +30,17 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
 
-    //Peer is decommissioned so ignore the notification as there is no active
-    //listener. Deletion of state for decommisioned peer will happen via delpeer
-    //walk.
-    if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer)
-        && !(vrf->IsDeleted())) {
-        return;
-    }
-
     if (vrf->IsDeleted()) {
+        agent->controller()->
+            DeleteVrfStateOfDecommisionedPeers(partition, e);
+        if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
+            return;
+        }
         if (bgp_peer) { 
             CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(), 
                              "VRF deleted, remove state");
             bgp_peer->DeleteVrfState(partition, e);
         }
-        bgp_xmpp_peer->agent()->controller()->
-            DeleteVrfStateOfDecommisionedPeers(partition, e);
         return;
     }
 

@@ -1239,6 +1239,21 @@ void AgentXmppChannel::MulticastPeerDown(AgentXmppChannel *old_mcast_builder,
     AgentXmppChannel::CleanMulticastStale(old_mcast_builder);
 }
 
+bool AgentXmppChannel::IsXmppChannelActive(const Agent *agent,
+                                           AgentXmppChannel *peer) {
+    bool xmpp_channel_found = false;
+    //Verify if channel registered is stiil active or has been deleted
+    //after bgp peer was down. This is checked under existing agent
+    //xmpp channels in agent.
+    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
+        if (agent->controller_xmpp_channel(idx) == peer) {
+            xmpp_channel_found = true;
+            break;
+        }
+    }
+    return xmpp_channel_found;
+}
+
 /*
  * AgentXmppChannel is active when:
  * 1) bgp peer is not null(bgp_peer_id)
@@ -1247,17 +1262,7 @@ void AgentXmppChannel::MulticastPeerDown(AgentXmppChannel *old_mcast_builder,
  */
 bool AgentXmppChannel::IsBgpPeerActive(const Agent *agent,
                                        AgentXmppChannel *peer) {
-    bool xmpp_channel_not_found = true;
-    //Verify if channel registered is stiil active or has been deleted
-    //after bgp peer was down. This is checked under existing agent
-    //xmpp channels in agent.
-    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (agent->controller_xmpp_channel(idx) == peer) {
-            xmpp_channel_not_found = false;
-            break;
-        }
-    }
-    if (xmpp_channel_not_found)
+    if (!IsXmppChannelActive(agent, peer))
         return false;
 
     //Reach here if channel is present. Now check for BGP peer
