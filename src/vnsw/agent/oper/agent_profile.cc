@@ -65,16 +65,12 @@ void AgentProfile::Log() {
     time(&now);
 
     DBPartition *partition = agent_->db()->GetPartition(0);
-    DBTableWalker *walker = agent_->db()->GetWalker();
     TaskScheduler *sched = agent_->task_scheduler();
     cout << "Time : " << setw(4) << (now - start_time_)
         << " #DBQueueLen(Curr/Total/Max) <"
         << " " << partition->request_queue_len()
         << " " << partition->total_request_count()
         << " " << partition->max_request_queue_len() << ">"
-        << " #Walk(Req/Done/Cancel) <" << walker->walk_request_count()
-        << " " << walker->walk_complete_count()
-        << " " << walker->walk_cancel_count() << ">"
         << " #Task(Req/Done/Cancel) <" << sched->enqueue_count()
         << " " << sched->done_count()
         << " " << sched->cancel_count() << ">"
