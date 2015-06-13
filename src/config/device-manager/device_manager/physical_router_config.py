@@ -49,7 +49,7 @@ class PhysicalRouterConfig(object):
         self.vnc_managed = vnc_managed
     # end update
 
-    def get_commit_stats():
+    def get_commit_stats(self):
         return self.commit_stats
     #end get_commit_stats
 
@@ -144,36 +144,35 @@ class PhysicalRouterConfig(object):
         policy_config = self.policy_config or etree.Element("policy-options")
         ri = etree.SubElement(ri_config, "instance", operation="replace")
         etree.SubElement(ri, "name").text = ri_name
-        if vni is not None:
-            etree.SubElement(ri, "instance-type").text = "virtual-switch"
-        else:
-            etree.SubElement(ri, "instance-type").text = "vrf"
+        ri_opt = None
         if vni is None:
+            etree.SubElement(ri, "instance-type").text = "vrf"
             for interface in interfaces:
                 if_element = etree.SubElement(ri, "interface")
                 etree.SubElement(if_element, "name").text = interface
-        etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
-        etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
-        if vni is None:
+            etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
+            etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
             etree.SubElement(ri, "vrf-table-label")
-        ri_opt = None
-        if prefixes and vni is None:
-            ri_opt = etree.SubElement(ri, "routing-options")
-            static_config = etree.SubElement(ri_opt, "static")
-            for prefix in prefixes:
-                route_config = etree.SubElement(static_config, "route")
-                etree.SubElement(route_config, "name").text = prefix
-                etree.SubElement(route_config, "discard")
-            auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
-            ri_opt.append(etree.fromstring(auto_export))
 
-        if router_external and vni is None:
-            if ri_opt is None:
+            if prefixes:
                 ri_opt = etree.SubElement(ri, "routing-options")
                 static_config = etree.SubElement(ri_opt, "static")
-            route_config = etree.SubElement(static_config, "route")
-            etree.SubElement(route_config, "name").text = "0.0.0.0/0"
-            etree.SubElement(route_config, "next-table").text = "inet.0"
+                for prefix in prefixes:
+                    route_config = etree.SubElement(static_config, "route")
+                    etree.SubElement(route_config, "name").text = prefix
+                    etree.SubElement(route_config, "discard")
+                auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
+                ri_opt.append(etree.fromstring(auto_export))
+
+            if router_external:
+                if ri_opt is None:
+                    ri_opt = etree.SubElement(ri, "routing-options")
+                    static_config = etree.SubElement(ri_opt, "static")
+                route_config = etree.SubElement(static_config, "route")
+                etree.SubElement(route_config, "name").text = "0.0.0.0/0"
+                etree.SubElement(route_config, "next-table").text = "inet.0"
+        else:
+            etree.SubElement(ri, "instance-type").text = "virtual-switch"
 
         if fip_map is not None:
             if ri_opt is None:
