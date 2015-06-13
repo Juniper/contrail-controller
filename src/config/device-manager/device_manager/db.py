@@ -224,6 +224,8 @@ class PhysicalRouterDM(DBBase):
                     continue
                 if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
                     vrf_name = vn_obj.get_vrf_name()
+                    vrf_name_l2 = vn_obj.get_vrf_name(vrf_type='l2')
+                    vrf_name_l3 = vn_obj.get_vrf_name(vrf_type='l3')
                     export_set = copy.copy(ri_obj.export_targets)
                     import_set = copy.copy(ri_obj.import_targets)
                     for ri2_id in ri_obj.routing_instances:
@@ -231,7 +233,25 @@ class PhysicalRouterDM(DBBase):
                         if ri2 is None:
                             continue
                         import_set |= ri2.export_targets
-                    self.config_manager.add_routing_instance(vrf_name,
+
+                    if vn_obj.router_external == False:
+                        self.config_manager.add_routing_instance(vrf_name_l3,
+                                                             import_set,
+                                                             export_set,
+                                                             vn_obj.prefixes,
+                                                             vn_obj.gateways,
+                                                             vn_obj.router_external,
+                                                             ["irb" + "." + str(vn_obj.vxlan_vni)])
+                        self.config_manager.add_routing_instance(vrf_name_l2,
+                                                             import_set,
+                                                             export_set,
+                                                             vn_obj.prefixes,
+                                                             vn_obj.gateways,
+                                                             vn_obj.router_external,
+                                                             interfaces,
+                                                             vn_obj.vxlan_vni)
+                    else:
+                        self.config_manager.add_routing_instance(vrf_name_l3,
                                                              import_set,
                                                              export_set,
                                                              vn_obj.prefixes,
@@ -555,8 +575,13 @@ class VirtualNetworkDM(DBBase):
                 self.gateways.add(subnet['default_gateway'])
     # end update
 
-    def get_vrf_name(self):
-        vrf_name = '__contrail__' + self.uuid + '_' + self.fq_name[-1]
+    def get_vrf_name(self, vrf_type=None):
+        if vrf_type is None:
+            vrf_name = '__contrail__' + self.uuid + '_' + self.fq_name[-1]
+        elif vrf_type == 'l2':
+            vrf_name = '__contrail__l2_' + self.uuid + '_' + self.fq_name[-1]
+        else:
+            vrf_name = '__contrail__l3_' + self.uuid + '_' + self.fq_name[-1]
         #mx has limitation for vrf name, allowed max 127 chars
         return vrf_name[:127]
     #end
@@ -577,7 +602,7 @@ class VirtualNetworkDM(DBBase):
                 public_vn = VirtualNetworkDM.get(fip.public_network)
                 if public_vn is None:
                     continue
-                public_vrf_name = public_vn.get_vrf_name()
+                public_vrf_name = public_vn.get_vrf_name(vrf_type='l3')
                 self.instance_ip_map[instance_ip] = {'floating_ip': floating_ip,
                                                      'vrf_name': public_vrf_name}
     # end update_instance_ip_map
