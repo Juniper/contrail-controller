@@ -79,10 +79,12 @@ public:
     // the peers that are in-sync across all ribs can start dequeuing
     // updates.
     void RibOutActive(RibOut *ribout, int queue_id);
+    void RibOutInvalidate(RibOut *ribout);
 
     // Warning: unsafe to call these from arbitrary tasks.
     bool IsSendReady(IPeerUpdate *peer) const;
     bool PeerInSync(IPeerUpdate *peer) const;
+    void PeerInvalidate(IPeerUpdate *peer);
 
     // The index for a specific peer in this group.
     size_t GetPeerIndex(IPeerUpdate *peer) const;
@@ -161,9 +163,7 @@ private:
     std::auto_ptr<WorkBase> WorkDequeue();
     void WorkEnqueue(WorkBase *wentry);
     void WorkPeerEnqueue(IPeerUpdate *peer);
-    void WorkPeerInvalidate(IPeerUpdate *peer);
     void WorkRibOutEnqueue(RibOut *ribout, int queue_id);
-    void WorkRibOutInvalidate(RibOut *ribout);
 
     void UpdateRibOut(RibOut *ribout, int queue_id);
     void UpdatePeer(IPeerUpdate *peer);

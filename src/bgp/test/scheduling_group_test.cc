@@ -801,6 +801,7 @@ TEST_F(SchedulingGroupManagerTest, WorkRibOutInvalidate) {
     WorkRibOutEnqueue(sg, ribout1.get());
     WorkRibOutEnqueue(sg, ribout2.get());
     EXPECT_EQ(4, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     // Leave the test peer from ribout2.
     // The WorkRibOut items for ribout1 will get invalidated at this point.
@@ -833,6 +834,7 @@ TEST_F(SchedulingGroupManagerTest, WorkPeerInvalidate) {
     WorkPeerEnqueue(sg, test_peer1.get());
     WorkPeerEnqueue(sg, test_peer2.get());
     EXPECT_EQ(4, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     // Leave test peer 1 from ribout.
     // The WorkPeer items for test peer1 will get invalidated at this point.
@@ -899,8 +901,10 @@ TEST_P(SchedulingGroupWorkQueueTest, SplitWorkRibOut1) {
 
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     sg = rp2_->GetSchedulingGroup();
     EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -929,8 +933,10 @@ TEST_P(SchedulingGroupWorkQueueTest, SplitWorkRibOut2) {
 
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(condition_ ? num_items_ : 0, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     sg = rp2_->GetSchedulingGroup();
     EXPECT_EQ(condition_ ? 0 : num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -961,8 +967,10 @@ TEST_P(SchedulingGroupWorkQueueTest, SplitWorkPeer1) {
 
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     sg = rp2_->GetSchedulingGroup();
     EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -991,8 +999,10 @@ TEST_P(SchedulingGroupWorkQueueTest, SplitWorkPeer2) {
 
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(condition_ ? num_items_ : 0, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     sg = rp2_->GetSchedulingGroup();
     EXPECT_EQ(condition_ ? 0 : num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -1025,6 +1035,7 @@ TEST_P(SchedulingGroupWorkQueueTest, MergeWorkRibOut1) {
     EXPECT_EQ(1, sgman_.size());
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(2 * num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -1053,6 +1064,7 @@ TEST_P(SchedulingGroupWorkQueueTest, MergeWorkRibOut2) {
     EXPECT_EQ(1, sgman_.size());
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -1086,6 +1098,7 @@ TEST_P(SchedulingGroupWorkQueueTest, MergeWorkPeer1) {
     EXPECT_EQ(1, sgman_.size());
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(2 * num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -1114,6 +1127,7 @@ TEST_P(SchedulingGroupWorkQueueTest, MergeWorkPeer2) {
     EXPECT_EQ(1, sgman_.size());
     sg = rp1_->GetSchedulingGroup();
     EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
 
     Leave(rp1_.get(), p1_.get());
     Leave(rp2_.get(), p2_.get());
@@ -1182,12 +1196,14 @@ TEST_P(SchedulingGroupQueueActiveTest, Split) {
     EXPECT_EQ(2, sgman_.size());
 
     sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     EXPECT_EQ(rp1_p1_bulk_active_,
         IsQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p1_.get()));
     EXPECT_EQ(rp1_p1_update_active_,
         IsQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p1_.get()));
 
     sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     EXPECT_EQ(rp2_p2_bulk_active_,
         IsQueueActive(sg, rp2_.get(), RibOutUpdates::QBULK, p2_.get()));
     EXPECT_EQ(rp2_p2_update_active_,
@@ -1221,12 +1237,14 @@ TEST_P(SchedulingGroupQueueActiveTest, Merge) {
     EXPECT_EQ(1, sgman_.size());
 
     sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     EXPECT_EQ(rp1_p1_bulk_active_,
         IsQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p1_.get()));
     EXPECT_EQ(rp1_p1_update_active_,
         IsQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p1_.get()));
 
     sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(0, GetWorkQueueInvalidSize(sg));
     EXPECT_EQ(rp2_p2_bulk_active_,
         IsQueueActive(sg, rp2_.get(), RibOutUpdates::QBULK, p2_.get()));
     EXPECT_EQ(rp2_p2_update_active_,
