@@ -27,10 +27,17 @@ redis.log(redis.LOG_NOTICE,"DelRequest for "..sm)
 local db = tonumber(ARGV[5])
 redis.call('select',db)
 local typ = redis.call('smembers',"TYPES:"..sm)
+--- In a scaled setup, sub_del() can be bottleneck.
+--- Therefore, call sub_del() only for types, where aggtype="stats" is specified
+--- aggtype="stats" is deprecated and will not be supported from next release
+local stat_types = {ModuleServerState=true, ModuleCpuState=true,
+                    BgpRouterState=true, VrouterStatsAgent=true}
 
 for k,v in pairs(typ) do
+    redis.log(redis.LOG_NOTICE, "Read UVES:"..sm..":"..v)
     local lres = redis.call('zrange',"UVES:"..sm..":"..v, 0, -1, "withscores")
     local iter = 1
+    redis.log(redis.LOG_NOTICE, "Delete "..sm..":"..v.." [#"..(#lres/2).."]")
     while iter <= #lres do
         local deltyp = v
         local deluve = lres[iter]
@@ -47,10 +54,11 @@ for k,v in pairs(typ) do
 	   redis.call('hdel', "KEY2PART:"..sm..":"..deltyp, deluve)
 	   redis.call('srem', "PART2KEY:"..part, sm..":"..deltyp..":"..deluve)
 	end
-        redis.log(redis.LOG_NOTICE,"DEL for "..dkey.." part "..part)
 
         local dval = "VALUES:"..deluve..":"..sm..":"..deltyp
-        sub_del(dval)
+        if stat_types[deltyp] then
+            sub_del(dval)
+        end
 
         local lttt = redis.call('exists', dval)
         if lttt == 1 then
