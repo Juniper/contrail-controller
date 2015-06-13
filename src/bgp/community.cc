@@ -212,6 +212,20 @@ vector<string> ExtCommunity::GetTunnelEncap() const {
     return encap_list;
 }
 
+bool ExtCommunity::ContainsTunnelEncapVxlan() const {
+    for (ExtCommunityList::const_iterator iter = communities_.begin();
+         iter != communities_.end(); ++iter) {
+        if (!ExtCommunity::is_tunnel_encap(*iter))
+            continue;
+        TunnelEncap encap(*iter);
+        if (encap.tunnel_encap() == TunnelEncapType::VXLAN)
+            return true;
+        if (encap.tunnel_encap() == TunnelEncapType::VXLAN_CONTRAIL)
+            return true;
+    }
+    return false;
+}
+
 ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
         const ExtCommunitySpec spec) : extcomm_db_(extcomm_db) {
     refcount_ = 0;
