@@ -136,7 +136,7 @@ public:
     }
 
     void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
+        open_timer_->Start(1000,
             boost::bind(&StateMachine::OpenTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
@@ -299,7 +299,7 @@ public:
     }
 
     void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
+        open_timer_->Start(1000,
             boost::bind(&XmppStateMachine::OpenTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }
