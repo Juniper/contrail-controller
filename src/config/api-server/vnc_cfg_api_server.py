@@ -1263,6 +1263,11 @@ class VncApiServer(VncApiServerGen):
                 obj_dict['href'] = self.generate_url(
                                         obj_type, obj_result['uuid'])
                 obj_dict.update(obj_result)
+                if 'id_perms' not in obj_dict:
+                    # It is possible that the object was deleted, but received
+                    # an update after that. We need to ignore it for now. In
+                    # future, we should clean up such stale objects
+                    continue
                 if (obj_dict['id_perms'].get('user_visible', True) or
                     self.is_admin_request()):
                     obj_dicts.append({obj_type: obj_dict})
