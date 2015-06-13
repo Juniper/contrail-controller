@@ -16,5 +16,13 @@ request sandesh TestOvsdbRouteExportReq {
     2: string mac_addr;
     3: string dest_ip;
     4: u16 number_of_routes;
+    5: bool use_same_dest_ip;
+}
+
+request sandesh TestOvsdbRouteWithdrawReq {
+    1: string vn_uuid;
+    2: string mac_addr;
+    3: string dest_ip;
+    4: u16 number_of_routes;
 }
 
