@@ -7,12 +7,11 @@
 #include <cmn/agent_cmn.h>
 #include <base/task_annotations.h>
 #include <oper/vrf.h>
+#include <oper/vn.h>
 #include <oper/nexthop.h>
 #include <oper/vxlan.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
-
-static VxLanTable *vxlan_id_table_;
 
 using namespace std;
 
@@ -94,45 +93,106 @@ VxLanId *VxLanTable::Find(uint32_t vxlan_id) {
 
 void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
     const VxLanId *vxlan_id = static_cast<const VxLanId *>(e);
-    VxLanId::Delete(vxlan_id->vxlan_id());
+    Delete(vxlan_id->vxlan_id());
+}
+
+// Follows semantics defined for the ConfigTree in vxlan.h
+// Return values:
+//    - vxlan dbentry if "vn" is "active"
+//    - NULL if "vn" is "inactive"
+VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
+                            const std::string &vrf, bool flood_unknown_unicast){
+    // Treat a request without VRF as delete of config entry
+    if (vrf.empty()) {
+        Delete(vxlan_id, vn);
+        return NULL;
+    }
+
+    // If there are no config-entries persent for the vxlan,
+    //  - Add the config-entry and make it active
+    //  - Create VxLan entry
+    ConfigTree::iterator it = config_tree_.lower_bound(ConfigKey(vxlan_id,
+                                                                 nil_uuid()));
+    if (it == config_tree_.end() || it->first.vxlan_id_ != vxlan_id) {
+        config_tree_.insert(make_pair(ConfigKey(vxlan_id, vn),
+                                      ConfigEntry(vrf, flood_unknown_unicast,
+                                                  true)));
+        Create(vxlan_id, vrf, flood_unknown_unicast);
+        return Find(vxlan_id);
+    }
+
+    // Handle change to existing config-entry
+    it = config_tree_.find(ConfigKey(vxlan_id, vn));
+    if (it != config_tree_.end()) {
+        it->second.vrf_ = vrf;
+        it->second.flood_unknown_unicast_ = flood_unknown_unicast;
+
+        // If entry is active, update vxlan dbentry with new information
+        if (it->second.active_) {
+            Create(vxlan_id, vrf, flood_unknown_unicast);
+            return Find(vxlan_id);
+        }
+        // If entry inactive, return NULL
+        return NULL;
+    }
+
+    // Entry not present, add it to config-tree
+    config_tree_.insert(make_pair(ConfigKey(vxlan_id, vn),
+                                  ConfigEntry(vrf, flood_unknown_unicast,
+                                              false)));
+    // Return NULL since the VN is active
+    return NULL;
+}
+
+VxLanId *VxLanTable::Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn) {
+    ConfigTree::iterator it = config_tree_.find(ConfigKey(vxlan_id, vn));
+    // Entry not found
+    if (it == config_tree_.end()) {
+        return NULL;
+    }
+
+    // If the entry is active and getting deleted, make new "active" entry
+    bool active = it->second.active_;
+    config_tree_.erase(it);
+    if (active == false)
+        return NULL;
+
+    // Make first entry as active
+    it = config_tree_.lower_bound(ConfigKey(vxlan_id, nil_uuid()));
+    if (it == config_tree_.end() || it->first.vxlan_id_ != vxlan_id)
+        return NULL;
+
+    it->second.active_ = true;
+    Create(vxlan_id, it->second.vrf_, it->second.flood_unknown_unicast_);
+    agent()->vn_table()->ResyncVxlan(it->first.vn_);
+    return NULL;
 }
 
 DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
-    vxlan_id_table_ = new VxLanTable(db, name);
-    vxlan_id_table_->Init();
-
-    return vxlan_id_table_;
+    VxLanTable *table = new VxLanTable(db, name);
+    table->Init();
+    return table;
 }
 
-void VxLanId::Create(uint32_t vxlan_id, const string &vrf_name,
-                     bool flood_unknown_unicast) {
-    DBRequest nh_req;
-    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, true);
-    nh_req.key.reset(vrf_nh_key);
+void VxLanTable::Create(uint32_t vxlan_id, const string &vrf_name,
+                        bool flood_unknown_unicast) {
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new VrfNHKey(vrf_name, false, true));
     nh_req.data.reset(new VrfNHData(flood_unknown_unicast));
 
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VxLanIdKey(vxlan_id));
+    req.data.reset(new VxLanIdData(vrf_name, nh_req));
 
-    VxLanIdKey *key = new VxLanIdKey(vxlan_id);
-    req.key.reset(key);
-
-    VxLanIdData *data = new VxLanIdData(vrf_name, nh_req);
-    req.data.reset(data);
-
-    vxlan_id_table_->Process(req);
+    Process(req);
     return;
 }
                                    
-void VxLanId::Delete(uint32_t vxlan_id) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    VxLanIdKey *key = new VxLanIdKey(vxlan_id);
-    req.key.reset(key);
+void VxLanTable::Delete(uint32_t vxlan_id) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VxLanIdKey(vxlan_id));
     req.data.reset(NULL);
-    vxlan_id_table_->Process(req);
+    Process(req);
 }
 
 bool VxLanId::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
@@ -196,4 +256,88 @@ void VxLanReq::HandleRequest() const {
 AgentSandeshPtr VxLanTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context) {
     return AgentSandeshPtr(new AgentVxLanSandesh(context));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Sandesh routines to dump config tree
+/////////////////////////////////////////////////////////////////////////////
+class VxLanConfigSandeshTask : public Task {
+ public:
+    VxLanConfigSandeshTask(Agent *agent, uint32_t vxlan_id, const string &vn,
+                           const string &active, const string &context) :
+        Task(agent->task_scheduler()->GetTaskId("db::DBTable"), 0),
+        agent_(agent), vxlan_id_(vxlan_id), vn_(vn), active_(active),
+        context_(context) { }
+    ~VxLanConfigSandeshTask() { }
+    virtual bool Run();
+
+ private:
+    Agent *agent_;
+    uint32_t vxlan_id_;
+    string vn_;
+    string active_;
+    string context_;
+    DISALLOW_COPY_AND_ASSIGN(VxLanConfigSandeshTask);
+};
+
+bool VxLanConfigSandeshTask::Run() {
+    VxLanConfigResp *resp = new VxLanConfigResp();
+    vector<VxLanConfigEntry> &list =
+        const_cast<vector<VxLanConfigEntry>&>(resp->get_vxlan_config_entries());
+
+    uuid u = nil_uuid();
+    if (vn_.empty() == false) {
+        u = StringToUuid(vn_);
+    }
+
+    const VxLanTable::ConfigTree &tree = agent_->vxlan_table()->config_tree();
+    VxLanTable::ConfigTree::const_iterator it = tree.begin();
+    while (it != tree.end()) {
+        VxLanConfigEntry entry;
+        if (vxlan_id_ != 0) {
+            if (vxlan_id_ != it->first.vxlan_id_) {
+                it++;
+                continue;
+            }
+        }
+
+        if (u != nil_uuid() && u != it->first.vn_) {
+            it++;
+            continue;
+        }
+
+        if (active_.empty() == false) {
+            if ((active_ == "true" || active_ == "yes" || active_ == "active")
+                && (it->second.active_ != true)) {
+                it++;
+                continue;
+            }
+
+            if ((active_ == "false" || active_ == "no" || active_ == "inactive")
+                && (it->second.active_ != false)) {
+                it++;
+                continue;
+            }
+        }
+
+        entry.set_vxlan_id(it->first.vxlan_id_);
+        entry.set_vn_uuid(UuidToString(it->first.vn_));
+        entry.set_vrf(it->second.vrf_);
+        entry.set_flood_unknown_unicast(it->second.flood_unknown_unicast_);
+        entry.set_active(it->second.active_);
+        list.push_back(entry);
+        it++;
+    }
+    resp->set_context(context_);
+    resp->set_more(false);
+    resp->Response();
+    return true;
+}
+
+void VxLanConfigReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    VxLanConfigSandeshTask *task =
+        new VxLanConfigSandeshTask(agent, get_vxlan_id(), get_vn(),
+                                   get_active(), context());
+    agent->task_scheduler()->Enqueue(task);
 }

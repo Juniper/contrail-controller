@@ -151,11 +151,6 @@ public:
     int GetVxLanId() const;
     int ComputeEthernetTag() const;
     bool Resync(); 
-    bool VxLanNetworkIdentifierChanged();
-    bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
-                         bool new_bridging,
-                         bool vxlan_network_identifier_mode_changed,
-                         bool new_flood_unknown_unicast);
     void UpdateMacVmBindingFloodFlag();
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
@@ -175,7 +170,6 @@ public:
     void SendObjectLog(AgentLogEvent::type event) const;
 
 private:
-    void RebakeVxLan(int vxlan_id);
     friend class VnTable;
 
     Agent *agent_;
@@ -196,6 +190,7 @@ private:
     uint32_t table_label_;
     bool enable_rpf_;
     bool flood_unknown_unicast_;
+    uint32_t old_vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -233,10 +228,12 @@ public:
                int vxlan_id, bool admin_state, bool enable_rpf,
                bool flood_unknown_unicast);
     void DelVn(const uuid &vn_uuid);
+    void ResyncVxlan(const boost::uuids::uuid &vn);
     VnEntry *Find(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VnEntryWalkDone(DBTableBase *partition);
+    bool RebakeVxlan(VnEntry *vn, bool op_del);
 
     static void IpamVnSync(IFMapNode *node);
 

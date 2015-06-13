@@ -230,6 +230,9 @@ public:
     virtual const std::string ToString();
 private:
     const boost::uuids::uuid id_;
+    uint16_t vxlan_id_;
+    bool check_vxlan_id_ref_;
+    uint16_t vxlan_id_ref_;
 };
 
 class AgentUtXmlVmValidate : public AgentUtXmlValidationNode {
@@ -259,6 +262,8 @@ public:
 private:
     const boost::uuids::uuid id_;
     uint16_t vxlan_id_;
+    std::string vrf_;
+    std::string flood_unknown_unicast_;
 };
 
 class AgentUtXmlVmInterfaceValidate : public AgentUtXmlValidationNode {
