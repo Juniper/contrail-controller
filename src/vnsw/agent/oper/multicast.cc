@@ -154,7 +154,9 @@ void MulticastHandler::HandleTsnSubscription(DBTablePartBase *partition,
         } else {
             if (old_vxlan_id != vn_vxlan_id) {
                 state->vxlan_id_ = vn_vxlan_id;
-                all_broadcast->set_vxlan_id(state->vxlan_id_);
+                if (all_broadcast) {
+                    all_broadcast->set_vxlan_id(state->vxlan_id_);
+                }
             }
         }
         ComponentNHKeyList component_nh_key_list;
@@ -338,6 +340,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
             DeleteBroadcast(agent_->local_vm_peer(),
                             (*it)->vrf_name_, 0, Composite::L2INTERFACE);
             /* delete mcast object */
+            // TODO : delete only when all creators are gone
             DeleteMulticastObject((*it)->vrf_name_, (*it)->grp_address_);
         }
     }
