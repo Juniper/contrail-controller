@@ -751,6 +751,24 @@ request sandesh MirrorCfgDisplayReq {
 request sandesh VxLanReq {
 }
 
+struct VxLanConfigEntry {
+    1: u32 vxlan_id;
+    2: string vn_uuid;
+    3: string vrf;
+    4: bool flood_unknown_unicast;
+    5: bool active;
+}
+
+response sandesh VxLanConfigResp {
+    1: list<VxLanConfigEntry> vxlan_config_entries;
+}
+
+request sandesh VxLanConfigReq {
+    1: u32 vxlan_id;
+    2: string vn;
+    3: string active;
+}
+
 response sandesh VxLanResp {
     1: list<VxLanSandeshData> vxlan_list;
 }
