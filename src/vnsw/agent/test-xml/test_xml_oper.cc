@@ -203,8 +203,11 @@ bool AgentUtXmlVn::ToXml(xml_node *parent) {
     }
 
     if (!flood_unknown_unicast().empty() && op_delete() == false) {
-        AddXmlNodeWithValue(&n, "flood-unknown-unicast",
-                            flood_unknown_unicast());
+        if (flood_unknown_unicast() == "true" ||
+            flood_unknown_unicast() == "yes")
+            AddXmlNodeWithValue(&n, "flood-unknown-unicast", "true");
+        else
+            AddXmlNodeWithValue(&n, "flood-unknown-unicast", "false");
     }
     AddIdPerms(&n);
     return true;
@@ -763,22 +766,51 @@ bool AgentUtXmlNova::Run() {
 AgentUtXmlVnValidate::AgentUtXmlVnValidate(const string &name,
                                            const uuid &id,
                                            const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
+    AgentUtXmlValidationNode(name, node), id_(id), vxlan_id_(0),
+    vxlan_id_ref_(false) {
 }
 
 AgentUtXmlVnValidate::~AgentUtXmlVnValidate() {
 }
 
 bool AgentUtXmlVnValidate::ReadXml() {
+    GetUintAttribute(node(), "vxlan-id", &vxlan_id_);
+    check_vxlan_id_ref_ = GetUintAttribute(node(), "vxlan-id-ref", &vxlan_id_ref_);
     return true;
 }
 
 bool AgentUtXmlVnValidate::Validate() {
-    if (present()) {
-        return VnFind(id());
-    } else {
-        return !VnFind(id());
+    VnEntry *vn = VnGet(id());
+    if (present() == false) {
+        return (vn == NULL);
     }
+
+    if (vn == NULL)
+        return false;
+
+    if (vxlan_id_ != 0) {
+        if (vn->GetVxLanId() != vxlan_id_)
+            return false;
+    }
+
+    if (check_vxlan_id_ref_) {
+        if (vxlan_id_ref_ == 0) {
+            if (vn->vxlan_id_ref() != NULL)
+                return false;
+        }
+
+        if (vxlan_id_ref_) {
+            const VxLanId *vxlan = vn->vxlan_id_ref();
+            if (vxlan == NULL)
+                return false;
+
+            if (vxlan->vxlan_id() != vxlan_id_ref_)
+                return false;
+        }
+    }
+
+
+    return true;
 }
 
 const string AgentUtXmlVnValidate::ToString() {
@@ -806,7 +838,7 @@ bool AgentUtXmlVmValidate::Validate() {
 }
 
 const string AgentUtXmlVmValidate::ToString() {
-    return "virtual-network";
+    return "virtual-machine";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -815,23 +847,63 @@ const string AgentUtXmlVmValidate::ToString() {
 AgentUtXmlVxlanValidate::AgentUtXmlVxlanValidate(const string &name,
                                                  const uuid &id,
                                                  const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
+    AgentUtXmlValidationNode(name, node), id_(id), vxlan_id_(0), vrf_(),
+    flood_unknown_unicast_() {
 }
 
 AgentUtXmlVxlanValidate::~AgentUtXmlVxlanValidate() {
 }
 
 bool AgentUtXmlVxlanValidate::ReadXml() {
-    GetUintAttribute(node(), "vxlan", &vxlan_id_);
+    GetUintAttribute(node(), "vxlan-id", &vxlan_id_);
+    GetStringAttribute(node(), "vrf", &vrf_);
+    GetStringAttribute(node(), "flood-unknown-unicast", &flood_unknown_unicast_);
     return true;
 }
 
 bool AgentUtXmlVxlanValidate::Validate() {
-    if (present()) {
-        return VxlanFind(vxlan_id_);
-    } else {
-        return !VxlanFind(vxlan_id_);
+    VxLanId *vxlan = VxlanGet(vxlan_id_);
+
+    if (!present()) {
+        return (vxlan == NULL);
     }
+
+    if (vxlan == NULL)
+        return false;
+
+    if (vxlan->vxlan_id() != vxlan_id_)
+        return false;
+
+    if (flood_unknown_unicast_.empty() == false) {
+        const VrfNH *nh = dynamic_cast<const VrfNH *>(vxlan->nexthop());
+        if (nh == NULL)
+            return false;
+
+        if (flood_unknown_unicast_ == "true" ||
+            flood_unknown_unicast_ == "yes") {
+            return (nh->flood_unknown_unicast() == true);
+        } else {
+            return (nh->flood_unknown_unicast() == false);
+        }
+    }
+
+    if (vrf_.empty() == false) {
+        const VrfNH *nh = dynamic_cast<const VrfNH *>(vxlan->nexthop());
+        if (nh == NULL)
+            return false;
+
+        if (nh->GetType() != NextHop::VRF)
+            return false;
+
+        const VrfEntry *vrf = nh->GetVrf();
+        if (vrf == NULL)
+            return false;
+
+        if (vrf->GetName() != vrf_)
+            return false;
+    }
+
+    return true;
 }
 
 const string AgentUtXmlVxlanValidate::ToString() {

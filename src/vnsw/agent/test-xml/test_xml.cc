@@ -43,6 +43,21 @@ bool GetUintAttribute(const xml_node &node, const string &name,
     return true;
 }
 
+bool GetBoolAttribute(const xml_node &node, const string &name,
+                      bool *value) {
+    xml_attribute attr = node.attribute(name.c_str());
+    if (!attr) {
+        return false;;
+    }
+
+    string str = attr.as_string();
+    if (str == "true" || str == "yes")
+        *value = true;
+    else
+        *value = false;
+    return true;
+}
+
 void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
                  const uuid &vm_uuid, const uuid vn_uuid, const string &name,
                  const string &mac, const string vm_name) {

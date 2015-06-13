@@ -664,7 +664,7 @@ TEST_F(UveVmUveTest, FipL3Disabled) {
     client->Reset();
     AddVn("default-project:vn2", 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VnNotifyWait(2));
+    WAIT_FOR(1000, 100, (client->vn_notify_ >= 1));
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));
@@ -776,7 +776,7 @@ TEST_F(UveVmUveTest, FipUninstalledRemove) {
     client->Reset();
     AddVn("default-project:vn2", 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VnNotifyWait(2));
+    WAIT_FOR(1000, 100, (client->vn_notify_ >= 1));
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));

@@ -21,6 +21,8 @@ bool GetStringAttribute(const pugi::xml_node &node, const std::string &name,
                         std::string *value);
 bool GetUintAttribute(const pugi::xml_node &node, const std::string &name,
                       uint16_t *value);
+bool GetBoolAttribute(const pugi::xml_node &node, const std::string &name,
+                      bool *value);
 void NovaIntfAdd(bool op_delete, const boost::uuids::uuid &id,
                  const IpAddress &ip, const boost::uuids::uuid &vm_uuid,
                  const boost::uuids::uuid vn_uuid, const std::string &name,

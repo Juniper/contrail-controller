@@ -1,0 +1,208 @@
+<?xml version="1.0"?>
+<test_suite name="vrf">
+<test name="vxlan-basic-1">
+    <!-- VN without VRF. VxLan should not be present -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100" />
+    <validate name="vn-without-vrf-no-vxlan-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" flood-unknown-unicast="false"
+         present="no"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- VRF added. VxLan should be present -->
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" />
+    <validate name="vn-with-vrf-vxlan-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+    </validate>
+
+    <!-- Change VxLan to 0 -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="0" />
+    <validate name="change-vxlan-to-0">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1" present="no"/>
+        <vxlan name="1" uuid="1" vxlan-id="0" vrf="a:b:vn1:vn1" present="no"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Cleanup -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100" />
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100"
+     delete="1"/>
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" delete="1"/>
+    <validate name="delete-vn1">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1" present="no"/>
+    </validate>
+</test>
+
+<test name="vxlan-change-1">
+    <!-- create VN and VRF -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100" />
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" />
+    <validate name="vn-with-vrf-vxlan-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="1" name="a:b:vn1" flood-unknown-unicast="true"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn-without-vrf-no-vxlan-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" flood-unknown-unicast="true"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="1" name="a:b:vn1" flood-unknown-unicast="false"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn-without-vrf-no-vxlan-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" flood-unknown-unicast="false"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+    </validate>
+
+    <!-- Change VxLan to 0 -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="200" />
+    <validate name="vxlan-change-to-200">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1" present="no"/>
+        <vxlan name="1" uuid="1" vxlan-id="200" vrf="a:b:vn1:vn1"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="200" />
+    </validate>
+
+    <!-- Cleanup -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="200"
+     delete="1"/>
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" delete="1"/>
+    <validate name="cleanup-no-vxlan-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1" present="no"/>
+        <vxlan name="1" uuid="1" vxlan-id="200" vrf="a:b:vn1:vn1" present="no"/>
+    </validate>
+</test>
+
+<test name="Multiple-VN-with-same-vxlan-id-1">
+    <!-- Create VN1 with vxlan-100 -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100" />
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" />
+    <validate name="vn1-with-vxlan-100">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+    </validate>
+
+    <!-- Create VN2 also with vxlan-100 -->
+    <virtual-network uuid="2" name="a:b:vn2" vxlan-id="2" network-id="100" />
+    <vrf uuid="2" name="a:b:vn2:vn2" vn="a:b:vn2" />
+    <validate name="vn2-with-vxlan-100">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="2" name="a:b:vn2" flood-unknown-unicast="true"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn2-flood-unknown-unicast-1">
+        <vxlan name="1" uuid="1" vxlan-id="100" flood-unknown-unicast="false"/>
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="1" name="a:b:vn1" flood-unknown-unicast="true"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn1-flood-unknown-unicast-2">
+        <vxlan name="1" uuid="1" vxlan-id="100" flood-unknown-unicast="true"/>
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Change vxlan for VN2 to 200. We should have both 100 and 200 vxlan -->
+    <virtual-network uuid="2" name="a:b:vn2" flood-unknown-unicast="true"
+     vxlan-id="2" network-id="200" />
+    <validate name="change-vn2-vxlan-200">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+        <vxlan name="1" uuid="2" vxlan-id="200" vrf="a:b:vn2:vn2"
+         flood-unknown-unicast="true"/>
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="200" />
+    </validate>
+
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100"
+     delete="1"/>
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" delete="1"/>
+    <validate name="delete-vn1">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1" present="no"/>
+        <vxlan name="1" uuid="2" vxlan-id="200" vrf="a:b:vn2:vn2"
+         present="yes"/>
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="200" />
+    </validate>
+
+    <virtual-network uuid="2" name="a:b:vn2" vxlan-id="2" network-id="200"
+     delete="1"/>
+    <vrf uuid="2" name="a:b:vn2:vn2" vn="a:b:vn2" delete="1"/>
+    <validate name="delete-vn2">
+        <vxlan name="1" uuid="1" vxlan-id="100" present="no"/>
+        <vxlan name="1" uuid="2" vxlan-id="200" present="no"/>
+    </validate>
+</test>
+
+<test name="Multiple-VN-with-same-vxlan-id-2">
+    <!-- Create VN1 with vxlan-100 -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100" />
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" />
+    <validate name="vn1-with-vxlan-100">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+    </validate>
+
+    <!-- Create VN2 also with vxlan-100 -->
+    <virtual-network uuid="2" name="a:b:vn2" vxlan-id="2" network-id="100" />
+    <vrf uuid="2" name="a:b:vn2:vn2" vn="a:b:vn2" />
+    <validate name="vn2-with-vxlan-100">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="2" name="a:b:vn2" flood-unknown-unicast="true"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn2-flood-unknown-unicast">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"
+         flood-unknown-unicast="false"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="1" name="a:b:vn1" flood-unknown-unicast="true"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn1-flood-unknown-unicast">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"
+         flood-unknown-unicast="true"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Change flood-unknown-unicast flag -->
+    <virtual-network uuid="1" name="a:b:vn1" flood-unknown-unicast="false"
+     vxlan-id="2" network-id="100" />
+    <validate name="vn1-flood-unknown-unicast">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn1:vn1"
+         flood-unknown-unicast="false"/>
+        <vn uuid="1" name="a:b:vn1" vxlan-id-ref="100" />
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="0" />
+    </validate>
+
+    <!-- Delete VN1 . vxlan 100 should have vn2 now -->
+    <virtual-network uuid="1" name="a:b:vn1" vxlan-id="2" network-id="100"
+     delete="1"/>
+    <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" delete="1"/>
+    <validate name="delete-vn1">
+        <vxlan name="1" uuid="1" vxlan-id="100" vrf="a:b:vn2:vn2"
+         flood-unknown-unicast="true"/>
+        <vn uuid="2" name="a:b:vn2" vxlan-id-ref="100" />
+    </validate>
+
+    <virtual-network uuid="2" name="a:b:vn2" vxlan-id="2" network-id="100"
+     delete="1"/>
+    <vrf uuid="2" name="a:b:vn2:vn2" vn="a:b:vn2" delete="1"/>
+    <validate name="delete-vn2">
+        <vxlan name="1" uuid="1" vxlan-id="100" present="no"/>
+        <vxlan name="1" uuid="2" vxlan-id="200" present="no"/>
+    </validate>
+</test>
+
+</test_suite>
