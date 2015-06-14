@@ -39,6 +39,7 @@ bool IFMapUpdateQueue::Enqueue(IFMapUpdate *update) {
         tm_last = true;
     }
     list_.push_back(*update);
+    update->set_queue_insert_at_to_now();
     return tm_last;
 }
 
@@ -308,7 +309,7 @@ void ShowIFMapUpdateQueue::CopyNode(UpdateQueueShowEntry *dest,
         if (src->IsDelete()) {
             dest->qe_type = "Delete";
         }
-        dest->qe_bitset = update->advertise().ToString();
+        dest->qe_bitset = update->advertise().ToNumberedString();
     }
     if (src->IsMarker()) {
         IFMapMarker *marker = static_cast<IFMapMarker *>(src);
@@ -318,8 +319,9 @@ void ShowIFMapUpdateQueue::CopyNode(UpdateQueueShowEntry *dest,
         } else {
             dest->qe_type = "Marker";
         }
-        dest->qe_bitset = marker->mask.ToString();
+        dest->qe_bitset = marker->mask.ToNumberedString();
     }
+    dest->queue_insert_ago = src->queue_insert_ago_str();
 }
 
 bool ShowIFMapUpdateQueue::BufferStage(const Sandesh *sr,
