@@ -86,10 +86,10 @@ class Controller(object):
                 if self._if_data[dev][intf][0] == 1:
                     if t - self._if_data[dev][intf][1] > expry:
                         self._set_status(up2down, dev, intf, 7) #no resp
+                        self._if_data[dev][intf] = (7, t)
 
     def _get_if_changes(self, if_cdata):
         down2up, up2down, others = {}, {}, {}
-        t = time.time()
         for dev in if_cdata:
             if dev in self._if_data:
                 for intf in if_cdata[dev]:
