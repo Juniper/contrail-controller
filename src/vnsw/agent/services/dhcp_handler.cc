@@ -379,8 +379,9 @@ bool DhcpHandler::HandleVmRequest() {
     }
 
     // options length = pkt length - size of headers
-    int16_t options_len = pkt_info_->len - sizeof(struct ether_header) -
-        sizeof(struct ip) - sizeof(udphdr) - DHCP_FIXED_LEN;
+    int16_t options_len = pkt_info_->len -
+                          (pkt_info_->data - (uint8_t *)pkt_info_->pkt)
+                          - DHCP_FIXED_LEN;
     if (!ReadOptions(options_len))
         return true;
 
