@@ -73,6 +73,12 @@ public:
     void set_ip_fabric_interface_index(uint32_t ind) {
         ip_fabric_interface_index_ = ind;
     }
+    uint32_t pkt_interface_index() const {
+        return pkt_interface_index_;
+    }
+    void set_pkt_interface_index(uint32_t ind) {
+        pkt_interface_index_ = ind;
+    }
     const MacAddress &ip_fabric_interface_mac() const {
         return ip_fabric_interface_mac_;
     }
@@ -103,6 +109,7 @@ private:
     bool dhcp_relay_mode_;
     Interface *ip_fabric_interface_;
     uint32_t ip_fabric_interface_index_;
+    uint32_t pkt_interface_index_;
     MacAddress ip_fabric_interface_mac_;
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;

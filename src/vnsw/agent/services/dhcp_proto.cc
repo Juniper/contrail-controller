@@ -19,8 +19,8 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
                      bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::DHCP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_(NULL),
-    ip_fabric_interface_index_(-1), dhcp_server_socket_(io),
-    dhcp_server_read_buf_(NULL) {
+    ip_fabric_interface_index_(-1), pkt_interface_index_(-1),
+    dhcp_server_socket_(io), dhcp_server_read_buf_(NULL) {
 
     dhcp_relay_mode_ = agent->params()->dhcp_relay_mode();
     if (dhcp_relay_mode_) {
@@ -104,6 +104,8 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(NULL);
             set_ip_fabric_interface_index(-1);
+        } else if (itf->type() == Interface::PACKET) {
+            set_pkt_interface_index(-1);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL &&
@@ -115,6 +117,8 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             } else {
                 set_ip_fabric_interface_mac(MacAddress());
             }
+        } else if (itf->type() == Interface::PACKET) {
+            set_pkt_interface_index(itf->id());
         }
     }
 }
