@@ -133,7 +133,7 @@ class PhysicalRouterDM(DBBase):
             return
         obj = cls._dict[uuid]
         obj.config_manager.delete_bgp_config()
-        self.uve_send(True)
+        obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
@@ -181,6 +181,7 @@ class PhysicalRouterDM(DBBase):
                 self.config_manager.add_bgp_peer(peer.params['address'],
                                                  params, external)
             self.config_manager.set_bgp_config(bgp_router.params)
+            self.config_manager.set_global_routing_options(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
             if self.dataplane_ip is not None and self.is_valid_ip(self.dataplane_ip):
                 self.config_manager.add_dynamic_tunnels(self.dataplane_ip,
@@ -210,10 +211,10 @@ class PhysicalRouterDM(DBBase):
                 vn_dict[vn_id] = [li.name]
 
         #for now, assume service port ifls unit numbers are always starts with 0 and goes on
-        service_port_id = 0
+        service_port_id = 1
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
-            if vn_obj is None:
+            if vn_obj is None or vn_obj.vxlan_vni is None:
                 continue
             export_set = None
             import_set = None
@@ -278,7 +279,7 @@ class PhysicalRouterDM(DBBase):
                                                          False,
                                                          interfaces,
                                                          None,
-                                                         vn_obj.instance_ip_map)
+                                                         vn_obj.instance_ip_map, vn_obj.vxlan_vni)
 
         self.config_manager.send_bgp_config()
         self.uve_send()
@@ -624,7 +625,7 @@ class VirtualNetworkDM(DBBase):
         if obj is None:
             obj = self.read_obj(self.uuid)
         if GlobalVRouterConfigDM.is_global_vxlan_id_mode_auto():
-            self.vxlan_vni = obj['virtual_network_network_id']
+            self.vxlan_vni = obj.get('virtual_network_network_id')
         else:
             try:
                 prop = obj['virtual_network_properties']
