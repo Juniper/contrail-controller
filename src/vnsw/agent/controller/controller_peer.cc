@@ -22,7 +22,7 @@
 #include "oper/peer.h"
 #include "oper/vxlan.h"
 #include "oper/agent_path.h"
-#include "pkt/agent_stats.h"
+#include "cmn/agent_stats.h"
 #include <pugixml/pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "xmpp/xmpp_init.h"

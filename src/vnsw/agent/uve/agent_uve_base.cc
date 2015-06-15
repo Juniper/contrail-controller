@@ -17,7 +17,7 @@
 #include <init/agent_param.h>
 #include <oper/mirror_table.h>
 #include <uve/vrouter_stats_collector.h>
-#include <pkt/agent_stats.h>
+#include <cmn/agent_stats.h>
 
 using process::ConnectionInfo;
 using process::ConnectionType;

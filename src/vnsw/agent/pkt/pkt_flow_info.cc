@@ -31,7 +31,7 @@
 #include "pkt/flow_table.h"
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_sandesh_flow.h"
-#include "pkt/agent_stats.h"
+#include "cmn/agent_stats.h"
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <vrouter/ksync/ksync_init.h>
 

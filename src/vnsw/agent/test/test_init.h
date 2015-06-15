@@ -61,7 +61,7 @@
 #include <uve/test/agent_stats_collector_test.h>
 #include "pkt_gen.h"
 #include "pkt/flow_table.h"
-#include "pkt/agent_stats.h"
+#include "cmn/agent_stats.h"
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"

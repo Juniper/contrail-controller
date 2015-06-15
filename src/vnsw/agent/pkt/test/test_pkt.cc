@@ -11,6 +11,7 @@
 #include <base/task.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/stats_types.h>
 
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"

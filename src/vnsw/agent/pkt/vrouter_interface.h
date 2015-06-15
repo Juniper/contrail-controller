@@ -5,7 +5,7 @@
 #define vnsw_agent_pkt_vrouter_pkt_io_hpp
 
 #include "control_interface.h"
-#include "pkt/agent_stats.h"
+#include "cmn/agent_stats.h"
 #include "vr_types.h"
 #include "vr_defs.h"
 #include "vr_mpls.h"
