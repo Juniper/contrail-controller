@@ -2,14 +2,20 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from gevent import monkey
+monkey.patch_all()
+
+import argparse
 import sys
 import json
 import uuid
+import socket
 import gevent
 import requests
 import cgitb
 import copy
 import bottle
+import time
 import logging
 import logging.handlers
 import Queue
@@ -17,6 +23,10 @@ import ConfigParser
 import keystoneclient.v2_0.client as keystone
 
 import cfgm_common
+import discoveryclient.client as client
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
+    NodeTypeNames, INSTANCE_ID_DEFAULT
 try:
     from cfgm_common import vnc_plugin_base
 except ImportError:
@@ -33,6 +43,11 @@ Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
+_WEB_HOST = '0.0.0.0'
+_WEB_PORT = 8082
+_ADMIN_PORT = 8095
+
+logger = logging.getLogger(__name__)
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -763,3 +778,120 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __call__(self):
         pass
 
+
+class NeutronApiStandalone(object):
+
+    def __init__(self, args_str=None):
+        if not args_str:
+            args_str = ' '.join(sys.argv[1:])
+
+        self._parse_args(args_str)
+
+        api = NeutronApiDriver(self._args.listen_ip_addr,
+                               self._args.listen_port,
+                               self._args.config_sections)
+
+        # start monitoring of the vnc api
+        gevent.spawn(self.monitor_vnc_api)
+
+        self._vnc_api_started = False
+
+        self._vnc_api_ok = False
+        def vnc_api_status_handler(*args, **kwargs):
+            if self._vnc_api_ok:
+                return "OK"
+            else:
+                return bottle.abort(503, 'VNC Api not available')
+
+        bottle.route('/vnc_api/status', 'GET', vnc_api_status_handler)
+
+        @bottle.hook('before_request')
+        def before_handler():
+           if not self._vnc_api_ok:
+               return bottle.abort(503, 'VNC Api not available')
+
+        addr = self._args.vnc_openstack_addr
+        if not addr:
+            addr = '127.0.0.1'
+        pipe_start_app = bottle.app()
+        bottle.run(app=pipe_start_app,
+                   host=addr,
+                   port=self._args.vnc_openstack_port,
+                   server='gevent')
+
+    def _parse_args(self, args_str):
+        # Source any specified config/ini file
+        # Turn off help, so we print all options in response to -h
+        conf_parser = argparse.ArgumentParser(add_help=False)
+
+        conf_parser.add_argument("-c", "--conf_file",
+                                 help="Specify config file", metavar="FILE")
+        args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+
+        defaults = {
+            'listen_ip_addr': _WEB_HOST,
+            'listen_port': _WEB_PORT,
+            'vnc_openstack_port': None,
+            'vnc_openstack_addr': None,
+            'vnc_api_check': '1',
+            'no_exit_on_failure': False,
+        }
+
+        config = None
+        if args.conf_file:
+            config = ConfigParser.SafeConfigParser({'admin_token': None})
+            config.read([args.conf_file])
+            defaults.update(dict(config.items("DEFAULTS")))
+
+        # Override with CLI options
+        # Don't surpress add_help here so it will handle -h
+        parser = argparse.ArgumentParser(
+            # Inherit options from config_parser
+            parents=[conf_parser],
+            # print script description with -h/--help
+            description=__doc__,
+            # Don't mess with format of description
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        parser.set_defaults(**defaults)
+
+        parser.add_argument(
+            "--listen_ip_addr",
+            help="IP address to provide service on, default %s" % (_WEB_HOST))
+        parser.add_argument(
+            "--listen_port",
+            help="Port to provide service on, default %s" % (_WEB_PORT))
+        parser.add_argument(
+            "--vnc_openstack_port",
+            help="Port used by the vnc_openstack standalone version.")
+        parser.add_argument(
+            "--vnc_openstack_addr",
+            help="Address used by the vnc_openstack standalone version.")
+        parser.add_argument(
+            "--vnc_api_check",
+            help="Second between to vnc_api check.", default=1)
+        parser.add_argument(
+            "--no_exit_on_failure",
+            help="Second between to vnc_api check.",
+            action='store_true', default=False)
+        self._args = parser.parse_args(remaining_argv)
+        self._args.config_sections = config
+    # end _parse_args
+
+    def monitor_vnc_api(self):
+        while True:
+            try:
+                r = requests.get('http://%s:%d/' % (self._args.listen_ip_addr,
+                                                    int(self._args.listen_port)))
+                self._vnc_api_ok = True
+                self._vnc_api_started = True
+            except requests.ConnectionError:
+                if (self._vnc_api_started and
+                    not self._args.no_exit_on_failure):
+                    sys.exit(-1)
+                self._vnc_api_ok = False
+            time.sleep(int(self._args.vnc_api_check))
+
+
+if __name__ == '__main__':
+    NeutronApiStandalone()

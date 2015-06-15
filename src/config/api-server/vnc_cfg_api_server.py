@@ -82,6 +82,7 @@ import vnc_addr_mgmt
 import vnc_auth
 import vnc_auth_keystone
 import vnc_perms
+import vnc_openstack
 from cfgm_common import vnc_cpu_info
 
 from pysandesh.sandesh_base import *
@@ -1546,8 +1547,56 @@ class VncApiServer(VncApiServerGen):
 
 # end class VncApiServer
 
+def start_standalone_vnc_openstack(args_str):
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
+
+    conf_parser = argparse.ArgumentParser(add_help=False)
+
+    conf_parser.add_argument("-c", "--conf_file",
+                             help="Specify config file", metavar="FILE")
+    args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+
+    vnc_openstack_port = None
+    if args.conf_file:
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.conf_file])
+
+        for (k, v) in config.items("DEFAULTS"):
+            if k == 'vnc_openstack_port':
+                vnc_openstack_port = v
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--vnc_openstack_port",
+        help="Port used by the vnc_openstack standalone version.")
+    args, _ = parser.parse_known_args(args_str.split())
+
+    if args.vnc_openstack_port:
+        vnc_openstack_port = args.vnc_openstack_port
+
+    if not vnc_openstack_port:
+        return
+
+    pid = gevent.fork()
+    if not pid:
+        try:
+            vnc_openstack.NeutronApiStandalone()
+        except Exception as e:
+            pass
+        sys.exit(0)
+
+    return pid
+
+def stop_standalone_vnc_openstack(pid):
+    if pid:
+        os.kill(pid, signal.SIGKILL)
+
 server = None
 def main(args_str=None):
+    # start if possible the vnc openstack as standalone
+    std_pid = start_standalone_vnc_openstack(args_str)
+
     vnc_api_server = VncApiServer(args_str)
     # set module var for uses with import e.g unit test
     global server
@@ -1581,6 +1630,7 @@ def main(args_str=None):
         raise
     finally:
         # always cleanup gracefully
+        stop_standalone_vnc_openstack(std_pid)
         vnc_api_server.cleanup()
 
 # end main
