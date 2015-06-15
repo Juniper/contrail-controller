@@ -58,7 +58,10 @@ bool Icmpv6Handler::Run() {
                     vm_itf->vn()->GetPrefix(vm_itf->ip6_addr(), &prefix, &plen)) {
                     boost::system::error_code ec;
                     Ip6Address src_addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
-                    SendRAResponse(pkt_info_->GetAgentHdr().ifindex,
+                    uint32_t interface =
+                        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+                        pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+                    SendRAResponse(interface,
                                    pkt_info_->vrf,
                                    src_addr.to_bytes().data(),
                                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
@@ -193,7 +196,10 @@ void Icmpv6Handler::SendPingResponse() {
         Icmpv6Csum(pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                    icmp_, ntohs(pkt_info_->ip6->ip6_plen));
-    SendIcmpv6Response(pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
+    uint32_t interface =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+    SendIcmpv6Response(interface, pkt_info_->vrf,
                        pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                        pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                        MacAddress(pkt_info_->eth->ether_shost),
@@ -205,7 +211,7 @@ void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
                                        const MacAddress &dest_mac,
                                        uint16_t len) {
 
-    char *buff = (char *)pkt_info_->eth;
+    char *buff = (char *)pkt_info_->pkt;
     uint16_t buff_len = pkt_info_->packet_buffer()->data_len();
 
     uint16_t eth_len = EthHdr(buff, buff_len, ifindex, agent()->vrrp_mac(),
@@ -213,6 +219,10 @@ void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
 
     pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
     Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, src_ip, dest_ip);
+    memcpy(buff + sizeof(ip6_hdr) + eth_len, icmp_, len);
     pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len);
-    Send(ifindex, vrfindex, AgentHdr::TX_SWITCH, PktHandler::ICMPV6);
+    uint16_t command =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
+    Send(ifindex, vrfindex, command, PktHandler::ICMPV6);
 }
