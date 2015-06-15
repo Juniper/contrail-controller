@@ -2,7 +2,6 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
 import sys
 import argparse
 import ConfigParser
@@ -37,10 +36,13 @@ class ControlProvisioner(object):
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip, self._args.api_server_port)
-
         if self._args.oper == 'add':
-            bp_obj.add_bgp_router('contrail', self._args.host_name,
-                                  self._args.host_ip, self._args.router_asn)
+            if self._args.md5:
+                bp_obj.add_bgp_router('contrail', self._args.host_name,
+                                      self._args.host_ip, self._args.router_asn, self._args.md5)
+            else:
+                bp_obj.add_bgp_router('contrail', self._args.host_name,
+                                      self._args.host_ip, self._args.router_asn)
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.host_name)
         else:
@@ -58,6 +60,7 @@ class ControlProvisioner(object):
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --oper <add | del>
+                                        --md5 <key value>|None(optional)
         '''
 
         # Source any specified config/ini file
@@ -76,7 +79,8 @@ class ControlProvisioner(object):
             'oper': None,
             'admin_user': None,
             'admin_password': None,
-            'admin_tenant_name': None
+            'admin_tenant_name': None,
+            'md5' : None
         }
 
         if args.conf_file:
@@ -101,6 +105,8 @@ class ControlProvisioner(object):
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
+        parser.add_argument(
+            "--md5", help="Md5 config for the node")
         parser.add_argument(
             "--ibgp_auto_mesh", help="Create iBGP mesh automatically", dest='ibgp_auto_mesh', action='store_true')
         parser.add_argument(
