@@ -467,11 +467,14 @@ ovsdb_wrapper_delete_ucast_mac_local(struct ovsdb_idl_row *row)
 
 /* unicast mac remote */
 void
-obvsdb_wrapper_add_ucast_mac_remote(struct ovsdb_idl_txn *txn, const char *mac,
-        struct ovsdb_idl_row *ls, struct ovsdb_idl_row *pl, const char *dest_ip)
+ovsdb_wrapper_add_ucast_mac_remote(struct ovsdb_idl_txn *txn,
+        struct ovsdb_idl_row *row, const char *mac, struct ovsdb_idl_row *ls,
+        struct ovsdb_idl_row *pl, const char *dest_ip)
 {
     struct vteprec_ucast_macs_remote *ucast =
-        vteprec_ucast_macs_remote_insert(txn);
+        row ? CONTAINER_OF(row, struct vteprec_ucast_macs_remote, header_) : NULL;
+    if (ucast == NULL)
+        ucast = vteprec_ucast_macs_remote_insert(txn);
     vteprec_ucast_macs_remote_set_MAC(ucast, mac);
     struct vteprec_logical_switch *l_switch =
         ls? CONTAINER_OF(ls, struct vteprec_logical_switch, header_) : NULL;
