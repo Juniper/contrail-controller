@@ -39,6 +39,7 @@ private:
     SFlowCollector* const sflow_collector_;
     DbHandler* const db_handler_;
     SFlowPktQueue sflow_pkt_queue_;
+    SandeshTraceBufferPtr trace_buf_;
     uint64_t num_packets_;
     uint64_t num_invalid_packets_;
     uint64_t time_first_pkt_seen_;

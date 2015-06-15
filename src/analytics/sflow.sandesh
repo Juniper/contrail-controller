@@ -1,0 +1,11 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  sflow.sandesh
+//
+
+trace sandesh SflowPacket {
+    1: string data
+}

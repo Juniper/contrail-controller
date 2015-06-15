@@ -93,6 +93,7 @@ AnalyticsSandeshGenFiles  = AnalyticsEnv.SandeshGenCpp('collector_uve.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenOnlyCpp('analytics.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('redis.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('uflow.sandesh')
+AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('sflow.sandesh')
 AnalyticsVizSandeshGenSrcs = AnalyticsEnv.ExtractCpp(AnalyticsVizSandeshGenFiles)
 AnalyticsSandeshGenSrcs = AnalyticsEnv.ExtractCpp(AnalyticsSandeshGenFiles)
 AnalyticsSandeshGenSrcs += AnalyticsVizSandeshGenSrcs

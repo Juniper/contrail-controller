@@ -1,17 +1,17 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
-#include "analytics/sflow_parser.h"
 
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <arpa/inet.h>
 
 #include "base/logging.h"
-
-#include <arpa/inet.h>
+#include "analytics/sflow_parser.h"
+#include "sflow_types.h"
 
 const std::string SFlowIpaddress::ToString() const {
     std::stringstream ss;
@@ -27,9 +27,11 @@ const std::string SFlowIpaddress::ToString() const {
     return ss.str();
 }
 
-SFlowParser::SFlowParser(const uint8_t* buf, size_t len)
+SFlowParser::SFlowParser(const uint8_t* buf, size_t len,
+                         SandeshTraceBufferPtr trace_buf)
     : raw_datagram_(buf), length_(len), end_ptr_(buf+len),
-      decode_ptr_(reinterpret_cast<const uint32_t*>(buf)) {
+      decode_ptr_(reinterpret_cast<const uint32_t*>(buf)),
+      trace_buf_(trace_buf) {
 }
 
 SFlowParser::~SFlowParser() {
@@ -72,10 +74,11 @@ int SFlowParser::Parse(SFlowData* const sflow_data) {
             break;
         }
         default:
-            LOG(DEBUG, "Skip SFlow Sample Type: " << sample_type);
             if (SkipBytes(sample_len) < 0) {
                 return -1;
             }
+            SFLOW_PACKET_TRACE(trace_buf_, "Skip SFlow Sample Type: " +
+                               integerToString(sample_type));
         }
     }
     return 0;
@@ -186,7 +189,8 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSampleData& flow_sample_data,
             if (SkipBytes(flow_record_len) < 0) {
                 return -1;
             }
-            LOG(DEBUG, "Skip processing of Flow Record: " << flow_record_type);
+            SFLOW_PACKET_TRACE(trace_buf_, "Skip processing of Flow Record: " +
+                               integerToString(flow_record_type));
         }
     }
     return 0;
@@ -247,8 +251,8 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
         break;
     }
     default:
-        LOG(DEBUG, "Skip processing of protocol header: " <<
-            flow_header.protocol);
+        SFLOW_PACKET_TRACE(trace_buf_, "Skip processing of protocol header: " +
+                           integerToString(flow_header.protocol));
     }
     return 0;
 }
@@ -316,8 +320,8 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
         break;
     }
     default:
-        LOG(DEBUG, "Skip processing of layer 4 protocol: " <<
-            ip_data.protocol);
+        SFLOW_PACKET_TRACE(trace_buf_, "Skip processing of layer 4 protocol: "
+                           + integerToString(ip_data.protocol));
     }
     return 0;
 }
