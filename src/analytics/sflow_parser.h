@@ -8,6 +8,8 @@
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
+#include <sandesh/sandesh_trace.h>
+
 #include "base/util.h"
 #include "sflow.h"
 
@@ -63,7 +65,8 @@ std::ostream& operator<<(std::ostream& out, const SFlowData& sflow_data) {
 
 class SFlowParser {
 public:
-    explicit SFlowParser(const uint8_t* buf, size_t len);
+    explicit SFlowParser(const uint8_t* buf, size_t len,
+                         SandeshTraceBufferPtr trace_buf);
     ~SFlowParser();
     int Parse(SFlowData* const sflow_data);
 private:
@@ -85,6 +88,7 @@ private:
     uint16_t length_;
     const uint8_t* const end_ptr_;
     const uint32_t* decode_ptr_;
+    SandeshTraceBufferPtr trace_buf_;
     
     DISALLOW_COPY_AND_ASSIGN(SFlowParser);
 };
