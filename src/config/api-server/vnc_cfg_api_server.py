@@ -839,18 +839,22 @@ class VncApiServer(VncApiServerGen):
         except KeyError:
             obj_uuids = None
 
-        try:
-            is_count = bottle.request.json['count']
-        except KeyError:
-            is_count = False
+        is_count = bottle.request.json.get('count', False)
+        is_detail = bottle.request.json.get('detail', False)
 
-        try:
-            is_detail = bottle.request.json['detail']
-        except KeyError:
-            is_detail = False
+        filters = {}
+        filter_fnames = bottle.request.json.get(
+            'filter_field_names', '').split(',')
+        filter_fvalues = bottle.request.json.get(
+            'filter_field_values', '').split(',')
+        if len(filter_fnames) or len(filter_fvalues):
+            if len(filter_fnames) != len(filter_fvalues):
+                bottle.abort(400, "Bad Request, filter parameters unequal")
+            filters['field_names'] = filter_fnames
+            filters['field_values'] = filter_fvalues
 
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
-                                     obj_uuids, is_count, is_detail)
+                                     obj_uuids, is_count, is_detail, filters)
     # end list_bulk_collection_http_post
 
     def str_to_class(self, class_name):
@@ -1075,11 +1079,12 @@ class VncApiServer(VncApiServerGen):
 
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
-                         is_count=False, is_detail=False):
+                         is_count=False, is_detail=False, filters=None):
         method_name = obj_type.replace('-', '_') # e.g. virtual_network
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
-                             parent_uuids, back_ref_uuids, obj_uuids, is_count)
+                             parent_uuids, back_ref_uuids, obj_uuids, is_count,
+                             filters)
         if not ok:
             self.config_object_error(None, None, '%ss' %(method_name),
                                      'dbe_list', result)
