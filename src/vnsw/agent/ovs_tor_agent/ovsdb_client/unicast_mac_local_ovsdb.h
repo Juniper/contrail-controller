@@ -26,8 +26,14 @@ public:
     void VrfReEvalEnqueue(VrfEntry *vrf);
     bool VrfReEval(VrfEntryRef vrf);
 
+    bool IsVrfReEvalQueueActive() const;
+
 private:
     friend class UnicastMacLocalEntry;
+
+    // delete table triggered callback
+    void DeleteTableDone(void);
+
     OvsPeer *peer_;
     VrfDepList vrf_dep_list_;
     WorkQueue<VrfEntryRef> *vrf_reeval_queue_;
