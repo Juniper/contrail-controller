@@ -557,7 +557,11 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->stats_collector());
     collector->interface_stats_responses_ = 0;
-    client->IfStatsTimerWait(1);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
     EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
@@ -568,7 +572,11 @@ TEST_F(StatsTestMock, IntfStatsTest) {
 
     //Wait for stats to be updated
     collector->interface_stats_responses_ = 0;
-    client->IfStatsTimerWait(1);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     //Verify the updated flow stats
     EXPECT_TRUE(VmPortStatsMatch(test0, 1, 50, 1, 20)); 
@@ -577,6 +585,11 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     //Reset the stats so that repeat of this test case works
     KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
     KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 }
 
 TEST_F(StatsTestMock, InterVnStatsTest) {
@@ -704,7 +717,11 @@ TEST_F(StatsTestMock, VrfStatsTest) {
         (Agent::GetInstance()->stats_collector());
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
-    client->VrfStatsTimerWait(1);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     //Verfify the stats read from kernel
     EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 10, 11, 12, 13, 
@@ -751,7 +768,11 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
-    client->VrfStatsTimerWait(1);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     //Verify that prev_* fields of vrf_stats are updated when vrf is absent from agent
     EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 36, 37, 38, 39, 40, 41, 42, 43,
@@ -778,7 +799,11 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
-    client->VrfStatsTimerWait(1);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     //Verify that vrf_stats's entry stats are set to 0
     EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true,
@@ -796,7 +821,11 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
-    client->VrfStatsTimerWait(1);
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     //Verify that vrf_stats_entry's stats are set to values after the vrf was added
     EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 26, 26, 26, 26, 
@@ -965,7 +994,8 @@ int main(int argc, char *argv[]) {
     int ret = 0;
 
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, false, true, 2, 2);
+    client = TestInit(init_file, ksync_init, true, false, true);
+    usleep(10000);
     StatsTestMock::TestSetup();
 
     ret = RUN_ALL_TESTS();
