@@ -41,7 +41,7 @@ class BgpProvisioner(object):
         return rt_inst_obj
     # end _get_rt_inst_obj
 
-    def add_bgp_router(self, router_type, router_name, router_ip, router_asn):
+    def add_bgp_router(self, router_type, router_name, router_ip, router_asn, md5=None):
         if router_type == 'contrail':
             bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn',
                                              'e-vpn', 'erm-vpn', 'inet6-vpn'])
@@ -70,6 +70,14 @@ class BgpProvisioner(object):
         try:
             fq_name = bgp_router_obj.get_fq_name()
             existing_obj = vnc_lib.bgp_router_read(fq_name=fq_name)
+            if md5:
+                bgp_params = existing_obj.get_bgp_router_parameters()
+                # set md5
+                print "Setting md5 on the existing uuid"
+                md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
+                bgp_params.set_auth_data(md5)
+                existing_obj.set_bgp_router_parameters(bgp_params)
+                vnc_lib.bgp_router_update(existing_obj)
             print ("BGP Router " + pformat(fq_name) +
                    " already exists with uuid " + existing_obj.uuid)
             return
@@ -93,7 +101,11 @@ class BgpProvisioner(object):
                 continue
 
             cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
-
+        if md5:
+            md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
+            rparams = cur_obj.bgp_router_parameters
+            rparams.set_auth_data(md5)
+            cur_obj.set_bgp_router_parameters(rparams)
         vnc_lib.bgp_router_update(cur_obj)
     # end add_bgp_router
 
