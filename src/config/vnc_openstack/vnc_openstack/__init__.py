@@ -2,8 +2,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import argparse
 import sys
 import json
+import time
 import uuid
 import gevent
 import gevent.monkey
@@ -29,6 +31,7 @@ from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
+from vnc_cfg_api_server import utils
 
 import neutron_plugin_interface as npi
 
@@ -36,6 +39,7 @@ Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
+logger = logging.getLogger(__name__)
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -806,3 +810,77 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __call__(self):
         pass
 
+
+class NeutronApiStandalone(object):
+
+    def __init__(self, args_str=None):
+        if not args_str:
+            args_str = ' '.join(sys.argv[1:])
+        self._vnc_args, remaining = utils.parse_args(args_str)
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--vnc_openstack_port",
+            help="Port used by the vnc_openstack standalone version.")
+        parser.add_argument(
+            "--vnc_openstack_addr",
+            help="Address used by the vnc_openstack standalone version.")
+        parser.add_argument(
+            "--vnc_api_check",
+            help="Second between to vnc_api check.", default=1)
+        parser.add_argument(
+            "--no_exit_on_failure",
+	    help="Second between to vnc_api check.",
+            action='store_true', default=False)
+	self._std_args, remaining_argv = parser.parse_known_args(remaining)
+        sandesh = Sandesh()
+        api = NeutronApiDriver(self._vnc_args.listen_ip_addr,
+                               self._vnc_args.listen_port,
+                               self._vnc_args.config_sections,
+                               sandesh)
+
+        # start monitoring of the vnc api
+        gevent.spawn(self.monitor_vnc_api, self._vnc_args, self._std_args)
+
+        self._vnc_api_started = False
+
+        self._vnc_api_ok = False
+        def vnc_api_status_handler(*args, **kwargs):
+            if self._vnc_api_ok:
+                return "OK"
+            else:
+                return bottle.abort(503, 'VNC Api not available')
+
+        bottle.route('/vnc_api/status', 'GET', vnc_api_status_handler)
+
+        @bottle.hook('before_request')
+        def before_handler():
+           if not self._vnc_api_ok:
+               return bottle.abort(503, 'VNC Api not available')
+
+        addr = self._std_args.vnc_openstack_addr
+        if not addr:
+            addr = '127.0.0.1'
+        pipe_start_app = bottle.app()
+        bottle.run(app=pipe_start_app,
+                   host=addr,
+                   port=self._std_args.vnc_openstack_port,
+                   server='gevent')
+
+    def monitor_vnc_api(self, vnc_args, std_args):
+        while True:
+            try:
+                r = requests.get('http://%s:%d/' % (vnc_args.listen_ip_addr,
+                                                    vnc_args.listen_port))
+                self._vnc_api_ok = True
+                self._vnc_api_started = True
+            except requests.ConnectionError:
+                if (self._vnc_api_started and
+                    not self._std_args.no_exit_on_failure):
+                    sys.exit(-1)
+                self._vnc_api_ok = False
+            time.sleep(int(std_args.vnc_api_check))
+
+
+if __name__ == '__main__':
+    NeutronApiStandalone()
