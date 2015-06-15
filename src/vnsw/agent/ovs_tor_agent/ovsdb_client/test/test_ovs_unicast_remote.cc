@@ -43,6 +43,10 @@
 #include "controller/controller_export.h"
 #include "controller/controller_vrf_export.h"
 
+extern "C" {
+#include <ovsdb_wrapper.h>
+};
+
 #include "ovs_tor_agent/ovsdb_client/ovsdb_route_peer.h"
 #include "ovs_tor_agent/ovsdb_client/physical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
@@ -117,7 +121,129 @@ TEST_F(UnicastRemoteTest, UnicastRemoteEmptyVrfAddDel) {
             "test/xml/unicast-remote-empty-vrf.xml");
 }
 
-TEST_F(UnicastRemoteTest, NewTest) {
+TEST_F(UnicastRemoteTest, TunnelIpChange) {
+    // Add VN
+    VnAddReq(2, "test-vn1");
+    // Add VRF
+    agent_->vrf_table()->CreateVrfReq("test-vrf1", MakeUuid(2));
+    // Add Physical Device
+    AddPhysicalDevice("test-router", 1);
+    client->WaitForIdle();
+
+    // Add DevVN
+    AddPhysicalDeviceVn(agent_, 1, 2, true);
+    client->WaitForIdle();
+
+    MacAddress mac("00:00:00:01:00:01");
+    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+                         (1 << TunnelType::VXLAN), "10.0.0.1",
+                         101, mac, "0.0.0.0", 32);
+    client->WaitForIdle();
+
+    VrfOvsdbObject *table = tcp_session_->client_idl()->vrf_ovsdb();
+    VrfOvsdbEntry vrf_key(table, UuidToString(MakeUuid(2)));
+    VrfOvsdbEntry *vrf_entry;
+    WAIT_FOR(100, 10000,
+             (vrf_entry =
+              static_cast<VrfOvsdbEntry *>(table->Find(&vrf_key))) != NULL);
+    KSyncEntry::KSyncEntryPtr ucast_mac = NULL;
+    if (vrf_entry != NULL) {
+        UnicastMacRemoteTable *u_table = vrf_entry->route_table();
+        UnicastMacRemoteEntry key(u_table, "00:00:00:01:00:01");
+        UnicastMacRemoteEntry *entry;
+        // Validate mac programmed in OVSDB
+        WAIT_FOR(100, 10000,
+                 ((entry =
+                  static_cast<UnicastMacRemoteEntry *>(u_table->Find(&key))) != NULL
+                  && entry->GetState() == KSyncEntry::IN_SYNC));
+        // take reference of ucast mac to hold the oper entry as well
+        ucast_mac = entry;
+    }
+
+    // Delete route
+    Ip4Address zero_ip;
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+                                   std::string("test-vrf1"),
+                                   mac, zero_ip, 0);
+    client->WaitForIdle();
+
+    // Add Route with new tunnel dest
+    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+                         (1 << TunnelType::VXLAN), "10.0.0.2",
+                         101, mac, "0.0.0.0", 32);
+    client->WaitForIdle();
+
+    if (vrf_entry != NULL) {
+        UnicastMacRemoteTable *u_table = vrf_entry->route_table();
+        UnicastMacRemoteEntry key(u_table, "00:00:00:01:00:01");
+        UnicastMacRemoteEntry *entry;
+        // Validate mac programmed in OVSDB
+        WAIT_FOR(100, 10000,
+                 ((entry =
+                  static_cast<UnicastMacRemoteEntry *>(u_table->Find(&key))) != NULL
+                  && entry->GetState() == KSyncEntry::IN_SYNC));
+        struct ovsdb_idl_row *ovs_entry = entry->ovs_entry();
+        EXPECT_TRUE(ovs_entry != NULL &&
+                    string("10.0.0.2") ==
+                    string(ovsdb_wrapper_ucast_mac_remote_dst_ip(ovs_entry)));
+    }
+
+    // Delete route
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+                                   std::string("test-vrf1"),
+                                   mac, zero_ip, 0);
+    client->WaitForIdle();
+
+    // Add new route for same mac but with receive route to have empty dest ip
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(agent_->local_peer(),
+                                   std::string("test-vrf1"), mac,
+                                   zero_ip, 0));
+    req.data.reset(new L2ReceiveRoute(std::string("test-vn1"), 0, 101));
+    if (agent_->fabric_evpn_table()) {
+        agent_->fabric_evpn_table()->Enqueue(&req);
+    }
+    client->WaitForIdle();
+
+    if (vrf_entry != NULL) {
+        UnicastMacRemoteTable *u_table = vrf_entry->route_table();
+        UnicastMacRemoteEntry key(u_table, "00:00:00:01:00:01");
+        UnicastMacRemoteEntry *entry;
+        // Validate mac programmed in OVSDB
+        WAIT_FOR(100, 10000,
+                 ((entry =
+                  static_cast<UnicastMacRemoteEntry *>(u_table->Find(&key))) != NULL
+                  && entry->GetState() == KSyncEntry::IN_SYNC));
+        // verify entry deleted from ovsdb
+        WAIT_FOR(100, 10000, NULL == entry->ovs_entry());
+    }
+
+    // release reference of ucast mac
+    ucast_mac = NULL;
+    // Delete route
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+                                   std::string("test-vrf1"),
+                                   mac, zero_ip, 0);
+    client->WaitForIdle();
+
+    // Delete DevVN
+    DelPhysicalDeviceVn(agent_, 1, 2, false);
+    client->WaitForIdle();
+
+    DeletePhysicalDevice("test-router");
+    client->WaitForIdle();
+
+    agent_->vrf_table()->DeleteVrfReq("test-vrf1");
+    VnDelReq(2);
+    client->WaitForIdle();
+
+    // Validate Logical switch deleted
+    LogicalSwitchTable *l_table = tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry l_key(table, UuidToString(MakeUuid(2)));
+    WAIT_FOR(100, 10000, (l_table->Find(&l_key) == NULL));
+}
+
+TEST_F(UnicastRemoteTest, LogicalSwitchDeleteOnRefRelease) {
     // Add VN
     VnAddReq(2, "test-vn1");
     // Add VRF
