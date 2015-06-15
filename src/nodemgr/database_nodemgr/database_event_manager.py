@@ -27,18 +27,18 @@ from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE
+    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE,\
+    MODULE_ZOOKEEPER_NAME, MODULE_KAFKA_NAME
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
-from database.sandesh.database.ttypes import \
-    NodeStatusUVE, NodeStatus, DatabaseUsageStats,\
-    DatabaseUsageInfo, DatabaseUsage
+from database.sandesh.database.ttypes import *
 from database.sandesh.database.process_info.ttypes import \
     ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
 from database.sandesh.database.process_info.constants import \
     ProcessStateNames
-
+from database.sandesh.database.cpuinfo.ttypes import ProcessCpuInfo, SystemCpuInfo
+from database.cpuinfo import CpuInfoData
 
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
@@ -111,6 +111,42 @@ class DatabaseEventManager(EventManager):
         except:
             sys.stderr.write("Failed to get database usage" + "\n")
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
+        gevent.spawn(self.cpu_info_logger)
+
+    def cpu_info_logger(self):
+        name = socket.gethostname()
+        module_list = [SERVICE_CONTRAIL_DATABASE, MODULE_ZOOKEEPER_NAME, MODULE_KAFKA_NAME]
+        proc_infos = []
+        for module in module_list:
+            popen_cmd = "set `pgrep -o -f " + module + "` && echo $1"
+            (pid, error_value) = Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+            db_cpu_info = CpuInfoData(int(pid))
+            proc_cpu_info = ProcessCpuInfo()
+            proc_cpu_info.module_id = module
+            proc_cpu_info.inst_id = self.instance_id
+            proc_cpu_info.cpu_share = db_cpu_info.get_cpu_info(
+                                      system=False).cpu_share
+            proc_cpu_info.mem_virt = db_cpu_info.get_cpu_info(
+                                     system=False).meminfo.virt
+            proc_cpu_info.mem_res = db_cpu_info.get_cpu_info(
+                                    system=False).meminfo.res
+            proc_infos.append(proc_cpu_info)
+
+        db_cpu_info = CpuInfoData(os.getpid())
+        sys_info = SystemCpuInfo()
+        sys_info.num_cpu = db_cpu_info.get_cpu_info().num_cpu
+        sys_info.cpuload = db_cpu_info.get_cpu_info().cpuload
+        sys_info.sys_mem_info = db_cpu_info.get_cpu_info().sys_mem_info
+
+        while True:
+            db_cpu_state = DatabaseCpuState()
+            db_cpu_state.name = name
+            db_cpu_state.cpu_info = proc_infos
+            db_cpu_state.sys_cpu_info = [sys_info]
+            db_cpu_state_trace = DatabaseCpuStateTrace(data=db_cpu_state)
+            db_cpu_state_trace.send()
+
+            gevent.sleep(60)
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(

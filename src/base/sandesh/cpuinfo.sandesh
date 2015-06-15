@@ -24,6 +24,12 @@ struct SysMemInfo {
     4: u32 buffers;
 }
 
+struct SystemCpuInfo {
+    1: u32 num_cpu
+    2: CpuLoadAvg cpuload
+    3: SysMemInfo sys_mem_info
+}
+
 struct CpuLoadInfo {
     1: u32 num_cpu;
     5: optional SysMemInfo sys_mem_info;

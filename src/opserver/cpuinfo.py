@@ -4,15 +4,20 @@
 
 import os
 import psutil
+from os.path import *
 
-from sandesh.analytics.ttypes import *
-from sandesh.analytics.cpuinfo.ttypes import *
-
+curr_dir = abspath(dirname(__file__))
+if exists(join(curr_dir, 'sandesh/analytics')):
+    from sandesh.analytics.ttypes import *
+    from sandesh.analytics.cpuinfo.ttypes import *
+else:
+    from sandesh.database.ttypes import *
+    from sandesh.database.cpuinfo.ttypes import *
 
 class CpuInfoData(object):
 
-    def __init__(self):
-        self._process = psutil.Process(os.getpid())
+    def __init__(self, pid):
+        self._process = psutil.Process(pid)
         self._num_cpu = 0
     #end __init__
 

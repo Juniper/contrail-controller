@@ -2070,7 +2070,7 @@ class OpServer(object):
     # end start_webserver
 
     def cpu_info_logger(self):
-        opserver_cpu_info = CpuInfoData()
+        opserver_cpu_info = CpuInfoData(os.getpid())
         while True:
             mod_cpu_info = ModuleCpuInfo()
             mod_cpu_info.module_id = self._moduleid

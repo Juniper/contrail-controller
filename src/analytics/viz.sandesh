@@ -606,6 +606,19 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Database CPU Information',
+      'stat_type' : 'DatabaseCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : true},
+          { 'name' : 'cpu_info.mem_res',   'datatype' : 'int',    'index' : true},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
+          { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
       'display_name' : 'Physical Router Interface Statistics',
       'stat_type' : 'PRouterEntry',
       'stat_attr' : 'ifStats',
