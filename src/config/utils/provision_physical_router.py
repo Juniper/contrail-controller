@@ -389,7 +389,7 @@ class VncProvisioner(object):
  
         if pr is None:
             bgp_router, pr = self.create_router('a2-mx-80', '10.84.7.253')
-        pr.set_virtual_network(vn1_obj)
+        pr.add_virtual_network(vn1_obj)
         junos_service_ports = JunosServicePorts()
         junos_service_ports.service_port.append("si-0/0/0")
         pr.set_physical_router_junos_service_ports(junos_service_ports)
@@ -476,6 +476,8 @@ class VncProvisioner(object):
             vn2_obj.set_router_external(True)      
             vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType([IpamSubnetType(SubnetType("192.168.7.0", 24))]))
             vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
+            pr.add_virtual_network(vn2_obj)
+            self._vnc_lib.physical_router_update(pr)
 
         fip_pool = None
         try:
