@@ -6,6 +6,7 @@
 //  database.sandesh
 //
 
+include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
 
 struct DatabaseUsageStats {
@@ -23,6 +24,52 @@ struct DatabaseUsageInfo {
 //DatabaseUsageStat uve will be sent by Database-nodemgr
 uve sandesh DatabaseUsage {
     1: DatabaseUsageInfo                   data
+}
+
+struct  ModuleCpuInfo {
+    1: string                              module_id
+    2: string                              instance_id
+    4: cpuinfo.CpuLoadInfo                 cpu_info
+}
+
+// This part of the UVE externally refers to cpu-stats of all modules that belong to
+// this Database node.
+struct  ModuleCpuState {
+    1: string                              name (key="ObjectDatabaseInfo")
+    2: optional bool                       deleted
+    4: optional list<ModuleCpuInfo>        module_cpu_info (aggtype="union")
+}
+
+uve sandesh ModuleCpuStateTrace {
+    1: ModuleCpuState                   data
+}
+
+struct DatabaseCpuState {
+    1: string                                 name (key="ObjectDatabaseInfo")
+    2: optional bool                          deleted
+    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share,.mem_res",aggtype="union")
+}
+
+uve sandesh DatabaseCpuStateTrace {
+    1: DatabaseCpuState data
+}
+
+struct DatabaseSysCpuInfo {
+    1: u32                            mem_virt
+    2: double                         cpu_share
+    3: u32                            used_sys_mem
+    4: double                         one_min_cpuload
+    5: u32                            mem_res
+}
+
+struct DatabaseSysCpuState {
+    1: string                            name (key="ObjectDatabaseInfo")
+    2: optional bool                     deleted
+    3: optional list<DatabaseSysCpuInfo> cpu_info (tags=".mem_virt,.cpu_share,.mem_res", aggtype="union")
+}
+
+uve sandesh DatabaseSysCpuStateTrace {
+    1: DatabaseSysCpuState data
 }
 
 struct NodeStatus {
