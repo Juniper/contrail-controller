@@ -2,9 +2,12 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import argparse
 import sys
 import json
+import time
 import uuid
+import socket
 import gevent
 import requests
 import cgitb
@@ -17,6 +20,10 @@ import ConfigParser
 import keystoneclient.v2_0.client as keystone
 
 import cfgm_common
+import discoveryclient.client as client
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
+    NodeTypeNames, INSTANCE_ID_DEFAULT
 try:
     from cfgm_common import vnc_plugin_base
 except ImportError:
@@ -26,6 +33,7 @@ from vnc_api.gen.resource_xsd import *
 
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
+from vnc_cfg_api_server import utils
 
 import neutron_plugin_interface as npi
 
@@ -33,6 +41,7 @@ Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
+logger = logging.getLogger(__name__)
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -763,3 +772,111 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __call__(self):
         pass
 
+
+class NeutronApiStandalone(object):
+
+    def __init__(self, args_str=None):
+        if not args_str:
+            args_str = ' '.join(sys.argv[1:])
+        self._vnc_args, remaining = utils.parse_args(args_str)
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--vnc_openstack_port",
+            help="Port used by the vnc_openstack standalone version.")
+        parser.add_argument(
+            "--vnc_openstack_addr",
+            help="Address used by the vnc_openstack standalone version.")
+        parser.add_argument(
+            "--vnc_api_check",
+            help="Second between to vnc_api check.", default=1)
+        parser.add_argument(
+            "--no_exit_on_failure",
+	    help="Second between to vnc_api check.",
+            action='store_true', default=False)
+	self._std_args, remaining_argv = parser.parse_known_args(remaining)
+
+        disc = None
+        if self._vnc_args.disc_server_ip and self._vnc_args.disc_server_port:
+            disc = client.DiscoveryClient(self._vnc_args.disc_server_ip,
+                                          self._vnc_args.disc_server_port,
+                                          ModuleNames[Module.API_SERVER])
+
+        module = Module.API_SERVER
+        module_name = ModuleNames[Module.API_SERVER]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        hostname = socket.gethostname()
+        if self._vnc_args.worker_id:
+            instance_id = self._vnc_args.worker_id
+        else:
+            instance_id = INSTANCE_ID_DEFAULT
+
+        sandesh = Sandesh()
+        sandesh.init_generator(module_name, hostname,
+                               node_type_name, instance_id,
+                               self._vnc_args.collectors,
+                               'vnc_api_server_context',
+                               -1,
+                               ['cfgm_common'], disc,
+                               logger_class=self._vnc_args.logger_class,
+                               logger_config_file=self._vnc_args.logging_conf)
+
+        sandesh.set_logging_params(
+            enable_local_log=self._vnc_args.log_local,
+            category=self._vnc_args.log_category,
+            level=self._vnc_args.log_level,
+            file=self._vnc_args.log_file,
+            enable_syslog=self._vnc_args.use_syslog,
+            syslog_facility=self._vnc_args.syslog_facility)
+
+        api = NeutronApiDriver(self._vnc_args.listen_ip_addr,
+                               self._vnc_args.listen_port,
+                               self._vnc_args.config_sections,
+                               sandesh)
+
+        # start monitoring of the vnc api
+        gevent.spawn(self.monitor_vnc_api, self._vnc_args, self._std_args)
+
+        self._vnc_api_started = False
+
+        self._vnc_api_ok = False
+        def vnc_api_status_handler(*args, **kwargs):
+            if self._vnc_api_ok:
+                return "OK"
+            else:
+                return bottle.abort(503, 'VNC Api not available')
+
+        bottle.route('/vnc_api/status', 'GET', vnc_api_status_handler)
+
+        @bottle.hook('before_request')
+        def before_handler():
+           if not self._vnc_api_ok:
+               return bottle.abort(503, 'VNC Api not available')
+
+        addr = self._std_args.vnc_openstack_addr
+        if not addr:
+            addr = '127.0.0.1'
+        pipe_start_app = bottle.app()
+        bottle.run(app=pipe_start_app,
+                   host=addr,
+                   port=self._std_args.vnc_openstack_port,
+                   server='gevent')
+
+    def monitor_vnc_api(self, vnc_args, std_args):
+        while True:
+            try:
+                r = requests.get('http://%s:%d/' % (vnc_args.listen_ip_addr,
+                                                    vnc_args.listen_port))
+                self._vnc_api_ok = True
+                self._vnc_api_started = True
+            except requests.ConnectionError:
+                if (self._vnc_api_started and
+                    not self._std_args.no_exit_on_failure):
+                    sys.exit(-1)
+                self._vnc_api_ok = False
+            time.sleep(int(std_args.vnc_api_check))
+
+
+if __name__ == '__main__':
+    NeutronApiStandalone()
