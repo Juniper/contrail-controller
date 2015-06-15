@@ -4142,3 +4142,53 @@ bool VmInterface::CopyIp6Address(const Ip6Address &addr) {
     return ret;
 }
 
+bool VmInterface::IsDependentRoute(const IpAddress &ip, uint8_t plen,
+                                   const MacAddress &mac) const {
+    bool compare_mac = true;
+
+    if (mac == MacAddress::ZeroMac()) {
+        compare_mac = false;
+    }
+
+    //check if the IP matches native ipv4 address
+    //or ipv6 address
+    if ((ip == ip_addr_ || ip == ip6_addr_)) {
+        if (compare_mac && mac != MacAddress::FromString(vm_mac_)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //For EVPN routes with NULL IP
+    if (ip.is_unspecified() &&
+        compare_mac && mac == MacAddress::FromString(vm_mac_)) {
+        return false;
+    }
+
+    //All static, floating ip routes are dependentt routes
+    //meaning if the instance ip is active, floating ip and
+    //static route are also active and are published with
+    //high preference
+    //check if the IP and mac is one of allowed address pair route
+    //if Yes
+    //  If AAP is active-backup mode then it traffic monitoring
+    //  algorithm would be run on that seperately
+    //  If AAP is active-active, then it would be published
+    //  based on instance-ip preference
+    const VmInterface::AllowedAddressPairSet &aap_list =
+        allowed_address_pair_list_.list_;
+    VmInterface::AllowedAddressPairSet::const_iterator aap_it =
+        aap_list.begin();
+    for (;aap_it != aap_list.end(); ++aap_it) {
+        if (aap_it->addr_ == ip && plen == plen &&
+            aap_it->mac_ == mac) {
+            if (aap_it->ecmp_ == true) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+    return true;
+}

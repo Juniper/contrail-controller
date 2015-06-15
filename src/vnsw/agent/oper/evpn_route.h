@@ -105,7 +105,11 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     virtual const std::string GetAddressString() const {
-        return mac_.ToString();
+        ostringstream str;
+        str << mac_.ToString();
+        str << "::";
+        str << ip_addr_.to_string();
+        return str.str();
     }
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
