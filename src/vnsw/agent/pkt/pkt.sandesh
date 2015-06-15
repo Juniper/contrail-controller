@@ -4,51 +4,6 @@
 
 include "vnsw/agent/oper/agent.sandesh"
 
-request sandesh AgentStatsReq {
-}
-
-response sandesh IpcStatsResp {
-    1:  i64 ipc_in_msgs;
-    2:  i64 ipc_out_msgs;
-}
-
-response sandesh PktTrapStatsResp {
-    1:  i64 exceptions;
-    2:  i64 invalid_agent_hdr;
-    3:  i64 invalid_interface;
-    4:  i64 no_handler;
-    5:  i64 pkt_dropped;
-    6:  i64 pkt_fragments_dropped;
-}
-
-response sandesh FlowStatsResp {
-    1: u64 flow_active;
-    2: u64 flow_created;
-    3: u64 flow_aged;
-    4: u64 flow_drop_due_to_max_limit;
-    5: u64 flow_drop_due_to_linklocal_limit;
-    6: u32 flow_max_system_flows;
-    7: u32 flow_max_vm_flows;
-}
-
-struct XmppStatsInfo {
-    1: string ip
-    2: u64 in_msgs;
-    3: u64 out_msgs;
-    4: u16 reconnect;
-}
-
-response sandesh XmppStatsResp {
-    1: list <XmppStatsInfo> xmpp_list;
-}
-
-response sandesh SandeshStatsResp {
-    1: i64 sandesh_in_msgs;
-    2: i64 sandesh_out_msgs;
-    3: i16 sandesh_http_sessions;
-    4: i16 sandesh_reconnects;
-}
-
 struct MirrorInfo {
     1: optional string mirror_destination;
     2: optional u16 mirror_port; 

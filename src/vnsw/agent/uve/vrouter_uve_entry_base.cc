@@ -15,7 +15,7 @@
 #include <oper/mirror_table.h>
 #include <controller/controller_peer.h>
 #include <uve/agent_uve_base.h>
-#include <pkt/agent_stats.h>
+#include <cmn/agent_stats.h>
 #include <base/cpuinfo.h>
 #include <base/util.h>
 #include <cmn/agent_cmn.h>

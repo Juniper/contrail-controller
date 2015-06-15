@@ -20,7 +20,6 @@
 #include <vrouter/ksync/ksync_init.h>
 #include <uve/agent_uve.h>
 #include <pkt/proto_handler.h>
-#include <pkt/agent_stats.h>
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -34,7 +33,6 @@ ContrailInitCommon::ContrailInitCommon() : AgentInit(), create_vhost_(true),
 
 ContrailInitCommon::~ContrailInitCommon() {
     vgw_.reset();
-    stats_.reset();
     ksync_.reset();
     uve_.reset();
 
@@ -56,9 +54,6 @@ int ContrailInitCommon::Start() {
  * Initialization routines
  ***************************************************************************/
 void ContrailInitCommon::CreateModules() {
-    stats_.reset(new AgentStats(agent()));
-    agent()->set_stats(stats_.get());
-
     pkt_.reset(new PktModule(agent()));
     agent()->set_pkt(pkt_.get());
 

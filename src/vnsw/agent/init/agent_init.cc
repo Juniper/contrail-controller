@@ -5,6 +5,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <cmn/agent_factory.h>
+#include <cmn/agent_stats.h>
 #include <init/agent_param.h>
 
 #include <cfg/cfg_init.h>
@@ -30,6 +31,7 @@ AgentInit::AgentInit() :
 
 AgentInit::~AgentInit() {
     TaskScheduler *scheduler = agent_->task_scheduler();
+    stats_.reset();
     trigger_.reset();
     controller_.reset();
     cfg_.reset();
@@ -172,6 +174,9 @@ void AgentInit::CreateModulesBase() {
         controller_.reset(new VNController(agent()));
         agent_->set_controller(controller_.get());
     }
+
+    stats_.reset(new AgentStats(agent()));
+    agent()->set_stats(stats_.get());
 
     CreateModules();
 }

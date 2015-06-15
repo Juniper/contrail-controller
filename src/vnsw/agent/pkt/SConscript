@@ -20,7 +20,6 @@ env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 pkt_srcs = [
-                'agent_stats.cc',
                 'flow_table.cc',
                 'flow_handler.cc',
                 'packet_buffer.cc',
