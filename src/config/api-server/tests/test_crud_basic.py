@@ -15,7 +15,7 @@ cgitb.enable(format='text')
 
 import fixtures
 import testtools
-from testtools.matchers import Equals, MismatchError, Not, Contains
+from testtools.matchers import Equals, MismatchError, Not, Contains, LessThan
 from testtools import content, content_type, ExpectedException
 import unittest
 from flexmock import flexmock
@@ -1008,6 +1008,171 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
 
     # end test_list_bulk_collection
+
+    def test_list_lib_api(self):
+        num_objs = 5
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        ipam_obj = NetworkIpam('%s-ipam' %(self.id()), parent_obj=proj_obj)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        def create_vns():
+            objs = []
+            for i in range(num_objs):
+                name = '%s-%s' %(self.id(), i)
+                obj = VirtualNetwork(
+                    name, proj_obj, display_name=name, is_shared=True)
+                obj.add_network_ipam(ipam_obj,
+                    VnSubnetsType(
+                        [IpamSubnetType(SubnetType('1.1.%s.0' %(i), 28))]))
+                self._vnc_lib.virtual_network_create(obj)
+                objs.append(obj)
+            return objs
+
+        vn_objs = create_vns()
+
+        # unanchored summary list without filters
+        read_vn_dicts = self._vnc_lib.virtual_networks_list()['virtual-networks']
+        self.assertThat(len(read_vn_dicts), Not(LessThan(num_objs)))
+        for obj in vn_objs:
+            # locate created object, should only be one, expect exact fields
+            obj_dict = [d for d in read_vn_dicts if d['uuid'] == obj.uuid]
+            self.assertThat(len(obj_dict), Equals(1))
+            self.assertThat(set(['fq_name', 'uuid', 'href']),
+                            Equals(set(obj_dict[0].keys())))
+
+        # unanchored summary list with field filters
+        resp = self._vnc_lib.virtual_networks_list(
+            filters={'display_name':vn_objs[2].display_name})
+        vn_dicts = resp['virtual-networks']
+        self.assertThat(len(vn_dicts), Equals(1))
+        self.assertThat(vn_dicts[0]['uuid'], Equals(vn_objs[2].uuid))
+        self.assertThat(set(['fq_name', 'uuid', 'href']),
+                        Equals(set(vn_dicts[0].keys())))
+
+        # unanchored detailed list without filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            detail=True)
+        self.assertThat(len(read_vn_objs), Not(LessThan(num_objs)))
+        read_display_names = [o.display_name for o in read_vn_objs]
+        for obj in vn_objs:
+            self.assertThat(read_display_names,
+                            Contains(obj.display_name))
+
+        # unanchored detailed list with filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            detail=True,
+            filters={'is_shared':True})
+        self.assertThat(len(read_vn_objs), Equals(num_objs))
+
+        # parent anchored summary list without filters
+        read_vn_dicts = self._vnc_lib.virtual_networks_list(
+            parent_id=proj_obj.uuid)['virtual-networks']
+        self.assertThat(len(read_vn_dicts), Equals(num_objs))
+        for obj in vn_objs:
+            # locate created object, should only be one, expect exact fields
+            obj_dict = [d for d in read_vn_dicts if d['uuid'] == obj.uuid]
+            self.assertThat(len(obj_dict), Equals(1))
+            self.assertThat(set(['fq_name', 'uuid', 'href']),
+                            Equals(set(obj_dict[0].keys())))
+            self.assertThat(obj_dict[0]['fq_name'][:-1],
+                Equals(proj_obj.fq_name))
+
+        # parent anchored summary list with filters
+        resp = self._vnc_lib.virtual_networks_list(
+            parent_id=proj_obj.uuid,
+            filters={'is_shared': vn_objs[2].is_shared})
+        read_vn_dicts = resp['virtual-networks']
+        self.assertThat(len(read_vn_dicts), Equals(num_objs))
+        for obj in vn_objs:
+            # locate created object, should only be one, expect exact fields
+            obj_dict = [d for d in read_vn_dicts if d['uuid'] == obj.uuid]
+            self.assertThat(len(obj_dict), Equals(1))
+            self.assertThat(set(['fq_name', 'uuid', 'href']),
+                            Equals(set(obj_dict[0].keys())))
+            self.assertThat(obj_dict[0]['fq_name'][:-1],
+                Equals(proj_obj.fq_name))
+
+        # parent anchored detailed list without filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            parent_id=proj_obj.uuid, detail=True)
+        self.assertThat(len(read_vn_objs), Equals(num_objs))
+        read_display_names = [o.display_name for o in read_vn_objs]
+        read_fq_names = [o.fq_name for o in read_vn_objs]
+        for obj in vn_objs:
+            self.assertThat(read_display_names,
+                            Contains(obj.display_name))
+        for fq_name in read_fq_names:
+            self.assertThat(fq_name[:-1], Equals(proj_obj.fq_name))
+
+        # parent anchored detailed list with filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            parent_id=proj_obj.uuid, detail=True,
+            filters={'display_name':vn_objs[2].display_name})
+        self.assertThat(len(read_vn_objs), Equals(1))
+        self.assertThat(read_vn_objs[0].fq_name[:-1],
+            Equals(proj_obj.fq_name))
+
+        # backref anchored summary list without filters
+        resp = self._vnc_lib.virtual_networks_list(
+            back_ref_id=ipam_obj.uuid,
+            filters={'is_shared':vn_objs[2].is_shared})
+        read_vn_dicts = resp['virtual-networks']
+        self.assertThat(len(read_vn_dicts), Equals(num_objs))
+        for obj in vn_objs:
+            # locate created object, should only be one, expect exact fields
+            obj_dict = [d for d in read_vn_dicts if d['uuid'] == obj.uuid]
+            self.assertThat(len(obj_dict), Equals(1))
+            self.assertThat(set(['fq_name', 'uuid', 'href']),
+                            Equals(set(obj_dict[0].keys())))
+
+        # backref anchored summary list with filters
+        resp = self._vnc_lib.virtual_networks_list(
+            back_ref_id=ipam_obj.uuid,
+            filters={'display_name':vn_objs[2].display_name})
+        read_vn_dicts = resp['virtual-networks']
+        self.assertThat(len(read_vn_dicts), Equals(1))
+        self.assertThat(read_vn_dicts[0]['uuid'], Equals(vn_objs[2].uuid))
+
+        # backref anchored detailed list without filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            back_ref_id=ipam_obj.uuid, detail=True)
+        self.assertThat(len(read_vn_objs), Equals(num_objs))
+        read_display_names = [o.display_name for o in read_vn_objs]
+        read_ipam_uuids = [o.network_ipam_refs[0]['uuid'] 
+                           for o in read_vn_objs]
+        for obj in vn_objs:
+            self.assertThat(read_display_names,
+                            Contains(obj.display_name))
+        for ipam_uuid in read_ipam_uuids:
+            self.assertThat(ipam_uuid, Equals(ipam_obj.uuid))
+
+        # backref anchored detailed list with filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            back_ref_id=ipam_obj.uuid, detail=True,
+            filters={'display_name':vn_objs[2].display_name,
+                     'is_shared':vn_objs[2].is_shared})
+        self.assertThat(len(read_vn_objs), Equals(1))
+        read_ipam_fq_names = [o.network_ipam_refs[0]['to'] 
+                              for o in read_vn_objs]
+        for ipam_fq_name in read_ipam_fq_names:
+            self.assertThat(ipam_fq_name,
+                Equals(ipam_obj.fq_name))
+
+        # id-list detailed without filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            obj_uuids=[o.uuid for o in vn_objs], detail=True)
+        self.assertThat(len(read_vn_objs), Equals(num_objs))
+        read_display_names = [o.display_name for o in read_vn_objs]
+        for obj in vn_objs:
+            self.assertThat(read_display_names,
+                            Contains(obj.display_name))
+
+        # id-list detailed with filters
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            obj_uuids=[o.uuid for o in vn_objs], detail=True,
+            filters={'is_shared':False})
+        self.assertThat(len(read_vn_objs), Equals(0))
+    # end test_list_lib_api
 
 # end class TestVncCfgApiServer
 
