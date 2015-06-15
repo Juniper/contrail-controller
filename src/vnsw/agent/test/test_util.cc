@@ -1319,6 +1319,35 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
+bool EcmpTunnelRouteAdd(Agent *agent, const Peer *peer, const string &vrf,
+                        const string &prefix, uint8_t plen,
+                        const string &remote_server_1, uint32_t label1,
+                        const string &remote_server_2, uint32_t label2,
+                        const string &vn) {
+    Ip4Address remote_server_ip1 = Ip4Address::from_string(remote_server_1);
+    Ip4Address remote_server_ip2 = Ip4Address::from_string(remote_server_2);
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(label1,
+                                                  agent->fabric_vrf_name(),
+                                                  agent->router_id(),
+                                                  remote_server_ip1, false,
+                                                  TunnelType::DefaultType()));
+
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(label2,
+                                                  agent->fabric_vrf_name(),
+                                                  agent->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(peer, vrf, Ip4Address::from_string(prefix), plen,
+                       comp_nh_list, false, vn, sg_id_list, PathPreference());
+    client->WaitForIdle();
+}
+
 bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
