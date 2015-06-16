@@ -7,7 +7,7 @@
 #include <uve/agent_uve_stats.h>
 #include <vrouter/stats_collector/agent_stats_sandesh_context.h>
 #include <vrouter/stats_collector/agent_stats_collector.h>
-#include <pkt/agent_stats.h>
+#include <cmn/agent_stats.h>
 #include <oper/vrf.h>
 #include <vrouter_types.h>
 

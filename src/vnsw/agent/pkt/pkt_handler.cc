@@ -22,7 +22,7 @@
 #include "pkt/flow_table.h"
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
-#include "pkt/agent_stats.h"
+#include "cmn/agent_stats.h"
 #include "pkt/packet_buffer.h"
 
 #include "vr_types.h"

@@ -165,6 +165,7 @@ private:
 
     std::auto_ptr<TaskTrigger> trigger_;
 
+    std::auto_ptr<AgentStats> stats_;
     std::auto_ptr<AgentConfig> cfg_;
     std::auto_ptr<OperDB> oper_;
 

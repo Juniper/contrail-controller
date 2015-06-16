@@ -15,7 +15,7 @@
 #include <controller/controller_peer.h>
 #include <uve/agent_uve_stats.h>
 #include <uve/vrouter_uve_entry.h>
-#include <pkt/agent_stats.h>
+#include <cmn/agent_stats.h>
 #include <base/cpuinfo.h>
 #include <base/util.h>
 #include <cmn/agent_cmn.h>

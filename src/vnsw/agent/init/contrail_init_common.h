@@ -62,7 +62,6 @@ private:
     bool vgw_enable_;
     bool router_id_dep_enable_;
 
-    std::auto_ptr<AgentStats> stats_;
     std::auto_ptr<KSync> ksync_;
     std::auto_ptr<AgentUveBase> uve_;
 
