@@ -378,6 +378,10 @@ public:
         return drops_;
     }
 
+    bool deleted() const {
+        return deleted_;
+    }
+
 private:
     void ShutdownLocked(bool delete_entries) {
         // Cancel QueueTaskRunner from the scheduler

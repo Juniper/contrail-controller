@@ -33,6 +33,10 @@ public:
 
 protected:
     OvsdbClientIdlPtr client_idl_;
+
+    // derived class can override to take action on delete table.
+    virtual void DeleteTableDone(void) {}
+
 private:
     DISALLOW_COPY_AND_ASSIGN(OvsdbObject);
 };
@@ -70,7 +74,11 @@ public:
 protected:
     DBFilterResp DBEntryFilter(const DBEntry *entry, const KSyncDBEntry *ksync);
 
+    // derived class can override to take action on delete table.
+    virtual void DeleteTableDone(void) {}
+
     OvsdbClientIdlPtr client_idl_;
+
 private:
     friend class OvsdbDBEntry;
     DBTableWalker::WalkId walkid_;
