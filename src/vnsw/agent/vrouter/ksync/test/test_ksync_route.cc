@@ -304,7 +304,9 @@ TEST_F(TestKSyncRoute, ecmp_ipam_subnet_route_2) {
     EXPECT_FALSE(ksync->proxy_arp());
     EXPECT_TRUE(ksync->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr, 24, NULL);
+    vrf1_uc_table_->DeleteReq(NULL, "vrf1",
+                              IpAddress(Ip4Address::from_string("1.1.1.10")),
+                              24, NULL);
     DelIPAM("vn1");
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer);
