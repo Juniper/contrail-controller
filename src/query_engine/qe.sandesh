@@ -41,3 +41,20 @@ request sandesh TraceEnable {
     1: bool enable;
     2: string TraceType;
 }
+
+response sandesh TraceEnableRes {
+    1: string enable_disable_status;
+    2: string TraceType;
+}
+
+request sandesh TraceStatusReq {
+}
+
+struct TraceStatusInfo {
+    1: string TraceType  (link="TraceEnable");
+    2: string enable_disable;
+}
+
+response sandesh TraceStatusRes {
+    1: list<TraceStatusInfo>  trace_status_list;
+}
