@@ -12,8 +12,7 @@ class EventListenerProtocolNodeMgr(childutils.EventListenerProtocol):
     def wait(self, stdin=sys.stdin, stdout=sys.stdout):
         self.ready(stdout)
         while 1:
-            gevent.sleep(1)
-            if select.select([sys.stdin, ], [], [], 1)[0]:
+            if select.select([sys.stdin], [], [])[0]:
                 line = stdin.readline()
                 if line is not None:
                     sys.stderr.write("wokeup and found a line\n")

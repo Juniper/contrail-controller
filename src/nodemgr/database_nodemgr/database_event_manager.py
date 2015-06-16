@@ -200,7 +200,6 @@ class DatabaseEventManager(EventManager):
     def runforever(self, test=False):
         prev_current_time = int(time.time())
         while 1:
-            gevent.sleep(1)
             # we explicitly use self.stdin, self.stdout, and self.stderr
             # instead of sys.* so we can unit test this code
             headers, payload = self.listener_nodemgr.wait(
