@@ -1,0 +1,19 @@
+<item>
+    <entry>
+        <nlri>
+            <af>1</af>
+            <safi>1</safi>
+            <address>10.1.1.1/32</address>
+        </nlri>
+        <next-hops>
+        <!-- XXXXXXXXXXXXXXX -->
+        </next-hops>
+        <version>0</version>
+        <virtual-network></virtual-network>
+        <sequence-number>1</sequence-number>
+        <security-group-list>
+            <security-group>7999998</security-group>>
+        </security-group-list>
+        <local-preference>100</local-preference>
+    </entry>
+</item>

@@ -187,6 +187,14 @@ TEST_F(BgpXmppParseTest, InetItemError5) {
      EXPECT_FALSE(ProcessItem(item));
 }
 
+// Error in nexthop - list is empty.
+TEST_F(BgpXmppParseTest, InetItemError6) {
+     string data = FileRead("controller/src/bgp/testdata/bad_inet_item_6.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessItem(item));
+}
+
 // Error in parsing message, XML document is fine.
 TEST_F(BgpXmppParseTest, Inet6ItemError1) {
      string data = FileRead("controller/src/bgp/testdata/bad_inet6_item_1.xml");
@@ -222,6 +230,14 @@ TEST_F(BgpXmppParseTest, Inet6ItemError4) {
 // Error in nexthop address - address is 0.0.0.0.
 TEST_F(BgpXmppParseTest, Inet6ItemError5) {
      string data = FileRead("controller/src/bgp/testdata/bad_inet6_item_5.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessInet6Item(item));
+}
+
+// Error in nexthop - list is empty.
+TEST_F(BgpXmppParseTest, Inet6ItemError6) {
+     string data = FileRead("controller/src/bgp/testdata/bad_inet6_item_6.xml");
      impl_->LoadDoc(data);
      xml_node item = pugi_->FindNode("item");
      EXPECT_FALSE(ProcessInet6Item(item));
@@ -267,7 +283,7 @@ TEST_F(BgpXmppParseTest, McastItemError5) {
      EXPECT_FALSE(ProcessMcastItem(item));
 }
 
-// Error in nexthop list.
+// Error in nexthop list - more than 1 element.
 TEST_F(BgpXmppParseTest, McastItemError6) {
      string data = FileRead("controller/src/bgp/testdata/bad_mcast_item_6.xml");
      impl_->LoadDoc(data);
@@ -302,6 +318,14 @@ TEST_F(BgpXmppParseTest, McastItemError9) {
 // Error in nexthop address - address is 0.0.0.0.
 TEST_F(BgpXmppParseTest, McastItemError10) {
      string data = FileRead("controller/src/bgp/testdata/bad_mcast_item_10.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessMcastItem(item));
+}
+
+// Error in nexthop list - 0 elements.
+TEST_F(BgpXmppParseTest, McastItemError11) {
+     string data = FileRead("controller/src/bgp/testdata/bad_mcast_item_11.xml");
      impl_->LoadDoc(data);
      xml_node item = pugi_->FindNode("item");
      EXPECT_FALSE(ProcessMcastItem(item));
@@ -398,6 +422,14 @@ TEST_F(BgpXmppParseTest, EnetItemError11) {
 // Error in replicator address - address is 0.0.0.0.
 TEST_F(BgpXmppParseTest, EnetItemError12) {
      string data = FileRead("controller/src/bgp/testdata/bad_enet_item_12.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessEnetItem(item));
+}
+
+// Error in nexthop - list is empty.
+TEST_F(BgpXmppParseTest, EnetItemError13) {
+     string data = FileRead("controller/src/bgp/testdata/bad_enet_item_13.xml");
      impl_->LoadDoc(data);
      xml_node item = pugi_->FindNode("item");
      EXPECT_FALSE(ProcessEnetItem(item));
