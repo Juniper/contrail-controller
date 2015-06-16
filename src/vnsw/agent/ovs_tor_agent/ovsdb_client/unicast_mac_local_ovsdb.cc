@@ -130,7 +130,6 @@ UnicastMacLocalOvsdb::UnicastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
 }
 
 UnicastMacLocalOvsdb::~UnicastMacLocalOvsdb() {
-    vrf_reeval_queue_->Shutdown();
     delete vrf_reeval_queue_;
 }
 
@@ -177,6 +176,11 @@ KSyncEntry *UnicastMacLocalOvsdb::Alloc(const KSyncEntry *key, uint32_t index) {
 }
 
 void UnicastMacLocalOvsdb::VrfReEvalEnqueue(VrfEntry *vrf) {
+    if (vrf_reeval_queue_->deleted()) {
+        // skip Enqueuing entry to deleted workqueue
+        return;
+    }
+
     vrf_reeval_queue_->Enqueue(vrf);
 }
 
@@ -197,6 +201,17 @@ bool UnicastMacLocalOvsdb::VrfReEval(VrfEntryRef vrf) {
         }
     }
     return true;
+}
+
+bool UnicastMacLocalOvsdb::IsVrfReEvalQueueActive() const {
+    return !(vrf_reeval_queue_->deleted());
+}
+
+void UnicastMacLocalOvsdb::DeleteTableDone(void) {
+    // Shutdown the reeval queue on table deletion,
+    // all the unicast MAC Local entries will get
+    // deleted and clear eventually
+    vrf_reeval_queue_->Shutdown();
 }
 
 /////////////////////////////////////////////////////////////////////////////

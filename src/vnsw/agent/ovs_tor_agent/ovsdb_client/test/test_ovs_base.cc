@@ -47,6 +47,7 @@
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/vrf_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/vlan_port_binding_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/unicast_mac_local_ovsdb.h"
 #include "test_ovs_agent_init.h"
 
 #include <ovsdb_types.h>
@@ -182,6 +183,14 @@ TEST_F(OvsBaseTest, connection_close) {
     // Validate that keepalive timer has stopped, for the idl
     WAIT_FOR(100, 10000,
              (tcp_idl->IsKeepAliveTimerActive() == false));
+
+    UnicastMacLocalOvsdb *ucast_local_table =
+        tcp_idl->unicast_mac_local_ovsdb();
+    // Validate that vrf re-eval queue of unicast mac local
+    // table has stopped
+    WAIT_FOR(100, 10000,
+             (ucast_local_table->IsVrfReEvalQueueActive() == false));
+
     // release idl reference
     tcp_idl = NULL;
 

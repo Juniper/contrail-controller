@@ -34,6 +34,9 @@ KSyncEntry *OvsdbObject::FindActiveEntry(KSyncEntry *key) {
 
 void OvsdbObject::DeleteTable(void) {
     client_idl_->ksync_obj_manager()->Delete(this);
+    // trigger DeleteTableDone for derived class to take action on
+    // delete table callback
+    DeleteTableDone();
 }
 
 void OvsdbObject::EmptyTable(void) {
@@ -127,6 +130,9 @@ void OvsdbDBObject::DBWalkDone(DBTableBase *partition) {
 
 void OvsdbDBObject::DeleteTable(void) {
     client_idl_->ksync_obj_manager()->Delete(this);
+    // trigger DeleteTableDone for derived class to take action on
+    // delete table callback
+    DeleteTableDone();
 }
 
 void OvsdbDBObject::EmptyTable(void) {
