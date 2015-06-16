@@ -19,16 +19,10 @@ extern "C" {
 #include <oper/interface_common.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
 
-using OVSDB::OvsdbDBEntry;
-using OVSDB::VlanPortBindingEntry;
-using OVSDB::VlanPortBindingTable;
-using OVSDB::PhysicalSwitchEntry;
-using OVSDB::PhysicalPortEntry;
-using OVSDB::LogicalSwitchEntry;
-using OVSDB::OvsdbClient;
-using OVSDB::OvsdbClientSession;
+using namespace OVSDB;
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const std::string &physical_device, const std::string &physical_port,
@@ -317,64 +311,75 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
-class VlanPortBindingSandeshTask : public Task {
-public:
-    VlanPortBindingSandeshTask(std::string resp_ctx, const std::string &ip,
-                               uint32_t port) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbVlanPortBindingResp()), resp_data_(resp_ctx),
-        ip_(ip), port_(port) {
+VlanPortBindingSandeshTask::VlanPortBindingSandeshTask(
+        std::string resp_ctx, AgentSandeshArguments &args) :
+    OvsdbSandeshTask(resp_ctx, args), physical_port_("") {
+    if (false == args.Get("physical_port", &physical_port_)) {
+        physical_port_ = "";
     }
-    virtual ~VlanPortBindingSandeshTask() {}
-    virtual bool Run() {
-        std::vector<OvsdbVlanPortBindingEntry> bindings;
-        OvsdbClient *ovsdb_client = Agent::GetInstance()->ovsdb_client();
-        OvsdbClientSession *session;
-        if (ip_.empty()) {
-            session = ovsdb_client->NextSession(NULL);
-        } else {
-            boost::system::error_code ec;
-            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = ovsdb_client->FindSession(ip_addr, port_);
-        }
-        if (session != NULL && session->client_idl() != NULL) {
-            VlanPortBindingTable *table =
-                session->client_idl()->vlan_port_table();
-            VlanPortBindingEntry *entry =
-                static_cast<VlanPortBindingEntry *>(table->Next(NULL));
-            while (entry != NULL) {
-                OvsdbVlanPortBindingEntry oentry;
-                oentry.set_state(entry->StateString());
-                oentry.set_physical_port(entry->physical_port_name());
-                oentry.set_physical_device(entry->physical_device_name());
-                oentry.set_logical_switch(entry->logical_switch_name());
-                oentry.set_vlan(entry->vlan());
-                bindings.push_back(oentry);
-                entry = static_cast<VlanPortBindingEntry *>(table->Next(entry));
-            }
-        }
-        resp_->set_bindings(bindings);
-        SendResponse();
-        return true;
-    }
-private:
-    void SendResponse() {
-        resp_->set_context(resp_data_);
-        resp_->set_more(false);
-        resp_->Response();
-    }
+}
 
-    OvsdbVlanPortBindingResp *resp_;
-    std::string resp_data_;
-    std::string ip_;
-    uint32_t port_;
-    DISALLOW_COPY_AND_ASSIGN(VlanPortBindingSandeshTask);
-};
+VlanPortBindingSandeshTask::VlanPortBindingSandeshTask(
+        std::string resp_ctx, const std::string &ip, uint32_t port,
+        const std::string &physical_port) :
+    OvsdbSandeshTask(resp_ctx, ip, port), physical_port_(physical_port) {
+}
+
+VlanPortBindingSandeshTask::~VlanPortBindingSandeshTask() {
+}
+
+void VlanPortBindingSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
+    if (!physical_port_.empty()) {
+        args.Add("physical_port", physical_port_);
+    }
+}
+
+OvsdbSandeshTask::FilterResp
+VlanPortBindingSandeshTask::Filter(KSyncEntry *kentry) {
+    if (!physical_port_.empty()) {
+        VlanPortBindingEntry *entry =
+            static_cast<VlanPortBindingEntry *>(kentry);
+        if (entry->physical_port_name().find(
+                    physical_port_) != std::string::npos) {
+            return FilterAllow;
+        }
+        return FilterDeny;
+    }
+    return FilterAllow;
+}
+
+void VlanPortBindingSandeshTask::UpdateResp(KSyncEntry *kentry,
+                                            SandeshResponse *resp) {
+    VlanPortBindingEntry *entry = static_cast<VlanPortBindingEntry *>(kentry);
+    OvsdbVlanPortBindingEntry oentry;
+    oentry.set_state(entry->StateString());
+    oentry.set_physical_port(entry->physical_port_name());
+    oentry.set_physical_device(entry->physical_device_name());
+    oentry.set_logical_switch(entry->logical_switch_name());
+    oentry.set_vlan(entry->vlan());
+    OvsdbVlanPortBindingResp *v_resp =
+        static_cast<OvsdbVlanPortBindingResp *>(resp);
+    std::vector<OvsdbVlanPortBindingEntry> &bindings =
+        const_cast<std::vector<OvsdbVlanPortBindingEntry>&>(
+                v_resp->get_bindings());
+    bindings.push_back(oentry);
+}
+
+SandeshResponse *VlanPortBindingSandeshTask::Alloc() {
+    return static_cast<SandeshResponse *>(new OvsdbVlanPortBindingResp());
+}
+
+KSyncObject *
+VlanPortBindingSandeshTask::GetObject(OvsdbClientSession *session) {
+    return static_cast<KSyncObject *>(
+            session->client_idl()->vlan_port_table());
+}
 
 void OvsdbVlanPortBindingReq::HandleRequest() const {
     VlanPortBindingSandeshTask *task =
         new VlanPortBindingSandeshTask(context(), get_session_remote_ip(),
-                                       get_session_remote_port());
+                                       get_session_remote_port(),
+                                       get_physical_port());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

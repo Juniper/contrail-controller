@@ -16,12 +16,10 @@ extern "C" {
 #include <logical_switch_ovsdb.h>
 #include <physical_port_ovsdb.h>
 #include <vlan_port_binding_ovsdb.h>
+#include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
 
-using OVSDB::OvsdbClient;
-using OVSDB::OvsdbClientSession;
-using OVSDB::PhysicalPortEntry;
-using OVSDB::PhysicalPortTable;
+using namespace OVSDB;
 
 PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
         const std::string &dev_name, const std::string &name) :
@@ -292,92 +290,102 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
-class PhysicalPortSandeshTask : public Task {
-public:
-    PhysicalPortSandeshTask(std::string resp_ctx, const std::string &ip,
-                            uint32_t port) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbPhysicalPortResp()), resp_data_(resp_ctx),
-        ip_(ip), port_(port) {
+PhysicalPortSandeshTask::PhysicalPortSandeshTask(std::string resp_ctx,
+                                                 AgentSandeshArguments &args) :
+    OvsdbSandeshTask(resp_ctx, args), name_("") {
+    if (false == args.Get("name", &name_)) {
+        name_ = "";
     }
-    virtual ~PhysicalPortSandeshTask() {}
-    virtual bool Run() {
-        std::vector<OvsdbPhysicalPortEntry> port_list;
-        OvsdbClientSession *session;
-        if (ip_.empty()) {
-            session = Agent::GetInstance()->ovsdb_client()->NextSession(NULL);
-        } else {
-            boost::system::error_code ec;
-            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = Agent::GetInstance()->ovsdb_client()->FindSession(ip_addr,
-                                                                        port_);
-        }
-        if (session != NULL && session->client_idl() != NULL) {
-            PhysicalPortTable *table =
-                session->client_idl()->physical_port_table();
-            PhysicalPortEntry *entry =
-                static_cast<PhysicalPortEntry *>(table->Next(NULL));
-            while (entry != NULL) {
-                OvsdbPhysicalPortEntry pentry;
-                pentry.set_state(entry->StateString());
-                pentry.set_switch_name(entry->dev_name());
-                pentry.set_name(entry->name());
-                const PhysicalPortEntry::VlanLSTable &bindings =
-                    entry->binding_table();
-                const PhysicalPortEntry::VlanStatsTable &stats_table =
-                    entry->stats_table();
-                PhysicalPortEntry::VlanLSTable::const_iterator it =
-                    bindings.begin();
-                std::vector<OvsdbPhysicalPortVlanInfo> vlan_list;
-                for (; it != bindings.end(); it++) {
-                    OvsdbPhysicalPortVlanInfo vlan;
-                    vlan.set_vlan(it->first);
-                    vlan.set_logical_switch(it->second->name());
-                    PhysicalPortEntry::VlanStatsTable::const_iterator stats_it =
-                        stats_table.find(it->first);
-                    if (stats_it != stats_table.end()) {
-                        int64_t in_pkts, in_bytes, out_pkts, out_bytes;
-                        ovsdb_wrapper_get_logical_binding_stats(stats_it->second,
-                                &in_pkts, &in_bytes, &out_pkts, &out_bytes);
-                        vlan.set_in_pkts(in_pkts);
-                        vlan.set_in_bytes(in_bytes);
-                        vlan.set_out_pkts(out_pkts);
-                        vlan.set_out_bytes(out_bytes);
-                    } else {
-                        vlan.set_in_pkts(0);
-                        vlan.set_in_bytes(0);
-                        vlan.set_out_pkts(0);
-                        vlan.set_out_bytes(0);
-                    }
-                    vlan_list.push_back(vlan);
-                }
-                pentry.set_vlans(vlan_list);
-                port_list.push_back(pentry);
-                entry = static_cast<PhysicalPortEntry *>(table->Next(entry));
-            }
-        }
-        resp_->set_port(port_list);
-        SendResponse();
-        return true;
-    }
-private:
-    void SendResponse() {
-        resp_->set_context(resp_data_);
-        resp_->set_more(false);
-        resp_->Response();
-    }
+}
 
-    OvsdbPhysicalPortResp *resp_;
-    std::string resp_data_;
-    std::string ip_;
-    uint32_t port_;
-    DISALLOW_COPY_AND_ASSIGN(PhysicalPortSandeshTask);
-};
+PhysicalPortSandeshTask::PhysicalPortSandeshTask(std::string resp_ctx,
+                                                 const std::string &ip,
+                                                 uint32_t port,
+                                                 const std::string &name) :
+    OvsdbSandeshTask(resp_ctx, ip, port), name_(name) {
+}
+
+PhysicalPortSandeshTask::~PhysicalPortSandeshTask() {
+}
+
+void PhysicalPortSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
+    if (!name_.empty()) {
+        args.Add("name", name_);
+    }
+}
+
+OvsdbSandeshTask::FilterResp
+PhysicalPortSandeshTask::Filter(KSyncEntry *kentry) {
+    if (!name_.empty()) {
+        PhysicalPortEntry *entry = static_cast<PhysicalPortEntry *>(kentry);
+        if (entry->name().find(name_) != std::string::npos) {
+            return FilterAllow;
+        }
+        return FilterDeny;
+    }
+    return FilterAllow;
+}
+
+void PhysicalPortSandeshTask::UpdateResp(KSyncEntry *kentry,
+                                         SandeshResponse *resp) {
+    PhysicalPortEntry *entry = static_cast<PhysicalPortEntry *>(kentry);
+    OvsdbPhysicalPortEntry pentry;
+    pentry.set_state(entry->StateString());
+    pentry.set_switch_name(entry->dev_name());
+    pentry.set_name(entry->name());
+    const PhysicalPortEntry::VlanLSTable &bindings =
+        entry->binding_table();
+    const PhysicalPortEntry::VlanStatsTable &stats_table =
+        entry->stats_table();
+    PhysicalPortEntry::VlanLSTable::const_iterator it =
+        bindings.begin();
+    std::vector<OvsdbPhysicalPortVlanInfo> vlan_list;
+    for (; it != bindings.end(); it++) {
+        OvsdbPhysicalPortVlanInfo vlan;
+        vlan.set_vlan(it->first);
+        vlan.set_logical_switch(it->second->name());
+        PhysicalPortEntry::VlanStatsTable::const_iterator stats_it =
+            stats_table.find(it->first);
+        if (stats_it != stats_table.end()) {
+            int64_t in_pkts, in_bytes, out_pkts, out_bytes;
+            ovsdb_wrapper_get_logical_binding_stats(stats_it->second,
+                    &in_pkts, &in_bytes, &out_pkts, &out_bytes);
+            vlan.set_in_pkts(in_pkts);
+            vlan.set_in_bytes(in_bytes);
+            vlan.set_out_pkts(out_pkts);
+            vlan.set_out_bytes(out_bytes);
+        } else {
+            vlan.set_in_pkts(0);
+            vlan.set_in_bytes(0);
+            vlan.set_out_pkts(0);
+            vlan.set_out_bytes(0);
+        }
+        vlan_list.push_back(vlan);
+    }
+    pentry.set_vlans(vlan_list);
+
+    OvsdbPhysicalPortResp *port_resp =
+        static_cast<OvsdbPhysicalPortResp *>(resp);
+    std::vector<OvsdbPhysicalPortEntry> &port_list =
+        const_cast<std::vector<OvsdbPhysicalPortEntry>&>(
+                port_resp->get_port());
+    port_list.push_back(pentry);
+}
+
+SandeshResponse *PhysicalPortSandeshTask::Alloc() {
+    return static_cast<SandeshResponse *>(new OvsdbPhysicalPortResp());
+}
+
+KSyncObject *PhysicalPortSandeshTask::GetObject(OvsdbClientSession *session) {
+    return static_cast<KSyncObject *>(
+            session->client_idl()->physical_port_table());
+}
 
 void OvsdbPhysicalPortReq::HandleRequest() const {
     PhysicalPortSandeshTask *task =
         new PhysicalPortSandeshTask(context(), get_session_remote_ip(),
-                                    get_session_remote_port());
+                                    get_session_remote_port(),
+                                    get_name());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
