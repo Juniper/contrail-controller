@@ -46,6 +46,7 @@ struct BgpNeighborRoutingTable {
 struct BgpNeighborResp {
     1: string peer (link="BgpNeighborReq"); // Peer name
     36: bool deleted;           // Deletion in progress
+    43: string deleted_at;
     2: string peer_address (link="BgpNeighborReq");
     25: string peer_id;
     3: u32 peer_asn;
@@ -166,6 +167,7 @@ struct ShowRouteTable {
     1: string routing_instance (link="ShowRoutingInstanceReq");
     2: string routing_table_name (link="ShowRouteReq");
     9: bool deleted;
+    11: string deleted_at;
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -199,6 +201,7 @@ request sandesh ShowRouteReq {
 struct ShowRouteTableSummary {
     1: string routing_table_name (link="ShowRouteReq");
     2: bool deleted;
+    13: string deleted_at;
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -253,6 +256,7 @@ struct ShowRoutingInstance {
     6: i32 vn_index;                                // Virtual network index
     8: i32 vxlan_id;                                // VXLAN Identifier
     7: bool deleted;                                // Deletion in progress
+    9: string deleted_at;                           // Delete timestamp
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
     2: optional list<ShowRoutingInstanceTable> tables;
@@ -333,6 +337,7 @@ struct ShowBgpInstanceConfig {
     8: i32 vxlan_id;
     3: list<string> import_target;
     4: list<string> export_target;
+    9: string last_change_at;
     5: ShowBgpServiceChainConfig service_chain_info;
     6: list<ShowBgpStaticRouteConfig> static_routes;
 }
@@ -378,6 +383,7 @@ struct ShowBgpNeighborConfig {
     4: i32 autonomous_system;
     5: string identifier;
     6: string address;
+    10: string last_change_at;
     11: optional string auth_type;
     12: optional list<string> auth_keys;
     7: list<string> address_families;

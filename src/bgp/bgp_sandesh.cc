@@ -12,6 +12,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
+#include "base/time_util.h"
 #include "base/util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
@@ -284,6 +285,8 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
             srt.set_routing_instance(i->first);
             srt.set_routing_table_name(table->name());
             srt.set_deleted(table->IsDeleted());
+            srt.set_deleted_at(
+                UTCUsecToString(table->deleter()->delete_time_stamp_usecs()));
 
             // Encode routing-table stats.
             srt.prefixes = table->Size();
@@ -390,6 +393,7 @@ int MergeValues(ShowRouteTable &result, vector<const ShowRouteTable *> &input,
     result.routing_instance = input[0]->routing_instance;
     result.routing_table_name = input[0]->routing_table_name;
     result.deleted = input[0]->deleted;
+    result.deleted_at = input[0]->deleted_at;
     result.prefixes = input[0]->prefixes;
     result.primary_paths = input[0]->primary_paths;
     result.secondary_paths = input[0]->secondary_paths;
@@ -642,6 +646,8 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             ShowRouteTableSummary srt;
             srt.set_routing_table_name(table->name());
             srt.set_deleted(table->IsDeleted());
+            srt.set_deleted_at(
+                UTCUsecToString(table->deleter()->delete_time_stamp_usecs()));
             srt.prefixes = table->Size();
             srt.primary_paths = table->GetPrimaryPathCount();
             srt.secondary_paths = table->GetSecondaryPathCount();
@@ -1103,6 +1109,8 @@ public:
             inst.set_vn_index(ri->virtual_network_index());
             inst.set_vxlan_id(ri->vxlan_id());
             inst.set_deleted(ri->deleted());
+            inst.set_deleted_at(
+                UTCUsecToString(ri->deleter()->delete_time_stamp_usecs()));
             std::vector<std::string> import_rt;
             BOOST_FOREACH(RouteTarget rt, ri->GetImportList()) {
                 import_rt.push_back(rt.ToString());
@@ -1184,6 +1192,8 @@ void ShowRoutingInstanceSummaryHandler::FillRoutingInstanceInfo(
     inst.set_vn_index(ri.virtual_network_index());
     inst.set_vxlan_id(ri.vxlan_id());
     inst.set_deleted(ri.deleted());
+    inst.set_deleted_at(
+        UTCUsecToString(ri.deleter()->delete_time_stamp_usecs()));
     vector<string> import_rt;
     BOOST_FOREACH(RouteTarget rt, ri.GetImportList()) {
         import_rt.push_back(rt.ToString());
@@ -1648,6 +1658,8 @@ public:
                 export_list.push_back(rt);
             }
             inst.set_export_target(export_list);
+            inst.set_last_change_at(
+                UTCUsecToString(instance->last_change_at()));
 
             if (!instance->service_chain_list().empty()) {
                 const ServiceChainConfig &sci =
@@ -1785,6 +1797,8 @@ public:
             nbr.set_identifier(peerid.to_string());
             nbr.set_address(neighbor->peer_address().to_string());
             nbr.set_address_families(neighbor->address_families());
+            nbr.set_last_change_at(
+                UTCUsecToString(neighbor->last_change_at()));
             nbr.set_auth_type(neighbor->auth_data().KeyTypeToString());
             if (bsc->test_mode()) {
                 nbr.set_auth_keys(neighbor->auth_data().KeysToStringDetail());
