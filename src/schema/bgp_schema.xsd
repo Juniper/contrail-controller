@@ -40,6 +40,14 @@
      </xsd:restriction>
 </xsd:simpleType> 
 
+<xsd:simpleType name='BgpRouterType'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="control-node"/>
+        <xsd:enumeration value="external-control-node"/>
+        <xsd:enumeration value="router"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='BgpRouterParams'>
     <xsd:sequence>
         <xsd:element name='vendor' type='xsd:string'/>
@@ -51,6 +59,7 @@
         <xsd:element name='address-families' type='AddressFamilies'/>
         <xsd:element name='auth-data' type='AuthenticationData'/>
         <xsd:element name='local-autonomous-system' type='xsd:integer'/>
+        <xsd:element name='router-type' type='BgpRouterType'/>
     </xsd:sequence>
 </xsd:complexType>
 
