@@ -173,7 +173,7 @@ static void ValidateShowInstanceResponse(
     ShowBgpInstanceConfigResp *resp =
         dynamic_cast<ShowBgpInstanceConfigResp *>(sandesh);
     EXPECT_TRUE(resp != NULL);
-    EXPECT_EQ(instance_list.size(), resp->get_instances().size() - 1);
+    EXPECT_EQ(instance_list.size(), resp->get_instances().size());
 
     LOG(DEBUG, "************************************************************");
     BOOST_FOREACH(const ShowBgpInstanceConfig &resp_instance,
@@ -187,6 +187,8 @@ static void ValidateShowInstanceResponse(
     LOG(DEBUG, "************************************************************");
 
     BOOST_FOREACH(const ShowBgpInstanceConfig &instance, instance_list) {
+        if (instance.get_name() == BgpConfigManager::kMasterInstance)
+            continue;
         bool found = false;
         BOOST_FOREACH(const ShowBgpInstanceConfig &resp_instance,
             resp->get_instances()) {
@@ -196,7 +198,7 @@ static void ValidateShowInstanceResponse(
                     resp_instance.get_virtual_network());
                 EXPECT_EQ(instance.get_virtual_network_index(),
                     resp_instance.get_virtual_network_index());
-                continue;
+                break;
             }
         }
         EXPECT_TRUE(found);
@@ -1259,7 +1261,9 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances1) {
     sandesh_context.bgp_server = &server_;
     Sandesh::set_client_context(&sandesh_context);
 
-    const char *instance_name_list[] = { "blue", "green", "red" };
+    const char *instance_name_list[] = {
+        "blue", "green", "red", BgpConfigManager::kMasterInstance
+    };
     vector<ShowBgpInstanceConfig> instance_list;
     BOOST_FOREACH(const char *instance_name, instance_name_list) {
         const BgpInstanceConfig *config =
@@ -1278,7 +1282,45 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances1) {
                     instance_list));
 
     ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
 
+    // Match "".
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, &validate_done,
+                    instance_list));
+    show_req = new ShowBgpInstanceConfigReq;
+    show_req->set_search_string("");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    // Match "e".
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, &validate_done,
+                    instance_list));
+    show_req = new ShowBgpInstanceConfigReq;
+    show_req->set_search_string("e");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    // Match "green".
+    // Set instance list to contain just green.
+    validate_done = false;
+    instance_list[0] = instance_list[1];
+    instance_list.resize(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, &validate_done,
+                    instance_list));
+    show_req = new ShowBgpInstanceConfigReq;
+    show_req->set_search_string("green");
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
@@ -1303,7 +1345,9 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances2) {
     sandesh_context.bgp_server = &server_;
     Sandesh::set_client_context(&sandesh_context);
 
-    const char *instance_name_list[] = { "blue-to-red", "red-to-blue" };
+    const char *instance_name_list[] = {
+        "blue-to-red", "red-to-blue", BgpConfigManager::kMasterInstance
+    };
     vector<ShowBgpInstanceConfig> instance_list;
     BOOST_FOREACH(const char *instance_name, instance_name_list) {
         const BgpInstanceConfig *config =
@@ -1346,7 +1390,9 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances3) {
     sandesh_context.bgp_server = &server_;
     Sandesh::set_client_context(&sandesh_context);
 
-    const char *instance_name_list[] = { "blue-to-nat" };
+    const char *instance_name_list[] = {
+        "blue-to-nat", BgpConfigManager::kMasterInstance
+    };
     vector<ShowBgpInstanceConfig> instance_list;
     BOOST_FOREACH(const char *instance_name, instance_name_list) {
         const BgpInstanceConfig *config =

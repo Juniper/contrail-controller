@@ -931,32 +931,40 @@ protected:
     }
 
 
-    void VerifyServiceChainSandesh(vector<string> result) {
+    void VerifyServiceChainSandesh(vector<string> result,
+        bool filter = false, const string &search_string = string()) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
-        Sandesh::set_response_callback(boost::bind(ValidateShowServiceChainResponse,
-                                                   _1, result));
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowServiceChainResponse, _1, result));
         ShowServiceChainReq *req = new ShowServiceChainReq;
         validate_done_ = 0;
+        if (filter)
+            req->set_search_string(search_string);
         req->HandleRequest();
         req->Release();
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
+        task_util::WaitForIdle();
     }
 
-    void VerifyPendingServiceChainSandesh(vector<string> pending) {
+    void VerifyPendingServiceChainSandesh(vector<string> pending,
+        bool filter = false, const string &search_string = string()) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
-        Sandesh::set_response_callback(boost::bind(ValidateShowPendingServiceChainResponse,
-                                                   _1, pending));
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowPendingServiceChainResponse, _1, pending));
         ShowPendingServiceChainReq *req = new ShowPendingServiceChainReq;
         validate_done_ = 0;
+        if (filter)
+            req->set_search_string(search_string);
         req->HandleRequest();
         req->Release();
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
+        task_util::WaitForIdle();
     }
 
     EventManager evm_;
@@ -1047,6 +1055,8 @@ TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress1) {
     // Verify that service chain is on pending list.
     TASK_UTIL_EXPECT_EQ(1, service_chain_mgr_->PendingQueueSize());
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string());
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
 
     // Fix service chain address.
     SetServiceChainInformation("blue-i1",
@@ -1091,6 +1101,8 @@ TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress2) {
 
     // Verify that service chain is on pending list.
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string());
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
 
     // Fix service chain address.
     SetServiceChainInformation("blue-i1",
@@ -1438,6 +1450,8 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string());
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
 
     // Add "red" routing instance and create connection with "red-i2"
     instance_names = list_of("blue")("blue-i1")("red-i2")("red");
@@ -1470,6 +1484,8 @@ TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
 
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string());
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
 
     ClearServiceChainInformation("blue-i1");
 
@@ -1499,6 +1515,8 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     VerifyInetRouteExists("blue", "192.169.2.0/24");
 
     VerifyServiceChainSandesh(list_of("blue-i1"));
+    VerifyServiceChainSandesh(list_of("blue-i1"), true, string());
+    VerifyServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
 
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_2.xml");
@@ -1508,6 +1526,8 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     VerifyInetRouteExists("blue", "192.169.2.0/24");
 
     VerifyServiceChainSandesh(list_of("blue-i1"));
+    VerifyServiceChainSandesh(list_of("blue-i1"), true, string());
+    VerifyServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");

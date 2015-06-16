@@ -256,8 +256,13 @@ struct ServiceChainRequest {
           aggregate_match_(aggregate_match), info_(info), snh_resp_(NULL) {
     }
 
-    ServiceChainRequest(RequestType type, SandeshResponse *resp)
-        : type_(type), table_(NULL), rt_(NULL), snh_resp_(resp) {
+    ServiceChainRequest(RequestType type, SandeshResponse *resp,
+        const std::string &search_string)
+        : type_(type),
+          table_(NULL),
+          rt_(NULL),
+          snh_resp_(resp),
+          search_string_(search_string) {
     }
 
     RequestType type_;
@@ -266,6 +271,7 @@ struct ServiceChainRequest {
     Ip4Prefix   aggregate_match_;
     ServiceChainPtr info_;
     SandeshResponse *snh_resp_;
+    std::string search_string_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(ServiceChainRequest);

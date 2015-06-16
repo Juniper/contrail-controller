@@ -520,6 +520,45 @@ TEST_F(BgpXmppUnitTest, Connection) {
     sreq->Release();
     WAIT_EQ(true, validate_done_);
 
+    // show instance summary matching ""
+    cout << "ValidateRoutingInstanceSummaryResponse matching empty string:" << endl;
+    Sandesh::set_client_context(&sandesh_context);
+    sresult = list_of(BgpConfigManager::kMasterInstance)("blue")("red");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
+    sreq = new ShowRoutingInstanceSummaryReq;
+    sreq->set_search_string("");
+    validate_done_ = false;
+    sreq->HandleRequest();
+    sreq->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show instance summary matching "blue"
+    cout << "ValidateRoutingInstanceSummaryResponse matching blue:" << endl;
+    Sandesh::set_client_context(&sandesh_context);
+    sresult = list_of("blue");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
+    sreq = new ShowRoutingInstanceSummaryReq;
+    sreq->set_search_string("blue");
+    validate_done_ = false;
+    sreq->HandleRequest();
+    sreq->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show instance summary matching "u"
+    cout << "ValidateRoutingInstanceSummaryResponse matching u:" << endl;
+    Sandesh::set_client_context(&sandesh_context);
+    sresult = list_of(BgpConfigManager::kMasterInstance)("blue");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
+    sreq = new ShowRoutingInstanceSummaryReq;
+    sreq->set_search_string("u");
+    validate_done_ = false;
+    sreq->HandleRequest();
+    sreq->Release();
+    WAIT_EQ(true, validate_done_);
+
     // show neighbor
     cout << "ValidateNeighborResponse:" << endl;
     result = list_of(2)(9); // inet, ermvpn, enet, inet6

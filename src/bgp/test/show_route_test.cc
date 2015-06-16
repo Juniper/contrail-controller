@@ -28,7 +28,7 @@ using namespace boost::assign;
 using namespace boost::asio;
 using namespace std;
 
-static const char config_tmpl[] = "\
+static const char config_template1[] = "\
 <config>\
     <bgp-router name=\'A\'>\
         <identifier>192.168.0.1</identifier>\
@@ -57,6 +57,45 @@ static const char config_tmpl[] = "\
         <identifier>192.168.2.1</identifier>\
         <address>10.0.1.1</address>\
     </bgp-router>\
+    </routing-instance>\
+</config>\
+";
+
+static const char config_template2[] = "\
+<config>\
+    <bgp-router name=\'A\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to='B'/>\
+        <session to='B'/>\
+        <session to='B'/>\
+    </bgp-router>\
+    <bgp-router name=\'B\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to='A'/>\
+        <session to='A'/>\
+        <session to='A'/>\
+    </bgp-router>\
+    <routing-instance name =\"orange1\">\
+        <vrf-target>target:101:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name =\"orange2\">\
+        <vrf-target>target:101:2</vrf-target>\
+    </routing-instance>\
+    <routing-instance name =\"orange3\">\
+        <vrf-target>target:101:3</vrf-target>\
+    </routing-instance>\
+    <routing-instance name =\"yellow1\">\
+        <vrf-target>target:102:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name =\"yellow2\">\
+        <vrf-target>target:102:2</vrf-target>\
+    </routing-instance>\
+    <routing-instance name =\"yellow3\">\
+        <vrf-target>target:102:3</vrf-target>\
     </routing-instance>\
 </config>\
 ";
@@ -93,11 +132,11 @@ protected:
         }
     }
 
-    void Configure() {
+    void Configure(const char *config_template = config_template1) {
         char config[4096];
         int port_a = a_->session_manager()->GetPort();
         int port_b = b_->session_manager()->GetPort();
-        snprintf(config, sizeof(config), config_tmpl, port_a, port_b);
+        snprintf(config, sizeof(config), config_template, port_a, port_b);
         a_->Configure(config);
         task_util::WaitForIdle();
 
@@ -696,6 +735,96 @@ TEST_F(ShowRouteTest1, TableListeners) {
     DeleteInetRoute("192.240.11.0/12", peers_[0], 2, "blue");
     DeleteInetRoute("192.168.12.0/24", peers_[1], 1, "blue");
     DeleteInetRoute("192.168.23.0/24", peers_[2], 0, "blue");
+}
+
+TEST_F(ShowRouteTest1, ShowRouteSummaryMatch) {
+    Configure(config_template2);
+    task_util::WaitForIdle();
+
+    AddInetRoute("192.168.1.0/24", peers_[0], "orange1");
+    AddInetRoute("192.168.1.0/24", peers_[0], "orange2");
+    AddInetRoute("192.168.1.0/24", peers_[0], "orange3");
+    AddInetRoute("192.168.1.0/24", peers_[0], "yellow1");
+    AddInetRoute("192.168.1.0/24", peers_[0], "yellow2");
+    AddInetRoute("192.168.1.0/24", peers_[0], "yellow3");
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    std::vector<int> result;
+    ShowRouteSummaryReq *show_summary_req;
+
+    // Match "".
+    // Result has bgp.l3vpn.0, orange* and yellow*.
+    result = list_of(6)(1)(1)(1)(1)(1)(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSummarySandeshResponse, _1, result, __LINE__));
+    show_summary_req = new ShowRouteSummaryReq;
+    validate_done_ = false;
+    show_summary_req->set_search_string("");
+    show_summary_req->HandleRequest();
+    show_summary_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Match "inet".
+    // Result has orange* and yellow*.
+    result = list_of(1)(1)(1)(1)(1)(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSummarySandeshResponse, _1, result, __LINE__));
+    show_summary_req = new ShowRouteSummaryReq;
+    validate_done_ = false;
+    show_summary_req->set_search_string("inet");
+    show_summary_req->HandleRequest();
+    show_summary_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Match "yellow".
+    // Result has yellow*.
+    result = list_of(1)(1)(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSummarySandeshResponse, _1, result, __LINE__));
+    show_summary_req = new ShowRouteSummaryReq;
+    validate_done_ = false;
+    show_summary_req->set_search_string("yellow");
+    show_summary_req->HandleRequest();
+    show_summary_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Match "orange".
+    // Result has orange*.
+    result = list_of(1)(1)(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSummarySandeshResponse, _1, result, __LINE__));
+    show_summary_req = new ShowRouteSummaryReq;
+    validate_done_ = false;
+    show_summary_req->set_search_string("orange");
+    show_summary_req->HandleRequest();
+    show_summary_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Match "2".
+    // Result has orange2 and yellow2.
+    result = list_of(1)(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSummarySandeshResponse, _1, result, __LINE__));
+    show_summary_req = new ShowRouteSummaryReq;
+    validate_done_ = false;
+    show_summary_req->set_search_string("2");
+    show_summary_req->HandleRequest();
+    show_summary_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    DeleteInetRoute("192.168.1.0/24", peers_[0], 0, "orange1");
+    DeleteInetRoute("192.168.1.0/24", peers_[0], 0, "orange2");
+    DeleteInetRoute("192.168.1.0/24", peers_[0], 0, "orange3");
+    DeleteInetRoute("192.168.1.0/24", peers_[0], 0, "yellow1");
+    DeleteInetRoute("192.168.1.0/24", peers_[0], 0, "yellow2");
+    DeleteInetRoute("192.168.1.0/24", peers_[0], 0, "yellow3");
 }
 
 class ShowRouteTest2 : public ShowRouteTestBase {
