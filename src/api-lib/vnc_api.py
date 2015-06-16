@@ -662,9 +662,13 @@ class VncApi(VncApiClientGen):
             content = self._request_server(rest.OP_POST,
                                            uri, json_body)
         else: # GET /<collection>
-            content = self._request_server(rest.OP_GET,
-                           obj_class.create_uri,
-                           data = query_params)
+            try:
+                content = self._request_server(rest.OP_GET,
+                               obj_class.create_uri,
+                               data = query_params)
+            except NoIdError:
+                # dont allow NoIdError propagate to user
+                return []
 
         if not detail:
             return json.loads(content)
