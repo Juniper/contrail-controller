@@ -27,6 +27,7 @@ AgentUtXmlPacketUtils::AgentUtXmlPacketUtils() {
     name_ = "pkt";
     len_ = 64;
     vrf_id_ = -1;
+    vrf_str_ = "";
     ingress_ = false;
     fwd_mode_ = "l3";
     pkt_module_ = "flow";
@@ -227,7 +228,7 @@ bool AgentUtXmlPacketUtils::MakePacket(Agent *agent, PktGen *pkt) {
         ingress_flow = false;
     }
 
-    Interface *intf = NULL;
+    VmInterface *intf = NULL;
     if (atoi(intf_.c_str())) {
         intf = static_cast<VmInterface *>(VmPortGet(atoi(intf_.c_str())));
         if (intf) {
@@ -265,6 +266,11 @@ bool AgentUtXmlPacketUtils::MakePacket(Agent *agent, PktGen *pkt) {
     if ((tunnel_type == TunnelType::VXLAN) && (ingress_flow == false)) {
         vxlan_id = GetVxlan(intf);
     }
+
+    if (intf->vmi_type() == VmInterface::BAREMETAL) {
+        vxlan_id = GetVxlan(intf);
+    }
+
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(if_id, GetTrapCode(), hash_id_, vrf_id_, label_, vxlan_id);
     if (ip.is_v4()) {
