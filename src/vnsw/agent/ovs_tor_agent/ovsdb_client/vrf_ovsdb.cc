@@ -20,14 +20,10 @@ extern "C" {
 #include <oper/tunnel_nh.h>
 #include <oper/agent_path.h>
 #include <oper/bridge_route.h>
+#include <ovsdb_sandesh.h>
+#include <ovsdb_types.h>
 
-using OVSDB::UnicastMacRemoteEntry;
-using OVSDB::UnicastMacRemoteTable;
-using OVSDB::VrfOvsdbEntry;
-using OVSDB::VrfOvsdbObject;
-using OVSDB::OvsdbDBEntry;
-using OVSDB::OvsdbDBObject;
-using OVSDB::OvsdbClientSession;
+using namespace OVSDB;
 
 VrfOvsdbEntry::VrfOvsdbEntry(OvsdbDBObject *table,
         const std::string &logical_switch) : OvsdbDBEntry(table),
@@ -164,5 +160,77 @@ KSyncDBObject::DBFilterResp VrfOvsdbObject::OvsdbDBEntryFilter(
     }
 
     return DBFilterAccept;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Sandesh routines
+/////////////////////////////////////////////////////////////////////////////
+OvsdbVrfSandeshTask::OvsdbVrfSandeshTask(std::string resp_ctx,
+                                         AgentSandeshArguments &args) :
+    OvsdbSandeshTask(resp_ctx, args), logical_switch_("") {
+    if (false == args.Get("logical_switch", &logical_switch_)) {
+        logical_switch_ = "";
+    }
+}
+
+OvsdbVrfSandeshTask::OvsdbVrfSandeshTask(std::string resp_ctx,
+                                         const std::string &ip,
+                                         uint32_t port,
+                                         const std::string &logical_switch) :
+    OvsdbSandeshTask(resp_ctx, ip, port), logical_switch_(logical_switch) {
+}
+
+OvsdbVrfSandeshTask::~OvsdbVrfSandeshTask() {
+}
+
+void OvsdbVrfSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
+    if (!logical_switch_.empty()) {
+        args.Add("logical_switch", logical_switch_);
+    }
+}
+
+OvsdbSandeshTask::FilterResp OvsdbVrfSandeshTask::Filter(KSyncEntry *kentry) {
+    if (!logical_switch_.empty()) {
+        VrfOvsdbEntry *entry = static_cast<VrfOvsdbEntry *>(kentry);
+        if (entry->logical_switch_name().find(
+                    logical_switch_) != std::string::npos) {
+            return FilterAllow;
+        }
+        return FilterDeny;
+    }
+    return FilterAllow;
+}
+
+void OvsdbVrfSandeshTask::UpdateResp(KSyncEntry *kentry,
+                                     SandeshResponse *resp) {
+    VrfOvsdbEntry *entry = static_cast<VrfOvsdbEntry *>(kentry);
+    OvsdbVrfEntry ventry;
+    ventry.set_state(entry->StateString());
+    ventry.set_logical_switch(entry->logical_switch_name());
+    UnicastMacRemoteSandeshTask task("", ip_, port_,
+                                     entry->logical_switch_name(), "");
+    ventry.set_unicast_remote_table(task.EncodeFirstPage());
+    OvsdbVrfResp *vrf_resp = static_cast<OvsdbVrfResp *>(resp);
+
+    std::vector<OvsdbVrfEntry> &vrf_list =
+        const_cast<std::vector<OvsdbVrfEntry>&>(vrf_resp->get_vrfs());
+    vrf_list.push_back(ventry);
+}
+
+SandeshResponse *OvsdbVrfSandeshTask::Alloc() {
+    return static_cast<SandeshResponse *>(new OvsdbVrfResp());
+}
+
+KSyncObject *OvsdbVrfSandeshTask::GetObject(OvsdbClientSession *session) {
+    return static_cast<KSyncObject *>(session->client_idl()->vrf_ovsdb());
+}
+
+void OvsdbVrfReq::HandleRequest() const {
+    OvsdbVrfSandeshTask *task =
+        new OvsdbVrfSandeshTask(context(), get_session_remote_ip(),
+                                get_session_remote_port(),
+                                get_logical_switch());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
 }
 

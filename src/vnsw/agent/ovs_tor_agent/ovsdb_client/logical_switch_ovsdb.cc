@@ -18,14 +18,10 @@ extern "C" {
 #include <oper/vrf.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
 
-using OVSDB::LogicalSwitchEntry;
-using OVSDB::LogicalSwitchTable;
-using OVSDB::OvsdbDBEntry;
-using OVSDB::OvsdbDBObject;
-using OVSDB::OvsdbClient;
-using OVSDB::OvsdbClientSession;
+using namespace OVSDB;
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
                                        const std::string &name) :
@@ -464,65 +460,73 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
-class LogicalSwitchSandeshTask : public Task {
-public:
-    LogicalSwitchSandeshTask(std::string resp_ctx, const std::string &ip,
-                             uint32_t port) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbLogicalSwitchResp()), resp_data_(resp_ctx),
-        ip_(ip), port_(port) {
+LogicalSwitchSandeshTask::LogicalSwitchSandeshTask(
+        std::string resp_ctx, AgentSandeshArguments &args) :
+    OvsdbSandeshTask(resp_ctx, args), name_("") {
+    if (false == args.Get("name", &name_)) {
+        name_ = "";
     }
-    virtual ~LogicalSwitchSandeshTask() {}
-    virtual bool Run() {
-        std::vector<OvsdbLogicalSwitchEntry> lswitch;
-        OvsdbClient *ovsdb_client = Agent::GetInstance()->ovsdb_client();
-        OvsdbClientSession *session;
-        if (ip_.empty()) {
-            session = ovsdb_client->NextSession(NULL);
-        } else {
-            boost::system::error_code ec;
-            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = ovsdb_client->FindSession(ip_addr, port_);
-        }
-        if (session != NULL && session->client_idl() != NULL) {
-            LogicalSwitchTable *table =
-                session->client_idl()->logical_switch_table();
-            LogicalSwitchEntry *entry =
-                static_cast<LogicalSwitchEntry *>(table->Next(NULL));
-            while (entry != NULL) {
-                OvsdbLogicalSwitchEntry lentry;
-                lentry.set_state(entry->StateString());
-                lentry.set_name(entry->name());
-                lentry.set_physical_switch(entry->device_name());
-                lentry.set_vxlan_id(entry->vxlan_id());
-                lentry.set_tor_service_node(entry->tor_service_node());
-                lswitch.push_back(lentry);
-                entry = static_cast<LogicalSwitchEntry *>(table->Next(entry));
-            }
-        }
-        resp_->set_lswitch(lswitch);
-        SendResponse();
-        return true;
-    }
+}
 
-private:
-    void SendResponse() {
-        resp_->set_context(resp_data_);
-        resp_->set_more(false);
-        resp_->Response();
-    }
+LogicalSwitchSandeshTask::LogicalSwitchSandeshTask(std::string resp_ctx,
+                                                   const std::string &ip,
+                                                   uint32_t port,
+                                                   const std::string &name) :
+    OvsdbSandeshTask(resp_ctx, ip, port), name_(name) {
+}
 
-    OvsdbLogicalSwitchResp *resp_;
-    std::string resp_data_;
-    std::string ip_;
-    uint32_t port_;
-    DISALLOW_COPY_AND_ASSIGN(LogicalSwitchSandeshTask);
-};
+LogicalSwitchSandeshTask::~LogicalSwitchSandeshTask() {
+}
+
+void LogicalSwitchSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
+    if (!name_.empty()) {
+        args.Add("name", name_);
+    }
+}
+
+OvsdbSandeshTask::FilterResp
+LogicalSwitchSandeshTask::Filter(KSyncEntry *kentry) {
+    if (!name_.empty()) {
+        LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+        if (entry->name().find(name_) != std::string::npos) {
+            return FilterAllow;
+        }
+        return FilterDeny;
+    }
+    return FilterAllow;
+}
+
+void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
+                                          SandeshResponse *resp) {
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+    OvsdbLogicalSwitchEntry lentry;
+    lentry.set_state(entry->StateString());
+    lentry.set_name(entry->name());
+    lentry.set_physical_switch(entry->device_name());
+    lentry.set_vxlan_id(entry->vxlan_id());
+    lentry.set_tor_service_node(entry->tor_service_node());
+    OvsdbLogicalSwitchResp *ls_resp =
+        static_cast<OvsdbLogicalSwitchResp *>(resp);
+    std::vector<OvsdbLogicalSwitchEntry> &lswitch =
+        const_cast<std::vector<OvsdbLogicalSwitchEntry>&>(
+                ls_resp->get_lswitch());
+    lswitch.push_back(lentry);
+}
+
+SandeshResponse *LogicalSwitchSandeshTask::Alloc() {
+    return static_cast<SandeshResponse *>(new OvsdbLogicalSwitchResp());
+}
+
+KSyncObject *LogicalSwitchSandeshTask::GetObject(OvsdbClientSession *session) {
+    return static_cast<KSyncObject *>(
+            session->client_idl()->logical_switch_table());
+}
 
 void OvsdbLogicalSwitchReq::HandleRequest() const {
     LogicalSwitchSandeshTask *task =
         new LogicalSwitchSandeshTask(context(), get_session_remote_ip(),
-                                     get_session_remote_port());
+                                     get_session_remote_port(),
+                                     get_name());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
