@@ -883,6 +883,13 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         vector<uint32_t> labels;
 
+        if (item.entry.next_hops.next_hop.empty()) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Missing next-hop for mcast route " << mc_prefix.ToString());
+            return false;
+        }
+
         // Agents should send only one next-hop in the item
         if (item.entry.next_hops.next_hop.size() != 1) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
@@ -1098,74 +1105,79 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         BgpAttrSpec attrs;
 
-        if (!item.entry.next_hops.next_hop.empty()) {
-            for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
-                InetTable::RequestData::NextHop nexthop;
+        if (item.entry.next_hops.next_hop.empty()) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Missing next-hops for inet route " << rt_prefix.ToString());
+            return false;
+        }
 
-                IpAddress nhop_address(Ip4Address(0));
-                if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
-                    item.entry.next_hops.next_hop[i].address, &nhop_address)) {
-                    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                        SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                        "Error parsing nexthop address:" <<
-                        item.entry.next_hops.next_hop[i].address <<
-                        " family:" << item.entry.next_hops.next_hop[i].af <<
-                        " for inet route");
-                    return false;
-                }
+        for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
+            InetTable::RequestData::NextHop nexthop;
 
-                if (i == 0) {
-                    nh_address = nhop_address;
-                    label = item.entry.next_hops.next_hop[0].label;
-                }
-
-                bool no_valid_tunnel_encap = true;
-
-                // Tunnel Encap list
-                for (vector<string>::const_iterator it =
-                     item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.begin();
-                     it !=
-                     item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
-                     it++) {
-                    TunnelEncap tun_encap(*it);
-                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    no_valid_tunnel_encap = false;
-                    if (i == 0) {
-                        ext.communities.push_back(
-                            tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        tun_encap.GetExtCommunity());
-
-                    string alt_encap_string = *it + "-contrail";
-                    TunnelEncap alt_tun_encap(alt_encap_string);
-                    if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    if (i == 0) {
-                        ext.communities.push_back(
-                            alt_tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        alt_tun_encap.GetExtCommunity());
-                }
-
-                // If all of the tunnel encaps published by the agent are
-                // invalid, mark the path as infeasible. If agent has not
-                // published any tunnel encap, default the tunnel encap to "gre"
-                if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
-                    no_valid_tunnel_encap) {
-                    flags = BgpPath::NoTunnelEncap;
-                }
-
-                nexthop.flags_ = flags;
-                nexthop.address_ = nhop_address;
-                nexthop.label_ = item.entry.next_hops.next_hop[i].label;
-                nexthop.source_rd_ = RouteDistinguisher(
-                                         nhop_address.to_v4().to_ulong(),
-                                         instance_id);
-                nexthops.push_back(nexthop);
+            IpAddress nhop_address(Ip4Address(0));
+            if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
+                item.entry.next_hops.next_hop[i].address, &nhop_address)) {
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Error parsing nexthop address: " <<
+                    item.entry.next_hops.next_hop[i].address <<
+                    " family: " << item.entry.next_hops.next_hop[i].af <<
+                    " for inet route");
+                return false;
             }
+
+            if (i == 0) {
+                nh_address = nhop_address;
+                label = item.entry.next_hops.next_hop[0].label;
+            }
+
+            bool no_valid_tunnel_encap = true;
+
+            // Tunnel Encap list
+            for (vector<string>::const_iterator it =
+                item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.begin();
+                it !=
+                    item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
+                it++) {
+                TunnelEncap tun_encap(*it);
+                if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                no_valid_tunnel_encap = false;
+                if (i == 0) {
+                    ext.communities.push_back(
+                        tun_encap.GetExtCommunityValue());
+                }
+                nexthop.tunnel_encapsulations_.push_back(
+                    tun_encap.GetExtCommunity());
+
+                string alt_encap_string = *it + "-contrail";
+                TunnelEncap alt_tun_encap(alt_encap_string);
+                if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                if (i == 0) {
+                    ext.communities.push_back(
+                        alt_tun_encap.GetExtCommunityValue());
+                }
+                nexthop.tunnel_encapsulations_.push_back(
+                    alt_tun_encap.GetExtCommunity());
+            }
+
+            // If all of the tunnel encaps published by the agent are
+            // invalid, mark the path as infeasible. If agent has not
+            // published any tunnel encap, default the tunnel encap to "gre"
+            if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
+                no_valid_tunnel_encap) {
+                flags = BgpPath::NoTunnelEncap;
+            }
+
+            nexthop.flags_ = flags;
+            nexthop.address_ = nhop_address;
+            nexthop.label_ = item.entry.next_hops.next_hop[i].label;
+            nexthop.source_rd_ = RouteDistinguisher(
+                nhop_address.to_v4().to_ulong(),
+                instance_id);
+            nexthops.push_back(nexthop);
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -1321,77 +1333,81 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         BgpAttrSpec attrs;
 
-        if (!item.entry.next_hops.next_hop.empty()) {
-            for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); ++i) {
-                Inet6Table::RequestData::NextHop nexthop;
+        if (item.entry.next_hops.next_hop.empty()) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Missing next-hops for inet6 route " << rt_prefix.ToString());
+            return false;
+        }
 
-                IpAddress nhop_address(Ip4Address(0));
-                if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
-                    item.entry.next_hops.next_hop[i].address, &nhop_address)) {
-                    error_stats().incr_inet6_rx_bad_nexthop_count();
-                    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                        SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                        "Error parsing nexthop address:" <<
-                        item.entry.next_hops.next_hop[i].address <<
-                        " family:" << item.entry.next_hops.next_hop[i].af <<
-                        " for inet6 route");
-                    return false;
-                }
+        for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); ++i) {
+            Inet6Table::RequestData::NextHop nexthop;
 
-                if (i == 0) {
-                    nh_address = nhop_address;
-                    label = item.entry.next_hops.next_hop[0].label;
-                }
-
-                bool no_valid_tunnel_encap = true;
-
-                // Tunnel Encap list
-                for (vector<string>::const_iterator it =
-                     item.entry.next_hops.next_hop[i].
-                                        tunnel_encapsulation_list.begin();
-                     it !=
-                     item.entry.next_hops.next_hop[i].
-                                        tunnel_encapsulation_list.end();
-                     ++it) {
-                    TunnelEncap tun_encap(*it);
-                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    no_valid_tunnel_encap = false;
-                    if (i == 0) {
-                        ext.communities.push_back(
-                            tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        tun_encap.GetExtCommunity());
-
-                    string alt_encap_string = *it + "-contrail";
-                    TunnelEncap alt_tun_encap(alt_encap_string);
-                    if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    if (i == 0) {
-                        ext.communities.push_back(
-                            alt_tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        alt_tun_encap.GetExtCommunity());
-                }
-
-                // If all of the tunnel encaps published by the agent are
-                // invalid, mark the path as infeasible. If agent has not
-                // published any tunnel encap, default the tunnel encap to "gre"
-                if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.
-                        tunnel_encapsulation.empty() && no_valid_tunnel_encap) {
-                    flags = BgpPath::NoTunnelEncap;
-                }
-
-                nexthop.flags_ = flags;
-                nexthop.address_ = nhop_address;
-                nexthop.label_ = item.entry.next_hops.next_hop[i].label;
-                nexthop.source_rd_ =
-                    RouteDistinguisher(nhop_address.to_v4().to_ulong(),
-                                       instance_id);
-                nexthops.push_back(nexthop);
+            IpAddress nhop_address(Ip4Address(0));
+            if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
+                item.entry.next_hops.next_hop[i].address, &nhop_address)) {
+                error_stats().incr_inet6_rx_bad_nexthop_count();
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Error parsing nexthop address: " <<
+                    item.entry.next_hops.next_hop[i].address <<
+                    " family: " << item.entry.next_hops.next_hop[i].af <<
+                    " for inet6 route");
+                return false;
             }
+
+            if (i == 0) {
+                nh_address = nhop_address;
+                label = item.entry.next_hops.next_hop[0].label;
+            }
+
+            bool no_valid_tunnel_encap = true;
+
+            // Tunnel Encap list
+            for (vector<string>::const_iterator it =
+                item.entry.next_hops.next_hop[i].
+                tunnel_encapsulation_list.begin();
+                it !=
+                    item.entry.next_hops.next_hop[i].
+                    tunnel_encapsulation_list.end();
+                ++it) {
+                TunnelEncap tun_encap(*it);
+                if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                no_valid_tunnel_encap = false;
+                if (i == 0) {
+                    ext.communities.push_back(
+                        tun_encap.GetExtCommunityValue());
+                }
+                nexthop.tunnel_encapsulations_.push_back(
+                    tun_encap.GetExtCommunity());
+
+                string alt_encap_string = *it + "-contrail";
+                TunnelEncap alt_tun_encap(alt_encap_string);
+                if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                if (i == 0) {
+                    ext.communities.push_back(
+                        alt_tun_encap.GetExtCommunityValue());
+                }
+                nexthop.tunnel_encapsulations_.push_back(
+                    alt_tun_encap.GetExtCommunity());
+            }
+
+            // If all of the tunnel encaps published by the agent are
+            // invalid, mark the path as infeasible. If agent has not
+            // published any tunnel encap, default the tunnel encap to "gre"
+            if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.
+                tunnel_encapsulation.empty() && no_valid_tunnel_encap) {
+                flags = BgpPath::NoTunnelEncap;
+            }
+
+            nexthop.flags_ = flags;
+            nexthop.address_ = nhop_address;
+            nexthop.label_ = item.entry.next_hops.next_hop[i].label;
+            nexthop.source_rd_ = RouteDistinguisher(
+                nhop_address.to_v4().to_ulong(), instance_id);
+            nexthops.push_back(nexthop);
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -1606,75 +1622,80 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         BgpAttrSpec attrs;
 
-        if (!item.entry.next_hops.next_hop.empty()) {
-            for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
-                EvpnTable::RequestData::NextHop nexthop;
-                IpAddress nhop_address(Ip4Address(0));
+        if (item.entry.next_hops.next_hop.empty()) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Missing next-hops for enet route " << evpn_prefix.ToString());
+            return false;
+        }
 
-                if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
-                    item.entry.next_hops.next_hop[i].address, &nhop_address)) {
-                    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                                 "Error parsing nexthop address:" <<
-                                 item.entry.next_hops.next_hop[i].address <<
-                                 " family:" <<
-                                 item.entry.next_hops.next_hop[i].af <<
-                                 " for evpn route");
-                    return false;
-                }
-                if (i == 0) {
-                    nh_address = nhop_address;
-                    label = item.entry.next_hops.next_hop[0].label;
-                }
+        for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
+            EvpnTable::RequestData::NextHop nexthop;
+            IpAddress nhop_address(Ip4Address(0));
 
-                // Tunnel Encap list
-                bool no_valid_tunnel_encap = true;
-                for (vector<string>::const_iterator it =
-                     item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.begin();
-                     it !=
-                     item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
-                     it++) {
-                    TunnelEncap tun_encap(*it);
-                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    no_valid_tunnel_encap = false;
-                    if (i == 0) {
-                        ext.communities.push_back(
-                            tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        tun_encap.GetExtCommunity());
-
-                    string alt_encap_string = *it + "-contrail";
-                    TunnelEncap alt_tun_encap(alt_encap_string);
-                    if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    if (i == 0) {
-                        ext.communities.push_back(
-                            alt_tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        alt_tun_encap.GetExtCommunity());
-                }
-
-                //
-                // If all of the tunnel encaps published by agent is invalid,
-                // mark the path as infeasible
-                // If agent has not published any tunnel encap, default the
-                // tunnel encap to "gre"
-                //
-                if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
-                    no_valid_tunnel_encap)
-                    flags = BgpPath::NoTunnelEncap;
-
-                nexthop.flags_ = flags;
-                nexthop.address_ = nhop_address;
-                nexthop.label_ = item.entry.next_hops.next_hop[i].label;
-                nexthop.source_rd_ = RouteDistinguisher(
-                                         nhop_address.to_v4().to_ulong(),
-                                         instance_id);
-                nexthops.push_back(nexthop);
+            if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
+                item.entry.next_hops.next_hop[i].address, &nhop_address)) {
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Error parsing nexthop address: " <<
+                    item.entry.next_hops.next_hop[i].address <<
+                    " family: " <<
+                    item.entry.next_hops.next_hop[i].af <<
+                    " for evpn route");
+                return false;
             }
+            if (i == 0) {
+                nh_address = nhop_address;
+                label = item.entry.next_hops.next_hop[0].label;
+            }
+
+            // Tunnel Encap list
+            bool no_valid_tunnel_encap = true;
+            for (vector<string>::const_iterator it =
+                item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.begin();
+                it !=
+                    item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
+                it++) {
+                TunnelEncap tun_encap(*it);
+                if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                no_valid_tunnel_encap = false;
+                if (i == 0) {
+                    ext.communities.push_back(
+                        tun_encap.GetExtCommunityValue());
+                }
+                nexthop.tunnel_encapsulations_.push_back(
+                    tun_encap.GetExtCommunity());
+
+                string alt_encap_string = *it + "-contrail";
+                TunnelEncap alt_tun_encap(alt_encap_string);
+                if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                if (i == 0) {
+                    ext.communities.push_back(
+                        alt_tun_encap.GetExtCommunityValue());
+                }
+                nexthop.tunnel_encapsulations_.push_back(
+                    alt_tun_encap.GetExtCommunity());
+            }
+
+            //
+            // If all of the tunnel encaps published by agent is invalid,
+            // mark the path as infeasible
+            // If agent has not published any tunnel encap, default the
+            // tunnel encap to "gre"
+            //
+            if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
+                no_valid_tunnel_encap)
+                flags = BgpPath::NoTunnelEncap;
+
+            nexthop.flags_ = flags;
+            nexthop.address_ = nhop_address;
+            nexthop.label_ = item.entry.next_hops.next_hop[i].label;
+            nexthop.source_rd_ = RouteDistinguisher(
+                nhop_address.to_v4().to_ulong(),
+                instance_id);
+            nexthops.push_back(nexthop);
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);
