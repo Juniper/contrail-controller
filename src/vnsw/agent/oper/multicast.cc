@@ -688,8 +688,30 @@ void MulticastHandler::EnqueueDeviceChange(const boost::uuids::uuid &u,
     agent_->physical_device_table()->Enqueue(&req);
 }
 
-void MulticastHandler::UpdateDeviceMastership(const TunnelOlist &olist) {
+void MulticastHandler::UpdateDeviceMastership(const std::string &vrf,
+                                              const TunnelOlist &olist) {
     PhysicalDeviceSet new_set;
+
+    if (olist.size() == 0) {
+        VrfDevicesMap::iterator it = vrf2devices_map_.find(vrf);
+        if (it == vrf2devices_map_.end()) {
+            return;
+        }
+        PhysicalDeviceSet dev_set = it->second;
+        PhysicalDeviceSet::iterator pit = dev_set.begin();
+        while (pit != dev_set.end()) {
+            const boost::uuids::uuid &u = *pit;
+            PhysicalDeviceSet::iterator dit = managed_pd_set_.find(u);
+            if (dit != managed_pd_set_.end()) {
+                EnqueueDeviceChange(u, false);
+                managed_pd_set_.erase(dit);
+            }
+            ++pit;
+        }
+        vrf2devices_map_.erase(it);
+        return;
+    }
+
     for (TunnelOlist::const_iterator it = olist.begin();
          it != olist.end(); it++) {
         PhysicalDevice *dev = agent_->physical_device_table()->
@@ -703,23 +725,34 @@ void MulticastHandler::UpdateDeviceMastership(const TunnelOlist &olist) {
         PhysicalDeviceSet::iterator pit = managed_pd_set_.find(dev->uuid());
         if (pit == managed_pd_set_.end()) {
             EnqueueDeviceChange(dev->uuid(), true);
+            managed_pd_set_.insert(dev->uuid());
         }
         new_set.insert(dev->uuid());
     }
 
-    /* Iterate through the old managed physical device list. If any of them are
+    /* Iterate through the old per vrf physical device list. If any of them are
      * not present in new list, enqueue change on those devices with master
      * as false */
-    PhysicalDeviceSet::iterator it = managed_pd_set_.begin();
-    while (it != managed_pd_set_.end()) {
-        PhysicalDeviceSet::iterator pit = new_set.find(*it);
-        if (pit == new_set.end()) {
-            EnqueueDeviceChange(*it, false);
-        }
-        ++it;
+    VrfDevicesMap::iterator it = vrf2devices_map_.find(vrf);
+    if (it == vrf2devices_map_.end()) {
+        vrf2devices_map_.insert(VrfDevicesPair(vrf, new_set));
+        return;
     }
-    /* Replace old set with new */
-    managed_pd_set_ = new_set;
+    PhysicalDeviceSet dev_set = it->second;
+    PhysicalDeviceSet::iterator pit = dev_set.begin();
+    while (pit != dev_set.end()) {
+        PhysicalDeviceSet::iterator dit = new_set.find(*pit);
+        if (pit == new_set.end()) {
+            EnqueueDeviceChange(*pit, false);
+            PhysicalDeviceSet::iterator del_it = managed_pd_set_.find(*pit);
+            if (del_it == managed_pd_set_.end()) {
+                managed_pd_set_.erase(del_it);
+            }
+        }
+        ++pit;
+    }
+    //Update the devices_set for the vrf with new_set
+    it->second = new_set;
 }
 
 void MulticastHandler::ModifyTorMembers(const Peer *peer,
@@ -730,7 +763,7 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
 {
     boost::system::error_code ec;
 
-    UpdateDeviceMastership(olist);
+    UpdateDeviceMastership(vrf_name, olist);
     Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
     MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     MCTRACE(Log, "TOR multicast handler ", vrf_name, grp.to_string(), 0);
@@ -766,7 +799,7 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
 }
 
 MulticastHandler::MulticastHandler(Agent *agent)
-        : agent_(agent), managed_pd_set_(),
+        : agent_(agent), managed_pd_set_(), vrf2devices_map_(),
           vn_listener_id_(DBTable::kInvalidId),
           interface_listener_id_(DBTable::kInvalidId) { 
     obj_ = this; 
