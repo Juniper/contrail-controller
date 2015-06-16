@@ -22,6 +22,6 @@
             <security-group>7999998</security-group>>
         </security-group-list>
         <local-preference>100</local-preference>
-	<replicator-address>192.168.1.1/32</replicator-address> <!-- XXXXXXXXXXXXXXX -->
+	<replicator-address>0.0.0.0</replicator-address> <!-- XXXXXXXXXXXXXXX -->
     </entry>
 </item>
