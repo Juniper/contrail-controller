@@ -327,13 +327,15 @@ class DBInterface(object):
     #end _virtual_network_delete
 
     def _virtual_network_list(self, parent_id=None, obj_uuids=None,
-                              fields=None, detail=False, count=False):
+                              fields=None, detail=False, count=False,
+                              filters=None):
         return self._vnc_lib.virtual_networks_list(
                                               parent_id=parent_id,
                                               obj_uuids=obj_uuids,
                                               fields=fields,
                                               detail=detail,
-                                              count=count)
+                                              count=count,
+                                              filters=filters)
     #end _virtual_network_list
 
     def _virtual_machine_interface_read(self, port_id=None, fq_name=None,
@@ -428,7 +430,7 @@ class DBInterface(object):
     #end _project_list_domain
 
     # find network ids on a given project
-    def _network_list_project(self, project_id, count=False):
+    def _network_list_project(self, project_id, count=False, filters=None):
         if project_id:
             try:
                 project_uuid = str(uuid.UUID(project_id))
@@ -439,10 +441,10 @@ class DBInterface(object):
 
         if count:
             ret_val = self._virtual_network_list(parent_id=project_uuid,
-                                                 count=True)
+                                                 count=True, filters=filters)
         else:
             ret_val = self._virtual_network_list(parent_id=project_uuid,
-                                                 detail=True)
+                                                 detail=True, filters=filters)
 
         return ret_val
     #end _network_list_project
@@ -578,7 +580,8 @@ class DBInterface(object):
 
     def _network_list_shared_and_ext(self):
         ret_list = []
-        nets = self._network_list_project(project_id=None)
+        nets = self._network_list_project(project_id=None,
+            filters={'is_shared':True, 'router_external':True})
         for net in nets:
             if net.get_router_external() and net.get_is_shared():
                 ret_list.append(net)
@@ -587,7 +590,8 @@ class DBInterface(object):
 
     def _network_list_router_external(self):
         ret_list = []
-        nets = self._network_list_project(project_id=None)
+        nets = self._network_list_project(project_id=None,
+            filters={'router_external':True})
         for net in nets:
             if not net.get_router_external():
                 continue
@@ -597,7 +601,8 @@ class DBInterface(object):
 
     def _network_list_shared(self):
         ret_list = []
-        nets = self._network_list_project(project_id=None)
+        nets = self._network_list_project(project_id=None,
+            filters={'is_shared':True})
         for net in nets:
             if not net.get_is_shared():
                 continue
