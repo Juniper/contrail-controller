@@ -102,6 +102,10 @@ void LoadbalancerHaproxy::GenerateFrontend(
     *out << string(4, ' ')
          << "default_backend " << pool_id << endl;
 
+    if (vip.protocol == "HTTP" || vip.protocol == "HTTPS") {
+        *out << string(4, ' ') << "option forwardfor" << endl;
+    }
+
     if (vip.connection_limit >= 0) {
         *out << string(4, ' ')
              << "maxconn " << vip.connection_limit << endl;
@@ -147,9 +151,19 @@ void LoadbalancerHaproxy::GenerateBackend(
                  << hm.expected_codes << endl;
         }
     }
+
+    if (pool.protocol == "HTTP" || pool.protocol == "HTTPS") {
+        *out << string(4, ' ') << "option forwardfor" << endl;
+    }
+
     const autogen::VirtualIpType &vip = props.vip_properties();
     if (vip.persistence_type == "HTTP_COOKIE") {
-        *out << string(4, ' ') << "cookie SRV insert indirect nocache"
+        string cookie_name;
+        if (vip.persistence_cookie_name.empty())
+            cookie_name = "SRV";
+        else
+            cookie_name = vip.persistence_cookie_name;
+        *out << string(4, ' ') << "cookie " << cookie_name << " insert indirect nocache"
              << endl;
     }
     if (vip.persistence_type == "SOURCE_IP") {
@@ -163,14 +177,18 @@ void LoadbalancerHaproxy::GenerateBackend(
             vip.persistence_cookie_name << " len 56 timeout 3h" << endl;
     }
 
+    int index = 0;
     for (LoadbalancerProperties::MemberMap::const_iterator iter =
                  props.members().begin();
-         iter != props.members().end(); ++iter) {
+         iter != props.members().end(); ++iter, ++index) {
         const autogen::LoadbalancerMemberType &member = iter->second;
         *out << string(4, ' ')
              << "server " << iter->first << " " << member.address
              << ":" << member.protocol_port
              << " weight " << member.weight;
+        if (vip.persistence_type == "HTTP_COOKIE") {
+            *out << " check cookie " << index;
+        }
         if (timeout) {
             *out << " check inter " << timeout << " rise 1 fall "
                  << max_retries;
