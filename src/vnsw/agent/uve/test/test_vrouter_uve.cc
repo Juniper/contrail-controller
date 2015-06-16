@@ -912,6 +912,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
+    BridgeAgentRouteTable *table = agent_->fabric_l2_unicast_table();
 
     agent_->set_tsn_enabled(true);
     const VrouterAgent &uve = vr->last_sent_vrouter();
@@ -938,7 +939,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
 
     //Update tsn_managed flag for PhysicalDevice as 'true'
     PhysicalDevice *pd = PhysicalDeviceGet(1);
-    MulticastHandler::GetInstance()->EnqueueDeviceChange(pd->uuid(), true);
+    table->EnqueueDeviceChange(pd->uuid(), true);
     client->WaitForIdle();
 
     EnqueueSendVrouterUveTask();
@@ -951,7 +952,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     EXPECT_EQ(0U, uve2.get_unmanaged_if_list().size());
 
     //Update tsn_managed flag for PhysicalDevice as 'false'
-    MulticastHandler::GetInstance()->EnqueueDeviceChange(pd->uuid(), false);
+    table->EnqueueDeviceChange(pd->uuid(), false);
     client->WaitForIdle();
 
     EnqueueSendVrouterUveTask();

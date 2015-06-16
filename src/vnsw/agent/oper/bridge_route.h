@@ -10,8 +10,16 @@
 /////////////////////////////////////////////////////////////////
 class BridgeAgentRouteTable : public AgentRouteTable {
 public:
+    typedef std::set<boost::uuids::uuid> PhysicalDeviceSet;
+    typedef std::map<const std::string, PhysicalDeviceSet> VrfDevicesMap;
+    typedef std::pair<const std::string, PhysicalDeviceSet> VrfDevicesPair;
+    typedef std::set<std::string> VrfSet;
+    typedef std::map<const boost::uuids::uuid, VrfSet> DeviceVrfMap;
+    typedef std::pair<const boost::uuids::uuid, VrfSet> DeviceVrfPair;
+
     BridgeAgentRouteTable(DB *db, const std::string &name) :
-        AgentRouteTable(db, name) {
+        AgentRouteTable(db, name), managed_pd_set_(), vrf2devices_map_(),
+        device2vrf_map_() {
     }
     virtual ~BridgeAgentRouteTable() { }
 
@@ -73,9 +81,22 @@ public:
                          const VmInterface *vm_intf);
     const VmInterface *FindVmFromDhcpBinding(const MacAddress &mac);
     BridgeRouteEntry *FindRoute(const MacAddress &mac);
+    const PhysicalDeviceSet &managed_pd_set() const { return managed_pd_set_; }
+    void EnqueueDeviceChange(const boost::uuids::uuid &u, bool master);
+    void UpdateDeviceMastership(const std::string &vrf, ComponentNHList clist,
+                                bool del);
 
 private:
+    void ResetDeviceMastership(const boost::uuids::uuid &u,
+                               const std::string &vrf);
+    void AddDeviceToVrfEntry(const boost::uuids::uuid &u,
+                             const std::string &vrf);
+    bool RemoveDeviceToVrfEntry(const boost::uuids::uuid &u,
+                                const std::string &vrf);
     DBTableWalker::WalkId walkid_;
+    PhysicalDeviceSet managed_pd_set_;
+    VrfDevicesMap vrf2devices_map_;
+    DeviceVrfMap device2vrf_map_;
     DISALLOW_COPY_AND_ASSIGN(BridgeAgentRouteTable);
 };
 
@@ -117,6 +138,7 @@ private:
                                         const AgentRouteData *data) const;
     AgentPath *FindMulticastPathUsingKeyData(const AgentRouteKey *key,
                                              const AgentRouteData *data) const;
+    void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
 
     MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);

@@ -44,14 +44,14 @@ public:
 };
 
 TEST_F(TestPhysicalDevice, device_master_1) {
-    MulticastHandler *mcast = agent_->oper_db()->multicast();
+    BridgeAgentRouteTable *table = agent_->fabric_l2_unicast_table();
     boost::uuids::uuid u = MakeUuid(1);
 
     // When mastership for a ToR changes, multicast sets master_ field in
     // physical-device table. Ensure, that multicast uses RESYNC operation
     // for this.
     // Check that calling EnqueueDeviceChange does not create DBEntry
-    mcast->EnqueueDeviceChange(u, true);
+    table->EnqueueDeviceChange(u, true);
     TestClient::WaitForIdle();
     EXPECT_TRUE(PhysicalDeviceGet(1) == NULL);
 
@@ -62,11 +62,11 @@ TEST_F(TestPhysicalDevice, device_master_1) {
     EXPECT_TRUE(dev != NULL);
     EXPECT_FALSE(dev->master());
 
-    mcast->EnqueueDeviceChange(dev->uuid(), true);
+    table->EnqueueDeviceChange(dev->uuid(), true);
     TestClient::WaitForIdle();
     EXPECT_TRUE(dev->master());
 
-    mcast->EnqueueDeviceChange(dev->uuid(), false);
+    table->EnqueueDeviceChange(dev->uuid(), false);
     TestClient::WaitForIdle();
     EXPECT_FALSE(dev->master());
 

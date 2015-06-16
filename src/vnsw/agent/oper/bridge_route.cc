@@ -12,9 +12,11 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/physical_device.h>
 #include <controller/controller_export.h>
 #include <controller/controller_peer.h>
 #include <oper/agent_sandesh.h>
+#include <multicast_types.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -263,6 +265,148 @@ const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
     if (dhcp_path == NULL)
         return NULL;
     return dhcp_path->vm_interface();
+}
+
+// Mastership changed for device, enqueue RESYNC to update master_ field if
+// physical-device already present
+void BridgeAgentRouteTable::EnqueueDeviceChange(const boost::uuids::uuid &u,
+                                                bool master) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new PhysicalDeviceKey(u, AgentKey::RESYNC));
+
+    req.data.reset(new PhysicalDeviceTsnManagedData(agent(), master));
+    agent()->physical_device_table()->Enqueue(&req);
+}
+
+void BridgeAgentRouteTable::AddDeviceToVrfEntry(const boost::uuids::uuid &u,
+                                                const std::string &vrf) {
+    DeviceVrfMap::iterator it = device2vrf_map_.find(u);
+    if (it == device2vrf_map_.end()) {
+        VrfSet vrf_set;
+        vrf_set.insert(vrf);
+        device2vrf_map_.insert(DeviceVrfPair(u, vrf_set));
+        return;
+    }
+    VrfSet &vrf_set = it->second;
+    VrfSet::iterator vit = vrf_set.find(vrf);
+    if (vit == vrf_set.end()) {
+        vrf_set.insert(vrf);
+    }
+}
+
+/* Removes VRF from the vrf_list to which the device points. If the device does
+ * not point to any more VRFs, then the device entry itself is removed. If the
+ * device entry itself is removed or if the device is absent in the list, it
+ * returns true. */
+bool BridgeAgentRouteTable::RemoveDeviceToVrfEntry(const boost::uuids::uuid &u,
+                                                   const std::string &vrf) {
+    DeviceVrfMap::iterator it = device2vrf_map_.find(u);
+    if (it == device2vrf_map_.end()) {
+        return true;
+    }
+    VrfSet &vrf_set = it->second;
+    VrfSet::iterator vit = vrf_set.find(vrf);
+    if (vit == vrf_set.end()) {
+        return false;
+    }
+    /* If the VRF to be removed is the only vrf to which the device points,
+     * then remove the device itself */
+    if (vrf_set.size() == 1) {
+        device2vrf_map_.erase(it);
+        return true;
+    }
+    vrf_set.erase(vit);
+    return false;
+}
+
+void BridgeAgentRouteTable::ResetDeviceMastership(const boost::uuids::uuid &u,
+                                                  const std::string &vrf) {
+    if (!RemoveDeviceToVrfEntry(u, vrf)) {
+        /* If the device is pointing to any other vrfs apart from the
+         * one passed to this API, then we still need to have
+         * mastership as true for that device */
+        return;
+    }
+    PhysicalDeviceSet::iterator dit = managed_pd_set_.find(u);
+    if (dit != managed_pd_set_.end()) {
+        /* Update mastership as false for the device */
+        EnqueueDeviceChange(u, false);
+        managed_pd_set_.erase(dit);
+    }
+}
+
+void BridgeAgentRouteTable::UpdateDeviceMastership(const std::string &vrf,
+                                                   ComponentNHList clist,
+                                                   bool del) {
+    PhysicalDeviceSet new_set;
+
+    if (del) {
+        VrfDevicesMap::iterator it = vrf2devices_map_.find(vrf);
+        if (it == vrf2devices_map_.end()) {
+            return;
+        }
+        PhysicalDeviceSet dev_set = it->second;
+        PhysicalDeviceSet::iterator pit = dev_set.begin();
+        while (pit != dev_set.end()) {
+            ResetDeviceMastership(*pit, vrf);
+            ++pit;
+        }
+        vrf2devices_map_.erase(it);
+        return;
+    }
+
+    ComponentNHList::const_iterator comp_nh_it = clist.begin();
+    for(;comp_nh_it != clist.end(); comp_nh_it++) {
+        if ((*comp_nh_it) == NULL) {
+            continue;
+        }
+
+        if ((*comp_nh_it)->nh()->GetType() != NextHop::TUNNEL) {
+            continue;
+        }
+        const TunnelNH *tnh = static_cast<const TunnelNH *>
+            ((*comp_nh_it)->nh());
+
+        PhysicalDevice *dev = agent()->physical_device_table()->
+            IpToPhysicalDevice(*(tnh->GetDip()));
+        if (dev == NULL) {
+            continue;
+        }
+        AddDeviceToVrfEntry(dev->uuid(), vrf);
+        /* Enqueue the change as true only if it was not earlier enqueued.
+         * List of previously enqueued devices (with master as true) is
+         * present in managed_pd_set_ */
+        PhysicalDeviceSet::iterator pit = managed_pd_set_.find(dev->uuid());
+        if (pit == managed_pd_set_.end()) {
+            EnqueueDeviceChange(dev->uuid(), true);
+            managed_pd_set_.insert(dev->uuid());
+        }
+        new_set.insert(dev->uuid());
+    }
+
+    /* Iterate through the old per vrf physical device list. If any of them are
+     * not present in new list, enqueue change on those devices with master
+     * as false */
+    VrfDevicesMap::iterator it = vrf2devices_map_.find(vrf);
+    if (it == vrf2devices_map_.end()) {
+        vrf2devices_map_.insert(VrfDevicesPair(vrf, new_set));
+        return;
+    }
+    PhysicalDeviceSet dev_set = it->second;
+    PhysicalDeviceSet::iterator pit = dev_set.begin();
+    while (pit != dev_set.end()) {
+        const boost::uuids::uuid &u = *pit;
+        ++pit;
+        PhysicalDeviceSet::iterator dit = new_set.find(u);
+        if (dit == new_set.end()) {
+            /* This means that physical-device 'u' is removed from vrf passed
+             * to this API. Reset the mastership only if the physical-device
+             * is not present for any other VRFs */
+            ResetDeviceMastership(u, vrf);
+        }
+    }
+    //Update the devices_set for the vrf with new_set
+    it->second = new_set;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -590,6 +734,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     ComponentNHKeyList component_nh_list;
 
     if (tor_peer_path) {
+        HandleDeviceMastershipUpdate(tor_peer_path, del);
         NextHopKey *tor_peer_key =
             static_cast<NextHopKey *>((tor_peer_path->
                         ComputeNextHop(agent)->GetDBRequestKey()).release());
@@ -718,6 +863,14 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     return ret;
 }
 
+void BridgeRouteEntry::HandleDeviceMastershipUpdate(AgentPath *path, bool del) {
+    Agent *agent = Agent::GetInstance();
+    BridgeAgentRouteTable *table = agent->fabric_l2_unicast_table();
+    CompositeNH *nh = static_cast<CompositeNH *>(path->nexthop());
+    ComponentNHList clist = nh->component_nh_list();
+    table->UpdateDeviceMastership(vrf()->GetName(), clist, del);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh related methods
 /////////////////////////////////////////////////////////////////////////////
@@ -785,4 +938,26 @@ void Layer2RouteReq::HandleRequest() const {
     AgentSandeshPtr sand(new AgentLayer2RtSandesh(vrf, context(), "",
                                                   get_stale()));
     sand->DoSandesh(sand);
+}
+
+void MasterPhysicalDevicesReq::HandleRequest() const {
+    MasterPhysicalDevicesResp *resp = new MasterPhysicalDevicesResp();
+    resp->set_context(context());
+
+    Agent *agent = Agent::GetInstance();
+    BridgeAgentRouteTable *obj = agent->fabric_l2_unicast_table();
+    const BridgeAgentRouteTable::PhysicalDeviceSet &dev_list =
+        obj->managed_pd_set();
+    BridgeAgentRouteTable::PhysicalDeviceSet::const_iterator it =
+        dev_list.begin();
+    std::vector<PDeviceData> list;
+    while (it != dev_list.end()) {
+        PDeviceData data;
+        data.set_uuid(to_string(*it));
+        list.push_back(data);
+        ++it;
+    }
+    resp->set_dev_list(list);
+    resp->set_more(false);
+    resp->Response();
 }
