@@ -53,6 +53,7 @@ public:
     KSyncEntry* UnresolvedReference();
 
     UnicastMacRemoteTable *route_table() {return route_table_;}
+    const std::string &logical_switch_name() { return logical_switch_name_; }
 
 protected:
     virtual bool IsNoTxnEntry() { return true; }

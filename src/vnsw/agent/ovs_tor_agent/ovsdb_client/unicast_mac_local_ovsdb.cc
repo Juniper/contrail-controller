@@ -18,16 +18,14 @@ extern "C" {
 #include <base/string_util.h>
 #include <net/mac_address.h>
 #include <oper/agent_sandesh.h>
+#include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
 #include <ovsdb_route_peer.h>
 #include <logical_switch_ovsdb.h>
 #include <unicast_mac_local_ovsdb.h>
 #include <vn_ovsdb.h>
 
-using OVSDB::UnicastMacLocalOvsdb;
-using OVSDB::UnicastMacLocalEntry;
-using OVSDB::OvsdbClient;
-using OVSDB::OvsdbClientSession;
+using namespace OVSDB;
 using std::string;
 
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
@@ -217,63 +215,82 @@ void UnicastMacLocalOvsdb::DeleteTableDone(void) {
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
-class UnicastMacLocalSandeshTask : public Task {
-public:
-    UnicastMacLocalSandeshTask(std::string resp_ctx, const std::string &ip,
-                               uint32_t port) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbUnicastMacLocalResp()), resp_data_(resp_ctx),
-        ip_(ip), port_(port) {
+UnicastMacLocalSandeshTask::UnicastMacLocalSandeshTask(
+        std::string resp_ctx, AgentSandeshArguments &args) :
+    OvsdbSandeshTask(resp_ctx, args) {
+    if (args.Get("ls_name", &ls_name_) == false) {
+        ls_name_ = "";
     }
-    virtual ~UnicastMacLocalSandeshTask() {}
-    virtual bool Run() {
-        std::vector<OvsdbUnicastMacLocalEntry> macs;
-        OvsdbClient *ovsdb_client = Agent::GetInstance()->ovsdb_client();
-        OvsdbClientSession *session;
-        if (ip_.empty()) {
-            session = ovsdb_client->NextSession(NULL);
-        } else {
-            boost::system::error_code ec;
-            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = ovsdb_client->FindSession(ip_addr, port_);
-        }
-        if (session != NULL && session->client_idl() != NULL) {
-            UnicastMacLocalOvsdb *table =
-                session->client_idl()->unicast_mac_local_ovsdb();
-            UnicastMacLocalEntry *entry =
-                static_cast<UnicastMacLocalEntry *>(table->Next(NULL));
-            while (entry != NULL) {
-                OvsdbUnicastMacLocalEntry oentry;
-                oentry.set_state(entry->StateString());
-                oentry.set_mac(entry->mac());
-                oentry.set_logical_switch(entry->logical_switch_name());
-                oentry.set_dest_ip(entry->dest_ip());
-                macs.push_back(oentry);
-                entry = static_cast<UnicastMacLocalEntry *>(table->Next(entry));
-            }
-        }
-        resp_->set_macs(macs);
-        SendResponse();
-        return true;
+    if (args.Get("mac", &mac_) == false) {
+        mac_ = "";
     }
-private:
-    void SendResponse() {
-        resp_->set_context(resp_data_);
-        resp_->set_more(false);
-        resp_->Response();
-    }
+}
 
-    OvsdbUnicastMacLocalResp *resp_;
-    std::string resp_data_;
-    std::string ip_;
-    uint32_t port_;
-    DISALLOW_COPY_AND_ASSIGN(UnicastMacLocalSandeshTask);
-};
+UnicastMacLocalSandeshTask::UnicastMacLocalSandeshTask(
+        std::string resp_ctx, const std::string &ip, uint32_t port,
+        const std::string &ls, const std::string &mac) :
+    OvsdbSandeshTask(resp_ctx, ip, port), ls_name_(ls), mac_(mac) {
+}
+
+UnicastMacLocalSandeshTask::~UnicastMacLocalSandeshTask() {
+}
+
+void UnicastMacLocalSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
+    if (!ls_name_.empty()) {
+        args.Add("ls_name", ls_name_);
+    }
+    if (!mac_.empty()) {
+        args.Add("mac", mac_);
+    }
+}
+
+OvsdbSandeshTask::FilterResp
+UnicastMacLocalSandeshTask::Filter(KSyncEntry *kentry) {
+    UnicastMacLocalEntry *entry = static_cast<UnicastMacLocalEntry *>(kentry);
+    if (!ls_name_.empty()) {
+        if (entry->logical_switch_name().find(ls_name_) == std::string::npos) {
+            return FilterDeny;
+        }
+    }
+    if (!mac_.empty()) {
+        if (entry->mac().find(mac_) != std::string::npos) {
+            return FilterAllow;
+        }
+        return FilterDeny;
+    }
+    return FilterAllow;
+}
+
+void UnicastMacLocalSandeshTask::UpdateResp(KSyncEntry *kentry,
+                                            SandeshResponse *resp) {
+    UnicastMacLocalEntry *entry = static_cast<UnicastMacLocalEntry *>(kentry);
+    OvsdbUnicastMacLocalEntry oentry;
+    oentry.set_state(entry->StateString());
+    oentry.set_mac(entry->mac());
+    oentry.set_logical_switch(entry->logical_switch_name());
+    oentry.set_dest_ip(entry->dest_ip());
+    OvsdbUnicastMacLocalResp *u_resp =
+        static_cast<OvsdbUnicastMacLocalResp *>(resp);
+    std::vector<OvsdbUnicastMacLocalEntry> &macs =
+        const_cast<std::vector<OvsdbUnicastMacLocalEntry>&>(u_resp->get_macs());
+    macs.push_back(oentry);
+}
+
+SandeshResponse *UnicastMacLocalSandeshTask::Alloc() {
+    return static_cast<SandeshResponse *>(new OvsdbUnicastMacLocalResp());
+}
+
+KSyncObject *UnicastMacLocalSandeshTask::GetObject(
+        OvsdbClientSession *session) {
+    return static_cast<KSyncObject *>(
+            session->client_idl()->unicast_mac_local_ovsdb());
+}
 
 void OvsdbUnicastMacLocalReq::HandleRequest() const {
     UnicastMacLocalSandeshTask *task =
         new UnicastMacLocalSandeshTask(context(), get_session_remote_ip(),
-                                       get_session_remote_port());
+                                       get_session_remote_port(),
+                                       get_logical_switch(), get_mac());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

@@ -20,16 +20,10 @@ extern "C" {
 #include <oper/tunnel_nh.h>
 #include <oper/agent_path.h>
 #include <oper/bridge_route.h>
+#include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
 
-using OVSDB::UnicastMacRemoteEntry;
-using OVSDB::UnicastMacRemoteTable;
-using OVSDB::VrfOvsdbEntry;
-using OVSDB::VrfOvsdbObject;
-using OVSDB::OvsdbDBEntry;
-using OVSDB::OvsdbDBObject;
-using OVSDB::OvsdbClient;
-using OVSDB::OvsdbClientSession;
+using namespace OVSDB;
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const std::string mac) : OvsdbDBEntry(table), mac_(mac),
@@ -375,71 +369,82 @@ const std::string &UnicastMacRemoteTable::logical_switch_name() const {
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
-class UnicastMacRemoteSandeshTask : public Task {
-public:
-    UnicastMacRemoteSandeshTask(std::string resp_ctx, const std::string &ip,
-                                uint32_t port) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbUnicastMacRemoteResp()), resp_data_(resp_ctx),
-        ip_(ip), port_(port) {
+UnicastMacRemoteSandeshTask::UnicastMacRemoteSandeshTask(
+        std::string resp_ctx, AgentSandeshArguments &args) :
+    OvsdbSandeshTask(resp_ctx, args) {
+    if (args.Get("ls_name", &ls_name_) == false) {
+        ls_name_ = "";
     }
-    virtual ~UnicastMacRemoteSandeshTask() {}
-    virtual bool Run() {
-        std::vector<OvsdbUnicastMacRemoteEntry> macs;
-        OvsdbClient *ovsdb_client = Agent::GetInstance()->ovsdb_client();
-        OvsdbClientSession *session;
-        if (ip_.empty()) {
-            session = ovsdb_client->NextSession(NULL);
-        } else {
-            boost::system::error_code ec;
-            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
-            session = ovsdb_client->FindSession(ip_addr, port_);
-        }
-        if (session != NULL && session->client_idl() != NULL) {
-            VrfOvsdbObject *vrf_obj = session->client_idl()->vrf_ovsdb();
-            VrfOvsdbEntry *vrf_entry =
-                static_cast<VrfOvsdbEntry *>(vrf_obj->Next(NULL));
-            while (vrf_entry != NULL) {
-                UnicastMacRemoteTable *table = vrf_entry->route_table();
-                UnicastMacRemoteEntry *entry =
-                    static_cast<UnicastMacRemoteEntry *>(table->Next(NULL));
-                while (entry != NULL) {
-                    OvsdbUnicastMacRemoteEntry oentry;
-                    oentry.set_state(entry->StateString());
-                    oentry.set_mac(entry->mac());
-                    oentry.set_logical_switch(entry->logical_switch_name());
-                    oentry.set_dest_ip(entry->dest_ip());
-                    oentry.set_self_exported(entry->self_exported_route());
-                    macs.push_back(oentry);
-                    entry =
-                        static_cast<UnicastMacRemoteEntry *>(table->Next(entry));
-                }
-                vrf_entry =
-                    static_cast<VrfOvsdbEntry *>(vrf_obj->Next(vrf_entry));
-            }
-        }
-        resp_->set_macs(macs);
-        SendResponse();
-        return true;
+    if (args.Get("mac", &mac_) == false) {
+        mac_ = "";
     }
-private:
-    void SendResponse() {
-        resp_->set_context(resp_data_);
-        resp_->set_more(false);
-        resp_->Response();
-    }
+}
 
-    OvsdbUnicastMacRemoteResp *resp_;
-    std::string resp_data_;
-    std::string ip_;
-    uint32_t port_;
-    DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteSandeshTask);
-};
+UnicastMacRemoteSandeshTask::UnicastMacRemoteSandeshTask(
+        std::string resp_ctx, const std::string &ip, uint32_t port,
+        const std::string &ls, const std::string &mac) :
+    OvsdbSandeshTask(resp_ctx, ip, port), ls_name_(ls), mac_(mac) {
+}
+
+UnicastMacRemoteSandeshTask::~UnicastMacRemoteSandeshTask() {
+}
+
+void UnicastMacRemoteSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
+    args.Add("ls_name", ls_name_);
+    if (!mac_.empty()) {
+        args.Add("mac", mac_);
+    }
+}
+
+OvsdbSandeshTask::FilterResp
+UnicastMacRemoteSandeshTask::Filter(KSyncEntry *kentry) {
+    if (!mac_.empty()) {
+        UnicastMacRemoteEntry *entry =
+            static_cast<UnicastMacRemoteEntry *>(kentry);
+        if (entry->mac().find(mac_) != std::string::npos) {
+            return FilterAllow;
+        }
+        return FilterDeny;
+    }
+    return FilterAllow;
+}
+
+void UnicastMacRemoteSandeshTask::UpdateResp(KSyncEntry *kentry,
+                                             SandeshResponse *resp) {
+    UnicastMacRemoteEntry *entry = static_cast<UnicastMacRemoteEntry *>(kentry);
+    OvsdbUnicastMacRemoteEntry oentry;
+    oentry.set_state(entry->StateString());
+    oentry.set_mac(entry->mac());
+    oentry.set_logical_switch(entry->logical_switch_name());
+    oentry.set_dest_ip(entry->dest_ip());
+    oentry.set_self_exported(entry->self_exported_route());
+    OvsdbUnicastMacRemoteResp *u_resp =
+        static_cast<OvsdbUnicastMacRemoteResp *>(resp);
+    std::vector<OvsdbUnicastMacRemoteEntry> &macs =
+        const_cast<std::vector<OvsdbUnicastMacRemoteEntry>&>(
+                u_resp->get_macs());
+    macs.push_back(oentry);
+}
+
+SandeshResponse *UnicastMacRemoteSandeshTask::Alloc() {
+    return static_cast<SandeshResponse *>(new OvsdbUnicastMacRemoteResp());
+}
+
+KSyncObject *UnicastMacRemoteSandeshTask::GetObject(
+        OvsdbClientSession *session) {
+    VrfOvsdbObject *vrf_obj = session->client_idl()->vrf_ovsdb();
+    VrfOvsdbEntry vrf_key(vrf_obj, ls_name_);
+    VrfOvsdbEntry *vrf_entry =
+        static_cast<VrfOvsdbEntry *>(vrf_obj->Find(&vrf_key));
+    return static_cast<KSyncObject *>(
+            (vrf_entry != NULL) ? vrf_entry->route_table() : NULL);
+}
 
 void OvsdbUnicastMacRemoteReq::HandleRequest() const {
     UnicastMacRemoteSandeshTask *task =
         new UnicastMacRemoteSandeshTask(context(), get_session_remote_ip(),
-                                        get_session_remote_port());
+                                        get_session_remote_port(),
+                                        get_logical_switch(), get_mac());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

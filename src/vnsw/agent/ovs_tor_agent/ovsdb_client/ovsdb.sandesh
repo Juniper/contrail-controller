@@ -45,6 +45,23 @@ traceobject sandesh OvsdbError {
     1: string error;
 }
 
+request sandesh OvsdbPageReq {
+    1: string key;
+}
+
+struct OvsdbPageRespData {
+    1: string prev_page (link="OvsdbPageReq");
+    2: string next_page (link="OvsdbPageReq");
+    3: string first_page (link="OvsdbPageReq");
+    4: string all (link="OvsdbPageReq");
+    5: u32 table_size;
+    6: string entries;
+}
+
+response sandesh OvsdbPageResp {
+    1: OvsdbPageRespData req;
+}
+
 /****************************************************************************
   Sandesh definitions for Physical Switch.
  ****************************************************************************/
@@ -100,6 +117,7 @@ response sandesh OvsdbPhysicalPortResp {
 request sandesh OvsdbPhysicalPortReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
+    3: string name;
 }
 
 /****************************************************************************
@@ -121,6 +139,7 @@ response sandesh OvsdbLogicalSwitchResp {
 request sandesh OvsdbLogicalSwitchReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
+    3: string name;
 }
 
 struct SandeshLogicalSwitchInfo {
@@ -153,6 +172,7 @@ response sandesh OvsdbVlanPortBindingResp {
 request sandesh OvsdbVlanPortBindingReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
+    3: string physical_port;
 }
 
 /****************************************************************************
@@ -173,6 +193,29 @@ response sandesh OvsdbUnicastMacLocalResp {
 request sandesh OvsdbUnicastMacLocalReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
+    3: string logical_switch;
+    4: string mac;
+}
+
+/****************************************************************************
+  Sandesh definitions for Vrf OVSDB.
+ ****************************************************************************/
+
+struct OvsdbVrfEntry {
+    1: string state;
+    2: string logical_switch;
+    3: string unicast_remote_table (link="OvsdbPageReq");
+}
+
+response sandesh OvsdbVrfResp {
+    1: list<OvsdbVrfEntry> vrfs;
+}
+
+request sandesh OvsdbVrfReq {
+    1: string session_remote_ip;
+    2: u16 session_remote_port;
+    3: string logical_switch;
+    4: string mac;
 }
 
 /****************************************************************************
@@ -194,6 +237,8 @@ response sandesh OvsdbUnicastMacRemoteResp {
 request sandesh OvsdbUnicastMacRemoteReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
+    3: string logical_switch;
+    4: string mac;
 }
 struct SandeshUnicastMacRemoteInfo {
     1: string op;
@@ -224,4 +269,5 @@ response sandesh OvsdbMulticastMacLocalResp {
 request sandesh OvsdbMulticastMacLocalReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
+    3: string logical_switch;
 }
