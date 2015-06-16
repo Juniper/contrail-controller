@@ -198,7 +198,7 @@ private:
     void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
     void DequeueRequest(const std::string &table_name, DBRequest *request);
     bool XmppDecodeAddress(int af, const std::string &address,
-                           IpAddress *addrp);
+                           IpAddress *addrp, bool zero_ok = false);
     bool ResumeClose();
     void FlushDeferQ(std::string vrf_name);
     void FlushDeferQ(std::string vrf_name, std::string table_name);

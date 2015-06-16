@@ -710,7 +710,7 @@ boost::asio::ip::tcp::endpoint BgpXmppChannel::endpoint() const {
 }
 
 bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
-                                       IpAddress *addrp) {
+                                       IpAddress *addrp, bool zero_ok) {
     switch (af) {
     case BgpAf::IPv4:
         break;
@@ -725,7 +725,11 @@ bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
     if (error) {
         return false;
     }
-    return true;
+    if (zero_ok ) {
+        return true;
+    } else {
+        return (addrp->to_v4().to_ulong() != 0);
+    }
 }
 
 //
@@ -794,8 +798,8 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     error_code error;
     IpAddress grp_address = IpAddress::from_string("0.0.0.0", error);
     if (!item.entry.nlri.group.empty()) {
-        if (!(XmppDecodeAddress(item.entry.nlri.af,
-                                item.entry.nlri.group, &grp_address))) {
+        if (!XmppDecodeAddress(item.entry.nlri.af,
+            item.entry.nlri.group, &grp_address, false)) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Error parsing group address:" << item.entry.nlri.group <<
@@ -806,8 +810,8 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
 
     IpAddress src_address = IpAddress::from_string("0.0.0.0", error);
     if (!item.entry.nlri.source.empty()) {
-        if (!(XmppDecodeAddress(item.entry.nlri.af,
-                                item.entry.nlri.source, &src_address))) {
+        if (!XmppDecodeAddress(item.entry.nlri.af,
+            item.entry.nlri.source, &src_address, true)) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Error parsing source address:" << item.entry.nlri.source <<
@@ -907,8 +911,8 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
 
         // Next-hop ip address
         IpAddress nh_address;
-        if (!(XmppDecodeAddress(item.entry.next_hops.next_hop[0].af,
-            item.entry.next_hops.next_hop[0].address, &nh_address))) {
+        if (!XmppDecodeAddress(item.entry.next_hops.next_hop[0].af,
+            item.entry.next_hops.next_hop[0].address, &nh_address)) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Error parsing nexthop address: " <<
@@ -1099,16 +1103,14 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 InetTable::RequestData::NextHop nexthop;
 
                 IpAddress nhop_address(Ip4Address(0));
-                if (!(XmppDecodeAddress(
-                          item.entry.next_hops.next_hop[i].af,
-                          item.entry.next_hops.next_hop[i].address,
-                          &nhop_address))) {
+                if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
+                    item.entry.next_hops.next_hop[i].address, &nhop_address)) {
                     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                         SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                         "Error parsing nexthop address:" <<
                         item.entry.next_hops.next_hop[i].address <<
                         " family:" << item.entry.next_hops.next_hop[i].af <<
-                        " for unicast route");
+                        " for inet route");
                     return false;
                 }
 
@@ -1324,17 +1326,15 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                 Inet6Table::RequestData::NextHop nexthop;
 
                 IpAddress nhop_address(Ip4Address(0));
-                if (!(XmppDecodeAddress(
-                          item.entry.next_hops.next_hop[i].af,
-                          item.entry.next_hops.next_hop[i].address,
-                          &nhop_address))) {
+                if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
+                    item.entry.next_hops.next_hop[i].address, &nhop_address)) {
                     error_stats().incr_inet6_rx_bad_nexthop_count();
                     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                         SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                         "Error parsing nexthop address:" <<
                         item.entry.next_hops.next_hop[i].address <<
                         " family:" << item.entry.next_hops.next_hop[i].af <<
-                        " for unicast route");
+                        " for inet6 route");
                     return false;
                 }
 
@@ -1611,10 +1611,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 EvpnTable::RequestData::NextHop nexthop;
                 IpAddress nhop_address(Ip4Address(0));
 
-                if (!(XmppDecodeAddress(
-                          item.entry.next_hops.next_hop[i].af,
-                          item.entry.next_hops.next_hop[i].address,
-                          &nhop_address))) {
+                if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
+                    item.entry.next_hops.next_hop[i].address, &nhop_address)) {
                     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                                  SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                                  "Error parsing nexthop address:" <<
