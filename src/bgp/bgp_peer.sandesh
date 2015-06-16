@@ -91,19 +91,6 @@ response sandesh ShowBgpNeighborSummaryResp {
 request sandesh ShowBgpNeighborSummaryReq {
 }
 
-request sandesh ShowNeighborStatisticsReq {
-    1: string bgp_or_xmpp; // BGP or XMPP
-    2: string up_or_down; // "UP" for Established, "DOWN" for not-Established
-    3: string domain; // Name of the routing-instance
-}
-
-response sandesh ShowNeighborStatisticsResp {
-    1: string bgp_or_xmpp; // BGP or XMPP
-    2: string up_or_down; // "UP" for Established, "DOWN" for not-Established
-    3: string domain; // Name of the routing-instance
-    4: u32 count;
-}
-
 request sandesh ClearBgpNeighborReq {
     1: string name;
 }
@@ -222,18 +209,6 @@ request sandesh ShowRouteSummaryReq {
     1: string search_string;
 }
 
-//
-// show route x.x.x.x/x vrf <name>
-//
-request sandesh ShowRouteVrfReq {
-    1: string vrf;
-    2: string prefix;
-}
-
-response sandesh ShowRouteVrfResp {
-    1: ShowRoute route;
-}
-
 struct ShowRoutingInstanceTable {
     1: string name (link="ShowRouteReq"); // routing table name
     13: bool deleted;
@@ -309,14 +284,6 @@ struct ShowMulticastTree {
     3: list<ShowMulticastForwarder> forwarders;
 }
 
-response sandesh ShowMulticastManagerDetailResp {
-    1: list<ShowMulticastTree> trees;
-}
-
-request sandesh ShowMulticastManagerDetailReq {
-    1: string name;
-}
-
 struct ShowBgpServiceChainConfig {
     1: string routing_instance;
     2: string chain_address;
@@ -365,13 +332,6 @@ struct ShowBgpPeeringConfig {
     2: string name;
     3: u32 neighbor_count;
     4: list<ShowBgpSessionConfig> sessions;
-}
-
-response sandesh ShowBgpPeeringConfigResp {
-    1: list<ShowBgpPeeringConfig> peerings;
-}
-
-request sandesh ShowBgpPeeringConfigReq {
 }
 
 struct ShowBgpNeighborConfig {

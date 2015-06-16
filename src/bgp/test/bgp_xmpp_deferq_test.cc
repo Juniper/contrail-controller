@@ -23,6 +23,7 @@ using namespace boost::assign;
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_path.h"
+#include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_proto.h"
