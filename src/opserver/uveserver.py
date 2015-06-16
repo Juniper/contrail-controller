@@ -106,7 +106,7 @@ class UVEServer(object):
         lck = False
         while True:
             try:
-                k, value = self._redis.brpop("DELETED")
+                key, value = self._redis.brpop("DELETED")
                 self._sem.acquire()
                 lck = True
                 self._logger.debug("%s del received for " % value)
@@ -130,8 +130,7 @@ class UVEServer(object):
                 if lck:
                     self._sem.release()
                     lck = False
-                self._logger.debug("Deleted %s" % value)
-                self._logger.debug("UVE %s Type %s" % (key, typ))
+                self._logger.debug("Deleted %s %s" % (key,value))
 
     @staticmethod
     def _is_agg_item(attr):
@@ -165,10 +164,13 @@ class UVEServer(object):
                 for elems in redish.smembers("PART2KEY:" + str(part)): 
                     info = elems.split(":", 5)
                     gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
+                    typ = info[4]
                     key = info[5]
-                    if not gen_uves.has_key(gen):
+                    if not gen in gen_uves:
                          gen_uves[gen] = {}
-                    gen_uves[gen][key] = 0
+                    if not key in gen_uves[gen]:
+                         gen_uves[gen][key] = set()
+                    gen_uves[gen][key].add(typ)
                 uves[r_ip + ":" + str(r_port)] = gen_uves
             except Exception as e:
                 self._logger.error("get_part failed %s for : %s:%d tb %s" \

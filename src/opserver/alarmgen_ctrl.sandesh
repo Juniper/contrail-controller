@@ -23,9 +23,15 @@ request sandesh PartitionStatusReq {
     1: i32 partition
 }
 
+struct UVETypeCount {
+    1: string                   type
+    2: u32                      count
+    3: string                   agg_uuid
+}
+
 struct UVEKeyInfo {
     1: string                   key
-    2: u32                      count
+    2: list<UVETypeCount>       types
 }
 
 struct UVEGenInfo {

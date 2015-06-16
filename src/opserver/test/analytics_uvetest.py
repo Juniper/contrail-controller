@@ -365,13 +365,50 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             "ObjectVRouter:myvrouter", "PartialSysinfoCompute"))
 
         # Now try to clear the alarm by sending build_info
-        alarm_gen1.send_vrouterinfo("myvrouter", True)
+        alarm_gen1.send_vrouterinfo("myvrouter", b_info = True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter", "PartialSysinfoCompute", is_set = False))
+
+        # send vrouter UVE without build_info !!!
+        # check for PartialSysinfo alarm
+        alarm_gen1.send_vrouterinfo("myvrouter1")
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+
+        # Now try to clear the alarm by deleting the UVE
+        alarm_gen1.send_vrouterinfo("myvrouter1", deleted = True)
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute", is_set = False))
+
+        alarm_gen2 = self.useFixture(
+            GeneratorFixture('vrouter-agent', [collector], logging,
+                             None, hostname=socket.gethostname(), inst = "1"))
+        alarm_gen2.verify_on_setup()
+
+        # send vrouter UVE without build_info !!!
+        # check for PartialSysinfo alarm
+        alarm_gen2.send_vrouterinfo("myvrouter2")
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter2", "PartialSysinfoCompute"))
+
+        # Now try to clear the alarm by deleting the Generator
+        #del alarm_gen1
+        alarm_gen2.cleanUp()
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            "ObjectVRouter:myvrouter2", "PartialSysinfoCompute", is_set = False))
 
         # Verify that we can give up partition ownership 
         assert(vizd_obj.set_alarmgen_partition(0,0) == 'true')
         assert(vizd_obj.verify_alarmgen_partition(0,'false'))
+
+        # Give up the other partitions
+        assert(vizd_obj.set_alarmgen_partition(1,0) == 'true')
+        assert(vizd_obj.set_alarmgen_partition(2,0) == 'true')
+        assert(vizd_obj.set_alarmgen_partition(3,0) == 'true')
+
+        # Confirm that alarms are all gone
+        assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
+            None, None))
         return True
     # end test_06_alarmgen_basic
 
