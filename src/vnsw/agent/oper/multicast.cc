@@ -16,7 +16,6 @@
 #include <oper/multicast.h>
 #include <oper/mirror_table.h>
 #include <oper/mpls.h>
-#include <oper/physical_device.h>
 #include <controller/controller_init.h>
 #include <controller/controller_route_path.h>
 
@@ -24,7 +23,6 @@
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
-#include <multicast_types.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -677,51 +675,6 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
-// Mastership changed for device, enqueue RESYNC to update master_ field if
-// physical-device already present
-void MulticastHandler::EnqueueDeviceChange(const boost::uuids::uuid &u,
-                                           bool master) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PhysicalDeviceKey(u, AgentKey::RESYNC));
-
-    req.data.reset(new PhysicalDeviceTsnManagedData(agent_, master));
-    agent_->physical_device_table()->Enqueue(&req);
-}
-
-void MulticastHandler::UpdateDeviceMastership(const TunnelOlist &olist) {
-    PhysicalDeviceSet new_set;
-    for (TunnelOlist::const_iterator it = olist.begin();
-         it != olist.end(); it++) {
-        PhysicalDevice *dev = agent_->physical_device_table()->
-            IpToPhysicalDevice(it->daddr_);
-        if (dev == NULL) {
-            continue;
-        }
-        /* Enqueue the change as true only if it was not earlier enqueued.
-         * List of previously enqueued devices (with master as true) is
-         * present in managed_pd_set_ */
-        PhysicalDeviceSet::iterator pit = managed_pd_set_.find(dev->uuid());
-        if (pit == managed_pd_set_.end()) {
-            EnqueueDeviceChange(dev->uuid(), true);
-        }
-        new_set.insert(dev->uuid());
-    }
-
-    /* Iterate through the old managed physical device list. If any of them are
-     * not present in new list, enqueue change on those devices with master
-     * as false */
-    PhysicalDeviceSet::iterator it = managed_pd_set_.begin();
-    while (it != managed_pd_set_.end()) {
-        PhysicalDeviceSet::iterator pit = new_set.find(*it);
-        if (pit == new_set.end()) {
-            EnqueueDeviceChange(*it, false);
-        }
-        ++it;
-    }
-    /* Replace old set with new */
-    managed_pd_set_ = new_set;
-}
-
 void MulticastHandler::ModifyTorMembers(const Peer *peer,
                                         const std::string &vrf_name,
                                         const TunnelOlist &olist,
@@ -730,7 +683,6 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
 {
     boost::system::error_code ec;
 
-    UpdateDeviceMastership(olist);
     Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
     MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     MCTRACE(Log, "TOR multicast handler ", vrf_name, grp.to_string(), 0);
@@ -766,7 +718,7 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
 }
 
 MulticastHandler::MulticastHandler(Agent *agent)
-        : agent_(agent), managed_pd_set_(),
+        : agent_(agent),
           vn_listener_id_(DBTable::kInvalidId),
           interface_listener_id_(DBTable::kInvalidId) { 
     obj_ = this; 
@@ -814,21 +766,3 @@ void MulticastHandler::Shutdown() {
     }
 }
 
-void MasterPhysicalDevicesReq::HandleRequest() const {
-    MasterPhysicalDevicesResp *resp = new MasterPhysicalDevicesResp();
-    resp->set_context(context());
-
-    MulticastHandler *obj = MulticastHandler::GetInstance();
-    const MulticastHandler::PhysicalDeviceSet &dev_list = obj->managed_pd_set();
-    MulticastHandler::PhysicalDeviceSet::const_iterator it = dev_list.begin();
-    std::vector<PDeviceData> list;
-    while (it != dev_list.end()) {
-        PDeviceData data;
-        data.set_uuid(to_string(*it));
-        list.push_back(data);
-        ++it;
-    }
-    resp->set_dev_list(list);
-    resp->set_more(false);
-    resp->Response();
-}

@@ -12,6 +12,7 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/physical_device.h>
 #include <controller/controller_export.h>
 #include <controller/controller_peer.h>
 #include <oper/agent_sandesh.h>
@@ -514,10 +515,17 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     AgentPath *evpn_peer_path = NULL;
     AgentPath *fabric_peer_path = NULL;
     AgentPath *tor_peer_path = NULL;
+    bool tor_path = false;
 
     //Delete path label
     if (del) {
         MplsLabel::DeleteReq(agent, path->label());
+    }
+
+    const CompositeNH *cnh =
+         static_cast<const CompositeNH *>(path->nexthop());
+    if (cnh && (cnh->composite_nh_type() == Composite::TOR)) {
+        tor_path = true;
     }
 
     for (Route::PathList::iterator it = GetPathList().begin();
@@ -566,6 +574,12 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
             fabric_peer_path = it_path;
         } else if (it_path->peer() == agent->multicast_peer()) {
             multicast_peer_path = it_path;
+        }
+    }
+
+    if (tor_path) {
+        if ((del && (tor_peer_path == NULL)) || !del) {
+            HandleDeviceMastershipUpdate(path, del);
         }
     }
 
@@ -716,6 +730,14 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                        vrf()->GetName());
     }
     return ret;
+}
+
+void BridgeRouteEntry::HandleDeviceMastershipUpdate(AgentPath *path, bool del) {
+    Agent *agent = Agent::GetInstance();
+    PhysicalDeviceTable *table = agent->physical_device_table();
+    CompositeNH *nh = static_cast<CompositeNH *>(path->nexthop());
+    ComponentNHList clist = nh->component_nh_list();
+    table->UpdateDeviceMastership(vrf()->GetName(), clist, del);
 }
 
 /////////////////////////////////////////////////////////////////////////////

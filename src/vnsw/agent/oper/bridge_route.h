@@ -117,6 +117,7 @@ private:
                                         const AgentRouteData *data) const;
     AgentPath *FindMulticastPathUsingKeyData(const AgentRouteKey *key,
                                              const AgentRouteData *data) const;
+    void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
 
     MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);
