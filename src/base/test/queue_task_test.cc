@@ -15,18 +15,25 @@
 
 class EnqueueTask : public Task {
 public:
-    EnqueueTask(WorkQueue<int> *queue, int task_id, size_t num_enqueues)
+    EnqueueTask(WorkQueue<int> *queue, int task_id, int num_enqueues,
+        int num_enqueues_in_iteration = -1)
     : Task(task_id, -1),
       task_id_(task_id),
       queue_(queue),
-      num_enqueues_(num_enqueues) {
+      num_enqueues_(num_enqueues),
+      num_enqueues_in_iteration_(num_enqueues_in_iteration),
+      count_(0) {
     }
     bool Run() {
-        size_t count = 0;
-        while (count < num_enqueues_) {
+        while (count_ < num_enqueues_) {
             if (!queue_->Enqueue(enqueue_counter_++)) {
             }
-            count++;
+            count_++;
+            if (num_enqueues_in_iteration_ != -1) {
+                if ((count_ % num_enqueues_in_iteration_) == 0) {
+                    usleep(10);
+                }
+            }
         }
         return true;
     }
@@ -34,7 +41,9 @@ public:
 private:
     int task_id_;
     WorkQueue<int> *queue_;
-    size_t num_enqueues_;
+    int num_enqueues_;
+    int num_enqueues_in_iteration_;
+    int count_;
     static int enqueue_counter_;
 };
 
@@ -97,6 +106,9 @@ public:
         dequeues_++;
         return true;
     }
+    void WorkQueueWaterMarkIndexes(int *hwater_index, int *lwater_index) {
+        work_queue_.GetWaterMarkIndexes(hwater_index, lwater_index);
+    }
     bool IsWorkQueueRunning() {
         return work_queue_.running_;
     }
@@ -123,6 +135,16 @@ public:
             }
         }
         wm_callback_running_ = false;
+    }
+    bool VerifyWaterMarkIndexes() {
+        int hwater_index, lwater_index;
+        work_queue_.GetWaterMarkIndexes(&hwater_index, &lwater_index);
+        return (hwater_index == -1 && lwater_index == -1) ||
+               (hwater_index + 1 == lwater_index);
+    }
+    void WaterMarkCallbackVerifyIndexes(size_t wm_count) {
+        bool success(VerifyWaterMarkIndexes());
+        EXPECT_TRUE(success);
     }
     bool DequeueTaskReady(bool start_runner) {
         if (start_runner) {
@@ -553,6 +575,42 @@ TEST_F(QueueTaskTest, ScheduleShutdownTest) {
     EXPECT_TRUE(IsWorkQueueShutdownScheduled());
     // Start the scheduler
     scheduler->Start();
+}
+
+TEST_F(QueueTaskTest, ProcessWaterMarksParallelTest) {
+    // Setup watermarks
+    WaterMarkInfo hwm1(90000,
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+    work_queue_.SetHighWaterMark(hwm1);
+    WaterMarkInfo hwm2(50000,
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+    work_queue_.SetHighWaterMark(hwm2);
+    WaterMarkInfo hwm3(10000,
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+    work_queue_.SetHighWaterMark(hwm3);
+    WaterMarkInfo lwm1(75000,
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+    WaterMarkInfo lwm2(35000,
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+    WaterMarkInfo lwm3(5000,
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+    WaterMarkInfos lwm;
+    lwm.push_back(lwm1);
+    lwm.push_back(lwm2);
+    lwm.push_back(lwm3);
+    work_queue_.SetLowWaterMark(lwm);
+    int hwater_index, lwater_index;
+    WorkQueueWaterMarkIndexes(&hwater_index, &lwater_index);
+    EXPECT_EQ(hwater_index, -1);
+    EXPECT_EQ(lwater_index, -1);
+    TaskScheduler *scheduler(TaskScheduler::GetInstance());
+    EnqueueTask *etask(new EnqueueTask(&work_queue_,
+                scheduler->GetTaskId(
+                "::test::QueueTaskTest::ProcessWaterMarksParallelTest"),
+                100000));
+    scheduler->Enqueue(etask);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(VerifyWaterMarkIndexes());
 }
 
 class QueueTaskShutdownTest : public ::testing::Test {
