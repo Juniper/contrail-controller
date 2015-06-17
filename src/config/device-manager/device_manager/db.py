@@ -110,8 +110,8 @@ class PhysicalRouterDM(DBBase):
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.dataplane_ip = obj.get('physical_router_dataplane_ip')
-        self.vendor = obj.get('physical_router_vendor_name')
-        self.product = obj.get('physical_router_product_name')
+        self.vendor = obj.get('physical_router_vendor_name', '')
+        self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.junos_service_ports = obj.get('physical_router_junos_service_ports')
