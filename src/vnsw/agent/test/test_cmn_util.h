@@ -143,7 +143,8 @@ void VmDelReq(int id);
 void AclAddReq(int id);
 void AclDelReq(int id);
 void AclAddReq(int id, int ace_id, bool drop);
-void DeleteRoute(const char *vrf, const char *ip, uint8_t plen);
+void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
+                 Peer *peer = NULL);
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);

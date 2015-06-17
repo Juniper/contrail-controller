@@ -398,6 +398,13 @@ public:
                 Agent::GetInstance()->vxlan_table()->Find(vxlan_id);
             if (vxlan) {
                 nh = vxlan->nexthop()->id();
+                const VrfNH *vrf_nh =
+                    dynamic_cast<const VrfNH *>(vxlan->nexthop());
+                if (vrf_nh) {
+                    if (vrf_nh->GetVrf()) {
+                        vrf = vrf_nh->GetVrf()->vrf_id();
+                    }
+                }
             }
         } else {
             if (intf && intf->type() == Interface::VM_INTERFACE) {

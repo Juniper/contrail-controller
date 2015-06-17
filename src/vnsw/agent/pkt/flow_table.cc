@@ -1251,8 +1251,13 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
     //layer 3 table, then use that for calculating
     //rpf nexthop, else use layer 2 route entry(baremetal
     //scenario where layer 3 route may not be present)
+    bool is_baremetal = false;
+    const VmInterface *vmi = dynamic_cast<const VmInterface *>(intf_entry());
+    if (vmi && vmi->vmi_type() == VmInterface::BAREMETAL) {
+        is_baremetal = true;
+    }
 
-    if (l3_flow() == false) {
+    if (l3_flow() == false && is_baremetal == false) {
         //For ingress flow, agent always sets
         //rpf NH from layer 3 route entry
         //In case of egress flow if route entry is present
