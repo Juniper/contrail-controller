@@ -303,7 +303,7 @@ class PhysicalRouterConfig(object):
             bd_config = etree.SubElement(ri, "bridge-domains")
             bd= etree.SubElement(bd_config, "domain")
             etree.SubElement(bd, "name").text = "bd-" + str(vni)
-            etree.SubElement(bd, "vlan-id").text = str(vni)
+            etree.SubElement(bd, "vlan-id").text = 'none'
             vxlan = etree.SubElement(bd, "vxlan")
             etree.SubElement(vxlan, "vni").text = str(vni)
             for interface in interfaces:
