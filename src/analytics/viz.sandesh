@@ -984,74 +984,35 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
-      'display_name' : 'Physical Router Linecard Heap Usage',
-      'stat_type' : 'PFEHeapInfo'
-      'stat_attr' : 'heap_info',
-      'obj_table' : 'NONE',
-      'attributes': [
-          { 'name' : 'heap_info.name',        'datatype' : 'string', 'index' : true},
-          { 'name' : 'heap_info.size',        'datatype' : 'int',    'index' : false},
-          { 'name' : 'heap_info.allocated',   'datatype' : 'int',    'index' : false},
-          { 'name' : 'heap_info.utilization', 'datatype' : 'int',    'index' : false},
-        ]
-    },
-    {
-      'display_name' : 'Physical Router PFE Memory Usage',
-      'stat_type' : 'npu_mem'
-      'stat_attr' : 'stats',
-      'obj_table' : 'NONE',
-      'attributes': [
-          { 'name' : 'stats.pfe_identifier',  'datatype' : 'string', 'index' : true},
-          { 'name' : 'stats.resource_name',   'datatype' : 'string', 'index' : true},
-          { 'name' : 'stats.size',            'datatype' : 'int',    'index' : false},
-          { 'name' : 'stats.allocated',       'datatype' : 'int',    'index' : false},
-          { 'name' : 'stats.utilization',     'datatype' : 'int',    'index' : false},
-        ]
-    },
-    {
       'display_name' : 'Physical Router Fabric Usage',
-      'stat_type' : 'fabric_message'
-      'stat_attr' : 'edges.class_stats.transmit_counts',
+      'stat_type' : 'TelemetryStream'
+      'stat_attr' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts',
       'obj_table' : 'NONE',
       'attributes': [
-          { 'name' : 'edges.src_type',                                 'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.src_slot',                                 'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.src_pfe',                                  'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.dst_type',                                 'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.dst_slot',                                 'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.dst_pfe',                                  'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.class_stats.priority',                     'datatype' : 'string', 'index' : true},
-          { 'name' : 'edges.class_stats.transmit_counts.packets',      'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.bytes',        'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.pps',          'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.bps',          'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.drop_packets', 'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.drop_bytes',   'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.drop_pps',     'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.drop_bps',     'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.q_depth_avg',  'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.q_depth_cur',  'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.q_depth_peak', 'datatype' : 'int',    'index' : false},
-          { 'name' : 'edges.class_stats.transmit_counts.q_depth_max',  'datatype' : 'int',    'index' : false},
-        ]
-    },
-    {
-      'display_name' : 'Physical Router LSP Statistics',
-      'stat_type' : 'g_lsp_stats'
-      'stat_attr' : 'lsp_records',
-      'obj_table' : 'NONE',
-      'attributes': [
-          { 'name' : 'system_name',                     'datatype' : 'string', 'index' : true},
-          { 'name' : 'sensor_name',                     'datatype' : 'string', 'index' : true},
-          { 'name' : 'slot',                            'datatype' : 'int',    'index' : true},
-          { 'name' : 'timestamp',                       'datatype' : 'int',    'index' : false},
-          { 'name' : 'lsp_records.name',                'datatype' : 'string', 'index' : true},
-          { 'name' : 'lsp_records.instance_identifier', 'datatype' : 'int',    'index' : false},
-          { 'name' : 'lsp_records.counter_name',        'datatype' : 'int',    'index' : true},
-          { 'name' : 'lsp_records.packets',             'datatype' : 'int',    'index' : false},
-          { 'name' : 'lsp_records.bytes',               'datatype' : 'int',    'index' : false},
-          { 'name' : 'lsp_records.packet_rates',        'datatype' : 'int',    'index' : false},
-          { 'name' : 'lsp_records.byte_rates',          'datatype' : 'int',    'index' : false},
+          { 'name' : 'system_id',                                                                                  'datatype' : 'string', 'index' : true},
+          { 'name' : 'component_id',                                                                               'datatype' : 'int',    'index' : true},
+          { 'name' : 'sub_component_id',                                                                           'datatype' : 'int',    'index' : true},
+          { 'name' : 'sensor_name',                                                                                'datatype' : 'string', 'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.location',                                       'datatype' : 'string', 'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.src_type',                                 'datatype' : 'string', 'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.src_slot',                                 'datatype' : 'int',    'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.src_pfe',                                  'datatype' : 'int',    'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.dst_type',                                 'datatype' : 'string', 'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.dst_slot',                                 'datatype' : 'int',    'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.dst_pfe',                                  'datatype' : 'int',    'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.priority',                     'datatype' : 'string', 'index' : true},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.packets',      'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.bytes',        'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.pps',          'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.bps',          'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.drop_packets', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.drop_bytes',   'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.drop_pps',     'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.drop_bps',     'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.q_depth_avg',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.q_depth_cur',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.q_depth_peak', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.q_depth_max',  'datatype' : 'int',    'index' : false},
         ]
     },
     {
