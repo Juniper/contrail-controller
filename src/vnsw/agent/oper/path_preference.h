@@ -29,7 +29,7 @@ class PathPreferenceSM:
     public sc::state_machine<PathPreferenceSM, Init> {
 public:
     PathPreferenceSM(Agent *agent, const Peer *peer,
-                      InetUnicastRouteEntry *rt);
+                     AgentRoute *rt);
     uint32_t sequence() const {return path_preference_.sequence();}
     uint32_t preference() const {return path_preference_.preference();}
     bool wait_for_traffic() const {return path_preference_.wait_for_traffic();}
@@ -68,7 +68,7 @@ public:
 private:
     Agent *agent_;
     const Peer *peer_;
-    InetUnicastRouteEntry *rt_;
+    AgentRoute *rt_;
     PathPreference path_preference_;
     uint32_t max_sequence_;
     bool seen_;
@@ -79,13 +79,13 @@ private:
 class PathPreferenceState: public DBState {
 public:
     typedef std::map<const Peer *, PathPreferenceSM *> PeerPathPreferenceMap;
-    PathPreferenceState(Agent *agent, InetUnicastRouteEntry *rt_);
+    PathPreferenceState(Agent *agent, AgentRoute *rt_);
     ~PathPreferenceState();
     void Process();
     PathPreferenceSM *GetSM(const Peer *);
 private:
     Agent *agent_;
-    InetUnicastRouteEntry *rt_;
+    AgentRoute *rt_;
     PeerPathPreferenceMap path_preference_peer_map_;
 };
 
@@ -115,20 +115,28 @@ private:
     std::set<RouteAddrList> dependent_rt_;
 };
 
-struct PathPreferenceVrfState : public DBState {
-    PathPreferenceVrfState(Agent *agent, AgentRouteTable *table);
+struct PathPreferenceVrfState: public DBState {
+    PathPreferenceVrfState(DBTableBase::ListenerId uc_rt_id,
+                           DBTableBase::ListenerId evpn_rt_id):
+        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id) {}
+    DBTableBase::ListenerId uc_rt_id_;
+    DBTableBase::ListenerId evpn_rt_id_;
+};
+
+struct PathPreferenceRouteListener : public DBState {
+    PathPreferenceRouteListener(Agent *agent, AgentRouteTable *table);
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void Init();
     void Delete();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *e);
-    void Walkdone(DBTableBase *partition, PathPreferenceVrfState *state);
+    void Walkdone(DBTableBase *partition, PathPreferenceRouteListener *state);
     DBTableBase::ListenerId id() const { return id_;}
-    void ManagedDelete() { deleted_ = true;}
+    void ManagedDelete();
 private:
     Agent *agent_;
     AgentRouteTable *rt_table_;
     DBTableBase::ListenerId id_;
-    LifetimeRef<PathPreferenceVrfState> table_delete_ref_;
+    LifetimeRef<PathPreferenceRouteListener> table_delete_ref_;
     bool deleted_;
 };
 
@@ -137,8 +145,10 @@ public:
     struct PathPreferenceEventContainer {
         IpAddress ip_;
         uint32_t plen_;
+        MacAddress mac_;
         uint32_t interface_index_;
         uint32_t vrf_index_;
+        uint32_t vxlan_id_;
         boost::intrusive_ptr<const sc::event_base> event;
     };
 
@@ -148,7 +158,8 @@ public:
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void EnqueueTrafficSeen(Ip4Address ip_, uint32_t plen,
-                            uint32_t interface_index, uint32_t vrf_index);
+                            uint32_t interface_index, uint32_t vrf_index,
+                            const MacAddress &mac);
     bool DequeueEvent(PathPreferenceEventContainer e);
     Agent *agent() { return agent_;}
     DBTableBase::ListenerId vrf_id() const { return vrf_id_;}
