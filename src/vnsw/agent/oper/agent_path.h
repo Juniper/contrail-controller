@@ -41,6 +41,13 @@ public:
         return ecmp_;
     }
 
+    bool is_ecmp() const {
+        if (ecmp_ == true || (preference_ == HIGH && sequence_ == 0)) {
+            return true;
+        }
+        return false;
+    }
+
     bool static_preference() const {
         return static_preference_;
     }

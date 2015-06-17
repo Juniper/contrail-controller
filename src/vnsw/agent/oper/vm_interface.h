@@ -509,6 +509,8 @@ public:
                                 const MacAddress &mac) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
+    bool IsDependentRoute(const IpAddress &ip, uint8_t plen,
+                          const MacAddress &mac) const;
 
 private:
     friend struct VmInterfaceConfigData;

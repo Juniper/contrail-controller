@@ -313,14 +313,6 @@ TEST_F(Ipv6Test, IntfStaticRoute_2) {
     EXPECT_TRUE(RouteFindV6("vrf1", static_route6[0].addr_,
                 static_route6[0].plen_));
 
-    VmInterface *vmi = VmInterfaceGet(1);
-    const PathPreferenceIntfState *cintf_state =
-        static_cast<const PathPreferenceIntfState *>(
-        vmi->GetState(Agent::GetInstance()->interface_table(),
-                      Agent::GetInstance()->oper_db()->
-                      route_preference_module()->intf_id()));
-    EXPECT_EQ(2U, cintf_state->DependentRouteListSize());
-
     //Delete the link between interface and route table
     DelLink("virtual-machine-interface", "vnet1",
             "interface-route-table", "static_route");
