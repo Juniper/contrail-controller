@@ -706,6 +706,10 @@ bool TunnelNH::CanAdd() const {
         return false;
     }
 
+    if (dip_.to_ulong() == 0) {
+        LOG(ERROR, "Invalid tunnel-destination in TunnelNH");
+    }
+
     return true;
 }
 

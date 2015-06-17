@@ -137,7 +137,7 @@ public:
     const std::string &vrf_name() const {return vrf_name_;}
     bool force_policy() const {return force_policy_;}
     const bool unresolved() const {return unresolved_;}
-    const Ip4Address& server_ip() const {return server_ip_;}
+    const Ip4Address& tunnel_dest() const {return tunnel_dest_;}
     bool is_subnet_discard() const {return is_subnet_discard_;}
     const IpAddress subnet_gw_ip() const { return subnet_gw_ip_;}
 
@@ -157,7 +157,9 @@ public:
     void set_tunnel_type(TunnelType::Type type) {tunnel_type_ = type;}
     void set_sg_list(const SecurityGroupList &sg) {sg_list_ = sg;}
     void clear_sg_list() { sg_list_.clear(); }
-    void set_server_ip(const Ip4Address &server_ip) {server_ip_ = server_ip;}
+    void set_tunnel_dest(const Ip4Address &tunnel_dest) {
+        tunnel_dest_ = tunnel_dest;
+    }
     void set_is_subnet_discard(bool discard) {
         is_subnet_discard_= discard;
     }
@@ -235,7 +237,7 @@ private:
     SecurityGroupList sg_list_;
 
     // tunnel destination address
-    Ip4Address server_ip_;
+    Ip4Address tunnel_dest_;
     // tunnel_bmap_ sent by control-node
     TunnelType::TypeBmap tunnel_bmap_;
     // tunnel-type computed for the path

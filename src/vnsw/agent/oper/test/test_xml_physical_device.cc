@@ -96,6 +96,7 @@ bool AgentUtXmlPhysicalDevice::ToXml(xml_node *parent) {
     xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
     AddXmlNodeWithValue(&n, "name", name());
     AddXmlNodeWithValue(&n, "display-name", name());
+    AddXmlNodeWithValue(&n, "physical-router-dataplane-ip", "111.111.111.111");
     AddIdPerms(&n);
     return true;
 }
