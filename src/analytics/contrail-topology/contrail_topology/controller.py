@@ -95,6 +95,13 @@ class Controller(object):
             return True
         return False
 
+    def _chk_lnk(self, pre, index):
+        if 'ifIndexOperStatusTable' in pre:
+            for d in pre['ifIndexOperStatusTable']:
+                if d['ifIndex'] == index:
+                    return d['ifOperStatus'] == 1
+        return False
+
     def compute(self):
         self.link = {}
         for prouter in self.constnt_schdlr.work_items():
@@ -106,7 +113,8 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
-                if pl['lldpRemLocalPortNum'] in ifm:
+                if pl['lldpRemLocalPortNum'] in ifm and self._chk_lnk(
+                        d['PRouterEntry'], pl['lldpRemLocalPortNum']):
                     if pl['lldpRemPortId'].isdigit():
                         rii = int(pl['lldpRemPortId'])
                     else:
