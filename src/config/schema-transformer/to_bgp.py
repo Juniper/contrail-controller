@@ -2711,10 +2711,9 @@ class SchemaTransformer(object):
             if ri.parent_uuid not in vn_id_list:
                 delete = True
             else:
-                ri_name = ri.get_fq_name()[-1]
                 # if the RI was for a service chain and service chain no
                 # longer exists, delete the RI
-                sc_id = VirtualNetworkST._get_service_id_from_ri(ri_name)
+                sc_id = VirtualNetworkST._get_service_id_from_ri(ri.name)
                 if sc_id and sc_id not in ServiceChain:
                     delete = True
                 else:
@@ -2725,6 +2724,11 @@ class SchemaTransformer(object):
                     ri_obj.delete()
                 except NoIdError:
                     pass
+                except Exception as e:
+                    _sandesh._logger.error(
+                            "Error while deleting routing instance %s: %s",
+                            ri.get_fq_name_str(), str(e))
+
         # end for ri
 
         sg_list = _vnc_lib.security_groups_list(detail=True,
@@ -2753,6 +2757,10 @@ class SchemaTransformer(object):
                     _vnc_lib.access_control_list_delete(id=acl.uuid)
                 except NoIdError:
                     pass
+                except Exception as e:
+                    _sandesh._logger.error(
+                            "Error while deleting acl %s: %s",
+                            acl.uuid, str(e))
         # end for acl
 
         gevent.sleep(0.001)
