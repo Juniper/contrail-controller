@@ -31,7 +31,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
     vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
     sync_(false), force_policy_(false), sg_list_(),
-    server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
+    tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
@@ -92,6 +92,10 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
 
     if (nh_ != nh) {
         nh_ = nh;
+        if (nh && nh->GetType() == NextHop::TUNNEL) {
+            TunnelNH *tunnel_nh = static_cast<TunnelNH *>(nh);
+            tunnel_dest_ = *tunnel_nh->GetDip();
+        }
         ret = true;
     }
 
@@ -203,13 +207,13 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
         DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
         TunnelNHKey *tnh_key =
             new TunnelNHKey(agent->fabric_vrf_name(), agent->router_id(),
-                            server_ip_, false, tunnel_type_);
+                            tunnel_dest_, false, tunnel_type_);
         nh_req.key.reset(tnh_key);
         nh_req.data.reset(new TunnelNHData());
         agent->nexthop_table()->Process(nh_req);
 
         TunnelNHKey nh_key(agent->fabric_vrf_name(), agent->router_id(),
-                           server_ip_, false, tunnel_type_);
+                           tunnel_dest_, false, tunnel_type_);
         NextHop *nh = static_cast<NextHop *>
             (agent->nexthop_table()->FindActiveEntry(&nh_key));
         ChangeNH(agent, nh);
@@ -361,7 +365,7 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
     EvpnDerivedPath *evpn_path = dynamic_cast<EvpnDerivedPath *>(path);
     assert(evpn_path != NULL);
 
-    evpn_path->set_server_ip(reference_path_->server_ip());
+    evpn_path->set_tunnel_dest(reference_path_->tunnel_dest());
     uint32_t label = reference_path_->label();
     if (evpn_path->label() != label) {
         evpn_path->set_label(label);
