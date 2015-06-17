@@ -91,7 +91,7 @@ void LoadbalancerHaproxy::GenerateFrontend(
     const autogen::VirtualIpType &vip = props.vip_properties();
     *out << string(4, ' ')
          << "bind " << vip.address << ":" << vip.protocol_port;
-    if (vip.protocol_port ==  LB_HAPROXY_SSL_PORT) {
+    if (vip.protocol ==  LB_HAPROXY_TERMINATION_PROTO) {
         *out << " ssl crt " <<
             agent_->params()->si_haproxy_ssl_cert_path();
     }
