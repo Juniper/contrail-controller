@@ -706,6 +706,7 @@ bool TunnelNH::CanAdd() const {
         return false;
     }
 
+    assert(dip_.to_ulong());
     return true;
 }
 

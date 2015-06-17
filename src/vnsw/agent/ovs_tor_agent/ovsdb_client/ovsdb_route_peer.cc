@@ -35,7 +35,7 @@ bool OvsPeer::Compare(const Peer *rhs) const {
 
 bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
                           const std::string &dest_vn, const MacAddress &mac,
-                          Ip4Address &tor_ip) {
+                          Ip4Address &tor_ip, bool async) {
 
     Agent *agent = peer_manager_->agent();
 
@@ -62,13 +62,24 @@ bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
                                               dest_vn, sg_list);
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    table->AddRemoteVmRoute(this, vrf->GetName(), mac, prefix_ip,
-                            vxlan_id, data);
+    if (async) {
+        table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
+                                   vxlan_id, data);
+    } else {
+        table->AddRemoteVmRoute(this, vrf->GetName(), mac, prefix_ip,
+                                vxlan_id, data);
+    }
     return true;
 }
 
+bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
+                             const std::string &dest_vn, const MacAddress &mac,
+                             Ip4Address &tor_ip) {
+    return AddOvsRoute(vrf, vxlan_id, dest_vn, mac, tor_ip, false);
+}
+
 void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
-                             const MacAddress &mac) {
+                             const MacAddress &mac, bool async) {
     if (vrf == NULL)
         return;
 
@@ -78,7 +89,17 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    table->Delete(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
+    if (async) {
+        table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
+    } else {
+        table->Delete(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
+    }
+    return;
+}
+
+void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
+                             const MacAddress &mac) {
+    DeleteOvsRoute(vrf, vxlan_id, mac, false);
     return;
 }
 

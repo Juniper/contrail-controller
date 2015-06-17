@@ -77,7 +77,7 @@ public:
                   const SecurityGroupList &sg_list,
                   const PathPreference &path_preference,
                   DBRequest &req):
-        ControllerPeerPath(peer), server_vrf_(vrf_name), server_ip_(addr),
+        ControllerPeerPath(peer), server_vrf_(vrf_name), tunnel_dest_(addr),
         tunnel_bmap_(bmap), label_(label), dest_vn_name_(dest_vn_name),
         sg_list_(sg_list),path_preference_(path_preference)
         {nh_req_.Swap(&req);}
@@ -96,7 +96,7 @@ public:
                                             const string &default_vrf,
                                             const Ip4Address &router_id,
                                             const string &vrf_name,
-                                            const Ip4Address &server_ip, 
+                                            const Ip4Address &tunnel_dest,
                                             TunnelType::TypeBmap bmap,
                                             uint32_t label,
                                             const string &dest_vn_name,
@@ -106,7 +106,7 @@ public:
 
 private:
     string server_vrf_;
-    Ip4Address server_ip_;
+    Ip4Address tunnel_dest_;
     TunnelType::TypeBmap tunnel_bmap_;
     uint32_t label_;
     string dest_vn_name_;

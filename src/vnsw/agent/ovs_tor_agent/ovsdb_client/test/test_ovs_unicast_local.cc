@@ -128,6 +128,7 @@ protected:
             cout << str << endl;
             test.Run();
         }
+        client->WaitForIdle();
     }
 
     Agent *agent_;
@@ -164,6 +165,48 @@ TEST_F(UnicastLocalRouteTest, UnicastLocalBasic) {
         WAIT_FOR(100, 10000,
                  (NULL == FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
     }
+}
+
+TEST_F(UnicastLocalRouteTest, tunnel_nh_1) {
+    IpAddress server = Ip4Address::from_string("1.1.1.1");
+    OvsPeer *peer = peer_manager_->Allocate(server);
+    EXPECT_TRUE(peer->export_to_controller());
+
+    MacAddress mac("00:00:00:00:00:01");
+    Ip4Address tor_ip = Ip4Address::from_string("2.2.2.1");
+    Ip4Address server_ip = Ip4Address::from_string("0.0.0.0");
+    AddVrf("vrf1", 1);
+    client->WaitForIdle();
+
+    VrfEntry *vrf = VrfGet("vrf1");
+    WAIT_FOR(100, 100, (vrf->GetBridgeRouteTable() != NULL));
+    peer->AddOvsRoute(vrf, 100, "dummy", mac, tor_ip, true);
+    WAIT_FOR(1000, 100, (EvpnRouteGet("vrf1", mac, server_ip, 100) != NULL));
+    client->WaitForIdle();
+
+    EvpnRouteEntry *rt = EvpnRouteGet("vrf1", mac, server_ip, 100);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->tunnel_dest() == tor_ip);
+    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(*nh->GetDip() == tor_ip);
+
+    AddEncapList("MPLSoUDP", "vxlan", NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (EvpnRouteGet("vrf1", mac, server_ip, 100) != NULL));
+
+    rt = EvpnRouteGet("vrf1", mac, server_ip, 100);
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path->tunnel_dest() == tor_ip);
+    nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(*nh->GetDip() == tor_ip);
+
+    peer->DeleteOvsRoute(vrf, 100, mac, true);
+    client->WaitForIdle();
+    // Change tunnel-type order
+    peer_manager_->Free(peer);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
