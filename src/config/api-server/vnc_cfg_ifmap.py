@@ -1374,6 +1374,9 @@ class VncDbClient(object):
     # end dbe_read
 
     def dbe_read_multi(self, obj_type, obj_ids_list, obj_fields=None):
+        if not obj_ids_list:
+            return (True, [])
+
         method_name = obj_type.replace('-', '_')
         try:
             (ok, cassandra_result) = self._cassandra_db.read(
