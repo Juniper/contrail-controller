@@ -302,7 +302,7 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
             vector<ShowRoute> route_list;
             handler.BuildShowRouteTable(table, route_list,
                                         max_count ? max_count - count : 0);
-            if (route_list.size()) {
+            if (route_list.size() || table->IsDeleted()) {
                 srt.set_routes(route_list);
                 mydata->route_table_list.push_back(srt);
             }
@@ -637,7 +637,7 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
              i->second->GetTables().begin();
              j != i->second->GetTables().end(); ++j) {
             BgpTable *table = j->second;
-            if (table->Size() == 0)
+            if (table->Size() == 0 && !table->IsDeleted())
                 continue;
             if (!search_string.empty() &&
                 table->name().find(search_string) == string::npos) {
