@@ -842,16 +842,17 @@ class VncApiServer(VncApiServerGen):
         is_count = bottle.request.json.get('count', False)
         is_detail = bottle.request.json.get('detail', False)
 
-        filters = {}
-        filter_fnames = bottle.request.json.get(
-            'filter_field_names', '').split(',')
-        filter_fvalues = bottle.request.json.get(
-            'filter_field_values', '').split(',')
-        if len(filter_fnames) or len(filter_fvalues):
-            if len(filter_fnames) != len(filter_fvalues):
-                bottle.abort(400, "Bad Request, filter parameters unequal")
-            filters['field_names'] = filter_fnames
-            filters['field_values'] = filter_fvalues
+        filter_params = bottle.request.json.get('filters', {})
+        if filter_params:
+            try:
+               ff_key_vals = filter_params.split(',')
+               ff_names = [ff.split('==')[0] for ff in ff_key_vals]
+               ff_values = [ff.split('==')[1] for ff in ff_key_vals]
+               filters = {'field_names': ff_names, 'field_values': ff_values}
+            except Exception as e:
+               bottle.abort(400, 'Invalid filter ' + filter_params)
+        else:
+            filters = None
 
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail, filters)

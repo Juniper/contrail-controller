@@ -1007,6 +1007,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                      for ret in ret_list['virtual-machine-interfaces']]
         self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
 
+        logger.info("Querying RIs by parent_id and filter.")
+        flexmock(self._api_server).should_call('_list_collection').once()
+        ret_list = self._vnc_lib.resource_list('routing-instance',
+            parent_id=vn_uuids,
+            filters={'display_name':'%s-ri-5' %(self.id())})
+        self.assertThat(len(ret_list['routing-instances']), Equals(1))
     # end test_list_bulk_collection
 
     def test_list_lib_api(self):
