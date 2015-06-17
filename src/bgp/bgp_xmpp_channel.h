@@ -177,6 +177,8 @@ private:
         int *instance_id, RequestType *req_type);
     virtual bool GetMembershipInfo(const std::string &vrf_name,
         int *instance_id);
+    bool VerifyMembership(const std::string &vrf_name, Address::Family family,
+        BgpTable **table, int *instance_id, bool *subscribe_pending);
 
     bool ProcessItem(std::string vrf_name, const pugi::xml_node &node,
                      bool add_change);
