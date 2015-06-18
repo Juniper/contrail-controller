@@ -13,6 +13,7 @@ _ZK_PORT = 2181
 _TTL_MIN = 1 * 60
 _TTL_MAX = 3 * 60
 CLIENT_TAG = '$client-entry$'
+MAX_COL = 10000000
 
 # keep subscription around for a short while to allow client to renew
 TTL_EXPIRY_DELTA = 30
