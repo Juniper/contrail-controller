@@ -18,6 +18,7 @@ const EvpnPrefix EvpnPrefix::kNullPrefix;
 const uint32_t EvpnPrefix::kInvalidLabel = 0x100000;
 const uint32_t EvpnPrefix::kNullTag = 0;
 const uint32_t EvpnPrefix::kMaxTag = 0xFFFFFFFF;
+const uint32_t EvpnPrefix::kMaxVni = 0xFFFFFF;
 
 const size_t EvpnPrefix::kRdSize = RouteDistinguisher::kSize;
 const size_t EvpnPrefix::kEsiSize = EthernetSegmentId::kSize;
@@ -39,13 +40,26 @@ const size_t EvpnPrefix::kMinSegmentRouteSize =
 // If the encapsulation is VXLAN and ethernet tag is non-zero use that as
 // the label for backward compatibility with older JUNOS code.
 //
+// Note that Ethernet AD Routes per ESI always set ethernet tag to kMaxTag
+// and their label is supposed to be set to 0 on write and ignored on read.
+//
 static uint32_t ReadLabel(const BgpProtoPrefix &proto_prefix,
     const BgpAttr *attr, size_t offset, uint32_t tag) {
     if (!attr)
         return 0;
     const ExtCommunity *extcomm = attr->ext_community();
     if (extcomm && extcomm->ContainsTunnelEncapVxlan()) {
-        return (tag ? tag : proto_prefix.ReadLabel(offset, true));
+        if (tag) {
+            if (tag == EvpnPrefix::kMaxTag) {
+                return 0;
+            } else if (tag <= EvpnPrefix::kMaxVni) {
+                return tag;
+            } else {
+                return proto_prefix.ReadLabel(offset, true);
+            }
+        } else {
+            return proto_prefix.ReadLabel(offset, true);
+        }
     } else {
         return proto_prefix.ReadLabel(offset, false);
     }
