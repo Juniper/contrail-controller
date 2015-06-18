@@ -1,5 +1,6 @@
 import json
 import os
+from ConfigParser import ConfigParser
 
 def validate_custom_attributes(config, section):
     return {}
@@ -38,6 +39,9 @@ PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 
 HTTPS_PORT = 443
 
+HAPROXY_INI_PATH = "/etc/contrail/haproxy.ini"
+
+
 def build_config(conf_file):
     with open(conf_file) as data_file:
         config = json.load(data_file)
@@ -45,16 +49,39 @@ def build_config(conf_file):
 
     conf = []
     sock_path = conf_dir + '/haproxy.sock'
-    conf = _set_global_config(config, sock_path) + '\n\n'
-    conf += _set_defaults(config) + '\n\n'
-    conf += _set_frontend(config) + '\n\n'
-    conf += _set_backend(config) + '\n'
+    externals = None
+    ext_sections = []
+    if os.path.exists(HAPROXY_INI_PATH):
+        externals = ConfigParser()
+        externals.read(HAPROXY_INI_PATH)
+        ext_sections = set(externals.sections())
+
+    ext = lambda x: dict(externals.items(x)) if (externals and (
+        x in ext_sections and not ext_sections.discard(x))) else {}
+    conf = _set_global_config(config, sock_path, ext('global')) + '\n\n'
+    conf += _set_defaults(config, ext('defaults')) + '\n\n'
+    conf += _set_frontend(config, ext('frontend')) + '\n\n'
+    conf += _set_backend(config, ext('backend')) + '\n\n'
+
+    for section in ext_sections:
+        conf += _frame_haproxy_config_section(
+            section, {}, dict(externals.items(section))) + '\n\n'
+
     filename = conf_dir + '/haproxy.conf'
     conf_file = open(filename, 'w')
     conf_file.write(conf)
     return filename
 
-def _set_global_config(config, sock_path):
+
+def _frame_haproxy_config_section(name, defaults, externals):
+    if externals:
+        defaults.update(externals)
+
+    return '\n\t'.join([name] + [" ".join([k, str(v)])
+        for k, v in defaults.iteritems()])
+
+
+def _set_global_config(config, sock_path, externals):
     global_custom_attributes = validator(config, 'global')
     maxconn = global_custom_attributes.pop('maxconn', None) \
         if 'maxconn' in global_custom_attributes else 65000
@@ -64,26 +91,26 @@ def _set_global_config(config, sock_path):
             'ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:' \
             'RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS'
 
-    conf = [
-        'global',
-        'daemon',
-        'user nobody',
-        'group nogroup',
-        'log /dev/log local0',
-        'log /dev/log local1 notice',
-        'tune.ssl.default-dh-param 2048',
-        'ssl-default-bind-ciphers %s' % ssl_ciphers,
-        'ulimit-n 200000',
-        'maxconn %d' % maxconn
-    ]
-    conf.append('stats socket %s mode 0666 level user' % sock_path)
+    conf = {
+        'daemon': '',
+        'user': 'nobody',
+        'group': 'nogroup',
+        'log /dev/log local0': '',
+        'log /dev/log local1': 'notice',
+        'stats socket': '%s mode 0666 level user' % sock_path,
+        #'tune.ssl.default-dh-param': '2048',
+        #'ssl-default-bind-ciphers': ssl_ciphers,
+        'ulimit-n': '200000',
+        'maxconn': maxconn
+    }
     for key, value in global_custom_attributes.iteritems():
         cmd = custom_attributes_dict['global'][key]['cmd']
-        conf.append(cmd % value)
+        conf.update({cmd: value})
 
-    return ("\n\t".join(conf))
+    return _frame_haproxy_config_section('global', conf, externals)
 
-def _set_defaults(config):
+
+def _set_defaults(config, externals):
     default_custom_attributes = validator(config, 'default')
     client_timeout = default_custom_attributes.pop('client_timeout', None) \
         if 'client_timeout' in default_custom_attributes else 300000
@@ -92,80 +119,91 @@ def _set_defaults(config):
     connect_timeout = default_custom_attributes.pop('connect_timeout', None) \
         if 'connect_timeout' in default_custom_attributes else 5000
 
-    conf = [
-        'defaults',
-        'log global',
-        'retries 3',
-        'option redispatch',
-        'timeout connect %d' % connect_timeout,
-        'timeout client %d' % client_timeout,
-        'timeout server %d' % server_timeout,
-    ]
+    conf = {
+        'log': 'global',
+        'retries': '3',
+        'option': 'redispatch',
+        'timeout connect': connect_timeout,
+        'timeout client': client_timeout,
+        'timeout server': server_timeout,
+    }
 
     for key, value in default_custom_attributes.iteritems():
         cmd = custom_attributes_dict['default'][key]['cmd']
-        conf.append(cmd % value)
+        conf.update({cmd: value})
 
-    return ("\n\t".join(conf))
+    return _frame_haproxy_config_section('defaults', conf, externals)
 
-def _set_frontend(config):
+
+def _set_frontend(config, externals):
     port = config['vip']['port']
     vip_custom_attributes = validator(config, 'vip')
     ssl = ''
     if config['vip']['protocol'] == PROTO_HTTPS:
         ssl = 'ssl crt %s no-sslv3' % config['ssl-crt']
-    conf = [
-        'frontend %s' % config['vip']['id'],
-        'option tcplog',
-        'bind %s:%d %s' % (config['vip']['address'], port, ssl),
-        'mode %s' % PROTO_MAP[config['vip']['protocol']],
-        'default_backend %s' % config['pool']['id']
-    ]
+    conf = {
+        'option tcplog': '',
+        'bind': '%s:%d %s' % (config['vip']['address'], port, ssl),
+        'mode': '%s' % PROTO_MAP[config['vip']['protocol']],
+        'default_backend': '%s' % config['pool']['id']
+    }
     if config['vip']['connection-limit'] >= 0:
-        conf.append('maxconn %s' % config['vip']['connection-limit'])
+        conf['maxconn'] = config['vip']['connection-limit']
     if config['vip']['protocol'] == PROTO_HTTP or \
             config['vip']['protocol'] == PROTO_HTTPS:
-        conf.append('option forwardfor')
+        conf['option forwardfor'] = ''
 
     for key, value in vip_custom_attributes.iteritems():
         cmd = custom_attributes_dict['vip'][key]['cmd']
-        conf.append(cmd % value)
+        conf.update({cmd: value})
 
-    return ("\n\t".join(conf))
+    for key in ['bind', 'mode', 'default_backend', 'maxconn']:
+        # we don't want these from external as these are configured by client
+        externals.pop(key, None)
 
-def _set_backend(config):
+    return _frame_haproxy_config_section(
+        'frontend %s' % config['vip']['id'], conf, externals)
+
+
+def _set_backend(config, externals):
     pool_custom_attributes = validator(config, 'pool')
-    conf = [
-        'backend %s' % config['pool']['id'],
-        'mode %s' % PROTO_MAP[config['pool']['protocol']],
-        'balance %s' % LB_METHOD_MAP[config['pool']['method']]
-    ]
+    conf = {
+        'mode': PROTO_MAP[config['pool']['protocol']],
+        'balance': LB_METHOD_MAP[config['pool']['method']]
+    }
     if config['pool']['protocol'] == PROTO_HTTP:
-        conf.append('option forwardfor')
+        conf['option forwardfor'] = ''
 
     for key, value in pool_custom_attributes.iteritems():
         cmd = custom_attributes_dict['pool'][key]['cmd']
-        conf.append(cmd % value)
+        conf.update({cmd: value})
 
     server_suffix, monitor_conf = _set_health_monitor(config)
-    conf.extend(monitor_conf)
+    conf.update(monitor_conf)
     session_conf = _set_session_persistence(config)
-    conf.extend(session_conf)
+    conf.update(session_conf)
 
     for member in config['members']:
         if not member['admin-state']:
             continue
-        server = (('server %(id)s %(address)s:%(port)s '
+        server = (('%(id)s %(address)s:%(port)s '
                   'weight %(weight)s') % member) + server_suffix
         if (config['vip']['persistence-type'] == PERSISTENCE_HTTP_COOKIE):
             server += ' cookie %d' % config['members'].index(member)
-        conf.append(server)
+        conf[server] = ""
 
     for key, value in pool_custom_attributes.iteritems():
         cmd = custom_attributes_dict['pool'][key]['cmd']
-        conf.append(cmd % value)
+        conf.update({cmd: value})
 
-    return ("\n\t".join(conf))
+    for cfg in ['mode', 'balance', 'cookie', 'stick-table',
+                'stick on', 'appsession']:
+        # we don't want these from external as these are configured by client
+        externals.pop(cfg, None)
+
+    return _frame_haproxy_config_section(
+        'backend %s' % config['pool']['id'], conf, externals)
+
 
 def _set_health_monitor(config):
     for monitor in config['healthmonitors']:
@@ -175,34 +213,35 @@ def _set_health_monitor(config):
         return '', []
 
     server_suffix = ' check inter %(delay)ds fall %(max-retries)d' % monitor
-    conf = [
-        'timeout check %ds' % monitor['timeout']
-    ]
+    conf = {
+        'timeout check': '%ds' % monitor['timeout']
+    }
 
     if monitor['type'] in (HEALTH_MONITOR_HTTP, HEALTH_MONITOR_HTTPS):
-        conf.append('option httpchk %(http-method)s %(url)s' % monitor)
-        conf.append(
-            'http-check expect rstatus %s' %
-            '|'.join(_get_codes(monitor['expected-codes']))
+        conf['option httpchk'] = '%(http-method)s %(url)s' % monitor
+        conf['http-check expect rstatus'] = (
+            '%s' % '|'.join(_get_codes(monitor['expected-codes']))
         )
 
     if monitor['type'] == HEALTH_MONITOR_HTTPS:
-        conf.append('option ssl-hello-chk')
+        conf['option ssl-hello-chk'] = ""
 
     return server_suffix, conf
 
+
 def _set_session_persistence(config):
-    conf = []
+    conf = dict()
     persistence = config['vip']['persistence-type']
     cookie = config['vip']['persistence-cookie-name']
     if persistence == PERSISTENCE_SOURCE_IP:
-        conf.append('stick-table type ip size 10k')
-        conf.append('stick on src')
+        conf['stick-table'] = 'type ip size 10k'
+        conf['stick on'] = 'src'
     elif persistence == PERSISTENCE_HTTP_COOKIE:
-        conf.append('cookie SRV insert indirect nocache')
+        conf['cookie'] = 'SRV insert indirect nocache'
     elif (persistence == PERSISTENCE_APP_COOKIE and cookie):
-        conf.append('appsession %s len 56 timeout 3h' % cookie)
+        conf['appsession'] = '%s len 56 timeout 3h' % cookie
     return conf
+
 
 def _get_codes(codes):
     response = set()
