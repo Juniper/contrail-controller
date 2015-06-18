@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-    GlobalSystemConfigDM, FloatingIpDM, InstanceIpDM
+    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -188,6 +188,14 @@ class DeviceManager(object):
         else:
             for fq_name, uuid in global_system_config_list:
                 GlobalSystemConfigDM.locate(uuid)
+
+        ok, global_vrouter_config_list = self._cassandra._cassandra_global_vrouter_config_list()
+        if not ok:
+            self.config_log('global vrouter config list returned error: %s' %
+                            global_vrouter_config_list)
+        else:
+            for fq_name, uuid in global_vrouter_config_list:
+                GlobalVRouterConfigDM.locate(uuid)
 
         ok, vn_list = self._cassandra._cassandra_virtual_network_list()
         if not ok:
