@@ -110,8 +110,8 @@ class PhysicalRouterDM(DBBase):
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.dataplane_ip = obj.get('physical_router_dataplane_ip')
-        self.vendor = obj.get('physical_router_vendor_name')
-        self.product = obj.get('physical_router_product_name')
+        self.vendor = obj.get('physical_router_vendor_name', '')
+        self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.junos_service_ports = obj.get('physical_router_junos_service_ports')
@@ -133,7 +133,7 @@ class PhysicalRouterDM(DBBase):
             return
         obj = cls._dict[uuid]
         obj.config_manager.delete_bgp_config()
-        self.uve_send(True)
+        obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
@@ -181,6 +181,7 @@ class PhysicalRouterDM(DBBase):
                 self.config_manager.add_bgp_peer(peer.params['address'],
                                                  params, external)
             self.config_manager.set_bgp_config(bgp_router.params)
+            self.config_manager.set_global_routing_options(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
             if self.dataplane_ip is not None and self.is_valid_ip(self.dataplane_ip):
                 self.config_manager.add_dynamic_tunnels(self.dataplane_ip,
@@ -210,10 +211,10 @@ class PhysicalRouterDM(DBBase):
                 vn_dict[vn_id] = [li.name]
 
         #for now, assume service port ifls unit numbers are always starts with 0 and goes on
-        service_port_id = 0
+        service_port_id = 1
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
-            if vn_obj is None:
+            if vn_obj is None or vn_obj.vxlan_vni is None:
                 continue
             export_set = None
             import_set = None
@@ -278,7 +279,7 @@ class PhysicalRouterDM(DBBase):
                                                          False,
                                                          interfaces,
                                                          None,
-                                                         vn_obj.instance_ip_map)
+                                                         vn_obj.instance_ip_map, vn_obj.vxlan_vni)
 
         self.config_manager.send_bgp_config()
         self.uve_send()
@@ -312,6 +313,48 @@ class PhysicalRouterDM(DBBase):
     # end uve_send
 
 # end PhysicalRouterDM
+
+class GlobalVRouterConfigDM(DBBase):
+    _dict = {}
+    obj_type = 'global_vrouter_config'
+    global_vxlan_id_mode = None
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        new_global_vxlan_id_mode = obj.get('vxlan_network_identifier_mode')
+        if GlobalVRouterConfigDM.global_vxlan_id_mode != new_global_vxlan_id_mode:
+            GlobalVRouterConfigDM.global_vxlan_id_mode = new_global_vxlan_id_mode
+            self.update_physical_routers()
+    # end update
+
+    def update_physical_routers(self):
+        for vn in VirtualNetworkDM.values():
+            vn.set_vxlan_vni()
+
+        for pr in PhysicalRouterDM.values():
+            pr.set_config_state()
+
+    #end update_physical_routers
+
+    @classmethod
+    def is_global_vxlan_id_mode_auto(cls):
+        if cls.global_vxlan_id_mode is not None and cls.global_vxlan_id_mode == 'automatic':
+            return True
+        return False
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+    # end delete
+# end GlobalVRouterConfigDM
 
 class GlobalSystemConfigDM(DBBase):
     _dict = {}
@@ -535,7 +578,6 @@ class VirtualNetworkDM(DBBase):
         self.uuid = uuid
         self.physical_routers = set()
         self.router_external = False
-        self.vxlan_configured = False
         self.vxlan_vni = None
         self.gateways = None
         self.instance_ip_map = {}
@@ -551,15 +593,7 @@ class VirtualNetworkDM(DBBase):
             self.router_external = obj['router_external']
         except KeyError:
             self.router_external = False
-        try:
-            prop = obj['virtual_network_properties']
-            if prop['vxlan_network_identifier'] is not None:
-                self.vxlan_configured = True
-                self.vxlan_vni = prop['vxlan_network_identifier']
-        except KeyError:
-            self.vxlan_configured = False 
-            self.vxlan_vni = None
-
+        self.set_vxlan_vni(obj)
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
         self.virtual_machine_interfaces = set(
@@ -585,6 +619,21 @@ class VirtualNetworkDM(DBBase):
         #mx has limitation for vrf name, allowed max 127 chars
         return vrf_name[:127]
     #end
+
+    def set_vxlan_vni(self, obj=None):
+        self.vxlan_vni = None
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        if GlobalVRouterConfigDM.is_global_vxlan_id_mode_auto():
+            self.vxlan_vni = obj.get('virtual_network_network_id')
+        else:
+            try:
+                prop = obj['virtual_network_properties']
+                if prop['vxlan_network_identifier'] is not None:
+                    self.vxlan_vni = prop['vxlan_network_identifier']
+            except KeyError:
+                pass
+    #end set_vxlan_vni
 
     def update_instance_ip_map(self):
         self.instance_ip_map = {}
@@ -678,4 +727,5 @@ DBBase._OBJ_TYPE_MAP = {
     'floating_ip': FloatingIpDM,
     'instance_ip': InstanceIpDM,
     'global_system_config': GlobalSystemConfigDM,
+    'global_vrouter_config': GlobalVRouterConfigDM,
 }
