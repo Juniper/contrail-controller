@@ -133,6 +133,7 @@ void LoadbalancerConfig::GenerateConfig(
     fs << "{" << endl;
     fs << "  \"ssl-crt\":\"" << agent_->params()->si_lb_ssl_cert_path()
        << "\"," << endl;
+
     GeneratePool(&fs, pool_id, props);
     GenerateVip(&fs, props);
     GenerateMembers(&fs, props);
