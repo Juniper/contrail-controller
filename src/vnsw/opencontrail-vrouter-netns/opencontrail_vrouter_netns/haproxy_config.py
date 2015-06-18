@@ -35,8 +35,14 @@ def build_config(conf_file):
 
     conf = []
     sock_path = conf_dir + '/haproxy.sock'
-    conf = _set_global_config(config, sock_path) + '\n\n'
-    conf += _set_defaults(config) + '\n\n'
+    if 'lb-cfg' in config and os.path.exists(config['lb-cfg']):
+        with open(config['lb-cfg'], 'r') as f:
+            conf = f.read()
+            conf += "\n\n"
+    else:
+        conf = _set_global_config(config, sock_path) + '\n\n'
+        conf += _set_defaults(config) + '\n\n'
+
     conf += _set_frontend(config) + '\n\n'
     conf += _set_backend(config) + '\n'
     filename = conf_dir + '/haproxy.conf'
