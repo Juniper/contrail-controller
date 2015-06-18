@@ -344,3 +344,18 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
 bool ClonedLocalPath::IsPeerValid() const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
+
+ControllerMulticastRoute::ControllerMulticastRoute(const string &vn_name,
+                                                   uint32_t label,
+                                                   int vxlan_id,
+                                                   uint32_t tunnel_type,
+                                                   DBRequest &nh_req,
+                                                   COMPOSITETYPE comp_nh_type,
+                                                   uint64_t sequence_number,
+                                                   const AgentXmppChannel *channel) :
+    MulticastRoute(vn_name, label, vxlan_id, tunnel_type, nh_req, comp_nh_type),
+    sequence_number_(sequence_number), channel_(channel) { }
+
+bool ControllerMulticastRoute::IsPeerValid() const {
+    return CheckPeerValidity(channel_, sequence_number_);
+}

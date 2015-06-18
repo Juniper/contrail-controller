@@ -14,6 +14,7 @@
 #include <oper/mirror_table.h>
 #include <controller/controller_export.h>
 #include <controller/controller_peer.h>
+#include <controller/controller_route_path.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;
@@ -228,10 +229,19 @@ void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name,
                                      MacAddress::BroadcastMac(), ethernet_tag));
-    req.data.reset(new MulticastRoute(vn_name, label,
-                                      ((peer->GetType() == Peer::BGP_PEER) ?
-                                      ethernet_tag : vxlan_id), tunnel_type,
-                                      nh_req, type));
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer) {
+        req.data.reset(new ControllerMulticastRoute(vn_name, label,
+                                              ethernet_tag, tunnel_type,
+                                              nh_req, type,
+                                              bgp_peer->GetBgpXmppPeerConst()->
+                                                  unicast_sequence_number(),
+                                              bgp_peer->GetBgpXmppPeerConst()));
+    } else {
+        req.data.reset(new MulticastRoute(vn_name, label,
+                                          vxlan_id, tunnel_type,
+                                          nh_req, type));
+    }
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
