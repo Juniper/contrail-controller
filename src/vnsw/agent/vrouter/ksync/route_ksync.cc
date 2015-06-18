@@ -5,6 +5,7 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+#include <base/logging.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
@@ -49,7 +50,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
+    vrf_id_(rt->vrf_id()), mac_(), nh_(NULL), label_(0), proxy_arp_(false),
     flood_dhcp_(false), tunnel_type_(TunnelType::DefaultType()),
     wait_for_traffic_(false), local_vm_peer_route_(false),
     flood_(false), ethernet_tag_(0) {
@@ -200,6 +201,7 @@ std::string RouteKSyncEntry::ToString() const {
         s << " NextHop : <NULL>";
     }
 
+    s << " Mac: " << mac_.ToString();
     s << " Flood DHCP:" << flood_dhcp_;
     return s.str();
 }
@@ -456,6 +458,7 @@ void RouteKSyncEntry::FillObjectLog(sandesh_op::type type,
     }
 
     info.set_addr(address_string_);
+    info.set_plen(prefix_len_);
     info.set_vrf(vrf_id_);
 
     if (nh()) {
@@ -494,8 +497,14 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         }
         encoder.set_rtr_prefix_len(prefix_len_);
         if (mac_ != MacAddress::ZeroMac()) {
+            if ((addr_.is_v4() && prefix_len_ != 32) ||
+                (addr_.is_v6() && prefix_len_ != 128)) {
+                LOG(ERROR, "Unexpected MAC stitching for route "
+                    << ToString());
+                mac_ = MacAddress::ZeroMac();
+            }
             std::vector<int8_t> mac((int8_t *)mac_,
-                    (int8_t *)mac_ + mac_.size());
+                                    (int8_t *)mac_ + mac_.size());
             encoder.set_rtr_mac(mac);
         }
     } else {
@@ -623,8 +632,11 @@ uint8_t RouteKSyncEntry::CopyReplacementData(NHKSyncEntry *nexthop,
         proxy_arp_ = false;
         flood_ = false;
         wait_for_traffic_ = false;
-        // Dont copy mac_ here. mac_ is key for bridge entries and modifying
-        // it will corrut the KSync tree
+        // mac_ is key for bridge entries and modifying it will corrut the
+        // KSync tree. So, reset mac in case of non-bridge entries only
+        if (rt_type_ != Agent::BRIDGE) {
+            mac_ = MacAddress::ZeroMac();
+        }
     } else {
         label_ = new_rt->label();
         new_plen = new_rt->prefix_len();
