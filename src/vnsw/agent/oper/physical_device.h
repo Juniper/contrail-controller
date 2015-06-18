@@ -6,6 +6,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
+#include <nexthop.h>
 #include <agent_types.h>
 #include <oper_db.h>
 #include <string>
@@ -108,10 +109,18 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
 
 class PhysicalDeviceTable : public AgentOperDBTable {
  public:
+    typedef std::set<boost::uuids::uuid> PhysicalDeviceSet;
+    typedef std::map<const std::string, PhysicalDeviceSet> VrfDevicesMap;
+    typedef std::pair<const std::string, PhysicalDeviceSet> VrfDevicesPair;
+    typedef std::set<std::string> VrfSet;
+    typedef std::map<const boost::uuids::uuid, VrfSet> DeviceVrfMap;
+    typedef std::pair<const boost::uuids::uuid, VrfSet> DeviceVrfPair;
     typedef std::map<IpAddress, PhysicalDevice *> IpToDeviceMap;
     typedef std::pair<IpAddress, PhysicalDevice *> IpToDevicePair;
+
     PhysicalDeviceTable(DB *db, const std::string &name) :
-        AgentOperDBTable(db, name) { }
+        AgentOperDBTable(db, name), ip_tree_(), managed_pd_set_(),
+        vrf2devices_map_(), device2vrf_map_() { }
     virtual ~PhysicalDeviceTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -135,9 +144,22 @@ class PhysicalDeviceTable : public AgentOperDBTable {
     void UpdateIpToDevMap(IpAddress old, IpAddress new_ip, PhysicalDevice *p);
     void DeleteIpToDevEntry(IpAddress ip);
     PhysicalDevice *IpToPhysicalDevice(IpAddress ip);
+    const PhysicalDeviceSet &managed_pd_set() const { return managed_pd_set_; }
+    void EnqueueDeviceChange(const boost::uuids::uuid &u, bool master);
+    void UpdateDeviceMastership(const std::string &vrf, ComponentNHList clist,
+                                bool del);
 
  private:
+    void ResetDeviceMastership(const boost::uuids::uuid &u,
+                               const std::string &vrf);
+    void AddDeviceToVrfEntry(const boost::uuids::uuid &u,
+                             const std::string &vrf);
+    bool RemoveDeviceToVrfEntry(const boost::uuids::uuid &u,
+                                const std::string &vrf);
     IpToDeviceMap ip_tree_;
+    PhysicalDeviceSet managed_pd_set_;
+    VrfDevicesMap vrf2devices_map_;
+    DeviceVrfMap device2vrf_map_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceTable);
 };
 
