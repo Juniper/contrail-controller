@@ -128,6 +128,10 @@ public:
         return si_lb_ssl_cert_path_;
     }
 
+    std::string si_lb_config_path() const {
+        return si_lb_config_path_;
+    }
+
     std::string nexthop_server_endpoint() const {
         return nexthop_server_endpoint_;
     }
@@ -398,6 +402,7 @@ private:
     int si_netns_workers_;
     int si_netns_timeout_;
     std::string si_lb_ssl_cert_path_;
+    std::string si_lb_config_path_;
     VmwareMode vmware_mode_;
     // List of IP addresses on the compute node.
     AddressList compute_node_address_list_;

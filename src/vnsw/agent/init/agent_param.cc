@@ -524,6 +524,8 @@ void AgentParam::ParseServiceInstance() {
                           "SERVICE-INSTANCE.netns_timeout");
     GetValueFromTree<string>(si_lb_ssl_cert_path_,
                          "SERVICE-INSTANCE.lb_ssl_cert_path");
+    GetValueFromTree<string>(si_lb_config_path_,
+                         "SERVICE-INSTANCE.lb_config_path");
 
 }
 
@@ -700,7 +702,8 @@ void AgentParam::ParseServiceInstanceArguments
     GetOptValue<int>(var_map, si_netns_timeout_, "SERVICE-INSTANCE.netns_timeout");
     GetOptValue<string>(var_map, si_lb_ssl_cert_path_,
                         "SERVICE-INSTANCE.lb_ssl_cert_path");
-
+    GetOptValue<string>(var_map, si_lb_config_path_,
+                        "SERVICE-INSTANCE.lb_config_path");
 }
 
 void AgentParam::ParseNexthopServerArguments
@@ -1044,6 +1047,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
     LOG(DEBUG, "Service instance lb ssl     : " << si_lb_ssl_cert_path_);
+    LOG(DEBUG, "Service instance lb config  : " << si_lb_config_path_);
     if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -1131,7 +1135,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         xmpp_dns_server_cert_1_(""), xmpp_dns_server_cert_2_(""),
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
-        si_netns_timeout_(0), si_lb_ssl_cert_path_(),
+        si_netns_timeout_(0), si_lb_ssl_cert_path_(), si_lb_config_path_(),
         vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_(),
         nexthop_server_add_pid_(0),
         vrouter_on_nic_mode_(false),
