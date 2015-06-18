@@ -707,7 +707,6 @@ void AgentParam::ParseServiceInstanceArguments
     GetOptValue<int>(var_map, si_netns_timeout_, "SERVICE-INSTANCE.netns_timeout");
     GetOptValue<string>(var_map, si_lb_ssl_cert_path_,
                         "SERVICE-INSTANCE.lb_ssl_cert_path");
-
 }
 
 void AgentParam::ParseNexthopServerArguments
