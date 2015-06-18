@@ -2518,9 +2518,15 @@ TEST_P(BgpStressTest, RandomEvents) {
     ShowAllRoutes();
     ShowNeighborStatistics();
 
+    // Fork off python shell for pause. Use portable fork and exec instead of
+    // system() call which is platform specific, wrt signal handling.
     if (d_pause_after_initial_setup_) {
         BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell to resume");
-        system("/usr/bin/python");
+        pid_t pid;
+        if (!(pid = fork()))
+            execl("/usr/bin/python", "/usr/bin/python", NULL);
+        int status;
+        waitpid(pid, &status, 0);
     }
 
     HEAP_PROFILER_DUMP("bgp_stress_test");
