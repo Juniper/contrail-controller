@@ -128,7 +128,6 @@ class SvcMonitor(object):
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._args)
 
-
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
                                  hypervisor_type='virtual-machine',
@@ -353,7 +352,8 @@ class SvcMonitor(object):
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
             status = self.vm_manager.check_service(si_obj, proj_name)
         elif si_info['instance_type'] == 'network-namespace':
-            status = self.netns_manager.check_service(si_obj)
+            status = self.netns_manager.check_service(
+                si_obj, retry=int(self._args.retry_before_scheduling))
 
         return status 
 
@@ -601,6 +601,7 @@ def parse_args(args_str):
         'region_name': None,
         'cluster_id': '',
         }
+
     secopts = {
         'use_certs': False,
         'keyfile': '',
@@ -624,6 +625,7 @@ def parse_args(args_str):
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
         'availability_zone': None,
+        'retry_before_scheduling': 1,
     }
 
     if args.conf_file:
@@ -707,6 +709,7 @@ def parse_args(args_str):
                         help="Region name for openstack API")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
