@@ -26,6 +26,7 @@ public:
     static const uint32_t kInvalidLabel;
     static const uint32_t kNullTag;
     static const uint32_t kMaxTag;
+    static const uint32_t kMaxVni;
 
     static const size_t kRdSize;
     static const size_t kEsiSize;
