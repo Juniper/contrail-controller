@@ -56,8 +56,8 @@ class ServicePoller(gevent.Greenlet):
                     disc_trace = self.trace_cls()
                     disc_trace.publishers = []
                     for svc in slist:
-                        svc_list.append((svc['ip-address'], svc['port']))
-                        disc_trace.publishers.append(svc['ip-address'])
+                        svc_list.append(svc)
+                        disc_trace.publishers.append(str(svc))
                     disc_trace.trace_msg(name='DiscoveryMsg')
                     if old_list != svc_list:
                         self.callbk(svc_list)

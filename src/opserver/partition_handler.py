@@ -24,29 +24,24 @@ class PartitionHandler(gevent.Greenlet):
         self._topic = topic
         self._logger = logger
         self._limit = limit
-        self._partdb = {}
+        self._uvedb = {}
         self._partoffset = None
         self._kfk = None
 
     def msg_handler(self, om):
         self._partoffset = om.offset
-        self._partdb[om.message.key] = om.message.value 
+        self._uvedb[om.message.key] = om.message.value 
         self._logger.info("%d Reading %s" % (self._partition, str(om)))
         return True
 
-    def start_partition(self):
-        self._logger.info("%d Starting DB" % self._partition)
-        return True
-
-    def stop_partition(self):
-        self._logger.info("%d Stopping DB" % self._partition)
+    def resource_check(self):
         return True
 
     def _run(self):
 	pcount = 0
         while True:
             try:
-                self._logger.info("New KafkaClient %d" % self._partition)
+                self._logger.error("New KafkaClient %d" % self._partition)
                 self._kfk = KafkaClient(self._brokers ,str(os.getpid()))
                 try:
                     consumer = SimpleConsumer(self._kfk, self._group, self._topic, buffer_size = 4096*4, max_buffer_size=4096*32)
@@ -57,7 +52,7 @@ class PartitionHandler(gevent.Greenlet):
                     self._logger.info("%s" % messag)
                     raise RuntimeError(messag)
 
-                self._logger.info("Starting %d" % self._partition)
+                self._logger.error("Starting %d" % self._partition)
 
                 # Find the offset of the last message that has been queued
                 consumer.seek(0,2)
@@ -69,17 +64,20 @@ class PartitionHandler(gevent.Greenlet):
                 #import pdb; pdb.set_trace()
                 self._logger.info("Last Queued for %d is %s" % \
                                   (self._partition,str(mi)))
-                self.start_partition()
 
                 # start reading from last previously processed message
-                consumer.seek(0,1)
+                if mi != None:
+                    consumer.seek(0,1)
+                else:
+                    consumer.seek(0,0)
 
                 if self._limit:
                     raise gevent.GreenletExit
 
                 while True:
                     try:
-                        mlist = consumer.get_messages(10)
+                        self.resource_check()
+                        mlist = consumer.get_messages(10,timeout=0.2)
                         for mm in mlist:
                             if mm is None:
                                 continue
@@ -90,7 +88,8 @@ class PartitionHandler(gevent.Greenlet):
                             if not self.msg_handler(mm):
                                 self._logger.info("%d could not handle %s" % (self._partition, str(mm)))
                                 raise gevent.GreenletExit
-                    except TypeError:
+                    except TypeError as ex:
+                        self._logger.info("Type Error: %s" %  str(ex.args))
                         gevent.sleep(0.1)
                     except common.FailedPayloadsError as ex:
                         self._logger.info("Payload Error: %s" %  str(ex.args))
@@ -100,51 +99,86 @@ class PartitionHandler(gevent.Greenlet):
             except Exception as ex:
                 template = "An exception of type {0} occured. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
-                self._logger.info("%s : traceback %s" % \
+                self._logger.error("%s : traceback %s" % \
                                   (messag, traceback.format_exc()))
                 self.stop_partition()
                 gevent.sleep(2)
-        self._logger.info("Stopping %d pcount %d" % (self._partition, pcount))
-        return self._partoffset, self._partdb
+        partdb = copy.deepcopy(self._uvedb)
+        self._logger.error("Stopping %d pcount %d" % (self._partition, pcount))
+        self.stop_partition()
+        return self._partoffset, partdb
 
 class UveStreamProc(PartitionHandler):
-    
     # Arguments:
     #
     #  brokers   : broker list for kafka bootstrap
     #  partition : partition number
     #  uve_topic : topic to subscribe to
     #  logger    : logging object to use  
-    #  uvecb     : Callback to get the 
-    #            : initial UVE DB (map of collector info,
-    #              leading to map of generator info,
-    #              which leads to set of UVE Keys
     #  callback  : Callback function for reporting the set of the UVEs
     #              that may have changed for a given notification
-    def __init__(self, brokers, partition, uve_topic, logger, uvecb, callback,
-            host_ip):
+    def __init__(self, brokers, partition, uve_topic, logger, callback,
+            host_ip, us):
         super(UveStreamProc, self).__init__(brokers, partition, "workers", uve_topic, logger, False)
         self._uvedb = {}
         self._uvein = {}
         self._uveout = {}
-        self._uvecb = uvecb
         self._callback = callback
         self._partno = partition
         self._host_ip, = struct.unpack('>I', socket.inet_pton(
                                         socket.AF_INET, host_ip))
+        self._us = us
+        self.disc_rset = set()
 
-    def __del__(self):
-        self._logger.info("Destroying UVEStream for part %d" % self._partno)
+    def resource_check(self):
+        '''
+        This function compares the known collector with the
+        list from discovery, and syncs UVE keys accordingly
+        '''
+        
+        disc_instances = copy.deepcopy(self._us.redis_instances())
+        r_added = disc_instances - self.disc_rset
+        r_deleted = self.disc_rset - disc_instances
+        for r_inst in r_deleted:
+            ipaddr = r_inst[0]
+            port = r_inst[1]
+            coll = ipaddr + ":" + str(port)
+            self._logger.error("Part %d lost collector %s" % coll)
+            self.stop_partition(coll)
+        for r_inst in r_added:
+            res = self._us.get_part(self._partno, r_inst)
+            self._logger.error("Part %d discovered new redis %s with UVEs %s" % \
+                    (self._partno, str(r_inst), str(res)))
+            self.start_partition(res)
+        self.disc_rset = disc_instances
+        
+    def stop_partition(self, kcoll=None):
+        clist = []
+        if not kcoll:
+            clist = self._uvedb.keys()
+        else:
+            clist = [kcoll]
+        self._logger.error("Stopping part %d collectors %s" % \
+                (self._partno,clist))
+        chg = {}
+        for coll in clist:
+            for gen in self._uvedb[coll].keys():
+                for tab in self._uvedb[coll][gen].keys():
+                    for rkey in self._uvedb[coll][gen][tab].keys():
+                        uk = tab + ":" + rkey
+                        chg[uk] = None
+            del self._uvedb[coll]
+        self._logger.error("Stopping part %d UVEs %s" % \
+                (self._partno,str(chg.keys())))
+        self._callback(self._partno, chg)
 
-    def start_partition(self):
+    def start_partition(self, cbdb):
         ''' This function loads the initial UVE database.
             for the partition
         '''
-        cbdb = self._uvecb(self._partno)
-
-        self._logger.error("Initial UVE Sync for part %d" % self._partno)
+        self._logger.error("Starting part %d collectors %s" % \
+                (self._partno, str(cbdb.keys())))
         uves  = {}
-        self._uvedb = {}
         for kcoll,coll in cbdb.iteritems():
             self._uvedb[kcoll] = {}
             for kgen,gen in coll.iteritems():
@@ -164,8 +198,8 @@ class UveStreamProc(PartitionHandler):
                                 uuid.uuid1(self._host_ip)
                     
                     uves[kk] = None
-        self._logger.info("Starting part %d with UVE keys %s" % \
-                          (self._partno,str(uves)))
+        self._logger.error("Starting part %d UVEs %s" % \
+                          (self._partno, str(uves.keys())))
         self._callback(self._partno, uves)
 
     def contents(self):
@@ -189,13 +223,17 @@ class UveStreamProc(PartitionHandler):
         chg = {}
         try:
             uv = json.loads(om.message.value)
-            self._partdb[om.message.key] = uv
-            self._logger.debug("%d Reading UVE %s" % (self._partition, str(om)))
-            gen = uv["gen"]
             coll = uv["coll"]
+            gen = uv["gen"]
 
             if not self._uvedb.has_key(coll):
-                self._uvedb[coll] = {}
+                # This partition is not synced yet.
+                # Ignore this message
+                self._logger.debug("%d Ignoring UVE %s" % (self._partition, str(om)))
+                return True
+            else:
+                self._logger.debug("%d Reading UVE %s" % (self._partition, str(om)))
+
             if not self._uvedb[coll].has_key(gen):
                 self._uvedb[coll][gen] = {}
 
@@ -270,8 +308,6 @@ class UveStreamProc(PartitionHandler):
 
                 del self._uvedb[coll][gen]
 
-                # TODO : For the collector's generator, notify all
-                #        UVEs of all generators of the collector
         except Exception as ex:
             template = "An exception of type {0} in uve proc . Arguments:\n{1!r}"
             messag = template.format(type(ex).__name__, ex.args)
