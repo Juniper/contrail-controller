@@ -200,6 +200,8 @@ void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
 
     RPR_TRACE(TableJoin, table->name(), rt.ToString(), import);
     if (import) {
+        if (family_ == Address::INETVPN)
+            server_->NotifyAllStaticRoutes();
         BOOST_FOREACH(BgpTable *bgptable, group->GetExportTables(family())) {
             RequestWalk(bgptable);
         }
@@ -236,6 +238,8 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
 
     if (import) {
         group->RemoveImportTable(family(), table);
+        if (family_ == Address::INETVPN)
+            server_->NotifyAllStaticRoutes();
         BOOST_FOREACH(BgpTable *bgptable, group->GetExportTables(family())) {
             RequestWalk(bgptable);
         }
