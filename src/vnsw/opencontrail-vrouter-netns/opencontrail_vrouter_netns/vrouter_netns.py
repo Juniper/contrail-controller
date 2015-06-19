@@ -92,8 +92,7 @@ class NetnsManager(object):
 
     def set_snat(self):
         if not self.ip_ns.netns.exists(self.namespace):
-            raise ValueError('Need to create the network namespace before set '
-                             'up the SNAT')
+            self.create()
 
         self.ip_ns.netns.execute(['sysctl', '-w', 'net.ipv4.ip_forward=1'])
         self.ip_ns.netns.execute(['iptables', '-t', 'nat', '-F'])
@@ -128,8 +127,8 @@ class NetnsManager(object):
 
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
-            raise ValueError('Need to create the network namespace before set '
-                             'up the lbaas')
+            self.create()
+
         pid_file = self.cfg_file + ".pid"
         pid = self._get_lbaas_pid()
         if (self.update is False):
@@ -144,6 +143,7 @@ class NetnsManager(object):
                 self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
             else:
                 print ("No old Haproxy process to Update for %s" %(self.cfg_file), file=sys.stderr)
+
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
