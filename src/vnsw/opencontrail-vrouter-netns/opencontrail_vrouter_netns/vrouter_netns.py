@@ -99,8 +99,7 @@ class NetnsManager(object):
 
     def set_snat(self):
         if not self.ip_ns.netns.exists(self.namespace):
-            raise ValueError('Need to create the network namespace before set '
-                             'up the SNAT')
+            self.create()
 
         self.ip_ns.netns.execute(['sysctl', '-w', 'net.ipv4.ip_forward=1'])
         self.ip_ns.netns.execute(['iptables', '-t', 'nat', '-F'])
@@ -131,8 +130,7 @@ class NetnsManager(object):
 
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
-            raise ValueError('Need to create the network namespace before set '
-                             'up the lbaas')
+            self.create()
 
         haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True)
 
