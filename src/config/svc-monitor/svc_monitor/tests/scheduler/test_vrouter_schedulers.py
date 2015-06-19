@@ -142,6 +142,7 @@ NON_RUNNING_VROUTER_UVES_STATUS_3 = {
                 "instance_id": "0",
                 "module_id": constants.MODULE_VROUTER_AGENT_NAME,
                 "state": "Non-functional",
+                'description': 'XMPP:control-node:127.0.0.1 connection down',
                 "connection_infos": [
                     {
                         "server_addrs": [
@@ -291,7 +292,7 @@ class TestRandomScheduler(unittest.TestCase):
         self.analytics_mock = self.analytics_patch.start()
 
         self.scheduler = \
-            scheduler.RandomScheduler(self.vnc_mock, mock.MagicMock(),
+            scheduler.RandomScheduler(mock.MagicMock(), self.vnc_mock, mock.MagicMock(),
                 mock.MagicMock(netns_availability_zone=False))
 
     def tearDown(self):
@@ -373,6 +374,29 @@ class TestRandomScheduler(unittest.TestCase):
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertTrue(self.scheduler.vrouter_running('fake_vrouter_name'))
+
+    def test_vrouter_running_retry(self):
+        self.analytics_mock.side_effect = [NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           RUNNING_VROUTER_UVES_STATUS,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3]
+
+        self.assertTrue(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
+        self.assertTrue(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
+        self.assertTrue(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
+        self.assertTrue(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
+        self.assertTrue(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
+        self.assertTrue(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
+        self.assertFalse(self.scheduler.vrouter_running(
+            'fake_vrouter_name', retry=3))
 
     def test_vrouter_check_version(self):
         self.analytics_mock.side_effect = [analytics.OpenContrailAPIFailed,

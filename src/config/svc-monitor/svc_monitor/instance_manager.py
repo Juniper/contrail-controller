@@ -46,7 +46,7 @@ class InstanceManager(object):
         pass
 
     @abc.abstractmethod
-    def check_service(self, si):
+    def check_service(self, si, retry=0):
         pass
 
     def mac_alloc(self, uuid):
@@ -520,7 +520,7 @@ class VRouterHostedManager(InstanceManager):
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
 
-    def check_service(self, si):
+    def check_service(self, si, retry=0):
         service_up = True
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
@@ -532,20 +532,18 @@ class VRouterHostedManager(InstanceManager):
                 service_up = False
             else:
                 vr = VirtualRouterSM.get(vm.virtual_router)
-                if self.vrouter_scheduler.vrouter_running(vr.name):
+                if self.vrouter_scheduler.vrouter_running(vr.name,
+                                                          retry=retry):
                     continue
                 vr_obj = VirtualRouter()
                 vr_obj.uuid = vr.uuid
                 vr_obj.fq_name = vr.fq_name
-                vm_obj = VirtualMachine()
-                vm_obj.uuid = vm.uuid
-                vm_obj.fq_name = vm.fq_name
-                vr_obj.del_virtual_machine(vm_obj)
+                vr_obj.set_virtual_machine_list(
+                    list(vr.virtual_machines - set([vm.uuid])))
                 self._vnc_lib.virtual_router_update(vr_obj)
                 self._update_local_preference(si, vm)
                 self.logger.log_error("vrouter down for vm %s" % vm.uuid)
                 service_up = False
-
         return service_up
 
 

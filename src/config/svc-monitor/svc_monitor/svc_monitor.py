@@ -318,7 +318,7 @@ class SvcMonitor(object):
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
-            self._vnc_lib, self._nova_client,
+            self.logger, self._vnc_lib, self._nova_client,
             self._args)
 
         # load virtual machine instance manager
@@ -609,6 +609,9 @@ class SvcMonitor(object):
 
     # end sync_sm
 
+    def _get_cleanup_delay(self):
+        return self._args.cleanup_delay
+
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
                                  hypervisor_type='virtual-machine',
@@ -752,7 +755,8 @@ class SvcMonitor(object):
         if st.virtualization_type == 'virtual-machine':
             status = self.vm_manager.check_service(si)
         elif st.virtualization_type == 'network-namespace':
-            status = self.netns_manager.check_service(si)
+            status = self.netns_manager.check_service(
+                si, retry=int(self._args.retry_before_scheduling))
         elif st.virtualization_type == 'vrouter-instance':
             status = self.vrouter_manager.check_service(si)
 
@@ -815,7 +819,7 @@ def timer_callback(monitor):
 
 def launch_timer(monitor):
     while True:
-        gevent.sleep(svc_info.get_vm_health_interval())
+        gevent.sleep(monitor._get_cleanup_delay())
         try:
             timer_callback(monitor)
         except Exception:
@@ -896,6 +900,7 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
+        'cleanup_delay': svc_info.get_vm_health_interval(),
         }
     secopts = {
         'use_certs': False,
@@ -921,6 +926,7 @@ def parse_args(args_str):
         'analytics_server_port': '8081',
         'availability_zone': None,
         'netns_availability_zone': None,
+        'retry_before_scheduling': 1,
     }
 
     config = ConfigParser.SafeConfigParser()
@@ -1012,6 +1018,8 @@ def parse_args(args_str):
     parser.add_argument(
         "--logger_class",
         help=("Optional external logger class, default: None"))
+    parser.add_argument("--cleanup_delay", type=int,
+                        help="Delay between two service instance cleanups")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config
