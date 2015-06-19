@@ -54,6 +54,9 @@ class VRouterInstanceManagerTest(unittest.TestCase):
                     return vn.uuid
             raise NoIdError(fq_name)
 
+        def iip_create(iip_obj):
+            iip_obj.uuid = 'fake_iip_uuid'
+
         def vmi_create(vmi_obj):
             vmi_obj.uuid = 'fake-vmi-uuid'
             return
@@ -89,6 +92,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
+        self.mocked_vnc.instance_ip_create = iip_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
@@ -106,21 +110,21 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         ServiceInstanceSM.delete('fake-si-uuid')
         pass
 
-    def create_test_project(self, fq_name_str):
+    def _create_test_project(self, fq_name_str):
         proj_obj = {}
         proj_obj['fq_name'] = fq_name_str.split(':')
         proj_obj['uuid'] = fq_name_str
         proj_obj['id_perms'] = 'fake-id-perms'
         ProjectSM.locate(proj_obj['uuid'], proj_obj)
 
-    def create_test_virtual_network(self, fq_name_str):
+    def _create_test_virtual_network(self, fq_name_str):
         vn_obj = {}
         vn_obj['fq_name'] = fq_name_str.split(':')
         vn_obj['uuid'] = fq_name_str
         vn_obj['id_perms'] = 'fake-id-perms'
         VirtualNetworkSM.locate(vn_obj['uuid'], vn_obj)
 
-    def create_test_virtual_machine(self, fq_name_str):
+    def _create_test_virtual_machine(self, fq_name_str):
         vm_obj = {}
         vm_obj['fq_name'] = fq_name_str.split(':')
         vm_obj['uuid'] = fq_name_str
@@ -130,10 +134,10 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         return vm
 
     def test_vrouter_instance_create(self):
-        self.create_test_project('fake-domain:fake-project')
-        self.create_test_virtual_network('fake-domain:fake-project:mgmt-vn')
-        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
-        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        self._create_test_project('fake-domain:fake-project')
+        self._create_test_virtual_network('fake-domain:fake-project:mgmt-vn')
+        self._create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self._create_test_virtual_network('fake-domain:fake-project:right-vn')
 
         st_obj = {}
         st_obj['fq_name'] = ['fake-domain', 'fake-template']
