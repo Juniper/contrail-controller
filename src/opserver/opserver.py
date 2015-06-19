@@ -538,8 +538,8 @@ class OpServer(object):
                     self._args.redis_uve_list = self._args.redis_uve_list.split()
                 for redis_uve in self._args.redis_uve_list:
                     redis_ip_port = redis_uve.split(':')
-                    redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
-                    self.redis_uve_list.append(redis_ip_port)
+                    redis_elem = (redis_ip_port[0], int(redis_ip_port[1]),0)
+                    self.redis_uve_list.append(redis_elem)
             except Exception as e:
                 self._logger.error('Failed to parse redis_uve_list: %s' % e)
             else:
@@ -2102,44 +2102,6 @@ class OpServer(object):
             gevent.sleep(60)
     #end cpu_info_logger
 
-    def poll_collector_list(self):
-        '''
-        Analytics node may be brought up/down any time. For UVE aggregation,
-        Opserver needs to know the list of all Analytics nodes (redis-uves).
-        Presently, Discovery server supports only pull mechanism to get the
-        Publisher list. Periodically poll the Collector list [in lieu of 
-        redi-uve nodes] from the discovery. 
-        ** Remove this code when the push mechanism to update the discovery clients
-        on the addition/deletion of Publisher nodes for a given service is 
-        supported by the Discovery server.
-        '''
-        if self.disc:
-            while True:
-                self.redis_uve_list = []
-                try:
-                    sub_obj = \
-                        self.disc.subscribe(COLLECTOR_DISCOVERY_SERVICE_NAME, 0)
-                    collectors = sub_obj.info 
-                except Exception as e:
-                    self._logger.error('Failed to get collector-list from ' \
-                                       'discovery server')
-                else:
-                    if collectors:
-                        disc_trace = CollectorTrace()
-                        disc_trace.collectors = []
-                        for collector in collectors:
-                            self.redis_uve_list.append((collector['ip-address'], 
-                                                       self._args.redis_server_port))
-                            disc_trace.collectors.append(collector['ip-address'])
-                        disc_trace.trace_msg(name='DiscoveryMsg')
-                        self._uve_server.update_redis_uve_list(self.redis_uve_list)
-                        self._state_server.update_redis_list(self.redis_uve_list)
-                if self.redis_uve_list:
-                    gevent.sleep(60)
-                else:
-                    gevent.sleep(5)
-    # end poll_collector_list
-
     def disc_cb(self, clist):
         '''
         Analytics node may be brought up/down any time. For UVE aggregation,
@@ -2149,8 +2111,11 @@ class OpServer(object):
         '''
         newlist = []
         for elem in clist:
-            (ipaddr,port) = elem
-            newlist.append((ipaddr, self._args.redis_server_port))
+            ipaddr = elem["ip-address"]
+            cpid = 0
+            if "pid" in elem:
+                cpid = int(elem["pid"])
+            newlist.append((ipaddr, self._args.redis_server_port, cpid))
         self._uve_server.update_redis_uve_list(newlist)
         self._state_server.update_redis_list(newlist)
 
