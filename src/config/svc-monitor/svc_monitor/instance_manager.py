@@ -47,7 +47,7 @@ class InstanceManager(object):
         pass
 
     @abc.abstractmethod
-    def check_service(self, si_obj, proj_name=None):
+    def check_service(self, si_obj, proj_name=None, retry=0):
         pass
 
     def _get_default_security_group(self, vn_obj):
@@ -729,7 +729,7 @@ class NetworkNamespaceManager(InstanceManager):
                 (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
         self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
 
-    def check_service(self, si_obj, proj_name=None):
+    def check_service(self, si_obj, proj_name=None, retry=0):
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         if not vm_back_refs:
             return 'ERROR'
@@ -750,7 +750,8 @@ class NetworkNamespaceManager(InstanceManager):
             except NoIdError:
                 return 'ERROR'
 
-            if not self.vrouter_scheduler.vrouter_running(vr_obj.name):
+            if not self.vrouter_scheduler.vrouter_running(vr_obj.name,
+                                                          retry=retry):
                 vr_obj.del_virtual_machine(vm_obj)
                 self._vnc_lib.virtual_router_update(vr_obj)
                 return 'ERROR'
