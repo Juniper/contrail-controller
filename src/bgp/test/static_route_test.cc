@@ -347,6 +347,11 @@ protected:
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
     }
 
+    void VerifyTableNoExists(const string &table_name) {
+        TASK_UTIL_EXPECT_TRUE(
+            bgp_server_->database()->FindTable(table_name) == NULL);
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
@@ -1506,6 +1511,99 @@ TEST_F(StaticRouteTest, EntryAfterStop) {
     TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
                              NULL, 1000, 10000, 
                              "Wait for Static route in blue..");
+}
+
+//
+// Delete the routing instance that imports the static route and make sure
+// the inet table gets deleted. Objective is to check that the static route
+// is removed from the table even though the static route config has not
+// changed.
+//
+TEST_F(StaticRouteTest, DeleteRoutingInstance) {
+    vector<string> instance_names = list_of("blue")("nat");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Add Nexthop Route
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    // Delete the configuration for the blue instance.
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "blue",
+        "virtual-network", "blue", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "blue",
+        "route-target", "target:64496:1", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &config_db_, "virtual-network", "blue");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &config_db_, "routing-instance", "blue");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &config_db_, "route-target", "target:64496:1");
+    task_util::WaitForIdle();
+
+    // Make sure that the blue inet table is gone.
+    VerifyTableNoExists("blue.inet.0");
+
+    // Delete nexthop route
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Add the routing instance that imports the static route after the static
+// route has already been added. Objective is to check that the static route
+// is replicated to the table in the new instance without any triggers to
+// the static route module.
+//
+TEST_F(StaticRouteTest, AddRoutingInstance) {
+    vector<string> instance_names = list_of("nat");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Add Nexthop Route
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat..");
+
+    // Add the blue instance.
+    // Make sure that the id and route target for nat instance don't change.
+    instance_names = list_of("nat")("blue");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    // Delete nexthop route
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
 }
 
 // Sandesh introspect test
