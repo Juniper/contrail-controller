@@ -141,7 +141,7 @@ bool PhysicalPortEntry::OverrideOvs() {
 }
 
 PhysicalPortTable::PhysicalPortTable(OvsdbClientIdl *idl) :
-    OvsdbObject(idl) {
+    OvsdbObject(idl), stale_create_done_(false) {
     idl->Register(OvsdbClientIdl::OVSDB_PHYSICAL_PORT,
                   boost::bind(&PhysicalPortTable::Notify, this, _1, _2));
 }
@@ -216,6 +216,10 @@ void PhysicalPortTable::DeletePortEntry(struct ovsdb_idl_row *row) {
     Delete(entry);
 }
 
+void PhysicalPortTable::set_stale_create_done() {
+    stale_create_done_ = true;
+}
+
 void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
     std::size_t count =
         ovsdb_wrapper_physical_port_vlan_binding_count(entry->ovs_entry());
@@ -255,6 +259,10 @@ void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
         } else {
             ret_override = true;
             // mis-match of vlans in binding
+            if (stale_create_done_) {
+                // done creating stale entries, bail out and override
+                break;
+            }
             if (it == entry->binding_table_.end() || it->first > ovs_it->first) {
                 // Create stale vlan port binding entry
                 VlanPortBindingEntry key(vp_binding_table, entry->dev_name(),
