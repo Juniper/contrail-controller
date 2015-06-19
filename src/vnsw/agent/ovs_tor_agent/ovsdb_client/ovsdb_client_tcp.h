@@ -55,6 +55,8 @@ public:
 
     int keepalive_interval();
 
+    int local_mac_cleanup_interval();
+
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();
@@ -104,7 +106,7 @@ public:
 
     OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
             IpAddress tsn_ip, int keepalive_interval,
-            OvsPeerManager *manager);
+            int local_mac_cleanup_interval, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);

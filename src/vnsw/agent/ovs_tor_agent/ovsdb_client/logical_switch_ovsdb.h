@@ -18,6 +18,9 @@ class LogicalSwitchEntry;
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
     typedef std::map<struct ovsdb_idl_row *, LogicalSwitchEntry *> OvsdbIdlRowMap;
+
+    static const int kLocalMacClearTimer = 300000; // in millisecond
+
     LogicalSwitchTable(OvsdbClientIdl *idl);
     virtual ~LogicalSwitchTable();
 
@@ -31,6 +34,7 @@ public:
     OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row);
     DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry,
                                     const OvsdbDBEntry *ovsdb_entry);
+    void DBEntryDeleteCb(const DBEntry *entry, KSyncDBEntry *ksync);
 
 private:
     OvsdbIdlRowMap  idl_row_map_;
@@ -46,12 +50,15 @@ public:
         ADD_ACK,
         DEL_ACK,
     };
+
     LogicalSwitchEntry(OvsdbDBObject *table, const std::string &name);
     LogicalSwitchEntry(OvsdbDBObject *table, const LogicalSwitchEntry *key);
     LogicalSwitchEntry(OvsdbDBObject *table,
             const PhysicalDeviceVn *entry);
     LogicalSwitchEntry(OvsdbDBObject *table,
             struct ovsdb_idl_row *entry);
+
+    virtual ~LogicalSwitchEntry();
 
     Ip4Address &physical_switch_tunnel_ip();
     void AddMsg(struct ovsdb_idl_txn *);
@@ -70,6 +77,11 @@ public:
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Logical Switch";}
     KSyncEntry* UnresolvedReference();
+
+    bool LocalMacClearTimerCb();
+
+    bool IsLocalMacsRef() const;
+
 private:
     void SendTrace(Trace event) const;
     void DeleteOldMcastRemoteMac();
@@ -78,6 +90,10 @@ private:
     std::string name_;
     std::string device_name_;
     KSyncEntryPtr physical_switch_;
+    // self ref to account for local mac from ToR, we hold
+    // the reference till timeout or when all the local
+    // macs are withdrawn
+    KSyncEntryPtr local_mac_ref_;
     int64_t vxlan_id_;
     struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;
@@ -85,6 +101,7 @@ private:
     OvsdbIdlRowList ucast_local_row_list_;
     IpAddress tor_ip_;
     MulticastMacLocalEntry *mc_flood_entry_;
+    Timer *local_mac_ref_clear_timer_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };

@@ -129,7 +129,7 @@ OvsdbClientTcpSessionTest::~OvsdbClientTcpSessionTest() {
 OvsdbClientTcpTest::OvsdbClientTcpTest(Agent *agent, IpAddress tor_ip,
                                        int tor_port, IpAddress tsn_ip,
                                        int keepalive, OvsPeerManager *manager)
-    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, manager) {
+    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, -1, manager) {
 }
 
 OvsdbClientTcpTest::~OvsdbClientTcpTest() {

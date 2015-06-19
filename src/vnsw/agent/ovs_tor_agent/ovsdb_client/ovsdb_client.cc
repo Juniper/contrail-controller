@@ -15,9 +15,11 @@
 using OVSDB::OvsdbClient;
 using OVSDB::ConnectionStateTable;
 
-OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval) :
+OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval,
+                         int local_mac_cleanup_interval) :
     peer_manager_(manager), ksync_obj_manager_(KSyncObjectManager::Init()),
-    keepalive_interval_(keepalive_interval) {
+    keepalive_interval_(keepalive_interval),
+    local_mac_cleanup_interval_(local_mac_cleanup_interval) {
 }
 
 OvsdbClient::~OvsdbClient() {
@@ -39,6 +41,10 @@ int OvsdbClient::keepalive_interval() const {
     return keepalive_interval_;
 }
 
+int OvsdbClient::local_mac_cleanup_interval() const {
+    return local_mac_cleanup_interval_;
+}
+
 void OvsdbClient::Init() {
 }
 
@@ -48,7 +54,9 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
     if (params->tor_protocol() == "tcp") {
         return (new OvsdbClientTcp(agent, IpAddress(params->tor_ip()),
                                    params->tor_port(), params->tsn_ip(),
-                                   params->keepalive_interval(), manager));
+                                   params->keepalive_interval(),
+                                   params->local_mac_cleanup_interval(),
+                                   manager));
     } else if (params->tor_protocol() == "pssl") {
         return (new OvsdbClientSsl(agent, params, manager));
     }

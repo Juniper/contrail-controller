@@ -143,6 +143,8 @@ public:
     // Process jsonrpc_msg for IDL, takes ownership of jsonrpc_msg
     void MessageProcess(struct jsonrpc_msg *msg);
 
+    int local_mac_cleanup_interval() const;
+
     Ip4Address remote_ip() const;
     uint16_t remote_port() const;
 

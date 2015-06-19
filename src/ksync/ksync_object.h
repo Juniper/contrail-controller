@@ -231,6 +231,11 @@ public:
     // behavior.
     virtual DBFilterResp DBEntryFilter(const DBEntry *entry,
                                        const KSyncDBEntry *ksync);
+
+    // Provides DB Entry delete cb, needs to be overriden by derived class
+    // to take requied action on an entry before
+    virtual void DBEntryDeleteCb(const DBEntry *entry, KSyncDBEntry *ksync) {}
+
     // Populate Key in KSyncEntry from DB Entry.
     // Used for lookup of KSyncEntry from DBEntry
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry) = 0;

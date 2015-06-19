@@ -16,8 +16,10 @@ class OvsdbClientSession;
 class ConnectionStateTable;
 class OvsdbClient {
 public:
-    OvsdbClient(OvsPeerManager *manager, int keepalive_interval);
+    OvsdbClient(OvsPeerManager *manager, int keepalive_interval,
+                int local_mac_cleanup_interval);
     virtual ~OvsdbClient();
+
     virtual void RegisterClients() = 0;
     virtual const std::string protocol() = 0;
     virtual const std::string server() = 0;
@@ -38,16 +40,19 @@ public:
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     int keepalive_interval() const;
+    int local_mac_cleanup_interval() const;
     void Init();
     static OvsdbClient* Allocate(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
 
 protected:
     OvsPeerManager *peer_manager_;
+
 private:
     boost::scoped_ptr<ConnectionStateTable> connection_table_;
     KSyncObjectManager *ksync_obj_manager_;
     int keepalive_interval_;
+    int local_mac_cleanup_interval_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClient);
 };
 };
