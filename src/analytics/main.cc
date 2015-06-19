@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
         stringstream pub_ss;
         pub_ss << "<" << service_name << "><ip-address>" << options.host_ip() <<
                   "</ip-address><port>" << options.collector_port() <<
-                  "</port></" << service_name << ">";
+                  "</port><pid>" << getpid() << "</pid></"  << service_name << ">";
         std::string pub_msg;
         pub_msg = pub_ss.str();
         ds_client->Publish(service_name, pub_msg);
