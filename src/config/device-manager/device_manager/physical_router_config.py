@@ -253,14 +253,35 @@ class PhysicalRouterConfig(object):
         # add firewall config for public VRF
         forwarding_options_config = self.forwarding_options_config
         firewall_config = self.firewall_config
-        if router_external or fip_map is not None:
-            forwarding_options_config = self.forwarding_options_config or etree.Element("forwarding-options")
-            fo = etree.SubElement(forwarding_options_config, "family")
-            inet  = etree.SubElement(fo, "inet")
-            f = etree.SubElement(inet, "filter")
-            #mx has limitation for filter names, allowed max 63 chars
-            etree.SubElement(f, "input").text = "redirect_to_" + ri_name[:46] + "_vrf"
+        if router_external:
+            if self.forwarding_options_config is None:
+                forwarding_options_config = etree.Element("forwarding-options")
+                fo = etree.SubElement(forwarding_options_config, "family")
+                inet  = etree.SubElement(fo, "inet")
+                f = etree.SubElement(inet, "filter")
+                etree.SubElement(f, "input").text = "redirect_to_public_vrf_filter"
+                firewall_config = self.firewall_config or etree.Element("firewall")
+                fc = etree.SubElement(firewall_config, "family")
+                inet  = etree.SubElement(fc, "inet")
+                f = etree.SubElement(inet, "filter")
+                etree.SubElement(f, "name").text = "redirect_to_public_vrf_filter"
+                self.inet_forwarding_filter = f
+                term = etree.SubElement(f, "term")
+                etree.SubElement(term, "name").text= "default-term"
+                then_ = etree.SubElement(term, "then")
+                etree.SubElement(then_, "accept")
 
+            term = etree.Element("term")
+            etree.SubElement(term, "name").text= "term-" + ri_name[:19]
+            if prefixes:
+                from_ = etree.SubElement(term, "from")
+                etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
+            then_ = etree.SubElement(term, "then")
+            etree.SubElement(then_, "routing-instance").text = ri_name
+            #insert after 'name' element but before the last term
+            self.inet_forwarding_filter.insert(1, term) 
+
+        if fip_map is not None:
             firewall_config = self.firewall_config or etree.Element("firewall")
             fc = etree.SubElement(firewall_config, "family")
             inet  = etree.SubElement(fc, "inet")
@@ -268,12 +289,8 @@ class PhysicalRouterConfig(object):
             etree.SubElement(f, "name").text = "redirect_to_" + ri_name[:46] + "_vrf"
             term = etree.SubElement(f, "term")
             etree.SubElement(term, "name").text= "t1"
-            if fip_map is not None:
-                from_ = etree.SubElement(term, "from")
-                etree.SubElement(from_, "destination-address").text = ';'.join(fip_map.keys())
-            elif prefixes:
-                from_ = etree.SubElement(term, "from")
-                etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
+            from_ = etree.SubElement(term, "from")
+            etree.SubElement(from_, "destination-address").text = ';'.join(fip_map.keys())
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "routing-instance").text = ri_name
             term = etree.SubElement(f, "term")
@@ -281,17 +298,16 @@ class PhysicalRouterConfig(object):
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "accept")
 
-            if fip_map is not None:
-                interfaces_config = self.interfaces_config or etree.Element("interfaces")
-                irb_intf = etree.SubElement(interfaces_config, "interface")
-                etree.SubElement(irb_intf, "name").text = "irb"
-                intf_unit = etree.SubElement(irb_intf, "unit")
-                etree.SubElement(intf_unit, "name").text = str(private_vni)
-                family = etree.SubElement(intf_unit, "family")
-                inet = etree.SubElement(family, "inet")
-                f = etree.SubElement(inet, "filter")
-                input = etree.SubElement(f, "input")
-                etree.SubElement(input, "filter-name").text = "redirect_to_" + ri_name[:46] + "_vrf"
+            interfaces_config = self.interfaces_config or etree.Element("interfaces")
+            irb_intf = etree.SubElement(interfaces_config, "interface")
+            etree.SubElement(irb_intf, "name").text = "irb"
+            intf_unit = etree.SubElement(irb_intf, "unit")
+            etree.SubElement(intf_unit, "name").text = str(private_vni)
+            family = etree.SubElement(intf_unit, "family")
+            inet = etree.SubElement(family, "inet")
+            f = etree.SubElement(inet, "filter")
+            iput = etree.SubElement(f, "input")
+            etree.SubElement(iput, "filter-name").text = "redirect_to_" + ri_name[:46] + "_vrf"
               
         # add L2 EVPN and BD config
         bd_config = None
@@ -511,6 +527,7 @@ class PhysicalRouterConfig(object):
         self.services_config = None
         self.policy_config = None
         self.firewall_config = None
+        self.inet_forwarding_filter = None
         self.forwarding_options_config = None
         self.global_routing_options_config = None
         self.proto_config = None
