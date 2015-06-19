@@ -22,6 +22,7 @@ import ast
 from distutils.version import StrictVersion as V
 import random
 import six
+import time
 
 from cfgm_common import analytics_client
 from cfgm_common import svc_info
@@ -31,10 +32,12 @@ from vnc_api.vnc_api import NoIdError
 @six.add_metaclass(abc.ABCMeta)
 class VRouterScheduler(object):
 
-    def __init__(self, vnc_lib, nova_client, args):
+    def __init__(self, logger, vnc_lib, nova_client, args):
+        self._logger = logger
         self._vnc_lib = vnc_lib
         self._args = args
         self._nc = nova_client
+        self._vrouter_precedent_status = {}
 
         # initialize analytics client
         endpoint = "http://%s:%s" % (self._args.analytics_server_ip,
@@ -102,14 +105,19 @@ class VRouterScheduler(object):
                     continue
         return vrs_fq_name
 
-    def vrouter_running(self, vrouter_name):
+    def vrouter_running(self, vrouter_name, retry=0):
         """Check if a vrouter agent is up and running."""
         path = "/analytics/uves/vrouter/"
 
         fqdn_uuid = "%s?cfilt=VrouterAgent" % vrouter_name
         try:
             vrouter_agent = self._analytics.request(path, fqdn_uuid)
-        except analytics_client.OpenContrailAPIFailed:
+        except analytics_client.OpenContrailAPIFailed as e:
+            self._logger.log_warning("Fail to request analytics API to get "
+                "vrouter '%s' agent type: %s" % (vrouter_name, e))
+            self._logger.log_info(
+                "Consider vrouter '%s' not available for scheduling" %\
+                vrouter_name)
             return False
 
         if 'VrouterAgent' not in vrouter_agent or \
@@ -117,24 +125,72 @@ class VRouterScheduler(object):
                 vrouter_agent['VrouterAgent']['mode'] != \
                 constants.VrouterAgentTypeMap[
                     constants.VrouterAgentType.VROUTER_AGENT_EMBEDDED]):
+            self._logger.log_info(
+                "vrouter '%s' type is not supported for scheduling" %\
+                (vrouter_name, vrouter_agent['VrouterAgent']['mode']))
             return False
 
         fqdn_uuid = "%s?cfilt=NodeStatus" % vrouter_name
         try:
             node_status = self._analytics.request(path, fqdn_uuid)
         except analytics_client.OpenContrailAPIFailed:
+            self._logger.log_warning("Fail to request analytics API to get "
+                "vrouter '%s' agent status: %s" % (vrouter_name, e))
+            self._logger.log_info(
+                "Consider vrouter '%s' not available for scheduling" %\
+                vrouter_name)
             return False
 
         if not node_status or 'NodeStatus' not in node_status or \
                 'process_status' not in node_status['NodeStatus']:
+            self._logger.log_warning("vrouter %s UVE status does not contains "
+                "all informations" % vrouter_name)
+            self._logger.log_info(
+                "Consider vrouter '%s' not available for scheduling" %\
+                vrouter_name)
             return False
 
+        default_vrouter_status = {'count': 0, 'timestamp': 0}
+        vrouter_last_status = self._vrouter_precedent_status.get(
+            vrouter_name, default_vrouter_status)
+        fails_count = vrouter_last_status['count']
         for process in node_status['NodeStatus']['process_status']:
             if (process['module_id'] == constants.MODULE_VROUTER_AGENT_NAME and
                 int(process['instance_id']) == 0 and
                 process['state'] == 'Functional'):
+                self._vrouter_precedent_status[vrouter_name] = \
+                    default_vrouter_status
+                self._logger.log_debug(
+                    "Consider vrouter '%s' available for scheduling "
+                    "(%d retries)" % (vrouter_name, fails_count))
                 return True
-        return False
+
+        # When retry is set to 0, we are trying to schedule a new VM on vrouter
+        if retry == 0:
+            return False
+
+        if (int(time.time()) - vrouter_last_status['timestamp']) > \
+            self._args.cleanup_delay:
+            fails_count += 1
+        self._vrouter_precedent_status[vrouter_name] = \
+            {'count': fails_count,
+             'timestamp': int(time.time())}
+        reason = node_status['NodeStatus']['process_status'][0]['description']
+        self._logger.log_warning(
+            "vrouter '%s' is not functional. Reason: %s" %\
+            (vrouter_name, reason))
+        self._logger.log_warning("That's happened %d times consecutively" %\
+                                 fails_count)
+        if fails_count > retry:
+            self._logger.log_info(
+                "Consider vrouter '%s' not available for scheduling "
+                "(retried: %d/%d)" % (vrouter_name, fails_count, retry))
+            return False
+        self._logger.log_debug(
+                "Consider vrouter '%s' available for scheduling "
+                "(retry %d/%d)" % (vrouter_name, fails_count, retry))
+        return True
+
 
     def vrouter_check_version(self, vrouter_name, version):
         """Check the vrouter version is upper or equal to a desired version."""
