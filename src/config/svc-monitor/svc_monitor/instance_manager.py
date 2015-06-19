@@ -46,7 +46,7 @@ class InstanceManager(object):
         pass
 
     @abc.abstractmethod
-    def check_service(self, si):
+    def check_service(self, si, retry=0):
         pass
 
     def mac_alloc(self, uuid):
@@ -55,6 +55,7 @@ class InstanceManager(object):
 
     def _get_default_security_group(self, vn):
         sg_fq_name = vn.fq_name[:-1] + ['default']
+        import ipdb; ipdb.set_trace()
         for sg in SecurityGroupSM.values():
             if sg.fq_name == sg_fq_name:
                 sg_obj = SecurityGroup()
@@ -63,7 +64,7 @@ class InstanceManager(object):
                 return sg_obj
 
         self.logger.log_error(
-            "Security group not found %s" % (sg_fq_name.join(':')))
+            "Security group not found %s" % (':'.join(sg_fq_name)))
         return None
 
     def _get_instance_name(self, si, inst_count):
@@ -520,7 +521,7 @@ class VRouterHostedManager(InstanceManager):
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
 
-    def check_service(self, si):
+    def check_service(self, si, retry=0):
         service_up = True
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
@@ -532,20 +533,18 @@ class VRouterHostedManager(InstanceManager):
                 service_up = False
             else:
                 vr = VirtualRouterSM.get(vm.virtual_router)
-                if self.vrouter_scheduler.vrouter_running(vr.name):
+                if self.vrouter_scheduler.vrouter_running(vr.name,
+                                                          retry=retry):
                     continue
                 vr_obj = VirtualRouter()
                 vr_obj.uuid = vr.uuid
                 vr_obj.fq_name = vr.fq_name
-                vm_obj = VirtualMachine()
-                vm_obj.uuid = vm.uuid
-                vm_obj.fq_name = vm.fq_name
-                vr_obj.del_virtual_machine(vm_obj)
+                vr_obj.set_virtual_machine_list(
+                    list(vr.virtual_machines - set([vm.uuid])))
                 self._vnc_lib.virtual_router_update(vr_obj)
                 self._update_local_preference(si, vm)
                 self.logger.log_error("vrouter down for vm %s" % vm.uuid)
                 service_up = False
-
         return service_up
 
 
