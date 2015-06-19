@@ -205,7 +205,7 @@ class SvcMonitor(object):
         try:
             self._vnc_subscribe_actions(oper_info)
         except Exception:
-            cgitb_error_log(self)
+            self._cgitb_error_log()
 
     def _vnc_subscribe_actions(self, oper_info):
         try:
@@ -249,7 +249,7 @@ class SvcMonitor(object):
 
 
         except Exception:
-            cgitb_error_log(self)
+            self._cgitb_error_log()
 
         for sas_id in dependency_tracker.resources.get('service_appliance_set', []):
             sas_obj = ServiceApplianceSetSM.get(sas_id)
@@ -318,7 +318,7 @@ class SvcMonitor(object):
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
-            self._vnc_lib, self._nova_client,
+            self.logger, self._vnc_lib, self._nova_client,
             self._args)
 
         # load virtual machine instance manager
@@ -381,6 +381,16 @@ class SvcMonitor(object):
         self.launch_services()
 
         self._db_resync_done.set()
+
+        # Start SI cleanup and heath check tasks
+        cleanup_task = gevent.spawn(self._launch_timer,
+                                    "_cleaner_callback",
+                                    self._get_cleanup_delay())
+        check_status_task = gevent.spawn(self._launch_timer,
+                                         "_check_status_callback",
+                                         self._get_check_status_delay())
+        gevent.joinall([cleanup_task, check_status_task])
+
 
     def upgrade(self):
         for si in ServiceInstanceSM.values():
@@ -609,6 +619,11 @@ class SvcMonitor(object):
 
     # end sync_sm
 
+    def _get_cleanup_delay(self):
+        return self._args.cleanup_delay
+
+    def _get_check_status_delay(self):
+        return self._args.check_status_delay
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
                                  hypervisor_type='virtual-machine',
@@ -721,7 +736,7 @@ class SvcMonitor(object):
                 self.logger.log_error("Unknown virt type: %s" %
                     st.virtualization_type)
         except Exception:
-            cgitb_error_log(self)
+            self._cgitb_error_log()
         si.launch_count += 1
         self.logger.log_info("SI %s creation succeed" % (':').join(si.fq_name))
 
@@ -737,7 +752,7 @@ class SvcMonitor(object):
             elif vm.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.delete_service(vm)
         except Exception:
-            cgitb_error_log(self)
+            self._cgitb_error_log()
 
         # generate UVE
         si_fq_name = vm.display_name.split('__')[:-2]
@@ -755,7 +770,8 @@ class SvcMonitor(object):
         if st.virtualization_type == 'virtual-machine':
             status = self.vm_manager.check_service(si)
         elif st.virtualization_type == 'network-namespace':
-            status = self.netns_manager.check_service(si)
+            status = self.netns_manager.check_service(
+                si, retry=int(self._args.retry_before_scheduling))
         elif st.virtualization_type == 'vrouter-instance':
             status = self.vrouter_manager.check_service(si)
 
@@ -779,55 +795,57 @@ class SvcMonitor(object):
         for cls in DBBase._OBJ_TYPE_MAP.values():
             cls.reset()
 
+    def _cleaner_callback(self):
+        self.logger.log_debug("SI cleanup starts")
+        # delete vms without si
+        vm_delete_list = []
+        for vm in VirtualMachineSM.values():
+            si = ServiceInstanceSM.get(vm.service_instance)
+            if not si and vm.virtualization_type:
+                vm_delete_list.append(vm)
+        for vm in vm_delete_list:
+            self._delete_service_instance(vm)
 
-def timer_callback(monitor):
-    # delete vms without si
-    vm_delete_list = []
-    for vm in VirtualMachineSM.values():
-        si = ServiceInstanceSM.get(vm.service_instance)
-        if not si and vm.virtualization_type:
-            vm_delete_list.append(vm)
-    for vm in vm_delete_list:
-        monitor._delete_service_instance(vm)
-
-    # check status of service
-    si_id_list = list(ServiceInstanceSM._dict.keys())
-    for si_id in si_id_list:
-        si = ServiceInstanceSM.get(si_id)
-        if not si or not si.launch_count:
-            continue
-        if not monitor._check_service_running(si):
-            monitor._relaunch_service_instance(si)
-        if si.max_instances != len(si.virtual_machines):
-            monitor._relaunch_service_instance(si)
-
-    # check vns to be deleted
-    for project in ProjectSM.values():
-        if project.service_instances:
-            continue
-
-        vn_id_list = list(project.virtual_networks)
-        for vn_id in vn_id_list:
-            vn = VirtualNetworkSM.get(vn_id)
-            if not vn or vn.virtual_machine_interfaces:
+        # check vns to be deleted
+        for project in ProjectSM.values():
+            if project.service_instances:
                 continue
-            if vn.name in svc_info.get_shared_vn_list():
-                monitor._delete_shared_vn(vn.uuid)
-            elif vn.name.startswith(svc_info.get_snat_left_vn_prefix()):
-                monitor._delete_shared_vn(vn.uuid)
 
-def launch_timer(monitor):
-    while True:
-        gevent.sleep(svc_info.get_vm_health_interval())
-        try:
-            timer_callback(monitor)
-        except Exception:
-            cgitb_error_log(monitor)
+            vn_id_list = list(project.virtual_networks)
+            for vn_id in vn_id_list:
+                vn = VirtualNetworkSM.get(vn_id)
+                if not vn or vn.virtual_machine_interfaces:
+                    continue
+                if vn.name in svc_info.get_shared_vn_list():
+                    self._delete_shared_vn(vn.uuid)
+                elif vn.name.startswith(svc_info.get_snat_left_vn_prefix()):
+                    self._delete_shared_vn(vn.uuid)
 
-def cgitb_error_log(monitor):
-    string_buf = cStringIO.StringIO()
-    cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-    monitor.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+    def _check_status_callback(self):
+        self.logger.log_debug("SI health check starts")
+        si_id_list = list(ServiceInstanceSM._dict.keys())
+        for si_id in si_id_list:
+            si = ServiceInstanceSM.get(si_id)
+            if not si or not si.launch_count:
+                continue
+            if not self._check_service_running(si):
+                self._relaunch_service_instance(si)
+            if si.max_instances != len(si.virtual_machines):
+                self._relaunch_service_instance(si)
+
+    def _launch_timer(self, method_name, time):
+        while True:
+            gevent.sleep(time)
+            try:
+                method = getattr(self, method_name)
+                method()
+            except Exception:
+                self._cgitb_error_log()
+
+    def _cgitb_error_log(self):
+        string_buf = cStringIO.StringIO()
+        cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+        self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
 def parse_args(args_str):
     '''
@@ -899,6 +917,8 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
+        'cleanup_delay': svc_info.get_vm_cleanup_interval(),
+        'check_status_delay': svc_info.get_vm_health_interval(),
         }
     secopts = {
         'use_certs': False,
@@ -924,6 +944,7 @@ def parse_args(args_str):
         'analytics_server_port': '8081',
         'availability_zone': None,
         'netns_availability_zone': None,
+        'retry_before_scheduling': 1,
     }
 
     config = ConfigParser.SafeConfigParser()
@@ -1015,6 +1036,10 @@ def parse_args(args_str):
     parser.add_argument(
         "--logger_class",
         help=("Optional external logger class, default: None"))
+    parser.add_argument("--cleanup_delay", type=int,
+                        help="Delay service instance cleanups")
+    parser.add_argument("--check_status_delay", type=int,
+                        help="Delay service instance health check")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config
@@ -1055,8 +1080,6 @@ def run_svc_monitor(args=None):
             time.sleep(3)
 
     monitor.post_init(vnc_api, args)
-    timer_task = gevent.spawn(launch_timer, monitor)
-    gevent.joinall([timer_task])
 
 
 def main(args_str=None):
