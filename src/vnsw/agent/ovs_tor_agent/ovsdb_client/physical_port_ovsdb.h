@@ -25,10 +25,13 @@ public:
     PhysicalPortEntry *FindPortEntry(struct ovsdb_idl_row *row);
     void DeletePortEntry(struct ovsdb_idl_row *row);
 
+    void set_stale_create_done();
+
 private:
     void EntryOvsdbUpdate(PhysicalPortEntry *entry);
 
     IdlEntryMap idl_entry_map_;
+    bool stale_create_done_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalPortTable);
 };
 
