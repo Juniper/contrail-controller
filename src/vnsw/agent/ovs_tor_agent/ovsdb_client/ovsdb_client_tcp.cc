@@ -16,10 +16,12 @@ using OVSDB::OvsdbClientTcpSessionReader;
 using OVSDB::ConnectionStateTable;
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-        IpAddress tsn_ip, int keepalive_interval, OvsPeerManager *manager) :
+        IpAddress tsn_ip, int keepalive_interval,
+        int local_mac_cleanup_interval, OvsPeerManager *manager) :
     TcpServer(agent->event_manager()),
-    OvsdbClient(manager, keepalive_interval), agent_(agent), session_(NULL),
-    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
+    OvsdbClient(manager, keepalive_interval, local_mac_cleanup_interval),
+    agent_(agent), session_(NULL), server_ep_(tor_ip, tor_port),
+    tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -152,6 +154,11 @@ bool OvsdbClientTcpSession::RecvMsg(const u_int8_t *buf, std::size_t len) {
 int OvsdbClientTcpSession::keepalive_interval() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     return ovs_server->keepalive_interval();
+}
+
+int OvsdbClientTcpSession::local_mac_cleanup_interval() {
+    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
+    return ovs_server->local_mac_cleanup_interval();
 }
 
 ConnectionStateTable *OvsdbClientTcpSession::connection_table() {

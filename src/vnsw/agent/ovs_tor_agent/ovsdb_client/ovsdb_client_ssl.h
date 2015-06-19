@@ -33,6 +33,8 @@ public:
 
     int keepalive_interval();
 
+    int local_mac_cleanup_interval();
+
     // Throttle in flight message to ovsdb-server with ssl.
     // without throttling, during scaled config ssl message gets corrupted
     // in send resulting in connection drop by ovsdb-server and lots of

@@ -27,13 +27,21 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
                                        const std::string &name) :
     OvsdbDBEntry(table), name_(name), device_name_(), vxlan_id_(0),
     mcast_local_row_(NULL), mcast_remote_row_(NULL), tor_ip_(),
-    mc_flood_entry_(NULL) {
+    mc_flood_entry_(NULL),
+    local_mac_ref_clear_timer_(TimerManager::CreateTimer(
+                *(table->client_idl()->agent()->event_manager())->io_service(),
+                "OVSDB Logical Switch local mac ref clean timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
     name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
-    mcast_remote_row_(NULL), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL), mc_flood_entry_(NULL),
+    local_mac_ref_clear_timer_(TimerManager::CreateTimer(
+                *(table->client_idl()->agent()->event_manager())->io_service(),
+                "OVSDB Logical Switch local mac ref clean timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
     vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device()->name();
     tor_ip_ = entry->device()->ip();
@@ -42,7 +50,11 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const LogicalSwitchEntry *entry) : OvsdbDBEntry(table),
     mcast_local_row_(NULL), mcast_remote_row_(NULL),
-    mc_flood_entry_(NULL) {
+    mc_flood_entry_(NULL),
+    local_mac_ref_clear_timer_(TimerManager::CreateTimer(
+                *(table->client_idl()->agent()->event_manager())->io_service(),
+                "OVSDB Logical Switch local mac ref clean timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
     device_name_ = entry->device_name_;
@@ -53,7 +65,15 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
     name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
     vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
-    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL),
+    local_mac_ref_clear_timer_(TimerManager::CreateTimer(
+                *(table->client_idl()->agent()->event_manager())->io_service(),
+                "OVSDB Logical Switch local mac ref clean timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
+}
+
+LogicalSwitchEntry::~LogicalSwitchEntry() {
+    TimerManager::DeleteTimer(local_mac_ref_clear_timer_);
 }
 
 Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
@@ -67,10 +87,14 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
     physical_switch_ = p_table->GetReference(&key);
 
+    // Cancel timer if running
+    local_mac_ref_clear_timer_->Cancel();
+
     if (stale()) {
         // skip add encoding for stale entry
         return;
     }
+
     struct ovsdb_idl_row *row =
         ovsdb_wrapper_add_logical_switch(txn, ovs_entry_, name_.c_str(),
                 vxlan_id_);
@@ -214,6 +238,17 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
     return NULL;
 }
 
+bool LogicalSwitchEntry::IsLocalMacsRef() const {
+    return (local_mac_ref_.get() != NULL);
+}
+
+bool LogicalSwitchEntry::LocalMacClearTimerCb() {
+    local_mac_ref_ = NULL;
+
+    // one time timer, don't need to restart the timer
+    return false;
+}
+
 void LogicalSwitchEntry::SendTrace(Trace event) const {
     SandeshLogicalSwitchInfo info;
     switch (event) {
@@ -306,6 +341,16 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         }
     } else {
         assert(0);
+    }
+
+    if (entry) {
+        if (entry->mcast_local_row_ != NULL ||
+            !entry->ucast_local_row_list_.empty()) {
+            if (entry->IsActive())
+                entry->local_mac_ref_ = entry;
+        } else {
+            entry->local_mac_ref_ = NULL;
+        }
     }
 }
 
@@ -412,6 +457,16 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
     } else {
         assert(0);
     }
+
+    if (entry) {
+        if (entry->mcast_local_row_ != NULL ||
+            !entry->ucast_local_row_list_.empty()) {
+            if (entry->IsActive())
+                entry->local_mac_ref_ = entry;
+        } else {
+            entry->local_mac_ref_ = NULL;
+        }
+    }
 }
 
 KSyncEntry *LogicalSwitchTable::Alloc(const KSyncEntry *key, uint32_t index) {
@@ -455,6 +510,28 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
         return DBFilterDelete;
     }
     return DBFilterAccept;
+}
+
+void LogicalSwitchTable::DBEntryDeleteCb(const DBEntry *entry,
+                                         KSyncDBEntry *ksync) {
+    LogicalSwitchEntry *l_entry = static_cast<LogicalSwitchEntry *>(ksync);
+
+    int timer = client_idl()->local_mac_cleanup_interval();
+
+    if (timer == 0) {
+        // timer disabled, trigger callback and return
+        l_entry->LocalMacClearTimerCb();
+        return;
+    }
+
+    if (timer == -1) {
+        // timer not configured, set the default value
+        timer = kLocalMacClearTimer;
+    }
+
+    // Start the local mac ref clear timer
+    l_entry->local_mac_ref_clear_timer_->Start(timer,
+            boost::bind(&LogicalSwitchEntry::LocalMacClearTimerCb, l_entry));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -505,6 +582,9 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_physical_switch(entry->device_name());
     lentry.set_vxlan_id(entry->vxlan_id());
     lentry.set_tor_service_node(entry->tor_service_node());
+    if (entry->IsDeleted() && entry->IsLocalMacsRef()) {
+        lentry.set_message("Waiting for Local Macs Cleanup");
+    }
     OvsdbLogicalSwitchResp *ls_resp =
         static_cast<OvsdbLogicalSwitchResp *>(resp);
     std::vector<OvsdbLogicalSwitchEntry> &lswitch =

@@ -351,6 +351,7 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             // delete and change gets suppresed as delete and we get
             // a duplicate delete notification
             if (ksync->IsDeleted() == false) {
+                DBEntryDeleteCb(entry, ksync);
                 NotifyEvent(ksync, KSyncEntry::DEL_REQ);
             }
         }

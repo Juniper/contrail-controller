@@ -36,6 +36,8 @@ public:
 
     virtual int keepalive_interval() = 0;
 
+    virtual int local_mac_cleanup_interval() = 0;
+
     // maximum number of inflight txn messages allowed
     virtual bool ThrottleInFlightTxnMessages() { return false; }
 

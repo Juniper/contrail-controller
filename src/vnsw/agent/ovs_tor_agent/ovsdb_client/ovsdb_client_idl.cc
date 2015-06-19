@@ -324,6 +324,10 @@ void OvsdbClientIdl::MessageProcess(struct jsonrpc_msg *msg) {
     receive_queue_->Enqueue(ovs_msg);
 }
 
+int OvsdbClientIdl::local_mac_cleanup_interval() const {
+    return session_->local_mac_cleanup_interval();
+}
+
 Ip4Address OvsdbClientIdl::remote_ip() const {
     return session_->remote_ip();
 }
