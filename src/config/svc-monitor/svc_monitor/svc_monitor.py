@@ -353,7 +353,8 @@ class SvcMonitor(object):
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
             status = self.vm_manager.check_service(si_obj, proj_name)
         elif si_info['instance_type'] == 'network-namespace':
-            status = self.netns_manager.check_service(si_obj)
+            status = self.netns_manager.check_service(
+                si_obj, retry=int(self._args.retry_before_scheduling))
 
         return status 
 
@@ -624,6 +625,7 @@ def parse_args(args_str):
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
         'availability_zone': None,
+        'retry_before_scheduling': 1,
     }
 
     if args.conf_file:
