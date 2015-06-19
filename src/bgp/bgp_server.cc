@@ -23,6 +23,7 @@
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/service_chaining.h"
+#include "bgp/routing-instance/static_route.h"
 #include "io/event_manager.h"
 
 using namespace std;
@@ -246,6 +247,7 @@ BgpServer::BgpServer(EventManager *evm)
 }
 
 BgpServer::~BgpServer() {
+    assert(srt_manager_list_.empty());
 }
 
 string BgpServer::ToString() const {
@@ -436,5 +438,24 @@ void BgpServer::NotifyIdentifierUpdate(Ip4Address old_identifier) {
             IdentifierUpdateCb cb = *iter;
             (cb)(old_identifier);
         }
+    }
+}
+
+void BgpServer::InsertStaticRouteMgr(StaticRouteMgr *srt_manager) {
+    CHECK_CONCURRENCY("bgp::Config");
+    srt_manager_list_.insert(srt_manager);
+}
+
+void BgpServer::RemoveStaticRouteMgr(StaticRouteMgr *srt_manager) {
+    CHECK_CONCURRENCY("bgp::StaticRoute");
+    srt_manager_list_.erase(srt_manager);
+}
+
+void BgpServer::NotifyAllStaticRoutes() {
+    CHECK_CONCURRENCY("bgp::Config");
+    for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
+         it != srt_manager_list_.end(); ++it) {
+        StaticRouteMgr *srt_manager = *it;
+        srt_manager->NotifyAllRoutes();
     }
 }
