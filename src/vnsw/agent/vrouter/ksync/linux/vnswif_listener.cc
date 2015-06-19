@@ -297,7 +297,7 @@ VnswInterfaceListenerLinux::HandleNetlinkIntfMsg(struct nlmsghdr *nlh) {
     assert(port_name != NULL);
     LOG(DEBUG, "Handle netlink interface message "
         << NetlinkTypeToString(nlh->nlmsg_type)
-        << " for interface " << port_name);
+        << " for interface " << port_name << " flags " << ifi->ifi_flags);
 
     Event::Type type;
     if (nlh->nlmsg_type == RTM_DELLINK) {
