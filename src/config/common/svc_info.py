@@ -16,7 +16,8 @@ _VN_RIGHT_SUBNET_CIDR = '10.250.3.0/24'
 _VN_SNAT_PREFIX_NAME = 'snat-si-left'
 _VN_SNAT_SUBNET_CIDR = '100.64.0.0/29'
 
-_CHECK_SVC_VM_HEALTH_INTERVAL = 30
+_CHECK_SVC_VM_CLEANUP_INTERVAL = 30
+_CHECK_SVC_VM_HEALTH_INTERVAL = 10
 
 _VM_INSTANCE_TYPE = 'virtual-machine'
 _NETNS_INSTANCE_TYPE = 'network-namespace'
@@ -88,6 +89,9 @@ def get_snat_service_type():
 
 def get_lb_service_type():
     return _LB_SVC_TYPE
+
+def get_vm_cleanup_interval():
+    return _CHECK_SVC_VM_CLEANUP_INTERVAL
 
 def get_vm_health_interval():
     return _CHECK_SVC_VM_HEALTH_INTERVAL
