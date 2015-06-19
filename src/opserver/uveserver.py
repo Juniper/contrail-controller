@@ -42,21 +42,22 @@ class UVEServer(object):
             self._uve_reverse_map[m] = h
 
     #end __init__
+    def redis_instances(self):
+        return set(self._redis_uve_map.keys())
 
     def update_redis_uve_list(self, redis_uve_list):
-        newlist = set()
-        for elem in redis_uve_list:
-            newlist.add((elem[0],elem[1]))
+        newlist = set(redis_uve_list)
 
         # if some redis instances are gone, remove them from our map
         for test_elem in self._redis_uve_map.keys():
             if test_elem not in newlist:
                 del self._redis_uve_map[test_elem]
-        
+
         # new redis instances need to be inserted into the map
         for test_elem in newlist:
             if test_elem not in self._redis_uve_map:
-                (r_ip, r_port) = test_elem
+                r_ip = test_elem[0]
+                r_port = test_elem[1]
                 self._redis_uve_map[test_elem] = redis.StrictRedis(
                         r_ip, r_port, password=self._redis_password, db=1)
     # end update_redis_uve_list
@@ -149,34 +150,33 @@ class UVEServer(object):
                     return True
         return False
 
-    def get_part(self, part):
+    def get_part(self, part, r_inst):
         uves = {}
-        for r_inst in self._redis_uve_map.keys():
-            try:
-                (r_ip,r_port) = r_inst
-                if not self._redis_uve_map[r_inst]:
-                    self._redis_uve_map[r_inst] = redis.StrictRedis(
-                            host=r_ip, port=r_port,
-                            password=self._redis_password, db=1)
+        try:
+            r_ip = r_inst[0]
+            r_port = r_inst[1]
+            if not self._redis_uve_map[r_inst]:
+                self._redis_uve_map[r_inst] = redis.StrictRedis(
+                        host=r_ip, port=r_port,
+                        password=self._redis_password, db=1)
 
-                redish = self._redis_uve_map[r_inst]
-                gen_uves = {}
-                for elems in redish.smembers("PART2KEY:" + str(part)): 
-                    info = elems.split(":", 5)
-                    gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
-                    typ = info[4]
-                    key = info[5]
-                    if not gen in gen_uves:
-                         gen_uves[gen] = {}
-                    if not key in gen_uves[gen]:
-                         gen_uves[gen][key] = set()
-                    gen_uves[gen][key].add(typ)
-                uves[r_ip + ":" + str(r_port)] = gen_uves
-            except Exception as e:
-                self._logger.error("get_part failed %s for : %s:%d tb %s" \
-                                   % (str(e), r_ip, r_port, traceback.format_exc()))
-                self._redis_uve_map[r_inst] = None
-                raise e
+            redish = self._redis_uve_map[r_inst]
+            gen_uves = {}
+            for elems in redish.smembers("PART2KEY:" + str(part)): 
+                info = elems.split(":", 5)
+                gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
+                typ = info[4]
+                key = info[5]
+                if not gen in gen_uves:
+                     gen_uves[gen] = {}
+                if not key in gen_uves[gen]:
+                     gen_uves[gen][key] = set()
+                gen_uves[gen][key].add(typ)
+            uves[r_ip + ":" + str(r_port)] = gen_uves
+        except Exception as e:
+            self._logger.error("get_part failed %s for : %s:%d tb %s" \
+                               % (str(e), r_ip, r_port, traceback.format_exc()))
+            self._redis_uve_map[r_inst] = None
         return uves
 
     def get_uve(self, key, flat, filters=None, is_alarm=False, base_url=None):
@@ -192,7 +192,8 @@ class UVEServer(object):
        
         for r_inst in self._redis_uve_map.keys():
             try:
-                (r_ip,r_port) = r_inst
+                r_ip = r_inst[0]
+                r_port = r_inst[1]
                 if not self._redis_uve_map[r_inst]:
                     self._redis_uve_map[r_inst] = redis.StrictRedis(
                             host=r_ip, port=r_port,
@@ -340,7 +341,8 @@ class UVEServer(object):
 
         for r_inst in self._redis_uve_map.keys():
             try:
-                (r_ip,r_port) = r_inst
+                r_ip = r_inst[0]
+                r_port = r_inst[1]
                 if not self._redis_uve_map[r_inst]:
                     self._redis_uve_map[r_inst] = redis.StrictRedis(
                             host=r_ip, port=r_port,

@@ -267,8 +267,8 @@ class Controller(object):
             try:
                 for redis_uve in self._conf.redis_uve_list():
                     redis_ip_port = redis_uve.split(':')
-                    redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
-                    redis_uve_list.append(redis_ip_port)
+                    redis_elem = (redis_ip_port[0], int(redis_ip_port[1]),0)
+                    redis_uve_list.append(redis_elem)
             except Exception as e:
                 self._logger.error('Failed to parse redis_uve_list: %s' % e)
             else:
@@ -417,7 +417,7 @@ class Controller(object):
                                 (alarm_msg.log()))
                         alarm_msg.send()
                 del self.ptab_info[part][tk][rkey]
-                self._logger.error("UVE %s deleted" % (uk))
+                self._logger.error("UVE %s deleted in stop" % (uk))
             del self.ptab_info[part][tk]
         del self.ptab_info[part]
 
@@ -449,7 +449,9 @@ class Controller(object):
                 filters["cfilt"] = {}
                 for typ in types:
                     filters["cfilt"][typ] = set()
+
             failures, uve_data = self._us.get_uve(uv, True, filters)
+
             # Do not store alarms in the UVE Cache
             if "UVEAlarms" in uve_data:
                 del uve_data["UVEAlarms"]
@@ -498,7 +500,7 @@ class Controller(object):
             local_uve = self.ptab_info[part][tab][uve_name].values()
             
             if len(local_uve.keys()) == 0:
-                self._logger.info("UVE %s deleted" % (uve_name))
+                self._logger.info("UVE %s deleted in proc" % (uv))
                 del self.ptab_info[part][tab][uve_name]
 
             self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
@@ -671,9 +673,10 @@ class Controller(object):
                 self._logger.info("Dup partition %d" % partno)
             else:
                 ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
-                                   partno, "uve-" + str(partno),
-                                   self._logger, self._us.get_part,
-                                   self.handle_uve_notifq, self._conf.host_ip())
+                        partno, "uve-" + str(partno),
+                        self._logger,
+                        self.handle_uve_notifq, self._conf.host_ip(),
+                        self._us)
                 ph.start()
                 self._workers[partno] = ph
                 tout = 600
@@ -698,8 +701,8 @@ class Controller(object):
             if partno in self._workers:
                 ph = self._workers[partno]
                 self._logger.error("Kill part %s" % str(partno))
-                gevent.kill(ph)
-                res,db = ph.get()
+                ph.kill()
+                res,db = ph.get(False)
                 self._logger.error("Returned " + str(res))
                 del self._workers[partno]
                 self._uveqf[partno] = True
@@ -873,8 +876,11 @@ class Controller(object):
         self._logger.error("Discovery Collector callback : %s" % str(clist))
         newlist = []
         for elem in clist:
-            (ipaddr,port) = elem
-            newlist.append((ipaddr, self._conf.redis_server_port()))
+            ipaddr = elem["ip-address"]
+            cpid = 0
+            if "pid" in elem:
+                cpid = int(elem["pid"])
+            newlist.append((ipaddr, self._conf.redis_server_port(), cpid))
         self._us.update_redis_uve_list(newlist)
 
     def disc_cb_ag(self, alist):
@@ -886,7 +892,8 @@ class Controller(object):
         self._logger.error("Discovery AG callback : %s" % str(alist))
         newlist = []
         for elem in alist:
-            (ipaddr, inst) = elem
+            ipaddr = elem["ip-address"]
+            inst = elem["port"]
             newlist.append(ipaddr + ":" + inst)
 
         # We should always include ourselves in the list of memebers
