@@ -58,10 +58,14 @@ class VirtualMachineManagerTest(unittest.TestCase):
             vmi_obj.uuid = 'fake-vmi-uuid'
             return
 
+        def iip_create(iip_obj):
+            iip_obj.uuid = 'fake_iip_uuid'
+
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_network_create = vn_create
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
+        self.mocked_vnc.instance_ip_create = iip_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
@@ -79,21 +83,21 @@ class VirtualMachineManagerTest(unittest.TestCase):
         ServiceInstanceSM.delete('fake-si-uuid')
         pass
 
-    def create_test_project(self, fq_name_str):
+    def _create_test_project(self, fq_name_str):
         proj_obj = {}
         proj_obj['fq_name'] = fq_name_str.split(':')
         proj_obj['uuid'] = fq_name_str
         proj_obj['id_perms'] = 'fake-id-perms'
         ProjectSM.locate(proj_obj['uuid'], proj_obj)
 
-    def create_test_virtual_network(self, fq_name_str):
+    def _create_test_virtual_network(self, fq_name_str):
         vn_obj = {}
         vn_obj['fq_name'] = fq_name_str.split(':')
         vn_obj['uuid'] = fq_name_str
         vn_obj['id_perms'] = 'fake-id-perms'
         VirtualNetworkSM.locate(vn_obj['uuid'], vn_obj)
 
-    def create_test_virtual_machine(self, fq_name_str):
+    def _create_test_virtual_machine(self, fq_name_str):
         vm_obj = {}
         vm_obj['fq_name'] = fq_name_str.split(':')
         vm_obj['uuid'] = fq_name_str
@@ -103,9 +107,9 @@ class VirtualMachineManagerTest(unittest.TestCase):
         return vm
 
     def test_virtual_machine_create(self):
-        self.create_test_project('fake-domain:fake-project')
-        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
-        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        self._create_test_project('fake-domain:fake-project')
+        self._create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self._create_test_virtual_network('fake-domain:fake-project:right-vn')
 
         st_obj = {}
         st_obj['fq_name'] = ['fake-domain', 'fake-template']
@@ -149,5 +153,5 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
 
     def test_virtual_machine_delete(self):
-        vm = self.create_test_virtual_machine('fake-vm-uuid')
+        vm = self._create_test_virtual_machine('fake-vm-uuid')
         self.vm_manager.delete_service(vm)
