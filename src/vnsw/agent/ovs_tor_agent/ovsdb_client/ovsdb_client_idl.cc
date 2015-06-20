@@ -271,6 +271,8 @@ bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
                 // vlan port bindings.
                 physical_switch_table_->StartUpdatePorts();
 
+                physical_port_table_->set_stale_create_done();
+
                 ConnectOperDB();
             }
         }
