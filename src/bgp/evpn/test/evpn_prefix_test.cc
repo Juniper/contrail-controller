@@ -322,6 +322,84 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix4) {
     }
 }
 
+// Build and parse BgpProtoPrefix for reach with VXLAN encap.
+// Tag is kMaxTag, so label should be ignored and assumed to be 0.
+TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix5) {
+    string temp("1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-");
+    uint32_t label_list[] = { 32, 10000, 1048575, 16777215 };
+    BOOST_FOREACH(uint32_t label1, label_list) {
+        string prefix_str = temp + integerToString(EvpnPrefix::kMaxTag);
+        boost::system::error_code ec;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
+        size_t expected_size =
+            EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
+        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size, proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(0, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap.
+// Tag is greater than kMaxVni, so label should be honored.
+TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix6) {
+    string temp("1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label1, label_list) {
+        string prefix_str = temp + integerToString(EvpnPrefix::kMaxVni + 1);
+        boost::system::error_code ec;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::AutoDiscoveryRoute, proto_prefix.type);
+        size_t expected_size =
+            EvpnPrefix::kMinAutoDiscoveryRouteSize + EvpnPrefix::kLabelSize;
+        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size, proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label1, label2);
+    }
+}
+
 // Smaller than minimum size for reach.
 TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix_Error1) {
     BgpProtoPrefix proto_prefix;
@@ -1062,6 +1140,129 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix12) {
     uint32_t label_list[] = { 32, 10000, 1048575 };
     BOOST_FOREACH(uint32_t label1, label_list) {
         string prefix_str = temp1 + integerToString(0) + temp2;
+        boost::system::error_code ec;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
+        size_t expected_size =
+            EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize + 16;
+        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size, proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(prefix2.esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label1, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/o ip.
+// Tag is greater than kMaxVni, so label should be honored.
+TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix13) {
+    string temp1("2-10.1.1.1:65535-");
+    string temp2("-11:12:13:14:15:16,0.0.0.0");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label1, label_list) {
+        string prefix_str =
+            temp1 + integerToString(EvpnPrefix::kMaxVni + 1) + temp2;
+        boost::system::error_code ec;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
+        size_t expected_size =
+            EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize;
+        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size, proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(prefix2.esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label1, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv4.
+// Tag is greater than kMaxVni, so label should be honored.
+TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix14) {
+    string temp1("2-10.1.1.1:65535-");
+    string temp2("-11:12:13:14:15:16,192.1.1.1");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label1, label_list) {
+        string prefix_str =
+            temp1 + integerToString(EvpnPrefix::kMaxVni + 1) + temp2;
+        boost::system::error_code ec;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::MacAdvertisementRoute, proto_prefix.type);
+        size_t expected_size =
+            EvpnPrefix::kMinMacAdvertisementRouteSize + EvpnPrefix::kLabelSize + 4;
+        EXPECT_EQ(expected_size * 8, proto_prefix.prefixlen);
+        EXPECT_EQ(expected_size, proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(prefix2.esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label1, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv6.
+// Tag is greater than kMaxVni, so label should be honored.
+TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix15) {
+    string temp1("2-10.1.1.1:65535-");
+    string temp2("-11:12:13:14:15:16,2001:db8:0:9::1");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label1, label_list) {
+        string prefix_str =
+            temp1 + integerToString(EvpnPrefix::kMaxVni + 1) + temp2;
         boost::system::error_code ec;
         EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
         EXPECT_EQ(0, ec.value());
