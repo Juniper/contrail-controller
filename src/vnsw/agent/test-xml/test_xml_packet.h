@@ -37,13 +37,13 @@ public:
     std::string name_;
     uint32_t len_;
     uint32_t vrf_id_;
+    std::string vrf_str_;
     bool ingress_;
     std::string fwd_mode_;
     std::string pkt_module_;
 
     uint32_t intf_id_;
     std::string intf_;
-    uint32_t vrf_;
 
     std::string tunnel_type_;
     std::string tunnel_sip_;

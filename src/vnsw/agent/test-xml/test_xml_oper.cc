@@ -72,6 +72,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
         return new AgentUtXmlL2Route(name, id, node, test_case);
     if (type == "sg" || type == "securiy-group")
         return new AgentUtXmlSg(name, id, node, test_case);
+    if (type == "iip" || type == "instance-ip")
+        return new AgentUtXmlInstanceIp(name, id, node, test_case);
 }
 
 void AgentUtXmlOperInit(AgentUtXmlTest *test) {
@@ -105,6 +107,7 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddConfigEntry("l2-route", CreateNode);
     test->AddConfigEntry("sg", CreateNode);
     test->AddConfigEntry("security-group", CreateNode);
+    test->AddConfigEntry("instance-ip", CreateNode);
 
     test->AddValidateEntry("virtual-network", CreateValidateNode);
     test->AddValidateEntry("vn", CreateValidateNode);
@@ -684,6 +687,54 @@ void AgentUtXmlSg::ToString(string *str) {
 
 string AgentUtXmlSg::NodeType() {
     return "security-group";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlInstanceIp routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlInstanceIp::AgentUtXmlInstanceIp(const string &name, const uuid &id,
+                                           const xml_node &node,
+                                           AgentUtXmlTestCase *test_case) :
+    AgentUtXmlConfig(name, id, node, test_case) {
+}
+
+AgentUtXmlInstanceIp::~AgentUtXmlInstanceIp() {
+}
+
+
+bool AgentUtXmlInstanceIp::ReadXml() {
+    if (AgentUtXmlConfig::ReadXml() == false)
+        return false;
+
+    GetStringAttribute(node(), "ip", &ip_);
+    GetStringAttribute(node(), "vmi", &vmi_);
+    return true;
+}
+
+bool AgentUtXmlInstanceIp::ToXml(xml_node *parent) {
+    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
+    AddXmlNodeWithValue(&n, "name", name());
+    if (op_delete() == false) {
+        AddXmlNodeWithValue(&n, "instance-ip-address", ip_);
+        AddIdPerms(&n);
+    }
+
+    if (vmi_ != "") {
+        LinkXmlNode(parent, NodeType(), name(),
+                    "virtual-machine-interface", vmi_);
+    }
+
+    return true;
+}
+
+void AgentUtXmlInstanceIp::ToString(string *str) {
+    AgentUtXmlConfig::ToString(str);
+    *str += "\n";
+    return;
+}
+
+string AgentUtXmlInstanceIp::NodeType() {
+    return "instance-ip";
 }
 
 /////////////////////////////////////////////////////////////////////////////

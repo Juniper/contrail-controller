@@ -1068,9 +1068,9 @@ void DeleteRoute(const char *vrf, const char *ip) {
     WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
 }
 
-void DeleteRoute(const char *vrf, const char *ip, uint8_t plen) {
+void DeleteRoute(const char *vrf, const char *ip, uint8_t plen, Peer *peer) {
     Ip4Address addr = Ip4Address::from_string(ip);
-    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(peer,
                                             vrf, addr, plen, NULL);
     client->WaitForIdle();
     WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));

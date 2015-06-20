@@ -195,6 +195,22 @@ private:
     std::string sg_id_;
 };
 
+class AgentUtXmlInstanceIp : public AgentUtXmlConfig {
+public:
+    AgentUtXmlInstanceIp(const std::string &name, const boost::uuids::uuid &uuid,
+                 const pugi::xml_node &node, AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlInstanceIp();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+
+private:
+    std::string ip_;
+    std::string vmi_;
+};
+
 /////////////////////////////////////////////////////////////////////////////
 //   Nova messages
 /////////////////////////////////////////////////////////////////////////////

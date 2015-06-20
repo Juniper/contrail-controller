@@ -115,6 +115,44 @@ TEST_F(TestPkt, unknown_unicast_flood) {
     client->agent()->flow_stats_collector()->set_delete_short_flow(false);
 }
 
+TEST_F(TestPkt, flow_tsn_mode_1) {
+    Agent *agent = Agent::GetInstance();
+    //agent->set_tsn_enabled(true);
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true}
+    };
+    AddVn("vn1", 1);
+    AddVrf("vrf1", 1);
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
+    EcmpTunnelRouteAdd(agent, bgp_peer, "vrf1", "1.1.1.0", 24,
+                       "100.100.100.1", 1, "100.100.100.2", 2, "vn1");
+
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/tsn-flow.xml");
+    AgentUtXmlOperInit(&test);
+    AgentUtXmlPhysicalDeviceInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+
+    DeleteRoute("vrf1", "1.1.1.0", 24, bgp_peer);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    DelVn("vn1");
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
