@@ -88,7 +88,8 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
 VnEntry::VnEntry(Agent *agent, uuid id) :
     AgentOperDBEntry(), agent_(agent), uuid_(id), vxlan_id_(0), vnid_(0),
     bridging_(true), layer3_forwarding_(true), admin_state_(true),
-    table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false) {
+    table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false),
+    old_vxlan_id_(0) {
 }
 
 VnEntry::~VnEntry() {
@@ -211,103 +212,65 @@ int VnEntry::GetVxLanId() const {
 }
 
 int VnEntry::ComputeEthernetTag() const {
-    int vxlan_id = GetVxLanId();
     if (TunnelType::ComputeType(TunnelType::AllType()) != TunnelType::VXLAN) {
         return 0;
     }
-    return vxlan_id;
-}
-
-void VnEntry::RebakeVxLan(int vxlan_id) {
-    VxLanId::Create(vxlan_id, GetVrf()->GetName(), flood_unknown_unicast_);
-    VxLanId *vxlan_id_entry = NULL;
-    VxLanIdKey vxlan_key(vxlan_id);
-    vxlan_id_entry = static_cast<VxLanId *>(agent_->
-                            vxlan_table()->FindActiveEntry(&vxlan_key));
-    vxlan_id_ref_ = vxlan_id_entry;
-}
-
-bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
-                              bool new_bridging, 
-                              bool vxlan_network_identifier_mode_changed,
-                              bool new_flood_unknown_unicast) {
-    bool ret = false; 
-    bool rebake_vxlan = false;
-
-    //Two cases in which VXLAN needs to be rebaked.
-    // - Firstly In case of global vxlan network identifier mode change
-    // - Secondly in case of VN config change which can impact VXLAN.
-    if (vxlan_network_identifier_mode_changed) {
-        rebake_vxlan = true;
-        ret = true;
-    } else {
-        if (old_vrf != GetVrf()) {
-            rebake_vxlan = true;
-        }
-
-        if (new_bridging != bridging_) {
-            bridging_ = new_bridging;
-            rebake_vxlan = true;
-        }
-
-        if (new_vxlan_id != vxlan_id_) {
-            //Ignore rebake if mode is not configured as user configured vxlan
-            //is not in use.
-            if (agent_->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
-                rebake_vxlan = true;
-            }
-            vxlan_id_ = new_vxlan_id; 
-            ret = true;
-        }
-
-        if (new_vnid != vnid_) {
-            //Ignore rebake if mode is not automatic as auto assigned vxlan
-            //is not in use.
-            if (agent_->vxlan_network_identifier_mode() == Agent::AUTOMATIC) {
-                rebake_vxlan = true;
-            }
-            vnid_ = new_vnid;
-            ret = true;
-        }
-
-        if (flood_unknown_unicast_ != new_flood_unknown_unicast) {
-            flood_unknown_unicast_ = new_flood_unknown_unicast;
-            rebake_vxlan = true;
-            ret = true;
-        }
-    }
-
-    if (!GetVrf()) {
-        vxlan_id_ref_ = NULL;
-        ret = true;
-    } else {
-        if (rebake_vxlan) {
-            int active_vxlan_id = GetVxLanId();
-            if (active_vxlan_id) {
-                RebakeVxLan(active_vxlan_id);
-            } else {
-                vxlan_id_ref_ = NULL;
-            }
-            ret = true;
-        }
-    }
-    return ret;
-}
-
-bool VnEntry::VxLanNetworkIdentifierChanged() {
-    //No change in VN config. 
-    //Need to pick vxlan based on config mode
-    return ReEvaluateVxlan(NULL, 0, 0, true, true, flood_unknown_unicast_);
+    return GetVxLanId();
 }
 
 bool VnEntry::Resync() {
-    return VxLanNetworkIdentifierChanged();
+    VnTable *table = static_cast<VnTable *>(get_table());
+    return table->RebakeVxlan(this, false);
+}
+
+// Rebake handles
+// - vxlan-id change :
+//   Deletes the config-entry for old-vxlan and adds config-entry for new-vxlan
+//   Might result in change of vxlan_id_ref_ for the VN
+//
+//   If vxlan_id is 0, or vrf is NULL, its treated as delete of config-entry
+// - Delete
+//   Deletes the vxlan-config entry. Will reset the vxlan-id-ref to NULL
+bool VnTable::RebakeVxlan(VnEntry *vn, bool op_del) {
+    VxLanId *old_vxlan = vn->vxlan_id_ref_.get();
+
+    uint32_t vxlan = 0;
+    // Get vxlan if op is not DELETE and VRF is not NULL
+    if (op_del == false && vn->vrf_.get() != NULL)
+        vxlan = vn->GetVxLanId();
+
+    // Delete config-entry if there is change in vxlan
+    VxLanTable *table = agent()->vxlan_table();
+    if (vxlan != vn->old_vxlan_id_) {
+        if (vn->old_vxlan_id_) {
+            table->Delete(vn->old_vxlan_id_, vn->uuid_);
+            vn->vxlan_id_ref_ = NULL;
+        }
+    }
+
+    // Add new config-entry
+    if (vxlan) {
+        vn->old_vxlan_id_ = vxlan;
+        vn->vxlan_id_ref_ = table->Locate(vxlan, vn->uuid_, vn->vrf_->GetName(),
+                                          vn->flood_unknown_unicast_);
+    }
+
+    return (old_vxlan != vn->vxlan_id_ref_.get());
 }
 
 bool VnTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     bool ret = vn->Resync();
     return ret;
+}
+
+void VnTable::ResyncVxlan(const uuid &vn) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    VnKey *key = new VnKey(vn);
+    key->sub_op_ = AgentKey::RESYNC;
+    req.key.reset(key);
+    req.data.reset(NULL);
+    Enqueue(&req);
 }
 
 bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
@@ -372,6 +335,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     VnData *data = static_cast<VnData *>(req->data.get());
     VrfEntry *old_vrf = vn->vrf_.get();
+    bool rebake_vxlan = false;
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
@@ -405,6 +369,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
             DeleteAllIpamRoutes(vn);
         }
         vn->vrf_ = vrf;
+        rebake_vxlan = true;
         ret = true;
     }
 
@@ -434,21 +399,49 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
-    ret |= vn->ReEvaluateVxlan(old_vrf, data->vxlan_id_, data->vnid_,
-                              data->bridging_, false,
-                              data->flood_unknown_unicast_);
-    
+    if (vn->bridging_ != data->bridging_) {
+        vn->bridging_ = data->bridging_;
+        ret = true;
+    }
 
     if (vn->enable_rpf_ != data->enable_rpf_) {
         vn->enable_rpf_ = data->enable_rpf_;
         ret = true;
     }
+
+    if (vn->vxlan_id_ != data->vxlan_id_) {
+        vn->vxlan_id_ = data->vxlan_id_;
+        ret = true;
+        if (agent()->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
+            rebake_vxlan = true;
+        }
+    }
+
+    if (vn->vnid_ != data->vnid_) {
+        vn->vnid_ = data->vnid_;
+        ret = true;
+        if (agent()->vxlan_network_identifier_mode() == Agent::AUTOMATIC) {
+            rebake_vxlan = true;
+        }
+    }
+
+    if (vn->flood_unknown_unicast_ != data->flood_unknown_unicast_) {
+        vn->flood_unknown_unicast_ = data->flood_unknown_unicast_;
+        rebake_vxlan = true;
+        ret = true;
+    }
+
+    if (rebake_vxlan) {
+        ret |= RebakeVxlan(vn, false);
+    }
+
     return ret;
 }
 
 bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     DeleteAllIpamRoutes(vn);
+    RebakeVxlan(vn, true);
     vn->SendObjectLog(AgentLogEvent::DELETE);
     return true;
 }
