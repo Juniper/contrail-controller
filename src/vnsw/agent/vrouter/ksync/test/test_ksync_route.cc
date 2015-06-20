@@ -227,6 +227,28 @@ TEST_F(TestKSyncRoute, replacement_rt_1) {
     client->WaitForIdle();
 }
 
+TEST_F(TestKSyncRoute, no_replacement_rt_1) {
+    IpAddress addr1 = IpAddress(Ip4Address::from_string("2.2.2.100"));
+    AddRemoteRoute(NULL, addr1, 32, "Vn3");
+
+    InetUnicastRouteEntry *rt1 = vrf1_uc_table_->FindLPM(addr1);
+    EXPECT_TRUE(rt1 != NULL);
+
+    std::auto_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf1_rt_obj_, rt1));
+    EXPECT_TRUE(vrf1_obj_->RouteNeedsMacBinding(rt1));
+
+    ksync1->BuildArpFlags(rt1, rt1->GetActivePath(), vnet1_->mac());
+    EXPECT_TRUE(ksync1->proxy_arp());
+    EXPECT_FALSE(ksync1->flood());
+
+    ksync1->CopyReplacementData(NULL, NULL);
+    EXPECT_TRUE(ksync1->mac().IsZero());
+
+    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
+    DelIPAM("vn1");
+    client->WaitForIdle();
+}
+
 // proxy_arp_ and flood_ flags for IPAM subnet route
 TEST_F(TestKSyncRoute, ipam_subnet_route_1) {
     IpamInfo ipam_info[] = {

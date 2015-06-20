@@ -21,12 +21,13 @@ traceobject sandesh KSyncIntf {
 
 struct KSyncRouteInfo {
     1: string addr;
-    2: u32    vrf;
-    3: string operation;
-    4: optional u32 nh_idx;
-    5: optional u32 label;  
-    6: string mac;
-    7: string type;
+    2: u32 plen;
+    3: u32    vrf;
+    4: string operation;
+    5: optional u32 nh_idx;
+    6: optional u32 label;
+    7: string mac;
+    8: string type;
 }
 
 traceobject sandesh KSyncRoute {
