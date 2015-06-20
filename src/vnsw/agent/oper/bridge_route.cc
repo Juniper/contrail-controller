@@ -739,7 +739,7 @@ void BridgeRouteReq::HandleRequest() const {
 AgentSandeshPtr BridgeAgentRouteTable::GetAgentSandesh
 (const AgentSandeshArguments *args, const std::string &context) {
     return AgentSandeshPtr(new AgentBridgeRtSandesh(vrf_entry(), context, "",
-                                                    true));
+                                                    false));
 }
 
 bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
