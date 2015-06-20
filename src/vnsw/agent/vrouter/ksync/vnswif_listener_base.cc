@@ -191,18 +191,13 @@ void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper) {
         host_interface_table_.insert(make_pair(name, entry));
     }
 
-    bool old_active = IsInterfaceActive(entry);
     if (oper) {
         entry->oper_seen_ = true;
     } else {
         entry->host_seen_ = true;
     }
 
-    if (old_active == IsInterfaceActive(entry))
-        return;
-
-    if (old_active == false)
-        Activate(name, entry->oper_id_);
+    Activate(name, entry->oper_id_);
 }
 
 void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
@@ -210,7 +205,6 @@ void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
     if (entry == NULL)
         return;
 
-    bool old_active = IsInterfaceActive(entry);
     if (oper) {
         entry->oper_seen_ = false;
     } else {
@@ -224,11 +218,7 @@ void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
         return;
     }
 
-    if (old_active == IsInterfaceActive(entry))
-        return;
-
-    if (old_active)
-        DeActivate(name, entry->oper_id_);
+    DeActivate(name, entry->oper_id_);
 }
 
 void VnswInterfaceListenerBase::SetLinkState(const std::string &name, bool link_up){
@@ -238,9 +228,6 @@ void VnswInterfaceListenerBase::SetLinkState(const std::string &name, bool link_
 
     bool old_active = IsInterfaceActive(entry);
     entry->link_up_ = link_up;
-
-    if (old_active == IsInterfaceActive(entry))
-        return;
 
     if (old_active)
         DeActivate(name, entry->oper_id_);
