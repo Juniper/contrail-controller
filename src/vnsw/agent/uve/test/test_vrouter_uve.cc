@@ -20,6 +20,7 @@
 #include <oper/vm.h>
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
+#include <oper/physical_device.h>
 #include <uve/agent_uve.h>
 
 #include "testing/gunit.h"
@@ -912,6 +913,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
+    PhysicalDeviceTable *table = agent_->physical_device_table();
 
     agent_->set_tsn_enabled(true);
     const VrouterAgent &uve = vr->last_sent_vrouter();
@@ -938,7 +940,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
 
     //Update tsn_managed flag for PhysicalDevice as 'true'
     PhysicalDevice *pd = PhysicalDeviceGet(1);
-    MulticastHandler::GetInstance()->EnqueueDeviceChange(pd->uuid(), true);
+    table->EnqueueDeviceChange(pd->uuid(), true);
     client->WaitForIdle();
 
     EnqueueSendVrouterUveTask();
@@ -951,7 +953,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     EXPECT_EQ(0U, uve2.get_unmanaged_if_list().size());
 
     //Update tsn_managed flag for PhysicalDevice as 'false'
-    MulticastHandler::GetInstance()->EnqueueDeviceChange(pd->uuid(), false);
+    table->EnqueueDeviceChange(pd->uuid(), false);
     client->WaitForIdle();
 
     EnqueueSendVrouterUveTask();
