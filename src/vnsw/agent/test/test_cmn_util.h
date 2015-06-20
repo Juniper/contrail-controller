@@ -173,6 +173,11 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference);
+bool EcmpTunnelRouteAdd(Agent *agent, const Peer *peer, const string &vrf_name,
+                        const string &prefix, uint8_t plen,
+                        const string &remote_server_1, uint32_t label1,
+                        const string &remote_server_2, uint32_t label2,
+                        const string &vn);
 bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
