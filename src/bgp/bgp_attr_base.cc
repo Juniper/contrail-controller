@@ -33,11 +33,9 @@ void BgpProtoPrefix::WriteLabel(size_t label_offset, uint32_t label,
     bool is_vni) {
     assert((label_offset + kLabelSize) <= prefix.size());
     if (is_vni) {
-        assert(label <= 0xFFFFFF);
         put_value(&prefix[label_offset], kLabelSize, label);
         return;
     }
-    assert(label <= 0xFFFFF);
     uint32_t tmp = (label << 4 | 0x1);
     for (size_t idx = 0; idx < kLabelSize; ++idx) {
         int offset = (kLabelSize - (idx + 1)) * 8;
