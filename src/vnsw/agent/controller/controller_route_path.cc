@@ -79,7 +79,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
                                          const string &default_vrf,
                                          const Ip4Address &router_id,
                                          const string &vrf_name,
-                                         const Ip4Address &server_ip, 
+                                         const Ip4Address &tunnel_dest,
                                          TunnelType::TypeBmap bmap,
                                          uint32_t label,
                                          const string &dest_vn_name,
@@ -87,13 +87,13 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
                                          const PathPreference &path_preference) {
     // Make Tunnel-NH request
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new TunnelNHKey(default_vrf, router_id, server_ip, false,
+    nh_req.key.reset(new TunnelNHKey(default_vrf, router_id, tunnel_dest, false,
                                      TunnelType::ComputeType(bmap)));
     nh_req.data.reset(new TunnelNHData());
 
     // Make route request pointing to Tunnel-NH created above
     ControllerVmRoute *data =
-        new ControllerVmRoute(peer, default_vrf, server_ip, label, dest_vn_name,
+        new ControllerVmRoute(peer, default_vrf, tunnel_dest, label, dest_vn_name,
                               bmap, sg_list, path_preference, nh_req);
     return data;
 }
@@ -155,14 +155,14 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
          (new_tunnel_type == TunnelType::VXLAN))) {
         new_tunnel_type = TunnelType::INVALID;
         nh_req_.key.reset(new TunnelNHKey(agent->fabric_vrf_name(),
-                                          agent->router_id(), server_ip_,
+                                          agent->router_id(), tunnel_dest_,
                                           false, new_tunnel_type));
     }
     agent->nexthop_table()->Process(nh_req_);
-    TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), server_ip_,
+    TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), tunnel_dest_,
                     false, new_tunnel_type);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->set_server_ip(server_ip_);
+    path->set_tunnel_dest(tunnel_dest_);
 
     if (path->tunnel_type() != new_tunnel_type) {
         path->set_tunnel_type(new_tunnel_type);
