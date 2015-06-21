@@ -59,6 +59,7 @@ public:
     bool StaticRouteEventCallback(StaticRouteRequest *req);
 
     bool ResolvePendingStaticRouteConfig();
+    void NotifyAllRoutes();
 
     RoutingInstance *routing_instance() { return instance_; }
 
