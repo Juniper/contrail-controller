@@ -1606,6 +1606,7 @@ class ServiceChain(DictST):
 
         self.protocol = protocol
         self.created = False
+        self.partially_created = False
 
         self.present_stale = False
         self.created_stale = False
@@ -1686,6 +1687,7 @@ class ServiceChain(DictST):
             # already created
             return
 
+        self.partially_created = True
         vn1_obj = VirtualNetworkST.locate(self.left_vn)
         vn2_obj = VirtualNetworkST.locate(self.right_vn)
         #sc_ip_address = vn1_obj.allocate_service_chain_ip(sc_name)
@@ -1790,6 +1792,7 @@ class ServiceChain(DictST):
                         vn.add_route(prefix, nexthop)
 
         self.created = True
+        self.partially_created = False
         self._service_chain_uuid_cf.insert(self.name,
                                            {'value': jsonpickle.encode(self)})
 
@@ -1884,10 +1887,11 @@ class ServiceChain(DictST):
     # end process_in_network_service
 
     def destroy(self):
-        if not self.created:
+        if not self.created and not self.partially_created:
             return
 
         self.created = False
+        self.partially_created = False
         self._service_chain_uuid_cf.insert(self.name,
                                            {'value': jsonpickle.encode(self)})
 
@@ -1909,6 +1913,8 @@ class ServiceChain(DictST):
     # end destroy
 
     def delete(self):
+        if self.created or self.partially_created:
+            self.destroy()
         del self._dict[self.name]
         try:
             self._service_chain_uuid_cf.remove(self.name)
