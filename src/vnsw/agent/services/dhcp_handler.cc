@@ -1023,7 +1023,7 @@ void DhcpHandler::SendDhcpResponse() {
     FillDhcpResponse(dest_mac, src_ip, dest_ip, siaddr, yiaddr);
     uint32_t interface =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
-        pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+        agent_->GetDhcpProto()->pkt_interface_index() : GetInterfaceIndex();
     uint16_t command =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
