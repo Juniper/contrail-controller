@@ -892,6 +892,11 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 (*it_old).dns_server = (*it_new).dns_server;
             }
 
+            if (gateway_changed || service_address_changed) {
+                // DHCP service would need to know in case this changes
+                change = true;
+            }
+
             // update DHCP options
             (*it_old).oper_dhcp_options = (*it_new).oper_dhcp_options;
 

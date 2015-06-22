@@ -16,6 +16,7 @@ do {                                                                         \
 } while (false)                                                              \
 
 class Interface;
+class DhcpLeaseDb;
 typedef boost::asio::ip::udp boost_udp;
 
 class DhcpProto : public Proto {
@@ -25,6 +26,9 @@ public:
     enum DhcpMsgType {
         DHCP_VHOST_MSG,
     };
+
+    typedef std::map<Interface *, DhcpLeaseDb *> LeaseManagerMap;
+    typedef std::pair<Interface *, DhcpLeaseDb *> LeaseManagerPair;
 
     struct DhcpVhostMsg : InterTaskMsg {
         uint8_t *pkt;
@@ -100,8 +104,14 @@ public:
     const DhcpStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
 
+    void CreateLeaseDb(VmInterface *vmi);
+    void DeleteLeaseDb(VmInterface *vmi);
+    DhcpLeaseDb *GetLeaseDb(Interface *interface);
+    const LeaseManagerMap &lease_manager() const { return lease_manager_; }
+
 private:
     void ItfNotify(DBEntryBase *entry);
+    void VnNotify(DBEntryBase *entry);
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &error, std::size_t len);
 
@@ -112,11 +122,15 @@ private:
     uint32_t pkt_interface_index_;
     MacAddress ip_fabric_interface_mac_;
     DBTableBase::ListenerId iid_;
+    DBTableBase::ListenerId vnid_;
     DhcpStats stats_;
 
     boost::asio::ip::udp::socket dhcp_server_socket_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
     uint8_t *dhcp_server_read_buf_;
+
+    std::set<VmInterface *> gw_vmi_list_;
+    LeaseManagerMap lease_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(DhcpProto);
 };
