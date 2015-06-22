@@ -316,9 +316,13 @@ class VirtualNetworkST(DictST):
                 _vnc_lib.access_control_list_delete(id=vn.acl.uuid)
             if vn.dynamic_acl:
                 _vnc_lib.access_control_list_delete(id=vn.dynamic_acl.uuid)
-            props = vn.obj.get_virtual_network_properties()
-            if props and props.network_id:
-                cls._vn_id_allocator.delete(props.network_id - 1)
+            nid = vn.obj.get_virtual_network_network_id()
+            if nid is None:
+                props = vn.obj.get_virtual_network_properties()
+                if props:
+                    nid = props.network_id
+            if nid:
+                cls._vn_id_allocator.delete(nid - 1)
             for policy in NetworkPolicyST.values():
                 if name in policy.analyzer_vn_set:
                     analyzer_vn_set |= policy.networks_back_ref
