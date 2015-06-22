@@ -426,7 +426,7 @@ void InstanceManager::Enqueue(InstanceTask *task,
 
 InstanceTaskQueue *InstanceManager::GetTaskQueue(const std::string &str) {
     boost::hash<std::string> hash;
-    int index = hash(str) % task_queues_.capacity();
+    int index = hash(str) % task_queues_.size();
     return task_queues_[index];
 }
 
@@ -455,7 +455,7 @@ bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
     }
 
     task_queue->Pop();
-    task_svc_instances_.erase(task);
+    UnregisterSvcInstance(task);
     delete task;
 
     return false;
