@@ -200,12 +200,8 @@ bool IFMapExporter::UpdateAddChange(ObjectType *obj, IFMapState *state,
     } else {
         update->SetAdvertise(state->interest());
     }
-    bool tm_last = queue()->Enqueue(update);
-    // If the tail_marker was the last element before the enqueue, send a
-    // trigger to the sender to create a task to do the 'send'.
-    if (tm_last) {
-        sender()->QueueActive();
-    }
+    queue()->Enqueue(update);
+    sender()->QueueActive();
     return is_move;
 }
 
@@ -240,12 +236,8 @@ bool IFMapExporter::UpdateRemove(ObjectType *obj, IFMapState *state,
     }
     
     update->SetAdvertise(rm_set);
-    bool tm_last = queue()->Enqueue(update);
-    // If the tail_marker was the last element before the enqueue, send a
-    // trigger to the sender to create a task to do the 'send'.
-    if (tm_last) {
-        sender()->QueueActive();
-    }
+    queue()->Enqueue(update);
+    sender()->QueueActive();
     return is_move;
 }
 
@@ -272,10 +264,8 @@ void IFMapExporter::EnqueueDelete(ObjectType *obj, IFMapState *state) {
         state->Insert(update);
     }
     update->SetAdvertise(state->advertised());
-    bool was_idle = queue()->Enqueue(update);
-    if (was_idle) {
-        sender()->QueueActive();
-    }
+    queue()->Enqueue(update);
+    sender()->QueueActive();
 }
 
 IFMapLinkState *IFMapExporter::LinkStateLookup(IFMapLink *link) {
