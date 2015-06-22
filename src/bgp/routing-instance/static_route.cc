@@ -133,10 +133,9 @@ public:
     }
 
     void AddStaticRoute(NexthopPathIdList *list);
-
     void UpdateStaticRoute();
-
     void RemoveStaticRoute();
+    void NotifyRoute();
 
     virtual bool Match(BgpServer *server, BgpTable *table, 
                        BgpRoute *route, bool deleted);
@@ -452,6 +451,16 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
     }
 }
 
+void StaticRoute::NotifyRoute() {
+    InetRoute rt_key(static_route_prefix());
+    DBTablePartition *partition =
+       static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
+    BgpRoute *static_route = static_cast<BgpRoute *>(partition->Find(&rt_key));
+    if (!static_route)
+        return;
+    partition->Notify(static_route);
+}
+
 int StaticRouteMgr::static_route_task_id_ = -1;
 
 StaticRouteMgr::StaticRouteMgr(RoutingInstance *instance) 
@@ -520,7 +529,9 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
             if (!info->num_matchstate()) {
                 listener->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
-                if (!routing_instance()->deleted() && 
+                if (static_route_map_.empty())
+                    instance_->server()->RemoveStaticRouteMgr(this);
+                if (!routing_instance()->deleted() &&
                     routing_instance()->config() &&
                     routing_instance()->config()->instance_config())
                     resolve_trigger_->Set();
@@ -541,7 +552,9 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
             if (!info->num_matchstate() && info->unregistered()) {
                 listener->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
-                if (!routing_instance()->deleted() && 
+                if (static_route_map_.empty())
+                    instance_->server()->RemoveStaticRouteMgr(this);
+                if (!routing_instance()->deleted() &&
                     routing_instance()->config() &&
                     routing_instance()->config()->instance_config())
                     resolve_trigger_->Set();
@@ -608,6 +621,8 @@ StaticRouteMgr::LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg) {
         new StaticRoute(routing_instance(), prefix, cfg.route_target, nexthop);
     StaticRoutePtr static_route_match = StaticRoutePtr(match);
 
+    if (static_route_map_.empty())
+        instance_->server()->InsertStaticRouteMgr(this);
     static_route_map_.insert(std::make_pair(prefix, static_route_match));
 
     listener->AddMatchCondition(match->bgp_table(), static_route_match.get(), 
@@ -716,6 +731,16 @@ void StaticRouteMgr::FlushStaticRouteConfig() {
     for (StaticRouteMap::iterator it = static_route_map_.begin();
          it != static_route_map_.end(); it++) {
         RemoveStaticRoutePrefix(it->first);
+    }
+}
+
+void StaticRouteMgr::NotifyAllRoutes() {
+    CHECK_CONCURRENCY("bgp::Config");
+    for (StaticRouteMap::iterator it = static_route_map_.begin();
+         it != static_route_map_.end(); ++it) {
+        StaticRoute *static_route =
+             static_cast<StaticRoute *>(it->second.get());
+        static_route->NotifyRoute();
     }
 }
 
