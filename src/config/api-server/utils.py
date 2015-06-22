@@ -52,7 +52,7 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'multi_tenancy': True,
-        'disc_server_ip': None,
+        'disc_server_ip': '127.0.0.1',
         'disc_server_port': '5998',
         'zk_server_ip': '127.0.0.1:2181',
         'worker_id': '0',

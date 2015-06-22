@@ -597,17 +597,32 @@ class VncApiServer(VncApiServerGen):
 
     def ref_update_http_post(self):
         self._post_common(bottle.request, None, None)
-        obj_type = bottle.request.json['type']
-        obj_uuid = bottle.request.json['uuid']
-        ref_type = bottle.request.json['ref-type'].replace('-', '_')
-        operation = bottle.request.json['operation']
+        # grab fields
+        obj_type = bottle.request.json.get('type')
+        obj_uuid = bottle.request.json.get('uuid')
+        ref_type = bottle.request.json.get('ref-type')
+        operation = bottle.request.json.get('operation')
         ref_uuid = bottle.request.json.get('ref-uuid')
         ref_fq_name = bottle.request.json.get('ref-fq-name')
         attr = bottle.request.json.get('attr')
 
-        if not ref_uuid and not ref_fq_name:
-            bottle.abort(404, 'Either ref-uuid or ref-fq-name must be specified')
+        # validate fields
+        if None in (obj_type, obj_uuid, ref_type, operation):
+            err_msg = 'Bad Request: type/uuid/ref-type/operation is null: '
+            err_msg += '%s, %s, %s, %s.' \
+                        %(obj_type, obj_uuid, ref_type, operation)
+            bottle.abort(400, err_msg)
 
+        if operation.upper() not in ['ADD', 'DELETE']:
+            err_msg = 'Bad Request: operation should be add or delete: %s' \
+                      %(operation)
+            bottle.abort(400, err_msg)
+
+        if not ref_uuid and not ref_fq_name:
+            err_msg = 'Bad Request: Either ref-uuid or ref-fq-name must be specified'
+            bottle.abort(400, err_msg)
+
+        ref_type = ref_type.replace('-', '_')
         if not ref_uuid:
             try:
                 ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref_fq_name)
@@ -636,6 +651,19 @@ class VncApiServer(VncApiServerGen):
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             except NoIdError:
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
+            try:
+                (read_ok, read_result) = self._db_conn.dbe_read(
+                                              obj_type, bottle.request.json)
+            except NoIdError:
+                bottle.abort(404, 'Object Not Found: ' + obj_uuid)
+            except Exception as e:
+                read_ok = False
+                read_result = cfgm_common.utils.detailed_traceback()
+            if not read_ok:
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
+                bottle.abort(500, read_result)
+
+            obj_dict = read_result
             if operation == 'ADD':
                 if ref_type+'_refs' not in obj_dict:
                     obj_dict[ref_type+'_refs'] = []
@@ -645,10 +673,6 @@ class VncApiServer(VncApiServerGen):
                     if old_ref['to'] == ref_fq_name or old_ref['uuid'] == ref_uuid:
                         obj_dict[ref_type+'_refs'].remove(old_ref)
                         break
-            else:
-                msg = 'Unknown operation ' + operation
-                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
-                bottle.abort(409, msg)
 
             (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
             if not ok:
@@ -1472,7 +1496,17 @@ class VncApiServer(VncApiServerGen):
 
         # expected format {"subnet" : ["2.1.1.0/24", "1.1.1.0/24"]
         req_dict = bottle.request.json
-        (_, obj_dict) = self._db_conn.dbe_read('virtual-network', {'uuid': id})
+        try:
+            (ok, result) = self._db_conn.dbe_read('virtual-network', {'uuid': id})
+        except NoIdError as e:
+            bottle.abort(404, str(e))
+        except Exception as e:
+            ok = False
+            result = cfgm_common.utils.detailed_traceback()
+        if not ok:
+            bottle.abort(500, result)
+
+        obj_dict = result
         subnet_list = req_dict[
             'subnet_list'] if 'subnet_list' in req_dict else []
         result = vnc_cfg_types.VirtualNetworkServer.subnet_ip_count(

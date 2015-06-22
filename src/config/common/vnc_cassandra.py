@@ -9,7 +9,7 @@ from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
 from pycassa.pool import AllServersUnavailable
 
 from vnc_api.gen.vnc_cassandra_client_gen import VncCassandraClientGen
-from exceptions import NoIdError
+from exceptions import NoIdError, DatabaseUnavailableError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
@@ -107,7 +107,7 @@ class VncCassandraClient(VncCassandraClientGen):
                     self._cassandra_init_conn_pools()
 
                 return func(*args, **kwargs)
-            except AllServersUnavailable:
+            except AllServersUnavailable as e:
                 if self._conn_state != ConnectionStatus.DOWN:
                     self._update_sandesh_status(ConnectionStatus.DOWN)
                     msg = 'Cassandra connection down. Exception in %s' \
@@ -115,7 +115,9 @@ class VncCassandraClient(VncCassandraClientGen):
                     self._logger(msg, level=SandeshLevel.SYS_ERR)
 
                 self._conn_state = ConnectionStatus.DOWN
-                raise
+                raise DatabaseUnavailableError(
+                    'Error, AllServersUnavailable: %s'
+                    %(utils.detailed_traceback()))
 
         return wrapper
     # end _handle_exceptions

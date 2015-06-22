@@ -870,9 +870,11 @@ class VncServerKombuClient(VncKombuClient):
     # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
-        (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
-        if not ok:
-            raise Exception(result)
+        try:
+            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+        except NoIdError as e:
+            # No error, we will hear a delete shortly
+            return
 
         new_obj_dict = result
 
@@ -1114,9 +1116,17 @@ class VncDbClient(object):
 
         proj_id = self.fq_name_to_uuid('project',
                                        ['default-domain', 'default-project'])
-        (ok, proj_dict) = self.dbe_read('project', {'uuid':proj_id})
+        try:
+            (ok, result) = self.dbe_read('project', {'uuid':proj_id})
+        except NoIdError as e:
+            ok = False
+            result = 'Project Not Found: %s' %(proj_id)
         if not ok:
+            self.config_log("Updating default quota failed: %s." %(result),
+                level=SandeshLevel.SYS_ERR)
             return
+
+        proj_dict = result
         quota = QuotaType()
 
         proj_dict['quota'] = default_quota
@@ -1414,6 +1424,12 @@ class VncDbClient(object):
                                                              [obj_ids['uuid']],
                                                              obj_fields)
         except NoIdError as e:
+            # if NoIdError is for obj itself (as opposed to say for parent
+            # or ref), let caller decide if this can be handled gracefully
+            # by re-raising
+            if e._unknown_id == obj_ids['uuid']:
+                raise
+
             return (False, str(e))
 
         return (ok, cassandra_result[0])
@@ -1428,7 +1444,7 @@ class VncDbClient(object):
             return (False, str(e))
 
         return (ok, cassandra_result)
-    # end dbe_read
+    # end dbe_count_children
 
     def dbe_read_multi(self, obj_type, obj_ids_list, obj_fields=None):
         if not obj_ids_list:

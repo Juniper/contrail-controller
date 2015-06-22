@@ -13,6 +13,8 @@ import itertools
 import socket
 
 import cfgm_common
+import cfgm_common.utils
+import cfgm_common.exceptions
 import netaddr
 import uuid
 import ConfigParser
@@ -36,8 +38,12 @@ class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
         if not ok:
             return (ok, result)
         for vn_name, vn_uuid in result:
-            ok, result = db_conn.dbe_read('virtual-network', {'uuid': vn_uuid}, 
-                                           obj_fields=['route_target_list'])
+            try:
+                ok, result = db_conn.dbe_read('virtual-network', {'uuid': vn_uuid}, 
+                                               obj_fields=['route_target_list'])
+            except cfgm_common.exceptions.NoIdError:
+                continue
+
             if not ok:
                 return ok, result
             rt_dict = result.get('route_target_list', {})
@@ -204,11 +210,15 @@ class InstanceIpServer(InstanceIpServerGen):
         req_ip = obj_dict.get("instance_ip_address", None)
 
         vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
-        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id, 
-                            obj_fields=['router_external', 'network_ipam_refs'])
+        try:
+            read_ok, read_result = db_conn.dbe_read('virtual-network', vn_id,
+                                obj_fields=['router_external', 'network_ipam_refs'])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (404, 'No Network: %s' %(vn_id)))
         if not read_ok:
-            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+            return (False, (500, 'Internal error : ' + pformat(read_result)))
 
+        vn_dict = read_result
         subnet_uuid = obj_dict.get('subnet_uuid', None)
         sub = cls._get_subnet_name(vn_dict, subnet_uuid) if subnet_uuid else None
         if subnet_uuid and not sub:
@@ -352,18 +362,25 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
         if not vn_uuid:
             vn_fq_name = vn_dict.get('to')
             if not vn_fq_name:
-                return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+                msg = 'Bad Request: Reference should have uuid or fq_name: %s'\
+                      %(pformat(vn_dict))
+                return (False, (400, msg))
             vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
-        (ok, vn_dict) = db_conn.dbe_read('virtual-network', {'uuid':vn_uuid}, 
-                                         obj_fields=['parent_uuid'])
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
+        try:
+            (ok, result) = db_conn.dbe_read('virtual-network', {'uuid':vn_uuid},
+                                         obj_fields=['parent_uuid'])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (404, 'No Network: %s' %(vn_uuid)))
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(result)))
+
+        vn_dict = result
         proj_uuid = vn_dict['parent_uuid']
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
-                               'fq_name': obj_dict['fq_name'],
-                               'resource': 'virtual_machine_interfaces',
+		'fq_name': obj_dict['fq_name'],
+		'resource': 'virtual_machine_interfaces',
                                'obj_type': 'virtual-machine-interface',
                                'user_visibility': user_visibility,
                                'proj_uuid': proj_uuid}
@@ -530,8 +547,11 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         vn_id = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id, 
+        try:
+            (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id, 
                                                obj_fields=['network_ipam_refs'])
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, (404, str(e)))
         if not read_ok:
             return (False, (500, read_result))
 
@@ -578,10 +598,15 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         vn_id = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id, 
+        try:
+            (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id,
                                                obj_fields=['network_ipam_refs'])
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, (404, 'VN Not Found at PUT fail: %s' %(vn_id)))
         if not read_ok:
             return (False, (500, read_result))
+
+        # failed => update with flipped values for db_dict and req_dict
         cls.addr_mgmt.net_update_req(fq_name, obj_dict, read_result, id)
     # end http_put_fail
 
@@ -648,9 +673,13 @@ class NetworkIpamServer(NetworkIpamServerGen):
     def http_put(cls, id, fq_name, obj_dict, db_conn):
         ipam_uuid = obj_dict['uuid']
         ipam_id = {'uuid': ipam_uuid}
-        (read_ok, read_result) = db_conn.dbe_read('network-ipam', ipam_id)
+        try:
+            (read_ok, read_result) = db_conn.dbe_read('network-ipam', ipam_id)
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, (404, str(e)))
         if not read_ok:
-            return (False, (500, "Internal error : IPAM is not valid"))
+            return (False, (500, "Error in IPAM update: %s" %(read_result)))
+
         old_ipam_mgmt = read_result.get('network_ipam_mgmt')
         new_ipam_mgmt = obj_dict.get('network_ipam_mgmt')
         if not old_ipam_mgmt or not new_ipam_mgmt:
@@ -691,10 +720,17 @@ class NetworkIpamServer(NetworkIpamServerGen):
             for vn in vn_backrefs:
                 vn_uuid = vn['uuid']
                 vn_id = {'uuid': vn_uuid}
-                (read_ok, read_result) = db_conn.dbe_read('virtual-network',
-                                                          vn_id)
-                if not read_ok:
+                try:
+                    (read_ok, read_result) = db_conn.dbe_read('virtual-network',
+                                                              vn_id)
+                except cfgm_common.exceptions.NoIdError:
                     continue
+                if not read_ok:
+                    db_conn.config_log('Error in active vm check %s'
+                                       %(read_result),
+                                       level=SandeshLevel.SYS_ERR)
+                    # Cannot determine, err on side of caution
+                    return True
                 if 'virtual_machine_interface_back_refs' in read_result:
                     return True
         return False
@@ -728,7 +764,12 @@ class VirtualDnsServer(VirtualDnsServerGen):
         if 'parent_uuid' in obj_dict:
             domain_uuid = obj_dict['parent_uuid']
             domain_id = {'uuid': domain_uuid}
-            (read_ok, read_result) = db_conn.dbe_read('domain', domain_id)
+            try:
+                (read_ok, read_result) = db_conn.dbe_read('domain', domain_id)
+            except cfgm_common.exceptions.NoIdError:
+                return (
+                    False,
+                    (500, "Error Domain %s not found" %(domain_id)))
             if not read_ok:
                 return (
                     False,
@@ -737,13 +778,17 @@ class VirtualDnsServer(VirtualDnsServerGen):
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
                 vdns_id = {'uuid': vdns_uuid}
-                (read_ok, read_result) = db_conn.dbe_read('virtual-DNS',
-                                                          vdns_id)
+                try:
+                    (read_ok, read_result) = db_conn.dbe_read('virtual-DNS',
+                                                              vdns_id)
+                except cfgm_common.exceptions.NoIdError:
+                    continue
                 if not read_ok:
                     return (
                         False,
                         (500,
                          "Internal error : Unable to read Virtual DNS data"))
+
                 vdns_data = read_result['virtual_DNS_data']
                 if 'next_virtual_DNS' in vdns_data:
                     if vdns_data['next_virtual_DNS'] == vdns_name:
@@ -846,8 +891,11 @@ class VirtualDnsServer(VirtualDnsServerGen):
             # above check doesnt allow during create, but entry could be
             # modified later
             next_vdns_id = {'uuid': next_vdns_uuid}
-            (read_ok, read_result) = db_conn.dbe_read(
-                'virtual-DNS', next_vdns_id)
+            try:
+                (read_ok, read_result) = db_conn.dbe_read(
+                    'virtual-DNS', next_vdns_id)
+            except cfgm_common.exceptions.NoIdError:
+                read_ok = False
             if read_ok:
                 next_vdns_data = read_result['virtual_DNS_data']
                 if 'next_virtual_DNS' in next_vdns_data:
@@ -1020,7 +1068,10 @@ class SecurityGroupServer(SecurityGroupServerGen):
 
     @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
-        (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
+        try:
+            (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, (404, str(e)))
         if not ok:
             return (False, (500, 'Bad Security Group error : ' + pformat(sec_dict)))
         (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
@@ -1035,11 +1086,21 @@ class SecurityGroupServer(SecurityGroupServerGen):
             for sg in proj_dict.get('security_groups', []):
                 if sg['uuid'] == sec_dict['uuid']:
                     continue
-                ok, sg_dict = db_conn.dbe_read('security-group', sg)
-                if not ok:
+                try:
+                    ok, result = db_conn.dbe_read('security-group', sg)
+
+                    sg_dict = result
+                    sge = sg_dict.get('security_group_entries', {})
+                    rule_count += len(sge.get('policy_rule', []))
+                except cfgm_common.exceptions.NoIdError as e:
                     continue
-                sge = sg_dict.get('security_group_entries', {})
-                rule_count += len(sge.get('policy_rule', []))
+                except Exception as e:
+                    ok = False
+                    result = 'Error in security group update: %s' %(
+                        cfgm_common.utils.detailed_traceback())
+                if not ok:
+                    db_conn.config_log(result, level=SandeshLevel.SYS_ERR)
+                    continue
 
             if sec_dict['id_perms'].get('user_visible', True) is not False:
                 (ok, quota_limit) = QuotaHelper.check_quota_limit(
@@ -1075,7 +1136,10 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
     @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
         p_id = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('network-policy', p_id)
+        try:
+            (read_ok, read_result) = db_conn.dbe_read('network-policy', p_id)
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, (404, str(e)))
         if not read_ok:
             return (False, (500, read_result))
 
@@ -1101,7 +1165,10 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
     @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
         interface = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('logical-interface', interface)
+        try:
+            (read_ok, read_result) = db_conn.dbe_read('logical-interface', interface)
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, (404, str(e)))
         if not read_ok:
             return (False, (500, read_result))
 
@@ -1142,10 +1209,13 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
     def http_put(cls, id, fq_name, obj_dict, db_conn):
         # do not allow change in display name
         if 'display_name' in obj_dict:
-            (read_ok, read_result) = db_conn.dbe_read(
-                                            obj_type='physical-interface',
-                                            obj_ids={'uuid': id},
-                                            obj_fields=['display_name'])
+            try:
+                (read_ok, read_result) = db_conn.dbe_read(
+                                                obj_type='physical-interface',
+                                                obj_ids={'uuid': id},
+                                                obj_fields=['display_name'])
+            except cfgm_common.exceptions.NoIdError as e:
+                return (False, (404, str(e)))
             if not read_ok:
                 return (False, (500, read_result))
 
@@ -1172,15 +1242,19 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
             except cfgm_common.exceptions.NoIdError:
                 return (False, (500, 'Internal error : Physical interface ' +
                                      ":".join(physical_interface_name) + ' not found'))
-        (ok, physical_router) = db_conn.dbe_read(
+        try:
+            (ok, result) = db_conn.dbe_read(
                                             obj_type='physical-router',
                                             obj_ids={'uuid': router_uuid},
                                             obj_fields=['physical_interfaces',
                                                         'physical_router_product_name'])
+        except cfgm_common.exceptions.NoIdError as e:
+            ok = False
+            result = str(e)
         if not ok:
-            return (False, (500, 'Internal error : Physical router ' +
-                                 ":".join(router) + ' not found'))
+            return (False, (500, result))
 
+        physical_router = result
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
         product_name = physical_router.get('physical_router_product_name', "")
         if product_name.lower().startswith("qfx") and vlan_tag != None:
@@ -1189,10 +1263,13 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
 
         for physical_interface in physical_router.get('physical_interfaces', []):
             # Read only the display name of the physical interface
-            (ok, interface_object) = db_conn.dbe_read(
+            try:
+                (ok, interface_object) = db_conn.dbe_read(
                                             obj_type='physical-interface',
                                             obj_ids={'uuid': physical_interface['uuid']},
                                             obj_fields=['display_name'])
+            except cfgm_common.exceptions.NoIdError:
+                continue
             if not ok:
                 return (False, (500, 'Internal error : physical interface ' +
                                      physical_interface['uuid'] + ' not found'))
@@ -1247,7 +1324,10 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
         except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
-        ok, proj_dict = db_conn.dbe_read('project', {'uuid': proj_uuid})
+        try:
+            ok, proj_dict = db_conn.dbe_read('project', {'uuid': proj_uuid})
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
         if not ok:
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
@@ -1259,8 +1339,12 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
         quota_count = 0
 
         for pool in lb_pools:
-            ok, lb_pool_dict = db_conn.dbe_read('loadbalancer-pool',
-                                                {'uuid': pool['uuid']})
+            try:
+                ok, lb_pool_dict = db_conn.dbe_read('loadbalancer-pool',
+                                                    {'uuid': pool['uuid']})
+            except cfgm_common.exceptions.NoIdError:
+                continue
+
             if not ok:
                 return (False, (500, 'Internal error : ' +
                                 pformat(lb_pool_dict)))
