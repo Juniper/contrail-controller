@@ -14,6 +14,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/evpn/evpn_route.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
@@ -958,7 +959,7 @@ TEST_F(BgpAttrTest, PmsiTunnel3) {
     EXPECT_EQ("10.1.1.1", pmsi_spec2.GetIdentifier().to_string());
 }
 
-TEST_F(BgpAttrTest, PmsiTunnel4) {
+TEST_F(BgpAttrTest, PmsiTunnel4a) {
     BgpAttrSpec attr_spec;
     PmsiTunnelSpec pmsi_spec;
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
@@ -975,7 +976,28 @@ TEST_F(BgpAttrTest, PmsiTunnel4) {
         pmsi_tunnel->tunnel_flags);
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
         pmsi_tunnel->tunnel_type);
-    EXPECT_EQ(10000, pmsi_tunnel->label);
+    EXPECT_EQ(10000, pmsi_tunnel->GetLabel());
+    EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier.to_string());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnel4b) {
+    BgpAttrSpec attr_spec;
+    PmsiTunnelSpec pmsi_spec;
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec.SetLabel(EvpnPrefix::kMaxVni, true);
+    error_code ec;
+    pmsi_spec.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    attr_spec.push_back(&pmsi_spec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(1, attr_db_->Size());
+
+    const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
+    EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
+        pmsi_tunnel->tunnel_flags);
+    EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
+        pmsi_tunnel->tunnel_type);
+    EXPECT_EQ(EvpnPrefix::kMaxVni, pmsi_tunnel->GetLabel(true));
     EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier.to_string());
 }
 

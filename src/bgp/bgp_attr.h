@@ -212,8 +212,8 @@ struct PmsiTunnelSpec : public BgpAttribute {
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
 
-    uint32_t GetLabel() const;
-    void SetLabel(uint32_t label);
+    uint32_t GetLabel(bool is_vni = false) const;
+    void SetLabel(uint32_t label, bool is_vni = false);
     Ip4Address GetIdentifier() const;
     void SetIdentifier(Ip4Address identifier);
 
@@ -237,6 +237,9 @@ public:
     }
 
     const PmsiTunnelSpec &pmsi_tunnel() const { return pmsi_spec_; }
+    uint32_t GetLabel(bool is_vni = false) const {
+        return (is_vni ? label : label >> 4);
+    }
 
     friend std::size_t hash_value(const PmsiTunnel &pmsi_tunnel) {
         size_t hash = 0;
@@ -246,7 +249,6 @@ public:
 
     uint8_t tunnel_flags;
     uint8_t tunnel_type;
-    uint32_t label;
     Ip4Address identifier;
 
 private:
@@ -254,6 +256,7 @@ private:
     friend int intrusive_ptr_del_ref(const PmsiTunnel *cpmsi_tunnel);
     friend void intrusive_ptr_release(const PmsiTunnel *cpmsi_tunnel);
 
+    uint32_t label;
     mutable tbb::atomic<int> refcount_;
     PmsiTunnelDB *pmsi_tunnel_db_;
     PmsiTunnelSpec pmsi_spec_;
