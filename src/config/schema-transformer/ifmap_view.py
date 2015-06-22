@@ -9,7 +9,7 @@ import sys
 import xml.etree.ElementTree as et
 import StringIO
 import re
-import json
+from cfgm_common import jsonutils as json
 
 from distutils.sysconfig import get_python_lib
 sys.path.append(get_python_lib() + '/vnc_cfg_api_server')

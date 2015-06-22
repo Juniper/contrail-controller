@@ -12,7 +12,7 @@
 
 import sys
 import argparse
-import json
+from cfgm_common import jsonutils as json
 import datetime
 import sandesh.viz.constants as VizConstants
 from sandesh.viz.ttypes import FlowRecordFields

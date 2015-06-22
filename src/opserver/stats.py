@@ -12,7 +12,7 @@
 
 import sys
 import argparse
-import json
+from cfgm_common import jsonutils as json
 import datetime
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module

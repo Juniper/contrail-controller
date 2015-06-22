@@ -13,7 +13,7 @@ import time
 import requests
 import pkg_resources
 import xmltodict
-import json
+from cfgm_common import jsonutils as json
 import gevent
 import socket, struct
 

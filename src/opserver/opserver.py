@@ -19,7 +19,7 @@ from uveserver import UVEServer
 import sys
 import ConfigParser
 import bottle
-import json
+from cfgm_common import jsonutils as json
 import uuid
 import argparse
 import time

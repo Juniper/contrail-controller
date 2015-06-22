@@ -11,7 +11,7 @@ import kazoo.handlers.gevent
 import kazoo.recipe.election
 
 import logging
-import json
+from cfgm_common import jsonutils as json
 import time
 import disc_consts
 

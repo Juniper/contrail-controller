@@ -9,7 +9,7 @@
 #
 
 import gevent
-import json
+from cfgm_common import jsonutils as json
 import copy
 import xmltodict
 import redis

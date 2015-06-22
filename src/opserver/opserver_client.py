@@ -12,7 +12,7 @@ import readline
 import code
 import urllib2
 import time
-import json
+from cfgm_common import jsonutils as json
 import datetime
 import pdb
 import argparse

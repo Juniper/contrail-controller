@@ -13,7 +13,7 @@ if not 'unittest' in sys.modules:
 
 import requests
 import uuid
-import json
+from cfgm_common import jsonutils as json
 import hashlib
 import socket
 from disc_utils import *

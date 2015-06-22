@@ -5,7 +5,7 @@
 import bottle
 import cgitb
 import gevent
-import json
+from cfgm_common import jsonutils as json
 import logging
 from pprint import pformat
 import requests

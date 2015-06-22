@@ -16,7 +16,7 @@ import fixtures
 import testtools
 import unittest
 import re
-import json
+from cfgm_common import jsonutils as json
 import copy
 from lxml import etree
 import inspect

@@ -44,7 +44,7 @@ from cfgm_common import obj_to_json
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 
 import copy
-import json
+from cfgm_common import jsonutils as json
 import uuid
 import datetime
 import pycassa

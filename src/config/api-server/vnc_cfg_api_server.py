@@ -22,7 +22,7 @@ import logging
 import signal
 import os
 import socket
-import json
+from cfgm_common import jsonutils as json
 import uuid
 import copy
 import argparse
