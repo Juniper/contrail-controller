@@ -2,6 +2,7 @@ from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
 from pprint import pformat
+import cfgm_common.exceptions
 
 
 class QuotaHelper(object):
@@ -12,8 +13,12 @@ class QuotaHelper(object):
 
     @classmethod
     def get_project_dict_for_quota(cls, proj_uuid, db_conn):
-        (ok, proj_dict) = db_conn.dbe_read('project', {'uuid': proj_uuid},
+        try:
+            (ok, proj_dict) = db_conn.dbe_read('project', {'uuid': proj_uuid},
                                            obj_fields=['quota'])
+        except cfgm_common.exceptions.NoIdError as e:
+            return (False, str(e))
+
         return (ok, proj_dict)
 
     @classmethod
