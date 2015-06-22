@@ -267,7 +267,7 @@ bool Dhcpv6Handler::Run() {
     memcpy(xid_, dhcp_->xid, 3);
     // options length = pkt length - size of headers
     int16_t options_len = pkt_info_->len -
-                          (pkt_info_->data - (uint8_t *)pkt_info_->eth)
+                          (pkt_info_->data - (uint8_t *)pkt_info_->pkt)
                           - DHCPV6_FIXED_LEN;
     ReadOptions(options_len);
 
@@ -360,6 +360,10 @@ void Dhcpv6Handler::ReadOptions(int16_t opt_rem_len) {
     while (opt_rem_len > 0) {
         uint16_t option_code = ntohs(opt->code);
         uint16_t option_len = ntohs(opt->len);
+        if (option_len > opt_rem_len) {
+            DHCPV6_TRACE(Error, "DHCP option parsing error");
+            break;
+        }
         switch (option_code) {
             case DHCPV6_OPTION_CLIENTID:
                 client_duid_len_ = option_len;
