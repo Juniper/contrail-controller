@@ -12,6 +12,12 @@ if sys.platform == 'darwin':
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
 SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
@@ -24,7 +30,8 @@ libservices = env.Library('agent_services',
                       'arp_proto.cc',
                       'dhcp_handler_base.cc',
                       'dhcp_handler.cc',
-                      'dhcp_proto.cc',
+                      except_env.Object('dhcp_lease_db.cc'),
+                      except_env.Object('dhcp_proto.cc'),
                       'dhcpv6_handler.cc',
                       'dhcpv6_proto.cc',
                       'dns_handler.cc',

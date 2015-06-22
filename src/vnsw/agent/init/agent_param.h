@@ -210,6 +210,8 @@ public:
     std::string physical_interface_mac_addr() const {
         return physical_interface_mac_addr_;
     }
+    std::string agent_base_dir() const { return agent_base_dir_; }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -279,7 +281,7 @@ private:
     void ParseDhcpRelayMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
-    void ParseAgentMode();
+    void ParseAgentInfo();
     void ParseNexthopServer();
     void ParsePlatform();
     void set_agent_mode(const std::string &mode);
@@ -306,7 +308,7 @@ private:
         (const boost::program_options::variables_map &var_map);
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
-    void ParseAgentModeArguments
+    void ParseAgentInfoArguments
         (const boost::program_options::variables_map &v);
     void ParseNexthopServerArguments
         (const boost::program_options::variables_map &v);
@@ -393,6 +395,7 @@ private:
     Platform platform_;
     std::string physical_interface_pci_addr_;
     std::string physical_interface_mac_addr_;
+    std::string agent_base_dir_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
