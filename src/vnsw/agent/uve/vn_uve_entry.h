@@ -70,6 +70,8 @@ public:
     void ClearInterVnStats();
     virtual void Reset();
     void set_prev_stats_update_time(uint64_t t) { prev_stats_update_time_ = t; }
+    uint64_t in_bytes() const { return in_bytes_; }
+    uint64_t out_bytes() const { return out_bytes_; }
 protected:
     L4PortBitmap port_bitmap_;
     VnStatsSet inter_vn_stats_;
@@ -91,6 +93,8 @@ private:
     bool UveVnOutFlowCountChanged(uint32_t size);
 
     tbb::mutex mutex_;
+    uint64_t in_bytes_;
+    uint64_t out_bytes_;
     uint64_t prev_stats_update_time_;
     uint64_t prev_in_bytes_;
     uint64_t prev_out_bytes_;
