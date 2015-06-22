@@ -71,3 +71,13 @@ const InterfaceUveTable::FloatingIp *InterfaceUveTableTest::GetVmIntfFip
     }
     return NULL;
 }
+
+InterfaceUveTable::UveInterfaceEntry* 
+InterfaceUveTableTest::GetUveInterfaceEntry(const string &name) {
+    InterfaceMap::iterator it = interface_tree_.find(name);
+    if (it == interface_tree_.end()) {
+        return NULL;
+    }
+    InterfaceUveTable::UveInterfaceEntry* entry = it->second.get();
+    return entry;
+}

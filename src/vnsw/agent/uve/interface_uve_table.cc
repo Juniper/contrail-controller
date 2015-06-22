@@ -274,7 +274,7 @@ void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
         delete state;
     } else {
         VmInterface::FloatingIpSet old_list;
-        if (vm_port->cfg_name().empty()) {
+        if (!state && vm_port->cfg_name().empty()) {
             /* Skip Add/change notifications if the config_name is empty */
             return;
         }
@@ -289,8 +289,11 @@ void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
         if (state->cfg_name_ != vm_port->cfg_name()) {
             InterfaceDeleteHandler(state->cfg_name_);
             state->cfg_name_ = vm_port->cfg_name();
+            old_list.clear();
         }
-        InterfaceAddHandler(vm_port, old_list);
+        if (!vm_port->cfg_name().empty()) {
+            InterfaceAddHandler(vm_port, old_list);
+        }
     }
 }
 
