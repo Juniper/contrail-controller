@@ -1510,6 +1510,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     IpAddress nh_address(Ip4Address(0));
     uint32_t label = 0;
     uint32_t flags = 0;
+    bool label_is_vni = false;
 
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1552,6 +1553,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 TunnelEncap tun_encap(*it);
                 if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
+                if (tun_encap.tunnel_encap() == TunnelEncapType::VXLAN)
+                    label_is_vni = true;
                 no_valid_tunnel_encap = false;
                 if (i == 0) {
                     ext.communities.push_back(
@@ -1648,7 +1651,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 }
                 pmsi_spec.SetIdentifier(nh_address.to_v4());
             }
-            pmsi_spec.SetLabel(label);
+            pmsi_spec.SetLabel(label, label_is_vni);
             attrs.push_back(&pmsi_spec);
         }
 

@@ -483,7 +483,7 @@ protected:
             pmsi_tunnel->tunnel_flags);
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
             pmsi_tunnel->tunnel_type);
-        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->label);
+        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
         TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier);
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());
@@ -1100,7 +1100,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::ARLeaf, pmsi_tunnel->tunnel_flags);
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::AssistedReplicationContrail,
             pmsi_tunnel->tunnel_type);
-        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->label);
+        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
         TASK_UTIL_EXPECT_EQ(peer->replicator_address(),
             pmsi_tunnel->identifier);
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
@@ -1269,7 +1269,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(tunnel_flags, pmsi_tunnel->tunnel_flags);
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
             pmsi_tunnel->tunnel_type);
-        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->label);
+        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
         TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier);
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());

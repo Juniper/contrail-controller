@@ -15,10 +15,10 @@ using std::vector;
 
 const EvpnPrefix EvpnPrefix::kNullPrefix;
 
-const uint32_t EvpnPrefix::kInvalidLabel = 0x100000;
+const uint32_t EvpnPrefix::kInvalidLabel = 0x00100000;
 const uint32_t EvpnPrefix::kNullTag = 0;
 const uint32_t EvpnPrefix::kMaxTag = 0xFFFFFFFF;
-const uint32_t EvpnPrefix::kMaxVni = 0xFFFFFF;
+const uint32_t EvpnPrefix::kMaxVni = 0x00FFFFFF;
 
 const size_t EvpnPrefix::kRdSize = RouteDistinguisher::kSize;
 const size_t EvpnPrefix::kEsiSize = EthernetSegmentId::kSize;
@@ -213,7 +213,16 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
             (pmsi_tunnel->tunnel_type == PmsiTunnelSpec::IngressReplication ||
              pmsi_tunnel->tunnel_type ==
              PmsiTunnelSpec::AssistedReplicationContrail)) {
-            *label = pmsi_tunnel->label;
+            const ExtCommunity *extcomm = attr ? attr->ext_community() : NULL;
+            if (extcomm && extcomm->ContainsTunnelEncapVxlan()) {
+                if (prefix->tag_ && prefix->tag_ <= kMaxVni) {
+                    *label = prefix->tag_;
+                } else {
+                    *label = pmsi_tunnel->GetLabel(true);
+                }
+            } else {
+                *label = pmsi_tunnel->GetLabel(false);
+            }
         }
         break;
     }

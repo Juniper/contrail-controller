@@ -338,13 +338,13 @@ static void FillOriginVnPathInfo(const OriginVnPath *ovnpath,
     }
 }
 
-static void FillPmsiTunnelInfo(const PmsiTunnel *pmsi_tunnel,
+static void FillPmsiTunnelInfo(const PmsiTunnel *pmsi_tunnel, bool label_is_vni,
     ShowRoutePath *show_path) {
     ShowPmsiTunnel spt;
     spt.set_type(pmsi_tunnel->pmsi_tunnel().GetTunnelTypeString());
     spt.set_ar_type(pmsi_tunnel->pmsi_tunnel().GetTunnelArTypeString());
     spt.set_identifier(pmsi_tunnel->identifier.to_string());
-    spt.set_label(pmsi_tunnel->label);
+    spt.set_label(pmsi_tunnel->GetLabel(label_is_vni));
     spt.set_flags(pmsi_tunnel->pmsi_tunnel().GetTunnelFlagsStrings());
     show_path->set_pmsi_tunnel(spt);
 }
@@ -413,7 +413,9 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             FillOriginVnPathInfo(attr->origin_vn_path(), &srp);
         }
         if (attr->pmsi_tunnel()) {
-            FillPmsiTunnelInfo(attr->pmsi_tunnel(), &srp);
+            const ExtCommunity *extcomm = attr->ext_community();
+            bool label_is_vni =  extcomm && extcomm->ContainsTunnelEncapVxlan();
+            FillPmsiTunnelInfo(attr->pmsi_tunnel(), label_is_vni, &srp);
         }
         show_route_paths.push_back(srp);
     }
