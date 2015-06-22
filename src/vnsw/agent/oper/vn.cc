@@ -30,6 +30,8 @@
 #include <filter/acl.h>
 #include "net/address_util.h"
 
+#include <services/dhcp_proto.h>
+
 using namespace autogen;
 using namespace std;
 using namespace boost;
@@ -890,6 +892,11 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             }
             if (service_address_changed) {
                 (*it_old).dns_server = (*it_new).dns_server;
+            }
+
+            if (gateway_changed || service_address_changed) {
+                // DHCP service would need to know in case this changes
+                change = true;
             }
 
             // update DHCP options
