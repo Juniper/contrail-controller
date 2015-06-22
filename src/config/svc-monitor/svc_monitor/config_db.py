@@ -652,7 +652,7 @@ class ProjectSM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        self.update_multiple_refs('service_instance', {})
+        obj.update_multiple_refs('service_instance', {})
         del cls._dict[uuid]
     # end delete
 # end ProjectSM
