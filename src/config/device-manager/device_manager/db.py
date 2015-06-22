@@ -210,11 +210,9 @@ class PhysicalRouterDM(DBBase):
             else:
                 vn_dict[vn_id] = [li.name]
 
-        #for now, assume service port ifls unit numbers are always starts with 0 and goes on
-        service_port_id = 1
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
-            if vn_obj is None or vn_obj.vxlan_vni is None:
+            if vn_obj is None or vn_obj.vxlan_vni is None or vn_obj.vn_network_id is None:
                 continue
             export_set = None
             import_set = None
@@ -264,14 +262,17 @@ class PhysicalRouterDM(DBBase):
                     break
 
             if export_set is not None and self.is_junos_service_ports_enabled() and len(vn_obj.instance_ip_map) > 0:
-                vrf_name = vrf_name[:123] + '-nat'
-                interfaces = []
-                service_ports = self.junos_service_ports.get('service_port')
-                interfaces.append(service_ports[0] + "." + str(service_port_id))
-                service_port_id  = service_port_id + 1
-                interfaces.append(service_ports[0] + "." + str(service_port_id))
-                service_port_id  = service_port_id + 1
-                self.config_manager.add_routing_instance(vrf_name,
+                service_port_id = 2*vn_obj.vn_network_id - 1
+                if self.is_service_port_id_valid(service_port_id) == False:
+                    self._logger.error("DM can't allocate service interfaces for \
+                                          (vn, vn-id)=(%s,%s)" % (vn_obj.fq_name, vn_obj.vn_network_id))
+                else:
+                    vrf_name = vrf_name[:123] + '-nat'
+                    interfaces = []
+                    service_ports = self.junos_service_ports.get('service_port')
+                    interfaces.append(service_ports[0] + "." + str(service_port_id))
+                    interfaces.append(service_ports[0] + "." + str(service_port_id + 1))
+                    self.config_manager.add_routing_instance(vrf_name,
                                                          import_set,
                                                          export_set,
                                                          None,
@@ -284,6 +285,13 @@ class PhysicalRouterDM(DBBase):
         self.config_manager.send_bgp_config()
         self.uve_send()
     # end push_config
+
+    def is_service_port_id_valid(self, service_port_id):
+        #mx allowed ifl unit number range is (1, 16385) for service ports
+        if service_port_id < 1 or service_port_id > 16384:
+            return False
+        return True  
+    #end is_service_port_id_valid
 
     def uve_send(self, deleted=False):
         pr_trace = UvePhysicalRouterConfig(name=self.name,
@@ -593,6 +601,7 @@ class VirtualNetworkDM(DBBase):
             self.router_external = obj['router_external']
         except KeyError:
             self.router_external = False
+        self.vn_network_id = obj.get('virtual_network_network_id')
         self.set_vxlan_vni(obj)
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
