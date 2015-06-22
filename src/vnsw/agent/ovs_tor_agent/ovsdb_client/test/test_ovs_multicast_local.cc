@@ -245,6 +245,66 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
 
+TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
+    IpAddress server = Ip4Address::from_string("1.1.1.1");
+    OvsPeer *peer = peer_manager_->Allocate(server);
+    EXPECT_TRUE(peer->export_to_controller());
+
+    AddEncapList("MPLSoUDP", "VXLAN", NULL);
+    client->WaitForIdle();
+    VrfAddReq("vrf1");
+    WAIT_FOR(100, 10000, (VrfGet("vrf1", false) != NULL));
+    VnAddReq(1, "vn1", "vrf1");
+    WAIT_FOR(100, 10000, (VnGet(1) != NULL));
+
+    MacAddress mac("ff:ff:ff:ff:ff:ff");
+    Ip4Address tor_ip = Ip4Address::from_string("111.111.111.111");
+    Ip4Address tsn_ip = Ip4Address::from_string("127.0.0.1");
+
+    VrfEntry *vrf = VrfGet("vrf1");
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
+    WAIT_FOR(100, 100, (vrf->GetBridgeRouteTable() != NULL));
+    table->AddOvsPeerMulticastRouteReq(peer, 100, "dummy", tsn_ip, tor_ip);
+    WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
+    client->WaitForIdle();
+
+    BridgeRouteEntry *rt = L2RouteGet("vrf1", mac);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->tunnel_dest() == tor_ip);
+    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(*nh->GetDip() == tor_ip);
+    EXPECT_TRUE(*nh->GetSip() == tsn_ip);
+
+    AddEncapList("MPLSoUDP", NULL, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
+
+    rt = L2RouteGet("vrf1", mac);
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path->tunnel_dest() == tor_ip);
+    nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(*nh->GetDip() == tor_ip);
+    EXPECT_TRUE(*nh->GetSip() == tsn_ip);
+
+    AddEncapList("MPLSoUDP", "VXLAN", NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
+
+    table->DeleteOvsPeerMulticastRouteReq(peer, 100);
+    client->WaitForIdle();
+
+    // Change tunnel-type order
+    peer_manager_->Free(peer);
+    client->WaitForIdle();
+    VrfDelReq("vrf1");
+    VnDelReq(1);
+    WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) == NULL));
+    WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     // override with true to initialize ovsdb server and client
