@@ -7,12 +7,14 @@
 
 VnUveEntry::VnUveEntry(Agent *agent, const VnEntry *vn)
     : VnUveEntryBase(agent, vn), port_bitmap_(), inter_vn_stats_(), mutex_(),
-      prev_stats_update_time_(0), prev_in_bytes_(0), prev_out_bytes_(0) {
+      in_bytes_(0), out_bytes_(0), prev_stats_update_time_(0),
+      prev_in_bytes_(0), prev_out_bytes_(0) {
 }
 
 VnUveEntry::VnUveEntry(Agent *agent)
     : VnUveEntryBase(agent, NULL), port_bitmap_(), inter_vn_stats_(), mutex_(),
-      prev_stats_update_time_(0), prev_in_bytes_(0), prev_out_bytes_(0) {
+      in_bytes_(0), out_bytes_(0), prev_stats_update_time_(0),
+      prev_in_bytes_(0), prev_out_bytes_(0) {
 }
 
 VnUveEntry::~VnUveEntry() {
@@ -41,6 +43,11 @@ void VnUveEntry::UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
             stats->in_bytes_ += bytes;
             stats->in_pkts_ += pkts;
         }
+    }
+    if (outgoing) {
+        out_bytes_ += bytes;
+    } else {
+        in_bytes_ += bytes;
     }
 }
 
@@ -316,9 +323,6 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
     assert(!deleted_);
     uve.set_name(vn->GetName());
 
-    uint64_t in_bytes = 0;
-    uint64_t out_bytes = 0;
-
     if (UpdateVrfStats(vn, uve)) {
         changed = true;
     }
@@ -335,16 +339,6 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
 
         const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
         fip_count += vm_port->GetFloatingIpCount();
-
-        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
-        const StatsManager::InterfaceStats *s =
-            uve->stats_manager()->GetInterfaceStats(intf);
-        if (s == NULL) {
-            continue;
-        }
-        in_bytes += s->in_bytes;
-        out_bytes += s->out_bytes;
-
     }
 
     uint64_t diff_in_bytes = 0;
@@ -362,13 +356,13 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
     } else {
         diff_seconds = (cur_time - prev_stats_update_time_) / b_intvl;
         if (diff_seconds > 0) {
-            diff_in_bytes = in_bytes - prev_in_bytes_;
-            diff_out_bytes = out_bytes - prev_out_bytes_;
+            diff_in_bytes = in_bytes_ - prev_in_bytes_;
+            diff_out_bytes = out_bytes_ - prev_out_bytes_;
             in_band = (diff_in_bytes * 8)/diff_seconds;
             out_band = (diff_out_bytes * 8)/diff_seconds;
             prev_stats_update_time_ = cur_time;
-            prev_in_bytes_ = in_bytes;
-            prev_out_bytes_ = out_bytes;
+            prev_in_bytes_ = in_bytes_;
+            prev_out_bytes_ = out_bytes_;
             send_bandwidth = true;
         }
     }
