@@ -11,6 +11,7 @@
 #include <boost/scoped_ptr.hpp>
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -36,12 +37,14 @@ class RoutingInstanceMgr;
 class RTargetGroupMgr;
 class SchedulingGroupManager;
 class ServiceChainMgr;
+class StaticRouteMgr;
 
 class BgpServer {
 public:
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
+    typedef std::set<StaticRouteMgr *> StaticRouteMgrList;
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
 
@@ -137,6 +140,10 @@ public:
     void UnregisterIdentifierUpdateCallback(int listener);
     void NotifyIdentifierUpdate(Ip4Address old_identifier);
 
+    void InsertStaticRouteMgr(StaticRouteMgr *srt_manager);
+    void RemoveStaticRouteMgr(StaticRouteMgr *srt_manager);
+    void NotifyAllStaticRoutes();
+
 private:
     class ConfigUpdater;
     class DeleteActor;
@@ -158,6 +165,7 @@ private:
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint16_t hold_time_;
+    StaticRouteMgrList srt_manager_list_;
 
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
