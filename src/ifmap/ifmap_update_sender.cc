@@ -64,6 +64,9 @@ void IFMapUpdateSender::StartTask() {
 }
 
 void IFMapUpdateSender::QueueActive() {
+    if (queue_active_) {
+        return;
+    }
     queue_active_ = true;
     tbb::mutex::scoped_lock lock(mutex_);
     StartTask();
