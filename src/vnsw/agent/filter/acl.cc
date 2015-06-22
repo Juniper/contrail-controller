@@ -487,6 +487,8 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
          iter != acl_entries_.end();
          ++iter) {
         const AclEntry::ActionList &al = iter->PacketMatch(packet_header, info);
+        string nw_ace_uuid = ((iter->uuid().empty())?
+                              UuidToString(this->GetUuid()):iter->uuid());
 	AclEntry::ActionList::const_iterator al_it;
 	for (al_it = al.begin(); al_it != al.end(); ++al_it) {
 	     TrafficAction *ta = static_cast<TrafficAction *>(*al_it.operator->());
@@ -513,7 +515,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                  info->drop = true;
                  info->terminal = false;
                  info->other = false;
-                 info->uuid = iter->uuid();
+                 info->uuid = nw_ace_uuid;
              }
          }
 	}
@@ -527,7 +529,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                 if (info && !info->drop && !info->terminal) {
                     info->terminal = true;
                     info->other = false;
-                    info->uuid = iter->uuid();
+                    info->uuid = nw_ace_uuid;
                 }
                 return ret_val;
             }
@@ -535,7 +537,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
              * then set the uuid with the first matching uuid */
             if (info && !info->drop && !info->terminal && !info->other) {
                 info->other = true;
-                info->uuid = iter->uuid();
+                info->uuid = nw_ace_uuid;
             }
         }
     }
