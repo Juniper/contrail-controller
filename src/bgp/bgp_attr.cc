@@ -212,12 +212,12 @@ std::string PmsiTunnelSpec::ToString() const {
     return oss.str();
 }
 
-uint32_t PmsiTunnelSpec::GetLabel() const {
-    return label >> 4;
+uint32_t PmsiTunnelSpec::GetLabel(bool is_vni) const {
+    return (is_vni ? label : (label >> 4));
 }
 
-void PmsiTunnelSpec::SetLabel(uint32_t in_label) {
-    label = in_label << 4 | 0x01;
+void PmsiTunnelSpec::SetLabel(uint32_t in_label, bool is_vni) {
+    label = (is_vni ? in_label : (in_label << 4 | 0x01));
 }
 
 Ip4Address PmsiTunnelSpec::GetIdentifier() const {
@@ -293,7 +293,7 @@ PmsiTunnel::PmsiTunnel(PmsiTunnelDB *pmsi_tunnel_db,
     refcount_ = 0;
     tunnel_flags = pmsi_spec_.tunnel_flags;
     tunnel_type = pmsi_spec_.tunnel_type;
-    label = pmsi_spec_.GetLabel();
+    label = pmsi_spec_.label;
     identifier = pmsi_spec_.GetIdentifier();
 }
 
