@@ -1185,7 +1185,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     """ Tests to verify the max_requests config parameter of api-server."""
     def __init__(self, *args, **kwargs):
-        super(TestVncCfgApiServerConnection, self).__init__(*args, **kwargs)
+        super(TestVncCfgApiServerRequests, self).__init__(*args, **kwargs)
         self._config_knobs.extend([('DEFAULTS', 'max_requests', 10),])
 
 

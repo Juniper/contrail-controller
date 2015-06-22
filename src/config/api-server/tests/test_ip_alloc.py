@@ -684,7 +684,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                     raise Exception(
                         "Instance IP was persisted more than once")
 
-                if args[0].startswith('/api-server/subnets'):
+                if args[1].startswith('/api-server/subnets'):
                     self._invoked += 1
                 return self._orig_method(args, kwargs)
         # end SpyCreateNode
