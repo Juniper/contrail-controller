@@ -677,6 +677,9 @@ class SvcMonitor(object):
                 (st_name, str(e)))
             return
 
+        # Create the service template in local db
+        ServiceTemplateSM.locate(st_uuid)
+
         self.logger.log_info("%s created with uuid %s" %
             (st_name, str(st_uuid)))
     #_create_default_analyzer_template
