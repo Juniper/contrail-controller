@@ -177,7 +177,10 @@ class SNATAgent(object):
         if vnc_rtr_obj:
             # Clear logical gateway virtual network
             vnc_rtr_obj.set_service_instance_list([])
-            self._vnc_lib.logical_router_update(vnc_rtr_obj)
+            try:
+                self._vnc_lib.logical_router_update(vnc_rtr_obj)
+            except vnc_exc.NoIdError:
+                pass
 
         # Delete service instance
         if si_obj:
