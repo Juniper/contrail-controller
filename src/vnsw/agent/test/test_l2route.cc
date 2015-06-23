@@ -7,6 +7,7 @@
 //
 #include "base/os.h"
 #include <base/logging.h>
+#include <boost/shared_ptr.hpp>
 #include <io/event_manager.h>
 #include <tbb/task.h>
 #include <base/task.h>
@@ -691,6 +692,49 @@ TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
+}
+
+TEST_F(RouteTest, add_deleted_peer_to_multicast_route) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                                                   oper_db()->multicast());
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::VxlanType()));
+    TaskScheduler::GetInstance()->Stop();
+    client->WaitForIdle();
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetBgpXmppPeer(),
+                                                        xmps::NOT_READY);
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+    mc_handler->ModifyTorMembers(bgp_peer.get(),
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    EXPECT_FALSE(rt->FindPath(bgp_peer.get()));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    bgp_peer.reset();
 }
 
 int main(int argc, char *argv[]) {

@@ -247,4 +247,24 @@ private:
     const SecurityGroupList sg_list_;
     DISALLOW_COPY_AND_ASSIGN(ClonedLocalPath);
 };
+
+class ControllerMulticastRoute : public MulticastRoute {
+public:
+    ControllerMulticastRoute(const string &vn_name,
+                             uint32_t label,
+                             int vxlan_id,
+                             uint32_t tunnel_type,
+                             DBRequest &nh_req,
+                             COMPOSITETYPE comp_nh_type,
+                             uint64_t sequence_number,
+                             const AgentXmppChannel *channel);
+    virtual ~ControllerMulticastRoute() { }
+    virtual bool IsPeerValid() const;
+
+private:
+    uint64_t sequence_number_;
+    const AgentXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerMulticastRoute);
+};
+
 #endif //controller_route_path_hpp
