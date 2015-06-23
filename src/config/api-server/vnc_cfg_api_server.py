@@ -971,11 +971,6 @@ class VncApiServer(VncApiServerGen):
             if obj_uuid is None:
                 obj_dict['id_perms'] = id_perms
                 return
-            # Resource already exist
-            try:
-                obj_dict['id_perms'] = self._db_conn.uuid_to_obj_perms(obj_uuid)
-            except NoIdError:
-                obj_dict['id_perms'] = id_perms
 
             return
 
