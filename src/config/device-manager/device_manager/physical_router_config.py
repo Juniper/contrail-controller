@@ -272,7 +272,7 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(then_, "accept")
 
             term = etree.Element("term")
-            etree.SubElement(term, "name").text= "term-" + ri_name[:19]
+            etree.SubElement(term, "name").text= "term-" + ri_name[:59]
             if prefixes:
                 from_ = etree.SubElement(term, "from")
                 etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
@@ -288,13 +288,14 @@ class PhysicalRouterConfig(object):
             f = etree.SubElement(inet, "filter")
             etree.SubElement(f, "name").text = "redirect_to_" + ri_name[:46] + "_vrf"
             term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text= "t1"
+            etree.SubElement(term, "name").text= "term-" + ri_name[:59]
             from_ = etree.SubElement(term, "from")
-            etree.SubElement(from_, "destination-address").text = ';'.join(fip_map.keys())
+            for fip_user_ip in fip_map.keys():
+                etree.SubElement(from_, "source-address").text = fip_user_ip
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "routing-instance").text = ri_name
             term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text= "t2"
+            etree.SubElement(term, "name").text= "default-term"
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "accept")
 
