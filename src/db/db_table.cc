@@ -158,7 +158,8 @@ private:
 
 DBTableBase::DBTableBase(DB *db, const string &name)
         : db_(db), name_(name), info_(new ListenerInfo(name)),
-          enqueue_count_(0), input_count_(0), notify_count_(0) {
+          enqueue_count_(0), input_count_(0), notify_count_(0),
+          walker_count_(0) {
     walk_request_count_ = 0;
     walk_complete_count_ = 0;
     walk_cancel_count_ = 0;
@@ -200,6 +201,20 @@ void DBTableBase::RunNotify(DBTablePartBase *tpart, DBEntryBase *entry) {
 
 void DBTableBase::AddToDBStateCount(ListenerId listener, int count) {
     info_->AddToDBStateCount(listener, count);
+}
+
+bool DBTableBase::MayDelete() const {
+    if (HasListeners()) {
+        return false;
+    }
+    if (HasWalkers()) {
+        return false;
+    }
+    if (!empty()) {
+        return false;
+    }
+
+    return true;
 }
 
 bool DBTableBase::HasListeners() const {
