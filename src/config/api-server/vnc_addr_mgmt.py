@@ -6,7 +6,7 @@ import copy
 from netaddr import *
 from vnc_quota import *
 from pprint import pformat
-import json
+from cfgm_common import jsonutils as json
 import cfgm_common.exceptions
 try:
     #python2.7
