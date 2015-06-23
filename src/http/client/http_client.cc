@@ -202,6 +202,10 @@ void HttpConnection::HttpProcessInternal(const std::string body, std::string pat
         return;
     }
 
+    if (curl_handle_) {
+        // delete existing curl_handle
+        del_curl_handle(curl_handle_, gi);
+    }
     curl_handle->connection = this;
     set_curl_handle(curl_handle);
 
