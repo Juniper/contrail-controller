@@ -317,6 +317,7 @@ class ServiceInstanceSM(DBBase):
         self.virtual_machines = set()
         self.params = None
         self.state = 'init'
+        self.launch_count = 0
         self.image = None
         self.flavor = None
         self.max_instances = 0
