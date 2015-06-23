@@ -83,7 +83,7 @@ public:
 
     void RunNotify(DBTablePartBase *tpart, DBEntryBase *entry);
 
-    // manage db state count for a listner
+    // Manage db state count for a listener.
     void AddToDBStateCount(ListenerId listener, int count);
 
     // Calculate the size across all partitions.
@@ -93,6 +93,7 @@ public:
 
     // Suspended deletion resume hook for user function
     virtual void RetryDelete() { }
+    virtual bool MayDelete() const;
 
     DB *database() { return db_; }
     const DB *database() const { return db_; }
@@ -115,6 +116,10 @@ public:
     void incr_notify_count() { notify_count_++; }
     void reset_notify_count() { notify_count_ = 0; }
 
+    bool HasWalkers() const { return walker_count_ != 0; }
+    void incr_walker_count() { walker_count_++; }
+    uint64_t decr_walker_count() { return --walker_count_; }
+
     uint64_t walk_request_count() const { return walk_request_count_; }
     uint64_t walk_complete_count() const { return walk_complete_count_; }
     uint64_t walk_cancel_count() const { return walk_cancel_count_; }
@@ -130,6 +135,7 @@ private:
     uint64_t enqueue_count_;
     uint64_t input_count_;
     uint64_t notify_count_;
+    uint64_t walker_count_;
     tbb::atomic<uint64_t> walk_request_count_;
     tbb::atomic<uint64_t> walk_complete_count_;
     tbb::atomic<uint64_t> walk_cancel_count_;
