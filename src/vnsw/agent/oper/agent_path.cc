@@ -205,14 +205,15 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     }
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
         DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        const TunnelNH *tunnel_nh = static_cast<const TunnelNH*>(nh_.get());
         TunnelNHKey *tnh_key =
-            new TunnelNHKey(agent->fabric_vrf_name(), agent->router_id(),
+            new TunnelNHKey(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
                             tunnel_dest_, false, tunnel_type_);
         nh_req.key.reset(tnh_key);
         nh_req.data.reset(new TunnelNHData());
         agent->nexthop_table()->Process(nh_req);
 
-        TunnelNHKey nh_key(agent->fabric_vrf_name(), agent->router_id(),
+        TunnelNHKey nh_key(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
                            tunnel_dest_, false, tunnel_type_);
         NextHop *nh = static_cast<NextHop *>
             (agent->nexthop_table()->FindActiveEntry(&nh_key));
