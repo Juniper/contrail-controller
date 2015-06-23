@@ -80,9 +80,11 @@ public:
 
     // Calculate the size across all partitions.
     virtual size_t Size() const { return 0; }
+    bool empty() const { return (Size() == 0); }
 
     // Suspended deletion resume hook for user function
     virtual void RetryDelete() { }
+    virtual bool MayDelete() const;
 
     DB *database() { return db_; }
     const DB *database() const { return db_; }
@@ -91,11 +93,16 @@ public:
 
     bool HasListeners() const;
 
+    bool HasWalkers() const { return walker_count_ != 0; }
+    void incr_walker_count() { walker_count_++; }
+    uint64_t decr_walker_count() { return --walker_count_; }
+
 private:
     class ListenerInfo;
     DB *db_;
     std::string name_;
     std::auto_ptr<ListenerInfo> info_;
+    uint64_t walker_count_;
 };
 
 // An implementation of DBTableBase that uses boost::set as data-store

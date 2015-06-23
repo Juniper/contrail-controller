@@ -413,26 +413,32 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
 bool BgpTable::MayDelete() const {
     CHECK_CONCURRENCY("bgp::Config");
 
-    //
-    // The route replicator may be still in the processes of cleaning up
-    // the table.
+    // Bail if the table has listeners.
     if (HasListeners()) {
         BGP_LOG_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                       "Paused table deletion due to pending listeners");
         return false;
     }
 
-    //
-    // This table cannot be deleted yet if any route is still present.
-    //
+    // Bail if the table has walkers.
+    if (HasWalkers()) {
+        BGP_LOG_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                      "Paused table deletion due to pending walkers");
+        return false;
+    }
+
+    // Bail if the table is not empty.
     size_t size = Size();
     if (size > 0) {
         BGP_LOG_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                       "Paused table deletion due to " << size <<
-                      " pending entries");
+                      " pending routes");
         return false;
     }
-    return true;
+
+    // Check the base class at the end so that we add custom checks
+    // before this if needed and to get more informative log message.
+    return DBTableBase::MayDelete();
 }
 
 void BgpTable::Shutdown() {

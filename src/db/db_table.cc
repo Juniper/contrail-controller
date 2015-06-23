@@ -102,7 +102,7 @@ private:
 };
 
 DBTableBase::DBTableBase(DB *db, const string &name)
-        : db_(db), name_(name), info_(new ListenerInfo()) {
+        : db_(db), name_(name), info_(new ListenerInfo()), walker_count_(0) {
 }
 
 DBTableBase::~DBTableBase() {
@@ -134,6 +134,20 @@ void DBTableBase::EnqueueRemove(DBEntryBase *db_entry) {
 
 void DBTableBase::RunNotify(DBTablePartBase *tpart, DBEntryBase *entry) {
     info_->RunNotify(tpart, entry);
+}
+
+bool DBTableBase::MayDelete() const {
+    if (HasListeners()) {
+        return false;
+    }
+    if (HasWalkers()) {
+        return false;
+    }
+    if (!empty()) {
+        return false;
+    }
+
+    return true;
 }
 
 bool DBTableBase::HasListeners() const {
