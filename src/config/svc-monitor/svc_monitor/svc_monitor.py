@@ -719,6 +719,7 @@ class SvcMonitor(object):
                     st.virtualization_type)
         except Exception:
             cgitb_error_log(self)
+        si.launch_count += 1
         self.logger.log_info("SI %s creation succeed" % (':').join(si.fq_name))
 
     def _delete_service_instance(self, vm):
@@ -790,7 +791,7 @@ def timer_callback(monitor):
     si_id_list = list(ServiceInstanceSM._dict.keys())
     for si_id in si_id_list:
         si = ServiceInstanceSM.get(si_id)
-        if not si:
+        if not si or not si.launch_count:
             continue
         if not monitor._check_service_running(si):
             monitor._relaunch_service_instance(si)
