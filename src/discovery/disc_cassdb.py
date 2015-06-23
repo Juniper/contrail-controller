@@ -168,7 +168,7 @@ class DiscoveryCassandraClient(object):
             col_name = ('subscriber', service_id,)
             try:
                 clients = self._disco_cf.get(service_type, column_start = col_name,
-                    column_finish = col_name)
+                    column_finish = col_name, column_count = disc_consts.MAX_COL)
             except pycassa.NotFoundException:
                 return None
             data = [(service_type, dict(clients))]
@@ -177,7 +177,7 @@ class DiscoveryCassandraClient(object):
             col_name = ('client', )
             try:
                 clients = self._disco_cf.get(service_type, column_start = col_name,
-                    column_finish = col_name)
+                    column_finish = col_name, column_count = disc_consts.MAX_COL)
             except pycassa.NotFoundException:
                 return None
             data = [(service_type, dict(clients))]
