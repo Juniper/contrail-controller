@@ -82,6 +82,9 @@ class ServiceMonitorDB(object):
         server_idx = 0
         num_dbnodes = len(self._args.cassandra_server_list)
         connected = False
+        cred = None
+        if self._args.cassandra_name is not None:
+            cred = {'username':self._args.cassandra_name,'password':self._args.cassandra_password}
 
         # Update connection info
         self._logger.db_conn_status_update(ConnectionStatus.INIT,
@@ -89,7 +92,7 @@ class ServiceMonitorDB(object):
         while not connected:
             try:
                 cass_server = self._args.cassandra_server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
+                sys_mgr = SystemManager(cass_server,credentials=cred)
                 connected = True
             except Exception as e:
                 # Update connection info
@@ -134,7 +137,8 @@ class ServiceMonitorDB(object):
                                            pool_size=10,
                                            pool_timeout=30,
                                            max_retries=-1,
-                                           timeout=0.5)
+                                           timeout=0.5,
+                                           credentials=cred)
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM

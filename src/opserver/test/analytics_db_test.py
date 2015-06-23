@@ -52,7 +52,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
     def tearDownClass(cls):
         if AnalyticsDbTest._check_skip_test() is True:
             return
-
         mockcassandra.stop_cassandra(cls.cassandra_port)
         mockredis.stop_redis(cls.redis_port)
         pass
@@ -71,7 +70,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.redis_port,
-                             self.__class__.cassandra_port))
+                             cassandra_port=self.__class__.cassandra_port))
         self.verify_database_purge(vizd_obj)
         return True
     # end test_00_database_purge_query
@@ -89,11 +88,54 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1,
-                             self.__class__.cassandra_port,
-                             redis_password='contrail'))
+                             redis_password='contrail',
+                             cassandra_port=self.__class__.cassandra_port
+                             ))
         self.verify_database_purge(vizd_obj)
         return True
     # end test_01_database_purge_query_with_redis_password
+
+    def test_02_database_purge_query_with_cassandra_password(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        and checks if database purge functonality is
+        is working properly
+        '''
+        logging.info("*** test_02_database_purge_query ***")
+        if AnalyticsDbTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             -1,
+                             cassandra_port=-1,
+                             cassandra_name='cassandra',
+                             cassandra_password='cassandra'))
+        self.verify_database_purge(vizd_obj)
+        return True
+    # end test_02_database_purge_query
+
+    def test_03_database_purge_query_with_redis_password_cassandra_password(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        and checks if database purge functonality is
+        is working properly with redis password
+        '''
+        logging.info("*** test_03_database_purge_query_with_redis_password ***")
+        if AnalyticsDbTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, -1,
+                             redis_password='contrail',
+                             cassandra_port=-1,
+                             cassandra_name='cassandra',
+                             cassandra_password='cassandra'))
+        self.verify_database_purge(vizd_obj)
+        return True
+    # end test_03_database_purge_query_with_redis_password
 
     def verify_database_purge(self, vizd_obj):
         assert vizd_obj.verify_on_setup()
