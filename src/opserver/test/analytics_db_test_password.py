@@ -43,7 +43,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                 assert(False)
 
         cls.cassandra_port = AnalyticsDbTest.get_free_port()
-        mockcassandra.start_cassandra(cls.cassandra_port)
+        mockcassandra.start_cassandra(cls.cassandra_port,
+            cassandra_user='cassandra', cassandra_password='cassandra')
         cls.redis_port = AnalyticsDbTest.get_free_port()
         mockredis.start_redis(
             cls.redis_port, builddir+'/testroot/bin/redis-server')
@@ -52,12 +53,12 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
     def tearDownClass(cls):
         if AnalyticsDbTest._check_skip_test() is True:
             return
-
         mockcassandra.stop_cassandra(cls.cassandra_port)
         mockredis.stop_redis(cls.redis_port)
         pass
 
-    def test_00_database_purge_query(self):
+
+    def test_00_database_purge_query_with_cassandra_password(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -70,13 +71,15 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
-                             self.__class__.cassandra_port))
+                             -1,
+                             self.__class__.cassandra_port,
+                             cassandra_user='cassandra',
+                             cassandra_password='cassandra'))
         self.verify_database_purge(vizd_obj)
         return True
-    # end test_00_database_purge_query
+    # end test_02_database_purge_query
 
-    def test_01_database_purge_query_with_redis_password(self):
+    def test_01_database_purge_query_with_redis_password_cassandra_password(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -91,10 +94,11 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
             AnalyticsFixture(logging, builddir, -1,
                              self.__class__.cassandra_port,
                              redis_password='contrail',
-                             ))
+                             cassandra_user='cassandra',
+                             cassandra_password='cassandra'))
         self.verify_database_purge(vizd_obj)
         return True
-    # end test_01_database_purge_query_with_redis_password
+    # end test_03_database_purge_query_with_redis_password
 
     def verify_database_purge(self, vizd_obj):
         assert vizd_obj.verify_on_setup()
