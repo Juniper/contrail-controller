@@ -3436,16 +3436,22 @@ class DBInterface(object):
 
         # create the object
         port_id = self._resource_create('virtual_machine_interface', port_obj)
+        #add support, nova boot --nic subnet-id=subnet_uuid
+        subnet_id = port_q['subnet_id'] if 'subnet_id' in port_q else None
         try:
             if 'fixed_ips' in port_q:
                 self._port_create_instance_ip(net_obj, port_obj, port_q)
             elif net_obj.get_network_ipam_refs():
                 if (ip_obj_v4_create is True):
                     self._port_create_instance_ip(net_obj, port_obj,
-                         {'fixed_ips':[{'ip_address': None}]}, ip_family="v4")
+                         {'fixed_ips':[{'ip_address': None,
+                                        'subnet_id':subnet_id}]},
+                                                  ip_family="v4")
                 if (ip_obj_v6_create is True):
                     self._port_create_instance_ip(net_obj, port_obj,
-                         {'fixed_ips':[{'ip_address': None}]}, ip_family="v6")
+                         {'fixed_ips':[{'ip_address': None,
+                                        'subnet_id':subnet_id}]},
+                                                  ip_family="v6")
         except vnc_exc.HttpError:
             # failure in creating the instance ip. Roll back
             self._virtual_machine_interface_delete(port_id=port_id)
