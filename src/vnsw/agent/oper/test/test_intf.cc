@@ -2817,7 +2817,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
     EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                                            vm_intf->ethernet_tag());
-    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt == NULL);
     evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
 
@@ -2831,8 +2831,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
-    EXPECT_TRUE(evpn_rt != NULL);
-    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    EXPECT_TRUE(evpn_rt == NULL);
     evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
     EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
@@ -2845,7 +2844,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
-    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt == NULL);
     evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
     EXPECT_TRUE(RouteFindV6("vrf1", addr, 128));

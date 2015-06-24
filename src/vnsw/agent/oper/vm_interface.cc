@@ -2901,7 +2901,7 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                 path_preference, ethernet_tag_);
     }
 
-    if (new_ip6_addr.is_unspecified() || layer3_forwarding_ == true) {
+    if (new_ip6_addr.is_unspecified() == false && layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
                 mac, this, new_ip6_addr,
                 l2_label_, vn_->GetName(), sg_id_list,
