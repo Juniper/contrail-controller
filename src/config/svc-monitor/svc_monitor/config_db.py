@@ -653,7 +653,7 @@ class ProjectSM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        self.update_multiple_refs('service_instance', {})
+        obj.update_multiple_refs('service_instance', {})
         del cls._dict[uuid]
     # end delete
 # end ProjectSM
@@ -846,7 +846,7 @@ class LogicalRouterSM(DBBase):
         cls._manager.snat_agent.delete_snat_instance(obj)
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_network', {})
-        self.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
 # end LogicalRouterSM
