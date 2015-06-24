@@ -442,15 +442,14 @@ int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
     memcpy(&md5sig.tcpm_addr, &local_addr, sizeof(local_addr));
     int retval = setsockopt(fd, IPPROTO_TCP, TCP_MD5SIG, &md5sig,
                             sizeof(md5sig));
-    // XXX: stop printing the password when ready
     if (retval < 0) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
-            "Failure in setting key " + md5_password + " on the socket " +
+            "Failure in setting md5 key on the socket " +
             integerToString(fd) + " for peer " + integerToString(peer_ip) +
             " with errno " + strerror(errno));
     } else {
         TCP_SERVER_LOG_DEBUG(this, TCP_DIR_NA,
-            "Success in setting key " + md5_password + " on the socket " +
+            "Success in setting md5 key on the socket " +
             integerToString(fd) + " for peer " + integerToString(peer_ip));
     }
     return retval;
