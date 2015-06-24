@@ -222,7 +222,6 @@ class PhysicalRouterDM(DBBase):
                 if ri_obj is None:
                     continue
                 if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
-                    vrf_name = vn_obj.get_vrf_name()
                     vrf_name_l2 = vn_obj.get_vrf_name(vrf_type='l2')
                     vrf_name_l3 = vn_obj.get_vrf_name(vrf_type='l3')
                     export_set = copy.copy(ri_obj.export_targets)
@@ -267,7 +266,7 @@ class PhysicalRouterDM(DBBase):
                     self._logger.error("DM can't allocate service interfaces for \
                                           (vn, vn-id)=(%s,%s)" % (vn_obj.fq_name, vn_obj.vn_network_id))
                 else:
-                    vrf_name = vrf_name[:123] + '-nat'
+                    vrf_name = vrf_name_l3[:123] + '-nat'
                     interfaces = []
                     service_ports = self.junos_service_ports.get('service_port')
                     interfaces.append(service_ports[0] + "." + str(service_port_id))
@@ -557,11 +556,18 @@ class VirtualMachineInterfaceDM(DBBase):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.device_owner = obj.get("virtual_machine_interface_device_owner")
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
         self.update_single_ref('instance_ip', obj)
     # end update
+
+    def is_device_owner_bms(self):
+        if not self.device_owner or self.device_owner.lower() == 'physicalrouter':
+            return True
+        return False
+    #end
 
     @classmethod
     def delete(cls, uuid):
@@ -618,13 +624,16 @@ class VirtualNetworkDM(DBBase):
                 self.gateways.add(subnet['default_gateway'])
     # end update
 
-    def get_vrf_name(self, vrf_type=None):
+    def get_vrf_name(self, vrf_type):
+        #this function must be called only after vn gets its vn_id
+        if self.vn_network_id is None:
+            self._logger.error("network id is null for vn: %s" % (self.fq_name[-1]))
+            return '_contrail_' + vrf_type + '_' + self.fq_name[-1]
         if vrf_type is None:
-            vrf_name = '__contrail__' + self.uuid + '_' + self.fq_name[-1]
-        elif vrf_type == 'l2':
-            vrf_name = '__contrail__l2_' + self.uuid + '_' + self.fq_name[-1]
+            self._logger.error("vrf type can't be null : %s" % (self.fq_name[-1]))
+            vrf_name = '_contrail_' + str(self.vn_network_id) + '_' + self.fq_name[-1]
         else:
-            vrf_name = '__contrail__l3_' + self.uuid + '_' + self.fq_name[-1]
+            vrf_name = '_contrail_' + vrf_type + '_' + str(self.vn_network_id) + '_' + self.fq_name[-1]
         #mx has limitation for vrf name, allowed max 127 chars
         return vrf_name[:127]
     #end
@@ -648,7 +657,7 @@ class VirtualNetworkDM(DBBase):
         self.instance_ip_map = {}
         for vmi_uuid in self.virtual_machine_interfaces:
             vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
-            if vmi is None:
+            if vmi is None or vmi.is_device_owner_bms() == False:
                 continue
             if vmi.floating_ip is not None and vmi.instance_ip is not None:
                 fip = FloatingIpDM.get(vmi.floating_ip)
@@ -658,7 +667,7 @@ class VirtualNetworkDM(DBBase):
                 instance_ip = inst_ip.instance_ip_address
                 floating_ip = fip.floating_ip_address
                 public_vn = VirtualNetworkDM.get(fip.public_network)
-                if public_vn is None:
+                if public_vn is None or public_vn.vn_network_id is None:
                     continue
                 public_vrf_name = public_vn.get_vrf_name(vrf_type='l3')
                 self.instance_ip_map[instance_ip] = {'floating_ip': floating_ip,
