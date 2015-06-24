@@ -571,9 +571,9 @@ bool RibOutUpdates::Empty() const {
     return true;
 }
 
-void RibOutUpdates::QueueJoin(int queue_id, int bit) {
+bool RibOutUpdates::QueueJoin(int queue_id, int bit) {
     UpdateQueue *queue = queue_vec_[queue_id];
-    queue->Join(bit);
+    return queue->Join(bit);
 }
 
 void RibOutUpdates::QueueLeave(int queue_id, int bit) {

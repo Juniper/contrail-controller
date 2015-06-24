@@ -118,7 +118,7 @@ public:
                      const RibPeerSet &bitset);
     UpdateMarker *GetMarker(int bit);
 
-    void Join(int bit);
+    bool Join(int bit);
     void Leave(int bit);
 
     bool CheckInvariants() const;
