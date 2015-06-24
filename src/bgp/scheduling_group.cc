@@ -777,7 +777,7 @@ void SchedulingGroup::GetPeerList(PeerList *plist) const {
 // active.
 //
 void SchedulingGroup::RibOutActive(RibOut *ribout, int queue_id) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask", "bgp::PeerMembership");
 
     WorkRibOutEnqueue(ribout, queue_id);
 }
@@ -835,7 +835,8 @@ auto_ptr<SchedulingGroup::WorkBase> SchedulingGroup::WorkDequeue() {
 // task if required.
 //
 void SchedulingGroup::WorkEnqueue(WorkBase *wentry) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask", "bgp::SendReadyTask");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask", "bgp::SendReadyTask",
+        "bgp::PeerMembership");
 
     tbb::mutex::scoped_lock lock(mutex_);
     work_queue_.push_back(wentry);
@@ -861,7 +862,7 @@ void SchedulingGroup::WorkPeerEnqueue(IPeerUpdate *peer) {
 // Enqueue a WorkRibOut to the work queue.
 //
 void SchedulingGroup::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask", "bgp::PeerMembership");
 
     WorkBase *wentry = new WorkRibOut(ribout, queue_id);
     WorkEnqueue(wentry);
