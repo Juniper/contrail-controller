@@ -707,6 +707,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     if (flow_key_nh()) {
         data.set_flow_key_idx(flow_key_nh()->id());
     }
+    /* For optional fields set the default values here. This will overwritten
+     * (if required) based on interface type */
+    data.set_ip6_addr("--NA--");
+    std::vector<StaticRouteSandesh> aap_list;
+    data.set_allowed_address_pair_list(aap_list);
+    data.set_subnet("--NA--");
+    data.set_sub_type("--NA--");
+    data.set_vrf_assign_acl_uuid("--NA--");
+    data.set_vmi_type("--NA--");
+    data.set_flood_unknown_unicast(false);
 
     switch (type_) {
     case Interface::PHYSICAL:
