@@ -483,8 +483,8 @@ sc_test = env.TestSuite('bgp-sc-test', sc_test_suite)
 env.Alias('src/bgp:sc_test', sc_test)
 
 # Stress Tests
-if 'BGP_STRESS_TEST_SUITE' in os.environ and \
-        os.environ['BGP_STRESS_TEST_SUITE'] != "0":
+envs = env.Dictionary()["ENV"]
+if 'BGP_STRESS_TEST_SUITE' in envs and envs['BGP_STRESS_TEST_SUITE'] != "0":
     env.Alias('src/bgp:bgp_stress_test_suite', env.TestSuite('bgp-stress-test',
               [
                   env.UnitTest('bgp_stress_test1', ['bgp_stress_test1.cc']),

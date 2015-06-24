@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#define __BGP_STRESS_TEST_SUITE__
 #include "bgp_stress_test.cc"
 
 int main(int argc, char **argv) {
