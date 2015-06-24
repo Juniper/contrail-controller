@@ -21,6 +21,8 @@ public:
     const InterfaceUveTable::FloatingIp *GetVmIntfFip(const VmInterface* intf,
         const string &fip, const string &vn);
     const UveVMInterfaceAgent &last_sent_uve() const { return uve_; }
+    InterfaceUveTable::UveInterfaceEntry* GetUveInterfaceEntry
+        (const std::string &name);
 private:
     uint32_t send_count_;
     uint32_t delete_count_;
