@@ -183,23 +183,23 @@ class PhysicalRouterConfig(object):
                     if_element = etree.SubElement(ri, "interface")
                     etree.SubElement(if_element, "name").text = interface
 
+            if ri_opt is None:
+                ri_opt = etree.SubElement(ri, "routing-options")
             if prefixes and fip_map is None:
-                if ri_opt is None:
-                    ri_opt = etree.SubElement(ri, "routing-options")
-                    static_config = etree.SubElement(ri_opt, "static")
+                static_config = etree.SubElement(ri_opt, "static")
                 for prefix in prefixes:
                     route_config = etree.SubElement(static_config, "route")
                     etree.SubElement(route_config, "name").text = prefix
                     etree.SubElement(route_config, "discard")
-                auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
-                ri_opt.append(etree.fromstring(auto_export))
+            auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
+            ri_opt.append(etree.fromstring(auto_export))
         else:
             etree.SubElement(ri, "instance-type").text = "virtual-switch"
 
         if fip_map is not None:
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
-                static_config = etree.SubElement(ri_opt, "static")
+            static_config = etree.SubElement(ri_opt, "static")
             route_config = etree.SubElement(static_config, "route")
             etree.SubElement(route_config, "name").text = "0.0.0.0/0"
             etree.SubElement(route_config, "next-hop").text = interfaces[0]
@@ -376,7 +376,7 @@ class PhysicalRouterConfig(object):
             services_config = self.services_config or etree.Element("services")
             service_name = 'sv-' + ri_name
             #mx has limitation for service-set and nat-rule name length, allowed max 63 chars
-            service_name = service_name[:56]
+            service_name = service_name[:20]
             service_set = etree.SubElement(services_config, "service-set")
             etree.SubElement(service_set, "name").text = service_name
             rule_count = len(fip_map)

@@ -274,7 +274,7 @@ class PhysicalRouterDM(DBBase):
                     interfaces.append(service_ports[0] + "." + str(service_port_id + 1))
                     self.config_manager.add_routing_instance(vrf_name,
                                                          import_set,
-                                                         export_set,
+                                                         set(),
                                                          None,
                                                          None,
                                                          False,
