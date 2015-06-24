@@ -1023,10 +1023,7 @@ uint16_t DhcpHandler::AddIpOption(uint32_t option, uint16_t opt_len,
         opt_len = AddIP(opt, opt_len, ipstr);
     }
 
-    if (option == DHCP_OPTION_DNS) {
-        // Add DNS servers from the IPAM dns method and server config also
-        opt_len = AddDnsServers(opt, opt_len);
-    } else if (option == DHCP_OPTION_ROUTER) {
+    if (option == DHCP_OPTION_ROUTER) {
         // Add our gw as well
         if (config_.gw_addr) {
             uint32_t gw = htonl(config_.gw_addr);
