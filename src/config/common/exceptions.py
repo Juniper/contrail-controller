@@ -18,6 +18,18 @@ class ServiceUnavailableError(VncError):
     # end __str__
 # end class ServiceUnavailableError
 
+class DatabaseUnavailableError(ServiceUnavailableError):
+    def __init__(self, db_type, code=None):
+        self._db_type = db_type
+        super(DatabaseUnavailableError, self).__init__(code)
+    # end __init__
+
+    def __str__(self):
+        return 'Error accessing %s database due to: %s' \
+               %(self._db_type, self._reason_code)
+    # end __str__
+# end class DatabaseUnavailableError
+
 class TimeOutError(VncError):
     def __init__(self, code):
         self._reason_code = code
