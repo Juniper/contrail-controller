@@ -773,13 +773,22 @@ void BgpStressTest::VerifyNoPeers() {
     }
 }
 
+// Each BGP peer sends its own route : n_peers_
+// Each Agent sends its own route per instance: nagents * ninstances
+// Per agent route, one route is injected by 1/2 bgp peers with same rd
+//      : nagents * ninstances
+// Per agent route, one route is injected by 1/2 bgp peers with different rds
+//      : nagents * ninstances * n_peers_/2
+//
+// Sum: n_peers_ + nagents * ninstances * (1 + 1 + n_peers_/2)
+// Expected: nroutes * (n_peers_ + nagents * ninstances * (2 + n_peers_/2))
 void BgpStressTest::VerifyControllerRoutes(int ninstances, int nagents,
-                                           int count) {
+                                           int nroutes) {
     if (!n_peers_) return;
 
     for (int i = 0; i < n_families_; ++i) {
         BgpTable *tb = rtinstance_->GetTable(families_[i]);
-        if (count && (n_agents_ || n_peers_) &&
+        if (nroutes && (n_agents_ || n_peers_) &&
             ((families_[i] == Address::INETVPN) ||
              (families_[i] == Address::INET6VPN))) {
 
@@ -789,19 +798,10 @@ void BgpStressTest::VerifyControllerRoutes(int ninstances, int nagents,
             int npeers = n_peers_;
             npeers += nagents;
 
-            //
-            // Each BGP peer sends its own route
-            //
-            // For each route received by the agent, we inject a route from
-            // each of the bgp peer as well. RD's are chosen such that half
-            // of those BGP routes have the same RD, and rest have unique RD
-            //
-            int bgp_routes = n_peers_;
-            bgp_routes += (nagents + (n_peers_/2) * nagents) * ninstances;
-            BGP_VERIFY_ROUTE_COUNT(tb, count *
-                ((n_agents_ ? (ninstances * nagents) : 0) + bgp_routes));
+            BGP_VERIFY_ROUTE_COUNT(tb,
+                nroutes * (n_peers_ + nagents * ninstances * (2 + n_peers_/2)));
         } else {
-            BGP_VERIFY_ROUTE_COUNT(tb, count);
+            BGP_VERIFY_ROUTE_COUNT(tb, nroutes);
         }
     }
 }
@@ -1017,11 +1017,11 @@ void BgpStressTest::AddBgpInet6VpnRoute(int peer_id, int route_id,
     // For odd peer_id's, choose hard-coded value; for even, choose the
     // peer_id. This is to have half of the RD's as dups.
     string peer_id_str = (peer_id & 1) ? "9999" : integerToHexString(peer_id);
-    // b's in the address for bgp-peer routes
-    string pre_prefix = "65412:" + peer_id_str + ":2001:bbbb:bbbb::";
 
-    // We will get 'n_peers_' routes with prefix 2001:bbbb:bbbb::0:0:route_id,
-    // each with its own RD.
+    // b's in the address for bgp-peer routes. We will get 'n_peers_' routes
+    // with prefix 2001:bbbb:bbbb::0:0:route_id, each with its own RD.
+    string pre_prefix;
+    pre_prefix = "65412:" + integerToHexString(peer_id) + ":2001:bbbb:bbbb::";
     Inet6VpnPrefix b_prefix6 =
         CreateInet6VpnPrefix(pre_prefix, 0, 0, route_id);
 
@@ -1213,8 +1213,10 @@ void BgpStressTest::DeleteBgpInet6VpnRoute(int peer_id, int route_id,
     // For odd peer_id's, choose hard-coded value; for even, choose the
     // peer_id. This is have half of the RD's as dups.
     string peer_id_str = (peer_id & 1) ? "9999" : integerToHexString(peer_id);
+
     // b's in the address for bgp-peer routes
-    string pre_prefix = "65412:" + peer_id_str + ":2001:bbbb:bbbb::";
+    string pre_prefix = "65412:";
+    pre_prefix = "65412:" + integerToHexString(peer_id) + ":2001:bbbb:bbbb::";
     Inet6VpnPrefix b_prefix6 =
         CreateInet6VpnPrefix(pre_prefix, 0, 0, route_id);
 
