@@ -206,7 +206,16 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         const PmsiTunnel *pmsi_tunnel = attr ? attr->pmsi_tunnel() : NULL;
         if (pmsi_tunnel &&
             pmsi_tunnel->tunnel_type == PmsiTunnelSpec::IngressReplication) {
-            *label = pmsi_tunnel->label;
+            const ExtCommunity *extcomm = attr ? attr->ext_community() : NULL;
+            if (extcomm && extcomm->ContainsTunnelEncapVxlan()) {
+                if (prefix->tag_ && prefix->tag_ <= kMaxVni) {
+                    *label = prefix->tag_;
+                } else {
+                    *label = pmsi_tunnel->label;
+                }
+            } else {
+                *label = pmsi_tunnel->label;
+            }
         }
         break;
     }
