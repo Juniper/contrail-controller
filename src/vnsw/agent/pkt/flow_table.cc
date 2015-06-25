@@ -1269,6 +1269,9 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
         if (is_flags_set(FlowEntry::IngressDir) ||
                 (ip_rt && ip_rt->IsHostRoute())) {
             rt = ip_rt;
+            if (rt) {
+                data_.l2_rpf_plen = rt->plen();
+            }
         }
     }
 
@@ -1952,24 +1955,37 @@ RouteFlowInfo *FlowTable::FindRouteFlowInfo(RouteFlowInfo *key) {
 ////////////////////////////////////////////////////////////////////////////
 // RouteFlowKey methods
 ////////////////////////////////////////////////////////////////////////////
-bool RouteFlowKey::FlowSrcMatch(const FlowEntry *flow) const {
+bool RouteFlowKey::FlowSrcMatch(const FlowEntry *flow, bool rpf_check) const {
     if (flow->data().flow_source_vrf != vrf)
         return false;
 
     if (flow->l3_flow() == false) {
-        return (flow->data().smac == mac);
+        if (flow->data().smac == mac) {
+            return true;
+        }
+        if (rpf_check == false) {
+            return false;
+        }
     }
 
-    if (flow->data().source_plen != plen ||
+    uint8_t flow_plen = flow->data().source_plen;
+    if (rpf_check && flow->l3_flow() == false) {
+        //Prefix of route used in rpf
+        //for layer 2 flow would be stored in
+        //l2  rpf prefix len variable
+        flow_plen = flow->data().l2_rpf_plen;
+    }
+
+    if (flow_plen != plen ||
         flow->key().family != family)
         return false;
 
     if (flow->key().family == Address::INET) {
         return (Address::GetIp4SubnetAddress(flow->key().src_addr.to_v4(),
-                                             flow->data().source_plen) == ip);
+                                             flow_plen) == ip);
     } else if (flow->key().family == Address::INET6) {
         return (Address::GetIp6SubnetAddress(flow->key().src_addr.to_v6(),
-                                             flow->data().source_plen) == ip);
+                                             flow_plen) == ip);
     } else {
         assert(0);
     }
@@ -2466,7 +2482,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *flow = (*fet_it).get();
-        if (key.FlowSrcMatch(flow) == false) {
+        if (key.FlowSrcMatch(flow, true) == false) {
             continue;
         }
 
@@ -2776,6 +2792,14 @@ void FlowTable::DeleteInetRouteFlowInfo(FlowEntry *fe) {
         RouteFlowKey dkey_dep(it->first, fe->key().dst_addr, it->second);
         DeleteInetRouteFlowInfoInternal(fe, dkey_dep);
     }
+
+    if (fe->l3_flow() == false) {
+        if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
+            RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src_addr,
+                              fe->data().l2_rpf_plen);
+            DeleteInetRouteFlowInfoInternal(fe, skey);
+        }
+    }
 }
 
 void FlowTable::DeleteL2RouteFlowInfo(FlowEntry *fe) {
@@ -3077,6 +3101,14 @@ void FlowTable::AddInetRouteFlowInfo (FlowEntry *fe) {
          it != fe->data().flow_dest_plen_map.end(); ++it) {
         RouteFlowKey dkey_dep(it->first, fe->key().dst_addr, it->second);
         AddInetRouteFlowInfoInternal(fe, dkey_dep);
+    }
+
+    if (fe->l3_flow() == false) {
+        if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
+            RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src_addr,
+                              fe->data().l2_rpf_plen);
+            AddInetRouteFlowInfoInternal(fe, skey);
+        }
     }
 }
 

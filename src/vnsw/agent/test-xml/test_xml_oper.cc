@@ -45,6 +45,8 @@ AgentUtXmlValidationNode *CreateValidateNode(const string &type,
         return new AgentUtXmlPktParseValidate(name, node);
     if (type == "fdb")
         return new AgentUtXmlL2RouteValidate(name, node);
+    if (type == "l3-route")
+        return new AgentUtXmlL3RouteValidate(name, node);
 }
 
 AgentUtXmlNode *CreateNode(const string &type, const string &name,
@@ -70,6 +72,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
         return new AgentUtXmlVmiVrf(name, id, node, test_case);
     if (type == "fdb" || type == "l2-route")
         return new AgentUtXmlL2Route(name, id, node, test_case);
+    if (type == "l3-route")
+        return new AgentUtXmlL3Route(name, id, node, test_case);
     if (type == "sg" || type == "securiy-group")
         return new AgentUtXmlSg(name, id, node, test_case);
     if (type == "iip" || type == "instance-ip")
@@ -105,6 +109,7 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddConfigEntry("vmi-vrf", CreateNode);
     test->AddConfigEntry("fdb", CreateNode);
     test->AddConfigEntry("l2-route", CreateNode);
+    test->AddConfigEntry("l3-route", CreateNode);
     test->AddConfigEntry("sg", CreateNode);
     test->AddConfigEntry("security-group", CreateNode);
     test->AddConfigEntry("instance-ip", CreateNode);
@@ -127,6 +132,7 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("pkt-parse", CreateValidateNode);
     test->AddValidateEntry("fdb", CreateValidateNode);
     test->AddValidateEntry("l2-route", CreateValidateNode);
+    test->AddValidateEntry("l3-route", CreateValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1434,4 +1440,149 @@ bool AgentUtXmlL2RouteValidate::Validate() {
 
 const string AgentUtXmlL2RouteValidate::ToString() {
     return ("FDB <"  + name() + ">");
+}
+
+AgentUtXmlL3Route::AgentUtXmlL3Route(const string &name, const uuid &id,
+                                     const xml_node &node,
+                                     AgentUtXmlTestCase *test_case) :
+    AgentUtXmlNode(name, node, false, test_case) {
+}
+
+AgentUtXmlL3Route::~AgentUtXmlL3Route() {
+}
+
+
+bool AgentUtXmlL3Route::ReadXml() {
+    if (GetStringAttribute(node(), "src-ip", &src_ip_) == false) {
+        cout << "Attribute \"ip\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "vrf", &vrf_) == false) {
+        cout << "Attribute \"vrf_\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    GetStringAttribute(node(), "ip", &ip_);
+    GetStringAttribute(node(), "vn", &vn_);
+    GetUintAttribute(node(), "plen", &plen_);
+    GetUintAttribute(node(), "vxlan_id", &vxlan_id_);
+    GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
+    GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
+    GetUintAttribute(node(), "sg", &sg_id_);
+    GetUintAttribute(node(), "label", &label_);
+    if (ip_.empty()) {
+        ip_ = "0.0.0.0";
+    }
+    return true;
+}
+
+bool AgentUtXmlL3Route::ToXml(xml_node *parent) {
+    assert(0);
+    return true;
+}
+
+void AgentUtXmlL3Route::ToString(string *str) {
+    *str = "L3-Route";
+    return;
+}
+
+string AgentUtXmlL3Route::NodeType() {
+    return "L3-Route";
+}
+
+bool AgentUtXmlL3Route::Run() {
+    Agent *agent = Agent::GetInstance();
+    InetUnicastAgentRouteTable *rt_table =
+        static_cast<InetUnicastAgentRouteTable *>
+        (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable(vrf_));
+
+    SecurityGroupList sg_list;
+    if (sg_id_)
+        sg_list.push_back(sg_id_);
+
+    TunnelType::TypeBmap bmap = 0;
+    TunnelEncapType::Encap encap =
+        TunnelEncapType::TunnelEncapFromString(tunnel_type_);
+    if (encap == TunnelEncapType::MPLS_O_GRE)
+        bmap |= (1 << TunnelType::MPLS_GRE);
+    if (encap == TunnelEncapType::MPLS_O_UDP)
+        bmap |= (1 << TunnelType::MPLS_UDP);
+    if (encap == TunnelEncapType::VXLAN)
+        bmap |= (1 << TunnelType::VXLAN);
+    if (op_delete()) {
+        rt_table->DeleteReq(bgp_peer_, vrf_,
+                            Ip4Address::from_string(src_ip_), plen_, NULL);
+    } else {
+        ControllerVmRoute *data =
+            ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,
+                                                     agent->fabric_vrf_name(),
+                                                     agent->router_id(), vrf_,
+                                                     Ip4Address::from_string(tunnel_dest_),
+                                                     bmap, label_, vn_, sg_list,
+                                                     PathPreference());
+        rt_table->AddRemoteVmRouteReq(bgp_peer_, vrf_,
+                                      Ip4Address::from_string(src_ip_), plen_,
+                                      data);
+    }
+}
+
+AgentUtXmlL3RouteValidate::AgentUtXmlL3RouteValidate(const string &name,
+                                                     const xml_node &node) :
+    AgentUtXmlValidationNode(name, node) {
+}
+
+AgentUtXmlL3RouteValidate::~AgentUtXmlL3RouteValidate() {
+}
+
+bool AgentUtXmlL3RouteValidate::ReadXml() {
+    if (GetStringAttribute(node(), "src-ip", &src_ip_) == false) {
+        cout << "Attribute \"mac\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "vrf", &vrf_) == false) {
+        cout << "Attribute \"vrf_\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "vn", &vn_) == false) {
+        cout << "Attribute \"vn\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    string addr = "";
+    GetStringAttribute(node(), "ip", &addr);
+    boost::system::error_code ec;
+    ip_ = IpAddress::from_string(addr, ec);
+
+    GetUintAttribute(node(), "vxlan_id", &vxlan_id_);
+    GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
+    GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
+    GetUintAttribute(node(), "intf", &intf_uuid_);
+
+    return true;
+}
+
+bool AgentUtXmlL3RouteValidate::Validate() {
+    Agent *agent = Agent::GetInstance();
+    InetUnicastAgentRouteTable *inet_table =
+        static_cast<InetUnicastAgentRouteTable *>
+        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_));
+    InetUnicastRouteEntry *rt =
+        inet_table->FindRoute(Ip4Address::from_string(src_ip_));
+    if (present() == false)
+        return (rt == NULL);
+
+    if (rt == NULL)
+        return false;
+
+    if (vn_ != "" && vn_ != rt->dest_vn_name())
+        return false;
+
+    return true;
+}
+
+const string AgentUtXmlL3RouteValidate::ToString() {
+    return ("IP route <"  + name() + ">");
 }

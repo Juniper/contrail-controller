@@ -220,7 +220,8 @@ struct FlowData {
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
-        vrf_assign_evaluated(false), pending_recompute(false), enable_rpf(true) {}
+        vrf_assign_evaluated(false), pending_recompute(false), enable_rpf(true),
+        l2_rpf_plen(Address::kMaxV4PrefixLen) {}
 
     MacAddress smac;
     MacAddress dmac;
@@ -258,6 +259,7 @@ struct FlowData {
     FlowRouteRefMap     flow_source_plen_map;
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
+    uint8_t l2_rpf_plen;
 };
 
 class FlowEntry {
@@ -517,7 +519,7 @@ struct RouteFlowKey {
     }
     virtual ~RouteFlowKey() {}
 
-    bool FlowSrcMatch(const FlowEntry *key) const;
+    bool FlowSrcMatch(const FlowEntry *key, bool rpf_check = false) const;
     bool FlowDestMatch(const FlowEntry *key) const;
 
     uint32_t vrf;
