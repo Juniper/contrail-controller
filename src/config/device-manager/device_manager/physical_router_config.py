@@ -183,23 +183,23 @@ class PhysicalRouterConfig(object):
                     if_element = etree.SubElement(ri, "interface")
                     etree.SubElement(if_element, "name").text = interface
 
+            if ri_opt is None:
+                ri_opt = etree.SubElement(ri, "routing-options")
             if prefixes and fip_map is None:
-                if ri_opt is None:
-                    ri_opt = etree.SubElement(ri, "routing-options")
-                    static_config = etree.SubElement(ri_opt, "static")
+                static_config = etree.SubElement(ri_opt, "static")
                 for prefix in prefixes:
                     route_config = etree.SubElement(static_config, "route")
                     etree.SubElement(route_config, "name").text = prefix
                     etree.SubElement(route_config, "discard")
-                auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
-                ri_opt.append(etree.fromstring(auto_export))
+            auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
+            ri_opt.append(etree.fromstring(auto_export))
         else:
             etree.SubElement(ri, "instance-type").text = "virtual-switch"
 
         if fip_map is not None:
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
-                static_config = etree.SubElement(ri_opt, "static")
+            static_config = etree.SubElement(ri_opt, "static")
             route_config = etree.SubElement(static_config, "route")
             etree.SubElement(route_config, "name").text = "0.0.0.0/0"
             etree.SubElement(route_config, "next-hop").text = interfaces[0]
@@ -234,7 +234,11 @@ class PhysicalRouterConfig(object):
             comm = etree.SubElement(then, "community")
             etree.SubElement(comm, "add")
             etree.SubElement(comm, "community-name").text = route_target.replace(':', '_') 
-        etree.SubElement(then, "accept")
+        if fip_map is not None:
+            #for nat instance
+            etree.SubElement(then, "reject")
+        else:
+            etree.SubElement(then, "accept")
 
         # add policies for import route targets
         ps = etree.SubElement(policy_config, "policy-statement")
@@ -253,45 +257,62 @@ class PhysicalRouterConfig(object):
         # add firewall config for public VRF
         forwarding_options_config = self.forwarding_options_config
         firewall_config = self.firewall_config
-        if router_external or fip_map is not None:
-            forwarding_options_config = self.forwarding_options_config or etree.Element("forwarding-options")
-            fo = etree.SubElement(forwarding_options_config, "family")
-            inet  = etree.SubElement(fo, "inet")
-            f = etree.SubElement(inet, "filter")
-            #mx has limitation for filter names, allowed max 63 chars
-            etree.SubElement(f, "input").text = "redirect_to_" + ri_name[:46] + "_vrf"
+        if router_external:
+            if self.forwarding_options_config is None:
+                forwarding_options_config = etree.Element("forwarding-options")
+                fo = etree.SubElement(forwarding_options_config, "family")
+                inet  = etree.SubElement(fo, "inet")
+                f = etree.SubElement(inet, "filter")
+                etree.SubElement(f, "input").text = "redirect_to_public_vrf_filter"
+                firewall_config = self.firewall_config or etree.Element("firewall")
+                fc = etree.SubElement(firewall_config, "family")
+                inet  = etree.SubElement(fc, "inet")
+                f = etree.SubElement(inet, "filter")
+                etree.SubElement(f, "name").text = "redirect_to_public_vrf_filter"
+                self.inet_forwarding_filter = f
+                term = etree.SubElement(f, "term")
+                etree.SubElement(term, "name").text= "default-term"
+                then_ = etree.SubElement(term, "then")
+                etree.SubElement(then_, "accept")
 
+            term = etree.Element("term")
+            etree.SubElement(term, "name").text= "term-" + ri_name[:59]
+            if prefixes:
+                from_ = etree.SubElement(term, "from")
+                etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
+            then_ = etree.SubElement(term, "then")
+            etree.SubElement(then_, "routing-instance").text = ri_name
+            #insert after 'name' element but before the last term
+            self.inet_forwarding_filter.insert(1, term) 
+
+        if fip_map is not None:
             firewall_config = self.firewall_config or etree.Element("firewall")
             fc = etree.SubElement(firewall_config, "family")
             inet  = etree.SubElement(fc, "inet")
             f = etree.SubElement(inet, "filter")
             etree.SubElement(f, "name").text = "redirect_to_" + ri_name[:46] + "_vrf"
             term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text= "t1"
-            if fip_map is not None:
-                from_ = etree.SubElement(term, "from")
-                etree.SubElement(from_, "destination-address").text = ';'.join(fip_map.keys())
-            elif prefixes:
-                from_ = etree.SubElement(term, "from")
-                etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
+            etree.SubElement(term, "name").text= "term-" + ri_name[:59]
+            from_ = etree.SubElement(term, "from")
+            for fip_user_ip in fip_map.keys():
+                etree.SubElement(from_, "source-address").text = fip_user_ip
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "routing-instance").text = ri_name
             term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text= "t2"
+            etree.SubElement(term, "name").text= "default-term"
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "accept")
 
-            if fip_map is not None:
-                interfaces_config = self.interfaces_config or etree.Element("interfaces")
-                irb_intf = etree.SubElement(interfaces_config, "interface")
-                etree.SubElement(irb_intf, "name").text = "irb"
-                intf_unit = etree.SubElement(irb_intf, "unit")
-                etree.SubElement(intf_unit, "name").text = str(private_vni)
-                family = etree.SubElement(intf_unit, "family")
-                inet = etree.SubElement(family, "inet")
-                f = etree.SubElement(inet, "filter")
-                input = etree.SubElement(f, "input")
-                etree.SubElement(input, "filter-name").text = "redirect_to_" + ri_name[:46] + "_vrf"
+            interfaces_config = self.interfaces_config or etree.Element("interfaces")
+            irb_intf = etree.SubElement(interfaces_config, "interface")
+            etree.SubElement(irb_intf, "name").text = "irb"
+            intf_unit = etree.SubElement(irb_intf, "unit")
+            etree.SubElement(intf_unit, "name").text = str(private_vni)
+            family = etree.SubElement(intf_unit, "family")
+            inet = etree.SubElement(family, "inet")
+            f = etree.SubElement(inet, "filter")
+            iput = etree.SubElement(f, "input")
+            etree.SubElement(iput, "filter-name").text = "redirect_to_" + ri_name[:46] + "_vrf"
               
         # add L2 EVPN and BD config
         bd_config = None
@@ -359,29 +380,29 @@ class PhysicalRouterConfig(object):
             services_config = self.services_config or etree.Element("services")
             service_name = 'sv-' + ri_name
             #mx has limitation for service-set and nat-rule name length, allowed max 63 chars
-            service_name = service_name[:56]
+            service_name = service_name[:23]
             service_set = etree.SubElement(services_config, "service-set")
             etree.SubElement(service_set, "name").text = service_name
-            rule_count = len(fip_map)
-            for rule_id in range(0, rule_count):
-                nat_rule = etree.SubElement(service_set, "nat-rules")
-                etree.SubElement(nat_rule, "name").text = service_name + "-sn-" + str(rule_id)
-                nat_rule = etree.SubElement(service_set, "nat-rules")
-                etree.SubElement(nat_rule, "name").text = service_name + "-dn-" + str(rule_id)
+            nat_rule = etree.SubElement(service_set, "nat-rules")
+            etree.SubElement(nat_rule, "name").text = service_name + "-sn-rule"
+            nat_rule = etree.SubElement(service_set, "nat-rules")
+            etree.SubElement(nat_rule, "name").text = service_name + "-dn-rule"
             next_hop_service = etree.SubElement(service_set, "next-hop-service")
             etree.SubElement(next_hop_service , "inside-service-interface").text = interfaces[0]
             etree.SubElement(next_hop_service , "outside-service-interface").text = interfaces[1]
 
             nat = etree.SubElement(services_config, "nat")
+            snat_rule = etree.SubElement(nat, "rule")
+            etree.SubElement(snat_rule, "name").text = service_name + "-sn-rule"
+            etree.SubElement(snat_rule, "match-direction").text = "input"
+            dnat_rule = etree.SubElement(nat, "rule")
+            etree.SubElement(dnat_rule, "name").text = service_name + "-dn-rule"
+            etree.SubElement(dnat_rule, "match-direction").text = "output"
 
-            rule_id = 0
             for pip, fip_vn in fip_map.items():
                 fip = fip_vn["floating_ip"]
-                rule = etree.SubElement(nat, "rule")
-                etree.SubElement(rule, "name").text = service_name + "-sn-" + str(rule_id)
-                etree.SubElement(rule, "match-direction").text = "input"
-                term = etree.SubElement(rule, "term")
-                etree.SubElement(term, "name").text = "t1"
+                term = etree.SubElement(snat_rule, "term")
+                etree.SubElement(term, "name").text = "term_" + pip.replace('.', '_')
                 from_ = etree.SubElement(term, "from")
                 src_addr = etree.SubElement(from_, "source-address")
                 etree.SubElement(src_addr, "name").text = pip + "/32"  # private ip
@@ -391,11 +412,8 @@ class PhysicalRouterConfig(object):
                 translation_type = etree.SubElement(translated, "translation-type")
                 etree.SubElement(translation_type, "basic-nat44")
 
-                rule = etree.SubElement(nat, "rule")
-                etree.SubElement(rule, "name").text = service_name + "-dn-" + str(rule_id)
-                etree.SubElement(rule, "match-direction").text = "output"
-                term = etree.SubElement(rule, "term")
-                etree.SubElement(term, "name").text = "t1"
+                term = etree.SubElement(dnat_rule, "term")
+                etree.SubElement(term, "name").text = "term_" + fip.replace('.', '_')
                 from_ = etree.SubElement(term, "from")
                 src_addr = etree.SubElement(from_, "destination-address")
                 etree.SubElement(src_addr, "name").text = fip + "/32" #public ip
@@ -404,7 +422,6 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(translated , "destination-prefix").text = pip + "/32" #source ip
                 translation_type = etree.SubElement(translated, "translation-type")
                 etree.SubElement(translation_type, "dnat-44")
-                rule_id = rule_id + 1
 
             interfaces_config = self.interfaces_config or etree.Element("interfaces")
             si_intf = etree.SubElement(interfaces_config, "interface")
@@ -511,6 +528,7 @@ class PhysicalRouterConfig(object):
         self.services_config = None
         self.policy_config = None
         self.firewall_config = None
+        self.inet_forwarding_filter = None
         self.forwarding_options_config = None
         self.global_routing_options_config = None
         self.proto_config = None
