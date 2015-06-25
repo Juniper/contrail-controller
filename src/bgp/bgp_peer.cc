@@ -709,6 +709,7 @@ const IPeerDebugStats *BgpPeer::peer_stats() const {
 }
 
 void BgpPeer::Clear(int subcode) {
+    CHECK_CONCURRENCY("bgp::Config");
     state_machine_->Shutdown(subcode);
 }
 
