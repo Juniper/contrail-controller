@@ -248,11 +248,18 @@ UpdateMarker *UpdateQueue::GetMarker(int bit) {
 // Since it's a new peer, it starts out at the tail marker.  Also add the
 // peer's bit index and the tail marker pair to the MarkerMap.
 //
-void UpdateQueue::Join(int bit) {
+// Return true if the tail marker is not the last entry in the queue. The
+// caller should trigger a tail dequeue for the RibOut if so to take care
+// of the possibility that all peers in the tail marker are blocked. Note
+// that a tail dequeue may already be pending in the SchedulingGroup, but
+// an extra one is harmless.
+//
+bool UpdateQueue::Join(int bit) {
     tbb::mutex::scoped_lock lock(mutex_);
     UpdateMarker *marker = &tail_marker_;
     marker->members.set(bit);
     markers_.insert(std::make_pair(bit, marker));
+    return (&tail_marker_ != &queue_.back());
 }
 
 //
