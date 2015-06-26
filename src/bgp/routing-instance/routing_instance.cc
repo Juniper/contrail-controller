@@ -55,11 +55,13 @@ private:
 
 RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
         server_(server),
+        deleted_count_(0),
         deleter_(new DeleteActor(this)),
         server_delete_ref_(this, server->deleter()) {
 }
 
 RoutingInstanceMgr::~RoutingInstanceMgr() {
+    assert(deleted_count_ == 0);
 }
 
 void RoutingInstanceMgr::ManagedDelete() {
@@ -421,11 +423,13 @@ public:
         return parent_->MayDelete();
     }
     virtual void Shutdown() {
+        parent_->mgr_->increment_deleted_count();
         parent_->mgr_->NotifyInstanceOp(parent_->name(),
                                         RoutingInstanceMgr::INSTANCE_DELETE);
         parent_->Shutdown();
     }
     virtual void Destroy() {
+        parent_->mgr_->decrement_deleted_count();
         parent_->mgr_->DestroyRoutingInstance(parent_);
     }
 
