@@ -53,6 +53,7 @@ struct ServiceChain {
     7: list<string> service_list;
     9: string protocol;
     10: bool created;
+    11: string error_msg;
 }
 
 response sandesh ServiceChainListResp {

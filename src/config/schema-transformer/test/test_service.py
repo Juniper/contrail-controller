@@ -138,6 +138,12 @@ class TestPolicy(test_case.STTestCase):
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
 
+    @retries(5, hook=retry_exc_handler)
+    def check_route_target_in_routing_instance(self, ri_name, rt_list):
+        ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
+        ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
+        self.assertTrue(set(rt_list) <= ri_rt_refs)
+
     def get_ri_name(self, vn, ri_name=None):
         return vn.get_fq_name() + [ri_name or vn.name]
 
@@ -339,6 +345,97 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy
+
+    def test_service_policy_no_vm(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        np.network_policy_entries.policy_rule[0].action_list.apply_service = ["default-domain:default-project:"+service_name]
+        np.set_network_policy_entries(np.network_policy_entries)
+        self._vnc_lib.network_policy_update(np)
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        np.network_policy_entries.policy_rule[0].action_list.apply_service = []
+        np.set_network_policy_entries(np.network_policy_entries)
+        self._vnc_lib.network_policy_update(np)
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end test_service_policy_no_vm
+
+    def test_multi_service_policy(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_names = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+        sc_ri_names = ['service-'+sc[0]+'-default-domain_default-project_' + s for s in service_names]
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_names[-1]),
+                                      self.get_ri_name(vn2_obj))
+
+        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_names[0]),
+                                       prefix='10.0.0.0/24')
+
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[1]))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[2]))
+
+
+        vn1_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end test_service_policy
+# end class TestPolicy
+
 # end class TestPolicy
 
 #class TestRouteTable(test_case.STTestCase):
@@ -556,7 +653,6 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        #self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
@@ -636,6 +732,46 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj, sc_ri_name))
     #end
+
+    # test logical router functionality
+    def test_logical_router(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create virtual machine interface
+        vmi_name = self.id() + 'vmi1'
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project', fq_name=['default-domain', 'default-project', vmi_name])
+        vmi.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        # create logical router
+        lr_name = self.id() + 'lr1'
+        lr = LogicalRouter(lr_name)
+        rtgt_list = RouteTargetList(route_target=['target:1:1'])
+        lr.set_configured_route_target_list(rtgt_list)
+        lr.add_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_create(lr)
+
+        ri_name = self.get_ri_name(vn1_obj)
+        self.check_route_target_in_routing_instance(ri_name, rtgt_list.get_route_target())
+
+        rtgt_list.add_route_target('target:1:2')
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_update(lr)
+        self.check_route_target_in_routing_instance(ri_name, rtgt_list.get_route_target())
+
+        rtgt_list.delete_route_target('target:1:1')
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_update(lr)
+        self.check_route_target_in_routing_instance(ri_name, rtgt_list.get_route_target())
+
+        lr.del_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_update(lr)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
 
     @retries(5, hook=retry_exc_handler)
     def check_bgp_peering(self, router1, router2, length):
