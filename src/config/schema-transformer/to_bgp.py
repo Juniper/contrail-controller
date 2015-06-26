@@ -1614,6 +1614,8 @@ class ServiceChain(DictST):
 
         self.present_stale = False
         self.created_stale = False
+
+        self.error_msg = None
     # end __init__
 
     def __eq__(self, other):
@@ -1683,7 +1685,70 @@ class ServiceChain(DictST):
             service_ri.add_service_info(vn2, service)
             _vnc_lib.routing_instance_update(service_ri.obj)
         # end for service
-    #end update_ipams
+    # end update_ipams
+
+    def log_error(self, msg):
+        self.error_msg = msg
+        _sandesh._logger.error('service chain %s: ' + msg)
+    # end log_error
+
+    def check_create(self):
+        # Check if this service chain can be created:
+        # - all service instances have VMs
+        # - all service instances have proper service mode
+        # - all service VMs have left and if needed, right interface
+        # If checks pass, return a dict containing mode and vm_list for all
+        # service instances so that we don't have to find them again
+        ret_dict = {}
+        for service in self.service_list:
+            vm_list = VirtualMachineST.get_by_service_instance(service)
+            if not vm_list:
+                self.log_error("No vms found for service instance " + service)
+                return None
+            vm_info_list = []
+            mode = None
+            for service_vm in vm_list:
+                vm_obj = VirtualMachineST.get(service_vm)
+                if vm_obj is None:
+                    self.log_error('virtual machine %s not found' % service_vm)
+                    return None
+                if mode is None:
+                    mode = vm_obj.get_service_mode()
+                    if mode is None:
+                        self.log_error("service mode not found: %s" % service_vm)
+                        return None
+                vm_info = {'vm_obj': vm_obj}
+
+                for interface_name in vm_obj.interfaces:
+                    interface = VirtualMachineInterfaceST.get(interface_name)
+                    if not interface:
+                        continue
+                    if interface.service_interface_type not in ['left',
+                                                                'right']:
+                        continue
+                    ip_addr = None
+                    if mode != 'transparent':
+                        ip_addr = interface.get_any_instance_ip_address()
+                        if ip_addr is None:
+                            self.log_error("No ip address found for interface "
+                                           + interface_name)
+                            return False
+                    vmi_info = {'vmi': interface, 'address': ip_addr}
+                    vm_info[interface.service_interface_type] = vmi_info
+
+                if 'left' not in vm_info:
+                    self.log_error('Left interface not found for %s' %
+                                   service_vm)
+                    return None
+                if ('right' not in vm_info and mode != 'in-network-nat' and
+                    self.direction == '<>'):
+                    self.log_error('Right interface not found for %s' %
+                                   service_vm)
+                    return None
+                vm_info_list.append(vm_info)
+            ret_dict[service] = {'mode': mode, 'vm_list': vm_info_list}
+        return ret_dict
+    # check_create
 
     def create(self):
         if self.created:
@@ -1691,14 +1756,38 @@ class ServiceChain(DictST):
             # already created
             return
 
+        si_info = self.check_create()
+        if si_info is None:
+            return
+        self._create(si_info)
+        if self.partially_created:
+            self.destroy()
+            return
+
+        uve = UveServiceChainData(name=self.name)
+        uve.source_virtual_network = self.left_vn
+        uve.destination_virtual_network = self.right_vn
+        if self.sp_list:
+            uve.source_ports = "%d-%d" % (
+                self.sp_list[0].start_port, self.sp_list[0].end_port)
+        if self.dp_list:
+            uve.destination_ports = "%d-%d" % (
+                self.dp_list[0].start_port, self.dp_list[0].end_port)
+        uve.protocol = self.protocol
+        uve.direction = self.direction
+        uve.services = copy.deepcopy(self.service_list)
+        uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
+        uve_msg.send(sandesh=_sandesh)
+    # end create
+
+    def _create(self, si_info):
         self.partially_created = True
         vn1_obj = VirtualNetworkST.locate(self.left_vn)
         vn2_obj = VirtualNetworkST.locate(self.right_vn)
         #sc_ip_address = vn1_obj.allocate_service_chain_ip(sc_name)
         if not vn1_obj or not vn2_obj:
-            _sandesh._logger.error(
-                "service chain %s: vn1_obj or vn2_obj is None", self.name)
-            return None
+            self.log_error("vn1_obj or vn2_obj is None")
+            return
 
         service_ri2 = vn1_obj.get_primary_routing_instance()
         first_node = True
@@ -1708,16 +1797,14 @@ class ServiceChain(DictST):
             service_ri1 = vn1_obj.locate_routing_instance(
                 service_name1, self.name)
             if service_ri1 is None or service_ri2 is None:
-                _sandesh._logger.debug("service chain %s: service_ri1 or "
-                                       "service_ri2 is None", self.name)
-                return None
+                self.log_error("service_ri1 or service_ri2 is None")
+                return
             service_ri2.add_connection(service_ri1)
             service_ri2 = vn2_obj.locate_routing_instance(
                 service_name2, self.name)
             if service_ri2 is None:
-                _sandesh._logger.error(
-                    "service chain %s: service_ri2 is None", self.name)
-                return None
+                self.log_error("service_ri2 is None")
+                return
 
             if first_node:
                 first_node = False
@@ -1727,27 +1814,7 @@ class ServiceChain(DictST):
                 service_ri1.update_route_target_list(rt_list,
                                                      import_export='export')
 
-            try:
-                si_obj = _vnc_lib.service_instance_read(
-                    fq_name_str=service, fields=['virtual_machine_back_refs'])
-                vm_refs = si_obj.get_virtual_machine_back_refs()
-            except NoIdError:
-                _sandesh._logger.error("NoIdError while reading service instance "
-                                       + service)
-                return None
-            if not vm_refs:
-                _sandesh._logger.error("No vm refs for service instance "
-                                       + service)
-                return None
-            vm_name = ':'.join(vm_refs[0]['to'])
-            vm_obj = VirtualMachineST.get(vm_name)
-            if vm_obj is None:
-                _sandesh._logger.error("VM %s not found" % vm_name)
-                return None
-            mode = vm_obj.get_service_mode()
-            if mode is None:
-                _sandesh._logger.error("service mode not found: %s" % vm_name)
-                return None
+            mode = si_info[service]['mode']
             nat_service = (mode == "in-network-nat")
             transparent = (mode not in ["in-network", "in-network-nat"])
             _sandesh._logger.info("service chain %s: creating %s chain",
@@ -1757,28 +1824,23 @@ class ServiceChain(DictST):
                 sc_ip_address = vn1_obj.allocate_service_chain_ip(
                     service_name1)
                 if sc_ip_address is None:
-                    return None
+                    self.log_error('Cannot allocate service chain ip address')
+                    return
                 service_ri1.add_service_info(vn2_obj, service, sc_ip_address)
                 if self.direction == "<>":
                     service_ri2.add_service_info(vn1_obj, service,
                                                  sc_ip_address)
 
-            for service_vm in vm_refs:
-                vm_obj = VirtualMachineST.get(':'.join(service_vm['to']))
-                if vm_obj is None:
-                    _sandesh._logger.info('virtual machine %s not found' %
-                                          service_vm['to'])
-                    continue
+            for vm_info in si_info[service]['vm_list']:
                 if transparent:
                     result = self.process_transparent_service(
-                        service_vm['uuid'], vm_obj, sc_ip_address, service_ri1,
-                        service_ri2)
+                        vm_info, sc_ip_address, service_ri1, service_ri2)
                 else:
                     result = self.process_in_network_service(
-                        vm_obj, service, vn1_obj, vn2_obj, service_ri1,
+                        vm_info, service, vn1_obj, vn2_obj, service_ri1,
                         service_ri2, nat_service)
                 if not result:
-                    return None
+                    return
             _vnc_lib.routing_instance_update(service_ri1.obj)
             _vnc_lib.routing_instance_update(service_ri2.obj)
 
@@ -1797,36 +1859,15 @@ class ServiceChain(DictST):
 
         self.created = True
         self.partially_created = False
+        self.error_msg = None
         self._service_chain_uuid_cf.insert(self.name,
                                            {'value': jsonpickle.encode(self)})
+    # end _create
 
-        uve = UveServiceChainData(name=self.name)
-        uve.source_virtual_network = self.left_vn
-        uve.destination_virtual_network = self.right_vn
-        if self.sp_list:
-            uve.source_ports = "%d-%d" % (
-                self.sp_list[0].start_port, self.sp_list[0].end_port)
-        if self.dp_list:
-            uve.destination_ports = "%d-%d" % (
-                self.dp_list[0].start_port, self.dp_list[0].end_port)
-        uve.protocol = self.protocol
-        uve.direction = self.direction
-        uve.services = copy.deepcopy(self.service_list)
-        uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
-        uve_msg.send(sandesh=_sandesh)
-
-        return self.name
-    # end process_service_chain
-
-    def add_pbf_rule(self, vmi_id, ri1, ri2, ip_address, vlan):
-        if_obj = _vnc_lib.virtual_machine_interface_read(id=vmi_id)
-        props = if_obj.get_virtual_machine_interface_properties()
-        if not props:
-            return None
-        interface_type = props.get_service_interface_type()
-        if interface_type not in ["left", "right"]:
-            return None
-        refs = if_obj.get_routing_instance_refs() or []
+    def add_pbf_rule(self, vmi, ri1, ri2, ip_address, vlan):
+        if vmi.service_interface_type not in ["left", "right"]:
+            return
+        refs = vmi.obj.get_routing_instance_refs() or []
         ri_refs = [ref['to'] for ref in refs]
 
         pbf = PolicyBasedForwardingRuleType()
@@ -1834,60 +1875,45 @@ class ServiceChain(DictST):
         pbf.set_vlan_tag(vlan)
         pbf.set_service_chain_address(ip_address)
 
-        if interface_type == 'left':
+        update = False
+        if vmi.service_interface_type == 'left':
             pbf.set_src_mac('02:00:00:00:00:01')
             pbf.set_dst_mac('02:00:00:00:00:02')
             if (ri1.get_fq_name() not in ri_refs):
-                if_obj.add_routing_instance(ri1.obj, pbf)
-                _vnc_lib.virtual_machine_interface_update(if_obj)
-        if interface_type == 'right' and self.direction == '<>':
+                vmi.obj.add_routing_instance(ri1.obj, pbf)
+                update = True
+        if vmi.service_interface_type == 'right' and self.direction == '<>':
             pbf.set_src_mac('02:00:00:00:00:02')
             pbf.set_dst_mac('02:00:00:00:00:01')
             if (ri2.get_fq_name() not in ri_refs):
-                if_obj.add_routing_instance(ri2.obj, pbf)
-                _vnc_lib.virtual_machine_interface_update(if_obj)
-        return interface_type
+                vmi.obj.add_routing_instance(ri2.obj, pbf)
+                update = True
+        if update:
+            _vnc_lib.virtual_machine_interface_update(vmi.obj)
+    # end add_pbf_rule
 
-    def process_transparent_service(self, vm_uuid, vm_obj, sc_ip_address,
+    def process_transparent_service(self, vm_info, sc_ip_address,
                                     service_ri1, service_ri2):
-        found = set()
-        vlan = VirtualNetworkST.allocate_service_chain_vlan(
-            vm_uuid, self.name)
-        for interface_name in vm_obj.interfaces:
-            interface = VirtualMachineInterfaceST.get(interface_name)
-            if interface is None:
-                return False
-            found.add(self.add_pbf_rule(interface.uuid, service_ri1,
-                                        service_ri2, sc_ip_address, vlan))
-        return 'left' in found and 'right' in found
+        vm_uuid = vm_info['vm_obj'].uuid
+        vlan = VirtualNetworkST.allocate_service_chain_vlan(vm_uuid,
+                                                            self.name)
+        self.add_pbf_rule(vm_info['left']['vmi'], service_ri1, service_ri2,
+                              sc_ip_address, vlan)
+        self.add_pbf_rule(vm_info['right']['vmi'], service_ri1, service_ri2,
+                              sc_ip_address, vlan)
+        return True
     # end process_transparent_service
 
-    def process_in_network_service(self, vm_obj, service, vn1_obj, vn2_obj,
+    def process_in_network_service(self, vm_info, service, vn1_obj, vn2_obj,
                                    service_ri1, service_ri2, nat_service):
-        left_found = False
-        right_found = False
-        for interface in vm_obj.interfaces:
-            if_obj = VirtualMachineInterfaceST.get(interface)
-            if (if_obj is None or
-                if_obj.service_interface_type not in ['left', 'right']):
-                _sandesh._logger.error("No interface found " + interface)
-                continue
-            ip_addr = if_obj.get_any_instance_ip_address()
-            if ip_addr is None:
-                _sandesh._logger.error(
-                        "No ip address found for interface " + if_obj.name)
-                return False
-
-            if if_obj.service_interface_type == 'left':
-                left_found = True
-                service_ri1.add_service_info(vn2_obj, service, ip_addr,
-                     vn1_obj.get_primary_routing_instance().get_fq_name_str())
-            elif self.direction == '<>' and not nat_service:
-                right_found = True
-                service_ri2.add_service_info(vn1_obj, service, ip_addr,
-                     vn2_obj.get_primary_routing_instance().get_fq_name_str())
-        return left_found and (nat_service or self.direction != '<>' or
-                               right_found)
+        service_ri1.add_service_info(
+            vn2_obj, service, vm_info['left']['address'],
+            vn1_obj.get_primary_routing_instance().get_fq_name_str())
+        if self.direction == '<>' and not nat_service:
+            service_ri2.add_service_info(
+                vn2_obj, service, vm_info['right']['address'],
+                vn1_obj.get_primary_routing_instance().get_fq_name_str())
+        return True
     # end process_in_network_service
 
     def destroy(self):
@@ -1942,6 +1968,7 @@ class ServiceChain(DictST):
         sc.direction = self.direction
         sc.service_list = self.service_list
         sc.created = self.created
+        sc.error_msg = self.error_msg
         return sc
     # end build_introspect
     
@@ -2222,7 +2249,7 @@ class VirtualMachineInterfaceST(DictST):
             vlan = VirtualNetworkST.allocate_service_chain_vlan(
                 vm_obj.uuid, service_chain.name)
 
-            service_chain.add_pbf_rule(self.uuid, service_ri, service_ri,
+            service_chain.add_pbf_rule(self, service_ri, service_ri,
                                        sc_ip_address, vlan)
     # end _add_pbf_rules
 
@@ -2453,11 +2480,12 @@ class FloatingIpST(DictST):
 
 class VirtualMachineST(DictST):
     _dict = {}
-
+    _si_dict = {}
     def __init__(self, name, si):
         self.name = name
         self.interfaces = set()
         self.service_instance = si
+        self._si_dict.setdefault(si, []).append(name)
         for vmi in VirtualMachineInterfaceST.values():
             if vmi.virtual_machine == name:
                 self.add_interface(vmi.name)
@@ -2470,6 +2498,9 @@ class VirtualMachineST(DictST):
         vm = cls.get(name)
         if vm is None:
             return
+        cls._si_dict[vm.service_instance].remove(name)
+        if not cls._si_dict[vm.service_instance]:
+            del cls._si_dict[vm.service_instance]
         del cls._dict[name]
     # end delete
 
@@ -2480,6 +2511,11 @@ class VirtualMachineST(DictST):
     def delete_interface(self, interface):
         self.interfaces.discard(interface)
     # end delete_interface
+
+    @classmethod
+    def get_by_service_instance(cls, service_instance):
+        return cls._si_dict.get(service_instance, [])
+    # end get_by_service_instance
 
     def get_service_mode(self):
         if self.service_instance is None:
