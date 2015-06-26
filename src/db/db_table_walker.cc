@@ -202,6 +202,7 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
                                     walkerfn, walk_complete);
         walkers_[i] = walker;
     }
+    table->incr_walker_count();
     return i;
 }
 
@@ -214,6 +215,7 @@ void DBTableWalker::WalkCancel(WalkId id) {
 void DBTableWalker::PurgeWalker(WalkId id) {
     tbb::mutex::scoped_lock lock(walkers_mutex_);
     Walker *walker = walkers_[id];
+    DBTable *table = walker->table_;
     delete walker;
     walkers_[id] = NULL;
     if ((size_t) id == walkers_.size() - 1) {
@@ -228,5 +230,10 @@ void DBTableWalker::PurgeWalker(WalkId id) {
             walker_map_.resize(id + 1);
         }
         walker_map_.set(id);
+    }
+
+    // Retry table deletion when the last walker is purged.
+    if (table->decr_walker_count() == 0) {
+        table->RetryDelete();
     }
 }
