@@ -97,7 +97,7 @@ public:
     void ManagedDelete();
     virtual void RetryDelete();
     void Shutdown();
-    bool MayDelete() const;
+    virtual bool MayDelete() const;
     bool IsDeleted() const { return deleter()->IsDeleted(); }
 
     RoutingInstance *routing_instance() { return rtinstance_; }

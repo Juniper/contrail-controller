@@ -405,9 +405,57 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
     }
 };
 
+static bool DummyWalkFunction(DBTablePartBase *root, DBEntryBase *entry) {
+    return true;
+}
+
+static void DummyWalkDoneFunction(DBTableBase *table) {
+}
+
 int BgpXmppUnitTest::validate_done_;
 
 namespace {
+
+TEST_F(BgpXmppUnitTest, TableDeleteWithPendingWalk) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    // Pause deletion for blue inet table.
+    BgpTable *blue_table = VerifyBgpTable("blue", Address::INET);
+    PauseDelete(blue_table->deleter());
+
+    // Unconfigure all instances.
+    // The blue instance and blue inet table should exist in deleted state.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    TASK_UTIL_EXPECT_TRUE(blue_table->IsDeleted());
+
+    // Stop the scheduler and resume delete of the table.
+    // This should create the bgp::Config Task to process lifetime manager
+    // work queue.
+    TaskScheduler::GetInstance()->Stop();
+    blue_table->deleter()->ResumeDelete();
+
+    // Start a bunch of table walks.
+    DBTableWalker *walker = a_->database()->GetWalker();
+    for (int idx = 0; idx < 128; ++idx) {
+        walker->WalkTable(
+            blue_table, NULL, DummyWalkFunction, DummyWalkDoneFunction);
+    }
+
+    // Start the scheduler.
+    // Table should get deleted only after all the walks are done.
+    TaskScheduler::GetInstance()->Start();
+
+    // The blue instance should have been destroyed.
+    VerifyNoRoutingInstance("blue");
+}
 
 TEST_F(BgpXmppUnitTest, Connection) {
     Configure();
