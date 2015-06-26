@@ -84,6 +84,7 @@ class BgpPeer::PeerClose : public IPeerClose {
     // attempt to bring up session with the neighbor
     //
     virtual bool CloseComplete(bool from_timer, bool gr_cancelled) {
+        peer_->server()->decrement_closing_count();
         if (!peer_->IsDeleted()) {
 
             //
@@ -119,8 +120,9 @@ class BgpPeer::PeerClose : public IPeerClose {
     }
 
     void Close() {
-        if (!is_closed_) {
+        if (!is_closed_ && !manager_->IsCloseInProgress()) {
             manager_->Close();
+            peer_->server()->increment_closing_count();
         }
     }
 
