@@ -1657,6 +1657,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, ParsePrefix_Error6) {
     EXPECT_NE(0, ec.value());
 }
 
+// Build and parse BgpProtoPrefix for reach, w/ ipv4.
+// Encap is not VXLAN, so label should be honored.
 TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix1) {
     string temp1("3-10.1.1.1:65535-");
     string temp2("-192.1.1.1");
@@ -1667,9 +1669,15 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix1) {
         EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
         EXPECT_EQ(0, ec.value());
 
-        BgpAttr attr1;
+        BgpAttrSpec attr_spec;
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(10000);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
         BgpProtoPrefix proto_prefix;
-        prefix1.BuildProtoPrefix(&attr1, 0, &proto_prefix);
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
             proto_prefix.prefixlen);
@@ -1677,19 +1685,20 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix1) {
             proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
-        BgpAttrPtr attr_in2(new BgpAttr(bs_->attr_db()));
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
-        EXPECT_EQ(attr_in2.get(), attr_out2.get());
-        EXPECT_EQ(0, label2);
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(10000, label2);
     }
 }
 
+// Build and parse BgpProtoPrefix for reach, w/ ipv6.
+// Encap is not VXLAN, so label should be honored.
 TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
     string temp1("3-10.1.1.1:65535-");
     string temp2("-2001:db8:0:9::1");
@@ -1700,9 +1709,15 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
         EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
         EXPECT_EQ(0, ec.value());
 
-        BgpAttr attr1;
+        BgpAttrSpec attr_spec;
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(10000);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
         BgpProtoPrefix proto_prefix;
-        prefix1.BuildProtoPrefix(&attr1, 0, &proto_prefix);
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
         EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
         EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
             proto_prefix.prefixlen);
@@ -1710,16 +1725,281 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
             proto_prefix.prefix.size());
 
         EvpnPrefix prefix2;
-        BgpAttrPtr attr_in2(new BgpAttr(bs_->attr_db()));
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
-        EXPECT_EQ(attr_in2.get(), attr_out2.get());
-        EXPECT_EQ(0, label2);
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(10000, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv4.
+// Tag is not 0, so label should be ignored.
+TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix3) {
+    string temp1("3-10.1.1.1:65535-");
+    string temp2("-192.1.1.1");
+    uint32_t tag_list[] = { 32, 10000, 1048575, 16777215 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(10000);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(tag, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv4.
+// Tag is 0, so label should be honored.
+TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix4) {
+    string temp1("3-10.1.1.1:65535-");
+    string temp2("-192.1.1.1");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label, label_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(0) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(label);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv4.
+// Tag is greater than kMaxVni, so label should be honored.
+TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix5) {
+    string temp1("3-10.1.1.1:65535-");
+    string temp2("-192.1.1.1");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label, label_list) {
+        boost::system::error_code ec;
+        string prefix_str =
+            temp1 + integerToString(EvpnPrefix::kMaxVni + 1) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(label);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 4) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 4,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv6.
+// Tag is not 0, so label should be ignored.
+TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix6) {
+    string temp1("3-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::1");
+    uint32_t tag_list[] = { 32, 10000, 1048575, 16777215 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(10000);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(tag, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv6.
+// Tag is 0, so label should be honored.
+TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix7) {
+    string temp1("3-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::1");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label, label_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(0) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(label);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label, label2);
+    }
+}
+
+// Build and parse BgpProtoPrefix for reach with VXLAN encap, w/ ipv6.
+// Tag is greater than kMaxVni, so label should be honored.
+TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix8) {
+    string temp1("3-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::1");
+    uint32_t label_list[] = { 32, 10000, 1048575 };
+    BOOST_FOREACH(uint32_t label, label_list) {
+        boost::system::error_code ec;
+        string prefix_str =
+            temp1 + integerToString(EvpnPrefix::kMaxVni + 1) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(label);
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), 0, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::InclusiveMulticastRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInclusiveMulticastRouteSize + 16) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInclusiveMulticastRouteSize + 16,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(label, label2);
     }
 }
 
