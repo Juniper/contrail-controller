@@ -256,6 +256,10 @@ public:
     const BgpServer *server() const { return server_; }
     LifetimeActor *deleter();
 
+    uint32_t deleted_count() const { return deleted_count_; }
+    void increment_deleted_count() { deleted_count_++; }
+    void decrement_deleted_count() { deleted_count_--; }
+
 private:
     friend class RoutingInstanceMgrTest;
     class DeleteActor;
@@ -272,6 +276,7 @@ private:
     RoutingInstanceList instances_;
     InstanceTargetMap target_map_;
     VnIndexMap vn_index_map_;
+    uint32_t deleted_count_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstanceMgr> server_delete_ref_;
     boost::dynamic_bitset<> bmap_;      // free list.

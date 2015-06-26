@@ -130,9 +130,14 @@ public:
 
     // Status
     uint32_t num_routing_instance() const;
+    uint32_t num_deleted_routing_instance() const;
     uint32_t num_bgp_peer() const {
         return (peer_bmap_.size() - peer_bmap_.count());
     }
+
+    uint32_t num_closing_bgp_peer() const { return closing_count_; }
+    void increment_closing_count() { closing_count_++; }
+    void decrement_closing_count() { closing_count_--; }
 
     uint32_t get_output_queue_depth() const;
 
@@ -189,6 +194,7 @@ private:
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
     tbb::atomic<uint32_t> num_up_peer_;
+    uint32_t closing_count_;
     BgpPeerList peer_list_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;

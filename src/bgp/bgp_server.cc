@@ -238,6 +238,7 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
+      closing_count_(0),
       lifetime_manager_(new BgpLifetimeManager(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -270,6 +271,7 @@ BgpServer::BgpServer(EventManager *evm)
 }
 
 BgpServer::~BgpServer() {
+    assert(closing_count_ == 0);
     assert(srt_manager_list_.empty());
 }
 
@@ -344,6 +346,11 @@ bool BgpServer::IsPeerCloseGraceful() {
 uint32_t BgpServer::num_routing_instance() const {
     assert(inst_mgr_.get());
     return inst_mgr_->count();
+}
+
+uint32_t BgpServer::num_deleted_routing_instance() const {
+    assert(inst_mgr_.get());
+    return inst_mgr_->deleted_count();
 }
 
 uint32_t BgpServer::get_output_queue_depth() const {

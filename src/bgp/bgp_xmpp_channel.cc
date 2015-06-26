@@ -478,6 +478,8 @@ BgpXmppChannel::~BgpXmppChannel() {
 
     if (manager_)
         manager_->RemoveChannel(channel_);
+    if (manager_ && close_in_progress_)
+        manager_->decrement_closing_count();
     STLDeleteElements(&defer_q_);
     assert(peer_->IsDeleted());
     channel_->UnRegisterReceive(peer_id_);
@@ -2218,7 +2220,11 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
     : xmpp_server_(xmpp_server),
       bgp_server_(server),
       queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-             boost::bind(&BgpXmppChannelManager::DeleteExecutor, this, _1)) {
+          boost::bind(&BgpXmppChannelManager::DeleteExecutor, this, _1)),
+      id_(-1),
+      asn_listener_id_(-1),
+      identifier_listener_id_(-1),
+      closing_count_(0) {
     queue_.SetEntryCallback(
             boost::bind(&BgpXmppChannelManager::IsReadyForDeletion, this));
     if (xmpp_server) {
@@ -2240,6 +2246,7 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
 
 BgpXmppChannelManager::~BgpXmppChannelManager() {
     assert(channel_map_.empty());
+    assert(closing_count_ == 0);
     if (xmpp_server_) {
         xmpp_server_->UnRegisterConnectionEvent(xmps::BGP);
     }
@@ -2352,6 +2359,8 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
 }
 
 void BgpXmppChannel::Close() {
+    if (manager_)
+        manager_->increment_closing_count();
     close_in_progress_ = true;
     vrf_membership_request_map_.clear();
     STLDeleteElements(&defer_q_);
