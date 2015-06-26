@@ -39,6 +39,7 @@ public:
     typedef std::map<std::string, IFMapClient *> ClientMap;
     typedef std::map<int, IFMapClient *> IndexMap;
     typedef ClientMap::size_type CmSz_t;
+    typedef IndexMap::size_type ImSz_t;
     IFMapServer(DB *db, DBGraph *graph, boost::asio::io_service *io_service);
     virtual ~IFMapServer();
 
@@ -96,6 +97,7 @@ public:
     void FillClientMap(IFMapServerShowClientMap *out_map);
     void FillIndexMap(IFMapServerShowIndexMap *out_map);
     const CmSz_t GetClientMapSize() const { return client_map_.size(); }
+    const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
     bool ClientNameToIndex(const std::string &id, int *index);
 

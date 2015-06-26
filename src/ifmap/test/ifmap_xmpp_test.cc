@@ -3532,6 +3532,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     // processing it and before the sender sends the update, we process a 
     // client-delete
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
+    EXPECT_EQ(ifmap_server_.GetIndexMapSize(), 1);
     task_util::TaskSchedulerStop();
     TriggerLinkDeleteToExporter(link, vr, vm1);
     TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) == NULL);
@@ -3540,7 +3541,8 @@ TEST_F(XmppIfmapTest, Bug788) {
 
     // Allow others to run
     usleep(1000);
-    EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.GetIndexMapSize(), 0);
 
     // Client close generates a TcpClose event on server
     ConfigUpdate(vnsw_client, new XmppConfigData());
