@@ -150,8 +150,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PortType">
     <xsd:sequence>
-        <xsd:element name="start-port" type="L4PortType"/>
-        <xsd:element name="end-port" type="L4PortType"/>
+        <xsd:element name="start-port" type="L4PortType" default="0"/>
+        <xsd:element name="end-port" type="L4PortType" default="65535"/>
     </xsd:sequence>
 </xsd:complexType>
 
