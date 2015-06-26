@@ -16,7 +16,9 @@ setup(
               'vrouter.sandesh.virtual_machine',
               'vrouter.sandesh.virtual_machine.port_bmap',
               'vrouter.sandesh.virtual_network',
-              'vrouter.sandesh.flow'
+              'vrouter.sandesh.flow',
+              'vrouter.sandesh.interface',
+              'vrouter.sandesh.interface.port_bmap',
              ],
     package_data={'':['*.html', '*.css', '*.xml']},
     zip_safe=False,
