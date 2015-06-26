@@ -110,6 +110,7 @@ class NamespaceManager {
     NamespaceState *GetState(NamespaceTask* task) const;
     void SetState(ServiceInstance *svc_instance, NamespaceState *state);
     void ClearState(ServiceInstance *svc_instance);
+    bool DeleteState(ServiceInstance *svc_instance);
     void UpdateStateStatusType(NamespaceTask* task, int status);
 
     void SetLastCmdType(ServiceInstance *svc_instance, int last_cmd_type);
@@ -144,7 +145,8 @@ class NamespaceManager {
     WorkQueue<NamespaceManagerChildEvent> work_queue_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
-    std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
+    typedef std::map<NamespaceTask *, ServiceInstance *> TaskSvcMap;
+    TaskSvcMap task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
     std::string loadbalancer_config_path_;
     std::string namespace_store_path_;
@@ -213,6 +215,20 @@ class NamespaceState : public DBState {
         return status_type_;
     }
 
+    int tasks_running() const {
+        return tasks_running_;
+    }
+
+    int incr_tasks_running() {
+        return ++tasks_running_;
+    }
+
+    int decr_tasks_running() {
+        tasks_running_--;
+        assert(!(tasks_running_ < 0));
+        return tasks_running_;
+    }
+
     void Clear();
 
  private:
@@ -221,6 +237,7 @@ class NamespaceState : public DBState {
     std::string errors_;
     std::string cmd_;
     int status_type_;
+    int tasks_running_;
 
     ServiceInstance::Properties properties_;
 

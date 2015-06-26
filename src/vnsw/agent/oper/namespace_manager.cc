@@ -198,6 +198,17 @@ void NamespaceManager::OnTaskTimeout(NamespaceTaskQueue *task_queue) {
 }
 
 void NamespaceManager::OnTaskTimeoutEventHandler(NamespaceManagerChildEvent event) {
+
+    ServiceInstance *svc_instance = GetSvcInstance(event.task);
+    if (svc_instance && svc_instance->IsDeleted()) {
+        NamespaceState *state = GetState(svc_instance);
+        if (state != NULL) {
+            ClearState(svc_instance);
+            delete state;
+        }
+        UnregisterSvcInstance(event.task);
+    }
+
     ScheduleNextTask(event.task_queue);
 }
 
@@ -212,6 +223,9 @@ void NamespaceManager::SigChlgEventHandler(NamespaceManagerChildEvent event) {
          if (!task_queue->Empty()) {
              NamespaceTask *task = task_queue->Front();
              if (task->pid() == event.pid) {
+                 //Get the sevice instance first, to delete the state later
+                 ServiceInstance* svc_instance = GetSvcInstance(task);
+
                  UpdateStateStatusType(task, event.status);
 
                  task_queue->Pop();
@@ -219,6 +233,7 @@ void NamespaceManager::SigChlgEventHandler(NamespaceManagerChildEvent event) {
 
                  task_queue->StopTimer();
 
+                 DeleteState(svc_instance);
                  ScheduleNextTask(task_queue);
                  return;
              }
@@ -235,7 +250,13 @@ void NamespaceManager::OnErrorEventHandler(NamespaceManagerChildEvent event) {
     NamespaceState *state = GetState(svc_instance);
     if (state != NULL) {
        state->set_errors(event.errors);
+       if (svc_instance->IsDeleted()) {
+          ClearState(svc_instance);
+          delete state;
+          UnregisterSvcInstance(event.task);
+       }
     }
+    ScheduleNextTask(event.task_queue);
 }
 
 bool NamespaceManager::DequeueEvent(NamespaceManagerChildEvent event) {
@@ -318,6 +339,22 @@ void NamespaceManager::InitSigHandler(AgentSignal *signal) {
         boost::bind(&NamespaceManager::HandleSigChild, this, _1, _2, _3, _4));
 }
 
+bool NamespaceManager::DeleteState(ServiceInstance *svc_instance) {
+    if (!svc_instance || !svc_instance->IsDeleted()) {
+        return false;
+    }
+
+    NamespaceState *state = GetState(svc_instance);
+    if (state && !state->tasks_running()) {
+        ClearState(svc_instance);
+        delete state;
+        ClearLastCmdType(svc_instance);
+        return true;
+    }
+
+    return false;
+}
+
 void NamespaceManager::StateClear() {
     DBTablePartition *partition = static_cast<DBTablePartition *>(
         agent_->service_instance_table()->GetTablePartition(0));
@@ -329,6 +366,7 @@ void NamespaceManager::StateClear() {
         if (state != NULL) {
             entry->ClearState(agent_->service_instance_table(), si_listener_);
             delete state;
+            ClearLastCmdType(static_cast<ServiceInstance *>(entry));
         }
         next = partition->GetNext(entry);
     }
@@ -419,6 +457,12 @@ void NamespaceManager::ScheduleNextTask(NamespaceTaskQueue *task_queue) {
                task_queue->StopTimer();
                task_queue->Pop();
 
+               ServiceInstance* svc_instance = GetSvcInstance(task);
+               if (state && svc_instance)
+                   state->decr_tasks_running();
+
+               DeleteState(svc_instance);
+
                delete task;
             } else {
                task->Stop();
@@ -429,7 +473,7 @@ void NamespaceManager::ScheduleNextTask(NamespaceTaskQueue *task_queue) {
 }
 
 ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
-    std::map<NamespaceTask *, ServiceInstance*>::const_iterator iter =
+    TaskSvcMap::const_iterator iter =
                     task_svc_instances_.find(task);
     if (iter != task_svc_instances_.end()) {
         return iter->second;
@@ -439,15 +483,23 @@ ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
 
 void NamespaceManager::RegisterSvcInstance(NamespaceTask *task,
                                            ServiceInstance *svc_instance) {
-    task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    pair<TaskSvcMap::iterator, bool> result =
+        task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    assert(result.second);
+
+    NamespaceState *state = GetState(svc_instance);
+    assert(state);
+    state->incr_tasks_running();
 }
 
 ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
-    for (std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+    for (TaskSvcMap::iterator iter =
                     task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
         if (task == iter->first) {
             ServiceInstance *svc_instance = iter->second;
+            NamespaceState *state = GetState(svc_instance);
+            state->decr_tasks_running();
             task_svc_instances_.erase(iter);
             return svc_instance;
         }
@@ -457,11 +509,15 @@ ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
 }
 
 void NamespaceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
-    std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+    NamespaceState *state = GetState(svc_instance);
+    assert(state);
+
+    TaskSvcMap::iterator iter =
         task_svc_instances_.begin();
     while(iter != task_svc_instances_.end()) {
         if (svc_instance == iter->second) {
             task_svc_instances_.erase(iter++);
+            state->decr_tasks_running();
         } else {
             ++iter;
         }
@@ -635,14 +691,14 @@ void NamespaceManager::EventObserver(
 
     NamespaceState *state = GetState(svc_instance);
     if (svc_instance->IsDeleted()) {
-        UnregisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
                 StopNetNS(svc_instance, state);
+                SetLastCmdType(svc_instance, Stop);
             }
-
-            ClearState(svc_instance);
-            delete state;
+            if (DeleteState(svc_instance)) {
+                return;
+            }
         }
         ClearLastCmdType(svc_instance);
     } else {
@@ -722,7 +778,7 @@ void NamespaceManager::SetNamespaceStorePath(std::string path) {
  * NamespaceState class
  */
 NamespaceState::NamespaceState() : DBState(),
-        pid_(0), status_(0), status_type_(0) {
+        pid_(0), status_(0), status_type_(0), tasks_running_(0) {
 }
 
 void NamespaceState::Clear() {
