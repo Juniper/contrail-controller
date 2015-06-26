@@ -2119,6 +2119,7 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
     map<int, bool> established;
     map<int, uint32_t> flap_count;
 
+    // Remember flap counts and bring down peers.
     BOOST_FOREACH(int peer_id, peer_ids) {
         if (peer_id >= (int) peers_.size() || !peers_[peer_id]) continue;
 
@@ -2126,23 +2127,30 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
                                     peers_[peer_id]->peer()->flap_count()));
         established.insert(make_pair(peer_id,
             peers_[peer_id]->peer()->GetState() == StateMachine::ESTABLISHED));
-        peers_[peer_id]->peer()->Clear(BgpProto::Notification::AdminReset);
+        peers_[peer_id]->peer()->SetAdminState(true);
     }
 
+    // Verify that established peers did flap.
     BOOST_FOREACH(int peer_id, peer_ids) {
-        if (peer_id >= (int) peers_.size() || !peers_[peer_id]) continue;
-
-        //
-        // If the peer was established, first make sure that it did flap
-        //
+        if (peer_id >= (int) peers_.size() || !peers_[peer_id])
+            continue;
         if (established[peer_id]) {
             TASK_UTIL_EXPECT_TRUE(peers_[peer_id]->peer()->flap_count() >
                                 flap_count[peer_id]);
         }
+    }
 
-        //
-        // Wait for the peer to come back up
-        //
+    // Bring up peers.
+    BOOST_FOREACH(int peer_id, peer_ids) {
+        if (peer_id >= (int) peers_.size() || !peers_[peer_id])
+            continue;
+        peers_[peer_id]->peer()->SetAdminState(false);
+    }
+
+    // Wait for peers to come back up.
+    BOOST_FOREACH(int peer_id, peer_ids) {
+        if (peer_id >= (int) peers_.size() || !peers_[peer_id])
+            continue;
         BGP_WAIT_FOR_PEER_STATE(peers_[peer_id]->peer(),
                                 StateMachine::ESTABLISHED);
     }
