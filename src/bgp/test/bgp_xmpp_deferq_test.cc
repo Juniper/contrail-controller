@@ -2157,6 +2157,410 @@ TEST_F(BgpXmppUnitTest, CreateRoutingInstanceWithPeerCloseInProgress2) {
     task_util::WaitForIdle();
 }
 
+TEST_F(BgpXmppUnitTest, AddDeleteInetRouteWithoutRegister1) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteRoute("blue", "10.1.1.1/32");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteInetRouteWithoutRegister2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteRoute("blue", "10.1.1.1/32");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteInetRouteWithoutRegister3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe and unsubscribe to the blue instance. The requests will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Unsubscribe("blue", 1);
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Add a route with pending unsubscribe.
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteRoute("blue", "10.1.1.1/32");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Resume the peer membership manager and bring down the session.
+    ResumePeerRibMembershipManager();
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister1) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddInet6Route("blue", "cafe::1/128");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteInet6Route("blue", "cafe::1/128");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddInet6Route("blue", "cafe::1/128");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteInet6Route("blue", "cafe::1/128");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe and unsubscribe to the blue instance. The requests will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Unsubscribe("blue", 1);
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Add a route with pending unsubscribe.
+    agent_a_->AddInet6Route("blue", "cafe::1/128");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteInet6Route("blue", "cafe::1/128");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Resume the peer membership manager and bring down the session.
+    ResumePeerRibMembershipManager();
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteMcastRouteWithoutRegister1) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddMcastRoute("blue", "225.0.0.1,90.1.1.1", "10.1.1.1", "10-20");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteMcastRoute("blue", "225.0.0.1,90.1.1.1");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteMcastRouteWithoutRegister2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddMcastRoute("blue", "225.0.0.1,90.1.1.1", "10.1.1.1", "10-20");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteMcastRoute("blue", "225.0.0.1,90.1.1.1");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteMcastRouteWithoutRegister3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe and unsubscribe to the blue instance. The requests will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Unsubscribe("blue", 1);
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Add a route with pending unsubscribe.
+    agent_a_->AddMcastRoute("blue", "225.0.0.1,90.1.1.1", "10.1.1.1", "10-20");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteMcastRoute("blue", "225.0.0.1,90.1.1.1");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Resume the peer membership manager and bring down the session.
+    ResumePeerRibMembershipManager();
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteEnetRouteWithoutRegister1) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddEnetRoute("blue", "aa:0:0:0:0:01,10.1.1.1/32", "192.168.1.1");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteEnetRoute("blue", "aa:0:0:0:0:01,10.1.1.1/32");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteEnetRouteWithoutRegister2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Add a route without registering.
+    agent_a_->AddEnetRoute("blue", "aa:0:0:0:0:01,10.1.1.1/32", "192.168.1.1");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteEnetRoute("blue", "aa:0:0:0:0:01,10.1.1.1/32");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, AddDeleteEnetRouteWithoutRegister3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe and unsubscribe to the blue instance. The requests will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Unsubscribe("blue", 1);
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Add a route with pending unsubscribe.
+    agent_a_->AddEnetRoute("blue", "aa:0:0:0:0:01,10.1.1.1/32", "192.168.1.1");
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Wait for the session to get established again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    old_flap_count = agent_a_->flap_count();
+
+    // Delete a route without registering.
+    agent_a_->DeleteEnetRoute("blue", "aa:0:0:0:0:01,10.1.1.1/32");
+
+    // Make sure session on agent flapped again.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Resume the peer membership manager and bring down the session.
+    ResumePeerRibMembershipManager();
+    agent_a_->SessionDown();
+}
+
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq1) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();

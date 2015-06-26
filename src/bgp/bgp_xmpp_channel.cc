@@ -737,6 +737,7 @@ bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
 //
 bool BgpXmppChannel::GetMembershipInfo(BgpTable *table,
     int *instance_id, RequestType *req_type) {
+    *instance_id = -1;
     RoutingTableMembershipRequestMap::iterator loc =
         routingtable_membership_request_map_.find(table->name());
     if (loc != routingtable_membership_request_map_.end()) {
@@ -756,15 +757,68 @@ bool BgpXmppChannel::GetMembershipInfo(BgpTable *table,
 //
 bool BgpXmppChannel::GetMembershipInfo(const string &vrf_name,
     int *instance_id) {
+    *instance_id = -1;
     VrfMembershipRequestMap::iterator loc =
         vrf_membership_request_map_.find(vrf_name);
     if (loc != vrf_membership_request_map_.end()) {
         *instance_id = loc->second;
         return true;
     } else {
-        *instance_id = -1;
         return false;
     }
+}
+
+//
+// Verify that there's a subscribe or pending subscribe for the table
+// corresponding to the vrf and family.
+// If there's a subscribe, populate the table and instance_id.
+// If there's a pending subscribe, populate the instance_id.
+// The subscribe_pending parameter is set appropriately.
+//
+// Return true if there's a subscribe or pending subscribe, false otherwise.
+//
+bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
+    Address::Family family, BgpTable **table,
+    int *instance_id, bool *subscribe_pending) {
+    *table = NULL;
+    *subscribe_pending = false;
+
+    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
+    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
+    if (rt_instance != NULL && !rt_instance->deleted()) {
+        *table = rt_instance->GetTable(family);
+        RequestType req_type;
+        if (GetMembershipInfo(*table, instance_id, &req_type)) {
+            // Bail if there's a pending unsubscribe.
+            if (req_type != SUBSCRIBE) {
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Received route after unsubscribe");
+                return false;
+            }
+            *subscribe_pending = true;
+        } else {
+            // Bail if we are not subscribed to the table.
+            if (*instance_id < 0) {
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Received route without subscribe");
+                return false;
+            }
+        }
+    } else {
+        // Bail if there's no pending subscribe.
+        if (GetMembershipInfo(vrf_name, instance_id)) {
+            *subscribe_pending = true;
+        } else {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+               SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+               "Received route without pending subscribe");
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
@@ -780,7 +834,6 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         return false;
     }
 
-    // NLRI ipaddress/mask
     if (item.entry.nlri.af != BgpAf::IPv4) {
         BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
            BGP_LOG_FLAG_ALL, "Unsupported address family:" << item.entry.nlri.af
@@ -820,54 +873,16 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         }
     }
 
-    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
-    bool subscribe_pending = false;
-    int instance_id = -1;
-    BgpTable *table = NULL;
-    // Build the key to the Multicast DBTable
-    PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
-    if (rt_instance != NULL && !rt_instance->deleted()) {
-        table = rt_instance->GetTable(Address::ERMVPN);
-        if (table == NULL) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Inet Multicast table not found");
-            return false;
-        }
-
-        RequestType req_type;
-        if (GetMembershipInfo(table, &instance_id, &req_type)) {
-            if (req_type != SUBSCRIBE) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                   SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                   "Inet Multicast Route not processed "
-                   "as no subscription pending");
-                return false;
-            }
-            subscribe_pending = true;
-        } else {
-            // Bail if we are not subscribed to the table
-            if (instance_id < 0) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                   SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                   "Inet Multicast Route not processed "
-                   "as peer is not registered");
-                return false;
-            }
-        }
-    } else {
-        // Check if Registration is pending before routing instance create
-        if (GetMembershipInfo(vrf_name, &instance_id)) {
-            subscribe_pending = true;
-        } else {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-               SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-               "Inet Multicast Route not processed as no subscription pending");
-            return false;
-        }
+    bool subscribe_pending;
+    int instance_id;
+    BgpTable *table;
+    if (!VerifyMembership(vrf_name, Address::ERMVPN, &table, &instance_id,
+        &subscribe_pending)) {
+        channel_->Close();
+        return false;
     }
 
+    // Build the key to the Multicast DBTable
     RouteDistinguisher mc_rd(peer_->bgp_identifier(), instance_id);
     ErmVpnPrefix mc_prefix(ErmVpnPrefix::NativeRoute, mc_rd,
         grp_address.to_v4(), src_address.to_v4());
@@ -989,14 +1004,6 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     }
 
     assert(table);
-    if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-            BGP_LOG_FLAG_ALL,
-            "Peer:" << peer_.get() << " not subscribed to table " <<
-            table->name());
-        return false;
-    }
-
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                           SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                           "Inet Multicast Group"
@@ -1044,52 +1051,13 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         return false;
     }
 
-    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
-    bool subscribe_pending = false;
-    int instance_id = -1;
-    BgpTable *table = NULL;
-    if (rt_instance != NULL && !rt_instance->deleted()) {
-        table = rt_instance->GetTable(Address::INET);
-        if (table == NULL) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Inet table not found");
-            return false;
-        }
-
-        RequestType req_type;
-        if (GetMembershipInfo(table, &instance_id, &req_type)) {
-            // We have rxed unregister request for a table and
-            // receiving route update for the same table
-            if (req_type != SUBSCRIBE) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Received route update after unregister req : " <<
-                    table->name());
-                return false;
-            }
-            subscribe_pending = true;
-        } else {
-            // Bail if we are not subscribed to the table
-            if (instance_id < 0) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                   SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                   "Peer:" << peer_.get() << " not subscribed to table " <<
-                   table->name());
-                return false;
-            }
-        }
-    } else {
-        // Check if Registration is pending before routing instance create
-        if (GetMembershipInfo(vrf_name, &instance_id)) {
-            subscribe_pending = true;
-        } else {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-               SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-               "Inet Route not processed as no subscription pending");
-            return false;
-        }
+    bool subscribe_pending;
+    int instance_id;
+    BgpTable *table;
+    if (!VerifyMembership(vrf_name, Address::INET, &table, &instance_id,
+        &subscribe_pending)) {
+        channel_->Close();
+        return false;
     }
 
     InetTable::RequestData::NextHops nexthops;
@@ -1273,51 +1241,13 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         return false;
     }
 
-    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
-    bool subscribe_pending = false;
-    int instance_id = -1;
-    BgpTable *table = NULL;
-    if (rt_instance != NULL && !rt_instance->deleted()) {
-        table = rt_instance->GetTable(Address::INET6);
-        if (table == NULL) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                  BGP_LOG_FLAG_ALL, "Inet6 table not found");
-            return false;
-        }
-
-        RequestType req_type;
-        if (GetMembershipInfo(table, &instance_id, &req_type)) {
-            // We have rxed unregister request for a table and
-            // receiving route update for the same table
-            if (req_type != SUBSCRIBE) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Received route update after unregister req : "
-                    << table->name());
-                return false;
-            }
-            subscribe_pending = true;
-        } else {
-            if (instance_id < 0) {
-                // Bail if we are not subscribed to the table
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Peer:" << peer_.get() << " not subscribed to table " <<
-                    table->name());
-                return false;
-            }
-        }
-    } else {
-        // Check if Registration is pending before routing instance create
-        if (GetMembershipInfo(vrf_name, &instance_id)) {
-            subscribe_pending = true;
-        } else {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Inet6 Route not processed as no subscription pending");
-            return false;
-        }
+    bool subscribe_pending;
+    int instance_id;
+    BgpTable *table;
+    if (!VerifyMembership(vrf_name, Address::INET6, &table, &instance_id,
+        &subscribe_pending)) {
+        channel_->Close();
+        return false;
     }
 
     Inet6Table::RequestData::NextHops nexthops;
@@ -1553,50 +1483,13 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         }
     }
 
-    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
-    bool subscribe_pending = false;
-    int instance_id = -1;
-    BgpTable *table = NULL;
-    if (rt_instance != NULL && !rt_instance->deleted()) {
-        table = rt_instance->GetTable(Address::EVPN);
-        if (table == NULL) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                BGP_LOG_FLAG_ALL, "Evpn table not found");
-            return false;
-        }
-
-        RequestType req_type;
-        if (GetMembershipInfo(table, &instance_id, &req_type)) {
-            // We have rxed unregister request for a table and
-            // receiving route update for the same table
-            if (req_type != SUBSCRIBE) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Received route update after unregister req : "
-                    << table->name());
-                return false;
-            }
-            subscribe_pending = true;
-        } else {
-            if (instance_id < 0) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                   SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                   "Peer:" << peer_.get() << " not subscribed to table " <<
-                   table->name());
-                return false;
-            }
-        }
-    } else {
-        // Check if Registration is pending before routing instance create
-        if (GetMembershipInfo(vrf_name, &instance_id)) {
-            subscribe_pending = true;
-        } else {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-               SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-               "Evpn Route not processed as no subscription pending");
-            return false;
-        }
+    bool subscribe_pending;
+    int instance_id;
+    BgpTable *table;
+    if (!VerifyMembership(vrf_name, Address::EVPN, &table, &instance_id,
+        &subscribe_pending)) {
+        channel_->Close();
+        return false;
     }
 
     RouteDistinguisher rd;
