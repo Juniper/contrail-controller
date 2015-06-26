@@ -239,7 +239,7 @@ class PhysicalRouterDM(DBBase):
                                                              vn_obj.prefixes,
                                                              vn_obj.gateways,
                                                              vn_obj.router_external,
-                                                             ["irb" + "." + str(vn_obj.vxlan_vni)])
+                                                             ["irb" + "." + str(vn_obj.vn_network_id)])
                         self.config_manager.add_routing_instance(vrf_name_l2,
                                                              import_set,
                                                              export_set,
@@ -247,7 +247,8 @@ class PhysicalRouterDM(DBBase):
                                                              vn_obj.gateways,
                                                              vn_obj.router_external,
                                                              interfaces,
-                                                             vn_obj.vxlan_vni)
+                                                             vn_obj.vxlan_vni,
+                                                             None, vn_obj.vn_network_id)
                     else:
                         self.config_manager.add_routing_instance(vrf_name_l3,
                                                              import_set,
@@ -256,7 +257,8 @@ class PhysicalRouterDM(DBBase):
                                                              vn_obj.gateways,
                                                              vn_obj.router_external,
                                                              interfaces,
-                                                             vn_obj.vxlan_vni)
+                                                             vn_obj.vxlan_vni,
+                                                             None, vn_obj.vn_network_id)
 
                     break
 
@@ -279,7 +281,7 @@ class PhysicalRouterDM(DBBase):
                                                          False,
                                                          interfaces,
                                                          None,
-                                                         vn_obj.instance_ip_map, vn_obj.vxlan_vni)
+                                                         vn_obj.instance_ip_map, vn_obj.vn_network_id)
 
         self.config_manager.send_bgp_config()
         self.uve_send()
