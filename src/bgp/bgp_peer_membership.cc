@@ -206,9 +206,14 @@ void IPeerRib::RegisterRibOut(RibExportPolicy policy) {
     ribout_->RegisterListener();
     ribout_->Register(ipeer_);
 
+    int index = ribout_->GetPeerIndex(ipeer_);
     RibOutUpdates *updates = ribout_->updates();
-    updates->QueueJoin(RibOutUpdates::QUPDATE, ribout_->GetPeerIndex(ipeer_));
-    updates->QueueJoin(RibOutUpdates::QBULK, ribout_->GetPeerIndex(ipeer_));
+    SchedulingGroup *group = ribout_->GetSchedulingGroup();
+    assert(group);
+    if (updates->QueueJoin(RibOutUpdates::QUPDATE, index))
+        group->RibOutActive(ribout_, RibOutUpdates::QUPDATE);
+    if (updates->QueueJoin(RibOutUpdates::QBULK, index))
+        group->RibOutActive(ribout_, RibOutUpdates::QBULK);
 
     SetRibOutRegistered(true);
 }
@@ -222,9 +227,10 @@ void IPeerRib::RegisterRibOut(RibExportPolicy policy) {
 // of the RibOut itself.
 //
 void IPeerRib::UnregisterRibOut() {
+    int index = ribout_->GetPeerIndex(ipeer_);
     RibOutUpdates *updates = ribout_->updates();
-    updates->QueueLeave(RibOutUpdates::QUPDATE, ribout_->GetPeerIndex(ipeer_));
-    updates->QueueLeave(RibOutUpdates::QBULK, ribout_->GetPeerIndex(ipeer_));
+    updates->QueueLeave(RibOutUpdates::QUPDATE, index);
+    updates->QueueLeave(RibOutUpdates::QBULK, index);
 
     ribout_->Unregister(ipeer_);
     ribout_ = NULL;
