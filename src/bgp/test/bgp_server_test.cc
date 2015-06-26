@@ -1921,18 +1921,14 @@ TEST_F(BgpServerUnitTest, HoldTimeChange) {
             TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_b->hold_time());
         }
 
-        // Clear all the sessions.
+        // Clear all the sessions by setting peers to admin down on A.
         for (int j = 0; j < peer_count; j++) {
             string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
             BgpPeer *peer_a =
                 a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            peer_a->Clear(BgpProto::Notification::AdminReset);
+            peer_a->SetAdminState(true);
             task_util::WaitForIdle();
-
-            BgpPeer *peer_b =
-                b_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            peer_b->Clear(BgpProto::Notification::AdminReset);
-            task_util::WaitForIdle();
+            peer_a->SetAdminState(false);
         }
 
         VerifyPeers(peer_count);
@@ -2236,15 +2232,15 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
     PausePeerRibMembershipManager(a_.get());
 
     //
-    // Trigger close of peers on A
+    // Trigger close of peers on A by making B send notifications
     // Peer close will be started but not completed since peer membership
     // manager has been paused
     //
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        peer_a->Clear(BgpProto::Notification::AdminReset);
+        peer_b->SetAdminState(true);
     }
 
     //
@@ -2254,6 +2250,7 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
+        peer_b->SetAdminState(false);
         TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 3);
     }
 
@@ -2333,23 +2330,27 @@ TEST_F(BgpServerUnitTest, CloseDeferred) {
     }
 
     //
-    // Trigger close of peers on A
+    // Trigger close of peers on A by making B send notifications
     // Peer close will be deferred since peer membership manager was paused
     // before the peers got established
     //
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        peer_a->Clear(BgpProto::Notification::AdminReset);
+        peer_b->SetAdminState(true);
     }
 
+    //
+    // Note down notification counts and bring up peers on B
+    //
     vector<size_t> b_rx_notification(peer_count);
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         b_rx_notification[j] = peer_b->get_rx_notification();
+        peer_b->SetAdminState(false);
     }
 
     //
