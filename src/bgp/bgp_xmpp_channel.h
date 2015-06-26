@@ -276,6 +276,11 @@ public:
     uint32_t NumUpPeer() const {
         return channel_map_.size();
     }
+
+    uint32_t closing_count() const { return closing_count_; }
+    void increment_closing_count() { closing_count_++; }
+    void decrement_closing_count() { closing_count_--; }
+
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
 
@@ -293,6 +298,7 @@ private:
     int id_;
     int asn_listener_id_;
     int identifier_listener_id_;
+    uint32_t closing_count_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };
