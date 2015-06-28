@@ -10,6 +10,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
 
+#include <oper/oper_db.h>
 #include <filter/traffic_action.h>
 #include <filter/acl_entry_match.h>
 #include <filter/acl_entry_spec.h>
@@ -54,17 +55,22 @@ struct MatchAclParams {
     bool terminal_rule;
 };
 
-struct AclKey : public AgentKey {
-    AclKey(uuid id) : AgentKey(), uuid_(id) {} ;
+struct AclKey : public AgentOperDBKey {
+    AclKey(const uuid &id) : AgentOperDBKey(), uuid_(id) {} ;
     virtual ~AclKey() {};
 
     uuid uuid_;    
 };
 
-struct AclData: public AgentData {
-    AclData(AclSpec &aclspec) : AgentData(), ace_id_to_del_(0), ace_add(false), acl_spec_(aclspec) { };
-    AclData(int ace_id_to_del) : AgentData(), ace_id_to_del_(ace_id_to_del) { };
-    virtual ~AclData() { };
+struct AclData: public AgentOperDBData {
+    AclData(Agent *agent, IFMapNode *node, AclSpec &aclspec) :
+        AgentOperDBData(agent, node), ace_id_to_del_(0), ace_add(false),
+        acl_spec_(aclspec) {
+    }
+    AclData(Agent *agent, IFMapNode *node, int ace_id_to_del) :
+        AgentOperDBData(agent, node), ace_id_to_del_(ace_id_to_del) {
+    }
+    virtual ~AclData() { }
 
     // Delete a particular ace
     int ace_id_to_del_;
@@ -74,15 +80,18 @@ struct AclData: public AgentData {
     AclSpec acl_spec_;
 };
 
-class AclDBEntry : AgentRefCount<AclDBEntry>, public AgentDBEntry {
+class AclDBEntry : AgentRefCount<AclDBEntry>, public AgentOperDBEntry {
 public:
     typedef boost::intrusive::member_hook<AclEntry,
             boost::intrusive::list_member_hook<>, 
             &AclEntry::acl_list_node> AclEntryNode;
     typedef boost::intrusive::list<AclEntry, AclEntryNode> AclEntries;
     
-    AclDBEntry(uuid id) : uuid_(id), dynamic_acl_(false) { };
-    ~AclDBEntry() { };
+    AclDBEntry(const uuid &id) :
+        AgentOperDBEntry(), uuid_(id), dynamic_acl_(false) {
+    }
+    ~AclDBEntry() {
+    }
 
     bool IsLess(const DBEntry &rhs) const;
     KeyPtr GetDBRequestKey() const;
@@ -122,7 +131,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(AclDBEntry);
 };
 
-class AclTable : public AgentDBTable {
+class AclTable : public AgentOperDBTable {
 public:
     typedef std::map<std::string, TrafficAction::Action> TrafficActionMap;
     // Packet module is optional. Callback function to update the flow stats
@@ -133,7 +142,7 @@ public:
     typedef boost::function<void(const AclDBEntry *acl, AclFlowResp &data,
                                  const int last_count)> FlowAclSandeshDataFn;
 
-    AclTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
+    AclTable(DB *db, const std::string &name) : AgentOperDBTable(db, name) { }
     virtual ~AclTable() { }
     void GetTables(DB *db) { };
 
@@ -141,15 +150,12 @@ public:
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
 
-    virtual DBEntry *Add(const DBRequest *req);
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual bool Delete(DBEntry *entry, const DBRequest *req);
+    virtual DBEntry *OperDBAdd(const DBRequest *req);
+    virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                             const std::string &peer_type, IFMapNode *peer,
-                             DBRequest &req);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 

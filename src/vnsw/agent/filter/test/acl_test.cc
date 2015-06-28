@@ -141,7 +141,7 @@ TEST_F(AclTest, Basic) {
     
     DBRequest req;
     AclKey *key = new AclKey(acl_id);
-    AclData *pd = new AclData(acl_spec);
+    AclData *pd = new AclData(Agent::GetInstance(), NULL, acl_spec);
 
     req.key.reset(key);
     req.data.reset(pd);
@@ -163,7 +163,7 @@ TEST_F(AclTest, Basic) {
     
     DBRequest req1;
     AclKey *key1 = new AclKey(acl_id);
-    AclData *pd1 = new AclData(acl_spec1);
+    AclData *pd1 = new AclData(Agent::GetInstance(), NULL, acl_spec1);
 
     req1.key.reset(key1);
     req1.data.reset(pd1);
@@ -213,7 +213,7 @@ TEST_F(AclTest, Basic1) {
 
     DBRequest req;
     AclKey *key = new AclKey(acl_id);
-    AclData *pd = new AclData(acl_spec);
+    AclData *pd = new AclData(Agent::GetInstance(), NULL, acl_spec);
 
     req.key.reset(key);
     req.data.reset(pd);
@@ -258,7 +258,7 @@ TEST_F(AclTest, PacketMatching) {
 
     DBRequest req;
     AclKey *key = new AclKey(acl_id);
-    AclData *pd = new AclData(acl_spec);
+    AclData *pd = new AclData(Agent::GetInstance(), NULL, acl_spec);
 
     req.key.reset(key);
     req.data.reset(pd);

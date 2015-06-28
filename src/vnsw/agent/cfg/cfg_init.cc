@@ -31,6 +31,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/service_instance.h>
 #include <oper/loadbalancer.h>
+#include <oper/physical_device.h>
 
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -119,53 +120,27 @@ void AgentConfig::RegisterDBClients(DB *db) {
     cfg_listener_->Register("service-instance",
                             agent_->service_instance_table(),
                             ::autogen::ServiceInstance::ID_PERMS);
+    cfg_listener_->Register("physical-router", agent_->physical_device_table(),
+                             autogen::PhysicalRouter::ID_PERMS);
+    cfg_listener_->Register("physical-interface", agent_->interface_table(),
+                             autogen::PhysicalInterface::ID_PERMS);
+    cfg_listener_->Register("logical-interface", agent_->interface_table(),
+                             autogen::LogicalInterface::ID_PERMS);
 
     cfg_listener_->Register("loadbalancer-pool",
                             agent_->loadbalancer_table(),
                             ::autogen::LoadbalancerPool::ID_PERMS);
 
     cfg_listener_->Register("routing-instance", agent_->vrf_table(), -1);
-    cfg_listener_->Register("virtual-network-network-ipam", 
-                            boost::bind(&VnTable::IpamVnSync, _1), -1);
     cfg_listener_->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
                             agent_->domain_config_table(), _1), -1);
     cfg_listener_->Register("virtual-DNS", boost::bind(&DomainConfig::VDnsSync, 
                             agent_->domain_config_table(), _1), -1);
-    cfg_listener_->Register
-        ("virtual-machine-interface-routing-instance", 
-         boost::bind(&InterfaceTable::VmInterfaceVrfSync,
-                     agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("instance-ip", boost::bind(&VmInterface::InstanceIpSync,
-                                    agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("floating-ip", boost::bind(&VmInterface::FloatingIpVnSync,
-                                    agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("floating-ip-pool", boost::bind(&VmInterface::FloatingIpPoolSync,
-                                         agent_->interface_table(), _1), -1);
 
     cfg_listener_->Register
         ("global-vrouter-config",
          boost::bind(&GlobalVrouter::GlobalVrouterConfig,
                      agent_->oper_db()->global_vrouter(), _1), -1);
-
-    cfg_listener_->Register
-        ("subnet", boost::bind(&VmInterface::SubnetSync,
-                               agent_->interface_table(), _1), -1);
-
-    // Register for IFMapLinks
-    cfg_listener_->LinkRegister
-        ("virtual-network", agent_->vn_table());
-    cfg_listener_->LinkRegister
-        ("routing-instance", agent_->vrf_table());
-    cfg_listener_->LinkRegister
-        ("security-group", agent_->sg_table());
-    cfg_listener_->LinkRegister
-        ("access-control-list", agent_->acl_table());
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "virtual-machine-interface")));

@@ -27,6 +27,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/oper_dhcp_options.h>
 #include <oper/physical_device_vn.h>
+#include <oper/config_manager.h>
 #include <filter/acl.h>
 #include "net/address_util.h"
 
@@ -327,6 +328,13 @@ bool VnTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
     VnEntry *vn = static_cast<VnEntry *>(entry);
     vn->SendObjectLog(AgentLogEvent::CHANGE);
+    if (ret) {
+        VnData *data = static_cast<VnData *>(req->data.get());
+        if (data && data->ifmap_node()) {
+            agent()->oper_db()->dependency_manager()->PropogateNodeChange
+                (data->ifmap_node());
+        }
+    }
     return ret;
 }
 
@@ -457,21 +465,6 @@ DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
     return vn_table_;
 };
 
-void VnTable::RegisterDBClients(IFMapDependencyManager *dep) {
-    typedef IFMapDependencyTracker::PropagateList PropagateList;
-    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
-
-    ReactionMap react_vn = map_list_of<string, PropagateList>
-            (("self"),
-             list_of("virtual-network-virtual-machine-interface")
-                    ("virtual-machine-interface-virtual-network"))
-            ("virtual-network-network-ipam",
-             list_of("virtual-machine-interface-virtual-network"));
-    dep->RegisterReactionMap("virtual-network", react_vn);
-    dep->Register("virtual-network",
-                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this, _1));
-}
-
 /*
  * IsVRFServiceChainingInstance
  * Helper function to identify the service chain vrf.
@@ -527,6 +520,42 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
             return adj_node;
     }
     return NULL;
+}
+
+static int GetCfgVnId(VirtualNetwork *cfg_vn) {
+    if (cfg_vn->IsPropertySet(autogen::VirtualNetwork::NETWORK_ID))
+        return cfg_vn->network_id();
+    else
+        return cfg_vn->properties().network_id;
+}
+
+int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    if (Agent::GetInstance()->vxlan_network_identifier_mode() == 
+        Agent::CONFIGURED) {
+        return cfg->properties().vxlan_network_identifier;
+    } else {
+        return GetCfgVnId(cfg);
+    }
+}
+
+void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
+                                 bool *rpf, bool *flood_unknown_unicast) {
+    *l2 = true;
+    *l3 = true;
+    *rpf = true;
+
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    autogen::VirtualNetworkType properties = cfg->properties();
+    if (properties.forwarding_mode == "l2") {
+        *l3 = false;
+    }
+
+    if (properties.rpf == "disable") {
+        *rpf = false;
+    }
+
+    *flood_unknown_unicast = cfg->flood_unknown_unicast();
 }
 
 VnData *VnTable::BuildData(IFMapNode *node) {
@@ -612,60 +641,20 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     uuid mirror_acl_uuid = agent()->mirror_cfg_table()->GetMirrorUuid(node->name());
     std::sort(vn_ipam.begin(), vn_ipam.end());
 
-    // Fetch VN Properties
-    bool enable_rpf = true;
-    if (cfg->properties().rpf == "disable") {
-        enable_rpf = false;
-    }
-    bool bridging = true;
-    bool layer3_forwarding = true;
-    autogen::VirtualNetworkType properties = cfg->properties();
-    if (properties.forwarding_mode == "l2") {
-        layer3_forwarding = false;
-    }
-
-    int network_id;
-    if (cfg->IsPropertySet(autogen::VirtualNetwork::NETWORK_ID))
-        network_id = cfg->network_id();
-    else
-        network_id = cfg->properties().network_id;
-
-    bool flood_unknown_unicast = cfg->flood_unknown_unicast();
-    return new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
-                      mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
-                      cfg->properties().vxlan_network_identifier,
-                      network_id, bridging, layer3_forwarding,
-                      cfg->id_perms().enable, enable_rpf, flood_unknown_unicast);
+    // Fetch VN forwarding Properties
+    bool bridging;
+    bool layer3_forwarding;
+    bool enable_rpf;
+    bool flood_unknown_unicast;
+    CfgForwardingFlags(node, &bridging, &layer3_forwarding, &enable_rpf,
+                       &flood_unknown_unicast);
+    return new VnData(agent(), node, node->name(), acl_uuid, vrf_name,
+                      mirror_acl_uuid, mirror_cfg_acl_uuid, vn_ipam,
+                      vn_ipam_data, cfg->properties().vxlan_network_identifier,
+                      GetCfgVnId(cfg), bridging, layer3_forwarding,
+                      cfg->id_perms().enable, enable_rpf,
+                      flood_unknown_unicast);
 }
-
-// Change to ACL referernce can result in change of Policy flag
-// on interfaces. Find all interfaces on this VN and RESYNC them.
-// This is also required to check changes to admin_state and to
-// the enable_dhcp flag in the VN subnets (VN Ipam).
-// TODO: Check if there is change in VRF
-void VnTable::ResyncVmInterface(IFMapNode *node) {
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    DBGraph *graph = table->GetGraph();
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-
-    // Find link with VM-Port adjacency
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-            iter != node->end(graph); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent()->cfg_listener()->SkipNode
-            (adj_node, agent()->cfg()->cfg_vm_interface_table())) {
-            continue;
-        }
-
-        if (adj_node->GetObject() == NULL) {
-            continue;
-        }
-        if (agent()->interface_table()->IFNodeToReq(adj_node, req)) {
-            agent()->interface_table()->Enqueue(&req);
-        }
-    }
-}
-
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
@@ -673,49 +662,6 @@ bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     autogen::IdPermsType id_perms = cfg->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
     return true;
-}
-
-bool VnTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                          const string &peer_type, IFMapNode *peer,
-                          DBRequest &req) {
-
-
-    // Add/Delete of link other than VMInterface will most likely need re-eval
-    // of VN.
-    if (peer_type != "virtual-machine-interface") {
-        VirtualNetwork *cfg = static_cast <VirtualNetwork *>(node->GetObject());
-        assert(cfg);
-        boost::uuids::uuid u;
-        agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
-        req.key.reset(new VnKey(u));
-        req.data.reset(BuildData(node));
-        Enqueue(&req);
-    }
-
-    // If peer is VMI, invoke re-eval if peer node is present
-    if (peer && peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
-        DBRequest vmi_req;
-        if (agent()->interface_table()->IFNodeToReq(peer, vmi_req) == true) {
-             LOG(DEBUG, "VN change sync for Port " << peer->name());
-             agent()->interface_table()->Enqueue(&vmi_req);
-        }
-        return false;
-    }
-
-    // Any change to ACL/IPAM will need re-eval of all VMInterface on this VN
-    if (peer_type == "virtual-network-network-ipam" ||
-        peer_type == "access-control-list") {
-        ResyncVmInterface(node);
-        return false;
-    }
-
-    // If peer is known and is floating-ip pool, propogate change to it
-    if (peer && peer->table() == agent()->cfg()->cfg_floatingip_pool_table()) {
-        VmInterface::FloatingIpPoolSync(agent()->interface_table(), peer);
-        return false;
-    }
-
-    return false;
 }
 
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -726,51 +672,33 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
         return false;
 
-    req.key.reset(new VnKey(u));
-    VnData *data = NULL;
-
     if (node->IsDeleted()) {
+        req.key.reset(new VnKey(u));
         req.oper = DBRequest::DB_ENTRY_DELETE;
-    } else {
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        data = BuildData(node);
-        req.data.reset(data);
-        data->SetIFMapNode(node);
+        Enqueue(&req);
+        return false;
     }
 
-    Enqueue(&req);
+    agent()->config_manager()->AddVnNode(node);
+    return false;
+}
+
+bool VnTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
     if (node->IsDeleted()) {
         return false;
     }
 
-    // Change to ACL referernce can result in change of Policy flag 
-    // on interfaces. Find all interfaces on this VN and RESYNC them.
-    // This is also required to check changes to admin_state and to
-    // the enable_dhcp flag in the VN subnets (VN Ipam).
-    // TODO: Check if there is change in VRF
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    boost::uuids::uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    // Find link with VM-Port adjacency
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-            node->begin(table->GetGraph()); 
-            iter != node->end(table->GetGraph()); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent()->cfg_listener()->SkipNode
-            (adj_node, agent()->cfg()->cfg_vm_interface_table())) {
-            continue;
-        }
-
-        if (adj_node->GetObject() == NULL) {
-            continue;
-        }
-        if (agent()->interface_table()->IFNodeToReq(adj_node, req)) {
-            agent()->interface_table()->Enqueue(&req);
-        }
-    }
-
-    // Trigger Floating-IP resync
-    VmInterface::FloatingIpVnSync(agent()->interface_table(), node);
-    VmInterface::VnSync(agent()->interface_table(), node);
+    req.key.reset(new VnKey(u));
+    req.data.reset(BuildData(node));
+    Enqueue(&req);
     return false;
 }
 
@@ -782,7 +710,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     bool flood_unknown_unicast) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
-    VnData *data = new VnData(agent(), name, acl_id, vrf_name, nil_uuid(), 
+    VnData *data = new VnData(agent(), NULL, name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
                               vn_id, vxlan_id, true, true,
                               admin_state, enable_rpf,
@@ -802,29 +730,6 @@ void VnTable::DelVn(const uuid &vn_uuid) {
     req.key.reset(key);
     req.data.reset(NULL);
     Enqueue(&req);
-}
-
-void VnTable::IpamVnSync(IFMapNode *node) {
-    if (node->IsDeleted()) {
-        return;
-    }
-
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *> (node->table());
-    DBGraph *graph = table->GetGraph();
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->SkipNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vn_table())) {
-            continue;
-        }
-
-        DBRequest req;
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        Agent::GetInstance()->vn_table()->IFNodeToReq(adj_node, req);
-    }
-
-    return;
 }
 
 void VnTable::UpdateHostRoute(const IpAddress &old_address, 

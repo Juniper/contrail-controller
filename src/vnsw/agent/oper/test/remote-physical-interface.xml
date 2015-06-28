@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <test_suite name="remote-physical-interface">
-<test name="test1">
+<test name="test1" verbose="0">
     <physical-router uuid="1" name="router-1"/>
     <validate name="validate-1">
         <physical-router name="router-1" uuid="1" present="1" />
@@ -13,15 +13,15 @@
     </validate>
 
     <physical-router uuid="1" name="router-1" del="1"/>
-    <remote-physical-interface uuid="1" name="r-intf-1" device="router-1"
-     del="1"/>
+    <remote-physical-interface uuid="1" name="r-intf-1"
+     device="router-1" del="1"/>
     <validate name="validate-3">
         <physical-router name="router-1" uuid="1" present="no" />
-        <remote-physical-interface name="dummy:router-1:r-intf-1" uuid="1"
+        <remote-physical-interface name="r-intf-1" uuid="1"
          present="no" />
     </validate>
 </test>
-<test name="test2">
+<test name="test2" verbose="0">
     <physical-router uuid="1" name="router-1"/>
     <validate name="validate-4">
         <physical-router name="router-1" uuid="1" present="1" />
@@ -33,8 +33,9 @@
          present="1" />
     </validate>
 
-    <link left="remote-physical-interface" left-name="dummy:router-1:r-intf-1"
-           right="physical-router" right-name="router-1" del="1"/>
+    <link name="pi-r" uuid="1"
+     left="physical-interface" left-name="dummy:router-1:r-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
     <physical-router uuid="1" name="router-1" del="1"/>
     <remote-physical-interface uuid="1" name="r-intf-1" device="router-1"
      del="1"/>
@@ -66,28 +67,34 @@
     <validate name="pi-r:pi-li:vmi-li-1">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" />
+    <link name="pi-router" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" />
     <validate name="pi-r:pi-li:vmi-li-1">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-r:pi-li:vmi-li-2">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-r:pi-li:vmi-li-3">
         <vm-interface name="tap1" uuid="1" present="1" />
     </validate>
 
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" del="1"/>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
+    <link name="p1-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
     <vmi uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
      />
@@ -101,28 +108,34 @@
     <validate name="pi-r:vmi-li:pi-li-0">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" />
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" />
     <validate name="pi-r:vmi-li:pi-li-1">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-r:vmi-li:pi-li-2">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-r:vmi-li:pi-li-3">
         <vm-interface name="tap1" uuid="1" present="1" />
     </validate>
 
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" del="1"/>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
     <vmi uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
      />
@@ -136,28 +149,34 @@
     <validate name="vmi-li:pi-r:pi-li-0">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="vmi-li:pi-r:pi-li-1">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" />
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" />
     <validate name="vmi-li:pi-r:pi-li-2">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="vmi-li:pi-r:pi-li-3">
         <vm-interface name="tap1" uuid="1" present="1" />
     </validate>
 
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" del="1"/>
-    <link left="physical-interface" left-name="p-intf-1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="p-intf-1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
     <vmi uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
      />
@@ -171,28 +190,34 @@
     <validate name="vmi-li:pi-li:pi-r-0" >
         <vm-interface name="tap1" uuid="1" present="0" />
     </validate>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="vmi-li:pi-li:pi-r-1" >
         <vm-interface name="tap1" uuid="1" present="0" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="vmi-li:pi-li:pi-r-2" >
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" />
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" />
     <validate name="vmi-li:pi-li:pi-r-3" >
         <vm-interface name="tap1" uuid="1" present="1" />
     </validate>
 
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" del="1"/>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
     <vmi uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
      />
@@ -206,28 +231,34 @@
     <validate name="pi-li:vmi-li:pi-r-0">
         <vm-interface name="tap1" uuid="1" present="0" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-li:vmi-li:pi-r-1">
         <vm-interface name="tap1" uuid="1" present="0" />
     </validate>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-li:vmi-li:pi-r-2">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" />
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" />
     <validate name="pi-li:vmi-li:pi-r-3">
         <vm-interface name="tap1" uuid="1" present="1" />
     </validate>
 
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" del="1"/>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
     <vmi uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
      />
@@ -241,28 +272,34 @@
     <validate name="pi-li:pi-r:vmi-li-1">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-li:pi-r:vmi-li-1">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" />
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" />
     <validate name="pi-li:pi-r:vmi-li-2">
         <vm-interface name="tap1" uuid="1" present="no" />
     </validate>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" />
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" />
     <validate name="pi-li:pi-r:vmi-li-3">
         <vm-interface name="tap1" uuid="1" present="1" />
     </validate>
 
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="physical-router" right-name="router-1" del="1"/>
-    <link left="physical-interface" left-name="a:b:p-intf-1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
-    <link left="virtual-machine-interface" left-name="tap1"
-          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="pi-rtr" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="physical-router" right-name="router-1" del="1"/>
+    <link name="pi-li" uuid="1"
+     left="physical-interface" left-name="a:b:p-intf-1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link name="vmi-li" uuid="1"
+     left="virtual-machine-interface" left-name="tap1"
+     right="logical-interface" right-name="l-intf-1" del="1"/>
     <vmi uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
      />
