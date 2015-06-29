@@ -2325,7 +2325,8 @@ class VirtualMachineInterfaceST(DictST):
             if policy_rule_entries is None:
                 continue
             for prule in policy_rule_entries.policy_rule:
-                if si_name not in prule.action_list.apply_service or []:
+                if (prule.action_list is None or
+                    si_name not in prule.action_list.apply_service or []):
                     continue
                 proto = VirtualNetworkST.protocol_policy_to_acl(prule.protocol)
                 if proto is None:
