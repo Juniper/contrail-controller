@@ -19,6 +19,7 @@ using namespace std;
 #define remote_vm4_ip "13.1.1.2"
 #define remote_router_ip "10.1.1.2"
 
+BgpPeer *peer_;
 void RouterIdDepInit(Agent *agent) {
 }
 
@@ -38,7 +39,7 @@ VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
-    StatsTestMock() : util_(), peer_(NULL) {}
+    StatsTestMock() : util_() {}
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
@@ -126,7 +127,6 @@ public:
         client->PortDelNotifyWait(2);
     }
     TestUveUtil util_;
-    BgpPeer *peer_;
 };
 
 TEST_F(StatsTestMock, FlowStatsTest) {
@@ -1002,10 +1002,12 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init, true, false, true);
     usleep(10000);
     StatsTestMock::TestSetup();
+    peer_ = CreateBgpPeer("127.0.0.1", "Bgp Peer");
 
     ret = RUN_ALL_TESTS();
     client->WaitForIdle(3);
     StatsTestMock::TestTeardown();
+    DeleteBgpPeer(peer_);
     client->WaitForIdle(3);
     TestShutdown();
     delete client;

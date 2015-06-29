@@ -1363,7 +1363,8 @@ bool AgentUtXmlL2Route::Run() {
     if (op_delete()) {
         rt_table->DeleteReq(bgp_peer_, vrf_,
                             MacAddress::FromString(mac_),
-                            Ip4Address::from_string(ip_), vxlan_id_);
+                            Ip4Address::from_string(ip_), vxlan_id_,
+                            (new ControllerVmRoute(bgp_peer_)));
     } else {
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,
