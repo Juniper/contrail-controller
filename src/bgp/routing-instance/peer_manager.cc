@@ -229,12 +229,14 @@ BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
 }
 
 void PeerManager::FillBgpNeighborInfo(BgpSandeshContext *bsc,
-        vector<BgpNeighborResp> *nbr_list, const string &neighbor,
+        vector<BgpNeighborResp> *nbr_list, const string &search_string,
         bool summary) {
     BgpPeerKey key = BgpPeerKey();
     while (BgpPeer *peer = NextPeer(key)) {
-        if (neighbor.empty() || peer->peer_basename() == neighbor ||
-            peer->peer_address_string() == neighbor) {
+        if (search_string.empty() ||
+            (peer->peer_basename().find(search_string) != string::npos) ||
+            (peer->peer_address_string().find(search_string) != string::npos) ||
+            (search_string == "deleted" && peer->IsDeleted())) {
             peer->FillNeighborInfo(bsc, nbr_list, summary);
         }
     }

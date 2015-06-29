@@ -641,6 +641,30 @@ TEST_F(BgpXmppUnitTest, Connection) {
     nbr_s_req->Release();
     WAIT_EQ(true, validate_done_);
 
+    // show neighbor summary with good search string
+    cout << "ValidateNeighborSummaryResponse:" << endl;
+    s_result = list_of("127.0.0.1");
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborSummaryResponse,
+                                   _1, s_result));
+    nbr_s_req = new ShowBgpNeighborSummaryReq;
+    validate_done_ = false;
+    nbr_s_req->set_search_string("0.0.1");
+    nbr_s_req->HandleRequest();
+    nbr_s_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor summary with bad search string
+    cout << "ValidateNeighborSummaryResponse:" << endl;
+    s_result.clear();
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborSummaryResponse,
+                                   _1, s_result));
+    nbr_s_req = new ShowBgpNeighborSummaryReq;
+    validate_done_ = false;
+    nbr_s_req->set_search_string("127.0.0.7");
+    nbr_s_req->HandleRequest();
+    nbr_s_req->Release();
+    WAIT_EQ(true, validate_done_);
+
     // show route
     cout << "ValidateShowRouteResponse:" << endl;
     result = list_of(1)(1)(1)(1);

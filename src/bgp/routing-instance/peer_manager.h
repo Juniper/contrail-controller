@@ -42,7 +42,7 @@ public:
 
     void FillBgpNeighborInfo(BgpSandeshContext *bsc,
                              std::vector<BgpNeighborResp> *nbr_list,
-                             const std::string &neighbor, bool summary);
+                             const std::string &search_string, bool summary);
 
     size_t GetNeighborCount(std::string up_or_down);
 
