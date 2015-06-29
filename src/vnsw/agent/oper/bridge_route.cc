@@ -205,10 +205,11 @@ void BridgeAgentRouteTable::DeleteBridgeRoute(const AgentRoute *rt) {
 
 void BridgeAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                       const MacAddress &mac,
-                                      uint32_t ethernet_tag) {
+                                      uint32_t ethernet_tag,
+                                      AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
-    req.data.reset(NULL);
+    req.data.reset(data);
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
@@ -248,37 +249,56 @@ void BridgeAgentRouteTable::DeleteOvsPeerMulticastRoute(const Peer *peer,
     DeleteOvsPeerMulticastRouteInternal(peer, vxlan_id, false);
 }
 
-void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
-                                                    const string &vrf_name,
-                                                    const string &vn_name,
-                                                    uint32_t label,
-                                                    int vxlan_id,
-                                                    uint32_t ethernet_tag,
-                                                    uint32_t tunnel_type,
-                                                    COMPOSITETYPE type,
-                                                    ComponentNHKeyList
-                                                    &component_nh_key_list) {
+AgentRouteData *BridgeAgentRouteTable::BuildNonBgpPeerData(const string &vrf_name,
+                                                           const std::string &vn_name,
+                                                           uint32_t label,
+                                                           int vxlan_id,
+                                                           uint32_t tunnel_type,
+                                                           Composite::Type type,
+                                                           ComponentNHKeyList
+                                                           &component_nh_key_list) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
     nh_req.data.reset(new CompositeNHData());
+    return (new MulticastRoute(vn_name, label,
+                               vxlan_id, tunnel_type,
+                               nh_req, type));
+}
+
+AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
+                                                        const string &vrf_name,
+                                                        const std::string &vn_name,
+                                                        uint32_t label,
+                                                        int vxlan_id,
+                                                        uint32_t ethernet_tag,
+                                                        uint32_t tunnel_type,
+                                                        Composite::Type type,
+                                                        ComponentNHKeyList
+                                                        &component_nh_key_list) {
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    assert(bgp_peer != NULL);
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
+                                        vrf_name));
+    nh_req.data.reset(new CompositeNHData());
+    return (new ControllerMulticastRoute(vn_name, label,
+                                         ethernet_tag, tunnel_type,
+                                         nh_req, type,
+                                         bgp_peer->GetBgpXmppPeerConst()->
+                                         unicast_sequence_number(),
+                                         bgp_peer->GetBgpXmppPeerConst()));
+}
+
+void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
+                                                    const string &vrf_name,
+                                                    uint32_t ethernet_tag,
+                                                    AgentRouteData *data) {
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name,
                                      MacAddress::BroadcastMac(), ethernet_tag));
-    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
-    if (bgp_peer) {
-        req.data.reset(new ControllerMulticastRoute(vn_name, label,
-                                              ethernet_tag, tunnel_type,
-                                              nh_req, type,
-                                              bgp_peer->GetBgpXmppPeerConst()->
-                                                  unicast_sequence_number(),
-                                              bgp_peer->GetBgpXmppPeerConst()));
-    } else {
-        req.data.reset(new MulticastRoute(vn_name, label,
-                                          vxlan_id, tunnel_type,
-                                          nh_req, type));
-    }
+    req.data.reset(data);
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
@@ -293,9 +313,20 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     //For same BGP peer type comp type helps in identifying if its a delete
     //for TOR or EVPN path.
     //Only ethernet tag is required, rest are dummy.
-    req.data.reset(new MulticastRoute("", 0, ethernet_tag,
-                                      TunnelType::AllType(),
-                                      nh_req, type));
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer) {
+        req.data.reset(new ControllerMulticastRoute("", 0,
+                                     ethernet_tag, TunnelType::AllType(),
+                                     nh_req, type,
+                                     bgp_peer->GetBgpXmppPeerConst()->
+                                         unicast_sequence_number(),
+                                     bgp_peer->GetBgpXmppPeerConst()));
+    } else {
+        req.data.reset(new MulticastRoute("", 0, ethernet_tag,
+                                          TunnelType::AllType(),
+                                          nh_req, type));
+    }
+
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 

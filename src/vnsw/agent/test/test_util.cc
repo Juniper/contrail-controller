@@ -1070,8 +1070,15 @@ void DeleteRoute(const char *vrf, const char *ip) {
 
 void DeleteRoute(const char *vrf, const char *ip, uint8_t plen, Peer *peer) {
     Ip4Address addr = Ip4Address::from_string(ip);
-    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(peer,
-                                            vrf, addr, plen, NULL);
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer == NULL) {
+        Agent::GetInstance()->fabric_inet4_unicast_table()->
+            DeleteReq(peer, vrf, addr, plen, NULL);
+    } else {
+        Agent::GetInstance()->fabric_inet4_unicast_table()->
+            DeleteReq(peer, vrf, addr, plen,
+                      new ControllerVmRoute(bgp_peer));
+    }
     client->WaitForIdle();
     WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
 }
@@ -1081,7 +1088,8 @@ bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     if (vrf == NULL)
         return false;
 
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&key));
@@ -1097,7 +1105,8 @@ bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen) {
     if (vrf == NULL)
         return false;
 
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (vrf->GetInet6UnicastRouteTable()->FindActiveEntry(&key));
@@ -1205,7 +1214,8 @@ InetUnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, 
     if (vrf == NULL)
         return NULL;
 
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&key));
@@ -1217,7 +1227,8 @@ InetUnicastRouteEntry* RouteGetV6(const string &vrf_name, const Ip6Address &addr
     if (vrf == NULL)
         return NULL;
 
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (vrf->GetInet6UnicastRouteTable()->FindActiveEntry(&key));
@@ -3098,7 +3109,8 @@ bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
         return false;
     }
 
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
     InetUnicastRouteEntry *route =
         static_cast<InetUnicastRouteEntry *>
         (static_cast<InetUnicastAgentRouteTable *>(vrf->
@@ -3130,7 +3142,8 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
         return false;
     }
 
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (static_cast<InetUnicastAgentRouteTable *>(vrf->
@@ -3158,7 +3171,8 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
 uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
 
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
-    InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
 
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>

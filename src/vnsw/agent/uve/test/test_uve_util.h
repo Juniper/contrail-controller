@@ -285,9 +285,7 @@ public:
     void DeleteRemoteRoute(const char *vrf, const char *ip, BgpPeer *peer) {
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(ip, ec);
-        Agent::Agent::GetInstance()->
-            fabric_inet4_unicast_table()->DeleteReq(peer,
-                vrf, addr, 32, NULL);
+        DeleteRoute(vrf, ip, 32, static_cast<Peer *>(peer));
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }

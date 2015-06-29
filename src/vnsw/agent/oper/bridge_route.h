@@ -39,16 +39,28 @@ public:
                                      Ip4Address vtep,
                                      Ip4Address tor_ip);
     void AddBridgeRoute(const AgentRoute *rt);
+    static AgentRouteData *BuildNonBgpPeerData(const string &vrf_name,
+                                               const std::string &vn_name,
+                                               uint32_t label,
+                                               int vxlan_id,
+                                               uint32_t tunnel_type,
+                                               Composite::Type type,
+                                               ComponentNHKeyList
+                                               &component_nh_key_list);
+    static AgentRouteData *BuildBgpPeerData(const Peer *peer,
+                                            const string &vrf_name,
+                                            const std::string &vn_name,
+                                            uint32_t label,
+                                            int vxlan_id,
+                                            uint32_t ethernet_tag,
+                                            uint32_t tunnel_type,
+                                            Composite::Type type,
+                                            ComponentNHKeyList
+                                            &component_nh_key_list);
     static void AddBridgeBroadcastRoute(const Peer *peer,
-                                        const std::string &vrf_name,
-                                        const std::string &vn_name,
-                                        uint32_t label,
-                                        int vxlan_id,
+                                        const string &vrf_name,
                                         uint32_t ethernet_tag,
-                                        uint32_t tunnel_type,
-                                        Composite::Type type,
-                                        ComponentNHKeyList
-                                        &component_nh_key_list);
+                                        AgentRouteData *data);
     static void AddBridgeReceiveRoute(const Peer *peer,
                                       const std::string &vrf_name,
                                       const MacAddress &mac,
@@ -62,7 +74,8 @@ public:
                                uint32_t vxlan_id, const MacAddress &mac,
                                const std::string &vn_name);
     static void DeleteReq(const Peer *peer, const std::string &vrf_name,
-                          const MacAddress &mac, uint32_t ethernet_tag);
+                          const MacAddress &mac, uint32_t ethernet_tag,
+                          AgentRouteData *data);
     static void Delete(const Peer *peer, const std::string &vrf_name,
                        const MacAddress &mac, uint32_t ethernet_tag);
     static void DeleteBroadcastReq(const Peer *peer,
