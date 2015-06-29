@@ -579,6 +579,7 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
         f->fe_key.flow4_sip = sip.to_v4().to_ulong();
         f->fe_key.flow4_dip = dip.to_v4().to_ulong();
     }
+    f->fe_key.flow_family = req->get_fr_family();
     f->fe_key.flow_sport = req->get_fr_flow_sport();
     f->fe_key.flow_dport = req->get_fr_flow_dport();
     f->fe_key.flow_nh_id = req->get_fr_flow_nh_id();

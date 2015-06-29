@@ -224,6 +224,29 @@ void VectorToIp(const std::vector<int8_t> &ip, int family, IpAddress *sip,
     }
 }
 
+std::vector<int8_t> IpToVector(const IpAddress &sip, const IpAddress &dip,
+                               Address::Family family) {
+    if (family == Address::INET) {
+        boost::array<unsigned char, 4> sbytes = sip.to_v4().to_bytes();
+        boost::array<unsigned char, 4> dbytes = dip.to_v4().to_bytes();
+        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
+        std::vector<int8_t>::iterator it = ip_vect.begin();
+
+        ip_vect.insert(it + 4, dbytes.begin(), dbytes.end());
+        assert(ip_vect.size() == 8);
+        return ip_vect;
+    } else {
+        boost::array<unsigned char, 16> sbytes = sip.to_v6().to_bytes();
+        boost::array<unsigned char, 16> dbytes = dip.to_v6().to_bytes();
+        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
+        std::vector<int8_t>::iterator it = ip_vect.begin();
+
+        ip_vect.insert(it + 16, dbytes.begin(), dbytes.end());
+        assert(ip_vect.size() == 32);
+        return ip_vect;
+    }
+}
+
 /* The flow data-structure represented by vrouter has source and destination IP
  * address as single char array for both V4 and V6. The below API is used to
  * convert Source IP and destination IP from char array to either Ip4Address

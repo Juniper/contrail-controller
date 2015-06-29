@@ -155,9 +155,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);
     const FlowKey *fe_key = &flow_entry_->key();
-    req.set_fr_flow_ip(ksync_obj_->IpToVector(fe_key->src_addr,
-                                              fe_key->dst_addr,
-                                              flow_entry_->key().family));
+    req.set_fr_flow_ip(IpToVector(fe_key->src_addr, fe_key->dst_addr,
+                                  flow_entry_->key().family));
     req.set_fr_flow_proto(fe_key->protocol);
     req.set_fr_flow_sport(htons(fe_key->src_port));
     req.set_fr_flow_dport(htons(fe_key->dst_port));
@@ -823,30 +822,6 @@ void FlowTableKSyncObject::MapFlowMem() {
     flow_table_entries_count_ = flow_table_size_ / sizeof(vr_flow_entry);
     ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
     return;
-}
-
-std::vector<int8_t> FlowTableKSyncObject::IpToVector(const IpAddress &sip,
-                                                     const IpAddress &dip,
-                                                     Address::Family family) {
-    if (family == Address::INET) {
-        boost::array<unsigned char, 4> sbytes = sip.to_v4().to_bytes();
-        boost::array<unsigned char, 4> dbytes = dip.to_v4().to_bytes();
-        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
-        std::vector<int8_t>::iterator it = ip_vect.begin();
-
-        ip_vect.insert(it + 4, dbytes.begin(), dbytes.end());
-        assert(ip_vect.size() == 8);
-        return ip_vect;
-    } else {
-        boost::array<unsigned char, 16> sbytes = sip.to_v6().to_bytes();
-        boost::array<unsigned char, 16> dbytes = dip.to_v6().to_bytes();
-        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
-        std::vector<int8_t>::iterator it = ip_vect.begin();
-
-        ip_vect.insert(it + 16, dbytes.begin(), dbytes.end());
-        assert(ip_vect.size() == 32);
-        return ip_vect;
-    }
 }
 
 void FlowTableKSyncObject::Init() {
