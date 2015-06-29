@@ -77,6 +77,7 @@ using namespace std;
 
 #define TUN_INTF_CLONE_DEV "/dev/net/tun"
 #define DEFAULT_VNSW_CONFIG_FILE "controller/src/vnsw/agent/test/vnswa_cfg.ini"
+#define DEFAULT_VNSW_TSN_CONFIG_FILE "controller/src/vnsw/agent/test/vnswa_tsn_cfg.ini"
 
 #define GETUSERARGS()                           \
     bool ksync_init = false;                    \

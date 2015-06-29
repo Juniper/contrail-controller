@@ -90,7 +90,7 @@ public:
                                const AgentRoute *rt);
     virtual bool UpdateRoute(AgentRoute *route);
     virtual string ToString() const {return "remote VM";}
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
     const SecurityGroupList &sg_list() const {return sg_list_;}
     static ControllerVmRoute *MakeControllerVmRoute(const Peer *peer,
                                             const string &default_vrf,
@@ -135,7 +135,7 @@ public:
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *);
     virtual string ToString() const {return "inet4 ecmp";}
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
     Ip4Address dest_addr_;
@@ -166,7 +166,7 @@ public:
                            uint64_t sequence_number,
                            const AgentXmppChannel *channel);
     virtual ~ControllerLocalVmRoute() { }
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
     uint64_t sequence_number_;
@@ -186,7 +186,7 @@ public:
                                  uint64_t sequence_number,
                                  const AgentXmppChannel *channel);
     virtual ~ControllerInetInterfaceRoute() { }
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
     uint64_t sequence_number_;
@@ -208,7 +208,7 @@ public:
                           uint64_t sequence_number,
                           const AgentXmppChannel *channel);
     virtual ~ControllerVlanNhRoute() { }
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
     uint64_t sequence_number_;
@@ -233,7 +233,7 @@ public:
         AgentRouteData(false), sequence_number_(seq),
         channel_(channel), mpls_label_(label), vn_(vn), sg_list_(sg_list) {}
     virtual ~ClonedLocalPath() {}
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {
@@ -259,7 +259,7 @@ public:
                              uint64_t sequence_number,
                              const AgentXmppChannel *channel);
     virtual ~ControllerMulticastRoute() { }
-    virtual bool IsPeerValid() const;
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
     uint64_t sequence_number_;
