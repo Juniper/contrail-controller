@@ -2386,7 +2386,8 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
+            InetUnicastAgentRouteTable::ReEvaluatePaths(agent(),
+                                                        vrf_->GetName(),
                                                         ip_addr_, 32);
         }
     }
@@ -2434,7 +2435,8 @@ void VmInterface::UpdateIpv6InterfaceRoute(bool old_ipv6_active, bool force_upda
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
+            InetUnicastAgentRouteTable::ReEvaluatePaths(agent(),
+                                                        vrf_->GetName(),
                                                         ip6_addr_, 128);
         }
     }
@@ -3278,7 +3280,8 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
+        InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
+                                                    vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
         if (addr_.is_v4()) {
             ecmp = interface->ecmp();
@@ -3453,7 +3456,8 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
+        InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
+                                                    vrf_, addr_, plen_);
     } else if (installed_ == false || force_update || gw_ip_ != ip) {
         gw_ip_ = ip;
         interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),

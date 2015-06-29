@@ -59,10 +59,12 @@ public:
         Ip6Address addr = Ip6Address::from_string(ip);
         InetUnicastAgentRouteTable *rt_table =
             agent()->vrf_table()->GetInet6UnicastRouteTable(vrf);
-        rt_table->AddLocalVmRouteReq(peer_, vrf, addr, 128, intf->GetUuid(),
-                               intf->vn()->GetName(), label,
-                               SecurityGroupList(), false, PathPreference(),
-                               Ip6Address());
+        rt_table->AddLocalVmRouteReq(agent()->local_peer(), vrf, addr,
+                                     128, intf->GetUuid(),
+                                     intf->vn()->GetName(), label,
+                                     SecurityGroupList(), false,
+                                     PathPreference(),
+                                     Ip6Address());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFindV6(vrf, addr, 128));
     }
@@ -81,7 +83,7 @@ public:
         Ip6Address addr = Ip6Address::from_string(ip);
         InetUnicastAgentRouteTable *rt_table =
             agent()->vrf_table()->GetInet6UnicastRouteTable(vrf);
-        rt_table->DeleteReq(peer_, vrf, addr, 128, NULL);
+        rt_table->DeleteReq(agent()->local_peer(), vrf, addr, 128, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFindV6(vrf, addr, 128) == false));
     }
@@ -90,7 +92,8 @@ public:
         Ip6Address addr = Ip6Address::from_string(ip);
         InetUnicastAgentRouteTable *rt_table =
             agent()->vrf_table()->GetInet6UnicastRouteTable(vrf);
-        rt_table->DeleteReq(peer_, vrf, addr, 128, NULL);
+        rt_table->DeleteReq(peer_, vrf, addr, 128,
+                  new ControllerVmRoute(static_cast<BgpPeer *>(peer_)));
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFindV6(vrf, addr, 128) == false));
     }

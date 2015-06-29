@@ -861,9 +861,10 @@ TEST_F(RouteTest, ResyncUnresolvedRoute_1) {
 
     InetUnicastRouteEntry *rt =
         RouteGet(Agent::GetInstance()->fabric_vrf_name(), server1_ip_, 32);
-    InetUnicastAgentRouteTable::ReEvaluatePaths(rt->vrf()->GetName(),
-                                                 rt->addr(),
-                                                 rt->plen());
+    InetUnicastAgentRouteTable::ReEvaluatePaths(Agent::GetInstance(),
+                                                rt->vrf()->GetName(),
+                                                rt->addr(),
+                                                rt->plen());
     client->WaitForIdle();
     EXPECT_EQ(table->unresolved_route_size(), 1);
 

@@ -69,13 +69,18 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
     if (component_nh_key_list.size() == 0)
         return;
     uint32_t route_tunnel_bmap = TunnelType::AllType();
-    BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_vm_peer(),
-                                                   vrf_name, vn_name,
-                                                   label, vxlan_id,
-                                                   ethernet_tag,
+    AgentRouteData *data =
+        BridgeAgentRouteTable::BuildNonBgpPeerData(vrf_name,
+                                                   vn_name,
+                                                   label,
+                                                   vxlan_id,
                                                    route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
                                                    component_nh_key_list);
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_vm_peer(),
+                                                   vrf_name,
+                                                   ethernet_tag,
+                                                   data);
 }
 
 /*
@@ -158,15 +163,18 @@ void MulticastHandler::HandleTsnSubscription(DBTablePartBase *partition,
             }
         }
         ComponentNHKeyList component_nh_key_list;
-        BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_peer(),
-                                                       state->vrf_name_,
+        AgentRouteData *data =
+            BridgeAgentRouteTable::BuildNonBgpPeerData(state->vrf_name_,
                                                        vn->GetName(),
                                                        0,
-                                                       state->vxlan_id_,
                                                        state->vxlan_id_,
                                                        TunnelType::VxlanType(),
                                                        Composite::L2COMP,
                                                        component_nh_key_list);
+        BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_peer(),
+                                                       state->vrf_name_,
+                                                       state->vxlan_id_,
+                                                       data);
     }
 
     //Delete or withdraw old vxlan id
@@ -448,15 +456,18 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
             component_nh_key_list.size());
     //Add Bridge FF:FF:FF:FF:FF:FF, local_vm_peer
     uint32_t route_tunnel_bmap = TunnelType::AllType();
-    BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
-                                                   obj->vrf_name(),
+    AgentRouteData *data =
+        BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    obj->evpn_mpls_label(),
                                                    obj->vxlan_id(),
-                                                   0,
                                                    route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
                                                    component_nh_key_list);
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
+                                                   obj->vrf_name(),
+                                                   0,
+                                                   data);
 }
 
 void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
@@ -553,15 +564,31 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
     //Add Bridge FF:FF:FF:FF:FF:FF$
     if (comp_type == Composite::TOR)
         route_tunnel_bmap = TunnelType::VxlanType();
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    AgentRouteData *data = NULL;
+    if (bgp_peer) {
+        data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
+                                                       obj->vrf_name(),
+                                                       obj->GetVnName(),
+                                                       label,
+                                                       obj->vxlan_id(),
+                                                       ethernet_tag,
+                                                       route_tunnel_bmap,
+                                                       comp_type,
+                                                       component_nh_key_list);
+    } else {
+        data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
+                                                          obj->GetVnName(),
+                                                          label,
+                                                          obj->vxlan_id(),
+                                                          route_tunnel_bmap,
+                                                          comp_type,
+                                                          component_nh_key_list);
+    }
     BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
-                                                   obj->GetVnName(),
-                                                   label,
-                                                   obj->vxlan_id(),
                                                    ethernet_tag,
-                                                   route_tunnel_bmap,
-                                                   comp_type,
-                                                   component_nh_key_list);
+                                                   data);
     MCTRACE(Log, "rebake subnet peer for subnet", vrf_name,
             "255.255.255.255", comp_type);
 }

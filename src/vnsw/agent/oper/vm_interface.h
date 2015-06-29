@@ -509,6 +509,9 @@ public:
                                 const MacAddress &mac) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
+    Agent *agent() const {
+        return (static_cast<InterfaceTable *>(get_table()))->agent();
+    }
 
 private:
     friend struct VmInterfaceConfigData;

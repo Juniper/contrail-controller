@@ -51,7 +51,11 @@ void RouterIdDepInit(Agent *agent) {
 
 class UveVnUveTest : public ::testing::Test {
 public:
-    UveVnUveTest() : util_(), peer_(NULL) {
+    UveVnUveTest() : util_() {
+        peer_ = CreateBgpPeer("127.0.0.1", "Bgp Peer");
+    }
+    virtual ~UveVnUveTest() {
+        DeleteBgpPeer(peer_);
     }
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
