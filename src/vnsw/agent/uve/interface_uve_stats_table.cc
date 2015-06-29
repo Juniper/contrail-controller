@@ -16,7 +16,8 @@ InterfaceUveStatsTable::~InterfaceUveStatsTable() {
 
 bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                             UveVMInterfaceAgent *uve) const {
-    uint64_t in_band, out_band;
+    uint64_t in_band = 0, out_band = 0;
+    bool changed = false, diff_fip_list_non_zero = false;
     VmInterfaceStats if_stats;
     vector<VmFloatingIPStats> agg_fip_list;
     vector<VmFloatingIPStats> diff_fip_list;
@@ -41,14 +42,29 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
      * stats via StatsOracle infra provided by analytics module */
     uint64_t in_b, in_p, out_b, out_p;
     s->GetDiffStats(&in_b, &in_p, &out_b, &out_p);
-    if_stats.set_in_pkts(in_p);
-    if_stats.set_in_bytes(in_b);
-    if_stats.set_out_pkts(out_p);
-    if_stats.set_out_bytes(out_b);
-    in_band = GetVmPortBandwidth(s, true);
-    out_band = GetVmPortBandwidth(s, false);
-    if_stats.set_in_bw_usage(in_band);
-    if_stats.set_out_bw_usage(out_band);
+
+    if ((in_b != 0) || (in_p != 0) || (out_b != 0) || (out_p != 0)) {
+        if_stats.set_in_pkts(in_p);
+        if_stats.set_in_bytes(in_b);
+        if_stats.set_out_pkts(out_p);
+        if_stats.set_out_bytes(out_b);
+        uve->set_if_stats(if_stats);
+        changed = true;
+
+        in_band = GetVmPortBandwidth(s, true);
+        out_band = GetVmPortBandwidth(s, false);
+    }
+
+    if (entry->InBandChanged(in_band)) {
+        uve->set_in_bw_usage(in_band);
+        entry->uve_info_.set_in_bw_usage(in_band);
+        changed = true;
+    }
+    if (entry->OutBandChanged(out_band)) {
+        uve->set_out_bw_usage(out_band);
+        entry->uve_info_.set_out_bw_usage(out_band);
+        changed = true;
+    }
     s->stats_time = UTCTimestampUsec();
 
     /* Make sure that update of prev_in_bytes and prev_out_bytes are done only
@@ -59,20 +75,28 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     PortBucketBitmap map;
     L4PortBitmap &port_bmap = entry->port_bitmap_;
     port_bmap.Encode(map);
-    uve->set_port_bucket_bmap(map);
+    if (entry->PortBitmapChanged(map)) {
+        uve->set_port_bucket_bmap(map);
+        entry->uve_info_.set_port_bucket_bmap(map);
+        changed = true;
+    }
 
-    FrameFipStatsMsg(vm_intf, agg_fip_list, diff_fip_list);
+    FrameFipStatsMsg(vm_intf, agg_fip_list, diff_fip_list,
+                     diff_fip_list_non_zero);
     if (entry->FipAggStatsChanged(agg_fip_list)) {
         uve->set_fip_agg_stats(agg_fip_list);
         entry->uve_info_.set_fip_agg_stats(agg_fip_list);
+        changed = true;
     }
-    /* Diff stats are sent always regardless of whether there are
-     * any changes are not. */
-    uve->set_fip_diff_stats(diff_fip_list);
+    /* Diff stats need not be sent if the value of the stats is 0.
+     * If any of the entry in diff_fip_list has non-zero stats, then
+     * diff_fip_list_non_zero is expected to be true */
+    if (diff_fip_list_non_zero) {
+        uve->set_fip_diff_stats(diff_fip_list);
+        changed = true;
+    }
 
-    uve->set_if_stats(if_stats);
-
-    return true;
+    return changed;
 }
 
 void InterfaceUveStatsTable::SendInterfaceStatsMsg(UveInterfaceEntry* entry) {
@@ -144,13 +168,16 @@ void InterfaceUveStatsTable::UpdateFloatingIpStats(const FipInfo &fip_info) {
 
 bool InterfaceUveStatsTable::FrameFipStatsMsg(const VmInterface *itf,
                           vector<VmFloatingIPStats> &fip_list,
-                          vector<VmFloatingIPStats> &diff_list) const {
+                          vector<VmFloatingIPStats> &diff_list,
+                          bool &diff_list_send) const {
     bool changed = false;
+    diff_list_send = false;
     InterfaceMap::const_iterator it = interface_tree_.find(itf->cfg_name());
 
     if (it != interface_tree_.end()) {
         UveInterfaceEntry *entry = it->second.get();
-        changed = entry->FillFloatingIpStats(fip_list, diff_list);
+        changed = entry->FillFloatingIpStats(fip_list, diff_list,
+                                             diff_list_send);
     }
     return changed;
 }

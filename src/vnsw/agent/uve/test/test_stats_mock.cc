@@ -586,6 +586,7 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
     KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
 
+    collector->interface_stats_responses_ = 0;
     util_.EnqueueAgentStatsCollectorTask(1);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));

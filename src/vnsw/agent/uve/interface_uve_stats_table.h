@@ -30,7 +30,8 @@ private:
         (StatsManager::InterfaceStats *s, bool dir_in) const;
     bool FrameFipStatsMsg(const VmInterface *vm_intf,
                           vector<VmFloatingIPStats> &fip_list,
-                          vector<VmFloatingIPStats> &diff_list) const;
+                          vector<VmFloatingIPStats> &diff_list,
+                          bool &diff_list_send) const;
     bool FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                 UveVMInterfaceAgent *uve) const;
 

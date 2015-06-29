@@ -315,6 +315,39 @@ void InterfaceUveTable::Shutdown(void) {
     }
 }
 
+bool InterfaceUveTable::UveInterfaceEntry::PortBitmapChanged
+    (const PortBucketBitmap &bmap) const {
+    if (!uve_info_.__isset.port_bucket_bmap) {
+        return true;
+    }
+    if (bmap != uve_info_.get_port_bucket_bmap()) {
+        return true;
+    }
+    return false;
+}
+
+bool InterfaceUveTable::UveInterfaceEntry::InBandChanged(uint64_t in_band)
+    const {
+    if (!uve_info_.__isset.in_bw_usage) {
+        return true;
+    }
+    if (in_band != uve_info_.get_in_bw_usage()) {
+        return true;
+    }
+    return false;
+}
+
+bool InterfaceUveTable::UveInterfaceEntry::OutBandChanged(uint64_t out_band)
+    const {
+    if (!uve_info_.__isset.out_bw_usage) {
+        return true;
+    }
+    if (out_band != uve_info_.get_out_bw_usage()) {
+        return true;
+    }
+    return false;
+}
+
 void InterfaceUveTable::UveInterfaceEntry::UpdateFloatingIpStats
                                     (const FipInfo &fip_info) {
     tbb::mutex::scoped_lock lock(mutex_);
@@ -374,7 +407,8 @@ void InterfaceUveTable::FloatingIp::UpdateFloatingIpStats(const FipInfo &fip_inf
 
 bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
     (vector<VmFloatingIPStats> &result,
-     vector<VmFloatingIPStats> &diff_list) {
+     vector<VmFloatingIPStats> &diff_list,
+     bool &diff_list_send) {
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf_);
     tbb::mutex::scoped_lock lock(mutex_);
     if (vm_intf->HasFloatingIp()) {
@@ -402,7 +436,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
             FloatingIpSet::iterator fip_it =  fip_tree_.find(key);
             if (fip_it == fip_tree_.end()) {
                 SetStats(uve_fip, 0, 0, 0, 0);
-                SetDiffStats(diff_uve, 0, 0, 0, 0);
+                SetDiffStats(diff_uve, 0, 0, 0, 0, diff_list_send);
             } else {
                 FloatingIp *fip = (*fip_it).get();
                 SetStats(uve_fip, fip->in_bytes_, fip->in_packets_,
@@ -410,7 +444,8 @@ bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
                 FloatingIpSet::iterator prev_it = prev_fip_tree_.find(key);
                 if (prev_it == prev_fip_tree_.end()) {
                     SetDiffStats(diff_uve, fip->in_bytes_, fip->in_packets_,
-                                 fip->out_bytes_, fip->out_packets_);
+                                 fip->out_bytes_, fip->out_packets_,
+                                 diff_list_send);
                     FloatingIpPtr prev_fip_ptr(new FloatingIp(ip.floating_ip_,
                                                       ip.vn_.get()->GetName(),
                                                       fip->in_bytes_,
@@ -423,7 +458,8 @@ bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
                     SetDiffStats(diff_uve, (fip->in_bytes_ - pfip->in_bytes_),
                                  (fip->in_packets_ - pfip->in_packets_),
                                  (fip->out_bytes_ - pfip->out_bytes_),
-                                 (fip->out_packets_ - pfip->out_packets_));
+                                 (fip->out_packets_ - pfip->out_packets_),
+                                 diff_list_send);
                     pfip->in_bytes_ = fip->in_bytes_;
                     pfip->in_packets_ = fip->in_packets_;
                     pfip->out_bytes_ = fip->out_bytes_;
@@ -442,11 +478,15 @@ bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
 
 void InterfaceUveTable::UveInterfaceEntry::SetDiffStats
     (VmFloatingIPStats &fip, uint64_t in_bytes, uint64_t in_pkts,
-     uint64_t out_bytes, uint64_t out_pkts) const {
+     uint64_t out_bytes, uint64_t out_pkts, bool &diff_list_send) const {
     fip.set_in_bytes(in_bytes);
     fip.set_in_pkts(in_pkts);
     fip.set_out_bytes(out_bytes);
     fip.set_out_pkts(out_pkts);
+    if ((in_bytes != 0) || (in_pkts != 0) || (out_bytes != 0) ||
+        (out_pkts != 0)) {
+        diff_list_send = true;
+    }
 }
 
 void InterfaceUveTable::UveInterfaceEntry::SetStats

@@ -106,11 +106,13 @@ public:
         virtual ~UveInterfaceEntry() {}
         void UpdateFloatingIpStats(const FipInfo &fip_info);
         bool FillFloatingIpStats(vector<VmFloatingIPStats> &result,
-                                 vector<VmFloatingIPStats> &diff_list);
+                                 vector<VmFloatingIPStats> &diff_list,
+                                 bool &diff_list_send);
         void SetStats(VmFloatingIPStats &fip, uint64_t in_bytes,
             uint64_t in_pkts, uint64_t out_bytes, uint64_t out_pkts) const;
         void SetDiffStats(VmFloatingIPStats &fip, uint64_t in_bytes,
-            uint64_t in_pkts, uint64_t out_bytes, uint64_t out_pkts) const;
+            uint64_t in_pkts, uint64_t out_bytes, uint64_t out_pkts,
+            bool &diff_list_send) const;
         void RemoveFloatingIp(const VmInterface::FloatingIp &fip);
         InterfaceUveTable::FloatingIp *FipEntry(uint32_t ip,
                                                 const std::string &vn);
@@ -119,6 +121,9 @@ public:
         bool GetVmInterfaceGateway(const VmInterface *vm_intf,
                                    std::string &gw) const;
         bool FipAggStatsChanged(const vector<VmFloatingIPStats>  &list) const;
+        bool PortBitmapChanged(const PortBucketBitmap &bmap) const;
+        bool InBandChanged(uint64_t in_band) const;
+        bool OutBandChanged(uint64_t out_band) const;
         void SetVnVmInfo(UveVMInterfaceAgent *uve) const;
         void Reset();
     };
