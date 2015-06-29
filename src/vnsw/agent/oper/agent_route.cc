@@ -309,10 +309,16 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentPath *path = NULL;
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
-    if (data && data->IsPeerValid() == false) {
-        AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
-                        "");
-        return;
+    if (key->peer()) {
+        if (!data) {
+            assert(key->peer()->NeedValidityCheck() == false);
+        } else if (data && data->IsPeerValid(key) == false) {
+            AGENT_ROUTE_LOG("Invalid/Inactive Peer ",
+                            key->ToString(),
+                            vrf_name(),
+                            "");
+            return;
+        }
     }
 
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
@@ -740,6 +746,12 @@ bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
         ret = true;
     }
     return ret;
+}
+
+bool AgentRouteData::IsPeerValid(const AgentRouteKey *key) const {
+    const Peer *peer = key->peer();
+    assert(peer->NeedValidityCheck() == false);
+    return true;
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
