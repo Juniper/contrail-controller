@@ -205,10 +205,11 @@ void BridgeAgentRouteTable::DeleteBridgeRoute(const AgentRoute *rt) {
 
 void BridgeAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                       const MacAddress &mac,
-                                      uint32_t ethernet_tag) {
+                                      uint32_t ethernet_tag,
+                                      AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
-    req.data.reset(NULL);
+    req.data.reset(data);
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
@@ -293,9 +294,20 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     //For same BGP peer type comp type helps in identifying if its a delete
     //for TOR or EVPN path.
     //Only ethernet tag is required, rest are dummy.
-    req.data.reset(new MulticastRoute("", 0, ethernet_tag,
-                                      TunnelType::AllType(),
-                                      nh_req, type));
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer) {
+        req.data.reset(new ControllerMulticastRoute("", 0,
+                                     ethernet_tag, TunnelType::AllType(),
+                                     nh_req, type,
+                                     bgp_peer->GetBgpXmppPeerConst()->
+                                         unicast_sequence_number(),
+                                     bgp_peer->GetBgpXmppPeerConst()));
+    } else {
+        req.data.reset(new MulticastRoute("", 0, ethernet_tag,
+                                          TunnelType::AllType(),
+                                          nh_req, type));
+    }
+
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 

@@ -161,12 +161,15 @@ static void InetUnicastTableProcess(Agent *agent, const string &vrf_name,
     }
 }
 
-void InetUnicastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
+void InetUnicastAgentRouteTable::ReEvaluatePaths(const Agent* agent,
+                                                 const string &vrf_name,
                                                  const IpAddress &addr,
                                                  uint8_t plen) {
     DBRequest  rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    InetUnicastRouteKey *rt_key = new InetUnicastRouteKey(NULL, vrf_name,
-                                                            addr, plen);
+    InetUnicastRouteKey *rt_key = new InetUnicastRouteKey(agent->local_peer(),
+                                                          vrf_name,
+                                                          addr,
+                                                          plen);
 
     rt_key->sub_op_ = AgentKey::RESYNC;
     rt_req.key.reset(rt_key);
