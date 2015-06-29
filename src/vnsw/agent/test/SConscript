@@ -63,6 +63,10 @@ test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', flaky_agent_suite)
 test_route = AgentEnv.MakeTestCmd(env, 'test_route', flaky_agent_suite)
 test_l2route = AgentEnv.MakeTestCmd(env, 'test_l2route', flaky_agent_suite)
 test_cfg = AgentEnv.MakeTestCmd(env, 'test_cfg', flaky_agent_suite)
+test_path_preference_walker = AgentEnv.MakeTestCmd(env,
+                                                   'test_path_preference_walker',
+                                                   agent_suite)
+test_tsn_route = AgentEnv.MakeTestCmd(env, 'test_tsn_route', agent_suite)
 test_xmpp_hv2 = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv2', flaky_agent_suite)
 test_xmpp_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_non_hv', flaky_agent_suite)
 test_xmppcs_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_hv', flaky_agent_suite)
