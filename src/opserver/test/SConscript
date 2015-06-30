@@ -20,6 +20,7 @@ local_sources = [
                  'analytics_statstest.py',
                  'analytics_db_test.py',
                  'overlay_to_underlay_mapper_test.py',
+                 'alarm_test.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
@@ -69,6 +70,8 @@ build_pkgs = [
         '#controller/src/config/test/utils/mockzoo',
         '#controller/src/opserver/test',
         env['TOP'] + '/tools/sandesh/library/python',
+        env['TOP'] + '/discovery/client',
+        env['TOP'] + '/libpartition',
         env['TOP'] + '/sandesh/common',
         env['TOP'] + '/opserver/plugins/alarm_process_status',
         env['TOP'] + '/opserver/plugins/alarm_process_connectivity',
