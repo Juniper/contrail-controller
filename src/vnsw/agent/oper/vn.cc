@@ -1020,79 +1020,76 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     VnListResp *resp = static_cast<VnListResp *>(sresp);
 
-    if (name.empty() || GetName().find(name) != string::npos) {
-        VnSandeshData data;
-        data.set_name(GetName());
-        data.set_uuid(UuidToString(GetUuid()));
-        data.set_vxlan_id(GetVxLanId());
-        data.set_config_vxlan_id(vxlan_id_);
-        data.set_vn_id(vnid_);
-        if (GetAcl()) {
-            data.set_acl_uuid(UuidToString(GetAcl()->GetUuid()));
-        } else {
-            data.set_acl_uuid("");
-        }
-
-        if (GetVrf()) {
-            data.set_vrf_name(GetVrf()->GetName());
-        } else {
-            data.set_vrf_name("");
-        }
-
-        if (GetMirrorAcl()) {
-            data.set_mirror_acl_uuid(UuidToString(GetMirrorAcl()->GetUuid()));
-        } else {
-            data.set_mirror_acl_uuid("");
-        }
-
-        if (GetMirrorCfgAcl()) {
-            data.set_mirror_cfg_acl_uuid(UuidToString(GetMirrorCfgAcl()->GetUuid()));
-        } else {
-            data.set_mirror_cfg_acl_uuid("");
-        }
-
-        std::vector<VnIpamData> vn_subnet_sandesh_list;
-        const std::vector<VnIpam> &vn_ipam = GetVnIpam();
-        for (unsigned int i = 0; i < vn_ipam.size(); ++i) {
-            VnIpamData entry;
-            entry.set_ip_prefix(vn_ipam[i].ip_prefix.to_string());
-            entry.set_prefix_len(vn_ipam[i].plen);
-            entry.set_gateway(vn_ipam[i].default_gw.to_string());
-            entry.set_ipam_name(vn_ipam[i].ipam_name);
-            entry.set_dhcp_enable(vn_ipam[i].dhcp_enable ? "true" : "false");
-            entry.set_dns_server(vn_ipam[i].dns_server.to_string());
-            vn_subnet_sandesh_list.push_back(entry);
-        } 
-        data.set_ipam_data(vn_subnet_sandesh_list);
-
-        std::vector<VnIpamHostRoutes> vn_ipam_host_routes_list;
-        for (VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.begin();
-             it != vn_ipam_data_.end(); ++it) {
-            VnIpamHostRoutes vn_ipam_host_routes;
-            vn_ipam_host_routes.ipam_name = it->first;
-            const std::vector<OperDhcpOptions::Subnet> &host_routes =
-                it->second.oper_dhcp_options_.host_routes();
-            for (uint32_t i = 0; i < host_routes.size(); ++i) {
-                vn_ipam_host_routes.host_routes.push_back(
-                    host_routes[i].ToString());
-            }
-            vn_ipam_host_routes_list.push_back(vn_ipam_host_routes);
-        }
-        data.set_ipam_host_routes(vn_ipam_host_routes_list);
-        data.set_ipv4_forwarding(layer3_forwarding());
-        data.set_layer2_forwarding(bridging());
-        data.set_bridging(bridging());
-        data.set_admin_state(admin_state());
-        data.set_enable_rpf(enable_rpf());
-        data.set_flood_unknown_unicast(flood_unknown_unicast());
-
-        std::vector<VnSandeshData> &list =
-            const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
-        list.push_back(data);
-        return true;
+    VnSandeshData data;
+    data.set_name(GetName());
+    data.set_uuid(UuidToString(GetUuid()));
+    data.set_vxlan_id(GetVxLanId());
+    data.set_config_vxlan_id(vxlan_id_);
+    data.set_vn_id(vnid_);
+    if (GetAcl()) {
+        data.set_acl_uuid(UuidToString(GetAcl()->GetUuid()));
+    } else {
+        data.set_acl_uuid("");
     }
 
-    return false;
+    if (GetVrf()) {
+        data.set_vrf_name(GetVrf()->GetName());
+    } else {
+        data.set_vrf_name("");
+    }
+
+    if (GetMirrorAcl()) {
+        data.set_mirror_acl_uuid(UuidToString(GetMirrorAcl()->GetUuid()));
+    } else {
+        data.set_mirror_acl_uuid("");
+    }
+
+    if (GetMirrorCfgAcl()) {
+        data.set_mirror_cfg_acl_uuid(UuidToString(GetMirrorCfgAcl()->GetUuid()));
+    } else {
+        data.set_mirror_cfg_acl_uuid("");
+    }
+
+    std::vector<VnIpamData> vn_subnet_sandesh_list;
+    const std::vector<VnIpam> &vn_ipam = GetVnIpam();
+    for (unsigned int i = 0; i < vn_ipam.size(); ++i) {
+        VnIpamData entry;
+        entry.set_ip_prefix(vn_ipam[i].ip_prefix.to_string());
+        entry.set_prefix_len(vn_ipam[i].plen);
+        entry.set_gateway(vn_ipam[i].default_gw.to_string());
+        entry.set_ipam_name(vn_ipam[i].ipam_name);
+        entry.set_dhcp_enable(vn_ipam[i].dhcp_enable ? "true" : "false");
+        entry.set_dns_server(vn_ipam[i].dns_server.to_string());
+        vn_subnet_sandesh_list.push_back(entry);
+    }
+    data.set_ipam_data(vn_subnet_sandesh_list);
+
+    std::vector<VnIpamHostRoutes> vn_ipam_host_routes_list;
+    for (VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.begin();
+        it != vn_ipam_data_.end(); ++it) {
+        VnIpamHostRoutes vn_ipam_host_routes;
+        vn_ipam_host_routes.ipam_name = it->first;
+        const std::vector<OperDhcpOptions::Subnet> &host_routes =
+            it->second.oper_dhcp_options_.host_routes();
+        for (uint32_t i = 0; i < host_routes.size(); ++i) {
+            vn_ipam_host_routes.host_routes.push_back(
+                host_routes[i].ToString());
+        }
+        vn_ipam_host_routes_list.push_back(vn_ipam_host_routes);
+    }
+    data.set_ipam_host_routes(vn_ipam_host_routes_list);
+    data.set_ipv4_forwarding(layer3_forwarding());
+    data.set_layer2_forwarding(bridging());
+    data.set_bridging(bridging());
+    data.set_admin_state(admin_state());
+    data.set_enable_rpf(enable_rpf());
+    data.set_flood_unknown_unicast(flood_unknown_unicast());
+
+    std::vector<VnSandeshData> &list =
+        const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
+    list.push_back(data);
+    return true;
+
 }
 
 void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
@@ -1167,14 +1164,17 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 void VnListReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentVnSandesh(context(), get_name()));
+    AgentSandeshPtr sand(new AgentVnSandesh(context(), get_name(),
+                                       get_uuid(), get_vxlan_id(),
+                                       get_ipam_name()));
     sand->DoSandesh(sand);
 }
 
 AgentSandeshPtr VnTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                          const std::string &context) {
     return AgentSandeshPtr(new AgentVnSandesh(context,
-                                              args->GetString("name")));
+                                              args->GetString("name"), args->GetString("uuid"),
+                                              args->GetString("vxlan_id"), args->GetString("ipam_name")));
 }
 
 void DomainConfig::RegisterIpamCb(Callback cb) {
