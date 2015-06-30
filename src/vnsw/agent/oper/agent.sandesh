@@ -350,6 +350,9 @@ response sandesh SgListResp {
 
 request sandesh VnListReq {
     1: string name;                   // send data for given name substring
+    2: string uuid;
+    3: string vxlan_id;
+    4: string ipam_name;
 }
 
 response sandesh VnListResp {

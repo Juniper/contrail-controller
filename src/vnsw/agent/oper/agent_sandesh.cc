@@ -35,6 +35,18 @@ static bool MatchSubString(const string &str, const string &sub_str) {
     return (str.find(sub_str) != string::npos);
 }
 
+AgentVnSandesh::AgentVnSandesh(const std::string &context,
+                                   const std::string &name,
+                                   const std::string &u,
+                                   const std::string &vxlan_id,
+                                   const std::string &ipam_name) :
+        AgentSandesh(context, ""), name_(name), uuid_str_(u),
+        vxlan_id_(vxlan_id), ipam_name_(ipam_name) {
+
+    boost::system::error_code ec;
+    uuid_ = StringToUuid(u);
+}
+
 static bool MatchUuid(const string &uuid_str, const boost::uuids::uuid &u,
                       const boost::uuids::uuid val) {
     if (uuid_str.empty())
@@ -51,6 +63,46 @@ DBTable *AgentVnSandesh::AgentGetTable() {
 
 void AgentVnSandesh::Alloc() {
     resp_ = new VnListResp();
+}
+
+bool AgentVnSandesh::Filter(const DBEntryBase *entry) {
+    const VnEntry *vn = dynamic_cast<const VnEntry *>(entry);
+    assert(vn);
+
+    if (MatchSubString(vn->GetName(), name_) == false)
+        return false;
+
+    if (MatchUuid(uuid_str_ , uuid_,  vn->GetUuid()) == false)
+        return false;
+
+    if (vxlan_id_.empty() == false) {
+        if (((vn->GetVxLanId()) == boost::lexical_cast<int>(vxlan_id_)) == false) {
+           return false;
+       }
+    }
+
+    const std::vector<VnIpam> VnIpams = vn->GetVnIpam();
+    std::vector<VnIpam>::const_iterator pos;
+    bool ipam_flag = true;
+    for(pos=VnIpams.begin();pos < VnIpams.end();pos++) {
+            if ((MatchSubString(pos->ipam_name , ipam_name_) == true)) {
+                ipam_flag = false;
+            }
+    }
+    if (ipam_flag == true) {
+       return false;
+    }
+
+    return true;
+}
+
+bool AgentVnSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("name", name_);
+    args->Add("uuid", uuid_str_);
+    args->Add("vxlan_id", vxlan_id_);
+    args->Add("ipam_name", ipam_name_);
+
+    return true;
 }
 
 DBTable *AgentSgSandesh::AgentGetTable() {
