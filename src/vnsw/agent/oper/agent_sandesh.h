@@ -139,12 +139,30 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class AgentVnSandesh : public AgentSandesh {
 public:
-    AgentVnSandesh(std::string context, std::string name)
-        : AgentSandesh(context, name) {}
+    AgentVnSandesh(const std::string &context, const std::string &name,
+                   const std::string &u, const std::string &vrf_name,
+                   const std::string &vxlan_id, const std::string &ipam_name,
+                   const std::string &gateway, const std::string &dns_server,
+                   const std::string &ip_prefix);
+    ~AgentVnSandesh() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
 
 private:
+    friend class VnListReq;
     DBTable *AgentGetTable();
     void Alloc();
+    std::string name_;
+    std::string uuid_str_;
+    std::string vrf_name_;
+    std::string vxlan_id_;
+    std::string ipam_name_;
+    std::string gateway_;
+    std::string dns_server_;
+    std::string ip_prefix_;
+
+    boost::uuids::uuid uuid_;
+
 };
 
 class AgentSgSandesh : public AgentSandesh {
