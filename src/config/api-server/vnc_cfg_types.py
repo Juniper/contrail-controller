@@ -969,7 +969,7 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
     # end validate_dns_record
 # end class VirtualDnsRecordServer
 
-def _check_policy_rules(entries):
+def _check_policy_rules(entries, network_policy_rule=False):
     if not entries:
         return True, ""
     for rule in entries.get('policy_rule') or []:
@@ -978,13 +978,16 @@ def _check_policy_rules(entries):
         protocol = rule['protocol']
         if protocol.isdigit():
             if int(protocol) < 0 or int(protocol) > 255:
-                return (False, (400, 'Rule with invalid protocol : %s' % \
-                    rule['protocol']))
+                return (False, (400, 'Rule with invalid protocol : %s' %
+                                protocol))
         else:
             valids = ['any', 'icmp', 'tcp', 'udp']
             if protocol not in valids:
-                return (False, (400, 'Rule with invalid protocol : %s' % \
-                    rule['protocol']))
+                return (False, (400, 'Rule with invalid protocol : %s' %
+                                protocol))
+        if network_policy_rule:
+            if rule.get('action_list') is None:
+                return (False, (400, 'Action is required'))
     return True, ""
 # end _check_policy_rules
 
@@ -1059,12 +1062,7 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
         if not ok:
             return (ok, response)
 
-        try:
-            cls._check_policy(obj_dict)
-        except Exception as e:
-            return (False, (500, str(e)))
-
-        return _check_policy_rules(obj_dict.get('network_policy_entries'))
+        return _check_policy_rules(obj_dict.get('network_policy_entries'), True)
     # end http_post_collection
 
     @classmethod
@@ -1074,15 +1072,8 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
         if not read_ok:
             return (False, (500, read_result))
 
-        return _check_policy_rules(obj_dict.get('network_policy_entries'))
+        return _check_policy_rules(obj_dict.get('network_policy_entries'), True)
     # end http_put
-
-    @classmethod
-    def _check_policy(cls, obj_dict):
-        entries = obj_dict.get('network_policy_entries')
-        if not entries:
-            return
-    # end _check_policy
 
 # end class NetworkPolicyServer
 
