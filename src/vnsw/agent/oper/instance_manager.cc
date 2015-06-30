@@ -278,7 +278,6 @@ void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
            UnregisterSvcInstance(event.task);
        }
     }
-    ScheduleNextTask(event.task_queue);
 }
 
 bool InstanceManager::DequeueEvent(InstanceManagerChildEvent event) {
@@ -576,6 +575,8 @@ void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
     if (adapter != NULL) {
         InstanceTask *task = adapter->CreateStartTask(props, update);
         if (task != NULL) {
+            task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
+                                              this, _1, _2));
             state->set_properties(props);
             RegisterSvcInstance(task, svc_instance);
             std::stringstream info;
