@@ -448,8 +448,8 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
     }
 }
 
-void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> &genlist) {
-    genlist.clear();
+void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> *genlist) {
+    genlist->clear();
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
@@ -465,7 +465,23 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> &genlist) {
             gsinfo.set_instance_id(gm_it->first.get<2>());
             gsinfo.set_node_type(gm_it->first.get<3>());
             gsinfo.set_state(gen->State());
-            genlist.push_back(gsinfo);
+            uint64_t sm_queue_count;
+            if (gen->GetSandeshStateMachineQueueCount(sm_queue_count)) {
+                gsinfo.set_sm_queue_count(sm_queue_count);
+            }
+            std::string sm_drop_level;
+            if (gen->GetSandeshStateMachineDropLevel(sm_drop_level)) {
+                gsinfo.set_sm_drop_level(sm_drop_level);
+            }
+            uint64_t db_queue_count;
+            uint64_t db_enqueues;
+            std::string db_drop_level;
+            if (gen->GetDbStats(&db_queue_count, &db_enqueues,
+                    &db_drop_level, NULL)) {
+                gsinfo.set_db_queue_count(db_queue_count);
+                gsinfo.set_db_drop_level(db_drop_level);
+            }
+            genlist->push_back(gsinfo);
         }
     }
 }
@@ -603,8 +619,9 @@ public:
         resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());
         // SandeshGenerator summary info
         vector<GeneratorSummaryInfo> generators;
-        vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(generators);
+        vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(&generators);
         resp->set_generators(generators);
+        resp->set_num_generators(generators.size());
         // Send the response
         resp->set_context(req->context());
         resp->Response();

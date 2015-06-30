@@ -84,7 +84,7 @@ public:
     virtual bool ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             SandeshSession *session, const Sandesh *sandesh);
 
-    void GetGeneratorSummaryInfo(std::vector<GeneratorSummaryInfo> &genlist);
+    void GetGeneratorSummaryInfo(std::vector<GeneratorSummaryInfo> *genlist);
     void GetGeneratorUVEInfo(std::vector<ModuleServerState> &genlist);
     bool SendRemote(const std::string& destination,
             const std::string &dec_sandesh);
