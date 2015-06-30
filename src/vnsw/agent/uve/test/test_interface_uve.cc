@@ -68,6 +68,12 @@ struct PortInfo fip_input2[] = {
     {"flowc", 5, vm_c_ip, "00:00:00:02:01:03", 8, 8},
 };
 
+struct PortInfo stats_if[] = {
+        {"test0", 8, "3.1.1.1", "00:00:00:01:01:01", 6, 3},
+        {"test1", 9, "4.1.1.2", "00:00:00:01:01:02", 6, 4},
+};
+
+VmInterface *test0, *test1;
 VmInterface *flow0;
 VmInterface *flow1;
 VmInterface *flow2;
@@ -83,6 +89,25 @@ class InterfaceUveTest : public ::testing::Test {
 public:
     InterfaceUveTest() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
     }
+    void InterfaceSetup() {
+        client->Reset();
+        CreateVmportEnv(stats_if, 2);
+        client->WaitForIdle(10);
+
+        EXPECT_TRUE(VmPortActive(stats_if, 0));
+        EXPECT_TRUE(VmPortActive(stats_if, 1));
+
+        test0 = VmInterfaceGet(stats_if[0].intf_id);
+        assert(test0);
+        test1 = VmInterfaceGet(stats_if[1].intf_id);
+        assert(test1);
+    }
+    void InterfaceCleanup() {
+        client->Reset();
+        DeleteVmportEnv(stats_if, 2, 1);
+        client->WaitForIdle(10);
+    }
+
     void FlowSetUp() {
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         client->Reset();
@@ -961,6 +986,69 @@ TEST_F(InterfaceUveTest, VmNameInInterfaceList) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, ((vmut->InterfaceUveCount() == 0U)));
     vmut->ClearCount();
+}
+
+TEST_F(InterfaceUveTest, IntfStatsTest) {
+    InterfaceSetup();
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->stats_collector());
+    collector->interface_stats_responses_ = 0;
+    InterfaceUveTableTest *vmut = static_cast<InterfaceUveTableTest *>
+        (Agent::GetInstance()->uve()->interface_uve_table());
+    vmut->ClearCount();
+    EXPECT_EQ(0U, vmut->send_count());
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
+
+    EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0));
+    EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0));
+
+    //Change the stats
+    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 1, 50, 0, 1, 20, 0);
+    KSyncSockTypeMap::IfStatsUpdate(test1->id(), 1, 50, 0, 1, 20, 0);
+
+    //Wait for stats to be updated
+    collector->interface_stats_responses_ = 0;
+
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(VmPortStatsMatch(test0, 1, 50, 1, 20));
+    EXPECT_TRUE(VmPortStatsMatch(test1, 1, 50, 1, 20));
+
+    //Reset the stats so that repeat of this test case works
+    KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
+
+    vmut->ClearCount();
+    collector->interface_stats_responses_ = 0;
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
+
+    //Verify 2 UVE sends have happened (one for each VMI)
+    //Because bandwith of VMI is changing from non-zero to zero, we expect
+    //UVEs to be sent for each VMI
+    EXPECT_EQ(2U, vmut->send_count());
+
+    // Trigger stats collection again without change in stats
+    vmut->ClearCount();
+    collector->interface_stats_responses_ = 0;
+    util_.EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
+
+    //Verify that no UVE sends have happened
+    EXPECT_EQ(0U, vmut->send_count());
+    InterfaceCleanup();
 }
 
 TEST_F(InterfaceUveTest, PhysicalIntfAddDel_1) {
