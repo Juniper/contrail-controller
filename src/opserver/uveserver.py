@@ -58,8 +58,7 @@ class UVEServer(object):
             if test_elem not in self._redis_uve_map:
                 r_ip = test_elem[0]
                 r_port = test_elem[1]
-                self._redis_uve_map[test_elem] = redis.StrictRedis(
-                        r_ip, r_port, password=self._redis_password, db=1)
+                self._redis_uve_map[test_elem] = None
     # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
