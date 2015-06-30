@@ -878,8 +878,13 @@ class VncApiServer(VncApiServerGen):
         else:
             filters = None
 
+        req_fields = bottle.request.json.get('fields', [])
+        if req_fields:
+            req_fields = req_fields.split(',')
+
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
-                                     obj_uuids, is_count, is_detail, filters)
+                                     obj_uuids, is_count, is_detail, filters,
+                                     req_fields)
     # end list_bulk_collection_http_post
 
     def str_to_class(self, class_name):
@@ -1099,7 +1104,8 @@ class VncApiServer(VncApiServerGen):
 
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
-                         is_count=False, is_detail=False, filters=None):
+                         is_count=False, is_detail=False, filters=None,
+                         req_fields=None):
         method_name = obj_type.replace('-', '_') # e.g. virtual_network
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
@@ -1121,6 +1127,8 @@ class VncApiServer(VncApiServerGen):
                 obj_ids_list = [{'uuid': obj_uuid} 
                                 for _, obj_uuid in fq_names_uuids]
                 obj_fields = [u'id_perms']
+                if req_fields:
+                    obj_fields = obj_fields + req_fields
                 (ok, result) = self._db_conn.dbe_read_multi(
                                     obj_type, obj_ids_list, obj_fields)
                 if not ok:
@@ -1132,13 +1140,32 @@ class VncApiServer(VncApiServerGen):
                         obj_dict['href'] = self.generate_url(obj_type,
                                                          obj_result['uuid'])
                         obj_dict['fq_name'] = obj_result['fq_name']
+                        for field in req_fields:
+                            try:
+                                obj_dict[field] = obj_result[field]
+                            except KeyError:
+                                pass
                         obj_dicts.append(obj_dict)
             else: # admin
+                obj_results = {}
+                if req_fields:
+                    obj_ids_list = [{'uuid': obj_uuid}
+                                    for _, obj_uuid in fq_names_uuids]
+                    (ok, result) = self._db_conn.dbe_read_multi(
+                        obj_type, obj_ids_list, req_fields)
+                    if ok:
+                        obj_results = dict((elem['uuid'], elem)
+                                           for elem in result)
                 for fq_name, obj_uuid in fq_names_uuids:
                     obj_dict = {}
                     obj_dict['uuid'] = obj_uuid
                     obj_dict['href'] = self.generate_url(obj_type, obj_uuid)
                     obj_dict['fq_name'] = fq_name
+                    for field in req_fields:
+                       try:
+                           obj_dict[field] = obj_results[obj_uuid][field]
+                       except KeyError:
+                           pass
                     obj_dicts.append(obj_dict)
         else: #detail
             obj_ids_list = [{'uuid': obj_uuid}
