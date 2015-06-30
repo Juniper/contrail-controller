@@ -10,9 +10,9 @@
 
 class BgpServer;
 class BgpXmppChannelManager;
-
 class BgpNeighborResp;
 class BgpNeighborReq;
+class ShowBgpNeighborSummaryReq;
 class ShowNeighborStatisticsReq;
 
 struct BgpSandeshContext : public SandeshContext {
@@ -20,6 +20,10 @@ struct BgpSandeshContext : public SandeshContext {
                                  BgpSandeshContext *,
                                  const BgpNeighborReq *)>
             NeighborListExtension;
+    typedef boost::function<void(std::vector<BgpNeighborResp> *,
+                                 BgpSandeshContext *,
+                                 const ShowBgpNeighborSummaryReq *)>
+            NeighborSummaryListExtension;
     typedef boost::function<void(size_t *,
                                  BgpSandeshContext *,
                                  const ShowNeighborStatisticsReq *)>
@@ -29,7 +33,7 @@ struct BgpSandeshContext : public SandeshContext {
 
     void SetNeighborShowExtensions(
         const NeighborListExtension &show_neighbor,
-        const NeighborListExtension &show_neighbor_summary,
+        const NeighborSummaryListExtension &show_neighbor_summary,
         const NeighborStatisticsExtension &show_neighbor_statistics);
 
     BgpServer *bgp_server;
@@ -38,7 +42,7 @@ struct BgpSandeshContext : public SandeshContext {
     void ShowNeighborExtension(std::vector<BgpNeighborResp> *list,
                                const BgpNeighborReq *req);
     void ShowNeighborSummaryExtension(std::vector<BgpNeighborResp> *list,
-                                      const BgpNeighborReq *req);
+                                      const ShowBgpNeighborSummaryReq *req);
     void ShowNeighborStatisticsExtension(size_t *count,
                                          const ShowNeighborStatisticsReq *req);
 
@@ -48,7 +52,7 @@ struct BgpSandeshContext : public SandeshContext {
 private:
     bool test_mode_;
     NeighborListExtension show_neighbor_ext_;
-    NeighborListExtension show_neighbor_summary_ext_;
+    NeighborSummaryListExtension show_neighbor_summary_ext_;
     NeighborStatisticsExtension show_neighbor_statistics_ext_;
 };
 

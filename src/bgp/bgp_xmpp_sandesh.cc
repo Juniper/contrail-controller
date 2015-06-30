@@ -17,13 +17,25 @@
 using std::string;
 using std::vector;
 
+static bool ShowXmppNeighborMatch(BgpXmppChannel *bx_channel,
+    const string &search_string) {
+    if (search_string.empty())
+        return true;
+    if (bx_channel->ToString().find(search_string) != string::npos)
+        return true;
+    string address_string = bx_channel->remote_endpoint().address().to_string();
+    if (address_string.find(search_string) != string::npos)
+        return true;
+    if (search_string == "deleted" && bx_channel->peer_deleted())
+        return true;
+    return false;
+}
+
 static void ShowXmppNeighborVisitor(
     vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server,
-    const string &neighbor, BgpXmppChannel *bx_channel) {
-    if (!neighbor.empty() && bx_channel->ToString() != neighbor &&
-        bx_channel->remote_endpoint().address().to_string() != neighbor) {
+    const string &search_string, BgpXmppChannel *bx_channel) {
+    if (!ShowXmppNeighborMatch(bx_channel, search_string))
         return;
-    }
     BgpNeighborResp resp;
     resp.set_peer(bx_channel->ToString());
     resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
@@ -56,11 +68,14 @@ static void ShowXmppNeighbor(
     const BgpNeighborReq *req) {
     bsc->xmpp_peer_manager->VisitChannels(
         boost::bind(ShowXmppNeighborVisitor,
-                    list, bsc->bgp_server, req->get_neighbor(), _1));
+            list, bsc->bgp_server, req->get_neighbor(), _1));
 }
 
 static void ShowXmppNeighborSummaryVisitor(
-    vector<BgpNeighborResp> *nbr_list, BgpXmppChannel *bx_channel) {
+    vector<BgpNeighborResp> *nbr_list,
+    const string &search_string, BgpXmppChannel *bx_channel) {
+    if (!ShowXmppNeighborMatch(bx_channel, search_string))
+        return;
     BgpNeighborResp resp;
     resp.set_peer(bx_channel->ToString());
     resp.set_deleted(bx_channel->peer_deleted());
@@ -72,14 +87,16 @@ static void ShowXmppNeighborSummaryVisitor(
     resp.set_local_address(bx_channel->local_endpoint().address().to_string());
     const XmppConnection *connection = bx_channel->channel()->connection();
     resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
+    resp.set_auth_type(connection->GetXmppAuthenticationType());
     nbr_list->push_back(resp);
 }
 
 static void ShowXmppNeighborSummary(
     vector<BgpNeighborResp> *list, BgpSandeshContext *bsc,
-    const BgpNeighborReq *req) {
+    const ShowBgpNeighborSummaryReq *req) {
     bsc->xmpp_peer_manager->VisitChannels(
-        boost::bind(ShowXmppNeighborSummaryVisitor, list, _1));
+        boost::bind(ShowXmppNeighborSummaryVisitor,
+            list, req->get_search_string(), _1));
 }
 
 static void ShowXmppNeighborStatisticsVisitor(
