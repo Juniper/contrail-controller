@@ -40,6 +40,8 @@ uint32_t NetmaskToPrefix(uint32_t netmask);
 IpAddress PrefixToIp6Netmask(uint32_t plen);
 void VectorToIp(const std::vector<int8_t> &ip, int family, IpAddress *sip,
                 IpAddress *dip);
+std::vector<int8_t> IpToVector(const IpAddress &sip, const IpAddress &dip,
+                               Address::Family fam);
 void CharArrayToIp(const unsigned char *ip, int size, int family,
                    IpAddress *sip, IpAddress *dip);
 void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size);
