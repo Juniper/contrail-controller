@@ -106,8 +106,7 @@ void StatsManager::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
                       (e->GetState(part->parent(), intf_listener_id_));
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
-        if (e->IsDeleted() || ((intf->ipv4_active() == false) &&
-                                (intf->l2_active() == false))) {
+        if (e->IsDeleted() || (intf->IsActive() == false)) {
             if (state) {
                 reset_state = true;
             }
