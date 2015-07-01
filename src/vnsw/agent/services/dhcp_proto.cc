@@ -4,7 +4,9 @@
 
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
+#include "oper/vn.h"
 #include "services/dhcp_proto.h"
+#include "services/dhcp_lease_db.h"
 #include "services/services_types.h"
 #include "services/services_init.h"
 #include "pkt/pkt_init.h"
@@ -43,6 +45,8 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
 
     iid_ = agent->interface_table()->Register(
                   boost::bind(&DhcpProto::ItfNotify, this, _2));
+    vnid_ = agent->vn_table()->Register(
+                  boost::bind(&DhcpProto::VnNotify, this, _2));
 }
 
 DhcpProto::~DhcpProto() {
@@ -58,6 +62,7 @@ DhcpProto::~DhcpProto() {
         }
     }
     agent_->interface_table()->Unregister(iid_);
+    agent_->vn_table()->Unregister(vnid_);
     if (dhcp_server_read_buf_) delete [] dhcp_server_read_buf_;
 }
 
@@ -106,6 +111,12 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             set_ip_fabric_interface_index(-1);
         } else if (itf->type() == Interface::PACKET) {
             set_pkt_interface_index(-1);
+        } else if (itf->type() == Interface::VM_INTERFACE) {
+            VmInterface *vmi = static_cast<VmInterface *>(itf);
+            if (gw_vmi_list_.erase(vmi)) {
+                DHCP_TRACE(Trace, "Gateway interface deleted: " << itf->name());
+            }
+            DeleteLeaseDb(vmi);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL &&
@@ -119,6 +130,88 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             }
         } else if (itf->type() == Interface::PACKET) {
             set_pkt_interface_index(itf->id());
+        } else if (itf->type() == Interface::VM_INTERFACE) {
+            VmInterface *vmi = static_cast<VmInterface *>(itf);
+            if (vmi->vmi_type() == VmInterface::GATEWAY) {
+                DHCP_TRACE(Trace, "Gateway interface added: " << itf->name());
+                gw_vmi_list_.insert(vmi);
+                CreateLeaseDb(vmi);
+            }
         }
     }
+}
+
+void DhcpProto::CreateLeaseDb(VmInterface *vmi) {
+    const Ip4Address &subnet = vmi->subnet();
+    if (vmi->vn() == NULL || subnet.to_ulong() == 0) {
+        DeleteLeaseDb(vmi);
+        DHCP_TRACE(Trace, "DHCP Lease DB not created - config not present : " <<
+                   vmi->subnet().to_string());
+        return;
+    }
+
+    const IpAddress address(subnet);
+    const VnIpam *vn_ipam = vmi->vn()->GetIpam(address);
+    if (!vn_ipam) {
+        DeleteLeaseDb(vmi);
+        DHCP_TRACE(Trace, "DHCP Lease DB not created for subnet " <<
+                   vmi->subnet().to_string() << " - IPAM not available");
+        return;
+    }
+
+    std::string res;
+    std::vector<Ip4Address> reserve_list;
+    if (vmi->ip_addr().to_ulong()) {
+        reserve_list.push_back(vmi->ip_addr());
+        res = vmi->ip_addr().to_string() + ", ";
+    }
+    reserve_list.push_back(vn_ipam->default_gw.to_v4());
+    reserve_list.push_back(vn_ipam->dns_server.to_v4());
+    res += vn_ipam->default_gw.to_v4().to_string() + ", ";
+    res += vn_ipam->dns_server.to_v4().to_string();
+    LeaseManagerMap::iterator it = lease_manager_.find(vmi);
+    if (it == lease_manager_.end()) {
+        DHCP_TRACE(Trace, "Created new DHCP Lease DB : " <<
+                   vmi->name() << " " << vmi->subnet().to_string() << "/" <<
+                   vmi->subnet_plen() << "; Reserved : " << res);
+        DhcpLeaseDb *lease_db = new DhcpLeaseDb(vmi->subnet(),
+                                                vmi->subnet_plen(),
+                                                reserve_list,
+                                                io_);
+        lease_manager_.insert(LeaseManagerPair(vmi, lease_db));
+    } else {
+        DHCP_TRACE(Trace, "Updated DHCP Lease DB : " <<
+                   vmi->subnet().to_string() << "/" <<
+                   vmi->subnet_plen() << "; Reserved : " << res);
+        it->second->Update(vmi->subnet(), vmi->subnet_plen(),
+                           reserve_list);
+    }
+}
+
+void DhcpProto::DeleteLeaseDb(VmInterface *vmi) {
+    LeaseManagerMap::iterator it = lease_manager_.find(vmi);
+    if (it != lease_manager_.end()) {
+        delete it->second;
+        lease_manager_.erase(it);
+        DHCP_TRACE(Trace, "Deleted DHCP Lease DB : " << vmi->name());
+    }
+}
+
+void DhcpProto::VnNotify(DBEntryBase *entry) {
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    for (std::set<VmInterface *>::iterator it = gw_vmi_list_.begin();
+         it != gw_vmi_list_.end(); ++it) {
+        VmInterface *vmi = *it;
+        if (vmi->vn() != vn)
+            continue;
+        CreateLeaseDb(*it);
+    }
+}
+
+DhcpLeaseDb *DhcpProto::GetLeaseDb(Interface *interface) {
+    LeaseManagerMap::iterator it = lease_manager_.find(interface);
+    if (it != lease_manager_.end())
+        return it->second;
+
+    return NULL;
 }

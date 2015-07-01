@@ -10,6 +10,7 @@
 #include "oper/vn.h"
 #include "pkt/pkt_init.h"
 #include "services/dhcp_proto.h"
+#include "services/dhcp_lease_db.h"
 #include "services/services_types.h"
 #include "services/services_init.h"
 #include "services/dns_proto.h"
@@ -549,6 +550,33 @@ void DhcpHandler::FillDhcpInfo(Ip4Address &addr, int plen,
 }
 
 
+bool DhcpHandler::GetGatewayInterfaceLease() {
+    DhcpLeaseDb *dhcp_lease_db = agent()->GetDhcpProto()->GetLeaseDb(vm_itf_);
+    if (dhcp_lease_db) {
+        Ip4Address ip;
+        MacAddress mac(request_.mac_addr);
+        const VnIpam *vn_ipam = (vm_itf_->vn()) ?
+            vm_itf_->vn()->GetIpam(IpAddress(vm_itf_->subnet())) : NULL;
+        if (!vn_ipam ||
+            !dhcp_lease_db->Allocate(mac, &ip, DHCP_GW_LEASE_TIME)) {
+            agent()->GetDhcpProto()->IncrStatsErrors();
+            DHCP_TRACE(Error, "DHCP request from Gateway interface failed :"
+                       " could not allocate IP address for Mac : " <<
+                       mac.ToString() << " on VMI : " << vm_itf_->name());
+            return false;
+        }
+        config_.lease_time = DHCP_GW_LEASE_TIME;
+        Ip4Address gw = vn_ipam->default_gw.to_v4();
+        Ip4Address dns = vn_ipam->dns_server.to_v4();
+        FillDhcpInfo(ip, dhcp_lease_db->plen(), gw, dns);
+        return true;
+    }
+
+    DHCP_TRACE(Error, "DHCP request on VMI " << vm_itf_->name() <<
+               " could not be served - DHCP lease db is not created");
+    return false;
+}
+
 bool DhcpHandler::FindLeaseData() {
     Ip4Address unspecified;
     Ip4Address ip = vm_itf_->ip_addr();
@@ -556,6 +584,12 @@ bool DhcpHandler::FindLeaseData() {
     config_.client_name_ = vm_itf_->vm_name();
     FindDomainName(ip);
     if (vm_itf_->ipv4_active() || vm_itf_->device_type() == VmInterface::TOR) {
+        // if the request is from a Gateway interface, get an address from the
+        // relevant subnet
+        if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
+            return GetGatewayInterfaceLease();
+        }
+
         if (vm_itf_->fabric_port()) {
             InetUnicastRouteEntry *rt =
                 InetUnicastAgentRouteTable::FindResolveRoute(
