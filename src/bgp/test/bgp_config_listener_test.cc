@@ -249,9 +249,8 @@ TEST_F(BgpConfigListenerTest, IrrelevantNodeEvent) {
 }
 
 //
-// Multiple node events for the same node should not cause it to get on the
-// change list multiple times. However, it should get added to the node list
-// multiple times per the current implementation.
+// Multiple node events for same node should cause it to get on the change
+// list multiple times.
 //
 TEST_F(BgpConfigListenerTest, DuplicateNodeEvent) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
@@ -265,13 +264,13 @@ TEST_F(BgpConfigListenerTest, DuplicateNodeEvent) {
     ifmap_test_util::IFMapNodeNotify(&db_, "bgp-router", id_name);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("bgp-router"));
+    TASK_UTIL_EXPECT_EQ(5, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("bgp-router"));
     TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
@@ -354,12 +353,12 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent3) {
         ifmap_test_util::IFMapNodeLookup(&db_, "virtual-network", "red");
     TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
 
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
