@@ -261,15 +261,12 @@ void VnUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
 
     VnUveInterfaceState *state = static_cast<VnUveInterfaceState *>
                       (e->GetState(partition->parent(), intf_listener_id_));
-    if (e->IsDeleted() || ((vm_port->ipv4_active() == false) &&
-                           (vm_port->l2_active() == false))) {
+    if (e->IsDeleted() || (vm_port->IsActive() == false)) {
         if (state) {
-            if (e->IsDeleted() || ((state->ipv4_active_ == true) ||
-                                    (state->l2_active_ == true))) {
+            if (e->IsDeleted() || (state->active_ == true)) {
                 InterfaceDeleteHandler(state->vm_name_, state->vn_name_,
                                        vm_port);
-                state->ipv4_active_ = false;
-                state->l2_active_ = false;
+                state->active_ = false;
             }
             if (e->IsDeleted()) {
                 e->ClearState(partition->parent(), intf_listener_id_);
@@ -286,22 +283,19 @@ void VnUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
         std::string vm_name = vm? vm->GetCfgName() : agent_->NullString();
 
         if (!state) {
-            state = new VnUveInterfaceState(vm_name, vn->GetName(), false,
-                                            false);
+            state = new VnUveInterfaceState(vm_name, vn->GetName(), false);
             e->SetState(partition->parent(), intf_listener_id_, state);
         } else {
             /* Change in VN name is not supported now */
             assert(state->vn_name_.compare(vn->GetName()) == 0);
         }
 
-        if ((state->ipv4_active_ == vm_port->ipv4_active()) &&
-            (state->l2_active_ == vm_port->l2_active()) &&
+        if ((state->active_ == vm_port->IsActive()) &&
             (state->vm_name_.compare(vm_name) == 0)) {
             return;
         }
         InterfaceAddHandler(vn, vm_port, vm_name, state);
-        state->ipv4_active_ = vm_port->ipv4_active();
-        state->l2_active_ = vm_port->l2_active();
+        state->active_ = vm_port->IsActive();
         state->vm_name_ = vm_name;
     }
     return;

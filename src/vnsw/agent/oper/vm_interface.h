@@ -509,6 +509,7 @@ public:
                                 const MacAddress &mac) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
+    bool IsActive() const;
 
 private:
     friend struct VmInterfaceConfigData;
@@ -517,9 +518,7 @@ private:
     friend struct VmInterfaceOsOperStateData;
     friend struct VmInterfaceMirrorData;
 
-    bool IsActive() const;
     bool IsIpv4Active() const;
-    bool IsL3Active() const;
     bool PolicyEnabled() const;
     void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
