@@ -2332,6 +2332,51 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
     client->WaitForIdle();
 }
 
+// Linklocal flow with fabric-ip as loopback IP
+TEST_F(FlowTest, LinkLocalFlow_loopback_1) {
+    Ip4Address rid = Ip4Address::from_string(vhost_ip_addr);
+    Agent::GetInstance()->set_router_id(rid);
+    Agent::GetInstance()->set_compute_node_ip(rid);
+    std::string mdata_ip = flow0->mdata_ip_addr().to_string();
+    std::string fabric_ip("127.0.0.1");
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back(fabric_ip);
+    TestLinkLocalService service = { "test_service", linklocal_ip, linklocal_port,
+                                     "", fabric_ip_list, fabric_port };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
+
+    TestFlow nat_flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3000,
+                        linklocal_port, "vrf5", flow0->id(), 1),
+            {
+                new VerifyNat(vhost_ip_addr, mdata_ip, IPPROTO_TCP, fabric_port,
+                              3000)
+            }
+        }
+    };
+
+    CreateFlow(nat_flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    EXPECT_TRUE(FlowGet(0, vhost_ip_addr, mdata_ip.c_str(), IPPROTO_TCP,
+                        fabric_port, 3000,
+                        vhost->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
+                        IPPROTO_TCP, 3000, linklocal_port,
+                        GetFlowKeyNH(input[0].intf_id)));
+
+    //Delete forward flow and expect both flows to be deleted
+    DeleteFlow(nat_flow, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowTableWait(0));
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
+}
+
 TEST_F(FlowTest, LinkLocalFlow_Fail1) {
     Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
     std::string fabric_ip("1.2.3.4");
