@@ -76,6 +76,26 @@ void BgpRoute::DeletePath(BgpPath *path) {
 }
 
 //
+// Find first path with given path source.
+// Skips secondary paths.
+//
+const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src) const {
+    for (Route::PathList::const_iterator it = GetPathList().begin();
+         it != GetPathList().end(); ++it) {
+        // Skip secondary paths.
+        if (dynamic_cast<const BgpSecondaryPath *>(it.operator->())) {
+            continue;
+        }
+
+        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+        if (path->GetSource() == src) {
+            return path;
+        }
+    }
+    return NULL;
+}
+
+//
 // Find path added by peer with given path id and path source.
 // Skips secondary paths.
 //
