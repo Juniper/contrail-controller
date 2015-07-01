@@ -140,16 +140,11 @@ class PhysicalRouterConfig(object):
                       the public network
      interfaces: logical interfaces to be part of vrf
      fip_map: contrail instance ip to floating-ip map, used for snat & floating ip support
-     private_vni: This is used only for configuring snat vrf.
-                  private vn routing instance has an irb interface with the unit number 
-                  same as network vni. Snat vrf firewall filter should be applied 
-                  to private network irb interface, hence needed irb interface unit number. 
-                  This allows the traffic flow from private vrf to snat to 
-                  public and vice-versa
+     network_id : this is used for configuraing irb interfaces
     '''
     def add_routing_instance(self, ri_name, import_targets, export_targets,
                              prefixes=[], gateways=[], router_external=False, 
-                             interfaces=[], vni=None, fip_map=None, private_vni=None):
+                             interfaces=[], vni=None, fip_map=None, network_id=None):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
                                         'prefixes': prefixes,
@@ -279,7 +274,8 @@ class PhysicalRouterConfig(object):
             etree.SubElement(term, "name").text= "term-" + ri_name[:59]
             if prefixes:
                 from_ = etree.SubElement(term, "from")
-                etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
+                for prefix in prefixes:
+                    etree.SubElement(from_, "destination-address").text = prefix
             then_ = etree.SubElement(term, "then")
             etree.SubElement(then_, "routing-instance").text = ri_name
             #insert after 'name' element but before the last term
@@ -307,7 +303,7 @@ class PhysicalRouterConfig(object):
             irb_intf = etree.SubElement(interfaces_config, "interface")
             etree.SubElement(irb_intf, "name").text = "irb"
             intf_unit = etree.SubElement(irb_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = str(private_vni)
+            etree.SubElement(intf_unit, "name").text = str(network_id)
             family = etree.SubElement(intf_unit, "family")
             inet = etree.SubElement(family, "inet")
             f = etree.SubElement(inet, "filter")
@@ -330,7 +326,7 @@ class PhysicalRouterConfig(object):
             for interface in interfaces:
                 if_element = etree.SubElement(bd, "interface")
                 etree.SubElement(if_element, "name").text = interface
-            etree.SubElement(bd, "routing-interface").text = "irb." + str(vni) #vni is unique, hence irb
+            etree.SubElement(bd, "routing-interface").text = "irb." + str(network_id) #network_id is unique, hence irb
             evpn_proto_config = etree.SubElement(ri, "protocols")
             evpn = etree.SubElement(evpn_proto_config, "evpn")
             etree.SubElement(evpn, "encapsulation").text = "vxlan"
@@ -342,7 +338,7 @@ class PhysicalRouterConfig(object):
             etree.SubElement(irb_intf, "gratuitous-arp-reply")
             if gateways is not None:
                 intf_unit = etree.SubElement(irb_intf, "unit")
-                etree.SubElement(intf_unit, "name").text = str(vni)
+                etree.SubElement(intf_unit, "name").text = str(network_id)
                 family = etree.SubElement(intf_unit, "family")
                 inet = etree.SubElement(family, "inet")
                 for gateway in gateways:
