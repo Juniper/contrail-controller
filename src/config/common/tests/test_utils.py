@@ -503,7 +503,9 @@ class FakeIfmapClient(object):
                 if oper == 'update':
                     cls._published_messages.append((result, info))
                 else:
-                    cls._published_messages = [(r,i) for (r, i) in cls._published_messages if i != info]
+                    cls._published_messages = [
+                        (r,i) for (r, i) in cls._published_messages
+                        if (i != info and i != info [::-1])]
             result = etree.Element('publishReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
