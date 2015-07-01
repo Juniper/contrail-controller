@@ -141,6 +141,9 @@ public:
 
     uint32_t get_output_queue_depth() const;
 
+    uint32_t num_pending_service_chains() const;
+    uint32_t num_pending_static_routes() const;
+
     void IncUpPeerCount() {
         num_up_peer_++;
     }
@@ -167,6 +170,7 @@ public:
     void InsertStaticRouteMgr(StaticRouteMgr *srt_manager);
     void RemoveStaticRouteMgr(StaticRouteMgr *srt_manager);
     void NotifyAllStaticRoutes();
+    uint32_t GetPendingStaticRouteCount() const;
 
 private:
     class ConfigUpdater;
@@ -194,7 +198,7 @@ private:
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
     tbb::atomic<uint32_t> num_up_peer_;
-    uint32_t closing_count_;
+    tbb::atomic<uint32_t> closing_count_;
     BgpPeerList peer_list_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;

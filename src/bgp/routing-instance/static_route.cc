@@ -144,6 +144,7 @@ public:
     void UpdateStaticRoute();
     void RemoveStaticRoute();
     void NotifyRoute();
+    bool IsPending() const;
 
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
@@ -474,6 +475,14 @@ void StaticRoute::NotifyRoute() {
     partition->Notify(static_route);
 }
 
+bool StaticRoute::IsPending() const {
+    InetRoute rt_key(static_route_prefix());
+    DBTablePartition *partition =
+       static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
+    const BgpRoute *route = static_cast<BgpRoute *>(partition->Find(&rt_key));
+    return (!route || !route->FindPath(BgpPath::StaticRoute));
+}
+
 int StaticRouteMgr::static_route_task_id_ = -1;
 
 StaticRouteMgr::StaticRouteMgr(RoutingInstance *instance)
@@ -739,6 +748,19 @@ void StaticRouteMgr::NotifyAllRoutes() {
              static_cast<StaticRoute *>(it->second.get());
         static_route->NotifyRoute();
     }
+}
+
+uint32_t StaticRouteMgr::GetPendingRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    uint32_t count = 0;
+    for (StaticRouteMap::const_iterator it = static_route_map_.begin();
+         it != static_route_map_.end(); ++it) {
+        const StaticRoute *static_route =
+             static_cast<const StaticRoute *>(it->second.get());
+        if (static_route->IsPending())
+            count++;
+    }
+    return count;
 }
 
 class ShowStaticRouteHandler {

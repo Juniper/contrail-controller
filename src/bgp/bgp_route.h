@@ -29,6 +29,7 @@ public:
     void InsertPath(BgpPath *path);
     void DeletePath(BgpPath *path);
 
+    const BgpPath *FindPath(BgpPath::PathSource src) const;
     BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,
                       uint32_t path_id);
     bool RemovePath(BgpPath::PathSource src, const IPeer *peer = NULL,

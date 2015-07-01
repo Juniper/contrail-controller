@@ -238,7 +238,6 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
-      closing_count_(0),
       lifetime_manager_(new BgpLifetimeManager(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -267,6 +266,7 @@ BgpServer::BgpServer(EventManager *evm)
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     num_up_peer_ = 0;
+    closing_count_ = 0;
     message_build_error_ = 0;
 }
 
@@ -366,6 +366,14 @@ uint32_t BgpServer::get_output_queue_depth() const {
         }
     }
     return out_q_depth;
+}
+
+uint32_t BgpServer::num_pending_service_chains() const {
+    return service_chain_mgr_->PendingQueueSize();
+}
+
+uint32_t BgpServer::num_pending_static_routes() const {
+    return GetPendingStaticRouteCount();
 }
 
 void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
@@ -485,4 +493,15 @@ void BgpServer::NotifyAllStaticRoutes() {
         StaticRouteMgr *srt_manager = *it;
         srt_manager->NotifyAllRoutes();
     }
+}
+
+uint32_t BgpServer::GetPendingStaticRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    uint32_t count = 0;
+    for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
+         it != srt_manager_list_.end(); ++it) {
+        StaticRouteMgr *srt_manager = *it;
+        count += srt_manager->GetPendingRouteCount();
+    }
+    return count;
 }
