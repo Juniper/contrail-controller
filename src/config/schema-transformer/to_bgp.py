@@ -1556,11 +1556,11 @@ class RoutingInstanceST(object):
                 if service_chain is not None:
                     VirtualNetworkST.free_service_chain_vlan(
                         vmi_obj.get_parent_fq_name_str(), service_chain)
+                vmi_obj.del_routing_instance(self.obj)
+                _vnc_lib.virtual_machine_interface_update(vmi_obj)
             except NoIdError:
                 continue
 
-            vmi_obj.del_routing_instance(self.obj)
-            _vnc_lib.virtual_machine_interface_update(vmi_obj)
         # end for vmi
         _vnc_lib.routing_instance_delete(id=self.obj.uuid)
         for rtgt in rtgt_list or []:
