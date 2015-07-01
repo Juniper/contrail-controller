@@ -31,6 +31,7 @@ struct LinkLocalDBState : DBState {
 class GlobalVrouter {
 public:
     static const std::string kMetadataService;
+    static const Ip4Address kLoopBackIp;
 
     struct LinkLocalServiceKey {
         Ip4Address linklocal_service_ip;
@@ -85,6 +86,7 @@ public:
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
 
     uint64_t PendingFabricDnsRequests() const;
+
 private:
     class FabricDnsResolver;
     class LinkLocalRouteManager;
