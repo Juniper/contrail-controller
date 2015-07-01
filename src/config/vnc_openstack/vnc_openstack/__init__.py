@@ -45,6 +45,9 @@ Q_MAX_ITEMS = 1000
 #Keystone SSL support
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 
+DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
+
+
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
     obj._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
@@ -157,7 +160,10 @@ def _create_default_security_group(vnc_lib, proj_obj):
     sg_rules = PolicyEntriesType(rules)
 
     # create security group
+    id_perms = IdPermsType(enable=True,
+                           description=DEFAULT_SECGROUP_DESCRIPTION)
     sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
+                                   id_perms=id_perms,
                                    security_group_entries=sg_rules)
 
     vnc_lib.security_group_create(sg_obj)
