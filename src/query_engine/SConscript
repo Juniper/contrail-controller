@@ -143,7 +143,7 @@ if env['OPT'] == 'coverage':
     env.AppendUnique(CCFLAGS='-g')
     env.AppendUnique(CCFLAGS='-O0')
     env.AppendUnique(CCFLAGS='--coverage')
-    rac = 'rac_alloc.cc'
+    rac = 'rac_alloc.o'
 else:
     rac = 'rac_alloc_test.cc'
 
