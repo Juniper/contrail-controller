@@ -51,6 +51,7 @@ struct UveVMInterfaceAgent {
    19: string vm_uuid;
    20: optional u64 in_bw_usage;
    21: optional u64 out_bw_usage;
+   22: optional bool ip4_active;
 }
 
 uve sandesh UveVMInterfaceAgentTrace {
