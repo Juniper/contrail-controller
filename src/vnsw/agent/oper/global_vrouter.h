@@ -31,6 +31,7 @@ struct LinkLocalDBState : DBState {
 class GlobalVrouter {
 public:
     static const std::string kMetadataService;
+    static const Ip4Address kLoopBackIp;
 
     struct LinkLocalServiceKey {
         Ip4Address linklocal_service_ip;

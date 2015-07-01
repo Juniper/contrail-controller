@@ -28,6 +28,8 @@
 #include <oper/global_vrouter.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
+const Ip4Address GlobalVrouter::kLoopBackIp =
+    Ip4Address::from_string("127.0.0.1");
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -455,6 +457,9 @@ bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
                 // if there are multiple addresses, return one of them
                 int index = rand() % it->second.ipfabric_service_ip.size();
                 *fabric_ip = it->second.ipfabric_service_ip[index];
+                if (*fabric_ip == kLoopBackIp) {
+                    *fabric_ip = oper_->agent()->router_id();
+                }
                 return true;
             } else if (!it->second.ipfabric_dns_service_name.empty()) {
                 return fabric_dns_resolver_->Resolve(
@@ -508,6 +513,9 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
     if (it->second.ipfabric_service_ip.size()) {
         int index = rand() % it->second.ipfabric_service_ip.size();
         *fabric_ip = it->second.ipfabric_service_ip[index];
+        if (*fabric_ip == kLoopBackIp) {
+            *fabric_ip = oper_->agent()->router_id();
+        }
         return true;
     } else if (!it->second.ipfabric_dns_service_name.empty()) {
         return fabric_dns_resolver_->Resolve(
