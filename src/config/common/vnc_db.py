@@ -187,6 +187,7 @@ class DBBase(object):
         obj_dict = self.read_obj(uuid, obj_type)
         cls = obj_type_to_vnc_class(obj_type, __name__)
         obj = cls.from_dict(**obj_dict)
+        obj.clear_pending_updates()
         return obj
     # end read_vnc_obj
 
