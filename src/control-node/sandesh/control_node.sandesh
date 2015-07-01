@@ -23,6 +23,8 @@ struct BgpRouterState {
    21: optional u32 num_closing_xmpp_peer;
    12: optional u32 num_routing_instance;
    22: optional u32 num_deleted_routing_instance;
+   23: optional u32 num_pending_service_chains;
+   24: optional u32 num_pending_static_routes;
    13: optional string build_info;
    14: optional string collector_ip;
    15: optional list<string> bgp_router_ip_list;
