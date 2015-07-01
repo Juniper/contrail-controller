@@ -248,6 +248,9 @@ void TcpSession::Accepted() {
 
 bool TcpSession::Connected(Endpoint remote) {
     assert(refcount_);
+
+    SetSocketOptions();
+
     {
         tbb::mutex::scoped_lock lock(mutex_);
         if (closed_) {
@@ -675,7 +678,7 @@ bool TcpSession::IsSocketErrorHard(const boost::system::error_code &ec) {
 }
 
 boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_time,
-        int keepalive_intvl, int keepalive_probes) {
+        int keepalive_intvl, int keepalive_probes, int tcp_user_timeout_val) {
     boost::system::error_code ec;
     socket_base::keep_alive keep_alive_option(true);
     socket()->set_option(keep_alive_option, ec);
@@ -686,7 +689,7 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
     }
 #ifdef TCP_KEEPIDLE
     typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPIDLE > keepalive_idle_time;
-    keepalive_idle_time keepalive_idle_time_option(keepalive_time);
+    keepalive_idle_time keepalive_idle_time_option(15);
     socket()->set_option(keepalive_idle_time_option, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
@@ -724,6 +727,17 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
         return ec;
     }
 #endif
+#ifdef TCP_USER_TIMEOUT
+    typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_USER_TIMEOUT > tcp_user_timeout;
+    tcp_user_timeout tcp_user_timeout_option(tcp_user_timeout_val);
+    socket()->set_option(tcp_user_timeout_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "tcp_user_timeout: " << tcp_user_timeout_val << " set error: " << ec);
+        return ec;
+    }
+#endif
+
     return ec;
 }
 

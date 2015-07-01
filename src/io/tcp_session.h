@@ -186,7 +186,7 @@ protected:
 
     EventObserver observer() { return observer_; }
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
-            int keepalive_intvl, int keepalive_probes);
+            int keepalive_intvl, int keepalive_probes, int tcp_user_timeout_val = 0);
 
     void CloseInternal(bool call_observer, bool notify_server = true);
 
