@@ -567,18 +567,16 @@ void BgpStressTest::SetUp() {
 }
 
 void BgpStressTest::TearDown() {
+    AgentCleanup();
     WaitForIdle();
     xmpp_server_test_->Shutdown();
     WaitForIdle();
-    if (n_agents_) {
-        TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionCount());
-    }
-    AgentCleanup();
+    TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionCount());
     channel_manager_.reset();
     WaitForIdle();
-
     TcpServerManager::DeleteServer(xmpp_server_test_);
     xmpp_server_test_ = NULL;
+
     BOOST_FOREACH(BgpServerTest *peer_server, peer_servers_) {
         if (peer_server) {
             peer_server->Shutdown();
@@ -600,6 +598,10 @@ void BgpStressTest::TearDown() {
 }
 
 void BgpStressTest::AgentCleanup() {
+    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
+        agent->SessionDown();
+    }
+    WaitForIdle();
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
         agent->Delete();
     }
