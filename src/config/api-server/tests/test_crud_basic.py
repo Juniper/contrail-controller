@@ -1231,6 +1231,17 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     # end test_list_for_coverage
 
+    def test_create_with_wrong_type(self):
+        vn_obj = VirtualNetwork('%s-bad-prop-type' %(self.id()))
+        vn_obj.virtual_network_properties = 'foo' #VirtualNetworkType
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_create(vn_obj)
+    #end test_create_with_wrong_type(self):
+
+    def test_update_with_wrong_type(self):
+        pass
+    #end test_update_with_wrong_type(self):
+
 # end class TestVncCfgApiServer
 
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
