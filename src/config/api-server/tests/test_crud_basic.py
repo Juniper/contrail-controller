@@ -630,6 +630,29 @@ class TestCrud(test_case.ApiServerTestCase):
         self.assertTill(self.ifmap_has_ident, obj=test_obj)
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
+    def _create_vn_ri_vmi(self, obj_count=1):
+        vn_objs = []
+        ri_objs = []
+        vmi_objs = []
+        for i in range(obj_count):
+            vn_obj = VirtualNetwork('%s-vn-%s' %(self.id(), i))
+            self._vnc_lib.virtual_network_create(vn_obj)
+            vn_objs.append(vn_obj)
+
+            ri_obj = RoutingInstance('%s-ri-%s' %(self.id(), i),
+                                     parent_obj=vn_obj)
+            self._vnc_lib.routing_instance_create(ri_obj)
+            ri_objs.append(ri_obj)
+
+            vmi_obj = VirtualMachineInterface('%s-vmi-%s' %(self.id(), i),
+                                              parent_obj=Project())
+            vmi_obj.add_virtual_network(vn_obj)
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            vmi_objs.append(vmi_obj)
+
+        return vn_objs, ri_objs, vmi_objs
+    # end _create_vn_ri_vmi
+
     def test_fq_name_to_id_http_post(self):
         test_obj = self._create_test_object()
         test_uuid = self._vnc_lib.fq_name_to_id('virtual-network', test_obj.get_fq_name())
@@ -965,21 +988,11 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         ri_uuids = []
         vmi_uuids = []
         logger.info("Creating %s VNs, RIs, VMIs.", obj_count)
-        for i in range(obj_count):
-            vn_obj = VirtualNetwork('%s-vn-%s' %(self.id(), i))
-            self._vnc_lib.virtual_network_create(vn_obj)
-            vn_uuids.append(vn_obj.uuid)
+        vn_objs, ri_objs, vmi_objs = self._create_vn_ri_vmi(obj_count)
 
-            ri_obj = RoutingInstance('%s-ri-%s' %(self.id(), i),
-                                     parent_obj=vn_obj)
-            self._vnc_lib.routing_instance_create(ri_obj)
-            ri_uuids.append(ri_obj.uuid)
-
-            vmi_obj = VirtualMachineInterface('%s-vmi-%s' %(self.id(), i),
-                                              parent_obj=Project())
-            vmi_obj.add_virtual_network(vn_obj)
-            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-            vmi_uuids.append(vmi_obj.uuid)
+        vn_uuids = [o.uuid for o in vn_objs]
+        ri_uuids = [o.uuid for o in ri_objs]
+        vmi_uuids = [o.uuid for o in vmi_objs]
 
         logger.info("Querying VNs by obj_uuids.")
         flexmock(self._api_server).should_call('_list_collection').once()
@@ -1230,6 +1243,94 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertEqual(read_vn_dicts[0]['router_external'], False)
 
     # end test_list_for_coverage
+
+    def test_create_with_wrong_type(self):
+        vn_obj = VirtualNetwork('%s-bad-prop-type' %(self.id()))
+        vn_obj.virtual_network_properties = 'foo' #VirtualNetworkType
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_create(vn_obj)
+    #end test_create_with_wrong_type(self):
+
+    def test_update_with_wrong_type(self):
+        vn_obj = VirtualNetwork('%s-bad-prop-type' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj.virtual_network_properties = 'foo' #VirtualNetworkType
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_update(vn_obj)
+    #end test_update_with_wrong_type(self):
+
+    def test_read_rest_api(self):
+        logger.info("Creating VN, RI, VMI.")
+        vn_objs, ri_objs, vmi_objs = self._create_vn_ri_vmi()
+
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        logger.info("Reading VN without filters.")
+        url = 'http://%s:%s/virtual-network/%s' %(
+            listen_ip, listen_port, vn_objs[0].uuid)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+
+        self.assertThat(ret_vn.keys(), Contains('routing_instances'))
+        self.assertThat(ret_vn.keys(), Contains('virtual_machine_interface_back_refs'))
+        for link_key, linked_obj in [('routing_instances', ri_objs[0]),
+            ('virtual_machine_interface_back_refs', vmi_objs[0])]:
+            ret_link = ret_vn[link_key][0]
+            self.assertThat(ret_link, Contains('to'))
+            self.assertThat(ret_link, Contains('uuid'))
+            self.assertEqual(ret_link['to'], linked_obj.get_fq_name())
+            self.assertEqual(ret_link['uuid'], linked_obj.uuid)
+
+        logger.info("Reading VN with children excluded.")
+        url = 'http://%s:%s/virtual-network/%s?exclude_children=true' %(
+            listen_ip, listen_port, vn_objs[0].uuid)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+
+        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
+        self.assertThat(ret_vn.keys(), Contains(
+            'virtual_machine_interface_back_refs'))
+        for link_key, linked_obj in [('virtual_machine_interface_back_refs',
+                                     vmi_objs[0])]:
+            ret_link = ret_vn[link_key][0]
+            self.assertThat(ret_link, Contains('to'))
+            self.assertThat(ret_link, Contains('uuid'))
+            self.assertEqual(ret_link['to'], linked_obj.get_fq_name())
+            self.assertEqual(ret_link['uuid'], linked_obj.uuid)
+
+        logger.info("Reading VN with backrefs excluded.")
+        url = 'http://%s:%s/virtual-network/%s?exclude_back_refs=true' %(
+            listen_ip, listen_port, vn_objs[0].uuid)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+
+        self.assertThat(ret_vn.keys(), Contains('routing_instances'))
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_machine_interface_back_refs')))
+        for link_key, linked_obj in [('routing_instances',
+                                     ri_objs[0])]:
+            ret_link = ret_vn[link_key][0]
+            self.assertThat(ret_link, Contains('to'))
+            self.assertThat(ret_link, Contains('uuid'))
+            self.assertEqual(ret_link['to'], linked_obj.get_fq_name())
+            self.assertEqual(ret_link['uuid'], linked_obj.uuid)
+
+        logger.info("Reading VN with children and backrefs excluded.")
+        query_param_str = 'exclude_children=True&exclude_back_refs=true'
+        url = 'http://%s:%s/virtual-network/%s?%s' %(
+            listen_ip, listen_port, vn_objs[0].uuid, query_param_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+
+        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_machine_interface_back_refs')))
+    # end test_read_rest_api
 
 # end class TestVncCfgApiServer
 
