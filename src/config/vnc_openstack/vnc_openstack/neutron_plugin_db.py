@@ -1764,7 +1764,9 @@ class DBInterface(object):
             port_obj.set_security_group_list([])
             if ('security_groups' not in port_q or
                 port_q['security_groups'].__class__ is object):
-                sg_obj = SecurityGroup("default", proj_obj)
+                id_perms = IdPermsType(enable=True,
+                                       description=vnc_openstack.DEFAULT_SECGROUP_DESCRIPTION)
+                sg_obj = SecurityGroup("default", proj_obj, id_perms=id_perms)
                 port_obj.add_security_group(sg_obj)
         else:  # READ/UPDATE/DELETE
             port_obj = self._virtual_machine_interface_read(port_id=port_q['id'])
