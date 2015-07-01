@@ -35,6 +35,8 @@
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <vrouter/ksync/ksync_init.h>
 
+const std::string PktFlowInfo::kLoopBackIp = "127.0.0.1";
+
 static void LogError(const PktInfo *pkt, const char *str) {
     if (pkt->family == Address::INET) {
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
@@ -621,9 +623,12 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     dest_vrf = out->vrf_->vrf_id();
 
     // Set NAT flow fields
+    boost::system::error_code ec;
+    Ip4Address loopback_ip = Ip4Address::from_string(kLoopBackIp, ec);
     linklocal_flow = true;
     nat_done = true;
-    if (nat_server == flow_table->agent()->router_id()) {
+    if ((nat_server == flow_table->agent()->router_id()) ||
+        (nat_server == loopback_ip)) {
         // In case of metadata or when link local destination is local host,
         // set VM's metadata address as NAT source address. This is required
         // to avoid response from the linklocal service being looped back and

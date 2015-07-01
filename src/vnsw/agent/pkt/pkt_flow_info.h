@@ -37,6 +37,7 @@ struct PktControlInfo {
 class PktFlowInfo {
 public:
     static const int kLinkLocalInvalidFd = -1;
+    static const std::string kLoopBackIp;
 
     PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable):
         l3_flow(info->l3_forwarding), family(info->family), pkt(info),
