@@ -373,6 +373,119 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     vr->clear_count();
 }
 
+TEST_F(UveVrouterUveTest, IntfAddDel) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (agent_->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    const VrouterAgent &uve = vr->last_sent_vrouter();
+
+    //Add VN
+    util_.VnAdd(input[0].vn_id);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (VnGet(1) != NULL));
+
+    // Nova Port add message
+    util_.NovaPortAdd(input);
+
+    // Config Port add
+    util_.ConfigPortAdd(input);
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Trigger UVE send
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    //Verify interface lists in UVE
+    EXPECT_EQ(1U, uve.get_interface_list().size());
+    EXPECT_EQ(1U, uve.get_error_intf_list().size());
+
+    //Add necessary objects and links to make vm-intf active
+    util_.VmAdd(input[0].vm_id);
+    util_.VrfAdd(input[0].vn_id);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddVmPortVrf("vnet1", "", 0);
+    client->WaitForIdle();
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    //Trigger UVE send
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    //Verify interface lists in UVE
+    EXPECT_EQ(1U, uve.get_interface_list().size());
+    EXPECT_EQ(0U, uve.get_error_intf_list().size());
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Trigger UVE send
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    //Verify interface lists in UVE
+    EXPECT_EQ(1U, uve.get_interface_list().size());
+    EXPECT_EQ(1U, uve.get_error_intf_list().size());
+
+    //other cleanup
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    DelNode("virtual-machine-interface-routing-instance", "vnet1");
+    DelNode("virtual-machine", "vm1");
+    DelNode("routing-instance", "vrf1");
+    //DelNode("virtual-network", "vn1");
+    DelNode("virtual-machine-interface", "vnet1");
+    DelInstanceIp("instance0");
+    util_.VnDelete(input[0].vn_id);
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    client->WaitForIdle();
+
+    //cleanup
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    EXPECT_EQ(0U, uve.get_connected_networks().size());
+    EXPECT_EQ(0U, uve.get_vn_count());
+    EXPECT_EQ(0U, uve.get_interface_list().size());
+    EXPECT_EQ(0U, uve.get_error_intf_list().size());
+    vr->clear_count();
+}
+
 TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
