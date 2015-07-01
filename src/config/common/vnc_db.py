@@ -174,6 +174,21 @@ class DBBase(object):
         return objs[0]
     # end read_obj
 
+    def read_vnc_obj(self, uuid=None, fq_name=None, obj_type=None):
+        if uuid is None and fq_name is None:
+            raise NoIdError('')
+        obj_type = obj_type or self.obj_type
+        if uuid is None:
+            if isinstance(fq_name, str):
+                fq_name = fq_name.split(':')
+            uuid = self._cassandra.fq_name_to_uuid(obj_type, fq_name)
+        obj_dict = self.read_obj(uuid, obj_type)
+        cls = obj_type_to_vnc_class(obj_type, __name__)
+        obj = cls.from_dict(**obj_dict)
+        obj.clear_pending_updates()
+        return obj
+    # end read_vnc_obj
+
     def get_parent_uuid(self, obj):
         if 'parent_uuid' in obj:
             return obj['parent_uuid']

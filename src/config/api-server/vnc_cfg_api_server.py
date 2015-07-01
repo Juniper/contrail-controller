@@ -17,6 +17,7 @@ gevent.pywsgi.MAX_REQUEST_LINE = 65535
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
+import functools
 import re
 import logging
 import logging.config
@@ -31,6 +32,7 @@ import ConfigParser
 from pprint import pformat
 import cgitb
 from cStringIO import StringIO
+from lxml import etree
 #import GreenletProfiler
 
 logger = logging.getLogger(__name__)
@@ -59,7 +61,7 @@ import utils
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
 
-from cfgm_common import ignore_exceptions
+from cfgm_common import ignore_exceptions, imid
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiReadLog,\
     VncApiConfigLog, VncApiError
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
@@ -75,9 +77,9 @@ from vnc_quota import *
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
-from gen.vnc_api_server_gen import VncApiServerGen
+import gen.vnc_api_server_gen
 import cfgm_common
-from cfgm_common.rest import LinkObject
+from cfgm_common.rest import LinkObject, hdr_server_tenant
 from cfgm_common.exceptions import *
 from cfgm_common.vnc_extensions import ExtensionManager, ApiHookManager
 import gen.resource_xsd
@@ -205,17 +207,7 @@ def mask_password(message, secret="***"):
         message = re.sub(pattern, secret, message)
     return message
 
-def str_to_class(class_name):
-    try:
-        return reduce(getattr, class_name.split("."), sys.modules[__name__])
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.warn("Exception: %s", str(e))
-        return None
-#end str_to_class
-
-class VncApiServer(VncApiServerGen):
-
+class VncApiServer(object):
     """
     This is the manager class co-ordinating all classes present in the package
     """
@@ -224,13 +216,746 @@ class VncApiServer(VncApiServerGen):
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
         bottle.route('/', 'GET', obj.homepage_http_get)
+
+        cls._generate_resource_crud_methods(obj)
+        cls._generate_resource_crud_uri(obj)
         for act_res in _ACTION_RESOURCES:
             method = getattr(obj, act_res['method_name'])
             obj.route(act_res['uri'], 'POST', method)
         return obj
     # end __new__
 
+    def _validate_props_in_request(self, resource_class, obj_dict):
+        for prop_name in resource_class.prop_fields:
+            is_simple, prop_type = resource_class.prop_field_types[prop_name]
+            # TODO validate primitive types
+            if is_simple:
+                continue
+            prop_dict = obj_dict.get(prop_name)
+            if not prop_dict:
+                continue
+
+            buf = cStringIO.StringIO()
+            prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
+            try:
+                tmp_prop = prop_cls(**prop_dict)
+                tmp_prop.export(buf)
+                node = etree.fromstring(buf.getvalue())
+                tmp_prop = prop_cls()
+                tmp_prop.build(node)
+            except Exception as e:
+                err_msg = 'Error validating property %s value %s ' \
+                          %(prop_name, prop_dict)
+                err_msg += str(e)
+                return False, err_msg
+
+        return True, ''
+    # end _validate_props_in_request
+
+    def _validate_refs_in_request(self, resource_class, obj_dict):
+        for ref_name in resource_class.ref_fields:
+            _, ref_link_type, _ = \
+                resource_class.ref_field_types[ref_name]
+            if ref_link_type == 'None':
+                continue
+            for ref_dict in obj_dict.get(ref_name) or []:
+                buf = cStringIO.StringIO()
+                attr_cls = cfgm_common.utils.str_to_class(ref_link_type, __name__)
+                tmp_attr = attr_cls(**ref_dict['attr'])
+                tmp_attr.export(buf)
+                node = etree.fromstring(buf.getvalue())
+                try:
+                    tmp_attr.build(node)
+                except Exception as e:
+                    err_msg = 'Error validating reference %s value %s ' \
+                              %(ref_name, ref_dict)
+                    err_msg += str(e)
+                    return False, err_msg
+
+        return True, ''
+    # end _validate_refs_in_request
+
+    def _validate_perms_in_request(self, resource_class, obj_type, obj_dict):
+        for ref_name in resource_class.ref_fields:
+            for ref in obj_dict.get(ref_name) or []:
+                ref_type, _, _ = resource_class.ref_field_types[ref_name]
+                ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref['to'])
+                (ok, status) = self._permissions.check_perms_link(
+                    bottle.request, ref_uuid)
+                if not ok:
+                    (code, err_msg) = status
+                    bottle.abort(code, err_msg)
+    # end _validate_perms_in_request
+
+    def http_resource_create(self, resource_type):
+        r_class = self.get_resource_class(resource_type)
+        obj_type = resource_type.replace('-', '_')
+        obj_dict = bottle.request.json[resource_type]
+        self._post_validate(obj_type, obj_dict=obj_dict)
+        fq_name = obj_dict['fq_name']
+
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                 'pre_%s_create' %(obj_type), obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In pre_%s_create an extension had error for %s' \
+                      %(obj_type, obj_dict)
+            err_msg += str(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        # properties validator
+        ok, result = self._validate_props_in_request(r_class, obj_dict)
+        if not ok:
+            result = 'Bad property in create: ' + result
+            bottle.abort(400, result)
+
+        # references validator
+        ok, result = self._validate_refs_in_request(r_class, obj_dict)
+        if not ok:
+            result = 'Bad reference in create: ' + result
+            bottle.abort(400, result)
+
+        # common handling for all resource create
+        (ok, result) = self._post_common(
+            bottle.request, resource_type, obj_dict)
+        if not ok:
+            (code, msg) = result
+            fq_name_str = ':'.join(obj_dict.get('fq_name', []))
+            self.config_object_error(None, fq_name_str, obj_type, 'http_post', msg)
+            bottle.abort(code, msg)
+
+        name = obj_dict['fq_name'][-1]
+        fq_name = obj_dict['fq_name']
+
+        db_conn = self._db_conn
+
+        # if client gave parent_type of config-root, ignore and remove
+        if 'parent_type' in obj_dict and obj_dict['parent_type'] == 'config-root':
+            del obj_dict['parent_type']
+
+        if 'parent_type' in obj_dict:
+            # non config-root child, verify parent exists
+            parent_type = obj_dict['parent_type']
+            parent_fq_name = obj_dict['fq_name'][:-1]
+            try:
+                parent_uuid = self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)
+                (ok, status) = self._permissions.check_perms_write(
+                    bottle.request, parent_uuid)
+                if not ok:
+                    (code, err_msg) = status
+                    bottle.abort(code, err_msg)
+                self._permissions.set_user_role(bottle.request, obj_dict)
+            except NoIdError:
+                err_msg = 'Parent ' + pformat(parent_fq_name) + ' type ' + parent_type + ' does not exist'
+                fq_name_str = ':'.join(parent_fq_name)
+                self.config_object_error(None, fq_name_str, obj_type, 'http_post', err_msg)
+                bottle.abort(400, err_msg)
+
+        # Validate perms on references
+        try:
+            self._validate_perms_in_request(r_class, obj_type, obj_dict)
+        except NoIdError:
+            bottle.abort(400, 'Unknown reference in resource create %s.' %(obj_dict))
+
+        # State modification starts from here. Ensure that cleanup is done for all state changes
+        cleanup_on_failure = []
+        # Alloc and Store id-mappings before creating entry on pubsub store.
+        # Else a subscriber can ask for an id mapping before we have stored it
+        uuid_requested = result
+        (ok, result) = db_conn.dbe_alloc(resource_type, obj_dict, uuid_requested)
+        if not ok:
+            (code, msg) = result
+            fq_name_str = ':'.join(obj_dict['fq_name'])
+            self.config_object_error(None, fq_name_str, obj_type, 'http_post', result)
+            bottle.abort(code, msg)
+        cleanup_on_failure.append((db_conn.dbe_release, [obj_type, fq_name]))
+
+        obj_ids = result
+
+        env = bottle.request.headers.environ
+        tenant_name = env.get(hdr_server_tenant(), 'default-project')
+
+        # type-specific hook
+        try:
+            (ok, result) = r_class.http_post_collection(tenant_name, obj_dict, db_conn)
+        except Exception as e:
+            ok = False
+            result = (500, str(e))
+        if not ok:
+            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
+                fail_cleanup_callable(*cleanup_args)
+            (code, msg) = result
+            fq_name_str = ':'.join(fq_name)
+            self.config_object_error(None, fq_name_str, obj_type, 'http_post', msg)
+            bottle.abort(code, msg)
+
+        callable = getattr(r_class, 'http_post_collection_fail', None)
+        if callable:
+            cleanup_on_failure.append((callable, [tenant_name, obj_dict, db_conn]))
+
+        try:
+            (ok, result) = \
+                 db_conn.dbe_create(resource_type, obj_ids, obj_dict)
+        except Exception as e:
+            ok = False
+            result = str(e)
+
+        if not ok:
+            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
+                fail_cleanup_callable(*cleanup_args)
+            fq_name_str = ':'.join(fq_name)
+            self.config_object_error(None, fq_name_str, obj_type, 'http_post', result)
+            bottle.abort(404, result)
+
+        rsp_body = {}
+        rsp_body['name'] = name
+        rsp_body['fq_name'] = fq_name
+        rsp_body['uuid'] = obj_ids['uuid']
+        rsp_body['href'] = self.generate_url(resource_type, obj_ids['uuid'])
+        if 'parent_type' in obj_dict:
+            # non config-root child, send back parent uuid/href
+            rsp_body['parent_uuid'] = parent_uuid
+            rsp_body['parent_href'] = self.generate_url(parent_type, parent_uuid)
+
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'post_%s_create' %(obj_type), obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In post_%s_create an extension had error for %s' \
+                      %(obj_type, obj_dict)
+            err_msg += str(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        return {resource_type: rsp_body}
+    # end http_resource_create
+
+    def http_resource_read(self, resource_type, id):
+        r_class = self.get_resource_class(resource_type)
+        obj_type = resource_type.replace('-', '_')
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'pre_%s_read' %(obj_type), id)
+        except Exception as e:
+            pass
+
+        etag = bottle.request.headers.get('If-None-Match')
+        db_conn = self._db_conn
+        try:
+            req_obj_type = db_conn.uuid_to_obj_type(id)
+            if req_obj_type != obj_type:
+                bottle.abort(
+                    404, 'No %s object found for id %s' %(resource_type, id))
+            fq_name = db_conn.uuid_to_fq_name(id)
+        except NoIdError as e:
+            bottle.abort(404, str(e))
+
+        # common handling for all resource get
+        (ok, result) = self._get_common(bottle.request, id)
+        if not ok:
+            (code, msg) = result
+            self.config_object_error(
+                id, None, obj_type, 'http_get', msg)
+            bottle.abort(code, msg)
+
+        # type-specific hook
+        r_class.http_get(id)
+
+        db_conn = self._db_conn
+        if etag:
+            obj_ids = {'uuid': id}
+            (ok, result) = db_conn.dbe_is_latest(obj_ids, etag.replace('"', ''))
+            if not ok:
+                # Not present in DB
+                self.config_object_error(
+                    id, None, obj_type, 'http_get', result)
+                bottle.abort(404, result)
+
+            is_latest = result
+            if is_latest:
+                # send Not-Modified, caches use this for read optimization
+                response.status = 304
+                return
+        #end if etag
+
+        obj_ids = {'uuid': id}
+
+        # Generate field list for db layer
+        if 'fields' in bottle.request.query:
+            obj_fields = bottle.request.query.fields.split(',')
+        else: # default props + children + refs + backrefs
+            obj_fields = list(r_class.prop_fields) + list(r_class.ref_fields)
+            if 'exclude_back_refs' not in bottle.request.query:
+                obj_fields = obj_fields + list(r_class.backref_fields)
+            if 'exclude_children' not in bottle.request.query:
+                obj_fields = obj_fields + list(r_class.children_fields)
+
+        try:
+            (ok, result) = db_conn.dbe_read(resource_type, obj_ids, obj_fields)
+            if not ok:
+                self.config_object_error(id, None, obj_type, 'http_get', result)
+        except NoIdError as e:
+            # Not present in DB
+            bottle.abort(404, str(e))
+        if not ok:
+            bottle.abort(500, result)
+
+        # check visibility
+        if (not result['id_perms'].get('user_visible', True) and
+            not self.is_admin_request()):
+            result = 'This object is not visible by users: %s' % id
+            self.config_object_error(id, None, obj_type, 'http_get', result)
+            bottle.abort(404, result)
+
+        rsp_body = {}
+        rsp_body['uuid'] = id
+        rsp_body['href'] = self.generate_url(resource_type, id)
+        rsp_body['name'] = result['fq_name'][-1]
+        rsp_body.update(result)
+        id_perms = result['id_perms']
+        bottle.response.set_header('ETag', '"' + id_perms['last_modified'] + '"')
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'post_%s_read' %(obj_type), id, rsp_body)
+        except Exception as e:
+            pass
+
+        return {resource_type: rsp_body}
+    # end http_resource_read
+
+    def http_resource_update(self, resource_type, id):
+        r_class = self.get_resource_class(resource_type)
+        obj_type = resource_type.replace('-', '_')
+        obj_dict = bottle.request.json[resource_type]
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'pre_%s_update' %(obj_type), id, obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In pre_%s_update an extension had error for %s' \
+                      %(obj_type, obj_dict)
+            err_msg += str(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        db_conn = self._db_conn
+        try:
+            req_obj_type = db_conn.uuid_to_obj_type(id)
+            if req_obj_type != obj_type:
+                bottle.abort(
+                    404, 'No %s object found for id %s' %(resource_type, id))
+            fq_name = db_conn.uuid_to_fq_name(id)
+        except NoIdError as e:
+            bottle.abort(404, str(e))
+
+        # properties validator
+        ok, result = self._validate_props_in_request(r_class, obj_dict)
+        if not ok:
+            result = 'Bad property in update: ' + result
+            bottle.abort(400, result)
+
+        # references validator
+        ok, result = self._validate_refs_in_request(r_class, obj_dict)
+        if not ok:
+            result = 'Bad reference in update: ' + result
+            bottle.abort(400, result)
+
+        # common handling for all resource put
+        (ok, result) = self._put_common(
+            bottle.request, obj_type, id, fq_name, obj_dict)
+        if not ok:
+            (code, msg) = result
+            self.config_object_error(id, None, obj_type, 'http_put', msg)
+            bottle.abort(code, msg)
+
+        # Validate perms on references
+        try:
+            self._validate_perms_in_request(r_class, obj_type, obj_dict)
+        except NoIdError:
+            bottle.abort(400,
+                'Unknown reference in resource update %s %s.'
+                %(obj_type, obj_dict))
+
+        # State modification starts from here. Ensure that cleanup is done for all state changes
+        cleanup_on_failure = []
+        # type-specific hook
+        (ok, put_result) = r_class.http_put(id, fq_name, obj_dict, self._db_conn)
+        if not ok:
+            (code, msg) = put_result
+            self.config_object_error(id, None, obj_type, 'http_put', msg)
+            bottle.abort(code, msg)
+        callable = getattr(r_class, 'http_put_fail', None)
+        if callable:
+            cleanup_on_failure.append((callable, [id, fq_name, obj_dict, self._db_conn]))
+
+        obj_ids = {'uuid': id}
+        try:
+            (ok, result) = db_conn.dbe_update(resource_type, obj_ids, obj_dict)
+        except Exception as e:
+            ok = False
+            result = str(e)
+        if not ok:
+            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
+                    fail_cleanup_callable(*cleanup_args)
+            self.config_object_error(id, None, obj_type, 'http_put', result)
+            bottle.abort(404, result)
+
+        rsp_body = {}
+        rsp_body['uuid'] = id
+        rsp_body['href'] = self.generate_url(resource_type, id)
+
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'post_%s_update' %(obj_type), id, obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In post_%s_update an extension had error for %s' \
+                      %(obj_type, obj_dict)
+            err_msg += str(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        return {resource_type: rsp_body}
+    # end http_resource_update
+
+    def http_resource_delete(self, resource_type, id):
+        r_class = self.get_resource_class(resource_type)
+        obj_type = resource_type.replace('-', '_')
+        db_conn = self._db_conn
+        # if obj doesn't exist return early
+        try:
+            req_obj_type = db_conn.uuid_to_obj_type(id)
+            if req_obj_type != obj_type:
+                bottle.abort(
+                    404, 'No %s object found for id %s' %(resource_type, id))
+            _ = db_conn.uuid_to_fq_name(id)
+        except NoIdError:
+            bottle.abort(404, 'ID %s does not exist' %(id))
+
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'pre_%s_delete' %(obj_type), id)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In pre_%s_delete an extension had error for %s' \
+                      %(obj_type, id)
+            err_msg += str(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        # read in obj from db (accepting error) to get details of it
+        obj_ids = {'uuid': id}
+        obj_fields = list(r_class.children_fields) + \
+                     list(r_class.backref_fields)
+        try:
+            (read_ok, read_result) = db_conn.dbe_read(
+                resource_type, obj_ids, obj_fields)
+        except NoIdError as e:
+            bottle.abort(404, str(e))
+        if not read_ok:
+            self.config_object_error(
+                id, None, obj_type, 'http_delete', read_result)
+            # proceed down to delete the resource
+
+        # common handling for all resource delete
+        parent_type = read_result.get('parent_type')
+        (ok, del_result) = self._delete_common(
+            bottle.request, obj_type, id, parent_type)
+        if not ok:
+            (code, msg) = del_result
+            self.config_object_error(id, None, obj_type, 'http_delete', msg)
+            bottle.abort(code, msg)
+
+        fq_name = read_result['fq_name']
+        ifmap_id = imid.get_ifmap_id_from_fq_name(resource_type, fq_name)
+        obj_ids['imid'] = ifmap_id
+        if parent_type:
+            parent_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(parent_type, fq_name[:-1])
+            obj_ids['parent_imid'] = parent_imid
+
+        # State modification starts from here. Ensure that cleanup is done for all state changes
+        cleanup_on_failure = []
+
+        # type-specific hook
+        r_class = self.get_resource_class(resource_type)
+        # fail if non-default children or non-derived backrefs exist
+        default_names = {}
+        for child_field in r_class.children_fields:
+            child_type, is_derived = r_class.children_field_types[child_field]
+            if is_derived:
+                continue
+            child_cls = self.get_resource_class(child_type)
+            default_child_name = 'default-%s' %(
+                child_cls(parent_type=resource_type).get_type())
+            default_names[child_type] = default_child_name
+            exist_hrefs = []
+            for child in read_result.get(child_field, []):
+                if child['to'][-1] == default_child_name:
+                    continue
+                exist_hrefs.append(child['href'])
+            if exist_hrefs:
+                err_msg = 'Delete when children still present: %s' %(
+                    exist_hrefs)
+                self.config_object_error(
+                    id, None, obj_type, 'http_delete', err_msg)
+                bottle.abort(409, err_msg)
+
+        for backref_field in r_class.backref_fields:
+            _, _, is_derived = r_class.backref_field_types[backref_field]
+            if is_derived:
+                continue
+            exist_hrefs = [backref['href']
+                           for backref in read_result.get(backref_field, [])]
+            if exist_hrefs:
+                err_msg = 'Delete when resource still referred: %s' %(
+                    exist_hrefs)
+                self.config_object_error(
+                    id, None, obj_type, 'http_delete', err_msg)
+                bottle.abort(409, err_msg)
+
+        # Delete default children first
+        for child_field in r_class.children_fields:
+            child_type, is_derived = r_class.children_field_types[child_field]
+            if is_derived:
+                continue
+            cr_class = self.get_resource_class(child_type)
+            if not cr_class.generate_default_instance:
+                continue
+            self.delete_default_children(child_type, read_result)
+
+        (ok, del_result) = r_class.http_delete(id, read_result, db_conn)
+        if not ok:
+            (code, msg) = del_result
+            self.config_object_error(id, None, obj_type, 'http_delete', msg)
+            bottle.abort(code, msg)
+        callable = getattr(r_class, 'http_delete_fail', None)
+        if callable:
+            cleanup_on_failure.append((callable, [id, read_result, db_conn]))
+
+        try:
+            (ok, del_result) = db_conn.dbe_delete(
+                resource_type, obj_ids, read_result)
+        except Exception as e:
+            ok = False
+            del_result = str(e)
+        if not ok:
+            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
+                fail_cleanup_callable(*cleanup_args)
+            self.config_object_error(id, None, obj_type, 'http_delete', del_result)
+            bottle.abort(409, del_result)
+
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'post_%s_delete' %(obj_type), id, read_result)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In pre_%s_delete an extension had error for %s' \
+                      %(obj_type, id)
+            err_msg += str(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+    # end http_resource_delete
+
+    def http_resource_list(self, resource_type):
+        r_class = self.get_resource_class(resource_type)
+        obj_type = resource_type.replace('-', '_')
+        db_conn = self._db_conn
+
+        env = bottle.request.headers.environ
+        tenant_name = env.get(hdr_server_tenant(), 'default-project')
+        parent_uuids = None
+        back_ref_uuids = None
+        obj_uuids = None
+        if (('parent_fq_name_str' in bottle.request.query) and
+            ('parent_type' in bottle.request.query)):
+            parent_fq_name = bottle.request.query.parent_fq_name_str.split(':')
+            parent_type = bottle.request.query.parent_type
+            parent_uuids = [self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)]
+        elif 'parent_id' in bottle.request.query:
+            parent_ids = bottle.request.query.parent_id.split(',')
+            parent_uuids = [str(uuid.UUID(p_uuid)) for p_uuid in parent_ids]
+        if 'back_ref_id' in bottle.request.query:
+            back_ref_ids = bottle.request.query.back_ref_id.split(',')
+            back_ref_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in back_ref_ids]
+        if 'obj_uuids' in bottle.request.query:
+            obj_uuids = bottle.request.query.obj_uuids.split(',')
+
+        # common handling for all resource get
+        (ok, result) = self._get_common(bottle.request, parent_uuids)
+        if not ok:
+            (code, msg) = result
+            self.config_object_error(
+                None, None, '%ss' %(resource_type), 'http_get_collection', msg)
+            bottle.abort(code, msg)
+
+        if 'count' in bottle.request.query:
+            is_count = 'true' in bottle.request.query.count.lower()
+        else:
+            is_count = False
+
+        if 'detail' in bottle.request.query:
+            is_detail = 'true' in bottle.request.query.detail.lower()
+        else:
+            is_detail = False
+
+        if 'fields' in bottle.request.query:
+            req_fields = bottle.request.query.fields.split(',')
+        else:
+            req_fields = []
+
+        filter_params = bottle.request.query.filters
+        if filter_params:
+            try:
+                ff_key_vals = filter_params.split(',')
+                ff_names = [ff.split('==')[0] for ff in ff_key_vals]
+                ff_values = [ff.split('==')[1] for ff in ff_key_vals]
+                filters = {'field_names': ff_names, 'field_values': ff_values}
+            except Exception as e:
+                abort(400, 'Invalid filter ' + filter_params)
+        else:
+            filters = None
+
+        return self._list_collection(resource_type,
+            parent_uuids, back_ref_uuids, obj_uuids, is_count, is_detail,
+            filters, req_fields)
+    # end http_resource_list
+
+    def create_default_children(self, resource_type, parent_obj):
+        r_class = self.get_resource_class(resource_type)
+        for child_field in r_class.children_fields:
+            # Create a default child only if provisioned for
+            child_type, is_derived = r_class.children_field_types[child_field]
+            if is_derived:
+                continue
+            child_cls = self.get_resource_class(child_type)
+            if not child_cls.generate_default_instance:
+                continue
+            child_obj = child_cls(parent_obj=parent_obj)
+            child_dict = child_obj.__dict__
+            child_dict['id_perms'] = self._get_default_id_perms(child_type)
+            (ok, result) = self._db_conn.dbe_alloc(child_type, child_dict)
+            if not ok:
+                return (ok, result)
+
+            obj_ids = result
+            self._db_conn.dbe_create(child_type, obj_ids, child_dict)
+            # recurse down type hierarchy
+            self.create_default_children(child_type, child_obj)
+    # end create_default_children
+
+    def delete_default_children(self, resource_type, parent_dict):
+        r_class = self.get_resource_class(resource_type)
+        for child_field in r_class.children_fields:
+            # Delete a default child only if provisioned for
+            child_type, is_derived = r_class.children_field_types[child_field]
+            child_cls = self.get_resource_class(child_type)
+            if not child_cls.generate_default_instance:
+                continue
+            # first locate default child then delete it")
+            default_child_name = 'default-%s' %(child_cls().get_type())
+            child_infos = parent_dict.get(child_field, [])
+            for child_info in child_infos:
+                if child_info['to'][-1] == default_child_name:
+                    default_child_id = has_info['href'].split('/')[-1]
+                    del_method = getattr(self, '%s_http_delete' %(child_type))
+                    del_method(default_child_id)
+                    break
+    # end delete_default_children
+
+    @classmethod
+    def _generate_resource_crud_methods(cls, obj):
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            obj_type = resource_type.replace('-', '_')
+            create_method = functools.partial(obj.http_resource_create,
+                                              resource_type)
+            functools.update_wrapper(create_method, obj.http_resource_create)
+            setattr(obj, '%ss_http_post' %(obj_type), create_method)
+
+            read_method = functools.partial(obj.http_resource_read,
+                                            resource_type)
+            functools.update_wrapper(read_method, obj.http_resource_read)
+            setattr(obj, '%s_http_get' %(obj_type), read_method)
+
+            update_method = functools.partial(obj.http_resource_update,
+                                              resource_type)
+            functools.update_wrapper(update_method, obj.http_resource_update)
+            setattr(obj, '%s_http_put' %(obj_type), update_method)
+
+            delete_method = functools.partial(obj.http_resource_delete,
+                                              resource_type)
+            functools.update_wrapper(delete_method, obj.http_resource_delete)
+            setattr(obj, '%s_http_delete' %(obj_type), delete_method)
+
+            list_method = functools.partial(obj.http_resource_list,
+                                            resource_type)
+            functools.update_wrapper(list_method, obj.http_resource_list)
+            setattr(obj, '%ss_http_get' %(obj_type), list_method)
+
+            default_children_method = functools.partial(
+                obj.create_default_children, resource_type)
+            functools.update_wrapper(default_children_method,
+                obj.create_default_children)
+            setattr(obj, '_%s_create_default_children' %(obj_type),
+                    default_children_method)
+
+            default_children_method = functools.partial(
+                obj.delete_default_children, resource_type)
+            functools.update_wrapper(default_children_method,
+                obj.delete_default_children)
+            setattr(obj, '_%s_delete_default_children' %(obj_type),
+                    default_children_method)
+    # end _generate_resource_crud_methods
+
+    @classmethod
+    def _generate_resource_crud_uri(cls, obj):
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            # CRUD + list URIs of the form
+            # obj.route('/virtual-network/<id>', 'GET', obj.virtual_network_http_get)
+            # obj.route('/virtual-network/<id>', 'PUT', obj.virtual_network_http_put)
+            # obj.route('/virtual-network/<id>', 'DELETE', obj.virtual_network_http_delete)
+            # obj.route('/virtual-networks', 'POST', obj.virtual_networks_http_post)
+            # obj.route('/virtual-networks', 'GET', obj.virtual_networks_http_get)
+
+            obj_type = resource_type.replace('-', '_')
+            # leaf resource
+            obj.route('/%s/<id>' %(resource_type),
+                      'GET',
+                      getattr(obj, '%s_http_get' %(obj_type)))
+            obj.route('/%s/<id>' %(resource_type),
+                      'PUT',
+                      getattr(obj, '%s_http_put' %(obj_type)))
+            obj.route('/%s/<id>' %(resource_type),
+                      'DELETE',
+                      getattr(obj, '%s_http_delete' %(obj_type)))
+            # collection of leaf
+            obj.route('/%ss' %(resource_type),
+                      'POST',
+                      getattr(obj, '%ss_http_post' %(obj_type)))
+            obj.route('/%ss' %(resource_type),
+                      'GET',
+                      getattr(obj, '%ss_http_get' %(obj_type)))
+    # end _generate_resource_crud_uri
+
     def __init__(self, args_str=None):
+        self._db_conn = None
+        self._get_common = None
+        self._post_common = None
+
+        self._resource_classes = {}
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            class_name = '%sServerGen' %(cfgm_common.utils.CamelCase(resource_type))
+            self.set_resource_class(resource_type,
+                cfgm_common.utils.str_to_class(class_name, __name__))
+
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
@@ -244,7 +969,27 @@ class VncApiServer(VncApiServerGen):
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
-        super(VncApiServer, self).__init__()
+
+        # Generate LinkObjects for all entities
+        links = []
+        # Link for root
+        links.append(LinkObject('root', self._base_url , '/config-root',
+                                'config-root'))
+
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            link = LinkObject('collection',
+                           self._base_url , '/%ss' %(resource_type),
+                           '%s' %(resource_type))
+            links.append(link)
+
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            link = LinkObject('resource-base',
+                           self._base_url , '/%s' %(resource_type),
+                           '%s' %(resource_type))
+            links.append(link)
+
+        self._homepage_links = links
+
         self._pipe_start_app = None
 
         #GreenletProfiler.set_clock_type('wall')
@@ -592,6 +1337,14 @@ class VncApiServer(VncApiServerGen):
         return self._pipe_start_app
     # end get_pipe_start_app
 
+    def is_admin_request(self):
+        env = bottle.request.headers.environ
+        for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
+            if field in env:
+                roles = env[field].split(',')
+                return 'admin' in [x.lower() for x in roles]
+        return False
+
     # Check for the system created VN. Disallow such VN delete
     def virtual_network_http_delete(self, id):
         db_conn = self._db_conn
@@ -821,7 +1574,7 @@ class VncApiServer(VncApiServerGen):
             return self._resource_classes[resource_type.replace('-', '_')]
 
         cls_name = '%sServerGen' %(cfgm_common.utils.CamelCase(resource_type))
-        return self.str_to_class(cls_name)
+        return cfgm_common.utils.str_to_class(cls_name, __name__)
     # end get_resource_class
 
     def set_resource_class(self, resource_type, resource_class):
@@ -832,14 +1585,14 @@ class VncApiServer(VncApiServerGen):
     def list_bulk_collection_http_post(self):
         """ List collection when requested ids don't fit in query params."""
 
-        obj_type = bottle.request.json.get('type') # e.g. virtual-network
-        if not obj_type:
+        res_type = bottle.request.json.get('type') # e.g. virtual-network
+        if not res_type:
             bottle.abort(400, "Bad Request, no 'type' in POST body")
 
-        obj_class = self.get_resource_class(obj_type)
+        obj_class = self.get_resource_class(res_type)
         if not obj_class:
             bottle.abort(400,
-                   "Bad Request, Unknown type %s in POST body" %(obj_type))
+                   "Bad Request, Unknown type %s in POST body" %(res_type))
 
         try:
             parent_ids = bottle.request.json['parent_id'].split(',')
@@ -874,13 +1627,14 @@ class VncApiServer(VncApiServerGen):
         else:
             filters = None
 
-        return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
-                                     obj_uuids, is_count, is_detail, filters)
-    # end list_bulk_collection_http_post
+        req_fields = bottle.request.json.get('fields', [])
+        if req_fields:
+            req_fields = req_fields.split(',')
 
-    def str_to_class(self, class_name):
-        return str_to_class(class_name)
-    # end str_to_class
+        return self._list_collection(res_type, parent_uuids, back_ref_uuids,
+                                     obj_uuids, is_count, is_detail, filters,
+                                     req_fields)
+    # end list_bulk_collection_http_post
 
     # Private Methods
     def _parse_args(self, args_str):
@@ -1028,7 +1782,7 @@ class VncApiServer(VncApiServerGen):
     # end _ensure_id_perms_present
 
     def _get_default_id_perms(self, obj_type):
-        id_perms = copy.deepcopy(Provision.defaults.perms[obj_type])
+        id_perms = copy.deepcopy(Provision.defaults.perms)
         id_perms_json = json.dumps(id_perms, default=lambda o: dict((k, v)
                                    for k, v in o.__dict__.iteritems()))
         id_perms_dict = json.loads(id_perms_json)
@@ -1062,8 +1816,7 @@ class VncApiServer(VncApiServerGen):
 
     def _create_singleton_entry(self, singleton_obj):
         s_obj = singleton_obj
-        obj_type = s_obj.get_type()
-        method_name = obj_type.replace('-', '_')
+        obj_type = s_obj.get_type().replace('-', '_')
         fq_name = s_obj.get_fq_name()
 
         # TODO remove backward compat create mapping in zk
@@ -1087,33 +1840,34 @@ class VncApiServer(VncApiServerGen):
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
             obj_dict = s_obj.serialize_to_json()
-            obj_dict['id_perms'] = self._get_default_id_perms(obj_type)
+            obj_dict['id_perms'] = self._get_default_id_perms(s_obj.get_type())
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_ids = result
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
-            method = '_%s_create_default_children' % (method_name)
+            method = '_%s_create_default_children' %(obj_type)
             def_children_method = getattr(self, method)
             def_children_method(s_obj)
 
         return s_obj
     # end _create_singleton_entry
 
-    def _list_collection(self, obj_type, parent_uuids=None,
+    def _list_collection(self, resource_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
-                         is_count=False, is_detail=False, filters=None):
-        method_name = obj_type.replace('-', '_') # e.g. virtual_network
+                         is_count=False, is_detail=False, filters=None,
+                         req_fields=None):
+        obj_type = resource_type.replace('-', '_') # e.g. virtual_network
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
                              parent_uuids, back_ref_uuids, obj_uuids, is_count,
                              filters)
         if not ok:
-            self.config_object_error(None, None, '%ss' %(method_name),
+            self.config_object_error(None, None, '%ss' %(obj_type),
                                      'dbe_list', result)
             bottle.abort(404, result)
 
         # If only counting, return early
         if is_count:
-            return {'%ss' %(obj_type): {'count': result}}
+            return {'%ss' %(resource_type): {'count': result}}
 
         fq_names_uuids = result
         obj_dicts = []
@@ -1130,7 +1884,7 @@ class VncApiServer(VncApiServerGen):
                     if obj_result['id_perms'].get('user_visible', True):
                         obj_dict = {}
                         obj_dict['uuid'] = obj_result['uuid']
-                        obj_dict['href'] = self.generate_url(obj_type,
+                        obj_dict['href'] = self.generate_url(resource_type,
                                                          obj_result['uuid'])
                         obj_dict['fq_name'] = obj_result['fq_name']
                         obj_dicts.append(obj_dict)
@@ -1138,8 +1892,14 @@ class VncApiServer(VncApiServerGen):
                 for fq_name, obj_uuid in fq_names_uuids:
                     obj_dict = {}
                     obj_dict['uuid'] = obj_uuid
-                    obj_dict['href'] = self.generate_url(obj_type, obj_uuid)
+                    obj_dict['href'] = self.generate_url(resource_type,
+                                                         obj_uuid)
                     obj_dict['fq_name'] = fq_name
+                    for field in req_fields or []:
+                       try:
+                           obj_dict[field] = obj_results[obj_uuid][field]
+                       except KeyError:
+                           pass
                     obj_dicts.append(obj_dict)
         else: #detail
             obj_ids_list = [{'uuid': obj_uuid}
@@ -1160,7 +1920,7 @@ class VncApiServer(VncApiServerGen):
                 obj_dict = {}
                 obj_dict['name'] = obj_result['fq_name'][-1]
                 obj_dict['href'] = self.generate_url(
-                                        obj_type, obj_result['uuid'])
+                                        resource_type, obj_result['uuid'])
                 obj_dict.update(obj_result)
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
@@ -1169,9 +1929,9 @@ class VncApiServer(VncApiServerGen):
                     continue
                 if (obj_dict['id_perms'].get('user_visible', True) or
                     self.is_admin_request()):
-                    obj_dicts.append({obj_type: obj_dict})
+                    obj_dicts.append({resource_type: obj_dict})
 
-        return {'%ss' %(obj_type): obj_dicts}
+        return {'%ss' %(resource_type): obj_dicts}
     # end _list_collection
 
     def get_db_connection(self):

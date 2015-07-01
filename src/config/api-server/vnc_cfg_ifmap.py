@@ -13,6 +13,7 @@ import gevent.event
 from gevent.queue import Queue, Empty
 import sys
 import time
+import functools
 from pprint import pformat
 
 from lxml import etree, objectify
@@ -54,6 +55,7 @@ from provision_defaults import *
 import cfgm_common.imid
 from cfgm_common.exceptions import *
 from vnc_quota import *
+import gen
 from gen.vnc_ifmap_client_gen import *
 from gen.vnc_cassandra_client_gen import *
 from pysandesh.connection_info import ConnectionState
@@ -86,7 +88,7 @@ def trace_msg(trace_obj, trace_name, sandesh_hdl, error_msg=None):
         trace_obj.trace_msg(name=trace_name, sandesh=sandesh_hdl)
 # end trace_msg
 
-class VncIfmapClient(VncIfmapClientGen):
+class VncIfmapClient(object):
 
     def handler(self, signum, frame):
         file = open("/tmp/api-server-ifmap-cache.txt", "w")
@@ -95,7 +97,15 @@ class VncIfmapClient(VncIfmapClientGen):
 
     def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
                  uname, passwd, ssl_options):
-        super(VncIfmapClient, self).__init__()
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            obj_type = resource_type.replace('-', '_')
+            for oper in ('alloc', 'set', 'create', 'read_to_meta_index',
+                         'update', 'delete'):
+                method = getattr(self, '_object_%s' %(oper))
+                bound_method = functools.partial(method, resource_type)
+                functools.update_wrapper(bound_method, method)
+                setattr(self, '_ifmap_%s_%s' %(obj_type, oper), bound_method)
+
         self._ifmap_srv_ip = ifmap_srv_ip
         self._ifmap_srv_port = ifmap_srv_port
         self._username = uname
@@ -131,6 +141,216 @@ class VncIfmapClient(VncIfmapClientGen):
         self._init_conn()
         self._publish_config_root()
     # end __init__
+
+    def _object_alloc(self, res_type, parent_type, fq_name):
+        imid = self._imid_handler
+        my_fqn = ':'.join(fq_name)
+        parent_fqn = ':'.join(fq_name[:-1])
+
+        my_imid = 'contrail:%s:%s' %(res_type, my_fqn)
+        if parent_fqn:
+            if parent_type is None:
+                return (None, None)
+            parent_imid = 'contrail:' + parent_type + ':' + parent_fqn
+        else: # parent is config-root
+            parent_imid = 'contrail:config-root:root'
+
+        # Normalize/escape special chars
+        my_imid = escape(my_imid)
+        parent_imid = escape(parent_imid)
+
+        return True, (my_imid, parent_imid)
+    # end _object_alloc
+
+    def _object_set(self, res_type, my_imid, existing_metas, obj_dict):
+        obj_type = res_type.replace('-', '_')
+        obj_class = self._db_client_mgr.get_resource_class(res_type)
+        update = {}
+
+        # Properties Meta
+        for prop_field in obj_class.prop_fields:
+            field = obj_dict.get(prop_field)
+            if field is None:
+                continue
+            # construct object of xsd-type and get its xml repr
+            field = obj_dict[prop_field]
+            # e.g. virtual_network_properties
+            is_simple, prop_type = obj_class.prop_field_types[prop_field]
+            # e.g. virtual-network-properties
+            prop_meta = obj_class.prop_field_metas[prop_field]
+            if is_simple:
+                norm_str = escape(str(field))
+                meta = Metadata(prop_meta, norm_str,
+                       {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
+
+                if (existing_metas and prop_meta in existing_metas and
+                    str(existing_metas[prop_meta][0]['meta']) == str(meta)):
+                    # no change
+                    pass
+                else:
+                    self._update_id_self_meta(update, meta)
+            else: # complex type
+                prop_cls = cfgm_common.utils.str_to_class(prop_type,
+                                                          __name__)
+                buf = cStringIO.StringIO()
+                # perms might be inserted at server as obj.
+                # obj construction diff from dict construction.
+                if isinstance(field, dict):
+                    prop_cls(**field).exportChildren(
+                        buf, level=1, name_=prop_meta, pretty_print=False)
+                else: # object
+                    field.exportChildren(
+                        buf, level=1, name_=prop_meta, pretty_print=False)
+                prop_xml = buf.getvalue()
+                buf.close()
+                meta = Metadata(prop_meta, '',
+                    {'ifmap-cardinality':'singleValue'}, ns_prefix='contrail',
+                    elements=prop_xml)
+
+                if (existing_metas and prop_meta in existing_metas and
+                    str(existing_metas[prop_meta][0]['meta']) == str(meta)):
+                    # no change
+                    pass
+                else:
+                    self._update_id_self_meta(update, meta)
+        # end for all property types
+
+        # References Meta
+        for ref_field in obj_class.ref_fields:
+            refs = obj_dict.get(ref_field)
+            if not refs:
+                continue
+            for ref in refs:
+                ref_fq_name = ref['to']
+                ref_type, ref_link_type, _ = \
+                    obj_class.ref_field_types[ref_field]
+                ref_meta = obj_class.ref_field_metas[ref_field]
+                ref_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
+                    ref_type, ref_fq_name)
+                ref_data = ref.get('attr')
+                if ref_data:
+                    buf = cStringIO.StringIO()
+                    attr_cls = cfgm_common.utils.str_to_class(ref_link_type,
+                                                              __name__)
+                    attr_cls(**ref_data).exportChildren(
+                        buf, level=1, name_=ref_meta, pretty_print=False)
+                    ref_link_xml = buf.getvalue()
+                    buf.close()
+                else:
+                    ref_link_xml = ''
+                meta = Metadata(ref_meta, '',
+                    {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail',
+                    elements=ref_link_xml)
+                self._update_id_pair_meta(update, ref_imid, meta)
+        # end for all ref types
+
+        self._publish_update(my_imid, update)
+        return (True, '')
+    # end _object_set
+
+    def _object_create(self, res_type, obj_ids, obj_dict):
+        obj_type = res_type.replace('-', '_')
+
+        if not 'parent_type' in obj_dict:
+            # parent is config-root
+            parent_type = 'config-root'
+            parent_imid = 'contrail:config-root:root'
+        else:
+            parent_type = obj_dict['parent_type']
+            parent_imid = obj_ids.get('parent_imid', None)
+
+        # Parent Link Meta
+        update = {}
+        parent_cls = self._db_client_mgr.get_resource_class(parent_type)
+        parent_link_meta = parent_cls.children_field_metas.get('%ss' %(obj_type))
+        if parent_link_meta:
+            meta = Metadata(parent_link_meta, '',
+                       {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
+            self._update_id_pair_meta(update, obj_ids['imid'], meta)
+            self._publish_update(parent_imid, update)
+
+        (ok, result) = self._object_set(res_type, obj_ids['imid'], None, obj_dict)
+        return (ok, result)
+    # end _object_create
+
+    def _object_read_to_meta_index(self, res_type, ifmap_id):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = self._db_client_mgr.get_resource_class(res_type)
+        # metas is a dict where key is meta-name and val is list of dict
+        # of form [{'meta':meta}, {'id':id1, 'meta':meta}, {'id':id2, 'meta':meta}]
+        metas = {}
+        for meta_name, meta_val in self._id_to_metas[ifmap_id].items():
+            metas[meta_name] = meta_val
+
+        return metas
+    # end _object_read_to_meta_index
+
+    def _object_update(self, res_type, ifmap_id, new_obj_dict):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = self._db_client_mgr.get_resource_class(res_type)
+        # read in refs from ifmap to determine which ones become inactive after update
+        existing_metas = self._object_read_to_meta_index(res_type, ifmap_id)
+
+        # remove properties that are no longer active
+        props = obj_cls.prop_field_metas
+        for prop in props:
+            prop_m = prop.replace('-', '_')
+            if prop in existing_metas and prop_m not in new_obj_dict:
+                self._delete_id_self_meta(ifmap_id, 'contrail:'+prop)
+
+        # remove refs that are no longer active
+        delete_list = []
+        refs = dict((obj_cls.ref_field_metas[rf],
+                     obj_cls.ref_field_types[rf][0])
+                    for rf in obj_cls.ref_fields)
+        #refs = {'virtual-network-qos-forwarding-class': 'qos-forwarding-class',
+        #        'virtual-network-network-ipam': 'network-ipam',
+        #        'virtual-network-network-policy': 'network-policy',
+        #        'virtual-network-route-table': 'route-table'}
+        for meta, to_name in refs.items():
+            old_set = set([m['id'] for m in existing_metas.get(meta, [])])
+            new_set = set()
+            to_name_m = to_name.replace('-', '_')
+            for ref in new_obj_dict.get(to_name_m+'_refs', []):
+                to_imid = self.fq_name_to_ifmap_id(to_name, ref['to'])
+                new_set.add(to_imid)
+
+            for inact_ref in old_set - new_set:
+                delete_list.append((inact_ref, 'contrail:'+meta))
+
+        if delete_list:
+            self._delete_id_pair_meta_list(ifmap_id, delete_list)
+
+        (ok, result) = self._object_set(res_type, ifmap_id, existing_metas, new_obj_dict)
+        return (ok, result)
+    # end _object_update
+
+    def _object_delete(self, res_type, obj_ids):
+        obj_type = res_type.replace('-', '_')
+
+        ifmap_id = obj_ids['imid']
+        parent_imid = obj_ids.get('parent_imid')
+        existing_metas = self._object_read_to_meta_index(res_type, ifmap_id)
+        meta_list = []
+        for meta_name, meta_infos in existing_metas.items():
+            for meta_info in meta_infos:
+                ref_imid = meta_info.get('id')
+                if ref_imid is None:
+                    continue
+                meta_list.append((ref_imid, 'contrail:'+meta_name))
+
+        if parent_imid:
+            # Remove link from parent
+            meta_list.append((parent_imid, None))
+
+        if meta_list:
+            self._delete_id_pair_meta_list(ifmap_id, meta_list)
+
+        # Remove all property metadata associated with this ident
+        self._delete_id_self_meta(ifmap_id, None)
+
+        return (True, '')
+    # end _object_delete
 
     def _init_conn(self):
         mapclient = client(("%s" % (self._ifmap_srv_ip),
@@ -176,7 +396,7 @@ class VncIfmapClient(VncIfmapClientGen):
     def _publish_config_root(self):
         # config-root
         buf = cStringIO.StringIO()
-        perms = Provision.defaults.perms['config-root']
+        perms = Provision.defaults.perms
         perms.exportChildren(buf, level=1, pretty_print=False)
         id_perms_xml = buf.getvalue()
         buf.close()
@@ -485,7 +705,6 @@ class VncServerCassandraClient(VncCassandraClient):
     # Useragent datastore keyspace + tables (used by neutron plugin currently)
     _USERAGENT_KEYSPACE_NAME = 'useragent'
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
-    _MAX_COL = 10000000
 
     @classmethod
     def get_db_info(cls):
@@ -500,8 +719,9 @@ class VncServerCassandraClient(VncCassandraClient):
             self._USERAGENT_KEYSPACE_NAME: [(self._USERAGENT_KV_CF_NAME, None)]
         }
         super(VncServerCassandraClient, self).__init__(
-            cass_srv_list, reset_config, db_prefix,keyspaces, self.config_log,
-            db_client_mgr.generate_url)
+            cass_srv_list, db_prefix, keyspaces, self.config_log,
+            generate_url=db_client_mgr.generate_url,
+            reset_config=reset_config)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
@@ -1212,7 +1432,7 @@ class VncDbClient(object):
     # end update_subnet_uuid
 
     def _dbe_resync(self, obj_type, obj_uuids):
-        obj_class = self._api_svr_mgr.str_to_class(utils.CamelCase(obj_type))
+        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._cassandra_db.read(
                                obj_type, obj_uuids, field_names=obj_fields)
