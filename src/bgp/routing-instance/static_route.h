@@ -60,6 +60,7 @@ public:
 
     bool ResolvePendingStaticRouteConfig();
     void NotifyAllRoutes();
+    uint32_t GetRouteCount() const;
     uint32_t GetPendingRouteCount() const;
 
     RoutingInstance *routing_instance() { return instance_; }

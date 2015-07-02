@@ -281,6 +281,25 @@ bool ControlNodeInfoLogger(BgpServer *server,
     CpuLoadInfo cpu_load_info;
     CpuLoadData::FillCpuInfo(cpu_load_info, false);
     state.set_name(server->localname());
+
+    string router_id = server->bgp_identifier_string();
+    if (router_id != prev_state.get_router_id() || first) {
+        state.set_router_id(router_id);
+        prev_state.set_router_id(router_id);
+    }
+
+    uint32_t local_asn = server->local_autonomous_system();
+    if (local_asn != prev_state.get_local_asn() || first) {
+        state.set_local_asn(local_asn);
+        prev_state.set_local_asn(local_asn);
+    }
+
+    uint32_t global_asn = server->autonomous_system();
+    if (global_asn != prev_state.get_global_asn() || first) {
+        state.set_global_asn(global_asn);
+        prev_state.set_global_asn(global_asn);
+    }
+
     if (first) {
         state.set_uptime(start_time);
         vector<string> ip_list;
@@ -363,19 +382,35 @@ bool ControlNodeInfoLogger(BgpServer *server,
         change = true;
     }
 
-    uint32_t num_pending_chains = server->num_pending_service_chains();
-    if (num_pending_chains != prev_state.get_num_pending_service_chains() ||
+    uint32_t num_service_chains = server->num_service_chains();
+    if (num_service_chains != prev_state.get_num_service_chains() ||
         first) {
-        state.set_num_pending_service_chains(num_pending_chains);
-        prev_state.set_num_pending_service_chains(num_pending_chains);
+        state.set_num_service_chains(num_service_chains);
+        prev_state.set_num_service_chains(num_service_chains);
         change = true;
     }
 
-    uint32_t num_pending_statics = server->num_pending_static_routes();
-    if (num_pending_statics != prev_state.get_num_pending_static_routes() ||
+    uint32_t num_down_service_chains = server->num_down_service_chains();
+    if (num_down_service_chains != prev_state.get_num_down_service_chains() ||
         first) {
-        state.set_num_pending_static_routes(num_pending_statics);
-        prev_state.set_num_pending_static_routes(num_pending_statics);
+        state.set_num_down_service_chains(num_down_service_chains);
+        prev_state.set_num_down_service_chains(num_down_service_chains);
+        change = true;
+    }
+
+    uint32_t num_static_routes = server->num_static_routes();
+    if (num_static_routes != prev_state.get_num_static_routes() ||
+        first) {
+        state.set_num_static_routes(num_static_routes);
+        prev_state.set_num_static_routes(num_static_routes);
+        change = true;
+    }
+
+    uint32_t num_down_static_routes = server->num_down_static_routes();
+    if (num_down_static_routes != prev_state.get_num_down_static_routes() ||
+        first) {
+        state.set_num_down_static_routes(num_down_static_routes);
+        prev_state.set_num_down_static_routes(num_down_static_routes);
         change = true;
     }
 
@@ -405,8 +440,7 @@ bool ControlNodeInfoLogger(BgpServer *server,
     if (change)
         BGPRouterInfo::Send(state);
 
-    if (first) first = false;
-
+    first = false;
     return true;
 }
 

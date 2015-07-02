@@ -368,11 +368,21 @@ uint32_t BgpServer::get_output_queue_depth() const {
     return out_q_depth;
 }
 
-uint32_t BgpServer::num_pending_service_chains() const {
-    return service_chain_mgr_->PendingQueueSize();
+uint32_t BgpServer::num_service_chains() const {
+    return service_chain_mgr_->PendingQueueSize() +
+        service_chain_mgr_->ResolvedQueueSize();
 }
 
-uint32_t BgpServer::num_pending_static_routes() const {
+uint32_t BgpServer::num_down_service_chains() const {
+    return service_chain_mgr_->PendingQueueSize() +
+        service_chain_mgr_->GetDownServiceChainCount();
+}
+
+uint32_t BgpServer::num_static_routes() const {
+    return GetStaticRouteCount();
+}
+
+uint32_t BgpServer::num_down_static_routes() const {
     return GetPendingStaticRouteCount();
 }
 
@@ -493,6 +503,17 @@ void BgpServer::NotifyAllStaticRoutes() {
         StaticRouteMgr *srt_manager = *it;
         srt_manager->NotifyAllRoutes();
     }
+}
+
+uint32_t BgpServer::GetStaticRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    uint32_t count = 0;
+    for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
+         it != srt_manager_list_.end(); ++it) {
+        StaticRouteMgr *srt_manager = *it;
+        count += srt_manager->GetRouteCount();
+    }
+    return count;
 }
 
 uint32_t BgpServer::GetPendingStaticRouteCount() const {

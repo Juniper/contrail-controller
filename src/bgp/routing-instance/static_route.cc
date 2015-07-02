@@ -750,6 +750,11 @@ void StaticRouteMgr::NotifyAllRoutes() {
     }
 }
 
+uint32_t StaticRouteMgr::GetRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    return static_route_map_.size();
+}
+
 uint32_t StaticRouteMgr::GetPendingRouteCount() const {
     CHECK_CONCURRENCY("bgp::Config");
     uint32_t count = 0;

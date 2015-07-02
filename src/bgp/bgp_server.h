@@ -126,6 +126,9 @@ public:
     as_t autonomous_system() const { return autonomous_system_; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
+    std::string bgp_identifier_string() const {
+        return bgp_identifier_.to_string();
+    }
     uint16_t hold_time() const { return hold_time_; }
 
     // Status
@@ -141,8 +144,10 @@ public:
 
     uint32_t get_output_queue_depth() const;
 
-    uint32_t num_pending_service_chains() const;
-    uint32_t num_pending_static_routes() const;
+    uint32_t num_service_chains() const;
+    uint32_t num_down_service_chains() const;
+    uint32_t num_static_routes() const;
+    uint32_t num_down_static_routes() const;
 
     void IncUpPeerCount() {
         num_up_peer_++;
@@ -170,6 +175,7 @@ public:
     void InsertStaticRouteMgr(StaticRouteMgr *srt_manager);
     void RemoveStaticRouteMgr(StaticRouteMgr *srt_manager);
     void NotifyAllStaticRoutes();
+    uint32_t GetStaticRouteCount() const;
     uint32_t GetPendingStaticRouteCount() const;
 
 private:

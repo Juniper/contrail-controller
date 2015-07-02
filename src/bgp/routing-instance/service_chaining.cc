@@ -1020,6 +1020,18 @@ void ServiceChainMgr::PeerRegistrationCallback(IPeer *peer, BgpTable *table,
     Enqueue(req);
 }
 
+uint32_t ServiceChainMgr::GetDownServiceChainCount() const {
+    uint32_t count = 0;
+    for (ServiceChainMap::const_iterator it = chain_set_.begin();
+         it != chain_set_.end(); ++it) {
+        const ServiceChain *chain =
+             static_cast<const ServiceChain *>(it->second.get());
+        if (!chain->connected_route_valid())
+            count++;
+    }
+    return count;
+}
+
 void ServiceChain::FillServiceChainInfo(ShowServicechainInfo *info) const {
     info->set_src_rt_instance(src_routing_instance()->name());
     info->set_connected_rt_instance(connected_routing_instance()->name());
