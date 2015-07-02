@@ -658,7 +658,7 @@ void PathPreferenceRouteListener::Init() {
 }
 
 void PathPreferenceRouteListener::Delete() {
-    deleted_ = true;
+    set_deleted();
     DBTableWalker *walker = agent_->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL,
                       boost::bind(&PathPreferenceRouteListener::DeleteState,
@@ -691,6 +691,8 @@ bool PathPreferenceRouteListener::DeleteState(DBTablePartBase *partition,
 
 void PathPreferenceRouteListener::Notify(DBTablePartBase *partition,
                                          DBEntryBase *e) {
+    if (deleted_) return;
+
     PathPreferenceState *state =
         static_cast<PathPreferenceState *>(e->GetState(rt_table_, id_));
     if (e->IsDeleted()) {
