@@ -25,7 +25,7 @@ class PartitionHandler(gevent.Greenlet):
         self._logger = logger
         self._limit = limit
         self._uvedb = {}
-        self._partoffset = None
+        self._partoffset = 0
         self._kfk = None
 
     def msg_handler(self, om):
@@ -89,12 +89,16 @@ class PartitionHandler(gevent.Greenlet):
                                 self._logger.info("%d could not handle %s" % (self._partition, str(mm)))
                                 raise gevent.GreenletExit
                     except TypeError as ex:
-                        self._logger.info("Type Error: %s" %  str(ex.args))
+                        self._logger.error("Type Error: %s trace %s" % \
+                                (str(ex.args), traceback.format_exc()))
                         gevent.sleep(0.1)
                     except common.FailedPayloadsError as ex:
-                        self._logger.info("Payload Error: %s" %  str(ex.args))
+                        self._logger.error("Payload Error: %s" %  str(ex.args))
                         gevent.sleep(0.1)
             except gevent.GreenletExit:
+                break
+            except AssertionError as ex:
+                self._partoffset = ex
                 break
             except Exception as ex:
                 template = "An exception of type {0} occured. Arguments:\n{1!r}"
@@ -103,7 +107,18 @@ class PartitionHandler(gevent.Greenlet):
                                   (messag, traceback.format_exc()))
                 self.stop_partition()
                 gevent.sleep(2)
-        partdb = copy.deepcopy(self._uvedb)
+
+        partdb = {}
+        for coll in self._uvedb.keys():
+            partdb[coll] = {}
+            for gen in self._uvedb[coll].keys():
+                partdb[coll][gen] = {}
+                for tab in self._uvedb[coll][gen].keys():
+                    for rkey in self._uvedb[coll][gen][tab].keys():
+                        uk = tab + ":" + rkey
+                        partdb[coll][gen][uk] = \
+                            set(self._uvedb[coll][gen][tab][rkey].keys())
+
         self._logger.error("Stopping %d pcount %d" % (self._partition, pcount))
         self.stop_partition()
         return self._partoffset, partdb
@@ -135,8 +150,8 @@ class UveStreamProc(PartitionHandler):
         This function compares the known collectors with the
         list from discovery, and syncs UVE keys accordingly
         '''
-        
-        disc_instances = copy.deepcopy(self._us.redis_instances())
+        us_redis_inst = self._us.redis_instances()
+        disc_instances = copy.deepcopy(us_redis_inst)
         r_added = disc_instances - self.disc_rset
         r_deleted = self.disc_rset - disc_instances
         for r_inst in r_deleted:
@@ -146,9 +161,11 @@ class UveStreamProc(PartitionHandler):
             self._logger.error("Part %d lost collector %s" % coll)
             self.stop_partition(coll)
         for r_inst in r_added:
+            self._logger.error("Part %d discovered new redis %s" % \
+                (self._partno, str(r_inst)))
             res = self._us.get_part(self._partno, r_inst)
-            self._logger.error("Part %d discovered new redis %s with UVEs %s" % \
-                    (self._partno, str(r_inst), str(res)))
+            self._logger.debug("Part %d reading UVEs from new redis %s" % \
+                (self._partno,str(res)))
             self.start_partition(res)
         self.disc_rset = disc_instances
         
@@ -231,8 +248,6 @@ class UveStreamProc(PartitionHandler):
                 # Ignore this message
                 self._logger.debug("%d Ignoring UVE %s" % (self._partition, str(om)))
                 return True
-            else:
-                self._logger.debug("%d Reading UVE %s" % (self._partition, str(om)))
 
             if not self._uvedb[coll].has_key(gen):
                 self._uvedb[coll][gen] = {}

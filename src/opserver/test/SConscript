@@ -20,6 +20,7 @@ local_sources = [
                  'analytics_statstest.py',
                  'analytics_db_test.py',
                  'overlay_to_underlay_mapper_test.py',
+                 'alarm_test.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
@@ -69,7 +70,10 @@ build_pkgs = [
         '#controller/src/config/test/utils/mockzoo',
         '#controller/src/opserver/test',
         env['TOP'] + '/tools/sandesh/library/python',
+        env['TOP'] + '/discovery/client',
+        env['TOP'] + '/libpartition',
         env['TOP'] + '/sandesh/common',
+        env['TOP'] + '/config/common/',
         env['TOP'] + '/opserver/plugins/alarm_process_status',
         env['TOP'] + '/opserver/plugins/alarm_process_connectivity',
         env['TOP'] + '/opserver/plugins/alarm_partial_sysinfo',
@@ -77,7 +81,6 @@ build_pkgs = [
         env['TOP'] + '/opserver/plugins/alarm_xmpp_connectivity',
         env['TOP'] + '/opserver/plugins/alarm_vrouter_interface',
         env['TOP'] + '/opserver']
-
 #venv that we are building is in env['analytics_test']
 env.Depends (env['analytics_test'], env['OPSERVER_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_PROCESS_STATUS_PKG'])
@@ -86,8 +89,13 @@ env.Depends (env['analytics_test'], env['ALARM_PARTIAL_SYSINFO_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_BGP_CONNECTIVITY_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_XMPP_CONNECTIVITY_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_VROUTER_INTERFACE_PKG'])
-env.Requires (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
-env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz')
+
+env.Depends (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
+env.Depends (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz')
+env.Depends (env['analytics_test'], env['TOP']+'/discovery/client/dist/discoveryclient-0.1dev.tar.gz')
+env.Depends (env['analytics_test'], env['TOP']+'/libpartition/dist/libpartition-0.1dev.tar.gz')
+env.Depends (env['analytics_test'], env['TOP']+'/config/common/dist/cfgm_common-0.1dev.tar.gz')
+
 for local_sources_rule in local_sources_rules:
     env.Depends (env['analytics_test'], local_sources_rule)
 

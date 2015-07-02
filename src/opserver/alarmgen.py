@@ -51,6 +51,8 @@ from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
 from stevedore import hook
 from pysandesh.util import UTCTimestampUsec
+from libpartition.libpartition import PartitionClient
+import discoveryclient.client as client 
 
 class AGTabStats(object):
     """ This class is used to store per-UVE-table information
@@ -171,12 +173,11 @@ class AGKeyInfo(object):
 
 class Controller(object):
     
-    @staticmethod
-    def fail_cb(manager, entrypoint, exception):
-        sandesh_global._logger.info("Load failed for %s with exception %s" % \
+    def fail_cb(self, manager, entrypoint, exception):
+        self._sandesh._logger.info("Load failed for %s with exception %s" % \
                                      (str(entrypoint),str(exception)))
         
-    def __init__(self, conf):
+    def __init__(self, conf, test_logger=None):
         self._conf = conf
         module = Module.ALARM_GENERATOR
         self._moduleid = ModuleNames[module]
@@ -184,28 +185,36 @@ class Controller(object):
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
         self._instance_id = self._conf.worker_id()
-        sandesh_global.init_generator(self._moduleid, self._hostname,
+        is_collector = True
+        if test_logger is not None:
+            is_collector = False
+        self._sandesh = Sandesh()
+        self._sandesh.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._conf.collectors(), 
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],
-                                      host_ip=self._conf.host_ip())
-        sandesh_global.set_logging_params(
-            enable_local_log=self._conf.log_local(),
-            category=self._conf.log_category(),
-            level=self._conf.log_level(),
-            file=self._conf.log_file(),
-            enable_syslog=self._conf.use_syslog(),
-            syslog_facility=self._conf.syslog_facility())
-        self._logger = sandesh_global._logger
+                                      host_ip=self._conf.host_ip(),
+                                      connect_to_collector = is_collector)
+        if test_logger is not None:
+            self._logger = test_logger
+        else:
+            self._sandesh.set_logging_params(
+                enable_local_log=self._conf.log_local(),
+                category=self._conf.log_category(),
+                level=self._conf.log_level(),
+                file=self._conf.log_file(),
+                enable_syslog=self._conf.use_syslog(),
+                syslog_facility=self._conf.syslog_facility())
+            self._logger = self._sandesh._logger
         # Trace buffer list
         self.trace_buf = [
             {'name':'DiscoveryMsg', 'size':1000}
         ]
         # Create trace buffers 
         for buf in self.trace_buf:
-            sandesh_global.trace_buffer_create(name=buf['name'], size=buf['size'])
+            self._sandesh.trace_buffer_create(name=buf['name'], size=buf['size'])
 
         tables = [ "ObjectCollectorInfo",
                    "ObjectDatabaseInfo",
@@ -223,7 +232,7 @@ class Controller(object):
                 name=table,
                 invoke_on_load=True,
                 invoke_args=(),
-                on_load_failure_callback=Controller.fail_cb
+                on_load_failure_callback=self.fail_cb
             )
             
             for extn in self.mgrs[table][table]:
@@ -233,7 +242,7 @@ class Controller(object):
             self.tab_alarms[table] = {}
             self.tab_perf[table] = AGTabStats()
 
-        ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
+        ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
@@ -249,7 +258,6 @@ class Controller(object):
         self._libpart = None
         self._partset = set()
         if self._conf.discovery()['server']:
-            import discoveryclient.client as client 
             data = {
                 'ip-address': self._hostname ,
                 'port': self._instance_id
@@ -294,7 +302,7 @@ class Controller(object):
         agp.inst_parts = [agpi]
        
         agp_trace = AlarmgenPartitionTrace(data=agp)
-        agp_trace.send() 
+        agp_trace.send(sandesh=self._sandesh) 
 
         newset = set(part_list)
         oldset = self._partset
@@ -322,7 +330,6 @@ class Controller(object):
             self._logger.error('Could not import libpartition: No alarmgen list')
             return None
         try:
-            from libpartition.libpartition import PartitionClient
             self._logger.error('Starting PC')
             agpi = AlarmgenPartionInfo()
             agpi.instance = self._instance_id
@@ -333,7 +340,7 @@ class Controller(object):
             agp.inst_parts = [agpi]
            
             agp_trace = AlarmgenPartitionTrace(data=agp)
-            agp_trace.send() 
+            agp_trace.send(sandesh=self._sandesh) 
 
             pc = PartitionClient("alarmgen",
                     self._libpart_name, ag_list,
@@ -415,7 +422,7 @@ class Controller(object):
                         alarm_msg = AlarmTrace(data=ustruct, table=tk)
                         self._logger.error('send del alarm for stop: %s' % \
                                 (alarm_msg.log()))
-                        alarm_msg.send()
+                        alarm_msg.send(sandesh=self._sandesh)
                 del self.ptab_info[part][tk][rkey]
                 self._logger.error("UVE %s deleted in stop" % (uk))
             del self.ptab_info[part][tk]
@@ -513,7 +520,7 @@ class Controller(object):
                         ustruct = UVEAlarms(name = uve_name, deleted = True)
                         alarm_msg = AlarmTrace(data=ustruct, table=tab)
                         self._logger.info('send del alarm: %s' % (alarm_msg.log()))
-                        alarm_msg.send()
+                        alarm_msg.send(sandesh=self._sandesh)
                 continue
 
             # Handing Alarms
@@ -576,7 +583,7 @@ class Controller(object):
                             deleted = False)
                 alarm_msg = AlarmTrace(data=ustruct, table=tab)
                 self._logger.info('send alarm: %s' % (alarm_msg.log()))
-                alarm_msg.send()
+                alarm_msg.send(sandesh=self._sandesh)
         return success
  
     def handle_UVETableInfoReq(self, req):
@@ -763,16 +770,16 @@ class Controller(object):
                     ukc.key = uk
                     ukc.count = uc
                     au_keys.append(ukc)
-                au_obj = AlarmgenUpdate(name=sandesh_global._source + ':' + \
-                        sandesh_global._node_type + ':' + \
-                        sandesh_global._module + ':' + \
-                        sandesh_global._instance_id,
+                au_obj = AlarmgenUpdate(name=self._sandesh._source + ':' + \
+                        self._sandesh._node_type + ':' + \
+                        self._sandesh._module + ':' + \
+                        self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
                         keys = au_keys,
                         notifs = None)
                 self._logger.debug('send key stats: %s' % (au_obj.log()))
-                au_obj.send()
+                au_obj.send(sandesh=self._sandesh)
 
             for ktab,tab in din.iteritems():
                 au_notifs = []
@@ -785,16 +792,16 @@ class Controller(object):
                             tkc.generator = kgen
                             tkc.collector = kcoll
                             au_notifs.append(tkc)
-                au_obj = AlarmgenUpdate(name=sandesh_global._source + ':' + \
-                        sandesh_global._node_type + ':' + \
-                        sandesh_global._module + ':' + \
-                        sandesh_global._instance_id,
+                au_obj = AlarmgenUpdate(name=self._sandesh._source + ':' + \
+                        self._sandesh._node_type + ':' + \
+                        self._sandesh._module + ':' + \
+                        self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
                         keys = None,
                         notifs = au_notifs)
                 self._logger.debug('send notif stats: %s' % (au_obj.log()))
-                au_obj.send()
+                au_obj.send(sandesh=self._sandesh)
 
         au = AlarmgenStatus()
         au.name = self._hostname
@@ -807,15 +814,15 @@ class Controller(object):
         ags.updates = n_updates
         au.counters.append(ags)
 
-        agname = sandesh_global._source + ':' + \
-                        sandesh_global._node_type + ':' + \
-                        sandesh_global._module + ':' + \
-                        sandesh_global._instance_id
+        agname = self._sandesh._source + ':' + \
+                        self._sandesh._node_type + ':' + \
+                        self._sandesh._module + ':' + \
+                        self._sandesh._instance_id
         au.alarmgens.append(agname)
  
         atrace = AlarmgenStatusTrace(data = au)
         self._logger.debug('send alarmgen status : %s' % (atrace.log()))
-        atrace.send()
+        atrace.send(sandesh=self._sandesh)
          
     def handle_PartitionStatusReq(self, req):
         ''' Return the entire contents of the UVE DB for the 
@@ -920,7 +927,7 @@ class Controller(object):
             mod_cpu_state.module_cpu_info = [mod_cpu_info]
 
             alarmgen_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
-            alarmgen_cpu_state_trace.send()
+            alarmgen_cpu_state_trace.send(sandesh=self._sandesh)
 
             aly_cpu_state = AnalyticsCpuState()
             aly_cpu_state.name = self._hostname
@@ -934,7 +941,7 @@ class Controller(object):
             aly_cpu_state.cpu_info = [aly_cpu_info]
 
             aly_cpu_state_trace = AnalyticsCpuStateTrace(data=aly_cpu_state)
-            aly_cpu_state_trace.send()
+            aly_cpu_state_trace.send(sandesh=self._sandesh)
 
             # Send out the UVEKey-Count stats for this time period
             self.process_stats()
