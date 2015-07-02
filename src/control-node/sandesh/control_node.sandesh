@@ -8,6 +8,9 @@ include "ifmap/ifmap_server_show.sandesh"
 
 struct BgpRouterState {
     1: string name (key="ObjectBgpRouter")
+   27: optional string router_id;
+   28: optional u32 local_asn;
+   29: optional u32 global_asn;
     2: optional bool deleted
     3: optional u64 uptime;
     4: optional cpuinfo.CpuLoadInfo cpu_info;
@@ -23,6 +26,10 @@ struct BgpRouterState {
    21: optional u32 num_closing_xmpp_peer;
    12: optional u32 num_routing_instance;
    22: optional u32 num_deleted_routing_instance;
+   23: optional u32 num_service_chains;
+   24: optional u32 num_down_service_chains;
+   25: optional u32 num_static_routes;
+   26: optional u32 num_down_static_routes;
    13: optional string build_info;
    14: optional string collector_ip;
    15: optional list<string> bgp_router_ip_list;

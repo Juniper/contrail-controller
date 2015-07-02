@@ -55,12 +55,14 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
                        const XmppChannelConfig *config)
     : XmppConnectionManager(
           evm, ssl::context::tlsv1_server, config->auth_enabled, true),
+      max_connections_(0),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       server_addr_(server_addr),
       log_uve_(false),
       auth_enabled_(config->auth_enabled),
+      tcp_hold_time_(config->tcp_hold_time),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
@@ -87,12 +89,14 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr)
     : XmppConnectionManager(evm, ssl::context::tlsv1_server, false, false),
+      max_connections_(0),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       server_addr_(server_addr),
       log_uve_(false),
       auth_enabled_(false),
+      tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -106,6 +110,7 @@ XmppServer::XmppServer(EventManager *evm)
       deleter_(new DeleteActor(this)), 
       log_uve_(false),
       auth_enabled_(false),
+      tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -214,6 +219,12 @@ TcpSession *XmppServer::CreateSession() {
     socket->bind(LocalEndpoint(), err);
     if (err) {
         XMPP_WARNING(ServerBindFailure, err.message());
+    }
+
+    XmppSession *xmpps = static_cast<XmppSession *>(session);
+    err = xmpps->EnableTcpKeepalive(tcp_hold_time_);
+    if (err) {
+        XMPP_WARNING(ServerKeepAliveFailure, err.message());
     }
 
     return session;

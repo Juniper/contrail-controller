@@ -48,6 +48,13 @@ static const char *bgp_config_template = "\
 </config>\
 ";
 
+static const char *bgp_unconfig = "\
+<delete>\
+    <bgp-router name=\'X\'>\
+    </bgp-router>\
+</delete>\
+";
+
 //
 // 1 BGP and XMPP server X.
 // Agents A, B, C.
@@ -55,15 +62,23 @@ static const char *bgp_config_template = "\
 class BgpXmppBasicTest : public ::testing::Test {
 protected:
     static bool validate_done_;
-    bool auth_enabled_;
 
-    BgpXmppBasicTest() : thread_(&evm_), xs_x_(NULL), xltm_x_(NULL) { }
+    BgpXmppBasicTest() :
+        thread_(&evm_),
+        xs_x_(NULL),
+        xltm_x_(NULL),
+        auth_enabled_(false) {
+    }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
         bs_x_->session_manager()->Initialize(0);
         LOG(DEBUG, "Created BGP server at port: " <<
             bs_x_->session_manager()->GetPort());
+        Configure(bgp_config_template, 64512, 64512);
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
         if (auth_enabled_) {
             XmppChannelConfig xs_cfg(false);
             xs_cfg.auth_enabled = true;
@@ -131,6 +146,10 @@ protected:
         snprintf(config, sizeof(config), cfg_template,
                  asn, local_asn, bs_x_->session_manager()->GetPort());
         bs_x_->Configure(config);
+    }
+
+    void Unconfigure() {
+        bs_x_->Configure(bgp_unconfig);
     }
 
     uint32_t GetXmppConnectionFlapCount(const string &hostname) {
@@ -235,6 +254,7 @@ protected:
     BgpServerTestPtr bs_x_;
     XmppServer *xs_x_;
     XmppLifetimeManagerTest *xltm_x_;
+    bool auth_enabled_;
     string agent_a_addr_;
     string agent_b_addr_;
     string agent_c_addr_;
@@ -483,7 +503,144 @@ TEST_P(BgpXmppBasicParamTest, ChangeLocalAsNumber) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
+    Configure(bgp_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
     DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, NoSelfBgpConfiguration1) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(bs_x_->HasSelfConfiguration());
+
+    CreateAgents();
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->hostname()) > server_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c + 3);
+
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
+
+    DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, NoSelfBgpConfiguration2) {
+    CreateAgents();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+
+    Unconfigure();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->hostname()) > server_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c + 3);
+
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
+
+    Configure(bgp_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, ClientConnectionBackoff) {
+    XmppStateMachineTest::set_hold_time_msecs(300);
+    Unconfigure();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(bs_x_->HasSelfConfiguration());
+
+    CreateAgents();
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    size_t client_conn_attempts_a = agent_a_->get_sm_connect_attempts();
+    size_t client_conn_attempts_b = agent_b_->get_sm_connect_attempts();
+    size_t client_conn_attempts_c = agent_c_->get_sm_connect_attempts();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(
+        agent_a_->get_sm_connect_attempts() > client_conn_attempts_a + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        agent_b_->get_sm_connect_attempts() > client_conn_attempts_b + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        agent_c_->get_sm_connect_attempts() > client_conn_attempts_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->get_sm_keepalive_count() <= 1);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->get_sm_keepalive_count() <= 1);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->get_sm_keepalive_count() <= 1);
+
+    Configure(bgp_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->get_sm_keepalive_count() >= 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->get_sm_keepalive_count() >= 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->get_sm_keepalive_count() >= 3);
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0, agent_c_->get_sm_connect_attempts());
+
+    DestroyAgents();
+    XmppStateMachineTest::set_hold_time_msecs(0);
 }
 
 TEST_P(BgpXmppBasicParamTest, ShutdownServer1) {

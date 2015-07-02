@@ -23,7 +23,9 @@
 using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
-    : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_() {
+    : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_(),
+      prev_flow_setup_rate_export_time_(0), prev_flow_created_(0),
+      prev_flow_aged_(0) {
     start_time_ = UTCTimestampUsec();
 }
 
@@ -32,6 +34,8 @@ VrouterUveEntry::~VrouterUveEntry() {
 
 bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
+    uint64_t max_add_rate = 0, min_add_rate = 0;
+    uint64_t max_del_rate = 0, min_del_rate = 0;
     bool change = false;
     VrouterStatsAgent stats;
 
@@ -99,7 +103,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     }
 
     if (prev_stats_.get_total_flows() !=
-            agent_->stats()->flow_created() || first) {
+        agent_->stats()->flow_created() || first) {
         stats.set_total_flows(agent_->stats()->flow_created());
         prev_stats_.set_total_flows(agent_->stats()->
                                     flow_created());
@@ -214,6 +218,42 @@ bool VrouterUveEntry::SendVrouterMsg() {
     }
     if (first) {
         stats.set_uptime(start_time_);
+    }
+    uint64_t cur_time = UTCTimestampUsec();
+    if (prev_flow_setup_rate_export_time_) {
+        uint64_t diff_time = cur_time - prev_flow_setup_rate_export_time_;
+        uint64_t created_flows = agent_->stats()->flow_created() -
+            prev_flow_created_;
+        uint64_t aged_flows = agent_->stats()->flow_aged() - prev_flow_aged_;
+        uint64_t diff_secs = diff_time / 1000000;
+        if (diff_secs) {
+            //Flow setup/delete rate are always sent
+            if (created_flows) {
+                max_add_rate = agent_->stats()->max_flow_adds_per_second();
+                min_add_rate = agent_->stats()->min_flow_adds_per_second();
+            }
+            if (aged_flows) {
+                max_del_rate = agent_->stats()->max_flow_deletes_per_second();
+                min_del_rate = agent_->stats()->min_flow_deletes_per_second();
+            }
+
+            VrouterFlowRate flow_rate;
+            flow_rate.set_added_flows(created_flows);
+            flow_rate.set_max_flow_adds_per_second(max_add_rate);
+            flow_rate.set_max_flow_adds_per_second(min_add_rate);
+            flow_rate.set_deleted_flows(aged_flows);
+            flow_rate.set_max_flow_deletes_per_second(max_del_rate);
+            flow_rate.set_min_flow_deletes_per_second(min_del_rate);
+            stats.set_flow_rate(flow_rate);
+            change = true;
+            agent_->stats()->ResetFlowAddMinMaxStats(cur_time);
+            agent_->stats()->ResetFlowDelMinMaxStats(cur_time);
+            prev_flow_setup_rate_export_time_ = cur_time;
+            prev_flow_created_ = agent_->stats()->flow_created();
+            prev_flow_aged_ = agent_->stats()->flow_aged();
+        }
+    } else {
+        prev_flow_setup_rate_export_time_ = cur_time;
     }
 
     if (change) {

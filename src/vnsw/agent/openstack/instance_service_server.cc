@@ -66,10 +66,11 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         boost::system::error_code ec;
         IpAddress ip = IpAddress::from_string(port.ip_address, ec);
         bool v4_valid = (ec.value() == 0);
-        if (v4_valid == false) {
+        if (v4_valid == false || ip.is_v4() == false) {
             CFG_TRACE(IntfInfo,
                       "IPv4 address is not correct, " + port.ip_address);
             v4_valid = false;
+            ip = IpAddress();
         }
 
         bool v6_valid = false;

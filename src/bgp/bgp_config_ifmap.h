@@ -274,7 +274,8 @@ public:
     const BgpIfmapPeeringConfig *FindPeering(const std::string &name) const;
     int PeeringCount() const { return peerings_.size(); }
 
-    BgpConfigManager::InstanceMapRange InstanceMapItems() const;
+    BgpConfigManager::InstanceMapRange InstanceMapItems(
+        const std::string &start_name = std::string()) const;
 
     const IfmapInstanceMap &instances() const { return instances_; }
 
@@ -317,7 +318,8 @@ public:
     virtual void Terminate();
     virtual const std::string &localname() const { return localname_; }
 
-    virtual InstanceMapRange InstanceMapItems() const;
+    virtual InstanceMapRange InstanceMapItems(
+        const std::string &start_name = std::string()) const;
     virtual NeighborMapRange NeighborMapItems(
         const std::string &instance_name) const;
 
@@ -356,7 +358,7 @@ private:
 
     bool ConfigHandler();
 
-    int config_task_id_;
+    static int config_task_id_;
     static const int kConfigTaskInstanceId;
 
     DB *db_;

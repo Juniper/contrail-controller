@@ -26,7 +26,6 @@
 #include <oper/vxlan.h>
 #include <oper/multicast.h>
 #include <oper/global_vrouter.h>
-#include <oper/agent_route_encap.h>
 #include <oper/path_preference.h>
 #include <filter/acl.h>
 #include <oper/ifmap_dependency_manager.h>

@@ -776,7 +776,7 @@ class ServiceApplianceSM(DBBaseSM):
         if obj.service_appliance_set:
             parent = ServiceApplianceSetSM.get(obj.service_appliance_set)
         if parent:
-            parent.service_instances.discard(obj.uuid)
+            parent.service_appliances.discard(obj.uuid)
         del cls._dict[uuid]
     # end delete
 # end ServiceApplianceSM

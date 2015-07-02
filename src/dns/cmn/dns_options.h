@@ -23,6 +23,9 @@ public:
     const std::string & named_log_file() const { return named_log_file_; }
     const std::string & rndc_config_file() const { return rndc_config_file_; }
     const std::string & rndc_secret() const { return rndc_secret_; }
+    const std::string & named_max_cache_size() const {
+        return named_max_cache_size_;
+    }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -30,6 +33,7 @@ public:
     const std::string log_category() const { return log_category_; }
     const bool log_disable() const { return log_disable_; }
     const std::string log_file() const { return log_file_; }
+    const std::string log_property_file() const { return log_property_file_; }
     const int log_files_count() const { return log_files_count_; }
     const long log_file_size() const { return log_file_size_; }
     const std::string log_level() const { return log_level_; }
@@ -73,6 +77,7 @@ private:
     std::string named_log_file_;
     std::string rndc_config_file_;
     std::string rndc_secret_;
+    std::string named_max_cache_size_;
 
     std::string hostname_;
     std::string host_ip_;
@@ -81,6 +86,7 @@ private:
     std::string log_category_;
     bool log_disable_;
     std::string log_file_;
+    std::string log_property_file_;
     int log_files_count_;
     long log_file_size_;
     std::string log_level_;

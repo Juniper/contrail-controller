@@ -47,7 +47,8 @@ XmppClient::XmppClient(EventManager *evm)
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
-      auth_enabled_(false) {
+      auth_enabled_(false),
+      tcp_hold_time_(XmppChannelConfig::kTcpHoldTime) {
 }
 
 XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
@@ -57,7 +58,8 @@ XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
-      auth_enabled_(config->auth_enabled) {
+      auth_enabled_(config->auth_enabled),
+      tcp_hold_time_(config->tcp_hold_time) {
 
     if (config->auth_enabled) {
 
@@ -127,6 +129,13 @@ TcpSession *XmppClient::CreateSession() {
     if (err) {
         DeleteSession(session);
         assert(0); 
+    }
+
+    XmppSession *xmpps = static_cast<XmppSession *>(session);
+    err = xmpps->EnableTcpKeepalive(tcp_hold_time_);
+    if (err) {
+        DeleteSession(xmpps);
+        assert(0);
     }
 
     return session;

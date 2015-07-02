@@ -76,6 +76,26 @@ void BgpRoute::DeletePath(BgpPath *path) {
 }
 
 //
+// Find first path with given path source.
+// Skips secondary paths.
+//
+const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src) const {
+    for (Route::PathList::const_iterator it = GetPathList().begin();
+         it != GetPathList().end(); ++it) {
+        // Skip secondary paths.
+        if (dynamic_cast<const BgpSecondaryPath *>(it.operator->())) {
+            continue;
+        }
+
+        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+        if (path->GetSource() == src) {
+            return path;
+        }
+    }
+    return NULL;
+}
+
+//
 // Find path added by peer with given path id and path source.
 // Skips secondary paths.
 //
@@ -274,6 +294,11 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
     show_route->set_paths(show_route_paths);
 }
 
+static void FillRoutePathCommunityInfo(const Community *comm,
+    ShowRoutePath *show_path) {
+    comm->BuildStringList(&show_path->communities);
+}
+
 static void FillRoutePathExtCommunityInfo(const BgpTable *table,
     const ExtCommunity *extcomm,
     ShowRoutePath *show_path) {
@@ -368,14 +393,24 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
 
         if (path->GetSource() == BgpPath::BGP_XMPP) {
-            if (peer)
+            if (peer) {
                 srp.set_protocol(peer->IsXmppPeer() ? "XMPP" : "BGP");
-            else
-                srp.set_protocol("Local");
+            } else {
+                srp.set_protocol("None");
+            }
         } else if (path->GetSource() == BgpPath::ServiceChain) {
             srp.set_protocol("ServiceChain");
         } else if (path->GetSource() == BgpPath::StaticRoute) {
             srp.set_protocol("StaticRoute");
+        } else if (path->GetSource() == BgpPath::Local) {
+            srp.set_protocol("Local");
+        }
+
+        const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+        if (bgp_peer) {
+            srp.set_local_as(bgp_peer->local_as());
+            srp.set_peer_as(bgp_peer->peer_as());
+            srp.set_peer_router_id(bgp_peer->bgp_identifier_string());
         }
 
         const BgpAttr *attr = path->GetAttr();
@@ -396,9 +431,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_replicated(false);
         }
         if (attr->community()) {
-            CommunitySpec comm;
-            comm.communities = attr->community()->communities();
-            srp.communities.push_back(comm.ToString());
+            FillRoutePathCommunityInfo(attr->community(), &srp);
         }
         if (attr->ext_community()) {
             FillRoutePathExtCommunityInfo(table, attr->ext_community(), &srp);

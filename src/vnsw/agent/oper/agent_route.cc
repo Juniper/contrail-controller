@@ -299,6 +299,16 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     // Find the right DBTable from VRF and invoke Input from right table
     AgentRouteTable *route_table = vrf->GetRouteTable(key->GetRouteTableType());
     if (route_table != this) {
+        if (route_table == NULL) {
+            // route table for the VRF is already deleted
+            // vrf should be in deleted state
+            assert(vrf->IsDeleted());
+            LOG(DEBUG, "Route Table " << key->GetRouteTableType() <<
+                " for VRF <" << key->vrf_name() <<
+                "> not found. Ignore route Request for " <<
+                key->ToString());
+            return;
+        }
         DBTablePartition *p = static_cast<DBTablePartition *>
             (route_table->GetTablePartition(key));
         route_table->Input(p, client, req);
@@ -308,10 +318,16 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentPath *path = NULL;
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
-    if (data && data->IsPeerValid() == false) {
-        AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
-                        "");
-        return;
+    if (data) {
+        if (data->IsPeerValid(key) == false) {
+            AGENT_ROUTE_LOG("Invalid/Inactive Peer ",
+                            key->ToString(),
+                            vrf_name(),
+                            "");
+            return;
+        }
+    } else {
+        assert(key->peer()->NeedValidityCheck() == false);
     }
 
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
@@ -747,6 +763,12 @@ bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
         ret = true;
     }
     return ret;
+}
+
+bool AgentRouteData::IsPeerValid(const AgentRouteKey *key) const {
+    const Peer *peer = key->peer();
+    assert(peer->NeedValidityCheck() == false);
+    return true;
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,

@@ -44,7 +44,7 @@ using process::GetProcessStateCb;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
-static EventManager * a_evm = NULL; 
+static EventManager * a_evm = NULL;
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -163,7 +163,7 @@ void CollectorShutdown() {
 
 static void terminate(int param) {
     // Shutdown can result in a malloc-detected error
-    // Taking a stack trace during this error can result in 
+    // Taking a stack trace during this error can result in
     // the process not terminating correctly
     // using mallopt in this way ensures that we get a core,
     // but we don't print a stack trace
@@ -234,10 +234,15 @@ int main(int argc, char *argv[])
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
     std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
-    LoggingInit(options.log_file(), options.log_file_size(),
-                options.log_files_count(), options.use_syslog(),
-                options.syslog_facility(), module_id);
-
+    std::string log_property_file = options.log_property_file();
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    }
+    else {
+        LoggingInit(options.log_file(), options.log_file_size(),
+                    options.log_files_count(), options.use_syslog(),
+                    options.syslog_facility(), module_id);
+    }
     vector<string> cassandra_servers(options.cassandra_server_list());
     vector<string> cassandra_ips;
     vector<int> cassandra_ports;
@@ -274,7 +279,7 @@ int main(int argc, char *argv[])
     }
     string kstr("");
     vector<string> kbl = options.kafka_broker_list();
-    for (vector<string>::const_iterator st = kbl.begin(); 
+    for (vector<string>::const_iterator st = kbl.begin();
          st != kbl.end(); st++) {
          if (st != kbl.begin()) {
              kstr += string(",");
@@ -356,7 +361,7 @@ int main(int argc, char *argv[])
             module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            instance_id, 
+            instance_id,
             a_evm, "127.0.0.1", coll_port,
             options.http_server_port(), &vsc);
 
@@ -395,7 +400,7 @@ int main(int argc, char *argv[])
                      options.discovery_server());
     }
     Collector::SetDiscoveryServiceClient(ds_client);
-             
+
     CpuLoadData::Init();
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),

@@ -113,12 +113,15 @@ public:
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
     void CreateTableLabel();
-
     bool AllRouteTableDeleted() const;
     bool RouteTableDeleted(uint8_t table_type) const;
     void SetRouteTableDeleted(uint8_t table_type);
+    void DeleteRouteTables();
+
 private:
     friend class VrfTable;
+    void CreateRouteTables();
+
     class DeleteActor;
     string name_;
     uint32_t id_;
@@ -213,6 +216,7 @@ public:
 
     void DeleteRoutes();
     void Shutdown();
+    void DeleteFromDbTree(int table_type, const std::string &vrf_name);
 private:
     friend class VrfEntry;
 

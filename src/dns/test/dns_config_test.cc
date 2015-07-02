@@ -43,7 +43,7 @@ class NamedConfigTest : public NamedConfig {
 public:
     NamedConfigTest(const std::string &conf_dir, const std::string &conf_file) :
                     NamedConfig(conf_dir, conf_file, "/var/log/named/bind.log",
-                                "rndc.conf", "xvysmOR8lnUQRBcunkC6vg==") {}
+                                "rndc.conf", "xvysmOR8lnUQRBcunkC6vg==", "100M") {}
     static void Init() {
         assert(singleton_ == NULL);
         singleton_ = new NamedConfigTest(".", "named.conf");
@@ -188,6 +188,8 @@ TEST_F(DnsConfigManagerTest, Config) {
         <record-order>fixed</record-order>\
         <default-ttl-seconds>120</default-ttl-seconds>\
         <next-virtual-DNS>juniper.com</next-virtual-DNS>\
+        <external-visible>true</external-visible>\
+        <reverse-resolution>true</reverse-resolution>\
     </virtual-DNS>\
 </config>\
 ";

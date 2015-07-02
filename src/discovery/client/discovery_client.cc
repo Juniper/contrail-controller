@@ -90,10 +90,22 @@ DSPublishResponse::~DSPublishResponse() {
 }
 
 bool DSPublishResponse::HeartBeatTimerExpired() {
-    stringstream hb;
-    hb.clear();
-    hb << "<cookie>" << cookie_ << "</cookie>" ;
-    ds_client_->SendHeartBeat(serviceName_, hb.str());
+
+    // Check if ReEvalPublish cb registered, if so enqueue re-evaluate trigger
+    DiscoveryServiceClient::ReEvalPublishCbHandlerMap::iterator it =
+        ds_client_->reeval_publish_map_.find(serviceName_);
+    if (it != ds_client_->reeval_publish_map_.end()) {
+        // publish is sent periodically
+        ds_client_->reevaluate_publish_cb_queue_.Enqueue(
+            boost::bind(&DiscoveryServiceClient::ReEvaluatePublish, ds_client_,
+                        serviceName_, it->second));
+    } else {
+        stringstream hb;
+        hb.clear();
+        hb << "<cookie>" << cookie_ << "</cookie>" ;
+        ds_client_->SendHeartBeat(serviceName_, hb.str());
+    }
+
     //
     // Start the timer again, by returning true
     //
@@ -148,13 +160,19 @@ static void WaitForIdle() {
 /******************* DiscoveryServiceClient ************************************/
 DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
                                                boost::asio::ip::tcp::endpoint ep,
-                                               std::string client_name) 
+                                               std::string client_name,
+                                               std::string reeval_publish_taskname)
     : http_client_(new HttpClient(evm)),
-      evm_(evm), ds_endpoint_(ep), 
+      evm_(evm), ds_endpoint_(ep),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
+      reevaluate_publish_cb_queue_(
+          TaskScheduler::GetInstance()->GetTaskId(reeval_publish_taskname), 0,
+          boost::bind(&DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent,
+          this, _1)),
       shutdown_(false),
-      subscriber_name_(client_name)  {
+      subscriber_name_(client_name),
+      heartbeat_interval_(DiscoveryServiceClient::kHeartBeatInterval) {
 }
 
 void DiscoveryServiceClient::Init() {
@@ -310,6 +328,23 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi::xml_node node = pugi->FindNode("cookie");
     if (!pugi->IsNull(node)) {
+        std::string cookie = node.child_value();
+        if (cookie.find(serviceName) == string::npos) {
+
+            // Backward compatibility support, newer client and older
+            // discovery server, fallback to older publish api
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                "PublishResponseHandler, Version Mismatch, older discovery server",
+                 serviceName, ec.value());
+            resp->pub_fallback_++;
+            resp->publish_msg_.clear();
+            resp->publish_msg_ = resp->client_msg_;
+            Publish(serviceName);
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Publish Response - Version Mismatch");
+            return;
+        }
         resp->cookie_ = node.child_value();
         resp->attempts_ = 0;
         resp->pub_rcvd_++;
@@ -318,7 +353,7 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             serviceName, ConnectionStatus::UP, ds_endpoint_,
             "Publish Response - HeartBeat");
         //Start periodic heartbeat, timer per service 
-        resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
+        resp->StartHeartBeatTimer(GetHeartBeatInterval());
     } else {
         pugi::xml_node node = pugi->FindNode("h1");
         if (!pugi->IsNull(node)) {
@@ -368,11 +403,24 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
 }
 
 void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) {
-    //TODO save message for replay
     DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
-    pub_msg->publish_msg_ = msg;
+
+    pub_msg->client_msg_ = msg;
+    pub_msg->publish_msg_ = "<publish>" + msg;
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(msg) != -1) {
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        pugi::xml_node node_addr = pugi->FindNode("ip-address");
+        if (!pugi->IsNull(node_addr)) {
+            std::string addr = node_addr.child_value();
+            pub_msg->publish_msg_ +=
+                "<remote-addr>" + addr + "</remote-addr>";
+        }
+    }
+    pub_msg->publish_msg_ += "</publish>";
+
     boost::system::error_code ec;
     pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
     pub_msg->pub_sent_++;
@@ -380,15 +428,128 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     //save it in a map
     publish_response_map_.insert(make_pair(serviceName, pub_msg)); 
      
-    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName, msg); 
+    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName,
+                        pub_msg->publish_msg_);
 
     // Update connection info
     ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
         serviceName, ConnectionStatus::INIT, ds_endpoint_,
         "Publish");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_, 
-                           serviceName, msg);
+                           serviceName, pub_msg->publish_msg_);
 }
+
+void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
+                                               ReEvalPublishCbHandler cb) {
+
+    // Get Response Header
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *resp = loc->second;
+        bool oper_state = resp->oper_state;
+
+        std::string reeval_reason;
+        resp->oper_state = cb(reeval_reason);
+        if ((resp->oper_state != oper_state) ||
+            (resp->oper_state_reason.compare(reeval_reason))) {
+
+            auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+            if (impl->LoadDoc(resp->publish_msg_) == -1) {
+                resp->pub_fail_++;
+                return;
+            }
+
+            resp->oper_state_reason = reeval_reason;
+            XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+            if (resp->oper_state) {
+                pugi->ModifyNode("oper-state", "up");
+                pugi->ModifyNode("oper-state-reason", reeval_reason);
+
+                // Update connection info
+                ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                    serviceName, ConnectionStatus::UP, ds_endpoint_,
+                    "Change Publish State, UP " + reeval_reason);
+            } else {
+                pugi->ModifyNode("oper-state", "down");
+                pugi->ModifyNode("oper-state-reason", reeval_reason);
+
+                // Update connection info
+                ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                    serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                    "Change Publish State, DOWN " + reeval_reason);
+            }
+
+            stringstream ss;
+            impl->PrintDoc(ss);
+            resp->publish_msg_ = ss.str();
+        }
+
+        /* Send publish unconditionally */
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
+                               serviceName, resp->publish_msg_);
+        SendHttpPostMessage(resp->publish_hdr_, serviceName,
+                            resp->publish_msg_);
+    }
+}
+
+bool DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent(EnqueuedCb cb) {
+    cb();
+    return true;
+}
+
+// Register application specific ReEvalPublish cb
+void DiscoveryServiceClient::RegisterReEvalPublishCbHandler(
+         std::string serviceName, ReEvalPublishCbHandler cb) {
+    reeval_publish_map_.insert(make_pair(serviceName, cb));
+}
+
+void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
+                                     ReEvalPublishCbHandler cb) {
+    //Register the callback handler
+    RegisterReEvalPublishCbHandler(serviceName, cb);
+
+    DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
+    pub_msg->dss_ep_.address(ds_endpoint_.address());
+    pub_msg->dss_ep_.port(ds_endpoint_.port());
+    pub_msg->oper_state = false;
+    pub_msg->oper_state_reason = "Initial Registration";
+
+    pub_msg->client_msg_ = msg;
+    pub_msg->publish_msg_ += "<publish>" + msg;
+    pub_msg->publish_msg_ += "<service-type>" + serviceName + "</service-type>";
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(msg) != -1) {
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        pugi::xml_node node_addr = pugi->FindNode("ip-address");
+        if (!pugi->IsNull(node_addr)) {
+            std::string addr = node_addr.child_value();
+            pub_msg->publish_msg_ +=
+                "<remote-addr>" + addr + "</remote-addr>";
+        }
+    }
+    pub_msg->publish_msg_ += "<oper-state>down</oper-state>";
+    pub_msg->publish_msg_ += "<oper-state-reason>";
+    pub_msg->publish_msg_ += pub_msg->oper_state_reason;
+    pub_msg->publish_msg_ += "</oper-state-reason>";
+    pub_msg->publish_msg_ += "</publish>";
+    boost::system::error_code ec;
+    pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
+    pub_msg->pub_sent_++;
+
+    //save it in a map
+    publish_response_map_.insert(make_pair(serviceName, pub_msg));
+
+    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName,
+                        pub_msg->publish_msg_);
+
+    // Update connection info
+    ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+        serviceName, ConnectionStatus::INIT, ds_endpoint_,
+        "Publish");
+    DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_,
+                           serviceName, pub_msg->publish_msg_);
+}
+
 
 void DiscoveryServiceClient::Publish(std::string serviceName) {
 
@@ -460,6 +621,16 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
     string client_id = boost::asio::ip::host_name(error) + ":" + 
                        subscriber_name_;
     pugi->AddChildNode("client", client_id);
+    pugi->ReadNode(serviceName); //Reset parent
+
+    //Retrieve ip address
+    ip::udp::resolver resolver(*evm_->io_service());
+    ip::udp::resolver::query query(ip::udp::v4(), ip::host_name(error), "");
+    ip::udp::resolver::iterator endpoint_iter = resolver.resolve(query, error);
+    if (!error) {
+        ip::udp::endpoint ep = *endpoint_iter++;
+        pugi->AddChildNode("remote-addr", ep.address().to_string());
+    }
         
     stringstream ss; 
     impl->PrintDoc(ss);
@@ -644,7 +815,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
 
         hdr->sub_rcvd_++;
         hdr->attempts_ = 0;
-        if ((hdr->chksum_ == gen_chksum) || (ds_response.size() == 0)) {
+        if (ds_response.size() == 0) {
             //Restart Subscribe Timer
             hdr->StartSubscribeTimer(ttl);
             DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
@@ -656,8 +827,10 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             return; //No change in message, ignore
         }
 
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
-                               serviceName, xmls);
+        if (hdr->chksum_ != gen_chksum) {
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
+                                   serviceName, xmls);
+        }
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                 serviceName, ConnectionStatus::UP, ds_endpoint_,
@@ -838,6 +1011,29 @@ DSPublishResponse *DiscoveryServiceClient::GetPublishResponse(
 
     return resp;
 }
+
+bool DiscoveryServiceClient::IsPublishServiceRegisteredUp(
+         std::string serviceName) {
+
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *pub_resp = loc->second;
+        return(pub_resp->oper_state);
+    }
+
+    return false;
+}
+
+void DiscoveryServiceClient::PublishServiceReEvalString(
+         std::string serviceName, std::string &reeval_reason) {
+
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *pub_resp = loc->second;
+        reeval_reason = pub_resp->oper_state_reason;
+    }
+}
+
 
 void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
          std::vector<DiscoveryClientSubscriberStats> &ds_stats) {

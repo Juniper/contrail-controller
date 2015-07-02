@@ -189,6 +189,7 @@ public:
         AgentRouteWalker::VrfWalkDone(part);
         if (is_vrf_walk_done_ &&
             !route_table_walk_started_ &&
+            (queued_walk_done_count() == AgentRouteWalker::kInvalidWalkCount) &&
             AreAllWalksDone())
             assert(0);
     }
@@ -199,6 +200,7 @@ public:
                              uint32_t total_rt_vrf_walk_done) {
         client->WaitForIdle(10);
         WAIT_FOR(100, 1000, (route_notifications_ == route_notifications_));
+        std::cout << " " << route_notifications_ << " " << route_notifications << std::endl;
         ASSERT_TRUE(route_notifications_ == route_notifications);
         ASSERT_TRUE(vrf_notifications_ == vrf_notifications);
         ASSERT_TRUE(vrf_notifications_count_ == vrf_notifications_count);
@@ -250,6 +252,9 @@ class SetupTask : public Task {
                 test_->WalkDoneCallback(boost::bind(&SetupTask::AllWalkDone,
                                                     test_));
                 test_->StartVrfWalk();
+            } else if (test_name_ ==
+                       "walk_on_deleted_vrf_with_deleted_route_table") {
+                test_->StartVrfWalk();
             }
             return true;
         }
@@ -262,7 +267,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_no_vrf) {
     client->Reset();
     SetupEnvironment(0);
     StartVrfWalk();
-    VerifyNotifications(8, 1, 1, Agent::ROUTE_TABLE_MAX - 1);
+    VerifyNotifications(9, 1, 1, Agent::ROUTE_TABLE_MAX - 1);
     EXPECT_TRUE(walk_task_context_mismatch_ == false);
     walk_task_context_mismatch_ = true;
     DeleteEnvironment(0);
@@ -272,7 +277,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     StartVrfWalk();
-    VerifyNotifications(17, 2, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 2));
+    VerifyNotifications(19, 2, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 2));
     EXPECT_TRUE(walk_task_context_mismatch_ == false);
     walk_task_context_mismatch_ = true;
     DeleteEnvironment(1);
@@ -282,7 +287,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     StartVrfWalk();
-    VerifyNotifications(26, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
+    VerifyNotifications(29, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
     EXPECT_TRUE(walk_task_context_mismatch_ == false);
     walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
@@ -292,7 +297,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     StartVrfWalk();
-    VerifyNotifications(35, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
+    VerifyNotifications(39, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
     EXPECT_TRUE(walk_task_context_mismatch_ == false);
     walk_task_context_mismatch_ = true;
     DeleteEnvironment(3);
@@ -330,6 +335,23 @@ TEST_F(AgentRouteWalkerTest, vrf_state_deleted) {
     SetupTask * task = new SetupTask(this, "vrf_state_deleted");
     TaskScheduler::GetInstance()->Enqueue(task);
     WAIT_FOR(1000, 1000, IsWalkCompleted() == true);
+    DeleteEnvironment(1);
+}
+
+TEST_F(AgentRouteWalkerTest, walk_on_deleted_vrf_with_deleted_route_table) {
+    client->Reset();
+    SetupEnvironment(1);
+    SetupTask * task = new SetupTask(this,
+                                     "walk_on_deleted_vrf_with_deleted_route_table");
+    VrfEntryRef vrf = VrfGet("vrf1");
+    EXPECT_TRUE(vrf != NULL);
+    DeleteEnvironment(1);
+    EXPECT_TRUE(vrf->IsDeleted());
+    Agent::GetInstance()->vrf_table()->OnZeroRefcount(vrf.get());
+    TaskScheduler::GetInstance()->Enqueue(task);
+    WAIT_FOR(1000, 1000, IsWalkCompleted() == true);
+    SetupEnvironment(1);
+    vrf = NULL;
     DeleteEnvironment(1);
 }
 

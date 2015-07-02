@@ -431,9 +431,10 @@ class InstanceManager(object):
             return
 
         # set mac address
-        mac_addrs_obj = MacAddressesType([self.mac_alloc(iip_obj.uuid)])
-        vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
-        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        if vmi_create:
+            mac_addrs_obj = MacAddressesType([self.mac_alloc(iip_obj.uuid)])
+            vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
+            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         # check if vmi already linked to iip
         iip_update = True

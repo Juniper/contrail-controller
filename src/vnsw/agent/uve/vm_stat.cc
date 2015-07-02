@@ -101,9 +101,14 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
     close(out[1]);
 
     boost::system::error_code ec;
-    input_.assign(::dup(out[0]), ec);
+    int fd = ::dup(out[0]);
     close(out[0]);
+    if (fd == -1) {
+        return;
+    }
+    input_.assign(fd, ec);
     if (ec) {
+        close(fd);
         return;
     }
 

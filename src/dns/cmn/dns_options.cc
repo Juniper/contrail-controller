@@ -87,6 +87,9 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.rndc_secret",
              opt::value<string>()->default_value("xvysmOR8lnUQRBcunkC6vg=="),
              "RNDC secret")
+        ("DEFAULT.named_max_cache_size",
+             opt::value<string>()->default_value("100M"),
+             "Maximum cache size, in bytes, used by contrail-named (per view)")
 
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
              "IP address of DNS Server")
@@ -104,6 +107,8 @@ void Options::Initialize(EventManager &evm,
              "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_disable", opt::bool_switch(&log_disable_),
              "Disable sandesh logging")
+        ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
+             "log4cplus property file name")
         ("DEFAULT.log_file", opt::value<string>()->default_value("<stdout>"),
              "Filename for the logs to be written to")
         ("DEFAULT.log_files_count",
@@ -174,7 +179,7 @@ void Options::GetOptValueImpl(
         std::vector<ElementType> tmp(
             var_map[val].as<std::vector<ElementType> >());
         // Now split the individual elements
-        for (typename std::vector<ElementType>::const_iterator it = 
+        for (typename std::vector<ElementType>::const_iterator it =
                  tmp.begin();
              it != tmp.end(); it++) {
             std::stringstream ss(*it);
@@ -234,6 +239,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, named_log_file_, "DEFAULT.named_log_file");
     GetOptValue<string>(var_map, rndc_config_file_, "DEFAULT.rndc_config_file");
     GetOptValue<string>(var_map, rndc_secret_, "DEFAULT.rndc_secret");
+    GetOptValue<string>(var_map, named_max_cache_size_,
+                        "DEFAULT.named_max_cache_size");
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
@@ -245,6 +252,8 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
+    GetOptValue<string>(var_map, log_property_file_,
+                        "DEFAULT.log_property_file");
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");

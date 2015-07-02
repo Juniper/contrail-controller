@@ -12,6 +12,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
 
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -92,6 +93,8 @@ public:
         count = 0;
         return count;
     }
+    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual int GetPrimaryPathCount() const { return 0; }
 
 private:
     Ip4Address address_;
@@ -352,6 +355,16 @@ protected:
             bgp_server_->database()->FindTable(table_name) == NULL);
     }
 
+    void VerifyStaticRouteCount(uint32_t count) {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_static_routes());
+    }
+
+    void VerifyDownStaticRouteCount(uint32_t count) {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_down_static_routes());
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
@@ -571,6 +584,8 @@ TEST_F(StaticRouteTest, Basic) {
     BgpAttrPtr attr = static_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     static_rt = InetRouteLookup("nat", "192.168.1.0/24");
     static_path = static_rt->BestPath();
@@ -633,6 +648,8 @@ TEST_F(StaticRouteTest, UpdateRtList) {
     BgpAttrPtr attr = static_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     static_rt = InetRouteLookup("nat", "192.168.1.0/24");
     static_path = static_rt->BestPath();
@@ -654,10 +671,13 @@ TEST_F(StaticRouteTest, UpdateRtList) {
 
     static_rt = InetRouteLookup("nat", "192.168.1.0/24");
     static_path = static_rt->BestPath();
+    attr = static_path->GetAttr();
     list = GetRTargetFromPath(static_path);
     config_list = list_of("target:1:1");
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     // Delete nexthop route
     DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
@@ -701,13 +721,18 @@ TEST_F(StaticRouteTest, UpdateNexthop) {
     BgpAttrPtr attr = static_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     static_rt = InetRouteLookup("nat", "192.168.1.0/24");
     static_path = static_rt->BestPath();
+    attr = static_path->GetAttr();
     set<string> list = GetRTargetFromPath(static_path);
     set<string> config_list = list_of("target:64496:1")("target:64496:2")("target:64496:3");
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_4.xml");
 
@@ -734,13 +759,18 @@ TEST_F(StaticRouteTest, UpdateNexthop) {
     attr = static_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "5.4.3.2");
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     static_rt = InetRouteLookup("nat", "192.168.1.0/24");
     static_path = static_rt->BestPath();
+    attr = static_path->GetAttr();
     list = GetRTargetFromPath(static_path);
     config_list = list_of("target:64496:1");
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     // Delete nexthop route
     DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
@@ -756,6 +786,9 @@ TEST_F(StaticRouteTest, MultiplePrefix) {
 
     set<string> config_list = list_of("target:64496:1");
 
+    VerifyStaticRouteCount(0);
+    VerifyDownStaticRouteCount(0);
+
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
         GetStaticRouteConfig("controller/src/bgp/testdata/static_route_2.xml");
 
@@ -763,9 +796,15 @@ TEST_F(StaticRouteTest, MultiplePrefix) {
                          "nat", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
 
+    VerifyStaticRouteCount(3);
+    VerifyDownStaticRouteCount(3);
+
     // Add Nexthop Route
     AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
     task_util::WaitForIdle();
+
+    VerifyStaticRouteCount(3);
+    VerifyDownStaticRouteCount(2);
 
     // Check for Static route
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
@@ -787,6 +826,9 @@ TEST_F(StaticRouteTest, MultiplePrefix) {
     // Add Nexthop Route
     AddInetRoute(NULL, "nat", "192.168.2.1/32", 100, "9.8.7.6");
     task_util::WaitForIdle();
+
+    VerifyStaticRouteCount(3);
+    VerifyDownStaticRouteCount(0);
 
     // Check for Static route
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.2.0/24"),
@@ -827,6 +869,9 @@ TEST_F(StaticRouteTest, MultiplePrefix) {
     DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
     DeleteInetRoute(NULL, "nat", "192.168.2.1/32");
     task_util::WaitForIdle();
+
+    VerifyStaticRouteCount(3);
+    VerifyDownStaticRouteCount(3);
 }
 
 TEST_F(StaticRouteTest, MultiplePrefixSameNexthopAndUpdateNexthop) {

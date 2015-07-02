@@ -47,11 +47,16 @@ protected:
           rib1_(NULL), rib2_(NULL),
           tid1_(DBTableBase::kInvalidId), tid2_(DBTableBase::kInvalidId) {
         ConcurrencyScope scope("bgp::Config");
+        boost::system::error_code ec;
+        local_identifier_ = Ip4Address::from_string("10.1.1.1", ec);
         RoutingInstance *instance =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
                     &instance_config_);
         config_.set_name("test-peer");
         config_.set_instance_name(BgpConfigManager::kMasterInstance);
+        config_.set_local_identifier(htonl(local_identifier_.to_ulong()));
+        config_.set_local_as(64512);
+        config_.set_peer_as(64512);
         config_.set_address_families(
             boost::assign::list_of("inet")("inet-vpn"));
         rib1_ = instance->GetTable(Address::INET);
@@ -95,6 +100,7 @@ protected:
 
     EventManager evm_;
     BgpServer server_;
+    Ip4Address local_identifier_;
     BgpInstanceConfig instance_config_;
     BgpNeighborConfig config_;
     BgpPeer *peer_;
@@ -249,6 +255,86 @@ TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
 
     peer_->ResetCapabilities();
 }
+
+// Parameterize originator id to be same vs. different.
+class BgpUpdateRxParamTest:
+    public BgpUpdateRxTest,
+    public ::testing::WithParamInterface<bool> {
+};
+
+TEST_P(BgpUpdateRxParamTest, OriginatorIdLoop) {
+    EXPECT_EQ(rib2_, server_.database()->FindTable("bgp.l3vpn.0"));
+
+    BgpProto::OpenMessage open;
+    uint8_t capc[] = {0, 1, 0, 128};
+    BgpProto::OpenMessage::Capability *cap =
+        new BgpProto::OpenMessage::Capability(
+            BgpProto::OpenMessage::Capability::MpExtension, capc, 4);
+    BgpProto::OpenMessage::OptParam *opt = new BgpProto::OpenMessage::OptParam;
+    opt->capabilities.push_back(cap);
+    open.opt_params.push_back(opt);
+    peer_->SetCapabilities(&open);
+
+    // Advertise the prefix.
+    BgpProto::Update update;
+    InetVpnPrefix iv_prefix(InetVpnPrefix::FromString("2:20:192.168.24.0/24"));
+    BgpAttrOrigin *origin = new BgpAttrOrigin(BgpAttrOrigin::INCOMPLETE);
+    update.path_attributes.push_back(origin);
+    BgpAttrNextHop *nexthop = new BgpAttrNextHop(0xabcdef01);
+    update.path_attributes.push_back(nexthop);
+    AsPathSpec *path_spec = new AsPathSpec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    path_spec->path_segments.push_back(ps);
+    update.path_attributes.push_back(path_spec);
+    uint32_t identifier = local_identifier_.to_ulong();
+    BgpAttrOriginatorId *originator_id =
+        new BgpAttrOriginatorId(GetParam() ? identifier : identifier + 1);
+    update.path_attributes.push_back(originator_id);
+
+    BgpMpNlri *mp_nlri = new BgpMpNlri;
+    BgpProtoPrefix *bpp = new BgpProtoPrefix;
+    iv_prefix.BuildProtoPrefix(12, bpp);
+    mp_nlri->code = BgpAttribute::MPReachNlri;
+    mp_nlri->afi = 1;
+    mp_nlri->safi = 128;
+    uint8_t nh[12] = {0,0,0,0,0,0,0,0,192,168,1,1};
+    mp_nlri->nexthop.assign(&nh[0], &nh[12]);
+    mp_nlri->nlri.push_back(bpp);
+    update.path_attributes.push_back(mp_nlri);
+
+    peer_->ProcessUpdate(&update);
+    task_util::WaitForIdle();
+    InetVpnTable::RequestKey key(iv_prefix, peer_);
+    TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) != NULL);
+    BgpRoute *rt = static_cast<BgpRoute *>(rib2_->Find(&key));
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    const BgpPath *path = rt->BestPath();
+    if (GetParam()) {
+        EXPECT_TRUE((path->GetFlags() & BgpPath::OriginatorIdLooped) != 0);
+    } else {
+        EXPECT_TRUE((path->GetFlags() & BgpPath::OriginatorIdLooped) == 0);
+    }
+
+    // Withdraw the prefix.
+    BgpProto::Update withdraw;
+    BgpMpNlri *mp_nlri2 = new BgpMpNlri;
+    BgpProtoPrefix *bpp2 = new BgpProtoPrefix;
+    iv_prefix.BuildProtoPrefix(12, bpp2);
+    mp_nlri2->code = BgpAttribute::MPUnreachNlri;
+    mp_nlri2->afi = 1;
+    mp_nlri2->safi = 128;
+    mp_nlri2->nlri.push_back(bpp2);
+    withdraw.path_attributes.push_back(mp_nlri2);
+
+    peer_->ProcessUpdate(&withdraw);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) == NULL);
+
+    peer_->ResetCapabilities();
+}
+
+INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest, ::testing::Bool());
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();

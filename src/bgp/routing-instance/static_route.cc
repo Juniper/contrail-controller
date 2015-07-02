@@ -144,6 +144,7 @@ public:
     void UpdateStaticRoute();
     void RemoveStaticRoute();
     void NotifyRoute();
+    bool IsPending() const;
 
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
@@ -378,6 +379,7 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
     }
 
     BgpAttrDB *attr_db = routing_instance()->server()->attr_db();
+    CommunityDB *comm_db = routing_instance()->server()->comm_db();
     for (Route::PathList::iterator it = nexthop_route()->GetPathList().begin();
          it != nexthop_route()->GetPathList().end(); it++) {
         BgpPath *nexthop_route_path = static_cast<BgpPath *>(it.operator->());
@@ -401,6 +403,14 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
             ExtCommunityRouteTargetList(nexthop_route_path->GetAttr());
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             nexthop_route_path->GetAttr(), ptr);
+
+        // Append accept-own to the communities from the nexthop route.
+        const Community *orig_community =
+            nexthop_route_path->GetAttr()->community();
+        CommunityPtr new_community =
+            comm_db->AppendAndLocate(orig_community, Community::AcceptOwn);
+        new_attr =
+            attr_db->ReplaceCommunityAndLocate(new_attr.get(), new_community);
 
         // Replace the source rd if the nexthop path is a secondary path
         // of a primary path in the l3vpn table. Use the RD of the primary.
@@ -472,6 +482,14 @@ void StaticRoute::NotifyRoute() {
     if (!static_route)
         return;
     partition->Notify(static_route);
+}
+
+bool StaticRoute::IsPending() const {
+    InetRoute rt_key(static_route_prefix());
+    DBTablePartition *partition =
+       static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
+    const BgpRoute *route = static_cast<BgpRoute *>(partition->Find(&rt_key));
+    return (!route || !route->FindPath(BgpPath::StaticRoute));
 }
 
 int StaticRouteMgr::static_route_task_id_ = -1;
@@ -741,6 +759,24 @@ void StaticRouteMgr::NotifyAllRoutes() {
     }
 }
 
+uint32_t StaticRouteMgr::GetRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    return static_route_map_.size();
+}
+
+uint32_t StaticRouteMgr::GetDownRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    uint32_t count = 0;
+    for (StaticRouteMap::const_iterator it = static_route_map_.begin();
+         it != static_route_map_.end(); ++it) {
+        const StaticRoute *static_route =
+             static_cast<const StaticRoute *>(it->second.get());
+        if (static_route->IsPending())
+            count++;
+    }
+    return count;
+}
+
 class ShowStaticRouteHandler {
 public:
     static void FillStaticRoutesInfo(vector<StaticRouteEntriesInfo> *list,
@@ -804,7 +840,7 @@ public:
             if (ri)
                 FillStaticRoutesInfo(&static_route_entries, ri);
         } else {
-            RoutingInstanceMgr::NameIterator i = rim->name_begin();
+            RoutingInstanceMgr::name_iterator i = rim->name_begin();
             for (; i != rim->name_end(); i++) {
                 FillStaticRoutesInfo(&static_route_entries, i->second);
             }

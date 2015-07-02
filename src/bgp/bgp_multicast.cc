@@ -452,12 +452,23 @@ void McastSGEntry::AddLocalTreeRoute() {
     assert(!forest_node_);
     assert(!local_tree_route_);
 
-    // Select the last leaf in the distribution tree as the forest node.
+    // Select last usable leaf in the distribution tree as the forest node.
+    // A leaf is considered usable if it has a valid label i.e. it has not
+    // run out of labels.
     uint8_t level = McastTreeManager::LevelNative;
     ForwarderSet *forwarders = forwarder_sets_[level];
-    if (forwarders->rbegin() == forwarders->rend())
+    for (ForwarderSet::reverse_iterator rit = forwarders->rbegin();
+         rit != forwarders->rend(); ++rit) {
+        McastForwarder *forwarder = *rit;
+        if (forwarder->label()) {
+            forest_node_ = forwarder;
+            break;
+        }
+    }
+
+    // Bail if we couldn't designate a forest node.
+    if (!forest_node_)
         return;
-    forest_node_ = *forwarders->rbegin();
 
     // Construct the prefix and route key.
     BgpServer *server = partition_->server();
@@ -623,18 +634,22 @@ void McastSGEntry::UpdateTree(uint8_t level) {
 
     // Create a vector of pointers to the McastForwarders in sorted order.
     // We do this because std::set doesn't support random access iterators.
+    // Skip if we can't allocate a label for the McastForwarder.
     McastForwarderList vec;
     vec.reserve(forwarders->size());
     for (ForwarderSet::iterator it = forwarders->begin();
          it != forwarders->end(); ++it) {
-        vec.push_back(*it);
+        McastForwarder *forwarder = *it;
+        forwarder->AllocateLabel();
+        if (!forwarder->label())
+            continue;
+        vec.push_back(forwarder);
     }
 
     // Go through each McastForwarder in the vector and link it to it's parent
     // McastForwarder in the k-ary tree. We also add a link from the parent to
     // the entry in question.
     for (McastForwarderList::iterator it = vec.begin(); it != vec.end(); ++it) {
-        (*it)->AllocateLabel();
         int idx = it - vec.begin();
         if (idx == 0)
             continue;
@@ -642,8 +657,10 @@ void McastSGEntry::UpdateTree(uint8_t level) {
         int parent_idx = (idx - 1) / degree;
         McastForwarderList::iterator parent_it = vec.begin() + parent_idx;
         assert(parent_it != vec.end());
-        (*it)->AddLink(*parent_it);
-        (*parent_it)->AddLink(*it);
+        McastForwarder *forwarder = *it;
+        McastForwarder *parent_forwarder = *parent_it;
+        forwarder->AddLink(parent_forwarder);
+        parent_forwarder->AddLink(forwarder);
     }
 
     // Update [Local|Global]TreeRoutes.
@@ -1013,3 +1030,17 @@ LifetimeActor *McastTreeManager::deleter() {
     return deleter_.get();
 }
 
+//
+// Return the LifetimeActor for the McastTreeManager.
+// Const version.
+//
+const LifetimeActor *McastTreeManager::deleter() const {
+    return deleter_.get();
+}
+
+//
+// Return true if the McastTreeManager is deleted.
+//
+bool McastTreeManager::deleted() const {
+    return deleter_->IsDeleted();
+}

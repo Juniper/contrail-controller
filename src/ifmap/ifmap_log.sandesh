@@ -71,7 +71,7 @@ systemlog sandesh IFMapXmppUnknownMessage {
     4: string client_name (key="ObjectVRouter")
 }
 
-systemlog sandesh IFMapStaleCleanerInfo {
+systemlog sandesh IFMapStaleEntriesCleanerInfo {
     1: "SeqNum:"
     2: u64 sequence_number
     3: "NodesDeleted:"
@@ -82,6 +82,11 @@ systemlog sandesh IFMapStaleCleanerInfo {
     8: u32 links_deleted
     9: "ObjectsDeleted:"
     10: u32 objects_deleted
+}
+
+systemlog sandesh IFMapStaleEntriesCleanupTimerFired {
+    1: string str1
+    2: string str2
 }
 
 systemlog sandesh IFMapChannelUnregisterMessage {
@@ -103,21 +108,25 @@ systemlog sandesh IFMapSmTransitionMessage {
 systemlog sandesh IFMapNoVrSub {
     1: string op
     2: string client_name (key="ObjectVRouter")
-    3: string vm_uuid
+    3: string client_fqn
+    4: string vm_uuid
 }
 
 systemlog sandesh IFMapNoVmSub {
     1: string client_name (key="ObjectVRouter")
-    2: string vm_uuid
+    2: string client_fqn
+    3: string vm_uuid
 }
 
 systemlog sandesh IFMapDuplicateVrSub {
     1: string client_name (key="ObjectVRouter")
+    2: string client_fqn
 }
 
 systemlog sandesh IFMapDuplicateVmSub {
     1: string client_name (key="ObjectVRouter")
-    2: string vm_uuid
+    2: string client_fqn
+    3: string vm_uuid
 }
 
 systemlog sandesh IFMapPeerConnError {
@@ -150,17 +159,20 @@ systemlog sandesh IFMapChannelProcResp {
 systemlog sandesh IFMapXmppChannelEvent {
     1: string event
     2: string client_name (key="ObjectVRouter")
+    3: string client_fqn
 }
 
 systemlog sandesh IFMapXmppVrSubUnsub {
     1: string op
     2: string client_name (key="ObjectVRouter")
+    3: string client_fqn
 }
 
 systemlog sandesh IFMapXmppVmSubUnsub {
     1: string op
     2: string client_name (key="ObjectVRouter")
-    3: string vm_name
+    3: string client_fqn
+    4: string vm_name
 }
 
 systemlog sandesh IFMapClientSendInfo {
@@ -257,7 +269,7 @@ trace sandesh IFMapXmppUnknownMessageTrace {
     4: string client_name (key="ObjectVRouter")
 }
 
-trace sandesh IFMapStaleCleanerInfoTrace {
+trace sandesh IFMapStaleEntriesCleanerInfoTrace {
     1: "SeqNum:"
     2: u64 sequence_number
     3: "NodesDeleted:"
@@ -268,6 +280,11 @@ trace sandesh IFMapStaleCleanerInfoTrace {
     8: u32 links_deleted
     9: "ObjectsDeleted:"
     10: u32 objects_deleted
+}
+
+trace sandesh IFMapStaleEntriesCleanupTimerFiredTrace {
+    1: string str1
+    2: string str2
 }
 
 trace sandesh IFMapChannelUnregisterMessageTrace {
@@ -289,21 +306,25 @@ trace sandesh IFMapSmTransitionMessageTrace {
 trace sandesh IFMapNoVrSubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
-    3: string vm_uuid
+    3: string client_fqn
+    4: string vm_uuid
 }
 
 trace sandesh IFMapNoVmSubTrace {
     1: string client_name (key="ObjectVRouter")
-    2: string vm_uuid
+    2: string client_fqn
+    3: string vm_uuid
 }
 
 trace sandesh IFMapDuplicateVrSubTrace {
     1: string client_name (key="ObjectVRouter")
+    2: string client_fqn
 }
 
 trace sandesh IFMapDuplicateVmSubTrace {
     1: string client_name (key="ObjectVRouter")
-    2: string vm_uuid
+    2: string client_fqn
+    3: string vm_uuid
 }
 
 trace sandesh IFMapPeerConnErrorTrace {
@@ -336,17 +357,20 @@ trace sandesh IFMapChannelProcRespTrace {
 trace sandesh IFMapXmppChannelEventTrace {
     1: string event
     2: string client_name (key="ObjectVRouter")
+    3: string client_fqn
 }
 
 trace sandesh IFMapXmppVrSubUnsubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
+    3: string client_fqn
 }
 
 trace sandesh IFMapXmppVmSubUnsubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
-    3: string vm_name
+    3: string client_fqn
+    4: string vm_name
 }
 
 trace sandesh IFMapNodeOperationTrace {

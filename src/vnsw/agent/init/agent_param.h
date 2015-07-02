@@ -112,6 +112,7 @@ public:
     bool dhcp_relay_mode() const {return dhcp_relay_mode_;}
     bool xmpp_auth_enabled() const {return xmpp_auth_enable_;}
     std::string xmpp_server_cert() const { return xmpp_server_cert_;}
+    const int tcp_hold_time() const {return tcp_hold_time_;}
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     std::string si_netns_command() const {return si_netns_command_;}
     std::string si_docker_command() const {return si_docker_command_;}
@@ -134,6 +135,7 @@ public:
     bool log_flow() const { return log_flow_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
+    const std::string &log_property_file() const { return log_property_file_; }
     const bool use_syslog() const { return use_syslog_; }
     const std::string syslog_facility() const { return syslog_facility_; }
     const std::vector<std::string> collector_server_list() const {
@@ -281,7 +283,7 @@ private:
     void ParseDhcpRelayMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
-    void ParseAgentMode();
+    void ParseAgentInfo();
     void ParseNexthopServer();
     void ParsePlatform();
     void set_agent_mode(const std::string &mode);
@@ -308,7 +310,7 @@ private:
         (const boost::program_options::variables_map &var_map);
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
-    void ParseAgentModeArguments
+    void ParseAgentInfoArguments
         (const boost::program_options::variables_map &v);
     void ParseNexthopServerArguments
         (const boost::program_options::variables_map &v);
@@ -337,6 +339,7 @@ private:
     uint16_t dns_port_1_;
     uint16_t dns_port_2_;
     std::string dss_server_;
+    uint16_t dss_port_;
     Ip4Address mgmt_ip_;
     HypervisorMode hypervisor_mode_;
     PortInfo xen_ll_;
@@ -353,6 +356,7 @@ private:
     std::string log_file_;
     int log_files_count_;
     long log_file_size_;
+    std::string log_property_file_;
 
     bool log_local_;
     bool log_flow_;
@@ -375,6 +379,7 @@ private:
     bool dhcp_relay_mode_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;
+    int tcp_hold_time_;
     //Simulate EVPN TOR mode moves agent into L2 mode. This mode is required
     //only for testing where MX and bare metal are simulated. VM on the
     //simulated compute node behaves as bare metal.

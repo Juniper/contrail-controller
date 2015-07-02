@@ -479,7 +479,11 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_TimedOut) {
     WAIT_FOR(1000, 10000,
         agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
         == xmps::READY);
-    EXPECT_TRUE(agent_->controller_xmpp_channel(1) == NULL);
+
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.3");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
 
     xs4->Shutdown();
     client->WaitForIdle();

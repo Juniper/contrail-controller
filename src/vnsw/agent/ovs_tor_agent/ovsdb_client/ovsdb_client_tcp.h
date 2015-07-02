@@ -55,6 +55,8 @@ public:
 
     int keepalive_interval();
 
+    const boost::system::error_code &ovsdb_close_reason() const;
+
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();
@@ -104,7 +106,7 @@ public:
 
     OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
             IpAddress tsn_ip, int keepalive_interval,
-            OvsPeerManager *manager);
+            int ha_stale_route_interval, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);
@@ -118,6 +120,7 @@ public:
 
     // Used by Test Code to trigger events in specific order
     void set_connect_complete_cb(SessionEventCb cb);
+    void set_pre_connect_complete_cb(SessionEventCb cb);
 
     // API to shutdown the TCP server
     void shutdown();
@@ -128,14 +131,15 @@ public:
 
 protected:
     Agent *agent_;
+    TcpSession *session_;
+    boost::asio::ip::tcp::endpoint server_ep_;
 
 private:
     friend class OvsdbClientTcpSession;
-    TcpSession *session_;
-    boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
     bool shutdown_;
     SessionEventCb connect_complete_cb_;
+    SessionEventCb pre_connect_complete_cb_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };

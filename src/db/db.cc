@@ -64,6 +64,10 @@ DBTableBase *DB::FindTable(const string &name) {
     return NULL;
 }
 
+DB::iterator DB::FindTableIter(const string &name) {
+    return tables_.find(name);
+}
+
 void DB::AddTable(DBTableBase *tbl_base) {
     pair<TableMap::iterator, bool> result =
             tables_.insert(make_pair(tbl_base->name(), tbl_base));
@@ -116,6 +120,12 @@ void DB::SetGraph(const std::string &name, DBGraph *graph) {
     pair<GraphMap::iterator, bool> result =
         graph_map_.insert(make_pair(name, graph));
     assert(result.second);
+}
+
+void DB::SetQueueDisable(bool disable) {
+    for (int i = 0; i < PartitionCount(); i++) {
+        partitions_[i]->SetQueueDisable(disable);
+    }
 }
 
 void DB::Clear() {

@@ -49,6 +49,7 @@ test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_logical_switch', agent_suit
 AgentEnv.MakeTestCmd(env, 'test_ovs_multicast_local', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_remote', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_local', agent_suite)
+AgentEnv.MakeTestCmd(env, 'test_ovs_ha_stale', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_vlan_port', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_event', agent_suite)
 

@@ -16,7 +16,6 @@ extern "C" {
 
 #include <oper/vn.h>
 #include <oper/vrf.h>
-#include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
 #include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
@@ -35,8 +34,8 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
     name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
     mcast_remote_row_(NULL), mc_flood_entry_(NULL) {
     vxlan_id_ = entry->vxlan_id();
-    device_name_ = entry->device()->name();
-    tor_ip_ = entry->device()->ip();
+    device_name_ = entry->device_display_name();
+    tor_ip_ = entry->tor_ip();
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
@@ -54,6 +53,9 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
     name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
     vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
     mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL) {
+}
+
+LogicalSwitchEntry::~LogicalSwitchEntry() {
 }
 
 Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
@@ -180,8 +182,8 @@ bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
         vxlan_id_ = entry->vxlan_id();
         change = true;
     }
-    if (device_name_ != entry->device()->name()) {
-        device_name_ = entry->device()->name();
+    if (device_name_ != entry->device_display_name()) {
+        device_name_ = entry->device_display_name();
         change = true;
     }
     if (tor_ip_ != entry->tor_ip()) {
@@ -212,6 +214,10 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
         return p_switch;
     }
     return NULL;
+}
+
+bool LogicalSwitchEntry::IsLocalMacsRef() const {
+    return (local_mac_ref_.get() != NULL);
 }
 
 void LogicalSwitchEntry::SendTrace(Trace event) const {
@@ -306,6 +312,16 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         }
     } else {
         assert(0);
+    }
+
+    if (entry) {
+        if (entry->mcast_local_row_ != NULL ||
+            !entry->ucast_local_row_list_.empty()) {
+            if (entry->IsActive())
+                entry->local_mac_ref_ = entry;
+        } else {
+            entry->local_mac_ref_ = NULL;
+        }
     }
 }
 
@@ -412,6 +428,16 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
     } else {
         assert(0);
     }
+
+    if (entry) {
+        if (entry->mcast_local_row_ != NULL ||
+            !entry->ucast_local_row_list_.empty()) {
+            if (entry->IsActive())
+                entry->local_mac_ref_ = entry;
+        } else {
+            entry->local_mac_ref_ = NULL;
+        }
+    }
 }
 
 KSyncEntry *LogicalSwitchTable::Alloc(const KSyncEntry *key, uint32_t index) {
@@ -438,23 +464,55 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
     const PhysicalDeviceVn *entry =
         static_cast<const PhysicalDeviceVn *>(db_entry);
 
-    // Physical Device missing, trigger delete
-    if (entry->device() == NULL) {
-        if (ovsdb_entry != NULL) {
-            OVSDB_TRACE(Trace, "Missing Physical Device info, triggering delete"
-                               " of logical switch");
-        } else {
-            OVSDB_TRACE(Trace, "Missing Physical Device info, ignoring"
-                               " logical switch");
-        }
-        return DBFilterDelete;
-    }
-
     // Delete the entry which has invalid VxLAN id associated.
     if (entry->vxlan_id() == 0) {
         return DBFilterDelete;
     }
     return DBFilterAccept;
+}
+
+void LogicalSwitchTable::ProcessDeleteTableReq() {
+    ProcessDeleteTableReqTask *task =
+        new ProcessDeleteTableReqTask(this);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
+
+LogicalSwitchTable::ProcessDeleteTableReqTask::ProcessDeleteTableReqTask(
+        LogicalSwitchTable *table) :
+    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
+    table_(table), entry_(NULL) {
+}
+
+LogicalSwitchTable::ProcessDeleteTableReqTask::~ProcessDeleteTableReqTask() {
+}
+
+bool LogicalSwitchTable::ProcessDeleteTableReqTask::Run() {
+    KSyncEntry *kentry = entry_.get();
+    if (kentry == NULL) {
+        kentry = table_->Next(kentry);
+    }
+
+    int count = 0;
+    while (kentry != NULL) {
+        LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+        count++;
+        kentry = table_->Next(kentry);
+        // while table is set for deletion reset the local_mac_ref
+        // since there will be no trigger from OVSDB database
+        entry->local_mac_ref_ = NULL;
+
+        // check for yield
+        if (count == KEntriesPerIteration && kentry != NULL) {
+            entry_ = kentry;
+            return false;
+        }
+    }
+
+    entry_ = NULL;
+    // Done processing delete request, schedule delete table
+    table_->DeleteTable();
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -505,6 +563,9 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_physical_switch(entry->device_name());
     lentry.set_vxlan_id(entry->vxlan_id());
     lentry.set_tor_service_node(entry->tor_service_node());
+    if (entry->IsDeleted() && entry->IsLocalMacsRef()) {
+        lentry.set_message("Waiting for Local Macs Cleanup");
+    }
     OvsdbLogicalSwitchResp *ls_resp =
         static_cast<OvsdbLogicalSwitchResp *>(resp);
     std::vector<OvsdbLogicalSwitchEntry> &lswitch =

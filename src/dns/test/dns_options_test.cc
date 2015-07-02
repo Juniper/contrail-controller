@@ -59,6 +59,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
     EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
     EXPECT_EQ(options_.rndc_secret(), "xvysmOR8lnUQRBcunkC6vg==");
+    EXPECT_EQ(options_.named_max_cache_size(), "100M");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -100,6 +101,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
     EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
     EXPECT_EQ(options_.rndc_secret(), "secret==$");
+    EXPECT_EQ(options_.named_max_cache_size(), "25K");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -107,6 +109,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-dns.log");
+    EXPECT_EQ(options_.log_property_file(), "");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
@@ -156,6 +159,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "test.log"); // Overridden from cmd line.
+    EXPECT_EQ(options_.log_property_file(), "log4cplus.prop");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
@@ -278,6 +282,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.log_category(), "dns");
     EXPECT_EQ(options_.log_disable(), true);
     EXPECT_EQ(options_.log_file(), "test.log");
+    EXPECT_EQ(options_.log_property_file(), "log4cplus.prop");
     EXPECT_EQ(options_.log_files_count(), 20);
     EXPECT_EQ(options_.log_file_size(), 1024);
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");

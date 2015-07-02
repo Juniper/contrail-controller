@@ -121,15 +121,21 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
                 const std::string& passwd, const std::string& certstore)
     : manager_(manager), resolver_(*(manager->io_service())),
-      ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv23_client),
+      ctx_(*(manager->io_service()), boost::asio::ssl::context::tlsv1_client),
       io_strand_(*(manager->io_service())),
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
       username_(user), password_(passwd), state_machine_(NULL),
       response_state_(NONE), sequence_number_(0), recv_msg_cnt_(0),
       sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN),
-      connection_status_change_at_(UTCTimestampUsec()) {
+      connection_status_change_at_(UTCTimestampUsec()),
+      stale_entries_cleanup_timer_(TimerManager::CreateTimer(
+          *(manager->io_service()), "Stale entries cleanup timer")),
+      end_of_rib_timer_(TimerManager::CreateTimer(*(manager->io_service()),
+                                                  "End of rib timer")) {
 
+    set_start_stale_entries_cleanup(false);
+    set_end_of_rib_computed(false);
     boost::system::error_code ec;
     if (certstore.empty()) {
         ctx_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
@@ -138,6 +144,11 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
     }
     string auth_str = username_ + ":" + password_;
     b64_auth_str_ = base64_encode(auth_str);
+}
+
+IFMapChannel::~IFMapChannel() {
+    TimerManager::DeleteTimer(stale_entries_cleanup_timer_);
+    TimerManager::DeleteTimer(end_of_rib_timer_);
 }
 
 void IFMapChannel::set_connection_status(ConnectionStatus status) {
@@ -234,6 +245,18 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
 
 void IFMapChannel::ReconnectPreparation() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+
+    // The stale entries cleanup timer could be running if connection was reset
+    // in the near past. Stop the timer since we dont want to clean our database
+    // in this case.
+    set_start_stale_entries_cleanup(false);
+    StopStaleEntriesCleanupTimer();
+
+    // The end of rib timer could be running if the initial connection was
+    // reset in the near past. Stop the timer since we dont want to prematurely
+    // declare that end of rib has been computed.
+    StopEndOfRibTimer();
+
     io_strand_.post(
         boost::bind(&IFMapChannel::ReconnectPreparationInMainThr, this));
 }
@@ -278,7 +301,7 @@ void IFMapChannel::DoConnectInMainThr(bool is_ssrc) {
     if (!is_ssrc) {
         if (ConnectionStatusIsDown()) {
             sequence_number_++;
-            manager_->ifmap_server()->StaleNodesCleanup();
+            set_start_stale_entries_cleanup(true);
         }
         set_connection_status(UP);
         IFMAP_PEER_DEBUG(IFMapServerConnection,
@@ -297,10 +320,6 @@ void IFMapChannel::DoSslHandshakeInMainThr(bool is_ssrc) {
     CHECK_CONCURRENCY_MAIN_THR();
     SslStream *socket =
         ((is_ssrc == true) ? ssrc_socket_.get() : arc_socket_.get());
-
-    // Calling openssl api directly because boost doesn't provide a way to set
-    // the cipher
-    SSL_set_cipher_list(socket->native_handle(), "RC4-SHA");
 
     // handshake as 'client'
     socket->async_handshake(boost::asio::ssl::stream_base::client,
@@ -597,6 +616,18 @@ int IFMapChannel::ReadPollResponse() {
                 "Incorrectly formatted Poll response. Quitting.", "");
             return -1;
         }
+        if (reply_str.find(string("searchResult")) != string::npos) {
+            if (start_stale_entries_cleanup()) {
+                // If this is a reconnection, keep re-arming the stale entries
+                // cleanup timer as long as we keep receiving SearchResults.
+                StartStaleEntriesCleanupTimer();
+            }
+            // When the daemon is coming up, as long as we are receiving
+            // SearchResults, we have not received the entire db.
+            if (!end_of_rib_computed()) {
+                StartEndOfRibTimer();
+            }
+        }
         string poll_string = reply_str.substr(pos);
         increment_recv_msg_cnt();
         bool success = true;
@@ -616,6 +647,67 @@ int IFMapChannel::ReadPollResponse() {
         return -1;
     }
     return 0;
+}
+
+void IFMapChannel::StartStaleEntriesCleanupTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (stale_entries_cleanup_timer_->running()) {
+        stale_entries_cleanup_timer_->Cancel();
+    }
+    stale_entries_cleanup_timer_->Start(kStaleEntriesCleanupTimeout,
+        boost::bind(&IFMapChannel::ProcessStaleEntriesTimeout, this), NULL);
+}
+
+void IFMapChannel::StopStaleEntriesCleanupTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (stale_entries_cleanup_timer_->running()) {
+        stale_entries_cleanup_timer_->Cancel();
+    }
+}
+
+// Called in the context of the main thread.
+bool IFMapChannel::ProcessStaleEntriesTimeout() {
+    int timeout = kStaleEntriesCleanupTimeout;
+    IFMAP_PEER_DEBUG(IFMapServerConnection, integerToString(timeout),
+                     "millisecond stale cleanup timer fired");
+    set_start_stale_entries_cleanup(false);
+    return manager_->ifmap_server()->ProcessStaleEntriesTimeout();
+}
+
+bool IFMapChannel::StaleEntriesCleanupTimerRunning() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    return stale_entries_cleanup_timer_->running();
+}
+
+void IFMapChannel::StartEndOfRibTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (end_of_rib_timer_->running()) {
+        end_of_rib_timer_->Cancel();
+    }
+    end_of_rib_timer_->Start(kEndOfRibTimeout,
+        boost::bind(&IFMapChannel::ProcessEndOfRibTimeout, this), NULL);
+}
+
+void IFMapChannel::StopEndOfRibTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (end_of_rib_timer_->running()) {
+        end_of_rib_timer_->Cancel();
+    }
+}
+
+// Called in the context of the main thread.
+bool IFMapChannel::ProcessEndOfRibTimeout() {
+    int timeout = kEndOfRibTimeout;
+    IFMAP_PEER_DEBUG(IFMapServerConnection, integerToString(timeout),
+                     "millisecond end of rib timer fired");
+    set_end_of_rib_computed(true);
+    process::ConnectionState::GetInstance()->Update();
+    return false;
+}
+
+bool IFMapChannel::EndOfRibTimerRunning() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    return end_of_rib_timer_->running();
 }
 
 // Will run in the context of the main task
@@ -780,6 +872,16 @@ void IFMapChannel::SetArcSocketOptions() {
                         ec.message());
     }
 #endif
+
+#ifdef TCP_USER_TIMEOUT
+    boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_USER_TIMEOUT>
+        user_timeout_option(kSessionTcpUserTimeout);
+    arc_socket_->next_layer().set_option(user_timeout_option, ec);
+    if (ec) {
+        IFMAP_PEER_WARN(IFMapServerConnection, "Error setting user timeout",
+                        ec.message());
+    }
+#endif
 }
 
 // The connection to the peer 'host_' has timed-out. Create a new entry for
@@ -858,6 +960,13 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
         channel->get_connection_status_and_time());
     server_conn_info.set_host(channel->get_host());
     server_conn_info.set_port(channel->get_port());
+    server_conn_info.set_end_of_rib_computed(channel->end_of_rib_computed());
+    server_conn_info.set_end_of_rib_timer_running(
+        channel->EndOfRibTimerRunning());
+    server_conn_info.set_start_stale_entries_cleanup(
+        channel->start_stale_entries_cleanup());
+    server_conn_info.set_stale_entries_cleanup_timer_running(
+        channel->StaleEntriesCleanupTimerRunning());
 
     server_stats.set_rx_msgs(channel->get_recv_msg_cnt());
     server_stats.set_tx_msgs(channel->get_sent_msg_cnt());

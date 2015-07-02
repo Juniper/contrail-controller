@@ -10,6 +10,7 @@
 #include <boost/assign/list_of.hpp>
 #include <pugixml/pugixml.hpp>
 
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -105,6 +106,8 @@ public:
         count = 0;
         return count;
     }
+    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual int GetPrimaryPathCount() const { return 0; }
 
 private:
     Ip4Address address_;
@@ -627,9 +630,10 @@ protected:
         const string &prefix, const string &path_id, const string &origin_vn,
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetPathAttributes(instance, prefix,
             path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
-            SiteOfOrigin(), vector<uint32_t>(), vector<string>()));
+            SiteOfOrigin(), commlist, vector<string>()));
     }
 
     bool CheckInetRouteAttributes(const string &instance, const string &prefix,
@@ -669,19 +673,19 @@ protected:
         int label = 0) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), vector<uint32_t>(),
-            vector<string>()));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance, const string &prefix,
         const vector<string> &path_ids, const string &origin_vn) {
         task_util::WaitForIdle();
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), vector<uint32_t>(),
-            vector<string>()));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -689,9 +693,10 @@ protected:
         const vector<uint32_t> sg_ids) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
-            SiteOfOrigin(), vector<uint32_t>(), vector<string>()));
+            SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -699,10 +704,10 @@ protected:
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            tunnel_encaps, SiteOfOrigin(), vector<uint32_t>(),
-            vector<string>()));
+            tunnel_encaps, SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -710,9 +715,10 @@ protected:
         const SiteOfOrigin &soo) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), soo, vector<uint32_t>(), vector<string>()));
+            set<string>(), soo, commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -731,9 +737,10 @@ protected:
         const vector<string> &origin_vn_path) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), vector<uint32_t>(), origin_vn_path));
+            set<string>(), SiteOfOrigin(), commlist, origin_vn_path));
     }
 
     string FileRead(const string &filename) {
@@ -967,6 +974,16 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void VerifyServiceChainCount(uint32_t count) {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_service_chains());
+    }
+
+    void VerifyDownServiceChainCount(uint32_t count) {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_down_service_chains());
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
@@ -1007,8 +1024,14 @@ TEST_P(ServiceChainParamTest, Basic) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
+    VerifyServiceChainCount(0);
+    VerifyDownServiceChainCount(0);
+
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
@@ -1019,6 +1042,9 @@ TEST_P(ServiceChainParamTest, Basic) {
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
 
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(0);
+
     // Check for aggregated route
     VerifyInetRouteExists("blue", "192.168.1.0/24");
     VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
@@ -1028,6 +1054,9 @@ TEST_P(ServiceChainParamTest, Basic) {
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 }
 
 TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress1) {
@@ -1440,11 +1469,17 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
+    VerifyServiceChainCount(0);
+    VerifyDownServiceChainCount(0);
+
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 
     // Check for aggregated route
     VerifyInetRouteNoExists("blue", "192.168.1.0/24");
@@ -1459,6 +1494,9 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(0);
+
     // Add MoreSpecific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
 
@@ -1468,6 +1506,9 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 }
 
 TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
@@ -2768,7 +2809,9 @@ TEST_P(ServiceChainParamTest, ValidateCommunityExtRoute) {
 
     // Check for ExtConnect route
     CommunitySpec commspec;
-    commspec.communities = commlist;
+    commspec.communities.push_back(Community::AcceptOwn);
+    commspec.communities.insert(
+        commspec.communities.end(), commlist.begin(), commlist.end());
     VerifyInetRouteExists("blue", "10.1.1.0/24");
     VerifyInetRouteAttributes(
         "blue", "10.1.1.0/24", "2.3.4.5", "red", commspec);
@@ -2780,7 +2823,7 @@ TEST_P(ServiceChainParamTest, ValidateCommunityExtRoute) {
     commspec.communities.clear();
     VerifyInetRouteExists("blue", "10.1.1.0/24");
     VerifyInetRouteAttributes(
-        "blue", "10.1.1.0/24", "2.3.4.5", "red", commspec);
+        "blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute and connected route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");

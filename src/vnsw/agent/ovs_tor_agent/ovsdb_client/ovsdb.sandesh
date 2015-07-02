@@ -27,7 +27,9 @@ struct SandeshOvsdbClient {
     2: string server;
     3: u16 port;
     4: string tor_service_node;
-    5: list<SandeshOvsdbClientSession> sessions;
+    5: i32 keepalive_interval;
+    6: i32 ha_stale_route_interval;
+    7: list<SandeshOvsdbClientSession> sessions;
 }
 
 response sandesh OvsdbClientResp {
@@ -130,6 +132,7 @@ struct OvsdbLogicalSwitchEntry {
     3: string physical_switch;
     4: i64 vxlan_id;
     5: string tor_service_node;
+    6: optional string message;
 }
 
 response sandesh OvsdbLogicalSwitchResp {
@@ -270,4 +273,51 @@ request sandesh OvsdbMulticastMacLocalReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
     3: string logical_switch;
+}
+
+/****************************************************************************
+  Sandesh definitions for HA Stale Dev VN.
+ ****************************************************************************/
+
+struct OvsdbHaStaleDevVnExport {
+    1: string state;
+    2: string dev_name;
+    3: string dev_ip;
+    4: string vn_uuid;
+    5: string vn_name;
+    6: u64 vxlan_id;
+    7: string l2_route_table (link="OvsdbPageReq");
+}
+
+response sandesh OvsdbHaStaleDevVnExportResp {
+    1: list<OvsdbHaStaleDevVnExport> dev_vn;
+}
+
+request sandesh OvsdbHaStaleDevVnExportReq {
+    1: string dev_name;
+    2: optional string vn_uuid;
+}
+
+/****************************************************************************
+  Sandesh definitions for HA Stale L2 Route.
+ ****************************************************************************/
+
+struct OvsdbHaStaleL2RouteExport {
+    1: string state;
+    2: string dev_ip;
+    3: string vn_name;
+    4: string vrf_name;
+    5: string mac;
+    6: u64 vxlan_id;
+    7: string status;
+}
+
+response sandesh OvsdbHaStaleL2RouteExportResp {
+    1: list<OvsdbHaStaleL2RouteExport> l2_route;
+}
+
+request sandesh OvsdbHaStaleL2RouteExportReq {
+    1: string dev_name;
+    2: string vn_uuid;
+    3: optional string mac;
 }

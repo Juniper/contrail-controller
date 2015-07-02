@@ -3,6 +3,7 @@
  */
 
 #include <uve/stats_manager.h>
+#include <oper/vm_interface.h>
 
 StatsManager::StatsManager(Agent* agent)
     : vrf_listener_id_(DBTableBase::kInvalidId),
@@ -100,14 +101,15 @@ StatsManager::VrfStats *StatsManager::GetVrfStats(int vrf_id) {
 
 void StatsManager::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
     const Interface *intf = static_cast<const Interface *>(e);
+    const VmInterface *vmi = NULL;
     bool set_state = false, reset_state = false;
 
     DBState *state = static_cast<DBState *>
                       (e->GetState(part->parent(), intf_listener_id_));
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
-        if (e->IsDeleted() || ((intf->ipv4_active() == false) &&
-                                (intf->l2_active() == false))) {
+        vmi = static_cast<const VmInterface *>(intf);
+        if (e->IsDeleted() || (vmi->IsUveActive() == false)) {
             if (state) {
                 reset_state = true;
             }

@@ -39,10 +39,11 @@ public:
     virtual void DestroyIPeer(IPeer *ipeer);
 
     virtual BgpPeer *NextPeer(BgpPeerKey &key);
+    virtual const BgpPeer *NextPeer(BgpPeerKey &key) const;
 
-    void FillBgpNeighborInfo(BgpSandeshContext *bsc,
-                             std::vector<BgpNeighborResp> *nbr_list,
-                             const std::string &search_string, bool summary);
+    void FillBgpNeighborInfo(const BgpSandeshContext *bsc,
+        std::vector<BgpNeighborResp> *nbr_list,
+        const std::string &search_string, bool summary) const;
 
     size_t GetNeighborCount(std::string up_or_down);
 

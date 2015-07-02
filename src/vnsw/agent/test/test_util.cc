@@ -326,9 +326,20 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
     if (vm_host_routes && vm_host_routes->size()) {
         str << "               <host-routes>\n";
         for (unsigned int i = 0; i < vm_host_routes->size(); i++) {
+            std::string prefix, nexthop;
+            std::vector<std::string> tokens;
+            boost::split(tokens, (*vm_host_routes)[i], boost::is_any_of(" \t"));
+            vector<string>::iterator it = tokens.begin();
+            if (it != tokens.end()) {
+                prefix = *it;
+                it++;
+            }
+            if (it != tokens.end()) {
+                nexthop = *it;
+            }
             str << "                   <route>\n";
-            str << "                       <prefix>" << (*vm_host_routes)[i] << "</prefix>\n";
-            str << "                       <next-hop />\n";
+            str << "                       <prefix>" << prefix << "</prefix>\n";
+            str << "                       <next-hop>" << nexthop << "</next-hop>\n";
             str << "                       <next-hop-type />\n";
             str << "                   </route>\n";
         }
@@ -1521,6 +1532,27 @@ void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
     AddNode("virtual-network", name.c_str(), id, str.str().c_str());
 }
 
+void AddL3Vn(const char *name, int id) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <forwarding-mode>l3</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str());
+}
+
+void AddL2L3Vn(const char *name, int id, bool admin_state) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
+}
+
 void AddL2Vn(const char *name, int id) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
@@ -1537,13 +1569,25 @@ void AddVn(const char *name, int id, bool admin_state) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
     str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
-    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
     str << "    <rpf>enable</rpf>" << endl;
     str << "</virtual-network-properties>" << endl;
     str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
 
     AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
 }
+
+void AddVn(const char *name, int id, int vxlan_id, bool admin_state) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <vxlan-network-identifier>" << vxlan_id << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
+    str << "    <rpf>enable</rpf>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << vxlan_id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
+}
+
 
 void DelVn(const char *name) {
     DelNode("virtual-network", name);
@@ -1853,7 +1897,7 @@ void DelVmPortVrf(const char *name) {
 void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_attr,
              const char *vdns_name, const std::vector<std::string> *vm_host_routes,
              const char *add_subnet_tags) {
-    char buff[8192];
+    char buff[10240];
     char node_name[128];
     char ipam_name[128];
     int len = 0;
@@ -1996,6 +2040,12 @@ void VxLanNetworkIdentifierMode(bool config) {
     } else {
         str << "<vxlan-network-identifier-mode>automatic</vxlan-network-identifier-mode>" << endl;
     }
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+}
+
+void GlobalForwardingMode(std::string mode) {
+    std::stringstream str;
+    str << "<forwarding-mode>" << mode << "</forwarding-mode>" << endl;
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 
@@ -2508,6 +2558,20 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf) {
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    TestClient::WaitForIdle();
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true,
+                            true, false, true);
+}
+
+void CreateL3VmportEnv(struct PortInfo *input, int count, int acl_id,
+                       const char *vn, const char *vrf) {
+    AddL3Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    TestClient::WaitForIdle();
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true,
                             true, false, true);
 }
@@ -3287,11 +3351,12 @@ BgpPeer *CreateBgpPeer(std::string addr, std::string name) {
 BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     XmppChannelMock *xmpp_channel = new XmppChannelMock();
     AgentXmppChannel *channel;
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 1);
 
     channel = new AgentXmppChannel(Agent::GetInstance(),
-                                   "XMPP Server", "", 0);
+                                   "XMPP Server", "", 1);
     channel->RegisterXmppChannel(xmpp_channel);
+    Agent::GetInstance()->set_controller_xmpp_channel(channel, 1);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::READY);
     client->WaitForIdle();
     return channel->bgp_peer_id();

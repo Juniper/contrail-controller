@@ -463,14 +463,14 @@ Agent::~Agent() {
     agent_signal_->Terminate();
     agent_signal_.reset();
 
-    delete event_mgr_;
-    event_mgr_ = NULL;
-
     ShutdownLifetimeManager();
 
     delete db_;
     db_ = NULL;
     singleton_ = NULL;
+
+    delete event_mgr_;
+    event_mgr_ = NULL;
 }
 
 AgentConfig *Agent::cfg() const {
@@ -651,4 +651,16 @@ void Agent::SetAgentMcastLabelRange(uint8_t idx) {
 
     mpls_table_->ReserveLabel(start, end + 1);
     label_range_[idx] = str.str();
+}
+
+Agent::ForwardingMode Agent::TranslateForwardingMode
+(const std::string &mode) const {
+    if (mode == "l2")
+        return Agent::L2;
+    else if (mode == "l3")
+        return Agent::L3;
+    else if (mode == "l2_l3")
+        return Agent::L2_L3;
+
+    return Agent::NONE;
 }

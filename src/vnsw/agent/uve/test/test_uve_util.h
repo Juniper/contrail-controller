@@ -4,6 +4,7 @@
 #ifndef __test_uve_util__
 #define __test_uve_util__
 
+#include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
 
 class ProuterUveSendTask : public Task {
@@ -284,11 +285,23 @@ public:
     void DeleteRemoteRoute(const char *vrf, const char *ip, BgpPeer *peer) {
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(ip, ec);
-        Agent::Agent::GetInstance()->
-            fabric_inet4_unicast_table()->DeleteReq(peer,
-                vrf, addr, 32, NULL);
+        DeleteRoute(vrf, ip, 32, static_cast<Peer *>(peer));
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+    }
+
+    bool FlowBasedVnStatsMatch(const std::string &vn, uint64_t in,
+                               uint64_t out) {
+        VnUveTableTest *vut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+        const VnUveEntry *entry = vut->GetVnUveEntry(vn);
+        if (!entry) {
+            return false;
+        }
+        if ((entry->in_bytes() == in) && (entry->out_bytes() == out)) {
+            return true;
+        }
+        return false;
     }
 
 };

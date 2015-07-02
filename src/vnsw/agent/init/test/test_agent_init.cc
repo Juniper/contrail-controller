@@ -58,6 +58,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
                  "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
+    EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -123,7 +124,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 17;
+    int argc = 19;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -136,6 +137,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
+        (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
     };
 
     AgentParam param(Agent::GetInstance());
@@ -153,6 +155,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_EQ(param.http_server_port(), 8000);
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
+    EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
 
 }
 

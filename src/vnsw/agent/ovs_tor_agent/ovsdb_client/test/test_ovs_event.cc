@@ -97,6 +97,9 @@ public:
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
         WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
 
         AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
                             "client/test/xml/ucast-local-test-setup.xml");
@@ -115,6 +118,10 @@ public:
     }
 
     virtual void TearDown() {
+        WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
         AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
                             "client/test/xml/ucast-local-test-teardown.xml");
         // set current session in test context
@@ -144,14 +151,15 @@ public:
     }
 
     void ImmediateCloseSessionEvent(OvsdbClientTcpSession *session) {
-        if (session->client_idl()->deleted()) {
-            return;
+        if (session->client_idl() && !session->client_idl()->deleted()) {
+            // take reference for idl to validate
+            immediate_close_idl_ = session->client_idl();
         }
-        // take reference for idl to validate
-        immediate_close_idl_ = session->client_idl();
         session->TriggerClose();
         OvsdbClientTcp *ovs_server =
             static_cast<OvsdbClientTcp *>(init_->ovsdb_client());
+        ovs_server->set_pre_connect_complete_cb(
+                boost::bind(&OvsdbEventTest::NoOpSessionEvent, this, _1));
         ovs_server->set_connect_complete_cb(
                 boost::bind(&OvsdbEventTest::ImmediateCloseSessionEventDone, this, _1));
         tcp_session_ = NULL;
@@ -183,6 +191,27 @@ TEST_F(OvsdbEventTest, ImmediateConnectionDown) {
     // only ref count remaining for session and test code
     WAIT_FOR(300, 10000, (immediate_close_idl_->refcount() == 2));
     immediate_close_idl_ = NULL;
+
+    WAIT_FOR(100, 10000, tcp_session_ != NULL &&
+               tcp_session_->status() == string("Established"));
+    delete hold;
+    client->WaitForIdle();
+}
+
+TEST_F(OvsdbEventTest, ImmediateConnectionDownBeforeEstablish) {
+    TestTaskHold *hold =
+        new TestTaskHold(TaskScheduler::GetInstance()->GetTaskId("db::DBTableStop"), 0);
+
+    OvsdbClientTcp *ovs_server =
+        static_cast<OvsdbClientTcp *>(init_->ovsdb_client());
+    // Set callback to close the session before processing connect complete event
+    ovs_server->set_pre_connect_complete_cb(
+            boost::bind(&OvsdbEventTest::ImmediateCloseSessionEvent, this, _1));
+
+    immediate_close_done_ = false;
+    tcp_session_->TriggerClose();
+    // wait for completion of immediate_close
+    WAIT_FOR(500, 10000, (immediate_close_done_ == true));
 
     WAIT_FOR(100, 10000, tcp_session_ != NULL &&
                tcp_session_->status() == string("Established"));

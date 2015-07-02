@@ -94,6 +94,11 @@ struct ItfSandeshData {
    44: string transport;
    45: string logical_interface_uuid;
    46: optional bool flood_unknown_unicast;
+   47: string physical_device;
+   48: string physical_interface;
+   49: optional string ipv4_active;
+   50: list<string> fixed_ip4_list;
+   51: list<string> fixed_ip6_list;
 }
 
 struct VnIpamData {
@@ -1074,6 +1079,10 @@ trace sandesh MulticastLog {
     2: string vrf_name;
     3: string dst_ip;
     4: i32 label;   
+}
+
+trace sandesh OperTrace {
+    1: string message;
 }
 
 trace sandesh OperVrf {

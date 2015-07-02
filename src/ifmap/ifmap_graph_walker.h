@@ -13,6 +13,7 @@ class DBGraphEdge;
 class DBGraphVertex;
 class IFMapExporter;
 class IFMapNode;
+class IFMapNodeState;
 class TaskTrigger;
 struct IFMapTypenameFilter;
 struct IFMapTypenameWhiteList;
@@ -31,6 +32,8 @@ public:
     void LinkRemove(const BitSet &bset);
 
     bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
+    const IFMapTypenameWhiteList &get_traversal_white_list() const;
+    void ResetLinkDeleteClients(const BitSet &bset);
 
 private:
     static const int kMaxLinkDeleteWalks = 1;
@@ -38,11 +41,12 @@ private:
     void ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode, const BitSet &bset);
     void JoinVertex(DBGraphVertex *vertex, const BitSet &bset);
     void RecomputeInterest(DBGraphVertex *vertex, int bit);
-    void CleanupInterest(DBGraphVertex *vertex);
+    void CleanupInterest(IFMapNode *node, IFMapNodeState *state);
     void AddNodesToWhitelist();
     void AddLinksToWhitelist();
     bool LinkDeleteWalk();
     void LinkDeleteWalkBatchEnd();
+    void OrLinkDeleteClients(const BitSet &bset);
 
     DBGraph *graph_;
     IFMapExporter *exporter_;

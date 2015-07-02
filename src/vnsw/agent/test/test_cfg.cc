@@ -503,7 +503,6 @@ TEST_F(CfgTest, LinkReorderTest) {
         "       <name>testtest</name>\n"
         "   </node>\n"
         "</update>");
-
     IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
     ASSERT_TRUE(ftable!=NULL);
 

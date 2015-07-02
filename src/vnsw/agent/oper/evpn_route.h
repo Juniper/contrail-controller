@@ -75,7 +75,7 @@ public:
                          const IpAddress &ip, uint32_t ethernet_tag);
     static void DeleteReq(const Peer *peer, const std::string &vrf_name,
                           const MacAddress &mac, const IpAddress &ip_addr,
-                          uint32_t ethernet_tag);
+                          uint32_t ethernet_tag, AgentRouteData *data);
     static void Delete(const Peer *peer, const std::string &vrf_name,
                        const MacAddress &mac, const IpAddress &ip_addr,
                        uint32_t ethernet_tag);

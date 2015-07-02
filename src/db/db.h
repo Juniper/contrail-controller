@@ -38,6 +38,7 @@ public:
     // Table creation.
     DBTableBase *CreateTable(const std::string &name);
     DBTableBase *FindTable(const std::string &name);
+    iterator FindTableIter(const std::string &name);
     void RemoveTable(DBTableBase *tbl_base);
 
     // Table walker
@@ -47,6 +48,7 @@ public:
 
     DBGraph *GetGraph(const std::string &name);
     void SetGraph(const std::string &name, DBGraph *graph);
+    void SetQueueDisable(bool disable);
 
     static int PartitionCount();
     static void RegisterFactory(const std::string &prefix,

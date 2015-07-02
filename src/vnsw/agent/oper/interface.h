@@ -129,6 +129,7 @@ public:
     void set_flow_key_nh(const NextHop *nh) { flow_key_nh_ = nh;}
     const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
     Interface::Transport transport() const { return transport_;}
+    bool IsUveActive() const;
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -332,7 +333,7 @@ public:
     bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     // Handle change in VxLan Identifier mode from global-config
-    void UpdateVxLanNetworkIdentifierMode();
+    void GlobalVrouterConfigChanged();
 
     // Helper functions
     VrfEntry *FindVrfRef(const std::string &name) const;

@@ -56,7 +56,6 @@ public:
 
     void AddClient(IFMapClient *client);
     void DeleteClient(IFMapClient *client);
-    void StaleNodesCleanup();
 
     DB *database() { return db_; }
     DBGraph *graph() { return graph_; }
@@ -86,7 +85,7 @@ public:
     void ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
                             bool subscribe);
 
-    class IFMapStaleCleaner;
+    class IFMapStaleEntriesCleaner;
     class IFMapVmSubscribe;
 
     void ProcessVmRegAsPending(std::string vm_uuid, std::string vr_name,
@@ -98,13 +97,14 @@ public:
     const CmSz_t GetClientMapSize() const { return client_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
     bool ClientNameToIndex(const std::string &id, int *index);
+    bool ProcessStaleEntriesTimeout();
 
 private:
-    static const int kStaleCleanupTimeout = 60000; // milliseconds
     friend class IFMapServerTest;
     friend class IFMapRestartTest;
     friend class ShowIFMapXmppClientInfo;
     friend class XmppIfmapTest;
+    friend class IFMapExporterTest;
 
     enum QueueOp {
         ADD = 1,
@@ -116,12 +116,10 @@ private:
     };
     bool ClientWorker(QueueEntry work_entry);
     void ClientGraphDownload(IFMapClient *client);
-    void ClientGraphCleanup(IFMapClient *client);
     void RemoveSelfAddedLinksAndObjects(IFMapClient *client);
     void CleanupUuidMapper(IFMapClient *client);
-    void LinkResetClient(DBGraphEdge *edge, const BitSet &bset);
-    void NodeResetClient(DBGraphVertex *vertex, const BitSet &bset);
-    bool StaleNodesProcTimeout();
+    void ClientExporterSetup(IFMapClient *client);
+    void ClientExporterCleanup(IFMapClient *client);
     const ClientMap &GetClientMap() const { return client_map_; }
     void SimulateDeleteClient(IFMapClient *client);
 
@@ -136,7 +134,6 @@ private:
     IndexMap index_map_;
     WorkQueue<QueueEntry> work_queue_;
     boost::asio::io_service *io_service_;
-    Timer *stale_cleanup_timer_;
     IFMapManager *ifmap_manager_;
     IFMapChannelManager *ifmap_channel_manager_;
 };

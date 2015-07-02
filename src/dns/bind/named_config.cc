@@ -28,10 +28,12 @@ void NamedConfig::Init(const std::string& named_config_dir,
                        const std::string& named_config_file,
                        const std::string& named_log_file,
                        const std::string& rndc_config_file,
-                       const std::string& rndc_secret) {
+                       const std::string& rndc_secret,
+                       const std::string& named_max_cache_size) {
     assert(singleton_ == NULL);
     singleton_ = new NamedConfig(named_config_dir, named_config_file,
-                                 named_log_file, rndc_config_file, rndc_secret);
+                                 named_log_file, rndc_config_file, rndc_secret,
+                                 named_max_cache_size);
     singleton_->Reset();
 }
 
@@ -70,6 +72,13 @@ void NamedConfig::ChangeView(const VirtualDnsConfig *vdns) {
     if (vdns->GetDomainName() != old_domain) {
         ZoneList zones;
         zones.push_back(old_domain);
+        RemoveZoneFiles(vdns, zones);
+    }
+    // If reverse resolution is disabled now, remove the reverse zone files
+    bool reverse_resolution = vdns->IsReverseResolutionEnabled();
+    if (!reverse_resolution && vdns->HasReverseResolutionChanged()) {
+        ZoneList zones;
+        MakeReverseZoneList(vdns, zones);
         RemoveZoneFiles(vdns, zones);
     }
 }
@@ -175,6 +184,8 @@ void NamedConfig::WriteOptionsConfig() {
     file_ << "    allow-query { any; };" << endl;
     file_ << "    allow-recursion { any; };" << endl;
     file_ << "    allow-query-cache { any; };" << endl;
+    if (!named_max_cache_size_.empty())
+        file_ << "    max-cache-size " << named_max_cache_size_ << ";" << endl;
     file_ << "};" << endl << endl;
 }
 
@@ -254,9 +265,8 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
         for (unsigned int i = 0; i < zones.size(); i++) {
             WriteZone(view_name, zones[i], true);
             // update the zone view map, to be used to generate default view
-            // TODO : if there are multiple views having the same zone,
-            // we consider only the first one for now
-            zone_view_map.insert(ZoneViewPair(zones[i], view_name));
+            if (curr_vdns->IsExternalVisible())
+                zone_view_map.insert(ZoneViewPair(zones[i], view_name));
         }
 
         file_ << "};" << endl << endl;
@@ -382,7 +392,8 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
 }
 
 // Create a list of zones for the virtual DNS
-void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zones) {
+void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config,
+                               ZoneList &zones) {
     // always take domain name in lower case, to avoid differences due to case
     std::string dns_domain = boost::to_lower_copy(vdns_config->GetDomainName());
     if (dns_domain.empty()) {
@@ -393,6 +404,14 @@ void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zo
     zones.push_back(dns_domain);
 
     // Reverse zones
+    if (!vdns_config->IsReverseResolutionEnabled()) {
+        return;
+    }
+    MakeReverseZoneList(vdns_config, zones);
+}
+
+void NamedConfig::MakeReverseZoneList(const VirtualDnsConfig *vdns_config,
+                                      ZoneList &zones) {
     const VirtualDnsConfig::IpamList &ipams = vdns_config->GetIpamList();
     for (VirtualDnsConfig::IpamList::const_iterator ipam_it = ipams.begin();
          ipam_it != ipams.end(); ++ipam_it) {

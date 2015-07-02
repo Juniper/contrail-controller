@@ -86,7 +86,7 @@ private:
             DbDecodeCompositeFunc decode_composite_fn,
             DbEncodeNonCompositeFunc encode_non_composite_fn,
             DbDecodeNonCompositeFunc decode_non_composite_fn) :
-            cassandra_type_(cassandra_type),
+            cassandra_type_("org.apache.cassandra.db.marshal." + cassandra_type),
             encode_composite_fn_(encode_composite_fn),
             decode_composite_fn_(decode_composite_fn),
             encode_non_composite_fn_(encode_non_composite_fn),
@@ -159,6 +159,8 @@ private:
     bool Db_AsyncAddColumn(CdbIfColList &cl);
     bool Db_AsyncAddColumnLocked(CdbIfColList &cl);
     void Db_BatchAddColumn(bool done);
+    bool DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
+                              org::apache::cassandra::CfDef *newcfdef);
     // Read
     static const int kMaxQueryRows = 50;
 

@@ -34,6 +34,7 @@ public:
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     static uint64_t GetSeqNumber() { return seq_number_; }
     static uint64_t NewSeqNumber(); 
+
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 

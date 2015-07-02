@@ -543,7 +543,13 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
                 DbEncodeDoubleComposite,
                 DbDecodeDoubleComposite,
                 DbEncodeDoubleNonComposite,
-                DbDecodeDoubleNonComposite));
+                DbDecodeDoubleNonComposite))
+        (GenDb::DbDataType::UTF8Type,
+            CdbIf::CdbIfTypeInfo("UTF8Type",
+                DbEncodeStringComposite,
+                DbDecodeStringComposite,
+                DbEncodeStringNonComposite,
+                DbDecodeStringNonComposite));
 
 class CdbIf::CleanupTask : public Task {
 public:
@@ -904,7 +910,7 @@ bool CdbIf::DbDataTypeVecToCompositeType(std::string& res,
         res = it->second.cassandra_type_;
         return true;
     } else {
-        res = "CompositeType(";
+        res = "org.apache.cassandra.db.marshal.CompositeType(";
         std::vector<GenDb::DbDataType::type>::const_iterator it = db_type.begin();
         CdbIfTypeMapDef::iterator jt;
 
@@ -914,7 +920,7 @@ bool CdbIf::DbDataTypeVecToCompositeType(std::string& res,
 
         it++;
         for (; it != db_type.end(); it++) {
-            res.append(", ");
+            res.append(",");
             if ((jt = CdbIfTypeMap.find(*it)) == CdbIfTypeMap.end())
                 return false;
             res.append(jt->second.cassandra_type_);
@@ -1129,7 +1135,8 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
 
         CdbIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-            if ((*cfinfo->cfdef_.get()).gc_grace_seconds != 0) {
+            if ((*cfinfo->cfdef_.get()).gc_grace_seconds != 0 ||
+                DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
                 CDBIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " << 
                     (*cfinfo->cfdef_.get()).id);
                 cf_def.__set_id((*cfinfo->cfdef_.get()).id);
@@ -1193,7 +1200,8 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
 
         CdbIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-            if ((*cfinfo->cfdef_.get()).gc_grace_seconds != 0) {
+            if (((*cfinfo->cfdef_.get()).gc_grace_seconds != 0) ||
+                DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
                 CDBIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " << 
                     (*cfinfo->cfdef_.get()).id);
                 cf_def.__set_id((*cfinfo->cfdef_.get()).id);
@@ -1224,6 +1232,47 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
             cf.cftype_); 
     }
     return true;
+}
+
+bool CdbIf::DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
+                                 org::apache::cassandra::CfDef *newcfdef) {
+    if (cfdef->key_validation_class != newcfdef->key_validation_class) {
+        return true;
+    }
+
+    if ((newcfdef->default_validation_class.size()) &&
+        (cfdef->default_validation_class != newcfdef->default_validation_class)) {
+        return true;
+    }
+
+    if (cfdef->comparator_type != newcfdef->comparator_type) {
+        return true;
+    }
+
+    if (cfdef->column_metadata.size() != newcfdef->column_metadata.size()) {
+        return true;
+    }
+
+    std::vector<ColumnDef>::iterator cfdef_it = cfdef->column_metadata.begin();
+    std::vector<ColumnDef>::iterator newcfdef_it;
+
+    bool schema_changed;
+    for(; cfdef_it != cfdef->column_metadata.end(); cfdef_it++) {
+        schema_changed = true;
+        for(newcfdef_it = newcfdef->column_metadata.begin();
+            newcfdef_it != newcfdef->column_metadata.end(); newcfdef_it++) {
+            if(cfdef_it->name == newcfdef_it->name &&
+                cfdef_it->validation_class == newcfdef_it->validation_class) {
+                schema_changed = false;
+                break;
+             }
+        }
+        if(schema_changed) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {

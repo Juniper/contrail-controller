@@ -11,6 +11,7 @@
 #include <string>
 #include <boost/crc.hpp>      // for boost::crc_32_type
 #include <boost/scoped_ptr.hpp>
+#include <boost/unordered_set.hpp>
 
 #include "db/db_table.h"
 
@@ -29,6 +30,8 @@ class IFMapUpdate;
 class IFMapUpdateQueue;
 class IFMapUpdateSender;
 
+struct IFMapTypenameWhiteList;
+
 // The IFMapExporter makes sure that the right entries are added to the update
 // queue. It uses the GraphWalker to calculate the 'interest' set for each node
 // and then ensures that all clients see the necessary information. It also
@@ -37,6 +40,10 @@ class IFMapUpdateSender;
 // must come after the links that refer to the node have been deleted.
 class IFMapExporter {
 public:
+    typedef boost::unordered_set<IFMapState *> ConfigSet;
+    typedef ConfigSet::size_type CsSz_t;
+    typedef ConfigSet::const_iterator Cs_citer;
+    typedef std::vector<ConfigSet *> ClientConfigTracker;
     typedef boost::crc_32_type::value_type crc32type;
     explicit IFMapExporter(IFMapServer *server);
     ~IFMapExporter();
@@ -58,6 +65,24 @@ public:
     IFMapServer *server() { return server_; }
 
     bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
+
+    void AddClientConfigTracker(int index);
+    void DeleteClientConfigTracker(int index);
+    void UpdateClientConfigTracker(IFMapState *state, const BitSet& client_bits,
+                                   bool add);
+    void CleanupClientConfigTrackedEntries(int index);
+    bool ClientHasConfigTracker(int index);
+    bool ClientConfigTrackerHasState(int index, IFMapState *state);
+    bool ClientConfigTrackerEmpty(int index);
+    size_t ClientConfigTrackerSize(int index);
+    Cs_citer ClientConfigTrackerBegin(int index) const;
+    Cs_citer ClientConfigTrackerEnd(int index) const;
+
+    void StateInterestSet(IFMapState *state, const BitSet& interest_bits);
+    void StateInterestOr(IFMapState *state, const BitSet& interest_bits);
+    void StateInterestReset(IFMapState *state, const BitSet& interest_bits);
+    const IFMapTypenameWhiteList &get_traversal_white_list() const;
+    void ResetLinkDeleteClients(const BitSet &bset);
 
 private:
     friend class XmppIfmapTest;
@@ -94,6 +119,8 @@ private:
 
     void TableStateClear(DBTable *table, DBTable::ListenerId tsid);
     bool ConfigChanged(IFMapNode *node);
+    void DeleteStateIfAppropriate(DBTable *table, DBEntryBase *entry,
+                                  IFMapState *state);
 
     IFMapUpdateQueue *queue();
     IFMapUpdateSender *sender();
@@ -103,6 +130,7 @@ private:
     TableMap table_map_;
 
     DBTable *link_table_;
+    ClientConfigTracker client_config_tracker_;
 };
 
 #endif

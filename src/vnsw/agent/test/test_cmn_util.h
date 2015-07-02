@@ -212,8 +212,11 @@ void DelVm(const char *name);
 void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
+void AddL2L3Vn(const char *name, int id);
 void AddL2Vn(const char *name, int id);
+void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
+void AddVn(const char *name, int id, int vxlan_id, bool admin_state = true);
 void DelVn(const char *name);
 void AddPort(const char *name, int id, const char *attr = NULL);
 void AddPortByStatus(const char *name, int id, bool admin_status);
@@ -263,6 +266,8 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      bool with_ip = false, bool ecmp = false,
                      bool vn_admin_state = true, bool with_ip6 = false,
                      bool send_nova_msg = true);
+void CreateL3VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
 void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                        const char *vn = NULL, const char *vrf = NULL,
                        bool with_v4_ip = true);
@@ -370,6 +375,7 @@ void AddEncapList(Agent *agent, const char *encap1, const char *encap2,
 void DelEncapList();
 void DelEncapList(Agent *agent);
 void VxLanNetworkIdentifierMode(bool config);
+void GlobalForwardingMode(std::string mode);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
                            int count);
@@ -394,6 +400,8 @@ public:
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
 
+    virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
+    }
     virtual std::string LastStateName() const {
         return "";
     }

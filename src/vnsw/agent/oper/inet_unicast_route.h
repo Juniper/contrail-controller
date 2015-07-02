@@ -183,8 +183,10 @@ public:
     }
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static void ReEvaluatePaths(const string &vrf_name, 
-                               const IpAddress &ip, uint8_t plen);
+    static void ReEvaluatePaths(const Agent *agent,
+                                const string &vrf_name,
+                                const IpAddress &ip,
+                                uint8_t plen);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           const IpAddress &addr, uint8_t plen,
                           AgentRouteData *data);
@@ -270,11 +272,11 @@ public:
                                   uint32_t label, const string &vn_name);
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const string &interface,
-                                  const Ip4Address &addr, uint8_t plen,
+                                  const IpAddress &addr, uint8_t plen,
                                   const string &vn_name, bool policy);
     static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
                                      const string &interface,
-                                     const Ip4Address &addr, uint8_t plen,
+                                     const IpAddress &addr, uint8_t plen,
                                      const string &vn_name, bool policy);
     static void AddVHostSubnetRecvRoute(const Peer *peer, const string &vrf,
                                         const string &interface,

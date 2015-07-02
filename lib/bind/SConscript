@@ -1,4 +1,5 @@
 # -*- mode: python; -*-
+import platform
 import sys
 
 vpath = '#/third_party/bind-9.9.2-P1/'
@@ -6,6 +7,9 @@ env = DefaultEnvironment()
 
 build_dir = str(Dir('#/build'))
 config_opts = '--prefix=' + build_dir + ' --enable-threads' + ' --enable-fixed-rrset'
+
+if platform.machine() == "ppc64le":
+    config_opts += ' --build=powerpc64le'
 
 if sys.platform.startswith('freebsd'):
     # TODO(md): There is a known bug with gsskrb5 linking on FreeBSD and libgss

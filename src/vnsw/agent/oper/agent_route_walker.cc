@@ -10,7 +10,6 @@
 #include <cmn/agent_db.h>
 
 #include <oper/agent_route_walker.h>
-#include <oper/agent_route_encap.h>
 #include <oper/vrf.h>
 #include <oper/agent_route.h>
 
@@ -167,7 +166,7 @@ void AgentRouteWalker::StartRouteWalk(VrfEntry *vrf) {
 
 void AgentRouteWalker::StartRouteWalkInternal(const VrfEntry *vrf) {
     DBTableWalker *walker = agent_->db()->GetWalker();
-    DBTableWalker::WalkId walkid;
+    DBTableWalker::WalkId walkid = DBTableWalker::kInvalidWalkerId;
     uint32_t vrf_id = vrf->vrf_id();
     AgentRouteTable *table = NULL;
 
@@ -180,6 +179,13 @@ void AgentRouteWalker::StartRouteWalkInternal(const VrfEntry *vrf) {
          table_type++) {
         table = static_cast<AgentRouteTable *>
             (vrf->GetRouteTable(table_type));
+        if (table == NULL) {
+            AGENT_DBWALK_TRACE(AgentRouteWalkerTrace,
+                               "Route table walk SKIPPED for vrf", walk_type_,
+                               (vrf != NULL) ? vrf->GetName() : "Unknown",
+                               vrf_walkid_, table_type, "", walkid);
+            continue;
+        }
         walkid = walker->WalkTable(table, NULL, 
                              boost::bind(&AgentRouteWalker::RouteWalkNotify, 
                                          this, _1, _2),

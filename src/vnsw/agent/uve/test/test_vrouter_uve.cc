@@ -373,6 +373,119 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     vr->clear_count();
 }
 
+TEST_F(UveVrouterUveTest, IntfAddDel) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (agent_->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    const VrouterAgent &uve = vr->last_sent_vrouter();
+
+    //Add VN
+    util_.VnAdd(input[0].vn_id);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (VnGet(1) != NULL));
+
+    // Nova Port add message
+    util_.NovaPortAdd(input);
+
+    // Config Port add
+    util_.ConfigPortAdd(input);
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Trigger UVE send
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    //Verify interface lists in UVE
+    EXPECT_EQ(1U, uve.get_interface_list().size());
+    EXPECT_EQ(1U, uve.get_error_intf_list().size());
+
+    //Add necessary objects and links to make vm-intf active
+    util_.VmAdd(input[0].vm_id);
+    util_.VrfAdd(input[0].vn_id);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddVmPortVrf("vnet1", "", 0);
+    client->WaitForIdle();
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    //Trigger UVE send
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    //Verify interface lists in UVE
+    EXPECT_EQ(1U, uve.get_interface_list().size());
+    EXPECT_EQ(0U, uve.get_error_intf_list().size());
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Trigger UVE send
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    //Verify interface lists in UVE
+    EXPECT_EQ(1U, uve.get_interface_list().size());
+    EXPECT_EQ(1U, uve.get_error_intf_list().size());
+
+    //other cleanup
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    DelNode("virtual-machine-interface-routing-instance", "vnet1");
+    DelNode("virtual-machine", "vm1");
+    DelNode("routing-instance", "vrf1");
+    //DelNode("virtual-network", "vn1");
+    DelNode("virtual-machine-interface", "vnet1");
+    DelInstanceIp("instance0");
+    util_.VnDelete(input[0].vn_id);
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    client->WaitForIdle();
+
+    //cleanup
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
+    EXPECT_EQ(0U, uve.get_connected_networks().size());
+    EXPECT_EQ(0U, uve.get_vn_count());
+    EXPECT_EQ(0U, uve.get_interface_list().size());
+    EXPECT_EQ(0U, uve.get_error_intf_list().size());
+    vr->clear_count();
+}
+
 TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
@@ -914,6 +1027,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     PhysicalDeviceTable *table = agent_->physical_device_table();
+    pr->ClearCount();
 
     agent_->set_tsn_enabled(true);
     const VrouterAgent &uve = vr->last_sent_vrouter();
@@ -992,6 +1106,97 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     WAIT_FOR(1000, 500, (pr->LogicalIntfListCount() == 0U));
     WAIT_FOR(1000, 500, (1U == pr->li_delete_count()));
     agent_->set_tsn_enabled(false);
+}
+
+TEST_F(UveVrouterUveTest, FlowSetupRate) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (agent_->uve()->vrouter_uve_entry());
+    vr->clear_count();
+    vr->set_prev_flow_created(agent_->stats()->flow_created());
+    vr->set_prev_flow_aged(agent_->stats()->flow_aged());
+
+    FlowSetUp();
+    TestFlow flow[] = {
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 100, 200,
+                       "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a UDP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_UDP, 100, 200,
+                       "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    //Update prev_time to current_time - 1 sec
+    uint64_t t = UTCTimestampUsec() - 1000000;
+    vr->set_prev_flow_setup_rate_export_time(t);
+
+    //Create Flows
+    EXPECT_EQ(0, agent_->pkt()->flow_table()->Size());
+    CreateFlow(flow, 2);
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
+
+    //Trigger framing and send of UVE message
+    vr->SendVrouterMsg();
+
+    //Verify flow add rate
+    const VrouterStatsAgent stats = vr->last_sent_stats();
+    EXPECT_EQ(4U, stats.get_flow_rate().get_added_flows());
+    EXPECT_EQ(0U, stats.get_flow_rate().get_deleted_flows());
+
+    //Update prev_time to current_time - 1 sec
+    t = UTCTimestampUsec() - 1000000;
+    vr->set_prev_flow_setup_rate_export_time(t);
+
+    //Create two more flows
+    TestFlow flow2[] = {
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 2000,
+                       "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+    };
+
+    CreateFlow(flow2, 1);
+    EXPECT_EQ(6U, agent_->pkt()->flow_table()->Size());
+
+    //Trigger framing and send of UVE message
+    vr->SendVrouterMsg();
+
+    //Verify flow add rate
+    const VrouterStatsAgent stats2 = vr->last_sent_stats();
+    EXPECT_EQ(2U, stats2.get_flow_rate().get_added_flows());
+    EXPECT_EQ(0U, stats2.get_flow_rate().get_deleted_flows());
+
+    //Update prev_time to current_time - 1 sec
+    t = UTCTimestampUsec() - 1000000;
+    vr->set_prev_flow_setup_rate_export_time(t);
+
+    //Delete flows and verify delete rate
+    DeleteFlow(flow2, 1);
+    WAIT_FOR(1000, 1000, ((agent_->pkt()->flow_table()->Size() == 4U)));
+
+    //Trigger framing and send of UVE message
+    vr->SendVrouterMsg();
+
+    //Verify flow add and delete rate
+    const VrouterStatsAgent stats3 = vr->last_sent_stats();
+    EXPECT_EQ(0U, stats3.get_flow_rate().get_added_flows());
+    EXPECT_EQ(2U, stats3.get_flow_rate().get_deleted_flows());
+
+    FlowTearDown();
+    vr->clear_count();
 }
 
 int main(int argc, char **argv) {

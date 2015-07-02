@@ -28,6 +28,8 @@ request sandesh IFMapTableShowReq {
 
 response sandesh IFMapTableShowResp {
     1: list<IFMapNodeShowInfo> ifmap_db;
+    2: optional string next_batch (link="IFMapTableShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing link table - IFMapLink **/
@@ -54,7 +56,10 @@ request sandesh IFMapLinkTableShowReq {
 }
 
 response sandesh IFMapLinkTableShowResp {
-    1: list<IFMapLinkShowInfo> ifmap_db;
+    1: u32 table_size;
+    2: list<IFMapLinkShowInfo> ifmap_db;
+    3: optional string next_batch (link="IFMapLinkTableShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing the internal Update Queue **/
@@ -102,6 +107,7 @@ response sandesh IFMapXmppClientInfoShowResp {
 
 struct IFMapServerClientMapShowEntry {
     1: string client_name;
+    2: u64 tracker_entries;
 }
 
 struct IFMapServerShowClientMap {
@@ -132,6 +138,7 @@ response sandesh IFMapServerClientShowResp {
 struct IFMapPerClientNodesShowInfo {
     1: string node_name (link="IFMapNodeShowReq")
     2: string sent;
+    3: string tracked;
 }
 
 request sandesh IFMapPerClientNodesShowReq {
@@ -141,6 +148,8 @@ request sandesh IFMapPerClientNodesShowReq {
 
 response sandesh IFMapPerClientNodesShowResp {
     1: list<IFMapPerClientNodesShowInfo> node_db;
+    2: optional string next_batch (link="IFMapPerClientNodesShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing all the links that should have gone to a client **/
@@ -150,6 +159,7 @@ struct IFMapPerClientLinksShowInfo {
     2: string left (link="IFMapNodeShowReq")
     3: string right (link="IFMapNodeShowReq")
     4: string sent;
+    5: string tracked;
 }
 
 request sandesh IFMapPerClientLinksShowReq {
@@ -159,6 +169,8 @@ request sandesh IFMapPerClientLinksShowReq {
 
 response sandesh IFMapPerClientLinksShowResp {
     1: list<IFMapPerClientLinksShowInfo> link_db;
+    2: optional string next_batch (link="IFMapPerClientLinksShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing a single IFMapNode/IFMapObject **/
@@ -238,6 +250,10 @@ struct IFMapPeerServerConnInfo {
     4: string connection_status;
     5: string host;
     6: string port;
+    7: bool end_of_rib_computed;
+    8: bool end_of_rib_timer_running;
+    9: bool start_stale_entries_cleanup;
+    10: bool stale_entries_cleanup_timer_running;
 }
 
 struct IFMapPeerTimedoutEntry {

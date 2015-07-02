@@ -75,6 +75,8 @@ public:
     // Record has been modified.
     virtual void Change(DBEntryBase *) = 0;
 
+    // Callback from table partition for entry add/remove.
+    virtual void AddRemoveCallback(const DBEntryBase *entry, bool add) const { }
 
     // Register a DB listener.
     ListenerId Register(ChangeCallback callback,
@@ -85,6 +87,8 @@ public:
 
     // Manage db state count for a listener.
     void AddToDBStateCount(ListenerId listener, int count);
+
+    uint64_t GetDBStateCount(ListenerId listener);
 
     // Calculate the size across all partitions.
     // Must be called from Task which is mutually exclusive with db::DBTable.
@@ -117,7 +121,7 @@ public:
     void reset_notify_count() { notify_count_ = 0; }
 
     bool HasWalkers() const { return walker_count_ != 0; }
-    uint64_t walker_count() { return walker_count_; }
+    uint64_t walker_count() const { return walker_count_; }
     void incr_walker_count() { walker_count_++; }
     uint64_t decr_walker_count() { return --walker_count_; }
 

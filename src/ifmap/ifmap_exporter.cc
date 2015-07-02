@@ -19,6 +19,7 @@
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_update_queue.h"
 #include "ifmap/ifmap_update_sender.h"
+#include "ifmap/ifmap_util.h"
 
 using namespace std;
 
@@ -66,6 +67,14 @@ void IFMapExporter::Initialize(DB *db) {
 }
 
 void IFMapExporter::Shutdown() {
+    for (size_t index = 0; index < client_config_tracker_.size(); ++index) {
+        ConfigSet *set = client_config_tracker_[index];
+        if (set) {
+            set->clear();
+            delete set;
+            client_config_tracker_[index] = NULL;
+        }
+    }
     for (TableMap::iterator iter = table_map_.begin(); iter != table_map_.end();
          ++iter) {
         DBTable *table = iter->first;
@@ -117,11 +126,8 @@ const BitSet *IFMapExporter::MergeClientInterest(
         BitSet *merged_set = new BitSet(*set);
         merged_set->set(client->index());
         ptr->reset(merged_set);
-        state->SetInterest(*merged_set);
+        StateInterestSet(state, *merged_set);
         return merged_set;
-    } else if (table->name() == "__ifmap__.virtual_network.0") {
-        // TODO: merge the bits corresponding to the virtual networks that
-        // clients have subscribed for.
     }
 
     return set;
@@ -139,7 +145,7 @@ IFMapNodeState *IFMapExporter::NodeStateLocate(IFMapNode *node){
     IFMapNodeState *state = static_cast<IFMapNodeState *>(
         node->GetState(node->table(), tinfo->id()));
     if (state == NULL) {
-        state = new IFMapNodeState();
+        state = new IFMapNodeState(node);
         node->SetState(node->table(), tinfo->id(), state);
     }
     return state;
@@ -333,6 +339,16 @@ void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
     }
 }
 
+void IFMapExporter::DeleteStateIfAppropriate(DBTable *table, DBEntryBase *entry,
+                                             IFMapState *state) {
+    if (state->CanDelete()) {
+        assert(state->advertised().empty());
+        assert(state->interest().empty());
+        entry->ClearState(table, TableListenerId(table));
+        delete state;
+    }
+}
+
 // Propagate changes to all the interested peers.
 //
 // Update order:
@@ -358,7 +374,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
 
     if (IsFeasible(node)) {
         if (state == NULL) {
-            state = new IFMapNodeState();
+            state = new IFMapNodeState(node);
             entry->SetState(table, tinfo->id(), state);
         }
         state->SetValid(node);
@@ -397,10 +413,10 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
         state->ClearValid();
         if (!state->HasDependents()) {
             // enqueue delete.
+            StateInterestReset(state, state->interest());
             EnqueueDelete(node, state);
             if (state->update_list().empty()) {
-                entry->ClearState(table, tinfo->id());
-                delete state;
+                DeleteStateIfAppropriate(table, entry, state);
             }
         }
     }
@@ -468,9 +484,9 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
 
         if (IsFeasible(link->left()) && IsFeasible(link->right())) {
             // Interest mask is the intersection of left and right nodes.
-            state->SetInterest(s_left->interest() & s_right->interest());
+            StateInterestSet(state, (s_left->interest() & s_right->interest()));
         } else {
-            state->SetInterest(BitSet());
+            StateInterestSet(state, BitSet());
         }
 
         // This is an add operation for nodes that are interested and
@@ -501,6 +517,8 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         IFMapNodeState *s_right = state->right();
         assert((right != NULL) && (s_right != NULL));
         BitSet interest = s_left->interest() & s_right->interest();
+        StateInterestReset(state, state->interest());
+
         IFMAP_DEBUG(LinkOper, "LinkRemove", left->ToString(), right->ToString(),
             s_left->interest().ToString(), s_right->interest().ToString());
         walker_->LinkRemove(interest);
@@ -511,8 +529,7 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         // enqueue update.
         EnqueueDelete(link, state);
         if (state->update_list().empty()) {
-            entry->ClearState(table, tinfo->id());
-            delete state;            
+            DeleteStateIfAppropriate(table, entry, state);
         }
 
         MaybeNotifyOnLinkDelete(left, s_left);
@@ -542,12 +559,11 @@ void IFMapExporter::StateUpdateOnDequeue(IFMapUpdate *update,
     } else {
         state->AdvertisedOr(dequeue_set);
     }
+
     if (update->advertise().empty()) {
         state->Remove(update);
-        if (state->CanDelete()) {
-            assert(state->advertised().empty());
-            db_entry->ClearState(table, TableListenerId(table));
-            delete state;
+        if (update->IsDelete()) {
+            DeleteStateIfAppropriate(table, db_entry, state);
         }
         delete update;
     }
@@ -602,3 +618,134 @@ bool IFMapExporter::ConfigChanged(IFMapNode *node) {
 
     return changed;
 }
+
+void IFMapExporter::AddClientConfigTracker(int index) {
+    if (index >= (int)client_config_tracker_.size()) {
+        client_config_tracker_.resize(index + 1, NULL);
+    }
+    assert(client_config_tracker_[index] == NULL);
+    ConfigSet *set = new ConfigSet();
+    client_config_tracker_[index] = set;
+}
+
+void IFMapExporter::DeleteClientConfigTracker(int index) {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    delete set;
+    client_config_tracker_[index] = NULL;
+}
+
+void IFMapExporter::UpdateClientConfigTracker(IFMapState *state,
+        const BitSet& client_bits, bool add) {
+    for (size_t pos = client_bits.find_first(); pos != BitSet::npos;
+            pos = client_bits.find_next(pos)) {
+        ConfigSet *set = client_config_tracker_.at(pos);
+        assert(set);
+        if (add) {
+            set->insert(state);
+        } else {
+            CsSz_t num = set->erase(state);
+            assert(num == 1);
+        }
+    }
+}
+
+void IFMapExporter::CleanupClientConfigTrackedEntries(int index) {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    BitSet rm_bs;
+    rm_bs.set(index);
+    for (ConfigSet::iterator iter = set->begin(); iter != set->end(); ++iter) {
+        IFMapState *state = *iter;
+        state->InterestReset(rm_bs);
+        state->AdvertisedReset(rm_bs);
+    }
+}
+
+bool IFMapExporter::ClientHasConfigTracker(int index) {
+    ConfigSet *set = client_config_tracker_.at(index);
+    return ((set != NULL) ? true : false);
+}
+
+bool IFMapExporter::ClientConfigTrackerHasState(int index, IFMapState *state) {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    ConfigSet::iterator iter = set->find(state);
+    return (iter == set->end() ? false : true);
+}
+
+bool IFMapExporter::ClientConfigTrackerEmpty(int index) {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    return set->empty();
+}
+
+size_t IFMapExporter::ClientConfigTrackerSize(int index) {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    return set->size();
+}
+
+IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerBegin(int index)
+        const {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    return set->begin();
+}
+
+IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerEnd(int index)
+        const {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    return set->end();
+}
+
+void IFMapExporter::StateInterestSet(IFMapState *state,
+                                     const BitSet& interest_bits) {
+    // Add the node to the config-tracker of all clients that just became
+    // interested in this node.
+    bool add = true;
+    BitSet new_clients;
+    new_clients.BuildComplement(interest_bits, state->interest());
+    if (!new_clients.empty()) {
+        UpdateClientConfigTracker(state, new_clients, add);
+    }
+
+    // Remove the node from the config-tracker of all clients that are no longer
+    // interested in this node.
+    add = false;
+    BitSet old_clients;
+    old_clients.BuildComplement(state->interest(), interest_bits);
+    if (!old_clients.empty()) {
+        UpdateClientConfigTracker(state, old_clients, add);
+    }
+
+    state->SetInterest(interest_bits);
+}
+
+// Add the node to the config-tracker of all clients that just became interested
+// in this node.
+void IFMapExporter::StateInterestOr(IFMapState *state,
+                                    const BitSet& interest_bits) {
+    bool add = true;
+    UpdateClientConfigTracker(state, interest_bits, add);
+    state->InterestOr(interest_bits);
+}
+
+// Remove the node from the config-tracker of all clients that are no longer
+// interested in this node.
+void IFMapExporter::StateInterestReset(IFMapState *state,
+                                       const BitSet& interest_bits) {
+    bool add = false;
+    UpdateClientConfigTracker(state, interest_bits, add);
+    state->InterestReset(interest_bits);
+}
+
+const IFMapTypenameWhiteList &IFMapExporter::get_traversal_white_list() const {
+    return walker_->get_traversal_white_list();
+}
+
+void IFMapExporter::ResetLinkDeleteClients(const BitSet &bset) {
+    walker_->ResetLinkDeleteClients(bset);
+}
+

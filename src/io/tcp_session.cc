@@ -282,7 +282,8 @@ void TcpSession::ConnectFailed() {
 }
 
 // Requires: lock must not be held
-void TcpSession::CloseInternal(bool call_observer, bool notify_server) {
+void TcpSession::CloseInternal(const boost::system::error_code &ec,
+                               bool call_observer, bool notify_server) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     if (socket() != NULL && !closed_) {
@@ -294,6 +295,9 @@ void TcpSession::CloseInternal(bool call_observer, bool notify_server) {
         return;
     }
     established_ = false;
+
+    // copy the ec to close reason
+    close_reason_ = ec;
 
     // Take a reference through intrusive pointer to protect session from
     // possibly getting deleted from another thread.
@@ -313,7 +317,8 @@ void TcpSession::CloseInternal(bool call_observer, bool notify_server) {
 }
 
 void TcpSession::Close() {
-    CloseInternal(false);
+    boost::system::error_code ec;
+    CloseInternal(ec, false);
 }
 
 // virtual method overriden in derrived classes.
@@ -351,19 +356,19 @@ void TcpSession::WriteReadyInternal(TcpSessionPtr session,
 
 session_error:
     lock.release();
-    TCP_SESSION_LOG_INFO(session.get(), TCP_DIR_OUT,
-                         "Write failed due to error: " << ec.value()
-                         << " category: " << ec.category().name()
-                         << " message: " << ec.message());
-    session->CloseInternal(true);
+    TCP_SESSION_LOG_ERROR(session.get(), TCP_DIR_OUT,
+                          "Write failed due to error: " << ec.value()
+                          << " category: " << ec.category().name()
+                          << " message: " << ec.message());
+    session->CloseInternal(ec, true);
 }
 
 void TcpSession::AsyncWriteHandler(TcpSessionPtr session,
                                    const boost::system::error_code &error) {
     if (session->IsSocketErrorHard(error)) {
-        TCP_SESSION_LOG_INFO(session, TCP_DIR_OUT, "Write failed due to error: "
-                             << error.message());
-        session->CloseInternal(true);
+        TCP_SESSION_LOG_ERROR(session, TCP_DIR_OUT,
+                              "Write failed due to error: " << error.message());
+        session->CloseInternal(error, true);
         return;
     }
 }
@@ -385,10 +390,11 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
         int len = writer_->Send(data, size, error);
         lock.release();
         if (len < 0) {
-            TCP_SESSION_LOG_INFO(this, TCP_DIR_OUT,
-                "Write failed due to error: " << error.category().name() << " "
-                                              << error.message());
-            CloseInternal(true);
+            TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                                  "Write failed due to error: "
+                                  << error.category().name() << " "
+                                  << error.message());
+            CloseInternal(error, true);
             return false;
         }
         if (len < 0 || (size_t)len != size) ret = false;
@@ -421,11 +427,11 @@ void TcpSession::AsyncReadHandler(
 
     if (IsSocketErrorHard(error)) {
         session->ReleaseBufferLocked(buffer);
-        TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
-                                 "Read failed due to error " << error.value()
-                                     << " : " << error.message());
+        TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
+                              "Read failed due to error " << error.value()
+                              << " : " << error.message());
         lock.release();
-        session->CloseInternal(true);
+        session->CloseInternal(error, true);
         return;
     }
 
@@ -434,11 +440,11 @@ void TcpSession::AsyncReadHandler(
         // check error code if session needs to be closed
         if (IsSocketErrorHard(err)) {
             session->ReleaseBufferLocked(buffer);
-            TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
-                                     "Read failed due to error " << err.value()
-                                         << " : " << err.message());
+            TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
+                                  "Read failed due to error " << err.value()
+                                  << " : " << err.message());
             lock.release();
-            session->CloseInternal(true);
+            session->CloseInternal(err, true);
             return;
         }
     }

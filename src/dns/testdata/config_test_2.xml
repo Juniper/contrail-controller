@@ -61,6 +61,8 @@
         <record-order>random</record-order>
         <default-ttl-seconds>60</default-ttl-seconds>
         <next-virtual-DNS>juniper.net</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
     </virtual-DNS>
     <virtual-network-network-ipam ipam='ipam1' vn='vn2'>
         <ipam-subnets>
@@ -91,6 +93,8 @@
         <record-order>random</record-order>
         <default-ttl-seconds>60</default-ttl-seconds>
         <next-virtual-DNS>example.com</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
     </virtual-DNS>
     <virtual-DNS-record name='rec2' dns='new-DNS'>
         <record-name>host2</record-name>
@@ -119,6 +123,8 @@
         <record-order>round-robin</record-order>
         <default-ttl-seconds>120</default-ttl-seconds>
         <next-virtual-DNS>juniper.net</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
     </virtual-DNS>
     <virtual-DNS-record name='last-rec2' dns='last-DNS'>
         <record-name>host2</record-name>
@@ -133,6 +139,8 @@
         <record-order>fixed</record-order>
         <default-ttl-seconds>100</default-ttl-seconds>
         <next-virtual-DNS>juniper.net</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
     </virtual-DNS>
     <network-ipam name='ipam4'>
         <ipam-method>dhcp</ipam-method>

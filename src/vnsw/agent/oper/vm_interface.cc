@@ -1073,9 +1073,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     Ip4Address old_addr = ip_addr_;
     Ip6Address old_v6_addr = ip6_addr_;
     bool old_need_linklocal_ip = need_linklocal_ip_;
-    bool sg_changed = false;
-    bool ecmp_changed = false;
-    bool local_pref_changed = false;
+    bool force_update = false;
     Ip4Address old_subnet = subnet_;
     uint8_t  old_subnet_plen = subnet_plen_;
     int old_ethernet_tag = ethernet_tag_;
@@ -1083,8 +1081,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     bool old_layer3_forwarding = layer3_forwarding_;
 
     if (data) {
-        ret = data->OnResync(table, this, &sg_changed, &ecmp_changed,
-                             &local_pref_changed);
+        ret = data->OnResync(table, this, &force_update);
     }
 
     ipv4_active_ = IsIpv4Active();
@@ -1114,10 +1111,9 @@ bool VmInterface::Resync(const InterfaceTable *table,
 
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
-                old_addr, old_ethernet_tag, old_need_linklocal_ip, sg_changed,
-                old_ipv6_active, old_v6_addr, ecmp_changed,
-                local_pref_changed, old_subnet, old_subnet_plen,
-                old_dhcp_enable, old_layer3_forwarding);
+                old_addr, old_ethernet_tag, old_need_linklocal_ip,
+                old_ipv6_active, old_v6_addr, old_subnet, old_subnet_plen,
+                old_dhcp_enable, old_layer3_forwarding, force_update);
 
     return ret;
 }
@@ -1300,6 +1296,15 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
 void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
                                           bool old_l2_active,
                                           bool old_dhcp_enable) {
+    //Update DHCP and DNS flag in Interface Class.
+    if (dhcp_enable_) {
+        dhcp_enabled_ = true;
+        dns_enabled_ = true;
+    } else {
+        dhcp_enabled_ = false;
+        dns_enabled_ = false;
+    }
+
     if (L2Deactivated(old_l2_active)) {
         DeleteMacVmBinding(old_vrf);
         return;
@@ -1317,13 +1322,13 @@ void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy,
                               VrfEntry *old_vrf, const Ip4Address &old_addr,
                               int old_ethernet_tag, bool old_need_linklocal_ip,
-                              bool sg_changed, bool old_ipv6_active,
-                              const Ip6Address &old_v6_addr, bool ecmp_mode_changed,
-                              bool local_pref_changed,
+                              bool old_ipv6_active,
+                              const Ip6Address &old_v6_addr,
                               const Ip4Address &old_subnet,
                               uint8_t old_subnet_plen,
                               bool old_dhcp_enable,
-                              bool old_layer3_forwarding) {
+                              bool old_layer3_forwarding,
+                              bool force_update) {
     ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
@@ -1333,11 +1338,6 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
          device_type_ == VmInterface::DEVICE_TYPE_INVALID) &&
         (old_subnet.is_unspecified() && old_subnet_plen == 0)) {
         return;
-    }
-
-    bool force_update = false;
-    if (sg_changed || ecmp_mode_changed | local_pref_changed) {
-        force_update = true;
     }
 
     bool policy_change = (policy_enabled_ != old_policy);
@@ -1350,14 +1350,6 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
 
     if (vrf_ && vmi_type() == GATEWAY) {
         vrf_->CreateTableLabel();
-    }
-
-    //Irrespective of interface state, if ipv4 forwarding mode is enabled
-    //enable L3 services on this interface
-    if (layer3_forwarding_) {
-        UpdateL3Services(dhcp_enable_, true);
-    } else {
-        UpdateL3Services(false, false);
     }
 
     // Add/Del/Update L3 
@@ -1485,11 +1477,19 @@ bool VmInterfaceConfigData::OnDelete(const InterfaceTable *table,
 }
 
 bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
-                                     VmInterface *vmi, bool *sg_changed,
-                                     bool *ecmp_changed,
-                                     bool *local_pref_changed) const {
-    return vmi->CopyConfig(table, this, sg_changed, ecmp_changed,
-                           local_pref_changed);
+                                     VmInterface *vmi,
+                                     bool *force_update) const {
+    bool sg_changed = false;
+    bool ecmp_changed = false;
+    bool local_pref_changed = false;
+    bool ret = false;
+
+    ret = vmi->CopyConfig(table, this, &sg_changed, &ecmp_changed,
+                          &local_pref_changed);
+    if (sg_changed || ecmp_changed || local_pref_changed)
+        *force_update = true;
+
+    return ret;
 }
 
 // Copies configuration from DB-Request data. The actual applying of 
@@ -1545,6 +1545,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             ret = true;
         }
 
+        bool bridging_val = vn ? vn->bridging() : false;
+        if (bridging_ != bridging_val) {
+            bridging_ = bridging_val;
+            ret = true;
+        }
+
         int vxlan_id = vn ? vn->GetVxLanId() : 0;
         if (vxlan_id_ != vxlan_id) {
             vxlan_id_ = vxlan_id;
@@ -1565,20 +1571,18 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    bool val = layer3_forwarding_ ? data->need_linklocal_ip_ : false;
-    if (need_linklocal_ip_ != val) {
-        need_linklocal_ip_ = val;
+    if (need_linklocal_ip_ != data->need_linklocal_ip_) {
+        need_linklocal_ip_ = data->need_linklocal_ip_;
         ret = true;
     }
 
     // CopyIpAddress uses fabric_port_. So, set it before CopyIpAddresss
-    val = layer3_forwarding_ ? data->fabric_port_ : false;
-    if (fabric_port_ != val) {
-        fabric_port_ = val;
+    if (fabric_port_ != data->fabric_port_) {
+        fabric_port_ = data->fabric_port_;
         ret = true;
     }
 
-    Ip4Address ipaddr = layer3_forwarding_ ? data->addr_ : Ip4Address(0);
+    Ip4Address ipaddr = data->addr_;
     if (CopyIpAddress(ipaddr)) {
         ret = true;
     }
@@ -1586,9 +1590,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    bool dhcp_enable = layer3_forwarding_ ? data->dhcp_enable_: false;
-    if (dhcp_enable_ != dhcp_enable) {
-        dhcp_enable_ = dhcp_enable;
+    if (dhcp_enable_ != data->dhcp_enable_) {
+        dhcp_enable_ = data->dhcp_enable_;
         ret = true;
     }
 
@@ -1809,9 +1812,8 @@ bool VmInterfaceNovaData::OnDelete(const InterfaceTable *table,
 }
 
 bool VmInterfaceNovaData::OnResync(const InterfaceTable *table,
-                                   VmInterface *vmi, bool *sg_changed,
-                                   bool *ecmp_changed,
-                                   bool *local_pref_changed) const {
+                                   VmInterface *vmi,
+                                   bool *force_update) const {
     bool ret = false;
 
     if (vmi->vm_project_uuid_ != vm_project_uuid_) {
@@ -1837,9 +1839,8 @@ bool VmInterfaceNovaData::OnResync(const InterfaceTable *table,
 // VmInterfaceMirrorData routines
 /////////////////////////////////////////////////////////////////////////////
 bool VmInterfaceMirrorData::OnResync(const InterfaceTable *table,
-                                     VmInterface *vmi, bool *sg_changed,
-                                     bool *ecmp_changed,
-                                     bool *local_pref_changed) const {
+                                     VmInterface *vmi,
+                                     bool *force_update) const {
     bool ret = false;
 
     MirrorEntry *mirror_entry = NULL;
@@ -1862,9 +1863,8 @@ bool VmInterfaceMirrorData::OnResync(const InterfaceTable *table,
 // For interfaces in IP Fabric VRF, we send DHCP requests to external servers
 // if config doesnt provide an address. This address is updated here.
 bool VmInterfaceIpAddressData::OnResync(const InterfaceTable *table,
-                                        VmInterface *vmi, bool *sg_changed,
-                                        bool *ecmp_changed,
-                                        bool *local_pref_changed) const {
+                                        VmInterface *vmi,
+                                        bool *force_update) const {
     bool ret = false;
 
     if (vmi->os_index_ == VmInterface::kInvalidIndex) {
@@ -1891,9 +1891,8 @@ bool VmInterfaceIpAddressData::OnResync(const InterfaceTable *table,
 /////////////////////////////////////////////////////////////////////////////
 // Resync oper-state for the interface
 bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
-                                          VmInterface *vmi, bool *sg_changed,
-                                          bool *ecmp_changed,
-                                          bool *local_pref_changed) const {
+                                          VmInterface *vmi,
+                                          bool *force_update) const {
     bool ret = false;
 
     uint32_t old_os_index = vmi->os_index_;
@@ -1910,6 +1909,28 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
 
     vmi->ipv6_active_ = vmi->IsIpv6Active();
     if (vmi->ipv6_active_ != old_ipv6_active)
+        ret = true;
+
+    return ret;
+}
+
+bool VmInterfaceGlobalVrouterData::OnResync(const InterfaceTable *table,
+                                            VmInterface *vmi,
+                                            bool *force_update) const {
+    bool ret = false;
+
+    if (bridging_ != vmi->bridging_) {
+        vmi->bridging_ = bridging_;
+        *force_update = true;
+        ret = true;
+    }
+    if (layer3_forwarding_ != vmi->layer3_forwarding_) {
+        vmi->layer3_forwarding_ = layer3_forwarding_;
+        *force_update = true;
+        ret = true;
+    }
+
+    if (vxlan_id_ != vmi->vxlan_id_)
         ret = true;
 
     return ret;
@@ -1998,6 +2019,9 @@ bool VmInterface::IsActive()  const {
     if (os_index_ == kInvalidIndex)
         return false;
 
+    if (os_oper_state_ == false)
+        return false;
+
     return mac_set_;
 }
 
@@ -2014,9 +2038,6 @@ bool VmInterface::IsIpv4Active() const {
         return false;
     }
 
-    if (os_oper_state_ == false)
-        return false;
-
     return IsActive();
 }
 
@@ -2024,20 +2045,6 @@ bool VmInterface::IsIpv6Active() const {
     if (!layer3_forwarding() || (ip6_addr_.is_unspecified())) {
         return false;
     }
-
-    if (os_oper_state_ == false)
-        return false;
-
-    return IsActive();
-}
-
-bool VmInterface::IsL3Active() const {
-    if (!layer3_forwarding() || (ip6_addr_.is_unspecified())) {
-        return false;
-    }
-
-    if (os_oper_state_ == false)
-        return false;
 
     return IsActive();
 }
@@ -2047,14 +2054,12 @@ bool VmInterface::IsL2Active() const {
         return false;
     }
 
-    if (os_oper_state_ == false)
-        return false;
-
     return IsActive();
 }
 
 bool VmInterface::WaitForTraffic() const {
-    if (IsActive() == false) {
+    // do not continue if the interface is inactive or if the VRF is deleted
+    if (IsActive() == false || vrf_->IsDeleted()) {
         return false;
     }
 
@@ -2382,7 +2387,8 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
+            InetUnicastAgentRouteTable::ReEvaluatePaths(agent(),
+                                                        vrf_->GetName(),
                                                         ip_addr_, 32);
         }
     }
@@ -2430,7 +2436,8 @@ void VmInterface::UpdateIpv6InterfaceRoute(bool old_ipv6_active, bool force_upda
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
+            InetUnicastAgentRouteTable::ReEvaluatePaths(agent(),
+                                                        vrf_->GetName(),
                                                         ip6_addr_, 128);
         }
     }
@@ -2991,11 +2998,6 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
     return;
 }
 
-void VmInterface::UpdateL3Services(bool dhcp, bool dns) {
-    dhcp_enabled_ = dhcp;
-    dns_enabled_ = dns;
-}
-
 // DHCP options applicable to the Interface
 bool VmInterface::GetInterfaceDhcpOptions(
                   std::vector<autogen::DhcpOptionType> *options) const {
@@ -3278,7 +3280,8 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
+        InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
+                                                    vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
         if (addr_.is_v4()) {
             ecmp = interface->ecmp();
@@ -3459,7 +3462,8 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
+        InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
+                                                    vrf_, addr_, plen_);
     } else if (installed_ == false || force_update || gw_ip_ != ip) {
         gw_ip_ = ip;
         Ip4Address dependent_rt = Ip4Address(0);

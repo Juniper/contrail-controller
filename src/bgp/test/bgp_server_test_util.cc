@@ -30,12 +30,14 @@
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
+using boost::uuids::nil_generator;
 using namespace boost::asio;
 using namespace boost;
 using namespace std;
 
 int StateMachineTest::hold_time_msecs_ = 0;
 int StateMachineTest::keepalive_time_msecs_ = 0;
+int XmppStateMachineTest::hold_time_msecs_ = 0;
 
 //
 // This is a static data structure that maps client tcp end points to configured
@@ -133,7 +135,7 @@ BgpPeer *BgpServerTest::FindPeer(const char *routing_instance,
     return rti->peer_manager()->PeerLookup(name);
 }
 
-const BgpPeer *BgpServerTest::FindMatchingPeer(const char *routing_instance,
+BgpPeer *BgpServerTest::FindMatchingPeer(const char *routing_instance,
                                                const std::string &name) {
     RoutingInstance *rti = inst_mgr_->GetRoutingInstance(routing_instance);
     PeerManager *peer_manager = rti->peer_manager();
@@ -143,6 +145,20 @@ const BgpPeer *BgpServerTest::FindMatchingPeer(const char *routing_instance,
             return it.second;
     }
     return NULL;
+}
+
+void BgpServerTest::DisableAllPeers() {
+    for (BgpPeerList::iterator it = peer_list_.begin();
+         it != peer_list_.end(); ++it) {
+        it->second->SetAdminState(true);
+    }
+}
+
+void BgpServerTest::EnableAllPeers() {
+    for (BgpPeerList::iterator it = peer_list_.begin();
+         it != peer_list_.end(); ++it) {
+        it->second->SetAdminState(false);
+    }
 }
 
 string BgpServerTest::ToString() const {
@@ -250,6 +266,9 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
         if (!config_->uuid().empty()) {
             boost::uuids::string_generator gen;
             peer_key.uuid = gen(config_->uuid());
+        } else {
+            boost::uuids::nil_generator nil;
+            peer_key.uuid == nil();
         }
         tbb::mutex::scoped_lock lock(peer_connect_map_mutex_);
         peer_connect_map_[local_endpoint] = peer_key;
@@ -267,25 +286,24 @@ PeerManagerTest::PeerManagerTest(RoutingInstance *instance)
 BgpPeer *PeerManagerTest::PeerLocate(
     BgpServer *server, const BgpNeighborConfig *config) {
     BgpPeer *peer = PeerManager::PeerLocate(server, config);
-    PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer->peer_key().uuid);
-
-    if (loc != peers_by_uuid_.end()) {
-        if (peer != loc->second) {
-            assert(peer == loc->second);
-        }
-        return peer;
+    boost::uuids::nil_generator nil;
+    if (peer->peer_key().uuid != nil()) {
+        PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer->peer_key().uuid);
+        assert(loc == peers_by_uuid_.end() || peer == loc->second);
+        peers_by_uuid_.insert(make_pair(peer->peer_key().uuid, peer));
     }
-
-    peers_by_uuid_.insert(make_pair(peer->peer_key().uuid, peer));
     return peer;
 }
 
 void PeerManagerTest::DestroyIPeer(IPeer *ipeer) {
     BgpPeerTest *peer = static_cast<BgpPeerTest *>(ipeer);
-    PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer->peer_key().uuid);
-
-    assert(loc != peers_by_uuid_.end());
-    peers_by_uuid_.erase(loc);
+    boost::uuids::nil_generator nil;
+    if (peer->peer_key().uuid != nil()) {
+        PeerByUuidMap::iterator loc =
+            peers_by_uuid_.find(peer->peer_key().uuid);
+        assert(loc != peers_by_uuid_.end());
+        peers_by_uuid_.erase(loc);
+    }
     PeerManager::DestroyIPeer(ipeer);
 }
 
@@ -308,6 +326,9 @@ BgpPeer *PeerManagerTest::PeerLookup(ip::tcp::endpoint remote_endpoint) {
     if (present) {
         BGP_DEBUG_UT("Peer key found in peer_connect_map_, peer_key.endpoint: "
             << peer_key.endpoint << ", uuid: " <<  peer_key.uuid);
+        boost::uuids::nil_generator nil;
+        if (peer_key.uuid == nil())
+            return PeerManager::PeerLookup(remote_endpoint);
     } else {
         peer_key.endpoint = remote_endpoint;
         BGP_WARN_UT("Peer key not found in peer_connect_map_, "

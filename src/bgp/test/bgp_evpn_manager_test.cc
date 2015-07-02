@@ -121,6 +121,8 @@ public:
         count = 0;
         return count;
     }
+    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual int GetPrimaryPathCount() const { return 0; }
 
 private:
     int index_;
@@ -157,7 +159,7 @@ protected:
     static const int kVrfId = 1;
     static const int kVnIndex = 1;
 
-    BgpEvpnManagerTest() : thread_(&evm_) {
+    BgpEvpnManagerTest() : thread_(&evm_), tag_(0) {
     }
 
     virtual void SetUp() {

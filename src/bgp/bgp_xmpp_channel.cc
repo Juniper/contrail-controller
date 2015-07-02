@@ -45,6 +45,20 @@
 #include "xmpp/xmpp_server.h"
 #include "xmpp/sandesh/xmpp_peer_info_types.h"
 
+using autogen::EnetItemType;
+using autogen::EnetNextHopListType;
+using autogen::EnetSecurityGroupListType;
+using autogen::EnetTunnelEncapsulationListType;
+
+using autogen::McastItemType;
+using autogen::McastNextHopsType;
+using autogen::McastTunnelEncapsulationListType;
+
+using autogen::ItemType;
+using autogen::NextHopListType;
+using autogen::SecurityGroupListType;
+using autogen::TunnelEncapsulationListType;
+
 using boost::system::error_code;
 using pugi::xml_node;
 using std::auto_ptr;
@@ -317,6 +331,7 @@ public:
           send_ready_(true),
           deleted_at_(0) {
         refcount_ = 0;
+        primary_path_count_ = 0;
     }
 
     virtual ~XmppPeer() {
@@ -385,6 +400,12 @@ public:
 
     virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
+    virtual void UpdatePrimaryPathCount(int count) const {
+        primary_path_count_ += count;
+    }
+    virtual int GetPrimaryPathCount() const {
+         return primary_path_count_;
+    }
 
 private:
     void WriteReadyCb(const boost::system::error_code &ec) {
@@ -403,6 +424,7 @@ private:
     BgpServer *server_;
     BgpXmppChannel *parent_;
     mutable tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> primary_path_count_;
     bool is_deleted_;
     bool send_ready_;
     uint64_t deleted_at_;
@@ -469,6 +491,8 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       lb_mgr_(new LabelBlockManager()) {
     channel_->RegisterReceive(peer_id_,
          boost::bind(&BgpXmppChannel::ReceiveUpdate, this, _1));
+    BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Created");
 }
 
 BgpXmppChannel::~BgpXmppChannel() {
@@ -482,6 +506,8 @@ BgpXmppChannel::~BgpXmppChannel() {
         manager_->decrement_closing_count();
     STLDeleteElements(&defer_q_);
     assert(peer_->IsDeleted());
+    BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Deleted");
     channel_->UnRegisterReceive(peer_id_);
 }
 
@@ -707,6 +733,10 @@ IPeer *BgpXmppChannel::Peer() {
     return peer_.get();
 }
 
+const IPeer *BgpXmppChannel::Peer() const {
+    return peer_.get();
+}
+
 boost::asio::ip::tcp::endpoint BgpXmppChannel::endpoint() const {
     return channel_->connection()->endpoint();
 }
@@ -717,8 +747,6 @@ bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
     case BgpAf::IPv4:
         break;
     default:
-        BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_IN, "Unsupported address family:" << af);
         return false;
     }
 
@@ -727,7 +755,7 @@ bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
     if (error) {
         return false;
     }
-    if (zero_ok ) {
+    if (zero_ok) {
         return true;
     } else {
         return (addrp->to_v4().to_ulong() != 0);
@@ -824,29 +852,29 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
 }
 
 bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
-                                      const pugi::xml_node &node,
-                                      bool add_change) {
-    autogen::McastItemType item;
+    const pugi::xml_node &node, bool add_change) {
+    McastItemType item;
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                              BGP_LOG_FLAG_ALL,
-                              "Invalid multicast message received");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Invalid multicast route message received");
         return false;
     }
 
     if (item.entry.nlri.af != BgpAf::IPv4) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-           BGP_LOG_FLAG_ALL, "Unsupported address family:" << item.entry.nlri.af
-           << " for multicast route");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Unsupported address family " << item.entry.nlri.af <<
+            " for multicast route");
         return false;
     }
 
     if (item.entry.nlri.safi != BgpAf::Mcast) {
         BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-            BGP_LOG_FLAG_ALL, "Unsupported safi:" << item.entry.nlri.safi <<
-            " for multicast route");
+            BGP_LOG_FLAG_ALL, "Unsupported subsequent address family " <<
+            item.entry.nlri.safi << " for multicast route");
         return false;
     }
 
@@ -857,8 +885,7 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
             item.entry.nlri.group, &grp_address, false)) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Error parsing group address:" << item.entry.nlri.group <<
-                " for family:" << item.entry.nlri.af);
+                "Bad group address " << item.entry.nlri.group);
             return false;
         }
     }
@@ -869,8 +896,7 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
             item.entry.nlri.source, &src_address, true)) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Error parsing source address:" << item.entry.nlri.source <<
-                " for family:" << item.entry.nlri.af);
+                "Bad source address " << item.entry.nlri.source);
             return false;
         }
     }
@@ -895,35 +921,40 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
 
     uint32_t flags = 0;
     ExtCommunitySpec ext;
+    string label_range("none");
 
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         vector<uint32_t> labels;
+        const McastNextHopsType &inh_list = item.entry.next_hops;
 
-        if (item.entry.next_hops.next_hop.empty()) {
+        if (inh_list.next_hop.empty()) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Missing next-hop for mcast route " << mc_prefix.ToString());
+                "Missing next-hop for multicast route " <<
+                mc_prefix.ToString());
             return false;
         }
 
         // Agents should send only one next-hop in the item
-        if (item.entry.next_hops.next_hop.size() != 1) {
+        if (inh_list.next_hop.size() != 1) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "More than one nexthop received for the group:"
-                    << item.entry.nlri.group);
-                return false;
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "More than one nexthop received for multicast route " <<
+                mc_prefix.ToString());
+            return false;
         }
 
+        McastNextHopsType::const_iterator nit = inh_list.begin();
+
         // Label Allocation item.entry.label by parsing the range
-        if (!stringToIntegerList(
-            item.entry.next_hops.next_hop[0].label, "-", labels) ||
+        label_range = nit->label;
+        if (!stringToIntegerList(label_range, "-", labels) ||
             labels.size() != 2) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Bad label block range: " <<
-                item.entry.next_hops.next_hop[0].label);
+                "Bad label range " << label_range <<
+                " for multicast route " << mc_prefix.ToString());
             return false;
         }
 
@@ -935,51 +966,42 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
 
         // Next-hop ip address
         IpAddress nh_address;
-        if (!XmppDecodeAddress(item.entry.next_hops.next_hop[0].af,
-            item.entry.next_hops.next_hop[0].address, &nh_address)) {
+        if (!XmppDecodeAddress(nit->af, nit->address, &nh_address)) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Error parsing nexthop address: " <<
-                item.entry.next_hops.next_hop[0].address <<
-                " family: " << item.entry.next_hops.next_hop[0].af <<
-                " for multicast route");
+                "Bad nexthop address " << nit->address <<
+                " for multicast route " << mc_prefix.ToString());
             return false;
         }
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
-        // Tunnel Encap list
+        // Process tunnel encapsulation list.
+        bool no_tunnel_encap = true;
         bool no_valid_tunnel_encap = true;
-        for (vector<string>::const_iterator it =
-             item.entry.next_hops.next_hop[0].tunnel_encapsulation_list.begin();
-             it !=
-             item.entry.next_hops.next_hop[0].tunnel_encapsulation_list.end();
-             it++) {
-             TunnelEncap tun_encap(*it);
-             if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                 continue;
-             no_valid_tunnel_encap = false;
-             ext.communities.push_back(tun_encap.GetExtCommunityValue());
+        for (McastTunnelEncapsulationListType::const_iterator eit =
+             nit->tunnel_encapsulation_list.begin();
+             eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+            no_tunnel_encap = false;
+            TunnelEncap tun_encap(*eit);
+            if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                continue;
+            no_valid_tunnel_encap = false;
+            ext.communities.push_back(tun_encap.GetExtCommunityValue());
 
-             string alt_encap_string = *it + "-contrail";
-             TunnelEncap alt_tun_encap(alt_encap_string);
-             if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                 continue;
-             ext.communities.push_back(alt_tun_encap.GetExtCommunityValue());
+            string alt_encap_string = *eit + "-contrail";
+            TunnelEncap alt_tun_encap(alt_encap_string);
+            if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                continue;
+            ext.communities.push_back(alt_tun_encap.GetExtCommunityValue());
         }
 
-        // If all of the tunnel encaps published by the agent is invalid,
-        // mark the path as infeasible
-        // If agent has not published any tunnel encap, default the tunnel
-        // encap to "gre"
-        const autogen::McastNextHopType &next_hop =
-            item.entry.next_hops.next_hop[0];
-        if (!next_hop.tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
-            no_valid_tunnel_encap) {
+        // Mark the path as infeasible if all tunnel encaps published
+        // by agent are invalid.
+        if (!no_tunnel_encap && no_valid_tunnel_encap) {
             flags = BgpPath::NoTunnelEncap;
         }
 
-        // We may have extended communities for tunnel encapsulation.
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
@@ -991,54 +1013,45 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         stats_[RX].unreach++;
     }
 
-
+    // Defer all requests till subscribe is processed.
     if (subscribe_pending) {
-        //
-        // We will Q all route request till register request is processed
-        //
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         string table_name =
             RoutingInstance::GetTableName(vrf_name, Address::ERMVPN);
-        defer_q_.insert(make_pair(make_pair(vrf_name, table_name),
-                                       request_entry));
+        defer_q_.insert(make_pair(
+            make_pair(vrf_name, table_name), request_entry));
         return true;
     }
 
     assert(table);
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                          SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                          "Inet Multicast Group"
-                               << item.entry.nlri.group <<
-                               " Source " << item.entry.nlri.source <<
-                               " Label Range: " <<
-                               ((item.entry.next_hops.next_hop.size() == 1) ?
-                                 item.entry.next_hops.next_hop[0].label.c_str():
-                                 "Invalid Label Range")
-                               << " from peer:" << peer_->ToString() <<
-                               " is enqueued for " <<
-                               (add_change ? "add/change" : "delete"));
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Multicast group " << item.entry.nlri.group <<
+        " source " << item.entry.nlri.source <<
+        " and label range " << label_range <<
+        " enqueued for " << (add_change ? "add/change" : "delete"));
     table->Enqueue(&req);
     return true;
 }
 
 bool BgpXmppChannel::ProcessItem(string vrf_name,
-                                 const pugi::xml_node &node, bool add_change) {
-    autogen::ItemType item;
+    const pugi::xml_node &node, bool add_change) {
+    ItemType item;
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Invalid message received");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Invalid inet route message received");
         return false;
     }
 
-    // NLRI ipaddress/mask
     if (item.entry.nlri.af != BgpAf::IPv4) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Unsupported address family");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Unsupported address family " << item.entry.nlri.af <<
+            " for inet route " << item.entry.nlri.address);
         return false;
     }
 
@@ -1046,10 +1059,9 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
     Ip4Prefix rt_prefix = Ip4Prefix::FromString(item.entry.nlri.address,
                                                 &error);
     if (error) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Bad address string: " <<
-                                   item.entry.nlri.address);
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Bad inet route " << item.entry.nlri.address);
         return false;
     }
 
@@ -1074,58 +1086,57 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         BgpAttrSpec attrs;
+        const NextHopListType &inh_list = item.entry.next_hops;
 
-        if (item.entry.next_hops.next_hop.empty()) {
+        if (inh_list.next_hop.empty()) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Missing next-hops for inet route " << rt_prefix.ToString());
             return false;
         }
 
-        for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
+        bool first_nh = true;
+        for (NextHopListType::const_iterator nit = inh_list.begin();
+             nit != inh_list.end(); ++nit, first_nh = false) {
             InetTable::RequestData::NextHop nexthop;
 
             IpAddress nhop_address(Ip4Address(0));
-            if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
-                item.entry.next_hops.next_hop[i].address, &nhop_address)) {
+            if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
                 BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                     SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Error parsing nexthop address: " <<
-                    item.entry.next_hops.next_hop[i].address <<
-                    " family: " << item.entry.next_hops.next_hop[i].af <<
-                    " for inet route");
+                    "Bad nexthop address " << nit->address <<
+                    " for inet route " << rt_prefix.ToString());
                 return false;
             }
 
-            if (i == 0) {
+            if (first_nh) {
                 nh_address = nhop_address;
-                label = item.entry.next_hops.next_hop[0].label;
+                label = nit->label;
             }
 
+            // Process tunnel encapsulation list.
+            bool no_tunnel_encap = true;
             bool no_valid_tunnel_encap = true;
-
-            // Tunnel Encap list
-            for (vector<string>::const_iterator it =
-                item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.begin();
-                it !=
-                    item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
-                it++) {
-                TunnelEncap tun_encap(*it);
+            for (TunnelEncapsulationListType::const_iterator eit =
+                 nit->tunnel_encapsulation_list.begin();
+                 eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+                no_tunnel_encap = false;
+                TunnelEncap tun_encap(*eit);
                 if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
                 no_valid_tunnel_encap = false;
-                if (i == 0) {
+                if (first_nh) {
                     ext.communities.push_back(
                         tun_encap.GetExtCommunityValue());
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
 
-                string alt_encap_string = *it + "-contrail";
+                string alt_encap_string = *eit + "-contrail";
                 TunnelEncap alt_tun_encap(alt_encap_string);
                 if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
-                if (i == 0) {
+                if (first_nh) {
                     ext.communities.push_back(
                         alt_tun_encap.GetExtCommunityValue());
                 }
@@ -1133,20 +1144,16 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                     alt_tun_encap.GetExtCommunity());
             }
 
-            // If all of the tunnel encaps published by the agent are
-            // invalid, mark the path as infeasible. If agent has not
-            // published any tunnel encap, default the tunnel encap to "gre"
-            if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
-                no_valid_tunnel_encap) {
+            // Mark the path as infeasible if all tunnel encaps published
+            // by agent are invalid.
+            if (!no_tunnel_encap && no_valid_tunnel_encap) {
                 flags = BgpPath::NoTunnelEncap;
             }
-
             nexthop.flags_ = flags;
             nexthop.address_ = nhop_address;
-            nexthop.label_ = item.entry.next_hops.next_hop[i].label;
+            nexthop.label_ = nit->label;
             nexthop.source_rd_ = RouteDistinguisher(
-                nhop_address.to_v4().to_ulong(),
-                instance_id);
+                nhop_address.to_v4().to_ulong(), instance_id);
             nexthops.push_back(nexthop);
         }
 
@@ -1161,16 +1168,14 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
         attrs.push_back(&source_rd);
 
-        // SGID list
-        for (vector<int>::iterator it =
-             item.entry.security_group_list.security_group.begin();
-             it != item.entry.security_group_list.security_group.end();
-             it++) {
-            SecurityGroup sg(bgp_server_->autonomous_system(), *it);
+        // Process security group list.
+        const SecurityGroupListType &isg_list = item.entry.security_group_list;
+        for (SecurityGroupListType::const_iterator sit = isg_list.begin();
+             sit != isg_list.end(); ++sit) {
+            SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
 
-        // Seq number
         if (item.entry.sequence_number) {
             MacMobility mm(item.entry.sequence_number);
             ext.communities.push_back(mm.GetExtCommunityValue());
@@ -1188,58 +1193,66 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         stats_[RX].unreach++;
     }
 
-    // Defer all route requests till register request is processed
+    // Defer all requests till subscribe is processed.
     if (subscribe_pending) {
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         string table_name =
             RoutingInstance::GetTableName(vrf_name, Address::INET);
-        defer_q_.insert(make_pair(make_pair(vrf_name, table_name),
-                                       request_entry));
+        defer_q_.insert(make_pair(
+            make_pair(vrf_name, table_name), request_entry));
         return true;
     }
 
     assert(table);
-
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                               "Inet route " << item.entry.nlri.address <<
-                               " with next-hop " << nh_address
-                               << " and label " << label
-                               <<  " is enqueued for "
-                               << (add_change ? "add/change" : "delete"));
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Inet route " << item.entry.nlri.address <<
+        " with next-hop " << nh_address << " and label " << label <<
+        " enqueued for " << (add_change ? "add/change" : "delete"));
     table->Enqueue(&req);
     return true;
 }
 
 bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
-        const pugi::xml_node &node, bool add_change) {
-    autogen::ItemType item;
+    const pugi::xml_node &node, bool add_change) {
+    ItemType item;
     item.Clear();
 
     if (!item.XmlParse(node)) {
         error_stats().incr_inet6_rx_bad_xml_token_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                              BGP_LOG_FLAG_ALL, "Invalid message received");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Invalid inet6 route message received");
         return false;
     }
 
-    // NLRI ipaddress/mask
-    if ((item.entry.nlri.af != BgpAf::IPv6) ||
-        (item.entry.nlri.safi != BgpAf::Unicast)) {
+    if (item.entry.nlri.af != BgpAf::IPv6) {
         error_stats().incr_inet6_rx_bad_afi_safi_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                              BGP_LOG_FLAG_ALL, "Unsupported address family");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Unsupported address family " << item.entry.nlri.af <<
+            " for inet6 route " << item.entry.nlri.address);
+        return false;
+    }
+
+    if (item.entry.nlri.safi != BgpAf::Unicast) {
+        error_stats().incr_inet6_rx_bad_afi_safi_count();
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Unsupported subsequent address family " << item.entry.nlri.safi <<
+            " for inet6 route " << item.entry.nlri.address);
         return false;
     }
 
     error_code error;
-    Inet6Prefix rt_prefix = Inet6Prefix::FromString(item.entry.nlri.address,
-                                                    &error);
+    Inet6Prefix rt_prefix =
+        Inet6Prefix::FromString(item.entry.nlri.address, &error);
     if (error) {
         error_stats().incr_inet6_rx_bad_prefix_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-           BGP_LOG_FLAG_ALL, "Bad address string: " << item.entry.nlri.address);
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Bad inet6 route " << item.entry.nlri.address);
         return false;
     }
 
@@ -1264,61 +1277,58 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         BgpAttrSpec attrs;
+        const NextHopListType &inh_list = item.entry.next_hops;
 
-        if (item.entry.next_hops.next_hop.empty()) {
+        if (inh_list.next_hop.empty()) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Missing next-hops for inet6 route " << rt_prefix.ToString());
             return false;
         }
 
-        for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); ++i) {
+        bool first_nh = true;
+        for (NextHopListType::const_iterator nit = inh_list.begin();
+             nit != inh_list.end(); ++nit, first_nh = false) {
             Inet6Table::RequestData::NextHop nexthop;
 
             IpAddress nhop_address(Ip4Address(0));
-            if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
-                item.entry.next_hops.next_hop[i].address, &nhop_address)) {
+            if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
                 error_stats().incr_inet6_rx_bad_nexthop_count();
                 BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                     SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Error parsing nexthop address: " <<
-                    item.entry.next_hops.next_hop[i].address <<
-                    " family: " << item.entry.next_hops.next_hop[i].af <<
-                    " for inet6 route");
+                    "Bad nexthop address " << nit->address <<
+                    " for inet6 route " << rt_prefix.ToString());
                 return false;
             }
 
-            if (i == 0) {
+            if (first_nh) {
                 nh_address = nhop_address;
-                label = item.entry.next_hops.next_hop[0].label;
+                label = nit->label;
             }
 
+            // Process tunnel encapsulation list.
+            bool no_tunnel_encap = true;
             bool no_valid_tunnel_encap = true;
-
-            // Tunnel Encap list
-            for (vector<string>::const_iterator it =
-                item.entry.next_hops.next_hop[i].
-                tunnel_encapsulation_list.begin();
-                it !=
-                    item.entry.next_hops.next_hop[i].
-                    tunnel_encapsulation_list.end();
-                ++it) {
-                TunnelEncap tun_encap(*it);
+            for (TunnelEncapsulationListType::const_iterator eit =
+                 nit->tunnel_encapsulation_list.begin();
+                 eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+                no_tunnel_encap = false;
+                TunnelEncap tun_encap(*eit);
                 if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
                 no_valid_tunnel_encap = false;
-                if (i == 0) {
+                if (first_nh) {
                     ext.communities.push_back(
                         tun_encap.GetExtCommunityValue());
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
 
-                string alt_encap_string = *it + "-contrail";
+                string alt_encap_string = *eit + "-contrail";
                 TunnelEncap alt_tun_encap(alt_encap_string);
                 if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
-                if (i == 0) {
+                if (first_nh) {
                     ext.communities.push_back(
                         alt_tun_encap.GetExtCommunityValue());
                 }
@@ -1326,17 +1336,15 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                     alt_tun_encap.GetExtCommunity());
             }
 
-            // If all of the tunnel encaps published by the agent are
-            // invalid, mark the path as infeasible. If agent has not
-            // published any tunnel encap, default the tunnel encap to "gre"
-            if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.
-                tunnel_encapsulation.empty() && no_valid_tunnel_encap) {
+            // Mark the path as infeasible if all tunnel encaps published
+            // by agent are invalid.
+            if (!no_tunnel_encap && no_valid_tunnel_encap) {
                 flags = BgpPath::NoTunnelEncap;
             }
 
             nexthop.flags_ = flags;
             nexthop.address_ = nhop_address;
-            nexthop.label_ = item.entry.next_hops.next_hop[i].label;
+            nexthop.label_ = nit->label;
             nexthop.source_rd_ = RouteDistinguisher(
                 nhop_address.to_v4().to_ulong(), instance_id);
             nexthops.push_back(nexthop);
@@ -1354,12 +1362,11 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
         attrs.push_back(&source_rd);
 
-        // SGID list
-        for (vector<int>::iterator it =
-                 item.entry.security_group_list.security_group.begin();
-             it != item.entry.security_group_list.security_group.end();
-             ++it) {
-            SecurityGroup sg(bgp_server_->autonomous_system(), *it);
+        // Process security group list.
+        const SecurityGroupListType &isg_list = item.entry.security_group_list;
+        for (SecurityGroupListType::const_iterator sit = isg_list.begin();
+             sit != isg_list.end(); ++sit) {
+            SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
 
@@ -1381,52 +1388,52 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         stats_[RX].unreach++;
     }
 
-    // Defer all route requests till register request is processed
+    // Defer all requests till subscribe is processed.
     if (subscribe_pending) {
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         string table_name =
             RoutingInstance::GetTableName(vrf_name, Address::INET6);
-        defer_q_.insert(make_pair(make_pair(vrf_name, table_name),
-                                       request_entry));
+        defer_q_.insert(make_pair(
+            make_pair(vrf_name, table_name), request_entry));
         return true;
     }
 
     assert(table);
-
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE, "Inet6 route "
-        << item.entry.nlri.address << " with next-hop " << nh_address
-        << " and label " << label <<  " is enqueued for "
-        << (add_change ? "add/change" : "delete"));
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Inet6 route " << item.entry.nlri.address <<
+        " with next-hop " << nh_address << " and label " << label <<
+        " enqueued for " << (add_change ? "add/change" : "delete"));
     table->Enqueue(&req);
     return true;
 }
 
 bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
-                                     const pugi::xml_node &node,
-                                     bool add_change) {
-    autogen::EnetItemType item;
+    const pugi::xml_node &node, bool add_change) {
+    EnetItemType item;
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Invalid message received");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Invalid enet route message received");
         return false;
     }
 
     if (item.entry.nlri.af != BgpAf::L2Vpn) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Unsupported address family");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Unsupported address family " << item.entry.nlri.af <<
+            " for enet route " << item.entry.nlri.address);
         return false;
     }
 
     if (item.entry.nlri.safi != BgpAf::Enet) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Unsupported subsequent address family");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Unsupported subsequent address family " << item.entry.nlri.safi <<
+            " for enet route " << item.entry.nlri.mac);
         return false;
     }
 
@@ -1434,10 +1441,9 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     MacAddress mac_addr = MacAddress::FromString(item.entry.nlri.mac, &error);
 
     if (error) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Bad mac address string: " <<
-                                   item.entry.nlri.mac);
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            "Bad mac address " << item.entry.nlri.mac);
         return false;
     }
 
@@ -1449,7 +1455,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         if (pos == string::npos) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Missing / in address string: " << item.entry.nlri.address);
+                "Missing / in address " << item.entry.nlri.address);
             return false;
         }
 
@@ -1460,8 +1466,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             if (error || inet_prefix.prefixlen() != 32) {
                 BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                     SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Bad inet address string: " <<
-                    item.entry.nlri.address);
+                    "Bad inet address " << item.entry.nlri.address);
                 return false;
             }
             ip_addr = inet_prefix.ip4_addr();
@@ -1471,15 +1476,14 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             if (error || inet6_prefix.prefixlen() != 128) {
                 BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                     SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Bad inet6 address string: " <<
-                    item.entry.nlri.address);
+                    "Bad inet6 address " << item.entry.nlri.address);
                 return false;
             }
             ip_addr = inet6_prefix.ip6_addr();
         } else if (item.entry.nlri.address != "0.0.0.0/0") {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Bad prefix length in address string: " <<
+                "Bad prefix length in address " <<
                 item.entry.nlri.address);
             return false;
         }
@@ -1517,59 +1521,59 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         BgpAttrSpec attrs;
+        const EnetNextHopListType &inh_list = item.entry.next_hops;
 
-        if (item.entry.next_hops.next_hop.empty()) {
+        if (inh_list.next_hop.empty()) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Missing next-hops for enet route " << evpn_prefix.ToString());
+                "Missing next-hops for enet route " <<
+                evpn_prefix.ToXmppIdString());
             return false;
         }
 
-        for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
+        bool first_nh = true;
+        for (EnetNextHopListType::const_iterator nit = inh_list.begin();
+             nit != inh_list.end(); ++nit, first_nh = false) {
             EvpnTable::RequestData::NextHop nexthop;
             IpAddress nhop_address(Ip4Address(0));
 
-            if (!XmppDecodeAddress(item.entry.next_hops.next_hop[i].af,
-                item.entry.next_hops.next_hop[i].address, &nhop_address)) {
+            if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
                 BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                     SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Error parsing nexthop address: " <<
-                    item.entry.next_hops.next_hop[i].address <<
-                    " family: " <<
-                    item.entry.next_hops.next_hop[i].af <<
-                    " for evpn route");
+                    "Bad nexthop address " << nit->address <<
+                    " for enet route " << evpn_prefix.ToXmppIdString());
                 return false;
             }
-            if (i == 0) {
+            if (first_nh) {
                 nh_address = nhop_address;
-                label = item.entry.next_hops.next_hop[0].label;
+                label = nit->label;
             }
 
-            // Tunnel Encap list
+            // Process tunnel encapsulation list.
+            bool no_tunnel_encap = true;
             bool no_valid_tunnel_encap = true;
-            for (vector<string>::const_iterator it =
-                item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.begin();
-                it !=
-                    item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
-                it++) {
-                TunnelEncap tun_encap(*it);
+            for (EnetTunnelEncapsulationListType::const_iterator eit =
+                 nit->tunnel_encapsulation_list.begin();
+                 eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+                no_tunnel_encap = false;
+                TunnelEncap tun_encap(*eit);
                 if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
+                no_valid_tunnel_encap = false;
                 if (tun_encap.tunnel_encap() == TunnelEncapType::VXLAN)
                     label_is_vni = true;
-                no_valid_tunnel_encap = false;
-                if (i == 0) {
+                if (first_nh) {
                     ext.communities.push_back(
                         tun_encap.GetExtCommunityValue());
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
 
-                string alt_encap_string = *it + "-contrail";
+                string alt_encap_string = *eit + "-contrail";
                 TunnelEncap alt_tun_encap(alt_encap_string);
                 if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                     continue;
-                if (i == 0) {
+                if (first_nh) {
                     ext.communities.push_back(
                         alt_tun_encap.GetExtCommunityValue());
                 }
@@ -1577,22 +1581,17 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                     alt_tun_encap.GetExtCommunity());
             }
 
-            //
-            // If all of the tunnel encaps published by agent is invalid,
-            // mark the path as infeasible
-            // If agent has not published any tunnel encap, default the
-            // tunnel encap to "gre"
-            //
-            if (!item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
-                no_valid_tunnel_encap)
+            // Mark the path as infeasible if all tunnel encaps published
+            // by agent are invalid.
+            if (!no_tunnel_encap && no_valid_tunnel_encap) {
                 flags = BgpPath::NoTunnelEncap;
+            }
 
             nexthop.flags_ = flags;
             nexthop.address_ = nhop_address;
-            nexthop.label_ = item.entry.next_hops.next_hop[i].label;
+            nexthop.label_ = nit->label;
             nexthop.source_rd_ = RouteDistinguisher(
-                nhop_address.to_v4().to_ulong(),
-                instance_id);
+                nhop_address.to_v4().to_ulong(), instance_id);
             nexthops.push_back(nexthop);
         }
 
@@ -1608,11 +1607,12 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
         attrs.push_back(&source_rd);
 
-        // SGID list
-        for (vector<int>::iterator it =
-             item.entry.security_group_list.security_group.begin();
-             it != item.entry.security_group_list.security_group.end(); ++it) {
-            SecurityGroup sg(bgp_server_->autonomous_system(), *it);
+        // Process security group list.
+        const EnetSecurityGroupListType &isg_list =
+            item.entry.security_group_list;
+        for (EnetSecurityGroupListType::const_iterator sit = isg_list.begin();
+             sit != isg_list.end(); ++sit) {
+            SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
 
@@ -1631,10 +1631,10 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 if (!XmppDecodeAddress(BgpAf::IPv4,
                     item.entry.replicator_address, &replicator_address)) {
                     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                                 "Error parsing replicator address: " <<
-                                 item.entry.replicator_address <<
-                                 " for evpn route");
+                        SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                        "Bad replicator address " <<
+                        item.entry.replicator_address <<
+                        " for enet route " << evpn_prefix.ToXmppIdString());
                     return false;
                 }
                 pmsi_spec.tunnel_type =
@@ -1666,27 +1666,23 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         stats_[RX].unreach++;
     }
 
-    // Defer all route requests till register request is processed
+    // Defer all requests till subscribe is processed.
     if (subscribe_pending) {
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         string table_name =
             RoutingInstance::GetTableName(vrf_name, Address::EVPN);
-        defer_q_.insert(make_pair(make_pair(vrf_name, table_name),
-                                       request_entry));
+        defer_q_.insert(make_pair(
+            make_pair(vrf_name, table_name), request_entry));
         return true;
     }
 
     assert(table);
-
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                               "Evpn route " << item.entry.nlri.mac << ","
-                               << item.entry.nlri.address
-                               << " with next-hop " << nh_address
-                               << " and label " << label
-                               <<  " is enqueued for "
-                               << (add_change ? "add/change" : "delete"));
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Enet route " << evpn_prefix.ToXmppIdString() <<
+        " with next-hop " << nh_address << " and label " << label <<
+        " enqueued for " << (add_change ? "add/change" : "delete"));
     table->Enqueue(&req);
     return true;
 }
@@ -1703,9 +1699,9 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
 
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
-        BGP_LOG_PEER(Event, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_NA, "Peer:" << peer_->ToString()
-                         << " not subscribed to instance " << table->name());
+        BGP_LOG_PEER(Event, Peer(),
+            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+            "Not subscribed to table " << table->name());
         return;
     }
 
@@ -1825,9 +1821,9 @@ void BgpXmppChannel::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     membership_response_worker_.Enqueue(table->name());
 }
 
-void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
+void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) const {
     vector<BgpNeighborRoutingInstance> instance_list;
-    BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
+    BOOST_FOREACH(const SubscribedRoutingInstanceList::value_type &entry,
         routing_instances_) {
         BgpNeighborRoutingInstance instance;
         instance.set_name(entry.first->name());
@@ -1840,7 +1836,7 @@ void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
         instance.set_import_targets(import_targets);
         instance_list.push_back(instance);
     }
-    BOOST_FOREACH(VrfMembershipRequestMap::value_type &entry,
+    BOOST_FOREACH(const VrfMembershipRequestMap::value_type &entry,
         vrf_membership_request_map_) {
         BgpNeighborRoutingInstance instance;
         instance.set_name(entry.first);
@@ -1851,7 +1847,7 @@ void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
     resp->set_routing_instances(instance_list);
 }
 
-void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
+void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) const {
     vector<BgpNeighborRoutingTable> old_table_list = resp->get_routing_tables();
     set<string> old_table_set;
     vector<BgpNeighborRoutingTable> new_table_list;
@@ -1864,7 +1860,7 @@ void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
         }
     }
 
-    BOOST_FOREACH(RoutingTableMembershipRequestMap::value_type &entry,
+    BOOST_FOREACH(const RoutingTableMembershipRequestMap::value_type &entry,
         routingtable_membership_request_map_) {
         BgpNeighborRoutingTable table;
         table.set_name(entry.first);
@@ -1998,7 +1994,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
     assert(instance_mgr);
     RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
     if (rt_instance == NULL) {
-        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_INFO,
                      BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                      "Routing instance " << vrf_name <<
                      " not found when processing " <<
@@ -2124,10 +2120,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             RegisterTable(table, instance_id);
         } else {
             if (defer_q_.count(make_pair(vrf_name, table->name()))) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                             "Flush the DBRoute request on unregister :" <<
-                             table->name());
+                             "Flush deferred route requests for table " <<
+                             table->name() << " on unsubscribe");
             }
 
             // Erase all elements for the table
@@ -2246,13 +2242,13 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
 
 BgpXmppChannelManager::~BgpXmppChannelManager() {
     assert(channel_map_.empty());
+    assert(channel_name_map_.empty());
     assert(closing_count_ == 0);
     if (xmpp_server_) {
         xmpp_server_->UnRegisterConnectionEvent(xmps::BGP);
     }
 
     queue_.Shutdown();
-    channel_map_.clear();
     bgp_server_->UnregisterASNUpdateCallback(asn_listener_id_);
     bgp_server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
 }
@@ -2261,6 +2257,13 @@ bool BgpXmppChannelManager::IsReadyForDeletion() {
     return bgp_server_->IsReadyForDeletion();
 }
 
+void BgpXmppChannelManager::SetQueueDisable(bool disabled) {
+    queue_.set_disable(disabled);
+}
+
+size_t BgpXmppChannelManager::GetQueueSize() const {
+    return queue_.Length();
+}
 
 void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
     as_t old_local_asn) {
@@ -2308,8 +2311,9 @@ BgpXmppChannel *BgpXmppChannelManager::FindChannel(
     return it->second;
 }
 
-void BgpXmppChannelManager::RemoveChannel(XmppChannel *ch) {
-    channel_map_.erase(ch);
+void BgpXmppChannelManager::RemoveChannel(XmppChannel *channel) {
+    channel_map_.erase(channel);
+    channel_name_map_.erase(channel->ToString());
 }
 
 BgpXmppChannel *BgpXmppChannelManager::CreateChannel(XmppChannel *channel) {
@@ -2327,10 +2331,19 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
         if (it == channel_map_.end()) {
             bgp_xmpp_channel = CreateChannel(channel);
             channel_map_.insert(make_pair(channel, bgp_xmpp_channel));
+            channel_name_map_.insert(
+                make_pair(channel->ToString(), bgp_xmpp_channel));
             BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
                          Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_SYSLOG,
                          BGP_PEER_DIR_IN,
                          "Received XmppChannel up event");
+            if (!bgp_server_->HasSelfConfiguration()) {
+                BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
+                             SandeshLevel::SYS_INFO, BGP_LOG_FLAG_SYSLOG,
+                             BGP_PEER_DIR_IN,
+                             "No BGP configuration for self - closing channel");
+                channel->Close();
+            }
         } else {
             bgp_xmpp_channel = (*it).second;
             bgp_xmpp_channel->peer_->SetDeleted(false);
@@ -2366,8 +2379,8 @@ void BgpXmppChannel::Close() {
     STLDeleteElements(&defer_q_);
 
     if (routingtable_membership_request_map_.size()) {
-        BGP_LOG(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Peer Close with pending membership request");
+        BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO,
+            BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_peer_close_ = true;
         return;
     }
@@ -2377,7 +2390,7 @@ void BgpXmppChannel::Close() {
 //
 // Return connection's remote tcp endpoint if available
 //
-boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() {
+boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() const {
     const XmppSession *session = GetSession();
     if (session) {
         return session->remote_endpoint();
@@ -2388,7 +2401,7 @@ boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() {
 //
 // Return connection's local tcp endpoint if available
 //
-boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() {
+boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() const {
     const XmppSession *session = GetSession();
     if (session) {
         return session->local_endpoint();

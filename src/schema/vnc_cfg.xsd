@@ -264,6 +264,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="dhcp-option-name" type="xsd:string"/>
         <xsd:element name="dhcp-option-value" type="xsd:string"/>
+        <!-- Encoded DHCP option value (decimal), to be copied byte by byte -->
+        <xsd:element name="dhcp-option-value-bytes" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType> 
 
@@ -367,6 +369,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="default-ttl-seconds" type="xsd:integer"/>
         <xsd:element name="next-virtual-DNS"    type="xsd:string"/>
         <xsd:element name="floating-ip-record"  type="FloatingIpDnsNotation"/>
+        <xsd:element name="external-visible"    type="xsd:boolean" default="false"/>
+        <xsd:element name="reverse-resolution"  type="xsd:boolean" default="false"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -714,6 +718,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      <xsd:restriction base='xsd:string'>
          <xsd:enumeration value='l2_l3'/>
          <xsd:enumeration value='l2'/>
+         <xsd:enumeration value='l3'/>
      </xsd:restriction>
 </xsd:simpleType>
 
@@ -738,6 +743,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='rpf' type='RpfModeType'/>
     </xsd:all>
 </xsd:complexType>
+
+<xsd:element name="forwarding-mode" type="ForwardingModeType"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Property('forwarding-mode', 'global-vrouter-config') -->
 
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1009,6 +1018,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="subnet-uuid" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('subnet-uuid', 'instance-ip') -->
+<xsd:element name="instance-ip-secondary" type="xsd:boolean" default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('instance-ip-secondary', 'instance-ip') -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',

@@ -1755,11 +1755,6 @@ class VncApiServer(object):
             if obj_uuid is None:
                 obj_dict['id_perms'] = id_perms
                 return
-            # Resource already exist
-            try:
-                obj_dict['id_perms'] = self._db_conn.uuid_to_obj_perms(obj_uuid)
-            except NoIdError:
-                obj_dict['id_perms'] = id_perms
 
             return
 
@@ -2316,8 +2311,9 @@ class VncApiServer(object):
             'ip-address': self._args.ifmap_server_ip,
             'port': self._args.listen_port,
         }
-        self.api_server_task = self._disc.publish(
-            API_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if self._disc:
+            self.api_server_task = self._disc.publish(
+                API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
     def publish_ifmap_to_discovery(self):
         # publish ifmap server
@@ -2325,8 +2321,9 @@ class VncApiServer(object):
             'ip-address': self._args.ifmap_server_ip,
             'port': self._args.ifmap_server_port,
         }
-        self.ifmap_task = self._disc.publish(
-            IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if self._disc:
+            self.ifmap_task = self._disc.publish(
+                IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end publish_ifmap_to_discovery
 
     def un_publish_self_to_discovery(self):
@@ -2335,7 +2332,8 @@ class VncApiServer(object):
             'ip-address': self._args.ifmap_server_ip,
             'port': self._args.listen_port,
         }
-        self._disc.un_publish(API_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if self._disc:
+            self._disc.un_publish(API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
     def un_publish_ifmap_to_discovery(self):
         # un publish ifmap server
@@ -2343,7 +2341,8 @@ class VncApiServer(object):
             'ip-address': self._args.ifmap_server_ip,
             'port': self._args.ifmap_server_port,
         }
-        self._disc.un_publish(IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if self._disc:
+            self._disc.un_publish(IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end un_publish_ifmap_to_discovery
 
 # end class VncApiServer

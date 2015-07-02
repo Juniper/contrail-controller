@@ -121,7 +121,7 @@ AgentDBTable *VnEntry::DBToTable() const {
 }
 
 bool VnEntry::GetVnHostRoutes(const std::string &ipam,
-                              std::vector<OperDhcpOptions::Subnet> *routes) const {
+                              std::vector<OperDhcpOptions::HostRoute> *routes) const {
     VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.find(ipam);
     if (it != vn_ipam_data_.end()) {
         *routes = it->second.oper_dhcp_options_.host_routes();
@@ -789,6 +789,11 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 (*it_old).dns_server = (*it_new).dns_server;
             }
 
+            if (gateway_changed || service_address_changed) {
+                // DHCP service would need to know in case this changes
+                change = true;
+            }
+
             // update DHCP options
             (*it_old).oper_dhcp_options = (*it_new).oper_dhcp_options;
 
@@ -967,7 +972,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
              it != vn_ipam_data_.end(); ++it) {
             VnIpamHostRoutes vn_ipam_host_routes;
             vn_ipam_host_routes.ipam_name = it->first;
-            const std::vector<OperDhcpOptions::Subnet> &host_routes =
+            const std::vector<OperDhcpOptions::HostRoute> &host_routes =
                 it->second.oper_dhcp_options_.host_routes();
             for (uint32_t i = 0; i < host_routes.size(); ++i) {
                 vn_ipam_host_routes.host_routes.push_back(

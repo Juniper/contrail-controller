@@ -59,7 +59,7 @@ TEST_F(OptionsTest, NoArguments) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -72,8 +72,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.ifmap_server_url(), "");
-    EXPECT_EQ(options_.ifmap_password(), "control_user_passwd");
-    EXPECT_EQ(options_.ifmap_user(), "control_user");
+    EXPECT_EQ(options_.ifmap_password(), "control-node");
+    EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
@@ -96,7 +96,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -109,8 +109,8 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.ifmap_server_url(), "");
-    EXPECT_EQ(options_.ifmap_password(), "control_user_passwd");
-    EXPECT_EQ(options_.ifmap_user(), "control_user");
+    EXPECT_EQ(options_.ifmap_password(), "control-node");
+    EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
@@ -137,7 +137,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -150,8 +150,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.ifmap_server_url(), "");
-    EXPECT_EQ(options_.ifmap_password(), "control_user_passwd");
-    EXPECT_EQ(options_.ifmap_user(), "control_user");
+    EXPECT_EQ(options_.ifmap_password(), "control-node");
+    EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
@@ -176,7 +176,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
+    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -189,8 +189,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.ifmap_server_url(), "");
-    EXPECT_EQ(options_.ifmap_password(), "control_user_passwd");
-    EXPECT_EQ(options_.ifmap_user(), "control_user");
+    EXPECT_EQ(options_.ifmap_password(), "control-node");
+    EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
@@ -468,7 +468,6 @@ TEST_F(OptionsTest, MultitokenVector) {
     argv[2] = argv_2;
 
     options_.Parse(evm_, argc, argv);
-
     vector<string> collector_server_list;
     collector_server_list.push_back("10.10.10.1:100");
     collector_server_list.push_back("20.20.20.2:200");

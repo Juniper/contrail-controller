@@ -328,6 +328,8 @@ public:
     void StartResolve();
     bool ResolvePendingServiceChain();
     size_t PendingQueueSize() const { return pending_chain_.size(); }
+    size_t ResolvedQueueSize() const { return chain_set_.size(); }
+    uint32_t GetDownServiceChainCount() const;
 
     void Enqueue(ServiceChainRequest *req);
 

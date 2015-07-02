@@ -83,7 +83,7 @@ void IFMapGraphWalker::JoinVertex(DBGraphVertex *vertex, const BitSet &bset) {
     IFMapNodeState *state = exporter_->NodeStateLocate(node);
     IFMAP_DEBUG(JoinVertex, vertex->ToString(), state->interest().ToString(),
                 bset.ToString());
-    state->InterestOr(bset);
+    exporter_->StateInterestOr(state, bset);
     node->table()->Change(node);
     // Mark all dependent links as potentially modified.
     for (IFMapNodeState::iterator iter = state->begin(); iter != state->end();
@@ -119,7 +119,7 @@ void IFMapGraphWalker::LinkAdd(IFMapNode *lnode, const BitSet &lhs,
 }
 
 void IFMapGraphWalker::LinkRemove(const BitSet &bset) {
-    link_delete_clients_.Set(bset);     // link_delete_clients_ | bset
+    OrLinkDeleteClients(bset);          // link_delete_clients_ | bset
     link_delete_walk_trigger_->Set();
 }
 
@@ -177,7 +177,7 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
         i = link_delete_clients_.find_next(i);
     }
     // Remove the subset of clients that we have finished processing.
-    link_delete_clients_.Reset(done_set);
+    ResetLinkDeleteClients(done_set);
     rm_mask_ |= done_set;
 
     LinkDeleteWalkBatchEnd();
@@ -191,13 +191,16 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
     }
 }
 
-void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
+void IFMapGraphWalker::OrLinkDeleteClients(const BitSet &bset) {
+    link_delete_clients_.Set(bset);     // link_delete_clients_ | bset
+}
+
+void IFMapGraphWalker::ResetLinkDeleteClients(const BitSet &bset) {
+    link_delete_clients_.Reset(bset);
+}
+
+void IFMapGraphWalker::CleanupInterest(IFMapNode *node, IFMapNodeState *state) {
     // interest = interest - rm_mask_ + nmask
-    IFMapNode *node = static_cast<IFMapNode *>(vertex);
-    IFMapNodeState *state = exporter_->NodeStateLookup(node);
-    if (state == NULL) {
-        return;
-    }
 
     if (!state->interest().empty() && !state->nmask().empty()) {
         IFMAP_DEBUG(CleanupInterest, node->ToString(),
@@ -212,7 +215,7 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
         return;
     }
 
-    state->SetInterest(ninterest);
+    exporter_->StateInterestSet(state, ninterest);
     node->table()->Change(node);
 
     // Mark all dependent links as potentially modified.
@@ -224,15 +227,38 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
 }
 
 // Cleanup all graph nodes that have a bit set in the remove mask (rm_mask_) but
-// were not visited by the walker because there were not reachable after the
+// were not visited by the walker because they were not reachable after the
 // link delete.
 void IFMapGraphWalker::LinkDeleteWalkBatchEnd() {
-    for (DBGraph::vertex_iterator iter = graph_->vertex_list_begin();
-         iter != graph_->vertex_list_end(); ++iter) {
-        DBGraphVertex *vertex = iter.operator->();
-        CleanupInterest(vertex);
+    IFMapState *state = NULL;
+    IFMapNode *node = NULL;
+    IFMapExporter::Cs_citer iter, end_iter;
+
+    for (size_t i = rm_mask_.find_first(); i != BitSet::npos;
+            i = rm_mask_.find_next(i)) {
+        iter = exporter_->ClientConfigTrackerBegin(i);
+        end_iter = exporter_->ClientConfigTrackerEnd(i);
+        while (iter != end_iter) {
+            state = *iter;
+            // Get the iterator to the next element before calling
+            // CleanupInterest() since the state might be removed from the
+            // client's config-tracker, thereby invalidating the iterator.
+            ++iter;
+            if (state->IsNode()) {
+                node = state->GetIFMapNode();
+                assert(node);
+                IFMapNodeState *nstate = exporter_->NodeStateLookup(node);
+                assert(state == nstate);
+                CleanupInterest(node, nstate);
+            }
+        }
     }
     rm_mask_.clear();
+}
+
+const IFMapTypenameWhiteList &IFMapGraphWalker::get_traversal_white_list()
+        const {
+    return *traversal_white_list_.get();
 }
 
 // The nodes listed below and the nodes in 

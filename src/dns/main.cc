@@ -107,9 +107,15 @@ int main(int argc, char *argv[]) {
     Module::type module = Module::DNS;
     string module_name = g_vns_constants.ModuleNames.find(module)->second;
 
-    LoggingInit(options.log_file(), options.log_file_size(),
-                options.log_files_count(), options.use_syslog(),
-                options.syslog_facility(), module_name);
+    std::string log_property_file = options.log_property_file();
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    }
+    else {
+        LoggingInit(options.log_file(), options.log_file_size(),
+                    options.log_files_count(), options.use_syslog(),
+                    options.syslog_facility(), module_name);
+    }
 
     string build_info_str;
     Dns::GetVersion(build_info_str);
@@ -126,11 +132,11 @@ int main(int argc, char *argv[]) {
     Dns::SetHostName(hostname);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     if (options.discovery_server().empty()) {
-        NodeType::type node_type = 
+        NodeType::type node_type =
             g_vns_constants.Module2NodeType.find(module)->second;
         Sandesh::InitGenerator(
                     module_name,
-                    options.hostname(), 
+                    options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     g_vns_constants.INSTANCE_ID_DEFAULT,
                     Dns::GetEventManager(),
@@ -161,7 +167,8 @@ int main(int argc, char *argv[]) {
                            options.named_config_file(),
                            options.named_log_file(),
                            options.rndc_config_file(),
-                           options.rndc_secret());
+                           options.rndc_secret(),
+                           options.named_max_cache_size());
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
@@ -178,7 +185,7 @@ int main(int argc, char *argv[]) {
             new TaskTrigger(boost::bind(&DnsInfoLogger),
                     TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
 
-    dns_info_log_timer = 
+    dns_info_log_timer =
         TimerManager::CreateTimer(*(Dns::GetEventManager()->io_service()),
                                                    "Dns Info log timer");
     dns_info_log_timer->Start(60*1000, boost::bind(&DnsInfoLogTimer), NULL);
@@ -211,9 +218,9 @@ int main(int argc, char *argv[]) {
         //subscribe to collector service if not configured
         if (!options.collectors_configured()) {
             Module::type module = Module::DNS;
-            NodeType::type node_type = 
+            NodeType::type node_type =
                 g_vns_constants.Module2NodeType.find(module)->second;
-            string subscriber_name = 
+            string subscriber_name =
                 g_vns_constants.ModuleNames.find(module)->second;
             string node_type_name =
                 g_vns_constants.NodeTypeNames.find(node_type)->second;
@@ -245,11 +252,12 @@ int main(int argc, char *argv[]) {
                 options.ifmap_password(), options.ifmap_certs_store(),
                 boost::bind(&IFMapServerParser::Receive, ifmap_parser,
                             &config_db, _1, _2, _3),
-                        Dns::GetEventManager()->io_service(), ds_client);
+                        Dns::GetEventManager()->io_service());
     ifmap_server.set_ifmap_manager(ifmapmgr);
+    ifmapmgr->InitializeDiscovery(ds_client, options.ifmap_server_url());
 
     Dns::GetEventManager()->Run();
- 
+
     Dns::ShutdownDiscoveryClient(ds_client);
 
     return 0;

@@ -73,6 +73,7 @@ class DiscoveryServer():
             'db_upd_hb': 0,
             'throttle_subs':0,
             '503': 0,
+            'count_lb': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -123,6 +124,9 @@ class DiscoveryServer():
                 'List published services in JSON format'))
         # show a specific service type
         bottle.route('/services/<service_type>', 'GET', self.show_all_services)
+
+        # api to perform on-demand load-balance across available publishers
+        bottle.route('/load-balance/<service_type>', 'POST', self.api_lb_service)
 
         # update service
         bottle.route('/service/<id>', 'PUT', self.service_http_put)
@@ -196,6 +200,7 @@ class DiscoveryServer():
 
         # DB interface initialization
         self._db_connect(self._args.reset_config)
+        self._db_conn.db_update_service_entry_oper_state()
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -322,7 +327,8 @@ class DiscoveryServer():
             color = "#FFFF00"   # yellow - missed some heartbeats
             expired = False
 
-        if include_down and entry['admin_state'] != 'up':
+        if include_down and \
+                (entry['admin_state'] != 'up' or entry['oper_state'] != 'up'):
             color = "#FF0000"   # red - publication expired
             expired = True
 
@@ -380,7 +386,7 @@ class DiscoveryServer():
         ctype = bottle.request.headers['content-type']
         json_req = {}
         try:
-            if ctype == 'application/xml':
+            if 'application/xml' in ctype:
                 data = xmltodict.parse(bottle.request.body.read())
             else:
                 data = bottle.request.json
@@ -397,26 +403,36 @@ class DiscoveryServer():
         self._debug['msg_pubs'] += 1
         ctype = bottle.request.headers['content-type']
         json_req = {}
-        if ctype == 'application/json':
-            data = bottle.request.json
-            for service_type, info in data.items():
-                json_req['name'] = service_type
-                json_req['info'] = info
-        elif ctype == 'application/xml':
-            data = xmltodict.parse(bottle.request.body.read())
-            for service_type, info in data.items():
-                json_req['name'] = service_type
-                json_req['info'] = dict(info)
-        else:
-            bottle.abort(400, e)
+        try:
+            if 'application/json' in ctype:
+                data = bottle.request.json
+            elif 'application/xml' in ctype:
+                data = xmltodict.parse(bottle.request.body.read())
+        except Exception as e:
+            self.syslog('Unable to parse publish request')
+            self.syslog(bottle.request.body.buf)
+            bottle.abort(415, 'Unable to parse publish request')
 
-        sig = end_point or publisher_id(
-                bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
+        # new format - publish tag to envelop entire content
+        if 'publish' in data:
+            data = data['publish']
+        for key, value in data.items():
+            json_req[key] = value
 
-        # Rx {'name': u'ifmap-server', 'info': {u'ip_addr': u'10.84.7.1',
-        # u'port': u'8443'}}
-        info = json_req['info']
-        service_type = json_req['name']
+        # old format didn't include explicit tag for service type
+        service_type = data.get('service-type', data.keys()[0])
+
+        # convert ordered dict to normal dict
+        try:
+            json_req[service_type] = data[service_type]
+        except (ValueError, KeyError, TypeError) as e:
+            bottle.abort(400, "Unknown service type")
+
+        info = json_req[service_type]
+        remote = json_req.get('remote-addr',
+                     bottle.request.environ['REMOTE_ADDR'])
+
+        sig = end_point or publisher_id(remote, json.dumps(json_req))
 
         entry = self._db_conn.lookup_service(service_type, service_id=sig)
         if not entry:
@@ -426,17 +442,34 @@ class DiscoveryServer():
                 'in_use': 0,
                 'ts_use': 0,
                 'ts_created': int(time.time()),
-                'prov_state': 'new',
-                'remote': bottle.request.environ.get('REMOTE_ADDR'),
+                'oper_state': 'up',
+                'admin_state': 'up',
+                'oper_state_msg': '',
                 'sequence': str(int(time.time())) + socket.gethostname(),
             }
         elif 'sequence' not in entry or self.service_expired(entry):
             # handle upgrade or republish after expiry
             entry['sequence'] = str(int(time.time())) + socket.gethostname()
 
+        if 'admin-state' in json_req:
+            admin_state = json_req['admin-state']
+            if admin_state not in ['up', 'down']:
+                bottle.abort(400, "Invalid admin state")
+            entry['admin_state'] = admin_state
+        if 'oper-state' in json_req:
+            oper_state = json_req['oper-state']
+            if oper_state not in ['up', 'down']:
+                bottle.abort(400, "Invalid operational state")
+            entry['oper_state'] = oper_state
+        if 'oper-state-reason' in json_req:
+            osr = json_req['oper-state-reason']
+            if type(osr) != str and type(osr) != unicode:
+                bottle.abort(400, "Invalid format of operational state reason")
+            entry['oper_state_msg'] = osr
+
         entry['info'] = info
-        entry['admin_state'] = 'up'
         entry['heartbeat'] = int(time.time())
+        entry['remote'] = remote
 
         # insert entry if new or timed out
         self._db_conn.update_service(service_type, sig, entry)
@@ -509,9 +542,9 @@ class DiscoveryServer():
     def api_subscribe(self):
         self._debug['msg_subs'] += 1
         ctype = bottle.request.headers['content-type']
-        if ctype == 'application/json':
+        if 'application/json' in ctype:
             json_req = bottle.request.json
-        elif ctype == 'application/xml':
+        elif 'application/xml' in ctype:
             data = xmltodict.parse(bottle.request.body.read())
             json_req = {}
             for service_type, info in data.items():
@@ -524,21 +557,26 @@ class DiscoveryServer():
         client_id = json_req['client']
         count = reqcnt = int(json_req['instances'])
         client_type = json_req.get('client-type', '')
+        remote = json_req.get('remote-addr',
+                     bottle.request.environ['REMOTE_ADDR'])
 
         assigned_sid = set()
         r = []
-        ttl = random.randint(self._args.ttl_min, self._args.ttl_max)
+        ttl_min = int(self.get_service_config(service_type, 'ttl_min'))
+        ttl_max = int(self.get_service_config(service_type, 'ttl_max'))
+        ttl = random.randint(ttl_min, ttl_max)
+
 
         # check client entry and any existing subscriptions
         cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
         if not cl_entry:
             cl_entry = {
                 'instances': count,
-                'remote': bottle.request.environ.get('REMOTE_ADDR'),
                 'client_type': client_type,
             }
             self.create_sub_data(client_id, service_type)
-            self._db_conn.insert_client_data(service_type, client_id, cl_entry)
+        cl_entry['remote'] = remote
+        self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
         if sdata:
@@ -560,17 +598,25 @@ class DiscoveryServer():
         if count == 0:
             r = [entry['info'] for entry in pubs_active]
             response = {'ttl': ttl, service_type: r}
-            if ctype == 'application/xml':
+            if 'application/xml' in ctype:
                 response = xmltodict.unparse({'response': response})
             return response
 
         if subs:
             plist = dict((entry['service_id'],entry) for entry in pubs_active)
-            for service_id, result in subs:
+            plist_all = dict((entry['service_id'],entry) for entry in pubs)
+            policy = self.get_service_config(service_type, 'policy')
+            for service_id, expired in subs:
+                # expired True if service was marked for deletion by LB command
                 # previously published service is gone
+                # force renew for fixed policy since some service may have flapped
+                entry2 = plist_all.get(service_id, None)
                 entry = plist.get(service_id, None)
-                if entry is None:
+                if entry is None or expired or policy == 'fixed':
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
+                    # delete fixed policy server if expired
+                    if policy == 'fixed' and entry is None and entry2:
+                        self._db_conn.delete_service(entry2)
                     continue
                 result = entry['info']
                 self._db_conn.insert_client(
@@ -580,13 +626,13 @@ class DiscoveryServer():
                 count -= 1
                 if count == 0:
                     response = {'ttl': ttl, service_type: r}
-                    if ctype == 'application/xml':
+                    if 'application/xml' in ctype:
                         response = xmltodict.unparse({'response': response})
                     return response
 
 
         # skip duplicates from existing assignments
-	pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
+        pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
 
         # find instances based on policy (lb, rr, fixed ...)
         pubs = self.service_list(service_type, pubs)
@@ -611,10 +657,56 @@ class DiscoveryServer():
 
 
         response = {'ttl': ttl, service_type: r}
-        if ctype == 'application/xml':
+        if 'application/xml' in ctype:
             response = xmltodict.unparse({'response': response})
         return response
     # end api_subscribe
+
+    # on-demand API to load-balance existing subscribers across all currently available
+    # publishers. Needed if publisher gets added or taken down
+    def api_lb_service(self, service_type):
+        if service_type is None:
+            bottle.abort(405, "Missing service")
+
+        pubs = self._db_conn.lookup_service(service_type)
+        if pubs is None:
+            bottle.abort(405, 'Unknown service')
+        pubs_active = [item for item in pubs if not self.service_expired(item)]
+
+        # only load balance if over 5% deviation from average to avoid churn
+        avg_per_pub = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
+        lb_list = {}
+        for item in pubs_active:
+            if item['in_use'] > int(1.05*avg_per_pub):
+                lb_list[item['service_id']] = item['in_use'] - int(avg_per_pub)
+        if len(lb_list) == 0:
+            return
+
+        clients = self._db_conn.get_all_clients(service_type=service_type)
+        if clients is None:
+            return
+
+        self.syslog('Initial load-balance server-list: %s, avg-per-pub %d, clients %d' \
+            % (lb_list, avg_per_pub, len(clients)))
+
+        """
+        Walk through all subscribers and mark one publisher per subscriber down
+        for deletion later. We could have deleted subscription right here.
+        However the discovery server view of subscribers will not match with actual
+        subscribers till respective TTL expire. Note that we only mark down ONE
+        publisher per subscriber to avoid much churn at the subscriber end.
+            self._db_conn.delete_subscription(service_type, client_id, service_id)
+        """
+        clients_lb_done = []
+        for client in clients:
+            (service_type, client_id, service_id, mtime, ttl) = client
+            if client_id not in clients_lb_done and service_id in lb_list and lb_list[service_id] > 0:
+                self._db_conn.mark_delete_subscription(service_type, client_id, service_id)
+                clients_lb_done.append(client_id)
+                lb_list[service_id] -= 1
+                self._debug['count_lb'] += 1
+        return {}
+    # end api_lb_service
 
     def api_query(self):
         self._debug['msg_query'] += 1
@@ -658,7 +750,7 @@ class DiscoveryServer():
                         (entry['service_id'], json.dumps(result)))
 
         response = {service_type: r}
-        if ctype == 'application/xml':
+        if 'application/xml' in ctype:
             response = xmltodict.unparse({'response': response})
         return response
     # end api_subscribe
@@ -672,7 +764,7 @@ class DiscoveryServer():
         rsp += '        <td>Service Type</td>\n'
         rsp += '        <td>Remote IP</td>\n'
         rsp += '        <td>Service Id</td>\n'
-        rsp += '        <td>Provision State</td>\n'
+        rsp += '        <td>Oper State</td>\n'
         rsp += '        <td>Admin State</td>\n'
         rsp += '        <td>In Use</td>\n'
         rsp += '        <td>Time since last Heartbeat</td>\n'
@@ -692,7 +784,10 @@ class DiscoveryServer():
             rsp += '        <td>' + pub['remote'] + '</td>\n'
             link = do_html_url("/service/%s/brief" % sig, sig)
             rsp += '        <td>' + link + '</td>\n'
-            rsp += '        <td>' + pub['prov_state'] + '</td>\n'
+            oper_state_str = pub['oper_state']
+            if oper_state_str == 'down' and len(pub['oper_state_msg']) > 0:
+                oper_state_str += '/' + pub['oper_state_msg']
+            rsp += '        <td>' + oper_state_str + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
             link = do_html_url("/clients/%s/%s" % (service_type, service_id), 
                 str(pub['in_use']))
@@ -715,6 +810,8 @@ class DiscoveryServer():
         for pub in self._db_conn.service_entries(service_type):
             entry = pub.copy()
             entry['status'] = "down" if self.service_expired(entry) else "up"
+            # keep sanity happy - get rid of prov_state in the future
+            entry['prov_state'] = entry['oper_state']
             entry['hbcount'] = 0
             # send unique service ID (hash or service endpoint + type)
             entry['service_id'] = str(entry['service_id'] + ':' + entry['service_type'])
@@ -726,7 +823,7 @@ class DiscoveryServer():
         self.syslog('Update service %s' % (id))
         try:
             json_req = bottle.request.json
-            service_type = json_req['service_type']
+            service_type = json_req['service-type']
             self.syslog('Entry %s' % (json_req))
         except (ValueError, KeyError, TypeError) as e:
             bottle.abort(400, e)
@@ -735,8 +832,19 @@ class DiscoveryServer():
         if not entry:
             bottle.abort(405, 'Unknown service')
 
-        if 'admin_state' in json_req:
-            entry['admin_state'] = json_req['admin_state']
+        if 'admin-state' in json_req:
+            admin_state = json_req['admin-state']
+            if admin_state not in ['up', 'down']:
+                bottle.abort(400, "Invalid admin state")
+            entry['admin_state'] = admin_state
+        if 'oper-state' in json_req:
+            oper_state = json_req['oper-state']
+            if oper_state not in ['up', 'down']:
+                bottle.abort(400, "Invalid operational state")
+            entry['oper_state'] = oper_state
+        if 'oper-state-reason' in json_req:
+            entry['oper_state_msg'] = json_req['oper-state-reason']
+
         self._db_conn.update_service(service_type, id, entry)
 
         self.syslog('update service=%s, sid=%s, info=%s'
@@ -773,6 +881,8 @@ class DiscoveryServer():
             entry = pub.copy()
             entry['hbcount'] = 0
             entry['status'] = "down" if self.service_expired(entry) else "up"
+            # keep sanity happy - get rid of prov_state in the future
+            entry['prov_state'] = entry['oper_state']
 
         return entry
     # end service_http_get
@@ -987,9 +1097,9 @@ def parse_args(args_str):
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
-        defaults.update(dict(config.items("DEFAULTS")))
         for section in config.sections():
             if section == "DEFAULTS":
+                defaults.update(dict(config.items("DEFAULTS")))
                 continue
             service_config[
                 section.lower()] = default_service_opts.copy()
@@ -1074,7 +1184,9 @@ def parse_args(args_str):
     return args
 # end parse_args
 
+server = None
 def run_discovery_server(args):
+    global server
     server = DiscoveryServer(args)
     pipe_start_app = server.get_pipe_start_app()
 

@@ -5,6 +5,8 @@
 #include "ifmap/ifmap_client.h"
 
 #include "ifmap/ifmap_exporter.h"
+#include "base/bitset.h"
+#include "ifmap/ifmap_update.h"
 
 IFMapClient::IFMapClient()
     : index_(kIndexInvalid), exporter_(NULL), msgs_sent_(0), msgs_blocked_(0),

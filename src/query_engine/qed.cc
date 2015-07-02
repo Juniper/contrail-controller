@@ -143,10 +143,15 @@ main(int argc, char *argv[]) {
     Module::type module = Module::QUERY_ENGINE;
     string module_name = g_vns_constants.ModuleNames.find(module)->second;
 
-    LoggingInit(options.log_file(), options.log_file_size(),
-                options.log_files_count(), options.use_syslog(),
-                options.syslog_facility(), module_name);
-
+    std::string log_property_file = options.log_property_file();
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    }
+    else {
+        LoggingInit(options.log_file(), options.log_file_size(),
+                    options.log_files_count(), options.use_syslog(),
+                    options.syslog_facility(), module_name);
+    }
     error_code error;
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;

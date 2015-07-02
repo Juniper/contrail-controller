@@ -14,14 +14,6 @@
 #include "services/services_sandesh.h"
 #include "services_init.h"
 
-void ArpProto::Shutdown() {
-    del_gratuitous_arp_entry();
-    // we may have arp entries in arp cache without ArpNH, empty them
-    for (ArpIterator it = arp_cache_.begin(); it != arp_cache_.end(); ) {
-        it = DeleteArpEntry(it);
-    }
-}
-
 ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
                    bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::ARP, io),
@@ -40,6 +32,14 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
 }
 
 ArpProto::~ArpProto() {
+}
+
+void ArpProto::Shutdown() {
+    del_gratuitous_arp_entry();
+    // we may have arp entries in arp cache without ArpNH, empty them
+    for (ArpIterator it = arp_cache_.begin(); it != arp_cache_.end(); ) {
+        it = DeleteArpEntry(it);
+    }
     agent_->vrf_table()->Unregister(vrf_table_listener_id_);
     agent_->interface_table()->Unregister(interface_table_listener_id_);
     agent_->nexthop_table()->Unregister(nexthop_table_listener_id_);

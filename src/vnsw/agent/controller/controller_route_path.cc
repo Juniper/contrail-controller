@@ -57,7 +57,7 @@ ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
     }
 }
 
-bool ControllerEcmpRoute::IsPeerValid() const {
+bool ControllerEcmpRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel(), sequence_number());
 }
 
@@ -98,7 +98,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
     return data;
 }
 
-bool ControllerVmRoute::IsPeerValid() const {
+bool ControllerVmRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel(), sequence_number());
 }
 
@@ -241,7 +241,7 @@ ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
                  path_preference, Ip4Address(0)),
     sequence_number_(sequence_number), channel_(channel) { }
 
-bool ControllerLocalVmRoute::IsPeerValid() const {
+bool ControllerLocalVmRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
 
@@ -256,7 +256,7 @@ ControllerVlanNhRoute::ControllerVlanNhRoute(const VmInterfaceKey &intf,
     VlanNhRoute(intf, tag, label, dest_vn_name, sg_list, path_preference),
     sequence_number_(sequence_number), channel_(channel) { }
 
-bool ControllerVlanNhRoute::IsPeerValid() const {
+bool ControllerVlanNhRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
 
@@ -269,7 +269,7 @@ ControllerInetInterfaceRoute::ControllerInetInterfaceRoute(const InetInterfaceKe
     InetInterfaceRoute(intf, label, tunnel_bmap, dest_vn_name),
     sequence_number_(sequence_number), channel_(channel) { }
 
-bool ControllerInetInterfaceRoute::IsPeerValid() const {
+bool ControllerInetInterfaceRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
 
@@ -341,7 +341,7 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool ClonedLocalPath::IsPeerValid() const {
+bool ClonedLocalPath::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
 
@@ -356,6 +356,6 @@ ControllerMulticastRoute::ControllerMulticastRoute(const string &vn_name,
     MulticastRoute(vn_name, label, vxlan_id, tunnel_type, nh_req, comp_nh_type),
     sequence_number_(sequence_number), channel_(channel) { }
 
-bool ControllerMulticastRoute::IsPeerValid() const {
+bool ControllerMulticastRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }

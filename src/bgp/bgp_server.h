@@ -78,6 +78,9 @@ public:
         return inst_mgr_.get();
     }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
+    const RTargetGroupMgr *rtarget_group_mgr() const {
+        return rtarget_group_mgr_.get();
+    }
     BgpConditionListener *condition_listener(Address::Family family) {
         if (family == Address::INET)
             return inet_condition_listener_.get();
@@ -104,6 +107,9 @@ public:
     }
 
     PeerRibMembershipManager *membership_mgr() { return membership_mgr_.get(); }
+    const PeerRibMembershipManager *membership_mgr() const {
+        return membership_mgr_.get();
+    }
     AsPathDB *aspath_db() { return aspath_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
     BgpOListDB *olist_db() { return olist_db_.get(); }
@@ -126,7 +132,11 @@ public:
     as_t autonomous_system() const { return autonomous_system_; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
+    std::string bgp_identifier_string() const {
+        return bgp_identifier_.to_string();
+    }
     uint16_t hold_time() const { return hold_time_; }
+    bool HasSelfConfiguration() const;
 
     // Status
     uint32_t num_routing_instance() const;
@@ -140,6 +150,11 @@ public:
     void decrement_closing_count() { closing_count_--; }
 
     uint32_t get_output_queue_depth() const;
+
+    uint32_t num_service_chains() const;
+    uint32_t num_down_service_chains() const;
+    uint32_t num_static_routes() const;
+    uint32_t num_down_static_routes() const;
 
     void IncUpPeerCount() {
         num_up_peer_++;
@@ -167,6 +182,8 @@ public:
     void InsertStaticRouteMgr(StaticRouteMgr *srt_manager);
     void RemoveStaticRouteMgr(StaticRouteMgr *srt_manager);
     void NotifyAllStaticRoutes();
+    uint32_t GetStaticRouteCount() const;
+    uint32_t GetDownStaticRouteCount() const;
 
 private:
     class ConfigUpdater;
@@ -194,7 +211,7 @@ private:
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
     tbb::atomic<uint32_t> num_up_peer_;
-    uint32_t closing_count_;
+    tbb::atomic<uint32_t> closing_count_;
     BgpPeerList peer_list_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;

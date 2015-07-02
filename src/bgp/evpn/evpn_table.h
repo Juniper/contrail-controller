@@ -27,6 +27,7 @@ public:
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
+    virtual void AddRemoveCallback(const DBEntryBase *entry, bool add) const;
 
     virtual Address::Family family() const { return Address::EVPN; }
     bool IsDefault() const;
@@ -49,12 +50,20 @@ public:
     void CreateEvpnManager();
     void DestroyEvpnManager();
     EvpnManager *GetEvpnManager();
+    const EvpnManager *GetEvpnManager() const;
     virtual void set_routing_instance(RoutingInstance *rtinstance);
+
+    uint64_t mac_route_count() const { return mac_route_count_; }
+    uint64_t unique_mac_route_count() const { return unique_mac_route_count_; }
+    uint64_t im_route_count() const { return im_route_count_; }
 
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
     EvpnManager *evpn_manager_;
+    mutable tbb::atomic<uint64_t> mac_route_count_;
+    mutable tbb::atomic<uint64_t> unique_mac_route_count_;
+    mutable tbb::atomic<uint64_t> im_route_count_;
 
     DISALLOW_COPY_AND_ASSIGN(EvpnTable);
 };

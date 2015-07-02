@@ -259,7 +259,7 @@ bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
     Interface *intf = FindInterfaceFromMetadataIp(ip);
     if (intf && intf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vintf = static_cast<const VmInterface *>(intf);
-        *vm_ip = vintf->ip_addr().to_string();
+        *vm_ip = vintf->primary_ip_addr().to_string();
         if (vintf->vm()) {
             *vm_uuid = UuidToString(vintf->vm()->GetUuid());
             *vm_project_uuid = UuidToString(vintf->vm_project_uuid());
@@ -290,26 +290,21 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
         return true;
 
     VmInterface *vm_intf = static_cast<VmInterface *>(entry);
-    //In case VN passed is null it is tunnel mode change,
-    //else its vxlan id change for a VN.
-    if (!vm_intf->l2_active())
+    const VnEntry *vn = vm_intf->vn();
+    if (!vm_intf->IsActive())
         return true;
 
-    if (vm_intf->bridging()) {
-        bool force_update = false;
-        if (vm_intf->vxlan_id() != vm_intf->vn()->GetVxLanId()) {
-            force_update = true;
-        }
-        vm_intf->UpdateL2(force_update);
-    }
-    return true;
+    VmInterfaceGlobalVrouterData data(vn->bridging(),
+                                      vn->layer3_forwarding(),
+                                      vn->GetVxLanId());
+    return vm_intf->Resync(this, &data);
 }
 
 void InterfaceTable::VmInterfaceWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
-void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
+void InterfaceTable::GlobalVrouterConfigChanged() {
     DBTableWalker *walker = agent_->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
@@ -665,10 +660,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     else
         data.set_vrf_name("--ERROR--");
 
-    if (ipv4_active_) {
+    if (IsUveActive()) {
         data.set_active("Active");
     } else {
         data.set_active("Inactive");
+    }
+
+    if (ipv4_active_) {
+        data.set_ipv4_active("Active");
+    } else {
+        data.set_ipv4_active("Inactive");
     }
 
     if (ipv6_active_) {
@@ -722,8 +723,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_vn_name(vintf->vn()->GetName());
         if (vintf->vm())
             data.set_vm_uuid(UuidToString(vintf->vm()->GetUuid()));
-        data.set_ip_addr(vintf->ip_addr().to_string());
-        data.set_ip6_addr(vintf->ip6_addr().to_string());
+        data.set_ip_addr(vintf->primary_ip_addr().to_string());
+        data.set_ip6_addr(vintf->primary_ip6_addr().to_string());
         data.set_mac_addr(vintf->vm_mac());
         data.set_mdata_ip_addr(vintf->mdata_ip_addr().to_string());
         data.set_vxlan_id(vintf->vxlan_id());
@@ -734,9 +735,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_flood_unknown_unicast(vintf->flood_unknown_unicast());
 
-        if ((ipv4_active_ == false) ||
-            (l2_active_ == false)) {
-            string common_reason = "";
+        string common_reason = "";
+        if (IsUveActive() == false) {
 
             if (!vintf->admin_state()) {
                 common_reason += "admin-down ";
@@ -761,28 +761,51 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                     common_reason += "os-state-down ";
                 }
             }
+            string total_reason = common_reason;
+            if (!ipv4_active_) {
+                total_reason += "ipv4_inactive ";
+            }
+            if (!ipv6_active_) {
+                total_reason += "ipv6_inactive ";
+            }
+            if (!l2_active_) {
+                total_reason += "l2_inactive ";
+            }
+            string reason = "Inactive < " + total_reason + " >";
+            data.set_active(reason);
+        }
+        if (!ipv4_active_ || !ipv6_active_) {
+            string v4_v6_common_reason = common_reason;
+            if (vintf->layer3_forwarding() == false) {
+                v4_v6_common_reason += "l3-disabled ";
+            }
 
             if (!ipv4_active_) {
-                if (vintf->layer3_forwarding() == false) {
-                    common_reason += "l3-disabled";
-                }
-
-                string reason = "L3 Inactive < " + common_reason;
-                if (vintf->ip_addr().to_ulong() == 0) {
-                    reason += "no-ip-addr ";
+                string reason = "Ipv4 Inactive < " + v4_v6_common_reason;
+                if (vintf->primary_ip_addr().to_ulong() == 0) {
+                    reason += "no-ipv4-addr ";
                 }
                 reason += " >";
-                data.set_active(reason);
+                data.set_ipv4_active(reason);
             }
-
-            if (!l2_active_) {
-                if (vintf->bridging() == false) {
-                    common_reason += "l2-disabled";
+            if (!ipv6_active_) {
+                string reason = "Ipv6 Inactive < " + v4_v6_common_reason;
+                if (vintf->primary_ip6_addr().is_unspecified()) {
+                    reason += "no-ipv6-addr ";
                 }
-                string reason = "L2 Inactive < " + common_reason;
                 reason += " >";
-                data.set_l2_active(reason);
+                data.set_ip6_active(reason);
             }
+        }
+
+        if (!l2_active_) {
+            string l2_reason = common_reason;
+            if (vintf->bridging() == false) {
+                l2_reason += "l2-disabled ";
+            }
+            string reason = "L2 Inactive < " + l2_reason;
+            reason += " >";
+            data.set_l2_active(reason);
         }
         
         std::vector<FloatingIpSandeshList> fip_list;
@@ -867,6 +890,26 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_allowed_address_pair_list(aap_list);
 
+        std::vector<std::string> fixed_ip4_list;
+        VmInterface::InstanceIpSet::iterator fixed_ip4_it =
+            vintf->instance_ipv4_list().list_.begin();
+        while (fixed_ip4_it != vintf->instance_ipv4_list().list_.end()) {
+            const VmInterface::InstanceIp &rt = *fixed_ip4_it;
+            fixed_ip4_it++;
+            fixed_ip4_list.push_back(rt.ip_.to_string());
+        }
+        data.set_fixed_ip4_list(fixed_ip4_list);
+
+        std::vector<std::string> fixed_ip6_list;
+        VmInterface::InstanceIpSet::iterator fixed_ip6_it =
+            vintf->instance_ipv6_list().list_.begin();
+        while (fixed_ip6_it != vintf->instance_ipv6_list().list_.end()) {
+            const VmInterface::InstanceIp &rt = *fixed_ip6_it;
+            fixed_ip6_it++;
+            fixed_ip6_list.push_back(rt.ip_.to_string());
+        }
+        data.set_fixed_ip6_list(fixed_ip6_list);
+
         if (vintf->fabric_port()) {
             data.set_fabric_port("FabricPort");
         } else {
@@ -918,8 +961,13 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         break;
     }
-    case Interface::INET:
-        data.set_type("vhost");
+    case Interface::INET: {
+         data.set_type("vhost");
+         const InetInterface *intf = static_cast<const InetInterface*>(this);
+         if(intf->xconnect()) {
+            data.set_physical_interface(intf->xconnect()->name());
+         }
+        }
         break;
     case Interface::PACKET:
         data.set_type("pkt");
@@ -1019,6 +1067,13 @@ bool Interface::ip_active(Address::Family family) const {
         return ipv6_active_;
     else
         assert(0);
+    return false;
+}
+
+bool Interface::IsUveActive() const {
+    if (ipv4_active() || ipv6_active() || l2_active()) {
+        return true;
+    }
     return false;
 }
 

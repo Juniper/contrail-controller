@@ -67,6 +67,7 @@ public:
     bool ReadXml();
     void ToString(std::string *str);
     bool Run();
+    bool Run(std::string test_case);
     void AddConfigEntry(const std::string &name,
                         AgentUtXmlTestConfigCreateFn fn);
     void AddValidateEntry(const std::string &name,
@@ -97,6 +98,7 @@ public:
     virtual void ToString(std::string *str);
     void set_verbose(bool val) { verbose_ = val; }
     bool verbose() const { return verbose_; }
+    const std::string &name() const { return name_; }
 private:
     std::string name_;
     pugi::xml_node xml_node_;

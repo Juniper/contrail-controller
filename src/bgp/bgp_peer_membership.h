@@ -168,7 +168,7 @@ private:
 // PeerMembershipMgr.
 //
 struct IPeerRibCompare {
-    bool operator()(const IPeerRib *lhs, const IPeerRib *rhs) {
+    bool operator()(const IPeerRib *lhs, const IPeerRib *rhs) const {
         return lhs->operator<(*rhs);
     }
 };
@@ -226,7 +226,7 @@ public:
         }
         return false;
     }
-    int GetRegistrationId(const IPeer *ipeer, BgpTable *table);
+    int GetRegistrationId(const IPeer *ipeer, const BgpTable *table) const;
 
     void Enqueue(IPeerRibEvent *event) { event_queue_->Enqueue(event); }
 
@@ -234,8 +234,9 @@ public:
     void FillRoutingInstanceInfo(ShowRoutingInstanceTable *inst,
                                  const BgpTable * table) const;
 
-    void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp *resp);
+    void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp *resp) const;
     IPeerRib *IPeerRibFind(IPeer *ipeer, BgpTable *table);
+    const IPeerRib *IPeerRibFind(IPeer *ipeer, BgpTable *table) const;
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
     void FillRegisteredTable(const IPeer *peer, std::vector<std::string> *list);
     size_t GetMembershipCount() const { return peer_rib_set_.size(); }

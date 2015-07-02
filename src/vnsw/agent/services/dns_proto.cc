@@ -15,9 +15,6 @@
 #include "oper/vn.h"
 #include "oper/route_common.h"
 
-void DnsProto::Shutdown() {
-}
-
 void DnsProto::IoShutdown() {
     BindResolver::Shutdown();
 
@@ -72,6 +69,9 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
 }
 
 DnsProto::~DnsProto() {
+}
+
+void DnsProto::Shutdown() {
     agent_->interface_table()->Unregister(lid_);
     agent_->vn_table()->Unregister(Vnlid_);
     if (agent_->tsn_enabled()) {
@@ -111,22 +111,23 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
     } else {
         autogen::VirtualDnsType vdns_type;
         std::string vdns_name;
-        GetVdnsData(vmitf->vn(), vmitf->ip_addr(), vmitf->ip6_addr(),
+        GetVdnsData(vmitf->vn(), vmitf->primary_ip_addr(),
+                    vmitf->primary_ip6_addr(),
                     vdns_name, vdns_type);
         VmDataMap::iterator it = all_vms_.find(vmitf);
         if (it == all_vms_.end()) {
             if (!UpdateDnsEntry(vmitf, vmitf->vn(), vmitf->vm_name(), vdns_name,
-                                vmitf->ip_addr(), vmitf->ip6_addr(),
+                                vmitf->primary_ip_addr(), vmitf->primary_ip6_addr(),
                                 false, false))
                 vdns_name = "";
             IpVdnsMap vmdata;
-            vmdata.insert(IpVdnsPair(vmitf->ip_addr().to_ulong(), vdns_name));
+            vmdata.insert(IpVdnsPair(vmitf->primary_ip_addr().to_ulong(), vdns_name));
             all_vms_.insert(VmDataPair(vmitf, vmdata));
             DNS_BIND_TRACE(DnsBindTrace, "Vm Interface added : " <<
                            vmitf->vm_name());
         } else {
             CheckForUpdate(it->second, vmitf, vmitf->vn(),
-                           vmitf->ip_addr(), vmitf->ip6_addr(),
+                           vmitf->primary_ip_addr(), vmitf->primary_ip6_addr(),
                            vdns_name, vdns_type);
         }
 
@@ -174,10 +175,12 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
         if (it->first->vn() == vn) {
             std::string vdns_name;
             autogen::VirtualDnsType vdns_type;
-            GetVdnsData(vn, it->first->ip_addr(), it->first->ip6_addr(),
+            GetVdnsData(vn, it->first->primary_ip_addr(),
+                        it->first->primary_ip6_addr(),
                         vdns_name, vdns_type);
             CheckForUpdate(it->second, it->first, it->first->vn(),
-                           it->first->ip_addr(), it->first->ip6_addr(),
+                           it->first->primary_ip_addr(),
+                           it->first->primary_ip6_addr(),
                            vdns_name, vdns_type);
         }
     }
@@ -244,13 +247,14 @@ void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
         std::string vdns_name;
         autogen::VirtualDnsType vdns_type;
-        GetVdnsData(it->first->vn(), it->first->ip_addr(),
-                    it->first->ip6_addr(), vdns_name, vdns_type);
+        GetVdnsData(it->first->vn(), it->first->primary_ip_addr(),
+                    it->first->primary_ip6_addr(), vdns_name, vdns_type);
         // in case of VDNS delete, clear the name
         if (!is_ipam && is_deleted && vdns_name == name)
             vdns_name.clear();
         CheckForUpdate(it->second, it->first, it->first->vn(),
-                       it->first->ip_addr(), it->first->ip6_addr(),
+                       it->first->primary_ip_addr(),
+                       it->first->primary_ip6_addr(),
                        vdns_name, vdns_type);
     }
     DnsFipSet::iterator it = fip_list_.begin();
@@ -604,12 +608,49 @@ bool DnsProto::IsDnsQueryInProgress(uint16_t xid) {
     return dns_query_map_.find(xid) != dns_query_map_.end();
 }
 
+bool DnsProto::IsDnsHandlerInUse(DnsHandler *handler) {
+    for (DnsBindQueryMap::iterator it = dns_query_map_.begin();
+         it != dns_query_map_.end(); it++) {
+        if (it->second == handler) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void DnsProto::DelDnsQueryHandler(DnsHandler *handler) {
+    for (DnsBindQueryMap::iterator it = dns_query_map_.begin();
+         it != dns_query_map_.end();) {
+        if (it->second == handler) {
+            dns_query_map_.erase(it++);
+            continue;
+        }
+        ++it;
+    }
+}
+
 DnsHandler *DnsProto::GetDnsQueryHandler(uint16_t xid) {
     DnsBindQueryMap::iterator it = dns_query_map_.find(xid);
     if (it != dns_query_map_.end())
         return it->second;
     return NULL;
 }
+
+void DnsProto::AddDnsQueryIndex(uint16_t xid, int16_t srv_idx) {
+    dns_query_index_map_.insert(DnsBindQueryIndexPair(xid, srv_idx));
+}
+
+void DnsProto::DelDnsQueryIndex(uint16_t xid) {
+    dns_query_index_map_.erase(xid);
+}
+
+int16_t DnsProto::GetDnsQueryServerIndex(uint16_t xid) {
+    DnsBindQueryIndexMap::iterator it = dns_query_index_map_.find(xid);
+    if (it != dns_query_index_map_.end())
+        return it->second;
+    return -1;
+}
+
 
 void DnsProto::AddVmRequest(DnsHandler::QueryKey *key) {
     curr_vm_requests_.insert(*key);

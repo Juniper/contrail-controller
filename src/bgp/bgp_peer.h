@@ -123,9 +123,7 @@ public:
 
     // The BGP Identifier in host byte order.
     virtual uint32_t bgp_identifier() const;
-
-    // TODO: remove
-    // uint32_t remote_bgp_id() const { return remote_bgp_id_; }
+    std::string bgp_identifier_string() const;
 
     const AddressFamilyList &families() const {
         return family_;
@@ -156,7 +154,7 @@ public:
     const BgpNeighborConfig *config() const { return config_; }
 
     virtual void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
-    void FillNeighborInfo(BgpSandeshContext *bsc,
+    void FillNeighborInfo(const BgpSandeshContext *bsc,
             std::vector<BgpNeighborResp> *nbr_list, bool summary) const;
 
     // thread-safe
@@ -227,6 +225,12 @@ public:
 
     virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
+    virtual void UpdatePrimaryPathCount(int count) const {
+        primary_path_count_ += count;
+    }
+    virtual int GetPrimaryPathCount() const {
+        return primary_path_count_;
+    }
 
     void RegisterToVpnTables();
 
@@ -325,8 +329,8 @@ private:
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     as_t local_as_;
     as_t peer_as_;
-    uint32_t remote_bgp_id_;    // network order
     uint32_t local_bgp_id_;     // network order
+    uint32_t peer_bgp_id_;      // network order
     AddressFamilyList family_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
@@ -337,6 +341,7 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpPeer> instance_delete_ref_;
     mutable tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> primary_path_count_;
     uint32_t flap_count_;
     uint64_t last_flap_;
     AuthenticationData auth_data_;

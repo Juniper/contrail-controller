@@ -120,6 +120,7 @@ response sandesh ArpStats {
 }
 
 response sandesh DnsStats {
+    7: list<string> dns_resolver;
     1: i32 dns_requests;
     2: i32 dns_resolved;
     3: i32 dns_retransmit_reqs;
@@ -446,6 +447,28 @@ request sandesh ShowArpCache {
 
 response sandesh ArpCacheResp {
     1: list<ArpSandeshData> arp_list;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+request sandesh ShowGwDhcpLeases {
+}
+
+struct DhcpLeaseData {
+    1: string mac;
+    2: string ip;
+    3: u64 expiry_us;
+    4: string released;
+}
+
+struct GwDhcpLeases {
+    1: string physical_interface;
+    2: string vm_interface;
+    3: list<DhcpLeaseData> leases;
+}
+
+response sandesh GwDhcpLeasesResponse {
+    1: list<GwDhcpLeases> gw_leases;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

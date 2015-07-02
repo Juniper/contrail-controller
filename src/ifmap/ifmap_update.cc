@@ -64,7 +64,12 @@ IFMapMarker::IFMapMarker()
     : IFMapListEntry(MARKER) {
 }
 
-IFMapState::IFMapState() : sig_(kInvalidSig), crc_(0) {
+IFMapState::IFMapState(IFMapNode *node)
+    : sig_(kInvalidSig), data_(node), crc_(0) {
+}
+
+IFMapState::IFMapState(IFMapLink *link)
+    : sig_(kInvalidSig), data_(link), crc_(0) {
 }
 
 IFMapState::~IFMapState() {
@@ -90,7 +95,24 @@ void IFMapState::Remove(IFMapUpdate *update) {
     update_list_.erase(update_list_.s_iterator_to(*update));
 }
 
-IFMapNodeState::IFMapNodeState() {
+IFMapNode *IFMapState::GetIFMapNode() const {
+    if (data_.IsNode()) {
+        return data_.u.node;
+    } else {
+        return NULL;
+    }
+}
+
+IFMapLink *IFMapState::GetIFMapLink() const {
+    if (data_.IsLink()) {
+        return data_.u.link;
+    } else {
+        return NULL;
+    }
+}
+
+IFMapNodeState::IFMapNodeState(IFMapNode *node)
+    : IFMapState(node) {
 }
 
 bool IFMapNodeState::HasDependents() const {
@@ -98,7 +120,7 @@ bool IFMapNodeState::HasDependents() const {
 }
 
 IFMapLinkState::IFMapLinkState(IFMapLink *link)
-    : left_(link), right_(link) {
+    : IFMapState(link), left_(link), right_(link) {
 }
 
 void IFMapLinkState::SetDependency(IFMapNodeState *first,

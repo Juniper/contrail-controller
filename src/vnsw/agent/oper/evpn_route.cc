@@ -239,11 +239,12 @@ void EvpnAgentRouteTable::AddRemoteVmRoute(const Peer *peer,
 void EvpnAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                       const MacAddress &mac,
                                       const IpAddress &ip_addr,
-                                      uint32_t ethernet_tag) {
+                                      uint32_t ethernet_tag,
+                                      AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                      ethernet_tag));
-    req.data.reset(NULL);
+    req.data.reset(data);
     EvpnTableEnqueue(Agent::GetInstance(), &req);
 }
 

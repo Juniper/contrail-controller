@@ -66,7 +66,7 @@ bool OvsdbDBEntry::Add() {
     // trigger pre add/change only if idl is not marked deleted.
     // we should not update KSync references as, these references eventually
     // need to be released as part of delete trigger due to cleanup.
-    if (!object->client_idl_->deleted()) {
+    if (object->client_idl_ != NULL && !object->client_idl_->deleted()) {
         PreAddChange();
     }
 
@@ -99,7 +99,7 @@ bool OvsdbDBEntry::Change() {
     // trigger pre add/change only if idl is not marked deleted.
     // we should not update KSync references as, these references eventually
     // need to be released as part of delete trigger due to cleanup.
-    if (!object->client_idl_->deleted()) {
+    if (object->client_idl_ != NULL && !object->client_idl_->deleted()) {
         PreAddChange();
     }
 

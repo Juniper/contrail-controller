@@ -486,6 +486,55 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     vmut->ClearCount();
 }
 
+TEST_F(InterfaceUveTest, VmIntfAddDel_3) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    InterfaceUveTableTest *vmut = static_cast<InterfaceUveTableTest *>
+        (Agent::GetInstance()->uve()->interface_uve_table());
+    vmut->ClearCount();
+    EXPECT_EQ(0U, vmut->InterfaceUveCount());
+
+    // Nova Port add message
+    util_.NovaPortAdd(input);
+
+    //Verify that entry for interface is not added to our tree until config is
+    //received.
+    EXPECT_EQ(0U, vmut->InterfaceUveCount());
+
+    // Config Port add
+    util_.ConfigPortAdd(input);
+    client->WaitForIdle();
+
+    //Verify that entry for interface is added to our tree after config is
+    //received.
+    WAIT_FOR(1000, 500, ((vmut->InterfaceUveCount() == 1U)));
+    EXPECT_EQ(1U, vmut->InterfaceUveCount());
+
+    // Config Port delete
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    //Verify that on deletion of interface config, the entry is marked for
+    //delete in our tree.
+    InterfaceUveTable::UveInterfaceEntry* entry = vmut->GetUveInterfaceEntry
+        ("vnet1");
+    EXPECT_TRUE(entry->deleted_);
+
+    // Nova port delete
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+
+    util_.EnqueueSendVmiUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->InterfaceUveCount() == 0U)));
+
+    //clear counters at the end of test case
+    client->Reset();
+    vmut->ClearCount();
+}
+
 TEST_F(InterfaceUveTest, FipStats_1) {
     InterfaceUveTableTest *vmut = static_cast<InterfaceUveTableTest *>
         (Agent::GetInstance()->uve()->interface_uve_table());

@@ -66,8 +66,10 @@ public:
                 const std::string& named_config_file,
                 const std::string& named_log_file,
                 const std::string& rndc_config_file,
-                const std::string& rndc_secret) :
+                const std::string& rndc_secret,
+                const std::string& named_max_cache_size) :
         file_(), named_log_file_(named_log_file), rndc_secret_(rndc_secret),
+        named_max_cache_size_(named_max_cache_size),
         reset_flag_(false), all_zone_files_(false) {
             named_config_dir_ = named_config_dir + "/";
             named_config_file_ = named_config_dir_ + named_config_file;
@@ -80,7 +82,8 @@ public:
                      const std::string& named_config_file,
                      const std::string& named_log_file,
                      const std::string& rndc_config_file,
-                     const std::string& rndc_secret);
+                     const std::string& rndc_secret,
+                     const std::string& named_max_cache_size);
     static void Shutdown();
     void Reset();
     virtual void AddView(const VirtualDnsConfig *vdns);
@@ -109,7 +112,8 @@ protected:
     void WriteLoggingConfig();
     void WriteViewConfig(const VirtualDnsConfig *updated_vdns);
     void WriteDefaultView(ZoneViewMap &zone_view_map);
-    void WriteZone(const std::string &vdns, const std::string &name, bool is_master);
+    void WriteZone(const std::string &vdns, const std::string &name,
+                   bool is_master);
     void AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns);
     void RemoveZoneFile(const VirtualDnsConfig *vdns, std::string &zone);
     std::string GetZoneNSName(const std::string domain_name);
@@ -117,6 +121,8 @@ protected:
     void CreateZoneFile(std::string &zone_name, 
                         const VirtualDnsConfig *vdns, bool ns);
     void MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zones);
+    void MakeReverseZoneList(const VirtualDnsConfig *vdns_config,
+                             ZoneList &zones);
     void GetDefaultForwarders();
 
     std::ofstream file_;
@@ -125,6 +131,7 @@ protected:
     std::string named_log_file_;
     std::string rndc_config_file_;
     std::string rndc_secret_;
+    std::string named_max_cache_size_;
     std::string default_forwarders_;
     bool reset_flag_;
     bool all_zone_files_;

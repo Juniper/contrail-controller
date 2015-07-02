@@ -58,6 +58,11 @@ void EventManager::RunWithExceptionHandling() {
             EVENT_MANAGER_LOG_ERROR("Thrift exception caught : " <<
                                     except.what() << "; ignoring");
             continue;
+        } catch (std::exception &except) {
+            static std::string what = except.what();
+            EVENT_MANAGER_LOG_ERROR("Exception caught in io_service run : "
+                                    << what);
+            exit(-1);
         } catch(...) {
             EVENT_MANAGER_LOG_ERROR("Exception caught in io_service run : "
                                     "bailing out");

@@ -3020,15 +3020,6 @@ TEST_F(BgpXmppEvpnTest2, CreateInstanceLater) {
     agent_b_->SessionDown();
 }
 
-static const char *config_template_24 = "\
-<delete>\
-    <bgp-router name=\'X\'>\
-    </bgp-router>\
-    <bgp-router name=\'Y\'>\
-    </bgp-router>\
-</delete>\
-";
-
 //
 // Routes from 2 agents are advertised to each other.
 // BGP session goes down and comes up after routes have been exchanged.
@@ -3071,9 +3062,9 @@ TEST_F(BgpXmppEvpnTest2, BgpSessionBounce) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
 
-    // Unconfigure the BGP session.
-    bs_x_->Configure(config_template_24);
-    bs_y_->Configure(config_template_24);
+    // Bring down the BGP session.
+    bs_x_->DisableAllPeers();
+    bs_y_->DisableAllPeers();
     task_util::WaitForIdle();
 
     // Verify that routes from remote agents are cleaned up.
@@ -3082,8 +3073,9 @@ TEST_F(BgpXmppEvpnTest2, BgpSessionBounce) {
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount("blue"));
 
-    // Configure the BGP session.
-    Configure();
+    // Bring up the BGP session.
+    bs_x_->EnableAllPeers();
+    bs_y_->EnableAllPeers();
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.

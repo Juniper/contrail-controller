@@ -220,6 +220,41 @@ bgp_sg_test = env.UnitTest('bgp_sg_test',
                            ['bgp_sg_test.cc'])
 env.Alias('src/bgp:bgp_sg_test', bgp_sg_test)
 
+bgp_show_evpn_table_test = env.UnitTest('bgp_show_evpn_table_test',
+    ['bgp_show_evpn_table_test.cc'])
+env.Alias('src/bgp:bgp_show_evpn_table_test',
+    bgp_show_evpn_table_test)
+
+bgp_show_instance_config_test = env.UnitTest('bgp_show_instance_config_test',
+    ['bgp_show_instance_config_test.cc'])
+env.Alias('src/bgp:bgp_show_instance_config_test',
+    bgp_show_instance_config_test)
+
+bgp_show_multicast_manager_test = env.UnitTest(
+    'bgp_show_multicast_manager_test', ['bgp_show_multicast_manager_test.cc'])
+env.Alias('src/bgp:bgp_show_multicast_manager_test',
+    bgp_show_multicast_manager_test)
+
+bgp_show_neighbor_test = env.UnitTest('bgp_show_neighbor_test',
+    ['bgp_show_neighbor_test.cc'])
+env.Alias('src/bgp:bgp_show_neighbor_test',
+    bgp_show_neighbor_test)
+
+bgp_show_route_summary_test = env.UnitTest('bgp_show_route_summary_test',
+    ['bgp_show_route_summary_test.cc'])
+env.Alias('src/bgp:bgp_show_route_summary_test',
+    bgp_show_route_summary_test)
+
+bgp_show_routing_instance_test = env.UnitTest('bgp_show_routing_instance_test',
+    ['bgp_show_routing_instance_test.cc'])
+env.Alias('src/bgp:bgp_show_routing_instance_test',
+    bgp_show_routing_instance_test)
+
+bgp_show_rtarget_group_test = env.UnitTest('bgp_show_rtarget_group_test',
+    ['bgp_show_rtarget_group_test.cc'])
+env.Alias('src/bgp:bgp_show_rtarget_group_test',
+    bgp_show_rtarget_group_test)
+
 bgp_stress_test = env.UnitTest('bgp_stress_test',
                                ['bgp_stress_test.cc'])
 env.Alias('src/bgp:bgp_stress_test', bgp_stress_test)
@@ -381,6 +416,13 @@ test_suite = [
     bgp_server_test,
     bgp_session_test,
     bgp_sg_test,
+    bgp_show_evpn_table_test,
+    bgp_show_instance_config_test,
+    bgp_show_multicast_manager_test,
+    bgp_show_neighbor_test,
+    bgp_show_route_summary_test,
+    bgp_show_routing_instance_test,
+    bgp_show_rtarget_group_test,
     bgp_stress_test,
     bgp_table_export_test,
     bgp_table_test,
@@ -483,8 +525,8 @@ sc_test = env.TestSuite('bgp-sc-test', sc_test_suite)
 env.Alias('src/bgp:sc_test', sc_test)
 
 # Stress Tests
-if 'BGP_STRESS_TEST_SUITE' in os.environ and \
-        os.environ['BGP_STRESS_TEST_SUITE'] != "0":
+envs = env.Dictionary()["ENV"]
+if 'BGP_STRESS_TEST_SUITE' in envs and envs['BGP_STRESS_TEST_SUITE'] != "0":
     env.Alias('src/bgp:bgp_stress_test_suite', env.TestSuite('bgp-stress-test',
               [
                   env.UnitTest('bgp_stress_test1', ['bgp_stress_test1.cc']),
@@ -493,6 +535,7 @@ if 'BGP_STRESS_TEST_SUITE' in os.environ and \
                   env.UnitTest('bgp_stress_test4', ['bgp_stress_test4.cc']),
                   env.UnitTest('bgp_stress_test5', ['bgp_stress_test5.cc']),
                   env.UnitTest('bgp_stress_test6', ['bgp_stress_test6.cc']),
+                  env.UnitTest('bgp_stress_test7', ['bgp_stress_test7.cc']),
               ]))
 
 Return('test_suite')

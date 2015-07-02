@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<test_suite name="ovsdb-logical-switch-base">
+<test name="test1">
+    <fdb name="fdb-1" uuid="1" mac="00:11:22:33:44:55" vn="vn-1" vrf="vrf1" vxlan_id="100" del="1"/>
+
+    <validate name="validate-uc-remote-1">
+        <ovs-uc-remote name="uc-1" uuid="1" vn-uuid="1" mac="00:11:22:33:44:55" present="no"/>
+    </validate>
+
+    <link name="link-4" uuid="1" left="virtual-network" left-name="vn-1"
+          right="routing-instance" right-name="vrf1" del="1"/>
+
+    <link name="link-4" uuid="1" left="virtual-machine-interface" left-name="tap1"
+          right="virtual-network" right-name="vn-1" del="1"/>
+    <link name="link-4" uuid="1" left="logical-interface" left-name="l-ge-0/0/0"
+          right="virtual-machine-interface" right-name="tap1" del="1"/>
+    <link name="link-4" uuid="1" left="physical-router" left-name="test-router"
+          right="physical-interface" right-name="dummy:test-router:ge-0/0/0" del="1"/>
+    <link name="link-4" uuid="1" left="physical-interface" left-name="dummy:test-router:ge-0/0/0"
+          right="logical-interface" right-name="l-ge-0/0/0" del="1"/>
+    <physical-router uuid="1" name="test-router" del="1"/>
+    <vrf uuid="1" name="vrf1" del="1"/>
+    <virtual-network uuid="1" name="vn-1" del="1"/>
+    <remote-physical-interface uuid="1" name="ge-0/0/0" device="test-router"  del="1"/>
+    <logical-interface uuid="1" name="l-ge-0/0/0" del="1"/>
+
+    <virtual-machine uuid="1" name="vm1" del="1"/>
+    <vmi nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
+    />
+
+</test>
+</test_suite>

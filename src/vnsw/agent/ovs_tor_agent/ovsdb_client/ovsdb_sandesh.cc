@@ -86,10 +86,16 @@ bool OvsdbSandeshTask::Run() {
     }
     uint32_t table_size = 0;
     uint32_t display_count = 0;
-    if (session != NULL && session->client_idl() != NULL) {
-        ip_ = session->remote_ip().to_string();
-        port_ = session->remote_port();
-        KSyncObject *table = GetObject(session);
+    if (NoSessionObject() == true ||
+        (session != NULL && session->client_idl() != NULL)) {
+        KSyncObject *table = NULL;
+        if (NoSessionObject()) {
+            table = GetObject(NULL);
+        } else {
+            ip_ = session->remote_ip().to_string();
+            port_ = session->remote_port();
+            table = GetObject(session);
+        }
 
         if (table == NULL) {
             SandeshError("Error: Ovsdb Object not available", resp_data_);
@@ -113,7 +119,7 @@ bool OvsdbSandeshTask::Run() {
                 total_count_++;
             }
             entry = table->Next(entry);
-            if (total_count_ == last_) {
+            if (total_count_ == (last_ + 1)) {
                 if (entry != NULL) {
                     // will need next page link
                     needs_next_ = true;
@@ -259,6 +265,12 @@ void OvsdbPageReq::HandleRequest() const {
         break;
     case OvsdbSandeshTask::MULTICAST_LOCAL_TABLE:
         task = new MulticastMacLocalSandeshTask(context(), args);
+        break;
+    case OvsdbSandeshTask::HA_STALE_DEV_VN_TABLE:
+        task = new HaStaleDevVnSandeshTask(context(), args);
+        break;
+    case OvsdbSandeshTask::HA_STALE_L2_ROUTE_TABLE:
+        task = new HaStaleL2RouteSandeshTask(context(), args);
         break;
     default:
         break;

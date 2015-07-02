@@ -27,10 +27,12 @@ public:
     bool auth_enabled;
     std::string path_to_server_cert;
     std::string path_to_pvt_key;
+    int tcp_hold_time;
 
     int CompareTo(const XmppChannelConfig &rhs) const;
-    static int const default_client_port;
-    static int const default_server_port;
+    static int const default_client_port = 5269;
+    static int const default_server_port = 5222;
+    static int const kTcpHoldTime = 30; //in secs
 
     bool ClientOnly() const { return isClient_; }
 

@@ -9,8 +9,10 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <boost/unordered_set.hpp>
 
 class IFMapExporter;
+class IFMapState;
 
 // An XmppPeer that receives IFMap updates from the server component
 class IFMapClient {
@@ -62,7 +64,7 @@ public:
         return (vm_map_.size() != 0);
     }
     // return vm_map_ as a list of strings
-    std::vector<std::string> vm_list() const; 
+    std::vector<std::string> vm_list() const;
 
 private:
     int index_;

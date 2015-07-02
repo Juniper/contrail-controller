@@ -34,7 +34,7 @@ class NamedConfigTest : public NamedConfig {
 public:
     NamedConfigTest(const std::string &conf_dir, const std::string &conf_file) :
                     NamedConfig(conf_dir, conf_file, "/var/log/named/bind.log",
-                                "rndc.conf", "xvysmOR8lnUQRBcunkC6vg==") {}
+                                "rndc.conf", "xvysmOR8lnUQRBcunkC6vg==", "100M") {}
     static void Init() {
         assert(singleton_ == NULL);
         singleton_ = new NamedConfigTest(".", "named.conf");
@@ -267,6 +267,32 @@ TEST_F(DnsBindTest, Reordered) {
     EXPECT_TRUE(FilesEqual("rndc.conf",
                            "controller/src/dns/testdata/rndc.conf"));
 
+    // change external-visible and reverse_resolution fields to false
+    boost::replace_all(content, "true", "false");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    for (int i = 0; i < 4; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+    for (int i = 4; i < 17; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.9"));
+
+    // change external-visible and reverse_resolution fields to true
+    boost::replace_all(content, "false", "true");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.4"));
+    for (int i = 0; i < 17; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+
     const char config_change[] = "\
 <config>\
     <virtual-network-network-ipam ipam='ipam2' vn='vn3'> \
@@ -462,6 +488,278 @@ TEST_F(DnsBindTest, Reordered) {
     for (int i = 0; i < 4; i++) {
         string s1 = cfg->GetZoneFilePath(remaining_domains[i]);
         EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+
+    const char config_change_4[] = "\
+<config>\
+    <network-ipam name='ipam1'> \
+        <ipam-method>dhcp</ipam-method> \
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method> \
+        <ipam-dns-server> \
+            <virtual-dns-server-name>test-DNS</virtual-dns-server-name> \
+        </ipam-dns-server> \
+        <dhcp-option-list></dhcp-option-list> \
+    </network-ipam> \
+</config>\
+";
+    EXPECT_TRUE(parser_.Parse(config_change_4));
+    task_util::WaitForIdle();
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    for (int i = 0; i < 17; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+    for (int i = 0; i < 3; i++) {
+        string s1 = cfg->GetZoneFilePath(new_dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+}
+
+TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
+    string content = FileRead("controller/src/dns/testdata/config_test_2_disable_flags.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    NamedConfigTest *cfg = static_cast<NamedConfigTest *>(NamedConfig::GetNamedConfigObject());
+
+    string dns_domains[] = {
+        "contrail.juniper.net",
+        "test.example.com",
+        "test.juniper.net",
+        "test1.juniper.net",
+        "192.1.1.in-addr.arpa",
+        "193.1.1.in-addr.arpa",
+        "13.2.12.in-addr.arpa",
+        "0.3.13.in-addr.arpa",
+        "1.3.13.in-addr.arpa",
+        "2.3.13.in-addr.arpa",
+        "3.3.13.in-addr.arpa",
+        "3.2.1.in-addr.arpa",
+        "6.5.4.in-addr.arpa",
+        "64.3.2.2.in-addr.arpa",
+        "65.3.2.2.in-addr.arpa",
+        "66.3.2.2.in-addr.arpa",
+        "67.3.2.2.in-addr.arpa",
+    };
+
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.9"));
+    for (int i = 0; i < 4; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+    for (int i = 4; i < 17; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+
+    EXPECT_TRUE(FileExists("rndc.conf"));
+    EXPECT_TRUE(FilesEqual("rndc.conf",
+                           "controller/src/dns/testdata/rndc.conf"));
+
+    const char config_change[] = "\
+<config>\
+    <virtual-network-network-ipam ipam='ipam2' vn='vn3'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>2.2.3.64</ip-prefix> \
+                <ip-prefix-len>30</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>2.2.3.254</default-gateway> \
+        </ipam-subnets> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>25.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>25.2.3.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+</config>\
+";
+    EXPECT_TRUE(parser_.Parse(config_change));
+    task_util::WaitForIdle();
+    for (int i = 0; i < 4; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+    for (int i = 4; i < 17; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+    string zone = "3.2.25.in-addr.arpa";
+    string s1 = cfg->GetZoneFilePath(zone);
+    EXPECT_FALSE(FileExists(s1.c_str()));
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.9"));
+
+    const char config_change_1[] = "\
+<config>\
+    <virtual-network-network-ipam ipam='ipam1' vn='vn1'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>1.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>1.2.3.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+    <virtual-network-network-ipam ipam='ipam4' vn='vn8'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>129.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>129.2.3.254</default-gateway> \
+        </ipam-subnets> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>130.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>130.2.3.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+    <virtual-network-network-ipam ipam='ipam2' vn='vn3'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>25.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>25.2.3.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+    <virtual-network-network-ipam ipam='ipam4' vn='vn4'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>13.3.0.0</ip-prefix> \
+                <ip-prefix-len>22</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>13.3.13.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+</config>\
+";
+
+    string new_dns_domains[] = {
+        "3.2.129.in-addr.arpa",
+        "3.2.130.in-addr.arpa",
+        "3.2.25.in-addr.arpa",
+    };
+
+    EXPECT_TRUE(parser_.Parse(config_change_1));
+    task_util::WaitForIdle();
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.9"));
+    for (int i = 0; i < 4; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+    for (int i = 4; i < 17; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+    for (int i = 0; i < 3; i++) {
+        string s1 = cfg->GetZoneFilePath(new_dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+
+    const char config_change_2[] = "\
+<delete>\
+    <virtual-network-network-ipam ipam='ipam4' vn='vn8'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>129.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>129.2.3.254</default-gateway> \
+        </ipam-subnets> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>130.2.3.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>130.2.3.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+    <virtual-network-network-ipam ipam='ipam4' vn='vn7'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>12.2.13.0</ip-prefix> \
+                <ip-prefix-len>24</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>12.2.13.254</default-gateway> \
+        </ipam-subnets> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>13.3.0.0</ip-prefix> \
+                <ip-prefix-len>22</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>13.3.13.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+</delete>\
+";
+
+    EXPECT_TRUE(parser_.Parse(config_change_2));
+    task_util::WaitForIdle();
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.9"));
+
+    const char config_change_3[] = "\
+<delete>\
+    <virtual-network-network-ipam ipam='ipam4' vn='vn4'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>13.3.0.0</ip-prefix> \
+                <ip-prefix-len>22</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>13.3.13.254</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+    <network-ipam name='ipam4'> \
+        <ipam-method>dhcp</ipam-method> \
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method> \
+        <ipam-dns-server> \
+            <virtual-dns-server-name>last-DNS1</virtual-dns-server-name> \
+        </ipam-dns-server> \
+        <dhcp-option-list></dhcp-option-list> \
+    </network-ipam> \
+</delete>\
+";
+
+    string deleted_domains[] = {
+        "3.2.129.in-addr.arpa",
+        "3.2.130.in-addr.arpa",
+        "13.2.12.in-addr.arpa",
+        "0.3.13.in-addr.arpa",
+        "1.3.13.in-addr.arpa",
+        "2.3.13.in-addr.arpa",
+        "3.3.13.in-addr.arpa",
+    };
+
+    string remaining_domains[] = {
+        "3.2.25.in-addr.arpa",
+        "192.1.1.in-addr.arpa",
+        "193.1.1.in-addr.arpa",
+        "3.2.1.in-addr.arpa",
+    };
+
+    EXPECT_TRUE(parser_.Parse(config_change_3));
+    task_util::WaitForIdle();
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.9"));
+    for (int i = 0; i < 7; i++) {
+        string s1 = cfg->GetZoneFilePath(deleted_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+    for (int i = 0; i < 4; i++) {
+        string s1 = cfg->GetZoneFilePath(remaining_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
     }
 
     const char config_change_4[] = "\

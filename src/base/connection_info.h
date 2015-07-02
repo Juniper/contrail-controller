@@ -35,6 +35,7 @@ void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
 class ConnectionState {
 public:
     static ConnectionState* GetInstance();
+    void Update();
     void Update(ConnectionType::type ctype, const std::string &name,
         ConnectionStatus::type status, Endpoint server,
         std::string message);

@@ -284,7 +284,8 @@ public:
             int Count() const;
             void Clear();
             const T *Lookup(const std::string &network,
-                    const std::string &prefix) const;
+                            const std::string &prefix,
+                            const bool take_lock = true) const;
 
         private:
             NetworkAgentMock *parent_;
@@ -331,6 +332,8 @@ public:
 
     int RouteCount(const std::string &network) const;
     int RouteCount() const;
+    int RouteNextHopCount(const std::string &network,
+                          const std::string &prefix);
     const RouteEntry *RouteLookup(const std::string &network,
                                   const std::string &prefix) const {
         return route_mgr_->Lookup(network, prefix);
@@ -454,6 +457,8 @@ public:
 
     bool ProcessRequest(Request *request);
 
+    size_t get_sm_connect_attempts();
+    size_t get_sm_keepalive_count();
     size_t get_connect_error();
     size_t get_session_close();
     uint32_t flap_count();

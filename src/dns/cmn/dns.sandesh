@@ -10,6 +10,9 @@ struct VirtualDnsTraceData {
     5: i32 dns_ttl;
     6: string dns_next;
     7: string installed;
+    8: string floating_ip_record;
+    9: string external_visible;
+    10: string reverse_resolution;
 }
 
 struct VirtualDnsRecordTraceData {

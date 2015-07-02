@@ -16,10 +16,11 @@ using OVSDB::OvsdbClientTcpSessionReader;
 using OVSDB::ConnectionStateTable;
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-        IpAddress tsn_ip, int keepalive_interval, OvsPeerManager *manager) :
-    TcpServer(agent->event_manager()),
-    OvsdbClient(manager, keepalive_interval), agent_(agent), session_(NULL),
-    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
+        IpAddress tsn_ip, int keepalive_interval, int ha_stale_route_interval,
+        OvsPeerManager *manager) : TcpServer(agent->event_manager()),
+    OvsdbClient(manager, keepalive_interval, ha_stale_route_interval),
+    agent_(agent), session_(NULL), server_ep_(tor_ip, tor_port),
+    tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -76,6 +77,10 @@ const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
 
 void OvsdbClientTcp::set_connect_complete_cb(SessionEventCb cb) {
     connect_complete_cb_ = cb;
+}
+
+void OvsdbClientTcp::set_pre_connect_complete_cb(SessionEventCb cb) {
+    pre_connect_complete_cb_ = cb;
 }
 
 OvsdbClientSession *OvsdbClientTcp::FindSession(Ip4Address ip, uint16_t port) {
@@ -154,6 +159,11 @@ int OvsdbClientTcpSession::keepalive_interval() {
     return ovs_server->keepalive_interval();
 }
 
+const boost::system::error_code &
+OvsdbClientTcpSession::ovsdb_close_reason() const {
+    return close_reason();
+}
+
 ConnectionStateTable *OvsdbClientTcpSession::connection_table() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     return ovs_server->connection_table();
@@ -222,12 +232,20 @@ bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
         }
         break;
     case TcpSession::CONNECT_COMPLETE:
-        ec = SetSocketOptions();
-        assert(ec.value() == 0);
-        set_status("Established");
-        OnEstablish();
-        if (!ovs_server->connect_complete_cb_.empty()) {
-            ovs_server->connect_complete_cb_(this);
+        if (!ovs_server->pre_connect_complete_cb_.empty()) {
+            ovs_server->pre_connect_complete_cb_(this);
+        }
+        if (!IsClosed()) {
+            ec = SetSocketOptions();
+            assert(ec.value() == 0);
+            set_status("Established");
+            OnEstablish();
+            if (!ovs_server->connect_complete_cb_.empty()) {
+                ovs_server->connect_complete_cb_(this);
+            }
+        } else {
+            OVSDB_SESSION_TRACE(Trace, this, "Skipping connection complete on"
+                                " closed session");
         }
         break;
     default:

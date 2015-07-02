@@ -8,6 +8,7 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
+#include <tbb/atomic.h>
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -27,6 +28,7 @@ class IFMapStateMachine;
 class IFMapManager;
 class TimerImpl;
 class IFMapPeerTimedoutEntries;
+class Timer;
 
 class IFMapChannel {
 public:
@@ -46,7 +48,7 @@ public:
     IFMapChannel(IFMapManager *manager, const std::string& user,
                  const std::string& passwd, const std::string& certstore);
 
-    virtual ~IFMapChannel() { }
+    virtual ~IFMapChannel();
 
     void set_sm(IFMapStateMachine *state_machine) {
         state_machine_ = state_machine;
@@ -167,12 +169,28 @@ public:
     }
     PeerTimedoutInfo GetTimedoutInfo(const std::string &host,
                                      const std::string &port);
+    bool StaleEntriesCleanupTimerRunning();
+    void set_start_stale_entries_cleanup(bool value) {
+        start_stale_entries_cleanup_ = value;
+    }
+    bool start_stale_entries_cleanup() const {
+        return start_stale_entries_cleanup_;
+    }
+    void set_end_of_rib_computed(bool value) {
+        end_of_rib_computed_ = value;
+    }
+    bool end_of_rib_computed() const { return end_of_rib_computed_; }
+    bool EndOfRibTimerRunning();
 
 private:
     // 45 seconds i.e. 30 + (3*5)s
     static const int kSessionKeepaliveIdleTime = 30; // in seconds
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
+    static const int kSessionTcpUserTimeout = 45000; // in milliseconds
+
+    static const int kStaleEntriesCleanupTimeout = 10000; // milliseconds
+    static const int kEndOfRibTimeout = 10000; // milliseconds
 
     enum ResponseState {
         NONE = 0,
@@ -209,6 +227,12 @@ private:
     void SendPollRequestInMainThr(std::string poll_msg);
     void PollResponseWaitInMainThr();
     void ProcResponseInMainThr(size_t bytes_to_read);
+    void StartStaleEntriesCleanupTimer();
+    void StopStaleEntriesCleanupTimer();
+    bool ProcessStaleEntriesTimeout();
+    void StartEndOfRibTimer();
+    void StopEndOfRibTimer();
+    bool ProcessEndOfRibTimeout();
 
     IFMapManager *manager_;
     boost::asio::ip::tcp::resolver resolver_;
@@ -235,6 +259,10 @@ private:
     uint64_t connection_status_change_at_;
     boost::asio::ip::tcp::endpoint endpoint_;
     TimedoutMap timedout_map_;
+    tbb::atomic<bool> start_stale_entries_cleanup_;
+    Timer *stale_entries_cleanup_timer_;
+    Timer *end_of_rib_timer_;
+    tbb::atomic<bool> end_of_rib_computed_;
 
     std::string GetSizeAsString(size_t stream_sz, std::string log) {
         std::ostringstream ss;

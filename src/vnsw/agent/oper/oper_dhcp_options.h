@@ -18,23 +18,28 @@ public:
     typedef std::vector<autogen::DhcpOptionType> DhcpOptionsList;
     typedef std::vector<autogen::RouteType> HostOptionsList;
 
-    struct Subnet {
+    struct HostRoute {
         Ip4Address prefix_;
         uint32_t plen_;
+        Ip4Address gw_;
 
-        Subnet() : prefix_(), plen_(0) {}
-        bool operator<(const Subnet &rhs) const {
+        HostRoute() : prefix_(), plen_(0), gw_() {}
+        bool operator<(const HostRoute &rhs) const {
             if (prefix_ != rhs.prefix_)
                 return prefix_ < rhs.prefix_;
-            return plen_ < rhs.plen_;
+            if (plen_ != rhs.plen_)
+                return plen_ < rhs.plen_;
+            return gw_ < rhs.gw_;
         }
-        bool operator==(const Subnet &rhs) const {
-            return prefix_ == rhs.prefix_ && plen_ == rhs.plen_;
+        bool operator==(const HostRoute &rhs) const {
+            return prefix_ == rhs.prefix_ && plen_ == rhs.plen_ &&
+                   gw_ == rhs.gw_;
         }
         std::string ToString() const { 
             char len[32];
             snprintf(len, sizeof(len), "%u", plen_);
-            return prefix_.to_string() + "/" + std::string(len);
+            return prefix_.to_string() + "/" + std::string(len) +
+                   " -> " + gw_.to_string();
         }
     };
 
@@ -46,7 +51,7 @@ public:
     virtual ~OperDhcpOptions() {}
 
     const DhcpOptionsList &dhcp_options() const { return dhcp_options_; }
-    const std::vector<Subnet> &host_routes() const { return host_routes_; }
+    const std::vector<HostRoute> &host_routes() const { return host_routes_; }
     void set_options(const DhcpOptionsList &options) { dhcp_options_ = options; }
     void set_host_routes(const HostOptionsList &host_routes) {
         host_routes_.clear();
@@ -55,14 +60,18 @@ public:
     void update_host_routes(const HostOptionsList &host_routes) {
         host_routes_.clear();
         for (unsigned int i = 0; i < host_routes.size(); ++i) {
-            Subnet subnet;
+            HostRoute host_route;
             boost::system::error_code ec = Ip4PrefixParse(host_routes[i].prefix,
-                                                          &subnet.prefix_,
-                                                          (int *)&subnet.plen_);
-            if (ec || subnet.plen_ > 32) {
+                                                          &host_route.prefix_,
+                                                          (int *)&host_route.plen_);
+            if (ec || host_route.plen_ > 32) {
                 continue;
             }
-            host_routes_.push_back(subnet);
+            host_route.gw_ = Ip4Address::from_string(host_routes[i].next_hop, ec);
+            if (ec) {
+                host_route.gw_ = Ip4Address();
+            }
+            host_routes_.push_back(host_route);
         }
     }
 
@@ -75,7 +84,7 @@ public:
 
 private:
     DhcpOptionsList dhcp_options_;
-    std::vector<Subnet> host_routes_;
+    std::vector<HostRoute> host_routes_;
 };
 
 #endif // vnsw_agent_oper_dhcp_options_h_

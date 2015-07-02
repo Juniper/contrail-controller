@@ -37,6 +37,7 @@ class DiscoveryCassandraClient(object):
         self._cassandra_init(cass_srv_list, max_retries, timeout)
 
         self._debug = {
+            'db_upd_oper_state': 0,
         }
     #end __init__
 
@@ -187,7 +188,8 @@ class DiscoveryCassandraClient(object):
         else:
             col_name = ('client', )
             try:
-                data = self._disco_cf.get_range(column_start=col_name, column_finish=col_name)
+                data = self._disco_cf.get_range(column_start=col_name,
+                   column_finish = col_name, column_count = disc_consts.MAX_COL)
             except pycassa.NotFoundException:
                 return None
 
@@ -292,13 +294,14 @@ class DiscoveryCassandraClient(object):
             subs = sorted(subs.items(), key=lambda entry: entry[1][1])
             # col_name = (client, cliend_id, service_id)
             # col_val  = (real-value, timestamp)
+            data = None
             for col_name, col_val in subs:
                 foo, client_id, service_id = col_name
                 if service_id == disc_consts.CLIENT_TAG:
                     data = json.loads(col_val[0])
                     continue
                 entry = json.loads(col_val[0])
-                r.append((col_name[2], entry['blob']))
+                r.append((col_name[2], entry.get('expired', False)))
             return (data, r)
         except pycassa.NotFoundException:
             return (None, [])
@@ -333,4 +336,38 @@ class DiscoveryCassandraClient(object):
             columns = [('subscriber', service_id, client_id)])
     # end
 
-    # return tuple (service_type, client_id, service_id)
+    # mark client subscription for deletion in the future. If client never came
+    # back, entry would still get deleted due to TTL
+    @cass_error_handler
+    def mark_delete_subscription(self, service_type, client_id, service_id):
+        col_name = ('client', client_id, service_id)
+        x = self._disco_cf.get(service_type, columns = [col_name])
+        data = [json.loads(val) for col,val in x.items()]
+        entry = data[0]
+        entry['expired'] = True
+        self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
+
+        col_name = ('subscriber', service_id, client_id)
+        x = self._disco_cf.get(service_type, columns = [col_name])
+        data = [json.loads(val) for col,val in x.items()]
+        entry = data[0]
+        entry['expired'] = True
+        self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
+    # end
+
+    @cass_error_handler
+    def db_update_service_entry_oper_state(self):
+        col_name = ('service',)
+        data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
+        for service_type, services in data:
+            for col_name in services:
+                (_, _, tag) = col_name
+                if tag != 'service-entry':
+                    continue
+                col_value = services[col_name]
+                entry = json.loads(col_value)
+                if 'oper_state' not in entry:
+                    entry['oper_state'] = 'up'
+                    entry['oper_state_msg'] = ''
+                    self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
+                    self._debug['db_upd_oper_state'] += 1

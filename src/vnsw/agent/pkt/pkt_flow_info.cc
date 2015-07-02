@@ -545,6 +545,22 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
     nat_dest_vrf = pkt->vrf;
 }
 
+void PktFlowInfo::CheckLinkLocal(const PktInfo *pkt) {
+    if (!l3_flow && pkt->ip_daddr.is_v4()) {
+        uint16_t nat_port;
+        Ip4Address nat_server;
+        std::string service_name;
+        Agent *agent = flow_table->agent();
+        if (agent->oper_db()->global_vrouter()->
+            FindLinkLocalService(pkt->ip_daddr.to_v4(), pkt->dport,
+                                 &service_name, &nat_server, &nat_port)) {
+            // it is link local service request, treat it as l3
+            l3_flow = true;
+            pkt->l3_forwarding = true;
+        }
+    }
+}
+
 // For link local services, we bind to a local port & use it as NAT source port.
 // The socket is closed when the flow entry is deleted.
 uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
@@ -696,7 +712,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     linklocal_flow = true;
     nat_done = true;
     nat_ip_saddr = Ip4Address(METADATA_IP_ADDR);
-    nat_ip_daddr = vm_port->ip_addr();
+    nat_ip_daddr = vm_port->primary_ip_addr();
     nat_dport = pkt->dport;
     if (pkt->sport == Agent::GetInstance()->metadata_server_port()) {
         nat_sport = METADATA_NAT_PORT;
@@ -729,7 +745,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         vm_port->floating_ip_list().list_;
 
     // We must NAT if the IP-DA is not same as Primary-IP on interface
-    if (pkt->ip_daddr.to_v4() == vm_port->ip_addr()) {
+    if (pkt->ip_daddr.to_v4() == vm_port->primary_ip_addr()) {
         return;
     }
 
@@ -765,7 +781,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     // Translate the Dest-IP
     if (nat_done == false)
         nat_ip_saddr = pkt->ip_saddr;
-    nat_ip_daddr = vm_port->ip_addr();
+    nat_ip_daddr = vm_port->primary_ip_addr();
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
     nat_vrf = dest_vrf;
@@ -857,7 +873,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (VrfTranslate(pkt, in, out, fip_it->floating_ip_) == false) {
+    if (VrfTranslate(pkt, in, out, fip_it->floating_ip_, true) == false) {
         return;
     }
     if (out->rt_ == NULL || in->rt_ == NULL) {
@@ -905,7 +921,8 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 }
 
 bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
-                               PktControlInfo *out, const IpAddress &src_ip) {
+                               PktControlInfo *out, const IpAddress &src_ip,
+                               bool nat_flow) {
     const Interface *intf = NULL;
     if (ingress) {
         intf = in->intf_;
@@ -920,7 +937,12 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //If interface has a VRF assign rule, choose the acl and match the
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
-    const AclDBEntry *acl = vm_intf->vrf_assign_acl();
+    const AclDBEntry *acl = NULL;
+    if (nat_flow == false) {
+        acl = vm_intf->vrf_assign_acl();
+    }
+    //In case of floating IP translation, dont apply
+    //interface VRF assign rule
     if (acl == NULL) {
         if (ingress && in->vn_) {
             //Check if the network ACL is present
@@ -1000,6 +1022,9 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                 flow_source_plen_map);
     in->vn_ = InterfaceToVn(in->intf_);
 
+    // Consider linklocal service requests as l3 always
+    CheckLinkLocal(pkt);
+
     // Compute Out-VRF and Route for dest-ip
     out->vrf_ = in->vrf_;
     UpdateRoute(&out->rt_, out->vrf_, pkt->ip_daddr, pkt->dmac,
@@ -1008,7 +1033,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     //exact same route with different nexthop, hence if both ingress
     //route and egress route are present in native vrf, acl match condition
     //can be applied
-    if (VrfTranslate(pkt, in, out, pkt->ip_saddr) == false) {
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, false) == false) {
         return;
     }
 
@@ -1144,7 +1169,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     //Apply vrf translate ACL to get ingress route
-    if (VrfTranslate(pkt, in, out, pkt->ip_saddr) == false) {
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, false) == false) {
         return;
     }
 

@@ -39,6 +39,7 @@ public:
     // maximum number of inflight txn messages allowed
     virtual bool ThrottleInFlightTxnMessages() { return false; }
 
+    virtual const boost::system::error_code &ovsdb_close_reason() const = 0;
     virtual ConnectionStateTable *connection_table() = 0;
     virtual KSyncObjectManager *ksync_obj_manager() = 0;
     virtual Ip4Address remote_ip() const { return Ip4Address(); }

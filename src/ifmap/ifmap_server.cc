@@ -11,6 +11,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_graph_edge.h"
@@ -32,9 +33,9 @@
 
 using std::make_pair;
 
-class IFMapServer::IFMapStaleCleaner : public Task {
+class IFMapServer::IFMapStaleEntriesCleaner : public Task {
 public:
-    IFMapStaleCleaner(DB *db, DBGraph *graph, IFMapServer *server):
+    IFMapStaleEntriesCleaner(DB *db, DBGraph *graph, IFMapServer *server):
         Task(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0), 
         db_(db), graph_(graph), ifmap_server_(server) {
     }
@@ -114,7 +115,7 @@ public:
                 }
             }
         }
-        IFMAP_DEBUG(IFMapStaleCleanerInfo, curr_seq_num, nodes_deleted,
+        IFMAP_DEBUG(IFMapStaleEntriesCleanerInfo, curr_seq_num, nodes_deleted,
                     nodes_changed, links_deleted, objects_deleted);
 
         return true;
@@ -190,8 +191,6 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&IFMapServer::ClientWorker, this, _1)),
           io_service_(io_service),
-          stale_cleanup_timer_(TimerManager::CreateTimer(*(io_service_),
-                                         "Stale cleanup timer")),
           ifmap_manager_(NULL), ifmap_channel_manager_(NULL) {
 }
 
@@ -204,7 +203,6 @@ void IFMapServer::Initialize() {
 }
 
 void IFMapServer::Shutdown() {
-    TimerManager::DeleteTimer(stale_cleanup_timer_);
     vm_uuid_mapper_->Shutdown();
     exporter_->Shutdown();
 }
@@ -238,11 +236,12 @@ void IFMapServer::ClientUnregister(IFMapClient *client) {
 bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
     if (add) {
         ClientRegister(client);
+        ClientExporterSetup(client);
         ClientGraphDownload(client);
     } else {
-        ClientGraphCleanup(client);
         RemoveSelfAddedLinksAndObjects(client);
         CleanupUuidMapper(client);
+        ClientExporterCleanup(client);
         ClientUnregister(client);
     }
     return true;
@@ -281,24 +280,6 @@ bool IFMapServer::ClientWorker(QueueEntry work_entry) {
     bool done = ProcessClientWork(add, client);
 
     return done;
-}
-
-void IFMapServer::NodeResetClient(DBGraphVertex *vertex, const BitSet &bset) {
-    IFMapNode *node = static_cast<IFMapNode *>(vertex);
-    IFMapNodeState *state = exporter_->NodeStateLookup(node);
-    if (state) {
-        state->InterestReset(bset);
-        state->AdvertisedReset(bset);
-    }
-}
-
-void IFMapServer::LinkResetClient(DBGraphEdge *edge, const BitSet &bset) {
-    IFMapLink *link = static_cast<IFMapLink *>(edge);
-    IFMapLinkState *state = exporter_->LinkStateLookup(link);
-    if (state) {
-        state->InterestReset(bset);
-        state->AdvertisedReset(bset);
-    }
 }
 
 // Get the list of subscribed VMs. For each item in the list, if it exist in the
@@ -351,28 +332,17 @@ void IFMapServer::ClientGraphDownload(IFMapClient *client) {
     }
 }
 
-void IFMapServer::ClientGraphCleanup(IFMapClient *client) {
-    IFMapTable *table = IFMapTable::FindTable(db_, "virtual-router");
-    assert(table);
+void IFMapServer::ClientExporterSetup(IFMapClient *client) {
+    exporter_->AddClientConfigTracker(client->index());
+}
 
-    IFMapNode *node = table->FindNode(client->identifier());
-    if (node != NULL) {
-        IFMapNodeState *state = exporter_->NodeStateLookup(node);
-        if (state == NULL) {
-            return;
-        }
+void IFMapServer::ClientExporterCleanup(IFMapClient *client) {
+    exporter_->CleanupClientConfigTrackedEntries(client->index());
+    exporter_->DeleteClientConfigTracker(client->index());
 
-        BitSet rm_bs;
-        rm_bs.set(client->index());
-        state->InterestReset(rm_bs);
-        state->AdvertisedReset(rm_bs);
-
-        if (node->IsVertexValid()) {
-            graph_->Visit(node,
-                boost::bind(&IFMapServer::NodeResetClient, this, _1, rm_bs),
-                boost::bind(&IFMapServer::LinkResetClient, this, _1, rm_bs));
-        }
-    }
+    BitSet rm_bs;
+    rm_bs.set(client->index());
+    exporter_->ResetLinkDeleteClients(rm_bs);
 }
 
 IFMapClient *IFMapServer::FindClient(const std::string &id) {
@@ -400,21 +370,12 @@ bool IFMapServer::ClientNameToIndex(const std::string &id, int *index) {
     return false;
 }
 
-bool IFMapServer::StaleNodesProcTimeout() {
-    IFMapStaleCleaner *cleaner = new IFMapStaleCleaner(db_, graph_, this);
-
+bool IFMapServer::ProcessStaleEntriesTimeout() {
+    IFMapStaleEntriesCleaner *cleaner =
+        new IFMapStaleEntriesCleaner(db_, graph_, this);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(cleaner);
     return false;
-}
-
-void IFMapServer::StaleNodesCleanup() {
-    if (stale_cleanup_timer_->running()) {
-        stale_cleanup_timer_->Cancel();
-    }
-    stale_cleanup_timer_->Start(kStaleCleanupTimeout,
-            boost::bind(&IFMapServer::StaleNodesProcTimeout, this),
-            NULL);
 }
 
 void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
@@ -454,6 +415,8 @@ void IFMapServer::FillClientMap(IFMapServerShowClientMap *out_map) {
         IFMapClient *client = iter->second;
         IFMapServerClientMapShowEntry entry;
         entry.set_client_name(client->identifier());
+        entry.set_tracker_entries(
+            exporter_->ClientConfigTrackerSize(client->index()));
         out_map->clients.push_back(entry);
     }
 }

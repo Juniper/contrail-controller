@@ -83,6 +83,10 @@ protected:
                   (init_->ovsdb_client()->NextSession(NULL))) != NULL);
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
+        WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -93,10 +97,6 @@ protected:
     OvsPeerManager *peer_manager_;
     OvsdbClientTcpSession *tcp_session_;
 };
-
-TEST_F(OvsBaseTest, BasicOvsdb) {
-    WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
-}
 
 TEST_F(OvsBaseTest, MulticastLocalBasic) {
     AgentUtXmlTest
@@ -246,6 +246,7 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
 }
 
 TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
+    agent_->set_tor_agent_enabled(true);
     IpAddress server = Ip4Address::from_string("1.1.1.1");
     OvsPeer *peer = peer_manager_->Allocate(server);
     EXPECT_TRUE(peer->export_to_controller());
@@ -265,14 +266,24 @@ TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
     WAIT_FOR(100, 100, (vrf->GetBridgeRouteTable() != NULL));
-    table->AddOvsPeerMulticastRouteReq(peer, 100, "dummy", tsn_ip, tor_ip);
-    WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
+    WAIT_FOR(100, 100, (L2RouteFind("vrf1", mac)));
     client->WaitForIdle();
 
     BridgeRouteEntry *rt = L2RouteGet("vrf1", mac);
-    const AgentPath *path = rt->GetActivePath();
+    EXPECT_FALSE(((BgpPeer *)bgp_peer_)->
+                 GetRouteExportState(rt->get_table_partition(), rt));
+
+    //Add OVS path
+    table->AddOvsPeerMulticastRouteReq(peer, 100, "dummy", tsn_ip, tor_ip);
+    WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
+    client->WaitForIdle();
+    EXPECT_TRUE(((BgpPeer *)bgp_peer_)->
+                GetRouteExportState(rt->get_table_partition(), rt));
+
+    rt = L2RouteGet("vrf1", mac);
+    const AgentPath *path = rt->FindPath(peer);
     EXPECT_TRUE(path->tunnel_dest() == tor_ip);
-    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(*nh->GetDip() == tor_ip);
     EXPECT_TRUE(*nh->GetSip() == tsn_ip);
@@ -282,9 +293,9 @@ TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
     WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
 
     rt = L2RouteGet("vrf1", mac);
-    path = rt->GetActivePath();
+    path = rt->FindPath(peer);
     EXPECT_TRUE(path->tunnel_dest() == tor_ip);
-    nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    nh = dynamic_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(*nh->GetDip() == tor_ip);
     EXPECT_TRUE(*nh->GetSip() == tsn_ip);
@@ -310,7 +321,11 @@ int main(int argc, char *argv[]) {
     // override with true to initialize ovsdb server and client
     ksync_init = true;
     client = OvsTestInit(init_file, ksync_init);
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     int ret = RUN_ALL_TESTS();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     return ret;
 }

@@ -190,8 +190,10 @@ public:
                                 const std::string &uuid);
     BgpPeer *FindPeer(const char *routing_instance,
                       const std::string &peername);
-    const BgpPeer *FindMatchingPeer(const char *routing_instance,
-                                    const std::string &name);
+    BgpPeer *FindMatchingPeer(const char *routing_instance,
+                              const std::string &name);
+    void DisableAllPeers();
+    void EnableAllPeers();
     void Shutdown(bool verify = true);
     void VerifyShutdown() const;
 
@@ -304,6 +306,19 @@ public:
             boost::bind(&XmppStateMachine::OpenTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }
+
+    virtual int hold_time_msecs() const {
+        if (hold_time_msecs_)
+            return hold_time_msecs_;
+        return XmppStateMachine::hold_time_msecs();
+    }
+
+    static void set_hold_time_msecs(int hold_time_msecs) {
+        hold_time_msecs_ = hold_time_msecs;
+    }
+
+private:
+    static int hold_time_msecs_;
 };
 
 class XmppLifetimeManagerTest : public XmppLifetimeManager {
@@ -335,8 +350,12 @@ private:
     TASK_UTIL_EXPECT_EQ_MSG(NULL, peer, "Peer Deletion")
 
 #define BGP_VERIFY_ROUTE_COUNT(table, count)                                   \
-    TASK_UTIL_EXPECT_EQ_MSG(count, static_cast<int>((table)->Size()),          \
-                            "Wait for route count")
+    do {                                                                       \
+        ostringstream _os;                                                     \
+        _os << "Wait for route count in table " << (table)->name();            \
+        TASK_UTIL_EXPECT_EQ_MSG(count, static_cast<int>((table)->Size()),      \
+                                _os.str());                                    \
+    } while (false)
 
 #define BGP_VERIFY_ROUTE_PRESENCE(table, route) \
     TASK_UTIL_EXPECT_NE_MSG(static_cast<BgpRoute *>(NULL),                     \

@@ -85,10 +85,14 @@ struct DSPublishResponse {
     Timer *publish_hb_timer_;
     /* Connect Timer */
     Timer *publish_conn_timer_;
+
     boost::asio::ip::udp::endpoint dss_ep_;
+    bool oper_state;
+    std::string oper_state_reason;
     DiscoveryServiceClient *ds_client_;
     std::string publish_msg_;
     std::string publish_hdr_;
+    std::string client_msg_;
     int attempts_;
 
     // Stats
@@ -107,8 +111,11 @@ struct DSPublishResponse {
 typedef boost::function<void()> EnqueuedCb;
 class DiscoveryServiceClient {
 public:
+    static const int kHeartBeatInterval = 5;
+
     DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
-                           std::string client_name);
+                           std::string client_name,
+                           std::string reeval_publish_taskname="bgp::Config");
     virtual ~DiscoveryServiceClient();
     
     void Init();
@@ -117,6 +124,9 @@ public:
     static bool ParseDiscoveryServerConfig(std::string discovery_server,
                 uint16_t port, boost::asio::ip::tcp::endpoint *);
 
+    typedef boost::function<bool(std::string&)> ReEvalPublishCbHandler;
+    void Publish(std::string serviceName, std::string &msg,
+                 ReEvalPublishCbHandler);
     void Publish(std::string serviceName, std::string &msg);
     void PublishResponseHandler(std::string &msg, boost::system::error_code, 
                                 std::string serviceName, HttpConnection *);
@@ -131,11 +141,21 @@ public:
 
     void Unsubscribe(std::string serviceName);
 
-    void SendHeartBeat(std::string serviceName, std::string msg);
+    virtual void SendHeartBeat(std::string serviceName, std::string msg);
     void HeartBeatResponseHandler(std::string &msg, boost::system::error_code, 
                                   std::string serviceName, HttpConnection *);
 
     DSPublishResponse *GetPublishResponse(std::string serviceName);
+
+    void SetHeartBeatInterval(int seconds) {
+        heartbeat_interval_ = seconds;
+    }
+    int GetHeartBeatInterval() { return heartbeat_interval_; }
+
+    // Test Functions
+    bool IsPublishServiceRegisteredUp(std::string serviceName);
+    void PublishServiceReEvalString(std::string serviceName,
+                                    std::string &reeval_reason);
 
     // sandesh introspect fill stats 
     void FillDiscoveryServicePublisherStats(
@@ -144,11 +164,12 @@ public:
     void FillDiscoveryServiceSubscriberStats(
          std::vector<DiscoveryClientSubscriberStats> &ds_stats); 
 
-    // Map of <ServiceName, SubscribeResponseHeader> for subscribe
-    typedef std::map<std::string, DSResponseHeader *> ServiceResponseMap;
-
     // Map of <ServiceName, PublishResponseHeader> for publish
     typedef std::map<std::string, DSPublishResponse *> PublishResponseMap;
+    // Map of <ServiceName, SubscribeResponseHeader> for subscribe
+    typedef std::map<std::string, DSResponseHeader *> ServiceResponseMap;
+    // Map of <ServiceName, ReEvalPublishCbHandler> for reeval publish
+    typedef std::map<std::string, ReEvalPublishCbHandler> ReEvalPublishCbHandlerMap;
 
     boost::asio::ip::tcp::endpoint GetDSServerEndPoint() {
         return ds_endpoint_;
@@ -156,6 +177,7 @@ public:
 
     ServiceResponseMap service_response_map_;
     PublishResponseMap publish_response_map_;
+    ReEvalPublishCbHandlerMap reeval_publish_map_;
 
 private:
     friend struct DSResponseHeader;
@@ -170,19 +192,28 @@ private:
     void UnRegisterSubscribeResponseHandler(std::string serviceName);
     SubscribeResponseHandlerMap subscribe_map_;
 
+    // Application specific ReEvalPublish cb handler
+    void RegisterReEvalPublishCbHandler(std::string serviceName,
+                                        ReEvalPublishCbHandler);
+
     HttpClient *http_client_;
     EventManager *evm_;
     boost::asio::ip::tcp::endpoint ds_endpoint_;
 
     void Publish(std::string serviceName);
+    void ReEvaluatePublish(std::string serviceName, ReEvalPublishCbHandler);
     void WithdrawPublishInternal(std::string serviceName);
     void UnsubscribeInternal(std::string serviceName);
 
     bool DequeueEvent(EnqueuedCb);
     WorkQueue<EnqueuedCb> work_queue_;
-    bool shutdown_;
 
+    bool ReEvalautePublishCbDequeueEvent(EnqueuedCb);
+    WorkQueue<EnqueuedCb>reevaluate_publish_cb_queue_;
+
+    bool shutdown_;
     std::string subscriber_name_;
+    int heartbeat_interval_;
 };
 
 #endif  // __DISCOVERY_SERVICE_CLIENT_H__

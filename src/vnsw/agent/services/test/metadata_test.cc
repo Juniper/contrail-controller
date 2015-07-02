@@ -108,6 +108,8 @@ public:
                      done_(0), itf_count_(0), data_size_(0) {
         rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&MetadataTest::ItfUpdate, this, _2));
+        Agent::GetInstance()->set_router_id(Ip4Address::from_string("127.0.0.1"));
+        Agent::GetInstance()->set_compute_node_ip(Ip4Address::from_string("127.0.0.1"));
     }
 
     ~MetadataTest() {

@@ -295,6 +295,18 @@ bool AgentUtXmlTest::Run() {
     return true;
 }
 
+bool AgentUtXmlTest::Run(std::string test_case) {
+    for (AgentUtXmlTestList::iterator it = test_list_.begin();
+         it != test_list_.end(); it++) {
+        if ((*it)->name().compare(test_case) == 0) {
+            (*it)->Run();
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 //  AgentUtXmlTestCase routines
 /////////////////////////////////////////////////////////////////////////////

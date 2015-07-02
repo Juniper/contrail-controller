@@ -22,6 +22,7 @@ public:
         NoNeighborAs = 1 << 1,
         Stale = 1 << 2,
         NoTunnelEncap = 1 << 3,
+        OriginatorIdLooped = 1 << 4,
     };
 
     // Ordered in the ascending order of path preference
@@ -34,7 +35,7 @@ public:
     };
 
     static const uint32_t INFEASIBLE_MASK =
-        (AsPathLooped|NoNeighborAs|NoTunnelEncap);
+        (AsPathLooped|NoNeighborAs|NoTunnelEncap|OriginatorIdLooped);
 
     static std::string PathIdString(uint32_t path_id);
     static std::string PathSourceString(PathSource source);
@@ -47,6 +48,9 @@ public:
             uint32_t flags = 0, uint32_t label = 0);
     BgpPath(PathSource src, const BgpAttrPtr attr,
             uint32_t flags = 0, uint32_t label = 0);
+    virtual ~BgpPath() {
+    }
+
 
     bool IsVrfOriginated() const {
         if (IsReplicated())
@@ -65,9 +69,12 @@ public:
     }
 
     void UpdatePeerRefCount(int count) {
-        if (peer_) {
-            peer_->UpdateRefCount(count);
-        }
+        if (!peer_)
+            return;
+        peer_->UpdateRefCount(count);
+        if (source_ != BGP_XMPP || IsReplicated())
+            return;
+        peer_->UpdatePrimaryPathCount(count);
     }
 
     const BgpAttr *GetAttr() const {
@@ -95,7 +102,7 @@ public:
     }
 
     // Check if the path is stale
-    bool IsStale() {
+    bool IsStale() const {
         return ((flags_ & Stale) != 0);
     }
 
@@ -112,9 +119,6 @@ public:
     virtual std::string ToString() const {
         // Dump the peer name
         return peer_ ? peer_->ToString() : "Nil";
-    }
-
-    virtual ~BgpPath() {
     }
 
     // Select one path over other
@@ -157,6 +161,7 @@ public:
 private:
     const BgpTable *src_table_;
     const BgpRoute *src_entry_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpSecondaryPath);
 };
 

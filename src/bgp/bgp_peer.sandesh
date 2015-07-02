@@ -22,8 +22,7 @@ traceobject sandesh BgpPeerObjectTrace {
 }
 
 request sandesh BgpNeighborReq {
-    1: string neighbor;
-    2: string domain;
+    1: string search_string;
 }
 
 struct BgpNeighborRoutingInstance {
@@ -64,6 +63,7 @@ struct BgpNeighborResp {
     39: optional list<string> negotiated_address_families;
     40: optional u32 configured_hold_time;
     41: u32 negotiated_hold_time;
+    46: u32 primary_path_count;
     23: optional u32 flap_count;
     24: optional string flap_time;
     37: optional list<BgpNeighborRoutingInstance> routing_instances;
@@ -79,22 +79,18 @@ struct BgpNeighborResp {
 
 response sandesh BgpNeighborListResp {
     1: list<BgpNeighborResp> neighbors;
+    2: optional string next_batch (link="BgpNeighborReqIterate",
+                                   link_title="next_batch");
 }
 
 response sandesh ShowBgpNeighborSummaryResp {
     1: list<BgpNeighborResp> neighbors;
+    2: optional string next_batch (link="ShowBgpNeighborSummaryReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowBgpNeighborSummaryReq {
     1: string search_string;
-}
-
-request sandesh ClearBgpNeighborReq {
-    1: string name;
-}
-
-response sandesh ClearBgpNeighborResp {
-    1: bool success;
 }
 
 struct ShowRoutePathBrief {
@@ -120,9 +116,7 @@ struct ShowPmsiTunnel {
 
 struct ShowRoutePath {
     1: string protocol;
-    2: u32 preference;
     3: string last_modified;
-    4: u32 metric;
     5: u32 local_preference;
     6: u32 local_as;
     7: u32 peer_as;
@@ -184,9 +178,37 @@ request sandesh ShowRouteReq {
 }
 
 struct ShowRouteTableSummary {
-    1: string routing_table_name (link="ShowRouteReq");
+    1: string name (link="ShowRouteReq");
+    3: u64 prefixes;
+    4: u64 paths;
+    5: u64 primary_paths;
+    6: u64 secondary_paths;
+    7: u64 infeasible_paths;
+    8: u64 walk_requests;
+    9: u64 walk_completes;
+    10: u64 walk_cancels;
+    11: u64 pending_updates;
+    12: u64 markers;
+    14: u64 listeners;
+    15: u64 walkers;
     2: bool deleted;
     13: string deleted_at;
+}
+
+response sandesh ShowRouteSummaryResp {
+    1: list<ShowRouteTableSummary> tables;
+    2: optional string next_batch (link="ShowRouteSummaryReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRouteSummaryReq {
+    1: string search_string;
+}
+
+struct ShowRoutingInstanceTable {
+    1: string name (link="ShowRouteReq");
+    13: bool deleted;
+    2: list<string> peers;
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -201,65 +223,129 @@ struct ShowRouteTableSummary {
     15: u64 walkers;
 }
 
-response sandesh ShowRouteSummaryResp {
-    1: list<ShowRouteTableSummary> tables;
-}
-
-request sandesh ShowRouteSummaryReq {
-    1: string search_string;
-}
-
-struct ShowRoutingInstanceTable {
-    1: string name (link="ShowRouteReq"); // routing table name
-    13: bool deleted;
-    2: list<string> peers;
-    3: u64 prefixes;
-    4: u64 paths;
-    5: u64 primary_paths;
-    6: u64 secondary_paths;
-    7: u64 infeasible_paths;
-    8: u64 walk_requests;
-    9: u64 walk_completes;
-    10: u64 walk_cancels;
-    11: u64 pending_updates;
-    12: u64 markers;
-}
-
 struct ShowRoutingInstance {
     1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
     3: string virtual_network;                      // Virtual network
     6: i32 vn_index;                                // Virtual network index
     8: i32 vxlan_id;                                // VXLAN Identifier
-    7: bool deleted;                                // Deletion in progress
-    9: string deleted_at;                           // Delete timestamp
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
+    7: bool deleted;                                // Deletion in progress
+    9: string deleted_at;                           // Delete timestamp
     2: optional list<ShowRoutingInstanceTable> tables;
 }
 
 response sandesh ShowRoutingInstanceResp {
     1: list<ShowRoutingInstance> instances;
+    2: optional string next_batch (link="ShowRoutingInstanceReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowRoutingInstanceReq {
-    1: string name;
+    1: string search_string;
 }
 
 response sandesh ShowRoutingInstanceSummaryResp {
     1: list<ShowRoutingInstance> instances;
+    2: optional string next_batch (link="ShowRoutingInstanceSummaryReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowRoutingInstanceSummaryReq {
     1: string search_string;
 }
 
+struct ShowRtGroupMemberTableList {
+    1: string family;
+    2: list<string> tables;
+}
+
+struct ShowRtGroupInfo {
+    1: string rtarget (link="ShowRtGroupReq");
+    2: list<ShowRtGroupMemberTableList> import_members;
+    3: list<ShowRtGroupMemberTableList> export_members;
+    4: optional list<string> peers_interested;
+    5: optional list<string> dep_route;
+}
+
+response sandesh ShowRtGroupResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+    2: optional string next_batch (link="ShowRtGroupReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRtGroupReq {
+    1: string search_string;
+}
+
+response sandesh ShowRtGroupSummaryResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+    2: optional string next_batch (link="ShowRtGroupSummaryReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRtGroupSummaryReq {
+    1: string search_string;
+}
+
+response sandesh ShowRtGroupPeerResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+    2: optional string next_batch (link="ShowRtGroupPeerReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRtGroupPeerReq {
+    1: string search_string;
+}
+
+struct ShowEvpnMcastLeaf {
+    1: string address;
+    2: string replicator;
+}
+
+struct ShowEvpnTable {
+    1: string name (link="ShowRouteReq");
+    2: u64 mac_routes;
+    3: u64 unique_mac_routes;
+    4: u64 im_routes;
+    5: bool deleted;
+    6: string deleted_at;
+    7: optional list<string> regular_nves;
+    8: optional list<string> ar_replicators;
+    9: optional list<ShowEvpnMcastLeaf> ar_leafs;
+}
+
+response sandesh ShowEvpnTableResp {
+    1: list<ShowEvpnTable> tables;
+    2: optional string next_batch (link="ShowEvpnTableReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowEvpnTableReq {
+    1: string search_string;
+}
+
+response sandesh ShowEvpnTableSummaryResp {
+    1: list<ShowEvpnTable> tables;
+    2: optional string next_batch (link="ShowEvpnTableSummaryReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowEvpnTableSummaryReq {
+    1: string search_string;
+}
+
 struct ShowMulticastManager {
     1: string name (link="ShowMulticastManagerDetailReq");
     2: u32 total_trees;
+    3: bool deleted;
+    4: string deleted_at;
 }
 
 response sandesh ShowMulticastManagerResp {
     1: list<ShowMulticastManager> managers;
+    2: optional string next_batch (link="ShowMulticastManagerReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowMulticastManagerReq {
@@ -311,6 +397,8 @@ struct ShowBgpInstanceConfig {
 
 response sandesh ShowBgpInstanceConfigResp {
     1: list<ShowBgpInstanceConfig> instances;
+    2: optional string next_batch (link="ShowBgpInstanceConfigReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowBgpInstanceConfigReq {

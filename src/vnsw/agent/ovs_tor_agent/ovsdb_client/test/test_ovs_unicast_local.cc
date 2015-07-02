@@ -97,37 +97,28 @@ protected:
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
         WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
 
-        AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
-                            "client/test/xml/ucast-local-test-setup.xml");
         // set current session in test context
         OvsdbTestSetSessionContext(tcp_session_);
-        AgentUtXmlOperInit(&test);
-        AgentUtXmlPhysicalDeviceInit(&test);
-        AgentUtXmlOvsdbInit(&test);
-        if (test.Load() == true) {
-            test.ReadXml();
-            string str;
-            test.ToString(&str);
-            cout << str << endl;
-            test.Run();
-        }
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
+                   "client/test/xml/ucast-local-test-setup.xml");
+        teardown_done_in_test_ = false;
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
-        AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
-                            "client/test/xml/ucast-local-test-teardown.xml");
-        // set current session in test context
-        AgentUtXmlOperInit(&test);
-        AgentUtXmlPhysicalDeviceInit(&test);
-        AgentUtXmlOvsdbInit(&test);
-        if (test.Load() == true) {
-            test.ReadXml();
-            string str;
-            test.ToString(&str);
-            cout << str << endl;
-            test.Run();
+        if (teardown_done_in_test_) {
+            client->WaitForIdle();
+            teardown_done_in_test_ = false;
+            return;
         }
+        // set current session in test context
+        OvsdbTestSetSessionContext(tcp_session_);
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
+                   "client/test/xml/ucast-local-test-teardown.xml");
         client->WaitForIdle();
     }
 
@@ -135,6 +126,7 @@ protected:
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
     OvsdbClientTcpSession *tcp_session_;
+    bool teardown_done_in_test_;
 };
 
 TEST_F(UnicastLocalRouteTest, UnicastLocalBasic) {
@@ -158,6 +150,132 @@ TEST_F(UnicastLocalRouteTest, UnicastLocalBasic) {
         client->WaitForIdle();
         req->Release();
 
+        WAIT_FOR(10, 10000,
+                 (true == del_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01")));
+        // Wait for entry to del
+        WAIT_FOR(100, 10000,
+                 (NULL == FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+    }
+}
+
+TEST_F(UnicastLocalRouteTest, UnicastLocalDelayLogicalSwitchDelete) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == add_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01",
+                                              "11.11.11.11")));
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+
+        // set current session in test context
+        OvsdbTestSetSessionContext(tcp_session_);
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/"
+                   "test/xml/ucast-local-test-ls-pending-teardown.xml");
+        client->WaitForIdle();
+        teardown_done_in_test_ = true;
+
+        WAIT_FOR(1000, 1000,
+                 (NULL != (entry = static_cast<LogicalSwitchEntry *>
+                           (table->Find(&key)))));
+        // entry should be waiting for Local MAC ref to go
+        WAIT_FOR(1000, 1000, (true == entry->IsLocalMacsRef()));
+
+        WAIT_FOR(10, 10000,
+                 (true == del_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01")));
+        // Wait for entry to del
+        WAIT_FOR(1000, 1000, (NULL == table->Find(&key)));
+    }
+}
+
+TEST_F(UnicastLocalRouteTest, UnicastLocalDelayLogicalSwitchDeleteAndRenew) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == add_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01",
+                                              "11.11.11.11")));
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+
+        // set current session in test context
+        OvsdbTestSetSessionContext(tcp_session_);
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/"
+                   "test/xml/ucast-local-test-ls-pending-teardown.xml");
+        client->WaitForIdle();
+        teardown_done_in_test_ = true;
+
+        WAIT_FOR(1000, 1000,
+                 (NULL != (entry = static_cast<LogicalSwitchEntry *>
+                           (table->Find(&key)))));
+        // entry should be waiting for Local MAC ref to go
+        WAIT_FOR(1000, 1000, (true == entry->IsLocalMacsRef()));
+
+        // readd setup config
+        SetUp();
+
+        WAIT_FOR(1000, 1000, (NULL != table->Find(&key)));
+
+        WAIT_FOR(10, 10000,
+                 (true == del_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01")));
+
+        // entry should be active without Local MAC ref
+        WAIT_FOR(1000, 1000, (false == entry->IsLocalMacsRef()));
+    }
+}
+
+TEST_F(UnicastLocalRouteTest, ConnectionCloseWhileUnicastLocalPresent) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == add_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01",
+                                              "11.11.11.11")));
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+
+        // Take reference to idl so that session object itself is not deleted.
+        OvsdbClientIdlPtr tcp_idl = tcp_session_->client_idl();
+        tcp_session_->TriggerClose();
+        client->WaitForIdle();
+
+        // validate refcount to be 2 one from session and one locally held
+        // to validate session closure, when we release refcount
+        WAIT_FOR(1000, 1000, (2 == tcp_idl->refcount()));
+        tcp_idl = NULL;
+    }
+
+    WAIT_FOR(100, 10000,
+             (tcp_session_ = static_cast<OvsdbClientTcpSession *>
+              (init_->ovsdb_client()->NextSession(NULL))) != NULL);
+    client->WaitForIdle();
+
+    table = tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key1(table, UuidToString(MakeUuid(1)));
+    entry = static_cast<LogicalSwitchEntry *> (table->Find(&key1));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
         WAIT_FOR(10, 10000,
                  (true == del_ucast_mac_local(entry->name(),
                                               "00:00:00:00:01:01")));
@@ -214,6 +332,11 @@ int main(int argc, char *argv[]) {
     // override with true to initialize ovsdb server and client
     ksync_init = true;
     client = OvsTestInit(init_file, ksync_init);
+
+    // override signal handler to default for SIGCHLD, for system() api
+    // to work and return exec status appropriately
+    signal(SIGCHLD, SIG_DFL);
+
     int ret = RUN_ALL_TESTS();
     TestShutdown();
     return ret;

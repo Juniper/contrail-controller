@@ -274,6 +274,7 @@ public:
     static void Shutdown();
     static void Unregister(KSyncObject *);
     void Delete(KSyncObject *);
+    static KSyncObjectManager *GetInstance();
 private:
     WorkQueue<KSyncObjectEvent *> *event_queue_;
     static std::auto_ptr<KSyncEntry> default_defer_entry_;

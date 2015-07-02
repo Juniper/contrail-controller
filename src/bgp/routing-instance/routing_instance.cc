@@ -77,6 +77,13 @@ bool RoutingInstanceMgr::deleted() {
 }
 
 //
+// Return the default routing instance.
+//
+const RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() const {
+    return instances_.Find(BgpConfigManager::kMasterInstance);
+}
+
+//
 // Go through all export targets for the RoutingInstance and add an entry for
 // each one to the InstanceTargetMap.
 //
@@ -773,7 +780,7 @@ BgpTable *RoutingInstance::VpnTableCreate(Address::Family vpn_family) {
     AddTable(table);
     RTINSTANCE_LOG_TABLE(Create, this, table, SandeshLevel::SYS_DEBUG,
         RTINSTANCE_LOG_FLAG_ALL);
-    assert(server_->rtarget_group_mgr()->GetRtGroupMap().empty());
+    assert(server_->rtarget_group_mgr()->empty());
     RoutePathReplicator *replicator = server_->replicator(vpn_family);
     replicator->Initialize();
     return table;
@@ -856,10 +863,13 @@ string RoutingInstance::GetTableName(string instance_name,
 BgpTable *RoutingInstance::GetTable(Address::Family fmly) {
     string table_name = RoutingInstance::GetTableName(name_, fmly);
     RouteTableList::const_iterator loc = GetTables().find(table_name);
-    if (loc != GetTables().end()) {
-        return loc->second;
-    }
-    return NULL;
+    return (loc != GetTables().end() ? loc->second : NULL);
+}
+
+const BgpTable *RoutingInstance::GetTable(Address::Family fmly) const {
+    string table_name = RoutingInstance::GetTableName(name_, fmly);
+    RouteTableList::const_iterator loc = GetTables().find(table_name);
+    return (loc != GetTables().end() ? loc->second : NULL);
 }
 
 string RoutingInstance::GetVrfFromTableName(const string table) {

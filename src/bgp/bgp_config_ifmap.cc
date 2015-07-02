@@ -22,6 +22,7 @@ using namespace std;
 using boost::iequals;
 
 const int BgpIfmapConfigManager::kConfigTaskInstanceId = 0;
+int BgpIfmapConfigManager::config_task_id_ = -1;
 
 static BgpNeighborConfig::AddressFamilyList default_addr_family_list;
 
@@ -922,8 +923,9 @@ const BgpIfmapPeeringConfig *BgpIfmapConfigData::FindPeering(
 }
 
 BgpConfigManager::InstanceMapRange
-BgpIfmapConfigData::InstanceMapItems() const {
-    return make_pair(instance_config_map_.begin(), instance_config_map_.end());
+BgpIfmapConfigData::InstanceMapItems(const string &start_name) const {
+    return make_pair(instance_config_map_.lower_bound(start_name),
+        instance_config_map_.end());
 }
 
 //
@@ -972,8 +974,8 @@ void BgpIfmapConfigManager::OnChange() {
 }
 
 BgpConfigManager::InstanceMapRange
-BgpIfmapConfigManager::InstanceMapItems() const {
-    return config_->InstanceMapItems();
+BgpIfmapConfigManager::InstanceMapItems(const string &start_name) const {
+    return config_->InstanceMapItems(start_name);
 }
 
 BgpConfigManager::NeighborMapRange

@@ -12,6 +12,7 @@
 #include "base/util.h"
 #include "query_engine/buildinfo.h"
 #include "net/address_util.h"
+#include "viz_constants.h"
 
 #include "options.h"
 
@@ -69,7 +70,7 @@ void Options::Initialize(EventManager &evm,
     opt::options_description config("Configuration options");
     config.add_options()
         ("DEFAULT.analytics_data_ttl",
-             opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
              "global TTL(hours) for analytics data")
         ("DEFAULT.collectors",
            opt::value<vector<string> >()->default_value(
@@ -93,6 +94,8 @@ void Options::Initialize(EventManager &evm,
              "Disable sandesh logging")
         ("DEFAULT.log_file", opt::value<string>()->default_value("<stdout>"),
              "Filename for the logs to be written to")
+        ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
+             "log4cplus property file name")
         ("DEFAULT.log_files_count",
              opt::value<int>()->default_value(10),
              "Maximum log file roll over index")
@@ -224,6 +227,7 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
+    GetOptValue<string>(var_map, log_property_file_, "DEFAULT.log_property_file");
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");

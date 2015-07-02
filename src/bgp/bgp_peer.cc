@@ -364,10 +364,15 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           defer_close_(false),
           vpn_tables_registered_(false),
           local_as_(config->local_as()),
-          peer_as_(config_->peer_as()),
-          remote_bgp_id_(0),
-          peer_type_((peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP),
-          policy_(peer_type_, RibExportPolicy::BGP, peer_as_, -1, 0),
+          peer_as_(config->peer_as()),
+          local_bgp_id_(config->local_identifier()),
+          peer_bgp_id_(0),
+          configured_families_(config->address_families()),
+          peer_type_((config->peer_as() == config->local_as()) ?
+                         BgpProto::IBGP : BgpProto::EBGP),
+          policy_((config->peer_as() == config->local_as()) ?
+                      BgpProto::IBGP : BgpProto::EBGP,
+                  RibExportPolicy::BGP, config->peer_as(), -1, 0),
           peer_close_(new PeerClose(this)),
           peer_stats_(new PeerStats(this)),
           deleter_(new DeleteActor(this)),
@@ -375,18 +380,16 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           flap_count_(0),
           last_flap_(0),
           inuse_authkey_type_(AuthenticationData::NIL) {
-
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Created");
     if (peer_name_.find(rtinstance_->name()) == 0) {
         peer_basename_ = peer_name_.substr(rtinstance_->name().size() + 1);
     } else {
         peer_basename_ = peer_name_;
     }
 
-    boost::system::error_code ec;
-    local_bgp_id_ = config->local_identifier();
-
     refcount_ = 0;
-    configured_families_ = config->address_families();
+    primary_path_count_ = 0;
     sort(configured_families_.begin(), configured_families_.end());
     BOOST_FOREACH(string family, configured_families_) {
         Address::Family fmly = Address::FamilyFromString(family);
@@ -404,7 +407,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_local_id(local_bgp_id_);
     if (!config->address_families().empty())
         peer_info.set_configured_families(config->address_families());
-
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
     BGPPeerInfo::Send(peer_info);
 }
@@ -416,6 +418,8 @@ BgpPeer::~BgpPeer() {
     peer_info.set_name(ToUVEKey());
     peer_info.set_deleted(true);
     BGPPeerInfo::Send(peer_info);
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Deleted");
 }
 
 void BgpPeer::Initialize() {
@@ -667,7 +671,11 @@ bool BgpPeer::IsXmppPeer() const {
 }
 
 uint32_t BgpPeer::bgp_identifier() const {
-    return ntohl(remote_bgp_id_);
+    return ntohl(peer_bgp_id_);
+}
+
+string BgpPeer::bgp_identifier_string() const {
+    return Ip4Address(ntohl(peer_bgp_id_)).to_string();
 }
 
 //
@@ -687,6 +695,8 @@ void BgpPeer::CustomClose() {
 //
 void BgpPeer::Close() {
     if (membership_req_pending_) {
+        BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+            BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
         return;
     }
@@ -782,6 +792,8 @@ void BgpPeer::RegisterAllTables() {
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
 
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Established");
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -979,7 +991,7 @@ void BgpPeer::SendNotification(BgpSession *session,
 }
 
 void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
-    remote_bgp_id_ = htonl(msg->identifier);
+    peer_bgp_id_ = htonl(msg->identifier);
     capabilities_.clear();
     std::vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
     for (it = msg->opt_params.begin(); it < msg->opt_params.end(); ++it) {
@@ -990,7 +1002,7 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
-    peer_info.set_peer_id(remote_bgp_id_);
+    peer_info.set_peer_id(peer_bgp_id_);
 
     std::vector<std::string> families;
     std::vector<BgpProto::OpenMessage::Capability *>::iterator cap_it;
@@ -1073,6 +1085,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
         if (path_attr->as_path()->path().AsPathLoop(local_as_)) {
             flags |= BgpPath::AsPathLooped;
         }
+    }
+
+    // Check for OriginatorId loop in case we are an RR client.
+    if (peer_type_ == BgpProto::IBGP &&
+        path_attr->originator_id().to_ulong() == ntohl(local_bgp_id_)) {
+        flags |= BgpPath::OriginatorIdLooped;
     }
 
     uint32_t reach_count = 0, unreach_count = 0;
@@ -1696,14 +1714,14 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
     resp.set_tx_socket_stats(peer_socket_stats);
 }
 
-void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
+void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
         vector<BgpNeighborResp> *nbr_list, bool summary) const {
     BgpNeighborResp nbr;
     nbr.set_peer(peer_basename_);
     nbr.set_deleted(IsDeleted());
     nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
-    nbr.set_peer_id(Ip4Address(ntohl(remote_bgp_id_)).to_string());
+    nbr.set_peer_id(bgp_identifier_string());
     nbr.set_peer_asn(peer_as());
     nbr.set_encoding("BGP");
     nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
@@ -1712,6 +1730,7 @@ void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
     nbr.set_local_id(Ip4Address(ntohl(local_bgp_id_)).to_string());
     nbr.set_local_asn(local_as());
     nbr.set_negotiated_hold_time(state_machine_->hold_time());
+    nbr.set_primary_path_count(GetPrimaryPathCount());
     nbr.set_auth_type(AuthenticationData::KeyTypeToString(inuse_authkey_type_));
     if (bsc->test_mode()) {
         nbr.set_auth_keys(auth_data_.KeysToStringDetail());
@@ -1728,6 +1747,7 @@ void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
     PeerRibMembershipManager *mgr = server_->membership_mgr();
     mgr->FillPeerMembershipInfo(this, &nbr);
+    nbr.set_routing_instances(vector<BgpNeighborRoutingInstance>());
     nbr_list->push_back(nbr);
 }
 

@@ -36,7 +36,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
-    flood_dhcp_(false), arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
+    arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -303,8 +303,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
 }
 
 bool AgentPath::IsLess(const AgentPath &r_path) const {
-    if (peer()->GetType() == Peer::LOCAL_VM_PORT_PEER && 
-        peer()->GetType() == r_path.peer()->GetType()) {
+    if (peer()->GetType() == r_path.peer()->GetType()) {
         if (path_preference() != r_path.path_preference()) {
             //If right path has lesser preference, then
             //it should be after the current entry
@@ -415,6 +414,13 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
     TunnelType::Type tunnel_type = reference_path_->tunnel_type();
     if (evpn_path->tunnel_type() != tunnel_type) {
         evpn_path->set_tunnel_type(tunnel_type);
+        ret = true;
+    }
+
+    PathPreference pref = reference_path_->path_preference();
+    if (evpn_path->path_preference() != pref) {
+        // Take path preference from parent path
+        evpn_path->set_path_preference(pref);
         ret = true;
     }
 

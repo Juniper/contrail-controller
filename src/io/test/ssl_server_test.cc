@@ -63,22 +63,31 @@ public:
         ssl_handshake_count_(0) {
         boost::asio::ssl::context *ctx = context();
         boost::system::error_code ec;
-        ctx->set_verify_mode(boost::asio::ssl::context::verify_none, ec);
+        ctx->set_verify_mode((boost::asio::ssl::verify_peer |
+                              boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
         assert(ec.value() == 0);
         ctx->use_certificate_chain_file
             ("controller/src/ifmap/client/test/newcert.pem", ec);
         assert(ec.value() == 0);
-        ctx->use_private_key_file("controller/src/ifmap/client/test/server.pem",
+        ctx->use_private_key_file("controller/src/ifmap/client/test/privkey.pem",
                                   boost::asio::ssl::context::pem, ec);
         assert(ec.value() == 0);
-        ctx->add_verify_path("controller/src/ifmap/client/test/", ec);
+        ctx->load_verify_file("controller/src/io/test/ssl_client_cert.pem",
+                              ec);
         assert(ec.value() == 0);
+    }
+
+    ~EchoServer() {
+    }
+
+    void set_verify_fail_certs() {
+        boost::asio::ssl::context *ctx = context();
+        boost::system::error_code ec;
         ctx->load_verify_file("controller/src/ifmap/client/test/newcert.pem",
                               ec);
         assert(ec.value() == 0);
     }
-    ~EchoServer() {
-    }
+
     virtual SslSession *AllocSession(SslSocket *socket) {
         session_ =  new EchoSession(this, socket, ssl_handshake_delayed_);
         return session_;
@@ -168,12 +177,10 @@ public:
         ctx->set_verify_mode(boost::asio::ssl::context::verify_none, ec);
         assert(ec.value() == 0);
         ctx->use_certificate_chain_file
-            ("controller/src/ifmap/client/test/newcert.pem", ec);
+            ("controller/src/io/test/ssl_client_cert.pem", ec);
         assert(ec.value() == 0);
-        ctx->use_private_key_file("controller/src/ifmap/client/test/server.pem",
+        ctx->use_private_key_file("controller/src/io/test/ssl_client_privkey.pem",
                                   boost::asio::ssl::context::pem, ec);
-        assert(ec.value() == 0);
-        ctx->add_verify_path("controller/src/ifmap/client/test/", ec);
         assert(ec.value() == 0);
         ctx->load_verify_file("controller/src/ifmap/client/test/newcert.pem",
                               ec);
@@ -184,6 +191,20 @@ public:
     virtual SslSession *AllocSession(SslSocket *socket) {
         session_ =  new ClientSession(this, socket, ssl_handshake_delayed_);
         return session_;
+    }
+
+    void set_verify_fail_certs() {
+        boost::asio::ssl::context *ctx = context();
+        boost::system::error_code ec;
+        ctx->set_verify_mode((boost::asio::ssl::verify_peer |
+                              boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
+        assert(ec.value() == 0);
+        ctx->use_certificate_chain_file
+            ("controller/src/ifmap/client/test/newcert.pem", ec);
+        assert(ec.value() == 0);
+        ctx->load_verify_file("controller/src/io/test/ssl_client_cert.pem",
+                              ec);
+        assert(ec.value() == 0);
     }
 
     TcpSession *CreateSession() {
@@ -225,7 +246,7 @@ private:
 
 ClientSession::ClientSession(SslClient *server, SslSocket *socket,
                              bool ssl_handshake_delayed)
-    : SslSession(server, socket) {
+    : SslSession(server, socket), len_(0) {
     if (!ssl_handshake_delayed) {
         set_observer(boost::bind(&ClientSession::OnEvent, this, _1, _2));
     }
@@ -266,9 +287,6 @@ protected:
 
 
     virtual void TearDown() {
-        if (server_->GetSession()) {
-            server_->GetSession()->Close();
-        }
         if (session_) session_->Close();
         task_util::WaitForIdle();
         server_->Shutdown();
@@ -349,7 +367,65 @@ TEST_F(SslEchoServerTest, msg_send_recv) {
     client = NULL;
 }
 
-TEST_F(SslEchoServerTest, test_delayed_ssl_handshake) {
+TEST_F(SslEchoServerTest, HandshakeFailure) {
+
+    SetUpImmedidate();
+    SslClient *client = new SslClient(evm_.get());
+    SslClient *client_fail = new SslClient(evm_.get());
+
+    // set context to verify certs to fail handshake
+    client_fail->set_verify_fail_certs();
+
+    task_util::WaitForIdle();
+    server_->Initialize(0);
+    task_util::WaitForIdle();
+    thread_->Start();		// Must be called after initialization
+
+    connect_success_ = connect_fail_ = connect_abort_ = 0;
+    ClientSession *session = static_cast<ClientSession *>(client->CreateSession());
+    ClientSession *session_fail = static_cast<ClientSession *>(client_fail->CreateSession());
+    session->set_observer(boost::bind(&SslEchoServerTest::OnEvent, this, _1, _2));
+    session_fail->set_observer(boost::bind(&SslEchoServerTest::OnEvent, this, _1, _2));
+    boost::asio::ip::tcp::endpoint endpoint;
+    boost::system::error_code ec;
+    endpoint.address(boost::asio::ip::address::from_string("127.0.0.1", ec));
+    endpoint.port(server_->GetPort());
+    client->Connect(session, endpoint);
+    task_util::WaitForIdle();
+    StartConnectTimer(session, 10);
+    TASK_UTIL_EXPECT_TRUE(session->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(session->IsClosed());
+    TASK_UTIL_EXPECT_EQ(1, connect_success_);
+    TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
+    TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
+    // wait for on connect message to come back from echo server.
+    TASK_UTIL_EXPECT_EQ(session->len(), 14);
+
+    client_fail->Connect(session_fail, endpoint);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, connect_success_);
+    TASK_UTIL_EXPECT_EQ(connect_fail_, 1);
+    TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
+
+    session->Close();
+    session_fail->Close();
+    client_fail->DeleteSession(session_fail);
+    client->DeleteSession(session);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, server_->GetSessionCount());
+    TASK_UTIL_EXPECT_FALSE(server_->HasSessions());
+
+    client_fail->Shutdown();
+    client->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(client_fail);
+    TcpServerManager::DeleteServer(client);
+    client_fail = NULL;
+    client = NULL;
+}
+
+TEST_F(SslEchoServerTest, DISABLED_test_delayed_ssl_handshake) {
 
     SetUpDelayedHandShake();
 

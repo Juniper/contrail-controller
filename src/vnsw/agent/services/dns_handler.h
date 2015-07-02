@@ -73,7 +73,7 @@ private:
     void ParseQuery();
     void Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
                  DnsItems &auth, DnsItems &add);
-    bool SendDnsQuery();
+    bool SendDnsQuery(int8_t idx, uint16_t xid);
     void SendDnsResponse();
     void UpdateQueryNames();
     void UpdateOffsets(DnsItem &item, bool name_update_required);
@@ -91,10 +91,10 @@ private:
     uint8_t *resp_ptr_;
     uint16_t dns_resp_size_;
     uint16_t xid_;
-    uint32_t retries_;
+    uint32_t retries_[MAX_XMPP_SERVERS];
     Action action_;
     QueryKey *rkey_;
-    Timer *timer_;
+    Timer *timer_[MAX_XMPP_SERVERS];
     std::string ipam_name_;
     std::string domain_name_;
     autogen::IpamType ipam_type_;

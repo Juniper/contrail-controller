@@ -22,6 +22,9 @@ sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 libovsdbclient = env.Library('ovsdbclient',
                              sandesh_objs +
                              [
+                                 'ha_stale_dev_vn.cc',
+                                 'ha_stale_l2_route.cc',
+                                 'ha_stale_vn.cc',
                                  'logical_switch_ovsdb.cc',
                                  'multicast_mac_local_ovsdb.cc',
                                  'ovsdb_client.cc',

@@ -26,6 +26,8 @@
 #include "bgp/scheduling_group.h"
 #include "db/db.h"
 
+using std::vector;
+
 int PeerRibMembershipManager::membership_task_id_ = -1;
 const int PeerRibMembershipManager::kMembershipTaskInstanceId;
 
@@ -798,19 +800,18 @@ void PeerRibMembershipManager::UnregisterPeerCompleteCallback(
     event->request.notify_completion_fn(event->ipeer, NULL);
 }
 
-void PeerRibMembershipManager::FillRoutingInstanceInfo(
-            ShowRoutingInstanceTable *inst,
-            const BgpTable *table) const {
-    RibPeerMap::const_iterator it;
+void PeerRibMembershipManager::FillRoutingInstanceTableInfo(
+    ShowRoutingInstanceTable *srit, const BgpTable *table) const {
     std::vector<std::string> peers;
-    for (it = rib_peer_map_.find(table); it != rib_peer_map_.end(); it++) {
-        if (it->first != table) break;
+    for (RibPeerMap::const_iterator it = rib_peer_map_.find(table);
+         it != rib_peer_map_.end(); ++it) {
+        if (it->first != table)
+            break;
         peers.push_back(it->second->ToString());
     }
 
-    inst->set_name(table->name());
-    inst->set_deleted(table->IsDeleted());
-    if (peers.size()) inst->set_peers(peers);
+    if (peers.size())
+        srit->set_peers(peers);
 }
 
 //
@@ -820,6 +821,17 @@ IPeerRib *PeerRibMembershipManager::IPeerRibFind(IPeer *ipeer,
                                                  BgpTable *table) {
     IPeerRib peer_rib(ipeer, table, NULL);
     PeerRibSet::iterator iter = peer_rib_set_.find(&peer_rib);
+    return (iter != peer_rib_set_.end() ? *iter : NULL);
+}
+
+//
+// Find the IPeerRib corresponding to the given IPeer and BgpTable.
+// Const version.
+//
+const IPeerRib *PeerRibMembershipManager::IPeerRibFind(IPeer *ipeer,
+                                                       BgpTable *table) const {
+    IPeerRib peer_rib(ipeer, table, NULL);
+    PeerRibSet::const_iterator iter = peer_rib_set_.find(&peer_rib);
     return (iter != peer_rib_set_.end() ? *iter : NULL);
 }
 
@@ -836,34 +848,42 @@ IPeerRib *PeerRibMembershipManager::IPeerRibLocate(IPeer *ipeer,
 // Return the instance-id of the IPeer for the BgpTable.
 //
 int PeerRibMembershipManager::GetRegistrationId(const IPeer *ipeer,
-                                                BgpTable *table) {
+                                                const BgpTable *table) const {
     assert(ipeer->IsXmppPeer());
-    IPeerRib *peer_rib = IPeerRibFind(const_cast<IPeer *>(ipeer), table);
+    const IPeerRib *peer_rib = IPeerRibFind(
+        const_cast<IPeer *>(ipeer), const_cast<BgpTable *>(table));
     return (peer_rib ? peer_rib->instance_id() : -1);
 }
 
 void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
-        BgpNeighborResp *resp) {
+        BgpNeighborResp *resp) const {
     assert(resp->get_routing_tables().size() == 0);
     IPeer *nc_peer = const_cast<IPeer *>(peer);
 
-    SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
-    SchedulingGroup *sg = sg_mgr->PeerGroup(nc_peer);
-    resp->set_send_state(sg ?
-            (sg->PeerInSync(nc_peer) ? "in sync" : "not in sync") :
-            "not advertising");
-    IPeerRib peer_rib(nc_peer, NULL, this);
-    PeerRibMembershipManager::PeerRibSet::iterator it =
-        peer_rib_set_.lower_bound(&peer_rib);
-    std::vector<BgpNeighborRoutingTable> table_list;
-    for (; it != peer_rib_set_.end(); it++) {
-        if ((*it)->ipeer() != peer) break;
+    const SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
+    const SchedulingGroup *sg = sg_mgr->PeerGroup(nc_peer);
+    if (sg) {
+        resp->set_send_state(
+            sg->PeerInSync(nc_peer) ? "in sync" : "not in sync");
+    } else {
+        resp->set_send_state("not advertising");
+    }
+
+    IPeerRib peer_rib(
+        nc_peer, NULL, const_cast<PeerRibMembershipManager *>(this));
+    vector<BgpNeighborRoutingTable> table_list;
+    for (PeerRibMembershipManager::PeerRibSet::const_iterator it =
+         peer_rib_set_.lower_bound(&peer_rib);
+         it != peer_rib_set_.end(); ++it) {
+        if ((*it)->ipeer() != peer)
+            break;
         BgpNeighborRoutingTable table;
         table.set_name((*it)->table()->name());
         table.set_current_state("subscribed");
         table_list.push_back(table);
     }
-    if (table_list.size()) resp->set_routing_tables(table_list);
+    if (table_list.size())
+        resp->set_routing_tables(table_list);
 }
 
 void PeerRibMembershipManager::FillRegisteredTable(const IPeer *peer,

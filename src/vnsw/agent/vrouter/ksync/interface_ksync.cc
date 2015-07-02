@@ -41,6 +41,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                                          const InterfaceKSyncEntry *entry,
                                          uint32_t index) :
     KSyncNetlinkDBEntry(index), analyzer_name_(entry->analyzer_name_),
+    dhcp_enable_(entry->dhcp_enable_),
     fd_(kInvalidIndex),
     flow_key_nh_id_(entry->flow_key_nh_id_),
     has_service_vlan_(entry->has_service_vlan_),
@@ -78,6 +79,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                                          const Interface *intf) :
     KSyncNetlinkDBEntry(kInvalidIndex),
     analyzer_name_(),
+    dhcp_enable_(true),
     fd_(-1),
     flow_key_nh_id_(0),
     has_service_vlan_(false),
@@ -118,7 +120,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         const VmInterface *vmitf =
             static_cast<const VmInterface *>(intf);
         if (vmitf->do_dhcp_relay()) {
-            ip_ = vmitf->ip_addr().to_ulong();
+            ip_ = vmitf->primary_ip_addr().to_ulong();
         }
         network_id_ = vmitf->vxlan_id();
         rx_vlan_id_ = vmitf->rx_vlan_id();
@@ -207,9 +209,14 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             ret = true;
         }
 
+        if (dhcp_enable_ != vm_port->dhcp_enabled()) {
+            dhcp_enable_ = vm_port->dhcp_enabled();
+            ret = true;
+        }
+
         if (vm_port->do_dhcp_relay()) {
-            if (ip_ != vm_port->ip_addr().to_ulong()) {
-                ip_ = vm_port->ip_addr().to_ulong();
+            if (ip_ != vm_port->primary_ip_addr().to_ulong()) {
+                ip_ = vm_port->primary_ip_addr().to_ulong();
                 ret = true;
             }
         } else {
@@ -479,6 +486,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     case Interface::VM_INTERFACE: {
         if (vmi_device_type_ == VmInterface::TOR)
             return 0;            
+        if (dhcp_enable_) {
+            flags |= VIF_FLAG_DHCP_ENABLED;
+        }
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }

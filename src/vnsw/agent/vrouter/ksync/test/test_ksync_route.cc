@@ -40,6 +40,12 @@ public:
             (vrf1_->GetState(table, vrf_listener_id_));
         vrf1_rt_obj_ = state->inet4_uc_route_table_;
 
+        vrf1_evpn_table_ = static_cast<EvpnAgentRouteTable *>
+            (vrf1_->GetEvpnRouteTable());
+        vrf1_bridge_table_ = static_cast<BridgeAgentRouteTable *>
+            (vrf1_->GetBridgeRouteTable());
+        vrf1_bridge_rt_obj_ = state->bridge_route_table_;
+
         VrfEntry *fabric_vrf =
             table->FindVrfFromName(agent_->fabric_vrf_name());
         fabric_uc_table_ = static_cast<InetUnicastAgentRouteTable *>
@@ -73,6 +79,21 @@ public:
         client->WaitForIdle();
     }
 
+    void AddRemoteEvpnRoute(Peer *peer, const MacAddress &mac,
+                            const IpAddress &addr, uint32_t ethernet_tag,
+                            const string &vn) {
+        SecurityGroupList sg_list;
+        PathPreference path_pref;
+        ControllerVmRoute *data = NULL;
+        data = ControllerVmRoute::MakeControllerVmRoute
+            (NULL, agent_->fabric_vrf_name(), agent_->router_id(),
+             "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
+             100, vn, sg_list, path_pref);
+        vrf1_evpn_table_->AddRemoteVmRouteReq(peer, "vrf1", mac, addr,
+                                              ethernet_tag, data);
+        client->WaitForIdle();
+    }
+
     Agent *agent_;
     VnswInterfaceListener *vnswif_;
     VmInterface *vnet1_;
@@ -82,13 +103,16 @@ public:
     VrfKSyncObject *vrf1_obj_;
     InetUnicastAgentRouteTable *vrf1_uc_table_;
     InetUnicastAgentRouteTable *fabric_uc_table_;
+    EvpnAgentRouteTable *vrf1_evpn_table_;
+    BridgeAgentRouteTable *vrf1_bridge_table_;
     RouteKSyncObject *vrf1_rt_obj_;
+    RouteKSyncObject *vrf1_bridge_rt_obj_;
     RouteKSyncObject *fabric_rt_obj_;
 };
 
 // proxy_arp_ and flood_ flags for interface-route
 TEST_F(TestKSyncRoute, vm_interface_route_1) {
-    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->ip_addr());
+    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->primary_ip_addr());
     EXPECT_TRUE(rt != NULL);
 
     std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf1_rt_obj_, rt));
@@ -101,7 +125,7 @@ TEST_F(TestKSyncRoute, vm_interface_route_1) {
 
 // proxy_arp_ and flood_ flags for interface-route when MAC not stitched
 TEST_F(TestKSyncRoute, vm_interface_route_2) {
-    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->ip_addr());
+    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->primary_ip_addr());
     EXPECT_TRUE(rt != NULL);
 
     std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf1_rt_obj_, rt));
@@ -114,8 +138,12 @@ TEST_F(TestKSyncRoute, vm_interface_route_2) {
 
 // proxy_arp_ and flood_ flags for remote route
 TEST_F(TestKSyncRoute, remote_route_1) {
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
+    client->WaitForIdle();
     IpAddress addr = IpAddress(Ip4Address::from_string("1.1.1.100"));
-    AddRemoteRoute(NULL, addr, 32, "vn1");
+    AddRemoteRoute(bgp_peer, addr, 32, "vn1");
 
     InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(addr);
     EXPECT_TRUE(rt != NULL);
@@ -127,12 +155,18 @@ TEST_F(TestKSyncRoute, remote_route_1) {
     EXPECT_TRUE(ksync->proxy_arp());
     EXPECT_FALSE(ksync->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr, 32,
+                              (new ControllerVmRoute(bgp_peer)));
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
 }
 
 // proxy_arp_ and flood_ flags for remote-route when MAC not stitched
 TEST_F(TestKSyncRoute, remote_route_2) {
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
     IpamInfo ipam_info[] = {
         {"1.1.1.0", 24, "1.1.1.200"},
     };
@@ -140,7 +174,7 @@ TEST_F(TestKSyncRoute, remote_route_2) {
     client->WaitForIdle();
 
     IpAddress addr = IpAddress(Ip4Address::from_string("1.1.1.100"));
-    AddRemoteRoute(NULL, addr, 32, "vn1");
+    AddRemoteRoute(bgp_peer, addr, 32, "vn1");
 
     InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(addr);
     EXPECT_TRUE(rt != NULL);
@@ -152,15 +186,51 @@ TEST_F(TestKSyncRoute, remote_route_2) {
     EXPECT_FALSE(ksync->proxy_arp());
     EXPECT_TRUE(ksync->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr, 32,
+                              (new ControllerVmRoute(bgp_peer)));
     DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
+    client->WaitForIdle();
+}
+
+// dhcp_flood flag for remote EVPN route
+TEST_F(TestKSyncRoute, remote_evpn_route_1) {
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
+    MacAddress vmi_mac(input[0].mac);
+    BridgeRouteEntry *vmi_rt = vrf1_bridge_table_->FindRoute(vmi_mac);
+    EXPECT_TRUE(vmi_rt != NULL);
+    std::auto_ptr<RouteKSyncEntry> ksync_vmi(new RouteKSyncEntry(
+                                             vrf1_bridge_rt_obj_, vmi_rt));
+    ksync_vmi->Sync(vmi_rt);
+    EXPECT_FALSE(ksync_vmi->flood_dhcp()); // flood DHCP not set when VMI exists
+
+    uint32_t ethernet_tag = 1000;
+    MacAddress mac("00:01:02:03:04:05");
+    IpAddress addr = IpAddress(Ip4Address::from_string("1.1.1.100"));
+    AddRemoteEvpnRoute(bgp_peer, mac, addr, ethernet_tag, "vn1");
+
+    BridgeRouteEntry *rt = vrf1_bridge_table_->FindRoute(mac);
+    EXPECT_TRUE(rt != NULL);
+
+    std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf1_bridge_rt_obj_, rt));
+    ksync->Sync(rt);
+    EXPECT_TRUE(ksync->flood_dhcp()); // flood DHCP set for MAC without VMI
+
+    vrf1_evpn_table_->DeleteReq(bgp_peer, "vrf1", mac, addr, ethernet_tag,
+                                (new ControllerVmRoute(bgp_peer)));
     client->WaitForIdle();
 }
 
 // proxy_arp_ and flood_ flags for route with different VNs
 TEST_F(TestKSyncRoute, different_vn_1) {
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
     IpAddress addr = IpAddress(Ip4Address::from_string("2.2.2.100"));
-    AddRemoteRoute(NULL, addr, 32, "Vn3");
+    AddRemoteRoute(bgp_peer, addr, 32, "Vn3");
 
     InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(addr);
     EXPECT_TRUE(rt != NULL);
@@ -172,14 +242,20 @@ TEST_F(TestKSyncRoute, different_vn_1) {
     EXPECT_TRUE(ksync->proxy_arp());
     EXPECT_FALSE(ksync->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr, 32,
+                              (new ControllerVmRoute(bgp_peer)));
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
 }
 
 // Validate flags from the replacement route
 TEST_F(TestKSyncRoute, replacement_rt_1) {
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
     IpAddress addr1 = IpAddress(Ip4Address::from_string("2.2.2.100"));
-    AddRemoteRoute(NULL, addr1, 32, "Vn3");
+    AddRemoteRoute(bgp_peer, addr1, 32, "Vn3");
 
     InetUnicastRouteEntry *rt1 = vrf1_uc_table_->FindLPM(addr1);
     EXPECT_TRUE(rt1 != NULL);
@@ -198,7 +274,7 @@ TEST_F(TestKSyncRoute, replacement_rt_1) {
     client->WaitForIdle();
 
     IpAddress addr2 = IpAddress(Ip4Address::from_string("1.1.1.100"));
-    AddRemoteRoute(NULL, addr2, 32, "vn1");
+    AddRemoteRoute(bgp_peer, addr2, 32, "vn1");
 
     InetUnicastRouteEntry *rt2 = vrf1_uc_table_->FindLPM(addr2);
     EXPECT_TRUE(rt2 != NULL);
@@ -219,17 +295,24 @@ TEST_F(TestKSyncRoute, replacement_rt_1) {
     EXPECT_TRUE(ksync3->proxy_arp());
     EXPECT_FALSE(ksync3->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr1, 32,
+                              (new ControllerVmRoute(bgp_peer)));
     DelIPAM("vn1");
     client->WaitForIdle();
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr2, 32, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr2, 32,
+                              (new ControllerVmRoute(bgp_peer)));
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
 }
 
 TEST_F(TestKSyncRoute, no_replacement_rt_1) {
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
     IpAddress addr1 = IpAddress(Ip4Address::from_string("2.2.2.100"));
-    AddRemoteRoute(NULL, addr1, 32, "Vn3");
+    AddRemoteRoute(bgp_peer, addr1, 32, "Vn3");
 
     InetUnicastRouteEntry *rt1 = vrf1_uc_table_->FindLPM(addr1);
     EXPECT_TRUE(rt1 != NULL);
@@ -244,8 +327,11 @@ TEST_F(TestKSyncRoute, no_replacement_rt_1) {
     ksync1->CopyReplacementData(NULL, NULL);
     EXPECT_TRUE(ksync1->mac().IsZero());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr1, 32,
+                              (new ControllerVmRoute(bgp_peer)));
     DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
 }
 
@@ -296,7 +382,8 @@ TEST_F(TestKSyncRoute, ipam_subnet_route_2) {
     EXPECT_FALSE(ksync->proxy_arp());
     EXPECT_TRUE(ksync->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr, 24, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1", addr, 32,
+                              (new ControllerVmRoute(bgp_peer)));
     DelIPAM("vn1");
     DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
@@ -326,9 +413,9 @@ TEST_F(TestKSyncRoute, ecmp_ipam_subnet_route_2) {
     EXPECT_FALSE(ksync->proxy_arp());
     EXPECT_TRUE(ksync->flood());
 
-    vrf1_uc_table_->DeleteReq(NULL, "vrf1",
-                              IpAddress(Ip4Address::from_string("1.1.1.10")),
-                              24, NULL);
+    vrf1_uc_table_->DeleteReq(bgp_peer, "vrf1",
+                              IpAddress(Ip4Address::from_string("1.1.1.10")), 24,
+                              (new ControllerVmRoute(bgp_peer)));
     DelIPAM("vn1");
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer);

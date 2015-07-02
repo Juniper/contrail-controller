@@ -303,11 +303,11 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             // Remove the Path from the route
             rt->RemovePath(BgpPath::BGP_XMPP, peer, path_id);
 
+            // Delete the route only if all paths are gone.
             if (rt->front() == NULL) {
-                // Delete the route only if all paths are gone
                 root->Delete(rt);
             } else {
-               root->Notify(rt);
+                root->Notify(rt);
             }
         }
         break;
@@ -461,13 +461,13 @@ void BgpTable::RetryDelete() {
     deleter()->RetryDelete();
 }
 
-size_t BgpTable::GetPendingRiboutsCount(size_t *markers) {
+size_t BgpTable::GetPendingRiboutsCount(size_t *markers) const {
     CHECK_CONCURRENCY("bgp::ShowCommand", "bgp::Config");
     size_t count = 0;
     *markers = 0;
 
-    BOOST_FOREACH(RibOutMap::value_type &i, ribout_map_) {
-        RibOut *ribout = i.second;
+    BOOST_FOREACH(const RibOutMap::value_type &i, ribout_map_) {
+        const RibOut *ribout = i.second;
         if (ribout->updates()) {
             BOOST_FOREACH(const UpdateQueue *queue,
                           ribout->updates()->queue_vec()) {

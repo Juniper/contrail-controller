@@ -172,7 +172,7 @@ void ArpEntry::SendArpRequest() {
     MacAddress smac;
     if (interface_->type() == Interface::VM_INTERFACE) {
         const VmInterface *vmi = static_cast<const VmInterface *>(interface_);
-        ip = vmi->GetGateway();
+        ip = vmi->GetGateway(Ip4Address(key_.ip));
         vrf_id = nh_vrf_->vrf_id();
         if (vmi->parent()) {
             intf_id = vmi->id();

@@ -34,7 +34,7 @@ const char *XmppInit::kBgpPeer = "bgp-peer";
 const char *XmppInit::kDnsPeer = "dns-peer";
 const char *XmppInit::kOtherPeer = "other-peer";
 
-SandeshTraceBufferPtr XmppMessageTraceBuf(SandeshTraceBufferCreate(XMPP_MESSAGE_TRACE_BUF, 1000));
+SandeshTraceBufferPtr XmppMessageTraceBuf(SandeshTraceBufferCreate(XMPP_MESSAGE_TRACE_BUF, 5000));
 SandeshTraceBufferPtr XmppTraceBuf(SandeshTraceBufferCreate(XMPP_TRACE_BUF, 1000));
 
 XmppInit::XmppInit() 

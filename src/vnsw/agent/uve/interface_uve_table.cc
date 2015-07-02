@@ -103,9 +103,9 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     UveVMInterfaceAgent *s_intf) const {
     s_intf->set_name(name);
     SetVnVmInfo(s_intf);
-    s_intf->set_ip_address(intf_->ip_addr().to_string());
+    s_intf->set_ip_address(intf_->primary_ip_addr().to_string());
     s_intf->set_mac_address(intf_->vm_mac());
-    s_intf->set_ip6_address(intf_->ip6_addr().to_string());
+    s_intf->set_ip6_address(intf_->primary_ip6_addr().to_string());
     s_intf->set_ip6_active(intf_->ipv6_active());
 
     vector<VmFloatingIPAgent> uve_fip_list;
@@ -133,8 +133,10 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_floating_ips(uve_fip_list);
 
     s_intf->set_label(intf_->label());
-    s_intf->set_active(intf_->ipv4_active());
+    s_intf->set_ip4_active(intf_->ipv4_active());
     s_intf->set_l2_active(intf_->l2_active());
+    s_intf->set_active(intf_->IsUveActive());
+
     s_intf->set_uuid(to_string(intf_->GetUuid()));
     string gw;
     if (GetVmInterfaceGateway(intf_, gw)) {
@@ -169,7 +171,7 @@ bool InterfaceUveTable::UveInterfaceEntry::GetVmInterfaceGateway(
         return false;
     }
     const vector<VnIpam> &list = vn->GetVnIpam();
-    Ip4Address vm_addr = vm_intf->ip_addr();
+    Ip4Address vm_addr = vm_intf->primary_ip_addr();
     unsigned int i;
     for (i = 0; i < list.size(); i++) {
         if (list[i].IsSubnetMember(vm_addr))
@@ -267,14 +269,16 @@ void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
 
     UveInterfaceState *state = static_cast<UveInterfaceState *>
                       (e->GetState(partition->parent(), intf_listener_id_));
-    if (e->IsDeleted() && state) {
-        InterfaceDeleteHandler(state->cfg_name_);
-        state->fip_list_.clear();
-        e->ClearState(partition->parent(), intf_listener_id_);
-        delete state;
+    if (e->IsDeleted()) {
+        if (state) {
+            InterfaceDeleteHandler(state->cfg_name_);
+            state->fip_list_.clear();
+            e->ClearState(partition->parent(), intf_listener_id_);
+            delete state;
+        }
     } else {
         VmInterface::FloatingIpSet old_list;
-        if (vm_port->cfg_name().empty()) {
+        if (!state && vm_port->cfg_name().empty()) {
             /* Skip Add/change notifications if the config_name is empty */
             return;
         }
@@ -289,8 +293,11 @@ void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
         if (state->cfg_name_ != vm_port->cfg_name()) {
             InterfaceDeleteHandler(state->cfg_name_);
             state->cfg_name_ = vm_port->cfg_name();
+            old_list.clear();
         }
-        InterfaceAddHandler(vm_port, old_list);
+        if (!vm_port->cfg_name().empty()) {
+            InterfaceAddHandler(vm_port, old_list);
+        }
     }
 }
 

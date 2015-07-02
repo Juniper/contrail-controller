@@ -477,6 +477,42 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end _check_route_targets
 
     @classmethod
+    def _check_vxlan_id(cls, obj_dict, db_conn):
+        vxlan_id = None
+        vn_uuid = obj_dict.get('uuid', None)
+        vn_properties = obj_dict.get('virtual_network_properties', None)
+        if vn_properties:
+            vxlan_id = vn_properties.get('vxlan_network_identifier', None)
+        if not vxlan_id:
+            return (True, '')
+
+        # read all VNs, across projects
+        (ok, vn_objects) = db_conn.dbe_list('virtual-network')
+        if not ok:
+            return (ok, 'Internal error : Virtual Networks read failed')
+
+        # get VN properties of all VNs using a dbe_read_multi
+        obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in vn_objects]
+        obj_fields = [u'virtual_network_properties']
+        (ok, result) = db_conn.dbe_read_multi('virtual-network',
+                               obj_ids_list, obj_fields)
+        if not ok:
+            return (False, (500, 'Internal error : Virtual Network read failed'))
+
+        # ensure uniqueness of vxlan_network_identifier
+        for vn_object in result:
+            if vn_object['uuid'] == vn_uuid:
+                continue
+            vn_object_properties = vn_object.get('virtual_network_properties', None)
+            if vn_object_properties:
+                vn_object_vxlan_id = vn_object_properties.get('vxlan_network_identifier', None)
+                if vn_object_vxlan_id and vn_object_vxlan_id == vxlan_id:
+                    return (False, (403, 'Vxlan Id already used in : ' + vn_object['uuid']))
+
+        return (True, '')
+    # end _check_vxlan_id
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
@@ -487,6 +523,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
+        if not ok:
+            return (ok, response)
+
+        (ok, response) =  cls._check_vxlan_id(obj_dict, db_conn)
         if not ok:
             return (ok, response)
 
@@ -519,6 +559,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
             return True,  ""
+
+        (ok, result) =  cls._check_vxlan_id(obj_dict, db_conn)
+        if not ok:
+            return (ok, result)
 
         if 'network_ipam_refs' not in obj_dict:
             # NOP for addr-mgmt module

@@ -98,6 +98,7 @@ void DBTablePartition::Add(DBEntry *entry) {
     assert(ret.second);
     entry->set_table_partition(static_cast<DBTablePartBase *>(this));
     Notify(entry);
+    parent()->AddRemoveCallback(entry, true);
 }
 
 void DBTablePartition::Change(DBEntry *entry) {
@@ -108,6 +109,7 @@ void DBTablePartition::Change(DBEntry *entry) {
 void DBTablePartition::Remove(DBEntryBase *db_entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     DBEntry *entry = static_cast<DBEntry *>(db_entry);
+    parent()->AddRemoveCallback(entry, false);
 
     bool success = tree_.erase(*entry);
     if (!success) {
@@ -138,6 +140,18 @@ DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
     std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
 
     Tree::iterator loc = tree_.find(*(entry_ptr.get()));
+    if (loc != tree_.end()) {
+        return loc.operator->();
+    }
+    return NULL;
+}
+
+DBEntry *DBTablePartition::FindNext(const DBRequestKey *key) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    DBTable *table = static_cast<DBTable *>(parent());
+    std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+
+    Tree::iterator loc = tree_.upper_bound(*(entry_ptr.get()));
     if (loc != tree_.end()) {
         return loc.operator->();
     }

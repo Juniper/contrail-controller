@@ -13,6 +13,7 @@
 #include "base/misc_utils.h"
 #include "base/util.h"
 #include "net/address_util.h"
+#include "viz_constants.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -85,16 +86,16 @@ void Options::Initialize(EventManager &evm,
          "Listener port of Google Protocol Buffer collector server")
 
         ("DEFAULT.analytics_data_ttl",
-             opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
              "global TTL(hours) for analytics data")
         ("DEFAULT.analytics_config_audit_ttl",
-             opt::value<int>()->default_value(-1),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsConfigAuditTTL),
              "global TTL(hours) for analytics config audit data")
         ("DEFAULT.analytics_statistics_ttl",
-             opt::value<int>()->default_value(-1),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsStatisticsTTL),
              "global TTL(hours) for analytics stats data")
         ("DEFAULT.analytics_flow_ttl",
-             opt::value<int>()->default_value(-1),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsFlowTTL),
              "global TTL(hours) for analytics flow data")
         ("DEFAULT.cassandra_server_list",
            opt::value<vector<string> >()->default_value(
@@ -123,6 +124,8 @@ void Options::Initialize(EventManager &evm,
              "Disable sandesh logging")
         ("DEFAULT.log_file", opt::value<string>()->default_value("<stdout>"),
              "Filename for the logs to be written to")
+        ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
+             "log4cplus property file name")
         ("DEFAULT.log_files_count",
              opt::value<int>()->default_value(10),
              "Maximum log file roll over index")
@@ -153,7 +156,7 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
              "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>(),
+        ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
              "IP address of Discovery Server")
 
         ("REDIS.port",
@@ -214,7 +217,7 @@ void Options::GetOptValueImpl(
         std::vector<ElementType> tmp(
             var_map[val].as<std::vector<ElementType> >());
         // Now split the individual elements
-        for (typename std::vector<ElementType>::const_iterator it = 
+        for (typename std::vector<ElementType>::const_iterator it =
                  tmp.begin();
              it != tmp.end(); it++) {
             std::stringstream ss(*it);
@@ -296,6 +299,7 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
+    GetOptValue<string>(var_map, log_property_file_, "DEFAULT.log_property_file");
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");

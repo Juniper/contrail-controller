@@ -100,7 +100,6 @@ public:
     DnsTest() { 
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
         Agent::GetInstance()->set_ifmap_active_xmpp_server("127.0.0.1", 0);
-        Agent::GetInstance()->set_dns_xmpp_server_index(0);
         rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&DnsTest::ItfUpdate, this, _2));
         for (int i = 0; i < MAX_ITEMS; i++) {

@@ -6,6 +6,7 @@
 
 #include <boost/assign.hpp>
 
+#include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
@@ -27,6 +28,7 @@
 #include "io/event_manager.h"
 
 using boost::system::error_code;
+using process::ConnectionState;
 using std::string;
 
 // The ConfigUpdater serves as glue between the BgpConfigManager and the
@@ -49,27 +51,36 @@ public:
                                BgpConfigManager::EventType event) {
         const string &instance_name = protocol_config->instance_name();
 
-        //
-        // At the moment, we only support BGP sessions in master instance
-        //
+        // We only support BGP sessions in master instance for now.
         if (instance_name != BgpConfigManager::kMasterInstance) {
             return;
         }
 
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
-        } else if (event != BgpConfigManager::CFG_DELETE) {
+            BgpServerConfigUpdate(instance_name, protocol_config);
+        } else if (event == BgpConfigManager::CFG_DELETE) {
+            BgpServerConfigUpdate(instance_name, NULL);
+        } else {
             assert(false);
-            return;
         }
-
-        BgpServerConfigUpdate(instance_name, protocol_config);
     }
 
     void BgpServerConfigUpdate(string instance_name,
                                const BgpProtocolConfig *config) {
         boost::system::error_code ec;
-        Ip4Address identifier(ntohl(config->identifier()));
+        uint32_t config_identifier = 0;
+        uint32_t config_autonomous_system = 0;
+        uint32_t config_local_autonomous_system = 0;
+        uint16_t config_hold_time = 0;
+        if (config) {
+            config_identifier = config->identifier();
+            config_autonomous_system = config->autonomous_system();
+            config_local_autonomous_system = config->local_autonomous_system();
+            config_hold_time = config->hold_time();
+        }
+
+        Ip4Address identifier(ntohl(config_identifier));
         if (server_->bgp_identifier_ != identifier) {
             SandeshLevel::type log_level;
             if (!server_->bgp_identifier_.is_unspecified()) {
@@ -80,7 +91,7 @@ public:
             BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
                         "Updated Router ID from " <<
                         server_->bgp_identifier_.to_string() << " to " <<
-                        config->identifier());
+                        identifier.to_string());
             Ip4Address old_identifier = server_->bgp_identifier_;
             server_->bgp_identifier_ = identifier;
             server_->NotifyIdentifierUpdate(old_identifier);
@@ -89,12 +100,11 @@ public:
         bool notify_asn_update = false;
         uint32_t old_asn = server_->autonomous_system_;
         uint32_t old_local_asn = server_->local_autonomous_system_;
-        server_->autonomous_system_ = config->autonomous_system();
-        if (config->local_autonomous_system()) {
-            server_->local_autonomous_system_ =
-                config->local_autonomous_system();
+        server_->autonomous_system_ = config_autonomous_system;
+        if (config_local_autonomous_system) {
+            server_->local_autonomous_system_ = config_local_autonomous_system;
         } else {
-            server_->local_autonomous_system_ = config->autonomous_system();
+            server_->local_autonomous_system_ = config_autonomous_system;
         }
 
         if (server_->autonomous_system_ != old_asn) {
@@ -128,12 +138,14 @@ public:
             server_->NotifyASNUpdate(old_asn, old_local_asn);
         }
 
-        if (server_->hold_time_ != config->hold_time()) {
+        if (server_->hold_time_ != config_hold_time) {
             BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
                         "Updated Hold Time from " <<
-                        server_->hold_time_ << " to " << config->hold_time());
-            server_->hold_time_ = config->hold_time();
+                        server_->hold_time_ << " to " << config_hold_time);
+            server_->hold_time_ = config_hold_time;
         }
+
+        ConnectionState::GetInstance()->Update();
     }
 
     void ProcessNeighborConfig(const BgpNeighborConfig *neighbor_config,
@@ -238,7 +250,6 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
-      closing_count_(0),
       lifetime_manager_(new BgpLifetimeManager(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -267,6 +278,7 @@ BgpServer::BgpServer(EventManager *evm)
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     num_up_peer_ = 0;
+    closing_count_ = 0;
     message_build_error_ = 0;
 }
 
@@ -285,6 +297,16 @@ void BgpServer::Shutdown() {
 
 LifetimeActor *BgpServer::deleter() {
     return deleter_.get();
+}
+
+bool BgpServer::HasSelfConfiguration() const {
+    if (!bgp_identifier())
+        return false;
+    if (!local_autonomous_system())
+        return false;
+    if (!autonomous_system())
+        return false;
+    return true;
 }
 
 int BgpServer::RegisterPeer(BgpPeer *peer) {
@@ -366,6 +388,24 @@ uint32_t BgpServer::get_output_queue_depth() const {
         }
     }
     return out_q_depth;
+}
+
+uint32_t BgpServer::num_service_chains() const {
+    return service_chain_mgr_->PendingQueueSize() +
+        service_chain_mgr_->ResolvedQueueSize();
+}
+
+uint32_t BgpServer::num_down_service_chains() const {
+    return service_chain_mgr_->PendingQueueSize() +
+        service_chain_mgr_->GetDownServiceChainCount();
+}
+
+uint32_t BgpServer::num_static_routes() const {
+    return GetStaticRouteCount();
+}
+
+uint32_t BgpServer::num_down_static_routes() const {
+    return GetDownStaticRouteCount();
 }
 
 void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
@@ -485,4 +525,26 @@ void BgpServer::NotifyAllStaticRoutes() {
         StaticRouteMgr *srt_manager = *it;
         srt_manager->NotifyAllRoutes();
     }
+}
+
+uint32_t BgpServer::GetStaticRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    uint32_t count = 0;
+    for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
+         it != srt_manager_list_.end(); ++it) {
+        StaticRouteMgr *srt_manager = *it;
+        count += srt_manager->GetRouteCount();
+    }
+    return count;
+}
+
+uint32_t BgpServer::GetDownStaticRouteCount() const {
+    CHECK_CONCURRENCY("bgp::Config");
+    uint32_t count = 0;
+    for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
+         it != srt_manager_list_.end(); ++it) {
+        StaticRouteMgr *srt_manager = *it;
+        count += srt_manager->GetDownRouteCount();
+    }
+    return count;
 }

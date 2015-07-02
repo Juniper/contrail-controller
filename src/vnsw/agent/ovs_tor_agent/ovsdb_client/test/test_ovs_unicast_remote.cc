@@ -90,6 +90,9 @@ protected:
                   (init_->ovsdb_client()->NextSession(NULL))) != NULL)
                   && (tcp_session_->client_idl() != NULL) &&
                   (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -164,7 +167,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     Ip4Address zero_ip;
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0);
+                                   mac, zero_ip, 0, NULL);
     client->WaitForIdle();
 
     // Add Route with new tunnel dest
@@ -191,7 +194,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     // Delete route
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0);
+                                   mac, zero_ip, 0, NULL);
     client->WaitForIdle();
 
     // Add new route for same mac but with receive route to have empty dest ip
@@ -224,7 +227,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     // Delete route
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0);
+                                   mac, zero_ip, 0, NULL);
     client->WaitForIdle();
 
     // Delete DevVN
@@ -293,7 +296,7 @@ TEST_F(UnicastRemoteTest, LogicalSwitchDeleteOnRefRelease) {
     Ip4Address zero_ip;
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0);
+                                   mac, zero_ip, 0, NULL);
     client->WaitForIdle();
     agent_->vrf_table()->DeleteVrfReq("test-vrf1");
     VnDelReq(2);

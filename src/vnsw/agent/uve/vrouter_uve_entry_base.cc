@@ -363,7 +363,7 @@ void VrouterUveEntryBase::AppendInterfaceInternal(const VmInterface *port,
                                                   StringVectorPtr intf_list,
                                                   StringVectorPtr err_if_list) {
     intf_list.get()->push_back(port->cfg_name());
-    if (!port->ipv4_active() && !port->l2_active()) {
+    if (!port->IsUveActive()) {
         err_if_list.get()->push_back(port->cfg_name());
     }
 }
@@ -427,16 +427,14 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
 
     VrouterUveInterfaceState *state = static_cast<VrouterUveInterfaceState *>
                       (e->GetState(partition->parent(), intf_listener_id_));
-    bool vmport_ipv4_active = false;
-    bool vmport_l2_active = false;
+    bool vmport_active = false;
     const VmInterface *vm_port = NULL;
     switch(intf->type()) {
     case Interface::VM_INTERFACE:
         vm_port = static_cast<const VmInterface*>(intf);
         if (!e->IsDeleted() && !state) {
             set_state = true;
-            vmport_ipv4_active = vm_port->ipv4_active();
-            vmport_l2_active = vm_port->l2_active();
+            vmport_active = vm_port->IsUveActive();
             do_interface_walk_ = true;
         } else if (e->IsDeleted()) {
             if (state) {
@@ -444,13 +442,9 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
                 do_interface_walk_ = true;
             }
         } else {
-            if (state && vm_port->ipv4_active() != state->vmport_ipv4_active_) {
+            if (state && vm_port->IsUveActive() != state->vmport_active_) {
                 do_interface_walk_ = true;
-                state->vmport_ipv4_active_ = vm_port->ipv4_active();
-            }
-            if (state && vm_port->l2_active() != state->vmport_l2_active_) {
-                do_interface_walk_ = true;
-                state->vmport_l2_active_ = vm_port->l2_active();
+                state->vmport_active_ = vm_port->IsUveActive();
             }
         }
         break;
@@ -471,7 +465,7 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
         break;
     }
     if (set_state) {
-        state = new VrouterUveInterfaceState(vmport_ipv4_active, vmport_l2_active);
+        state = new VrouterUveInterfaceState(vmport_active);
         e->SetState(partition->parent(), intf_listener_id_, state);
     } else if (reset_state) {
         e->ClearState(partition->parent(), intf_listener_id_);

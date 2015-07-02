@@ -1387,6 +1387,10 @@ void KSyncObjectManager::Delete(KSyncObject *object) {
     Enqueue(event);
 }
 
+KSyncObjectManager* KSyncObjectManager::GetInstance() {
+    return singleton_;
+}
+
 // Create a dummy KSync Entry. This entry will all ways be in deferred state
 // Any back-ref added to it will never get resolved.
 // Can be used to defer an incomplete entry

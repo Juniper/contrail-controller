@@ -21,17 +21,17 @@ public:
     TestPkt0Interface(Agent *agent, const std::string &name,
                       boost::asio::io_service &io)
         : agent_(agent), name_(name), count_(0), pkt0_sock_(io),
-        pkt0_client_sock_(io),
+        pkt0_client_sock_(io), pkt0_client_read_buff_(NULL),
         client_cb_(boost::bind(&TestPkt0Interface::DummyClientReceive, this,
                                _1, _2)) {
     }
 
     virtual ~TestPkt0Interface() {
         if (pkt0_read_buff_) {
-            delete pkt0_read_buff_;
+            delete [] pkt0_read_buff_;
         }
         if (pkt0_client_read_buff_) {
-            delete pkt0_client_read_buff_;
+            delete [] pkt0_client_read_buff_;
         }
     }
 
@@ -194,7 +194,7 @@ private:
         if (!error) {
             count_++;
             client_cb_(pkt0_client_read_buff_, length);
-            delete pkt0_client_read_buff_;
+            delete [] pkt0_client_read_buff_;
             Pkt0ClientRead();
         }
     }

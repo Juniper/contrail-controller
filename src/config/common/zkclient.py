@@ -309,6 +309,8 @@ class ZookeeperClient(object):
             # Lost the session with ZooKeeper Server
             # Best of option we have is to exit the process and restart all 
             # over again
+            self._sandesh_connection_info_update(status='DOWN',
+                                      message='Connection to Zookeeper lost')
             if self._lost_cb:
                 self._lost_cb()
             else:
