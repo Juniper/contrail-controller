@@ -529,6 +529,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             # Ignore ip-fabric subnet updates
             return True,  ""
 
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
+
         if 'network_ipam_refs' not in obj_dict:
             # NOP for addr-mgmt module
             return True,  ""
@@ -566,9 +570,6 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         except Exception as e:
             return (False, (500, str(e)))
 
-        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
-        if not ok:
-            return (False, (400, error))
         return True, ""
     # end http_put
 
