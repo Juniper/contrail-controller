@@ -3297,6 +3297,8 @@ class SchemaTransformer(object):
         # Second pass to construct ACL entries and connectivity table
         for network_name in self.current_network_set:
             virtual_network = VirtualNetworkST.get(network_name)
+            if not virtual_network:
+                continue
             old_virtual_network_connections =\
                 virtual_network.expand_connections()
             old_service_chains = virtual_network.service_chains
@@ -3488,6 +3490,8 @@ class SchemaTransformer(object):
         # end for self.current_network_set
         for network_name in self.current_network_set:
             virtual_network = VirtualNetworkST.get(network_name)
+            if not virtual_network:
+                continue
             virtual_network.uve_send()
         # end for self.current_network_set
 
