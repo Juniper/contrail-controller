@@ -214,6 +214,11 @@ int main(int argc, char *argv[]) {
     // override with true to initialize ovsdb server and client
     ksync_init = true;
     client = OvsTestInit(init_file, ksync_init);
+
+    // override signal handler to default for SIGCHLD, for system() api
+    // to work and return exec status appropriately
+    signal(SIGCHLD, SIG_DFL);
+
     int ret = RUN_ALL_TESTS();
     TestShutdown();
     return ret;
