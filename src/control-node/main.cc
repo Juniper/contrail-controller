@@ -363,6 +363,22 @@ bool ControlNodeInfoLogger(BgpServer *server,
         change = true;
     }
 
+    uint32_t num_pending_chains = server->num_pending_service_chains();
+    if (num_pending_chains != prev_state.get_num_pending_service_chains() ||
+        first) {
+        state.set_num_pending_service_chains(num_pending_chains);
+        prev_state.set_num_pending_service_chains(num_pending_chains);
+        change = true;
+    }
+
+    uint32_t num_pending_statics = server->num_pending_static_routes();
+    if (num_pending_statics != prev_state.get_num_pending_static_routes() ||
+        first) {
+        state.set_num_pending_static_routes(num_pending_statics);
+        prev_state.set_num_pending_static_routes(num_pending_statics);
+        change = true;
+    }
+
     IFMapPeerServerInfoUI peer_server_info;
     ifmap_server->get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
     if (peer_server_info != prev_state.get_ifmap_info() || first) {
