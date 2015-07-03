@@ -34,6 +34,9 @@ void vrouter_ops::Process(SandeshContext *context) {
     ioc->VrouterOpsMsgHandler(this);
 }
 
+void vr_mem_stats_req::Process(SandeshContext *context) {
+}
+
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
