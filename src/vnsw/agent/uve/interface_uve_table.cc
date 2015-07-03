@@ -267,11 +267,13 @@ void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
 
     UveInterfaceState *state = static_cast<UveInterfaceState *>
                       (e->GetState(partition->parent(), intf_listener_id_));
-    if (e->IsDeleted() && state) {
-        InterfaceDeleteHandler(state->cfg_name_);
-        state->fip_list_.clear();
-        e->ClearState(partition->parent(), intf_listener_id_);
-        delete state;
+    if (e->IsDeleted()) {
+        if (state) {
+            InterfaceDeleteHandler(state->cfg_name_);
+            state->fip_list_.clear();
+            e->ClearState(partition->parent(), intf_listener_id_);
+            delete state;
+        }
     } else {
         VmInterface::FloatingIpSet old_list;
         if (vm_port->cfg_name().empty()) {
