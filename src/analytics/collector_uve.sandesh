@@ -88,7 +88,11 @@ struct GeneratorSummaryInfo {
     2: string                              module_id    
     3: string                              state
     4: string                              instance_id
-    5: string                              node_type    
+    5: string                              node_type
+    6: u64                                 sm_queue_count
+    7: u64                                 db_queue_count
+    8: string                              sm_drop_level
+    9: string                              db_drop_level
 }
 
 struct CollectorStats {
@@ -122,8 +126,9 @@ request sandesh ShowCollectorServerReq {
 response sandesh ShowCollectorServerResp {
     1: io.SocketIOStats                    rx_socket_stats
     2: io.SocketIOStats                    tx_socket_stats
-    3: list<GeneratorSummaryInfo>          generators
-    4: CollectorStats                      stats
+    3: u64                                 num_generators
+    4: list<GeneratorSummaryInfo>          generators
+    5: CollectorStats                      stats
 }
 
 // This struct is part of the CollectorInfo UVE. (key is hostname on which this
