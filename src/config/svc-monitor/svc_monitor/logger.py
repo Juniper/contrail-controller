@@ -43,9 +43,8 @@ class ServiceMonitorLogger(object):
         logging.DEBUG: SandeshLevel.SYS_DEBUG
     }
 
-    def __init__(self, db, discovery, args=None):
+    def __init__(self, discovery, args=None):
         self._args = args
-        self._db = db
 
         module = Module.SVC_MONITOR
         node_type = Module2NodeType[module]
@@ -65,7 +64,7 @@ class ServiceMonitorLogger(object):
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False
-        cpu_info = vnc_cpu_info.CpuInfo(self._module_name, 
+        cpu_info = vnc_cpu_info.CpuInfo(self._module_name,
             self._instance_id, sysinfo_req, self._sandesh, 60)
         self._cpu_info = cpu_info
 
@@ -205,7 +204,7 @@ class ServiceMonitorLogger(object):
         sandesh.ServiceInstanceList.handle_request =\
             self.sandesh_si_handle_request
         sandesh_instance.init_generator(
-            self._module_name, self._hostname, self._node_type_name, 
+            self._module_name, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'svc_monitor_context',
             int(self._args.http_server_port), ['cfgm_common', 'svc_monitor.sandesh'],
             discovery)
