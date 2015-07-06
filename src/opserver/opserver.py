@@ -2128,7 +2128,8 @@ def main():
 
     if opserver.disc:
         sp = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
-                           COLLECTOR_DISCOVERY_SERVICE_NAME, opserver.disc_cb)
+                           COLLECTOR_DISCOVERY_SERVICE_NAME, opserver.disc_cb, \
+                           sandesh_global)
         sp.start()
         gevs.append(sp)
 
