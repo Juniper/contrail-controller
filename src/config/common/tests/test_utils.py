@@ -17,6 +17,7 @@ import errno
 import re
 import copy
 import uuid
+import six
 import contextlib
 from lxml import etree
 try:
@@ -898,6 +899,135 @@ class FakeExtensionManager(object):
         cls._ext_objs = []
 # end class FakeExtensionManager
 
+class MiniResp(object):
+    def __init__(self, error_message, env, headers=[]):
+        # The HEAD method is unique: it must never return a body, even if
+        # it reports an error (RFC-2616 clause 9.4). We relieve callers
+        # from varying the error responses depending on the method.
+        if env['REQUEST_METHOD'] == 'HEAD':
+            self.body = ['']
+        else:
+            self.body = [error_message]
+        self.headers = list(headers)
+        self.headers.append(('Content-type', 'text/plain'))
+
+"""
+Fake Keystone Middleware. 
+Used in API server request pipeline to validate user token
+Typically first app in the pipeline
+"""
+class FakeAuthProtocol(object):
+    def __init__(self, app, conf, *args, **kwargs):
+        self.app = app
+        self.conf = conf
+        
+        auth_protocol = conf['auth_protocol']
+        auth_host = conf['auth_host']
+        auth_port = conf['auth_port']
+        self.request_uri = '%s://%s:%s' % (auth_protocol, auth_host, auth_port)
+        self.auth_uri = self.request_uri
+        # print 'FakeAuthProtocol init: auth-uri %s, conf %s' % (self.auth_uri, self.conf)
+    
+    def get_admin_token(self):
+        # token format admin-name, tenat-name, role
+        token_dict = {
+            'X-User': self.conf['admin_user'],
+            'X-User-Name': self.conf['admin_user'],
+            'X-Project-Name': self.conf['admin_tenant_name'],
+            'X-Domain-Name' : 'default-domain',
+            'X-Role': 'admin',
+        }
+        rval = json.dumps(token_dict)
+        # print '**** generated admin token %s ****' % rval
+        return rval
+
+    def _header_to_env_var(self, key):
+        return 'HTTP_%s' % key.replace('-', '_').upper()
+
+    def _get_header(self, env, key, default=None):
+        """Get http header from environment."""
+        env_key = self._header_to_env_var(key)
+        return env.get(env_key, default)
+
+    def _add_headers(self, env, headers):
+        """Add http headers to environment."""
+        for (k, v) in six.iteritems(headers):
+            env_key = self._header_to_env_var(k)
+            env[env_key] = v
+
+    def _validate_user_token(self, user_token, env, retry=True):
+        return user_token
+
+    def _build_user_headers(self, token_info):
+        """Convert token object into headers."""
+        """
+        rval = {
+            'X-Identity-Status': 'Confirmed',
+            'X-Domain-Id': domain_id,
+            'X-Domain-Name': domain_name,
+            'X-Project-Id': project_id,
+            'X-Project-Name': project_name,
+            'X-Project-Domain-Id': project_domain_id,
+            'X-Project-Domain-Name': project_domain_name,
+            'X-User-Id': user_id,
+            'X-User-Name': user_name,
+            'X-User-Domain-Id': user_domain_id,
+            'X-User-Domain-Name': user_domain_name,
+            'X-Role': roles,
+            # Deprecated
+            'X-User': user_name,
+            'X-Tenant-Id': project_id,
+            'X-Tenant-Name': project_name,
+            'X-Tenant': project_name,
+            'X-Role': roles,
+        }
+        """
+        rval = json.loads(token_info)
+        return rval
+
+    def _reject_request(self, env, start_response):
+        """Redirect client to auth server.
+
+        :param env: wsgi request environment
+        :param start_response: wsgi response callback
+        :returns HTTPUnauthorized http response
+
+        """
+        headers = [('WWW-Authenticate', 'Keystone uri=\'%s\'' % self.auth_uri)]
+        resp = MiniResp('Authentication required', env, headers)
+        start_response('401 Unauthorized', resp.headers)
+        return resp.body
+
+    def __call__(self, env, start_response):
+        """Handle incoming request.
+
+        Authenticate send downstream on success. Reject request if
+        we can't authenticate.
+
+        """
+        # print 'FakeAuthProtocol: Authenticating user token' 
+        user_token = self._get_header(env, 'X-Auth-Token')
+        if user_token:
+            # print '****** user token %s ***** ' % user_token
+            pass
+        else:
+            # print 'Missing token or Unable to authenticate token'
+            return self._reject_request(env, start_response)
+
+        token_info = self._validate_user_token(user_token, env)
+        # env['keystone.token_info'] = token_info
+        user_headers = self._build_user_headers(token_info)
+        self._add_headers(env, user_headers)
+        return self.app(env, start_response)
+
+fake_keystone_auth_protocol = None
+def get_keystone_auth_protocol(*args, **kwargs):
+    global fake_keystone_auth_protocol
+    if not fake_keystone_auth_protocol:
+        fake_keystone_auth_protocol = FakeAuthProtocol(*args[1:], **kwargs)
+
+    return fake_keystone_auth_protocol
+#end get_keystone_auth_protocol
 
 class FakeKeystoneClient(object):
     class Tenants(object):
@@ -907,16 +1037,60 @@ class FakeKeystoneClient(object):
             self.name = name
             self._tenants[id] = self
 
+        def create(self, name, id=None):
+            self.name = name
+            self.id = str(id or uuid.uuid4())
+            self._tenants[id] = self
+
         def list(self):
             return self._tenants.values()
 
         def get(self, id):
             return self._tenants[str(uuid.UUID(id))]
 
+    class Users(object):
+        _users = {}
+        def create(self, name, password, foo, tenant_id):
+            self.name = name
+            self.password = password
+            self.tenant_id = tenant_id
+            self._users[name] = self
+
+        def list(self):
+            return self._users.values()
+
+        def get(self, name):
+            for x in self._users.values():
+                if x.name == name:
+                    return x
+            return None
+
+    class Roles(object):
+        _roles = {}
+        _roles_map = {}
+        def create(self, name):
+            self.name = name
+            self._roles[name] = self
+
+        def list(self):
+            return self._roles.values()
+
+        def get_user_role(self, username, tenant_id):
+            return self._roles_map[username][tenant_id]
+
+        def add_user_role(self, uobj, robj, tobj):
+            if uobj.name not in self._roles_map:
+                self._roles_map[uobj.name] = {}
+            self._roles_map[uobj.name][tobj.name] = robj.name
+
     def __init__(self, *args, **kwargs):
         self.tenants = FakeKeystoneClient.Tenants()
+        self.users = FakeKeystoneClient.Users()
+        self.roles = FakeKeystoneClient.Roles()
         pass
 
+    def user_role(self, username, tenant_id):
+        return self.roles.get_user_role(username, tenant_id)
 # end class FakeKeystoneClient
 
 fake_keystone_client = FakeKeystoneClient()
