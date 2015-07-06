@@ -158,7 +158,7 @@ class UveStreamProc(PartitionHandler):
             ipaddr = r_inst[0]
             port = r_inst[1]
             coll = ipaddr + ":" + str(port)
-            self._logger.error("Part %d lost collector %s" % coll)
+            self._logger.error("Part %d lost collector %s" % (self._partno, coll))
             self.stop_partition(coll)
         for r_inst in r_added:
             self._logger.error("Part %d discovered new redis %s" % \
