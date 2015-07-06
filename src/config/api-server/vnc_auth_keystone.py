@@ -35,7 +35,7 @@ class LocalAuth(object):
         self._http_port = conf_info['admin_port']
         self._http_app = bottle.Bottle()
         self._http_app.merge(app.routes)
-        self._http_app.config.auth_open = True
+        self._http_app.config.local_auth = True
         self._conf_info = conf_info
 
         # 2 decorators below due to change in api between bottle 0.11.6
@@ -108,21 +108,10 @@ class AuthPostKeystone(object):
         self.conf = conf
 
     def __call__(self, env, start_response):
-        """
-        # Following will be brought back after RBAC refactoring
 
-        # todo validate request is from quantum plugin
-        # X-Api-User-id and X-Api-Role supplied by Quantum.
-        # Note that Quantum sends admin token
-        if 'HTTP_X_API_USER_ID' in env:
-            env['HTTP_X_USER'] = self.conf[
-                'auth_svc'].user_id_to_name(env['HTTP_X_API_USER_ID'])
-        elif 'HTTP_X_API_USER' in env:
-            env['HTTP_X_USER'] = env['HTTP_X_API_USER']
-
-        if 'HTTP_X_API_ROLE' in env:
-            env['HTTP_X_ROLE'] = env['HTTP_X_API_ROLE']
-        """
+        # if rbac is set, skip old admin based MT
+        if self.conf['auth_svc']._rbac:
+            return self.app(env, start_response)
 
         # only allow admin access when MT is on
         roles = []
@@ -162,6 +151,9 @@ class AuthServiceKeystone(object):
         self._multi_tenancy = args.multi_tenancy
         self._auth_token = None
         self._auth_middleware = None
+        self._rbac = args.rbac
+        if self._rbac:
+            self._multi_tenancy = True
         if not self._auth_method:
             return
         if self._auth_method != 'keystone':
