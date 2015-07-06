@@ -1377,4 +1377,3 @@ class VirtualIpServer(VirtualIpServerGen):
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class VirtualIpServer
-
