@@ -87,6 +87,7 @@ import vnc_addr_mgmt
 import vnc_auth
 import vnc_auth_keystone
 import vnc_perms
+import vnc_rbac
 from cfgm_common import vnc_cpu_info
 from cfgm_common.vnc_api_stats import log_api_stats
 
@@ -1079,6 +1080,7 @@ class VncApiServer(object):
         self.get_resource_class('physical-router').generate_default_instance = False
         self.get_resource_class('physical-interface').generate_default_instance = False
         self.get_resource_class('logical-interface').generate_default_instance = False
+        self.get_resource_class('api-access-list').generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -1121,6 +1123,8 @@ class VncApiServer(object):
         # Enable/Disable multi tenancy
         bottle.route('/multi-tenancy', 'GET', self.mt_http_get)
         bottle.route('/multi-tenancy', 'PUT', self.mt_http_put)
+        bottle.route('/rbac', 'GET', self.rbac_http_get)
+        bottle.route('/rbac', 'PUT', self.rbac_http_put)
 
         # Initialize discovery client
         self._disc = None
@@ -1195,21 +1199,7 @@ class VncApiServer(object):
             auth_svc = vnc_auth.AuthService(self, self._args)
 
         self._pipe_start_app = auth_svc.get_middleware_app()
-        if not self._pipe_start_app:
-            self._pipe_start_app = bottle.app()
-            # When the multi tenancy is disable, add 'admin' role into the
-            # header for all requests to see all resources
-            @self._pipe_start_app.hook('before_request')
-            @bottle.hook('before_request')
-            def set_admin_role(*args, **kwargs):
-                if bottle.request.app != self._pipe_start_app:
-                    return
-                bottle.request.environ['HTTP_X_ROLE'] = 'admin'
-
         self._auth_svc = auth_svc
-
-        # API/Permissions check
-        self._permissions = vnc_perms.VncPermissions(self, self._args)
 
         # DB interface initialization
         if self._args.wipe_config:
@@ -1217,6 +1207,13 @@ class VncApiServer(object):
         else:
             self._db_connect(self._args.reset_config)
             self._db_init_entries()
+
+        # API/Permissions check
+        # after db init (uses db_conn)
+        self._rbac = vnc_rbac.VncRbac(self._args.rbac, self, self._db_conn)
+        self._permissions = vnc_perms.VncPermissions(self, self._args)
+        if self._args.rbac:
+            self._create_default_rbac_rule()
 
         # Cpuinfo interface
         sysinfo_req = True
@@ -1295,6 +1292,10 @@ class VncApiServer(object):
                 self._extensions_validate_request(bottle.request)
 
                 trace = self._generate_rest_api_request_trace()
+                (ok, status) = self._rbac.validate_request(bottle.request)
+                if not ok:
+                    (code, err_msg) = status
+                    bottle.abort(code, err_msg)
                 response = handler(*args, **kwargs)
                 self._generate_rest_api_response_trace(trace, response)
 
@@ -1352,6 +1353,9 @@ class VncApiServer(object):
     # end get_pipe_start_app
 
     def is_admin_request(self):
+        if not self._args.multi_tenancy:
+            return True
+
         env = bottle.request.headers.environ
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
@@ -1522,6 +1526,12 @@ class VncApiServer(object):
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
             bottle.abort(404, 'Name ' + pformat(fq_name) + ' not found')
+
+        # ensure user has access to this id
+        ok, result = self._permissions.check_perms_read(bottle.request, id)
+        if not ok:
+            err_code, err_msg = result
+            bottle.abort(err_code, err_msg)
 
         return {'uuid': id}
     # end fq_name_to_id_http_post
@@ -1772,6 +1782,7 @@ class VncApiServer(object):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
+
         # retrieve object and permissions
         id_perms = self._get_default_id_perms(obj_type)
 
@@ -1820,6 +1831,56 @@ class VncApiServer(object):
         return id_perms_dict
     # end _get_default_id_perms
 
+    def _ensure_perms2_present(self, obj_type, obj_uuid, obj_dict):
+        """
+        Called at resource creation to ensure that id_perms is present in obj
+        """
+        # retrieve object and permissions
+        perms2 = self._get_default_perms2(obj_type)
+
+        if (('perms2' not in obj_dict) or
+                (obj_dict['perms2'] is None)):
+            # Resource creation
+            if obj_uuid is None:
+                obj_dict['perms2'] = perms2
+                return
+            # Resource already exist
+            try:
+                obj_dict['perms2'] = self._db_conn.uuid_to_obj_perms2(obj_uuid)
+            except NoIdError:
+                obj_dict['perms2'] = perms2
+
+            return
+
+        # retrieve the previous version of the perms2
+        # from the database and update the perms2 with
+        # them.
+        if obj_uuid is not None:
+            try:
+                old_perms2 = self._db_conn.uuid_to_obj_perms2(obj_uuid)
+                for field, value in old_perms2.items():
+                    if value is not None:
+                        perms2[field] = value
+            except NoIdError:
+                pass
+
+        # Start from default and update from obj_dict
+        req_perms2 = obj_dict['perms2']
+        for key in req_perms2:
+            perms2[key] = req_perms2[key]
+        # TODO handle perms2 present in req_perms2
+
+        obj_dict['perms2'] = perms2
+    # end _ensure_perms2_present
+
+    def _get_default_perms2(self, obj_type):
+        perms2 = copy.deepcopy(Provision.defaults.perms2)
+        perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
+                                   for k, v in o.__dict__.iteritems()))
+        perms2_dict = json.loads(perms2_json)
+        return perms2_dict
+    # end _get_default_perms2
+
     def _db_init_entries(self):
         # create singleton defaults if they don't exist already in db
         glb_sys_cfg = self._create_singleton_entry(
@@ -1840,6 +1901,30 @@ class VncApiServer(object):
         except Exception as e:
             pass
     # end _db_init_entries
+
+    # generate default rbac group rule
+    def _create_default_rbac_rule(self):
+        obj_type = 'api-access-list'
+        fq_name = ['default-domain', 'default-api-access-list']
+        try:
+            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+        except NoIdError:
+            self._create_singleton_entry(ApiAccessList(parent_type = 'domain', fq_name = fq_name))
+            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid': id})
+        if not ok:
+            return
+
+        # allow full access to cloud admin
+        rge = {'rbac_rule' :
+            [
+            {'rule_object':'*',            'rule_field': '', 'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]},
+            {'rule_object':'fqname-to-id', 'rule_field': '', 'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]},
+            ]
+        }
+        obj_dict['api_access_list_entries'] = rge
+        self._db_conn.dbe_update(obj_type, {'uuid': id}, obj_dict)
+    # end _create_default_rbac_rule
 
     def _resync_domains_projects(self, ext):
         ext.obj.resync_domains_projects()
@@ -1872,6 +1957,7 @@ class VncApiServer(object):
         except NoIdError:
             obj_dict = s_obj.serialize_to_json()
             obj_dict['id_perms'] = self._get_default_id_perms(s_obj.get_type())
+            obj_dict['perms2'] = self._get_default_perms2(s_obj.get_type())
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_ids = result
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
@@ -2205,6 +2291,9 @@ class VncApiServer(object):
 
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(obj_type, None, obj_dict)
+        self._ensure_perms2_present(obj_type, None, obj_dict)
+        owner = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
+        obj_dict['perms2']['owner'] = owner
 
         # TODO check api + resource perms etc.
 
@@ -2318,6 +2407,20 @@ class VncApiServer(object):
         return result
     # end vn_subnet_ip_count_http_post
 
+    def set_mt(self, multi_tenancy):
+        pipe_start_app = self.get_pipe_start_app()
+        try:
+            pipe_start_app.set_mt(multi_tenancy)
+        except AttributeError:
+            pass
+        self._args.multi_tenancy = multi_tenancy
+    # end
+
+    def set_rbac(self, rbac_flag):
+        self._args.rbac = rbac_flag
+        self._rbac.set_rbac(rbac_flag)
+    # end
+
     def mt_http_get(self):
         pipe_start_app = self.get_pipe_start_app()
         mt = False
@@ -2338,12 +2441,24 @@ class VncApiServer(object):
         if data is None:
             bottle.abort(403, " Permission denied")
 
-        pipe_start_app = self.get_pipe_start_app()
-        try:
-            pipe_start_app.set_mt(multi_tenancy)
-        except AttributeError:
-            pass
-        self._args.multi_tenancy = multi_tenancy
+        self.set_mt(multi_tenancy)
+        return {}
+    # end
+
+    def rbac_http_get(self):
+        return {'enabled': self._args.rbac}
+
+    def rbac_http_put(self):
+        rbac = bottle.request.json['enabled']
+        user_token = bottle.request.get_header('X-Auth-Token')
+        if user_token is None:
+            bottle.abort(403, " Permission denied")
+
+        data = self._auth_svc.verify_signed_token(user_token)
+        if data is None:
+            bottle.abort(403, " Permission denied")
+
+        self.set_rbac(rbac)
         return {}
     # end
 
