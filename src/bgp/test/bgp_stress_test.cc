@@ -2710,6 +2710,11 @@ static void process_command_line_args(int argc, const char **argv) {
 
     bool cmd_line_arg_set = false;
 
+    // Reinitialize number of events from an environment variable if set.
+    char *env = getenv("BGP_STRESS_TEST_NEVENTS");
+    if (env)
+        d_events_ = strtoll(env, NULL, 0);
+
     // Declare the supported options.
     options_description desc(
 
