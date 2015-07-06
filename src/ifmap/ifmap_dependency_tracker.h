@@ -70,9 +70,6 @@ class IFMapNode;
 // The propagation of the NodeList and EdgeDescriptorList happens in context
 // of the client task (e.g. bgp::Config) when the its requesst the ChangeList.
 //
-// The vertex list is used to make sure that we don't add duplicate entries to
-// the ChangeList.
-//
 // CONCURRENCY: Not thread-safe. The class assumes that the caller ensures
 // that only a single method can run at a time.
 //
@@ -126,7 +123,6 @@ private:
     DBGraph *graph_;
     ChangeObserver observer_;
     NodeEventPolicy policy_;
-    std::set<std::string> vertex_list_;
     EdgeDescriptorList edge_list_;
     NodeList node_list_;
 };
