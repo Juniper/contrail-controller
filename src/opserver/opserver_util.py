@@ -32,13 +32,14 @@ def enum(**enums):
 # end enum
 
 class ServicePoller(gevent.Greenlet):
-    def __init__(self, logger, trace_cls, disc, svc_name, callbk):
+    def __init__(self, logger, trace_cls, disc, svc_name, callbk, snh):
         gevent.Greenlet.__init__(self)
         self.disc = disc
         self.svc_name = svc_name
         self.logger = logger
         self.trace_cls = trace_cls
         self.callbk = callbk
+        self.snh = snh
 
     def _run(self):
         old_list = []
@@ -58,7 +59,7 @@ class ServicePoller(gevent.Greenlet):
                     for svc in slist:
                         svc_list.append(svc)
                         disc_trace.publishers.append(str(svc))
-                    disc_trace.trace_msg(name='DiscoveryMsg')
+                    disc_trace.trace_msg(name='DiscoveryMsg', sandesh = self.snh)
                     if old_list != svc_list:
                         self.callbk(svc_list)
                     old_list = copy.deepcopy(svc_list)
