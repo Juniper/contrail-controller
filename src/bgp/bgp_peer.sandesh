@@ -37,9 +37,6 @@ struct BgpNeighborRoutingTable {
     2: string current_state;
     3: string current_request;
     4: string pending_request;
-    5: u32 active_prefixes;
-    6: u32 received_prefixes;
-    7: u32 accepted_prefixes;
 }
 
 struct BgpNeighborResp {

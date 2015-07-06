@@ -384,63 +384,8 @@ void ShowRouteSummaryReq::HandleRequest() const {
 
 class ShowNeighborHandler {
 public:
-    struct ShowNeighborData : public RequestPipeline::InstData {
-        vector<BgpNeighborResp> nbr_list;
-    };
-    struct ShowNeighborDataS2Key {
-        string peer;
-        string table;
-        bool operator<(const ShowNeighborDataS2Key&rhs) const {
-            if (peer != rhs.peer) return (peer < rhs.peer);
-            return (table < rhs.table);
-        }
-    };
-    struct ShowNeighborDataS2 : public RequestPipeline::InstData {
-        typedef map<ShowNeighborDataS2Key, BgpNeighborRoutingTable> Map;
-        Map peers;
-    };
-    static RequestPipeline::InstData *CreateData(int stage) {
-        switch (stage) {
-        case 0:
-        case 2:
-            return static_cast<RequestPipeline::InstData *>(new ShowNeighborData);
-        case 1:
-            return static_cast<RequestPipeline::InstData *>(new ShowNeighborDataS2);
-        default:
-            return NULL;
-        }
-    }
-    static void FillNeighborStats(ShowNeighborDataS2 *data, BgpTable *table, int inst_id) {
-        DBTablePartition *partition =
-            static_cast<DBTablePartition *>(table->GetTablePartition(inst_id));
-        BgpRoute *route = static_cast<BgpRoute *>(partition->GetFirst());
-        ShowNeighborDataS2Key key;
-        key.table = table->name();
-        for (; route; route = static_cast<BgpRoute *>(partition->GetNext(route))) {
-            Route::PathList &plist = route->GetPathList();
-            Route::PathList::iterator it = plist.begin();
-            for (; it != plist.end(); it++) {
-                BgpPath *path = static_cast<BgpPath *>(it.operator->());
-                // If paths are added with Peer as NULL(e.g. aggregate route)
-                if (path->GetPeer() == NULL) continue;
-                key.peer = path->GetPeer()->ToString();
-                BgpNeighborRoutingTable &nt = data->peers[key];
-                nt.received_prefixes++;
-                if (path->IsFeasible()) nt.accepted_prefixes++;
-                if (route->BestPath()->GetPeer() == path->GetPeer()) nt.active_prefixes++;
-            }
-        }
-    }
     static void FillXmppNeighborInfo(vector<BgpNeighborResp> *, BgpServer *, BgpXmppChannel *);
     static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
-    static bool CallbackS2(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
-    static bool CallbackS3(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
             RequestPipeline::InstData *data);
@@ -475,81 +420,28 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
             RequestPipeline::InstData * data) {
-    ShowNeighborData* mydata = static_cast<ShowNeighborData*>(data);
+    vector<BgpNeighborResp> nbr_list;
     const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
     BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     if (req->get_domain() != "") {
         RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
         if (ri)
-            ri->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
+            ri->peer_manager()->FillBgpNeighborInfo(nbr_list,
                 req->get_ip_address());
     } else {
         RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
         for (;it != rim->end(); it++) {
-            it->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
+            it->peer_manager()->FillBgpNeighborInfo(nbr_list,
                 req->get_ip_address());
         }
     }
 
     bsc->xmpp_peer_manager->VisitChannels(boost::bind(FillXmppNeighborInfo,
-                                                      &mydata->nbr_list, bsc->bgp_server, _1));
-
-    return true;
-}
-
-bool ShowNeighborHandler::CallbackS2(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-    ShowNeighborDataS2* mydata = static_cast<ShowNeighborDataS2*>(data);
-    int inst_id = ps.stages_[stage].instances_[instNum];
-    const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
-    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    RoutingInstanceMgr::NameIterator i = rim->name_begin();
-    for (;i != rim->name_end(); i++) {
-        RoutingInstance::RouteTableList::const_iterator j =
-                i->second->GetTables().begin();
-        for (;j != i->second->GetTables().end(); j++) {
-            FillNeighborStats(mydata, j->second, inst_id);
-        }
-    }
-    return true;
-}
-
-bool ShowNeighborHandler::CallbackS3(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-    const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    const RequestPipeline::StageData *sd[2] = { ps.GetStageData(0), ps.GetStageData(1) };
-    const ShowNeighborData &nbrs =  static_cast<const ShowNeighborData &>(sd[0]->at(0));
-
-    vector<BgpNeighborResp> nbr_list = nbrs.nbr_list;
-
-    for (size_t i = 0; i < nbrs.nbr_list.size(); i++) {
-        ShowNeighborDataS2Key key;
-        key.peer = nbrs.nbr_list[i].peer;
-        for (size_t j = 0; j < nbrs.nbr_list[i].routing_tables.size(); j++) {
-            key.table = nbrs.nbr_list[i].routing_tables[j].name;
-            for (size_t k = 0; k < sd[1]->size(); k++) {
-                const ShowNeighborDataS2 &stats_data =
-                        static_cast<const ShowNeighborDataS2 &>(sd[1]->at(k));
-                ShowNeighborDataS2::Map::const_iterator it = stats_data.peers.find(key);
-                if (it == stats_data.peers.end()) continue;
-                nbr_list[i].routing_tables[j].active_prefixes +=
-                        it->second.active_prefixes;
-                nbr_list[i].routing_tables[j].received_prefixes +=
-                        it->second.received_prefixes;
-                nbr_list[i].routing_tables[j].accepted_prefixes +=
-                        it->second.accepted_prefixes;
-            }
-        }
-    }
+                                                      &nbr_list, bsc->bgp_server, _1));
 
     BgpNeighborListResp *resp = new BgpNeighborListResp;
-    resp->set_neighbors(nbrs.nbr_list);
+    resp->set_neighbors(nbr_list);
     resp->set_context(req->context());
     resp->Response();
     return true;
@@ -566,6 +458,18 @@ public:
     static size_t FillBgpNeighborStatistics(const ShowNeighborStatisticsReq *req,
                                    BgpServer *bgp_server);
 };
+
+// handler for 'show bgp neighbor'
+void BgpNeighborReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
+    s1.cbFn_ = ShowNeighborHandler::CallbackS1;
+    s1.instances_.push_back(0);
+    ps.stages_= list_of(s1);
+    RequestPipeline rp(ps);
+}
 
 void ShowNeighborStatisticsHandler::FillXmppNeighborStatistics(
         size_t *count, BgpServer *bgp_server, string domain,
@@ -664,39 +568,6 @@ void ShowNeighborStatisticsReq::HandleRequest() const {
     RequestPipeline::PipeSpec ps(this);
     ps.stages_= list_of(s1);
     RequestPipeline rp(ps);
-}
-
-// handler for 'show bgp neighbor'
-void BgpNeighborReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-
-    // Request pipeline has 3 stages:
-    // First stage to collect neighbor info
-    // Second stage to collect stats
-    // Third stage to collate all data and respond to the request
-    RequestPipeline::StageSpec s1, s2, s3;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
-    s1.allocFn_ = ShowNeighborHandler::CreateData;
-    s1.cbFn_ = ShowNeighborHandler::CallbackS1;
-    s1.instances_.push_back(
-            PeerRibMembershipManager::kMembershipTaskInstanceId);
-
-    s2.taskId_ = scheduler->GetTaskId("db::DBTable");
-    s2.allocFn_ = ShowNeighborHandler::CreateData;
-    s2.cbFn_ = ShowNeighborHandler::CallbackS2;
-    for (int i = 0; i < bsc->bgp_server->database()->PartitionCount(); i++) {
-        s2.instances_.push_back(i);
-    }
-
-    s3.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s3.allocFn_ = ShowNeighborHandler::CreateData;
-    s3.cbFn_ = ShowNeighborHandler::CallbackS3;
-    s3.instances_.push_back(0);
-    ps.stages_= list_of(s1)(s2)(s3);
-    RequestPipeline rp(ps);
-
 }
 
 class ClearBgpNeighborHandler {
