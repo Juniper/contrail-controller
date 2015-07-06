@@ -6,38 +6,46 @@
 """
 Service monitor DB to store VM, SI information
 """
-import pycassa
-from pycassa.system_manager import *
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-
 import inspect
+
 from cfgm_common import jsonutils as json
-import time
+from cfgm_common.vnc_cassandra import VncCassandraClient
 
 
-class ServiceMonitorDB(object):
+class ServiceMonitorDB(VncCassandraClient):
 
     _KEYSPACE = 'svc_monitor_keyspace'
+    _SVC_SI_CF = 'service_instance_table'
+    _LB_CF = 'pool_table'
 
-    def __init__(self, args=None):
-        self._args = args
-
-        if args.cluster_id:
-            self._keyspace = '%s_%s' % (args.cluster_id,
-                                        ServiceMonitorDB._KEYSPACE)
-        else:
-            self._keyspace = ServiceMonitorDB._KEYSPACE
-
-
-    # update with logger instance
-    def add_logger(self, logger):
+    def __init__(self, args, logger):
         self._logger = logger
+        if args.reset_config:
+            reset_config = [self._KEYSPACE]
+        else:
+            reset_config = []
+
+        self._keyspaces = {
+            self._KEYSPACE: [
+                (self._SVC_SI_CF, None),
+                (self._LB_CF, None)
+            ]
+        }
+
+        super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
+                                               None,
+                                               self._keyspaces,
+                                               self._logger.log,
+                                               reset_config=reset_config)
+
+        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
+        self._lb_cf = self._cf_dict[self._LB_CF]
 
     # db CRUD
     def _db_get(self, table, key):
         try:
             entry = table.get(key)
-        except Exception as e:
+        except Exception:
             self._logger.log("DB: %s %s get failed" %
                              (inspect.stack()[1][3], key))
             return None
@@ -47,7 +55,7 @@ class ServiceMonitorDB(object):
     def _db_insert(self, table, key, entry):
         try:
             table.insert(key, entry)
-        except Exception as e:
+        except Exception:
             self._logger.log("DB: %s %s insert failed" %
                              (inspect.stack()[1][3], key))
             return False
@@ -60,7 +68,7 @@ class ServiceMonitorDB(object):
                 table.remove(key, columns=columns)
             else:
                 table.remove(key)
-        except Exception as e:
+        except Exception:
             self._logger.log("DB: %s %s remove failed" %
                              (inspect.stack()[1][3], key))
             return False
@@ -70,85 +78,12 @@ class ServiceMonitorDB(object):
     def _db_list(self, table):
         try:
             entries = list(table.get_range())
-        except Exception as e:
+        except Exception:
             self._logger.log("DB: %s list failed" %
                              (inspect.stack()[1][3]))
             return None
 
         return entries
-
-    # initialize cassandra
-    def _cassandra_init(self, cf_name):
-        server_idx = 0
-        num_dbnodes = len(self._args.cassandra_server_list)
-        connected = False
-
-        # Update connection info
-        self._logger.db_conn_status_update(ConnectionStatus.INIT,
-            self._args.cassandra_server_list)
-        while not connected:
-            try:
-                cass_server = self._args.cassandra_server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
-                connected = True
-            except Exception as e:
-                # Update connection info
-                self._logger.db_conn_status_update(ConnectionStatus.DOWN,
-                    [cass_server], str(e))
-                server_idx = (server_idx + 1) % num_dbnodes
-                time.sleep(3)
-
-        # Update connection info
-        self._logger.db_conn_status_update(ConnectionStatus.UP,
-            self._args.cassandra_server_list)
-
-        if self._args.reset_config:
-            try:
-                sys_mgr.drop_keyspace(self._keyspace)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                print "Warning! " + str(e)
-
-        try:
-            sys_mgr.create_keyspace(self._keyspace, SIMPLE_STRATEGY,
-                                    {'replication_factor': str(num_dbnodes)})
-        except pycassa.cassandra.ttypes.InvalidRequestException as e:
-            print "Warning! " + str(e)
-
-        # set up column families
-        column_families = [cf_name]
-        gc_grace_sec = 0
-        if num_dbnodes > 1:
-            gc_grace_sec = 60
-        for cf in column_families:
-            try:
-                sys_mgr.create_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                print "Warning! " + str(e)
-                sys_mgr.alter_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
-
-        conn_pool = pycassa.ConnectionPool(self._keyspace,
-                                           self._args.cassandra_server_list,
-                                           max_overflow=10,
-                                           use_threadlocal=True,
-                                           prefill=True,
-                                           pool_size=10,
-                                           pool_timeout=30,
-                                           max_retries=-1,
-                                           timeout=0.5)
-
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        svc_cf = pycassa.ColumnFamily(conn_pool, cf_name,
-            read_consistency_level=rd_consistency,
-            write_consistency_level=wr_consistency)
-        return svc_cf
-
-class ServiceInstanceDB(ServiceMonitorDB):
-
-    _SVC_SI_CF = 'service_instance_table'
-
-    def init_database(self):
-        self._svc_si_cf = self._cassandra_init(self._SVC_SI_CF)
 
     def get_vm_db_prefix(self, inst_count):
         return('vm' + str(inst_count) + '-')
@@ -184,13 +119,6 @@ class ServiceInstanceDB(ServiceMonitorDB):
 
     def service_instance_list(self):
         return self._db_list(self._svc_si_cf)
-
-class LBDB(ServiceMonitorDB):
-
-    _LB_CF = 'pool_table'
-
-    def init_database(self):
-        self._lb_cf = self._cassandra_init(self._LB_CF)
 
     def pool_config_get(self, pool_id):
         json_str = self._db_get(self._lb_cf, pool_id)
