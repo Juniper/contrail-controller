@@ -141,20 +141,17 @@ class SvcMonitor(object):
     def __init__(self, args=None):
         self._args = args
 
-        # create database and logger
-        self.si_db = ServiceInstanceDB(args)
-
         # initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
             self._disc = client.DiscoveryClient(self._args.disc_server_ip,
                                                 self._args.disc_server_port,
                                                 ModuleNames[Module.SVC_MONITOR])
-
         # initialize logger
-        self.logger = ServiceMonitorLogger(self.si_db, self._disc, args)
-        self.si_db.add_logger(self.logger)
-        self.si_db.init_database()
+        self.logger = ServiceMonitorLogger(self._disc, args)
+
+        # create database
+        self.si_db = ServiceInstanceDB(self.logger, args)
 
         # rotating log file for catchall errors
         self._err_file = self._args.trace_file

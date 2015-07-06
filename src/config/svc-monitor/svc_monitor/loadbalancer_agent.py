@@ -16,12 +16,10 @@ class LoadbalancerAgent(object):
         self._args = config_section
         self._loadbalancer_driver = {}
         # create default service appliance set
-        self._create_default_service_appliance_set("opencontrail", 
+        self._create_default_service_appliance_set("opencontrail",
           "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver")
         self._default_provider = "opencontrail"
-        self.lb_db = LBDB(config_section)
-        self.lb_db.add_logger(self._svc_mon.logger)
-        self.lb_db.init_database()
+        self.lb_db = LBDB(self._svc_mon.logger, config_section)
     # end __init__
 
     # create default loadbalancer driver
@@ -194,12 +192,12 @@ class LoadbalancerAgent(object):
         old_pools = []
         if obj.last_sent:
             old_pools = hm['pools'] or []
- 
+
         set_current_pools = set()
         set_old_pools = set()
         for i in current_pools:
             set_current_pools.add(i['pool_id'])
-        for i in old_pools: 
+        for i in old_pools:
             set_old_pools.add(i['pool_id'])
         update_pools = set_current_pools & set_old_pools
         delete_pools = set_old_pools - set_current_pools
@@ -213,7 +211,7 @@ class LoadbalancerAgent(object):
                 driver.delete_pool_health_monitor(hm, pool)
             for pool in update_pools:
                 driver = self._get_driver_for_pool(pool)
-                driver.update_health_monitor(obj.last_sent, 
+                driver.update_health_monitor(obj.last_sent,
                                          hm, pool)
         except Exception as ex:
             pass
