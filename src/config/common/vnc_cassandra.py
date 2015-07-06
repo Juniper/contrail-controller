@@ -35,12 +35,17 @@ class VncCassandraClient(object):
     # TODO describe layout
     _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
 
+    # key: object type, column ($type:$id, uuid)
+    # where type is entity object is being shared with. Project initially
+    _OBJ_SHARED_CF_NAME = 'obj_shared_table'
+
     _MAX_COL = 10000000
 
     @classmethod
     def get_db_info(cls):
         db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
-                                              cls._OBJ_FQ_NAME_CF_NAME])]
+                                              cls._OBJ_FQ_NAME_CF_NAME,
+                                              cls._OBJ_SHARED_CF_NAME])]
         return db_info
     # end get_db_info
 
@@ -81,7 +86,8 @@ class VncCassandraClient(object):
         self._cf_dict = {}
         self._keyspaces = {
             self._UUID_KEYSPACE_NAME: [(self._OBJ_UUID_CF_NAME, None),
-                                       (self._OBJ_FQ_NAME_CF_NAME, None)]}
+                                       (self._OBJ_FQ_NAME_CF_NAME, None),
+                                       (self._OBJ_SHARED_CF_NAME, None)]}
 
         if keyspaces:
             self._keyspaces.update(keyspaces)
@@ -89,6 +95,7 @@ class VncCassandraClient(object):
         self._cache_uuid_to_fq_name = {}
         self._obj_uuid_cf = self._cf_dict[self._OBJ_UUID_CF_NAME]
         self._obj_fq_name_cf = self._cf_dict[self._OBJ_FQ_NAME_CF_NAME]
+        self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
     # end __init__
 
     def get_cf(self, func):
@@ -815,6 +822,43 @@ class VncCassandraClient(object):
 
         return obj_uuid
     # end fq_name_to_uuid
+
+    # return all objects shared with a (share_type, share_id)
+    def get_shared(self, obj_type, share_id = '', share_type = 'global'):
+        result = []
+        method_name = obj_type.replace('-', '_')
+        col_start = '%s:%s:' % (share_type, share_id)
+        col_fin = '%s:%s;' % (share_type, share_id)
+        try:
+            col_info_iter = self._obj_shared_cf.xget(
+                method_name, column_start=col_start, column_finish=col_fin)
+        except pycassa.NotFoundException:
+            return None
+
+        col_infos = list(col_info_iter)
+
+        if len(col_infos) == 0:
+            return None
+
+        for (col_name, col_val) in col_infos:
+            # ('*:*:f7963198-08a4-4b96-a02e-41cc66593163', u'7')
+            obj_uuid = col_name.split(':')[-1]
+            result.append((obj_uuid, json.loads(col_val)))
+
+        return result
+
+    # share an object 'obj_id' with <share_type:share_id>
+    # rwx indicate type of access (sharing) allowed
+    def set_shared(self, obj_type, obj_id, share_id = '', share_type = 'global', rwx = 7):
+        col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
+        method_name = obj_type.replace('-', '_')
+        self._obj_shared_cf.insert(method_name, {col_name : json.dumps(rwx)})
+
+    # delete share of 'obj_id' object with <share_type:share_id>
+    def del_shared(self, obj_type, obj_id, share_id = '', share_type = 'global'):
+        col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
+        method_name = obj_type.replace('-', '_')
+        self._obj_shared_cf.remove(method_name, columns=[col_name])
 
     def _read_child(self, result, obj_uuid, child_type,
                     child_uuid, child_tstamp):
