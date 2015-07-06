@@ -444,6 +444,31 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 -->
 <!-- Ip address mngmt type End -->
 
+<!-- RBAC type -->
+<!-- admin:CRUD (single role permission) -->
+<xsd:complexType name="RbacPermType">
+    <xsd:all>
+        <xsd:element name="role-name"        type="xsd:string"/>
+        <xsd:element name="role-crud"        type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<!-- field is optional in RBAC ACL rule -->
+<xsd:complexType name="RbacRuleType">
+    <xsd:all>
+        <xsd:element name="rule-object" type="xsd:string"/>
+        <xsd:element name="rule-field"  type="xsd:string" minOccurs="0" maxOccurs="1"/>
+        <xsd:element name="rule-perms"  type="RbacPermType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RbacRuleEntriesType">
+    <xsd:all>
+       <xsd:element name="rbac-rule" type="RbacRuleType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<!-- RBAC type End -->
+
 <!-- domain limits type -->
 <xsd:complexType name="DomainLimitsType">
     <xsd:all>
@@ -479,6 +504,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="ShareType">
+    <xsd:all>
+        <xsd:element name="tenant"        type="xsd:string"/>
+        <xsd:element name="tenant-access" type="AccessType"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="PermType2">
+    <xsd:all>
+        <xsd:element name="owner"           type="xsd:string"/>
+        <xsd:element name="owner-access"    type="AccessType"/>
+        <xsd:element name="global-access"   type="AccessType"/>
+        <xsd:element name="share"           type="ShareType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:simpleType name="CreatorType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="vcenter-plugin"/>
+        <xsd:enumeration value="test"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="IdPermsType">
     <xsd:all>
         <xsd:element name="permissions"   type="PermType"/>
@@ -491,7 +539,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="creator"       type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
-
 
 <xsd:complexType name="PluginProperty">
     <xsd:all>
@@ -508,6 +555,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
   
 <xsd:element name="id-perms" type="IdPermsType"/>
 <!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
+
+<xsd:element name="perms2" type="PermType2"/>
+<!--#IFMAP-SEMANTICS-IDL Property('perms2', 'all') -->
 
 <xsd:complexType name="QuotaType">
     <xsd:all>
@@ -616,12 +666,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('domain-limits', ['backend']);
      Property('domain-limits', 'domain') -->
-
-<xsd:element name="api-access-list" type="ApiAccessListType"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Exclude('api-access-list', ['backend']);
-     Property('api-access-list', 'config-root');
-     Property('api-access-list', 'domain') -->
 
 <xsd:element name="project"   type="ifmap:IdentityType"/>
 <xsd:element name="domain-project"/>
@@ -1636,6 +1680,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('physical-interface-connection',
           'physical-interface', 'physical-interface', ['ref']) -->
+
+<!-- RBAC fields -->
+<xsd:element name="api-access-list" type="ifmap:IdentityType"/>
+<xsd:element name="domain-api-access-list"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('domain-api-access-list',
+               'domain', 'api-access-list', ['has']) -->
+<xsd:element name="project-api-access-list"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-api-access-list',
+               'project', 'api-access-list', ['has']) -->
+
+<!-- network.* => admin:CRUD (admin can perform all ops on networks) -->
+<xsd:element name="api-access-list-entries" type="RbacRuleEntriesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('api-access-list-entries', 'api-access-list') -->
 
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
