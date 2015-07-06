@@ -335,6 +335,13 @@ bool ControlNodeInfoLogger(BgpServer *server,
         change = true;
     }
 
+    uint32_t num_closing_xmpp = xmpp_channel_mgr->closing_count();
+    if (num_closing_xmpp != prev_state.get_num_closing_xmpp_peer() || first) {
+        state.set_num_closing_xmpp_peer(num_closing_xmpp);
+        prev_state.set_num_closing_xmpp_peer(num_closing_xmpp);
+        change = true;
+    }
+
     uint32_t num_bgp = server->num_bgp_peer();
     if (num_bgp != prev_state.get_num_bgp_peer() || first) {
         state.set_num_bgp_peer(num_bgp);
@@ -349,10 +356,26 @@ bool ControlNodeInfoLogger(BgpServer *server,
         change = true;
     }
 
+    uint32_t num_closing_bgp_peer = server->num_closing_bgp_peer();
+    if (num_closing_bgp_peer != prev_state.get_num_closing_bgp_peer() ||
+        first) {
+        state.set_num_closing_bgp_peer(num_closing_bgp_peer);
+        prev_state.set_num_closing_bgp_peer(num_closing_bgp_peer);
+        change = true;
+    }
+
     uint32_t num_ri = server->num_routing_instance();
     if (num_ri != prev_state.get_num_routing_instance() || first) {
         state.set_num_routing_instance(num_ri);
         prev_state.set_num_routing_instance(num_ri);
+        change = true;
+    }
+
+    uint32_t num_deleted_ri = server->num_deleted_routing_instance();
+    if (num_deleted_ri != prev_state.get_num_deleted_routing_instance() ||
+        first) {
+        state.set_num_deleted_routing_instance(num_deleted_ri);
+        prev_state.set_num_deleted_routing_instance(num_deleted_ri);
         change = true;
     }
 
