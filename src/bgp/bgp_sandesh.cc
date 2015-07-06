@@ -640,7 +640,8 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             if (table->Size() == 0 && !table->IsDeleted())
                 continue;
             if (!search_string.empty() &&
-                table->name().find(search_string) == string::npos) {
+                (table->name().find(search_string) == string::npos) &&
+                (search_string != "deleted" || !table->IsDeleted())) {
                 continue;
             }
             ShowRouteTableSummary srt;
@@ -659,6 +660,8 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             size_t markers = 0;
             srt.set_pending_updates(table->GetPendingRiboutsCount(&markers));
             srt.set_markers(markers);
+            srt.set_listeners(table->GetListenerCount());
+            srt.set_walkers(table->walker_count());
             table_list.push_back(srt);
         }
     }
@@ -882,14 +885,16 @@ bool ShowNeighborSummaryHandler::CallbackS1(const Sandesh *sr,
             int stage, int instNum,
             RequestPipeline::InstData * data) {
     vector<BgpNeighborResp> nbr_list;
-    const BgpNeighborReq *req =
-        static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
+    const ShowBgpNeighborSummaryReq *req =
+        static_cast<const ShowBgpNeighborSummaryReq *>(ps.snhRequest_.get());
+    const string &search_string = req->get_search_string();
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
          it != rim->end(); ++it) {
-        it->peer_manager()->FillBgpNeighborInfo(bsc, &nbr_list, string(), true);
+        it->peer_manager()->FillBgpNeighborInfo(
+            bsc, &nbr_list, search_string, true);
     }
 
     bsc->ShowNeighborSummaryExtension(&nbr_list, req);
@@ -1219,11 +1224,13 @@ bool ShowRoutingInstanceSummaryHandler::CallbackS1(const Sandesh *sr,
     vector<ShowRoutingInstance> ri_list;
     for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
         it != rim->end(); ++it) {
+        const RoutingInstance &ri = *it;
         if (!search_string.empty() &&
-            it->name().find(search_string) == string::npos) {
-                continue;
+            (it->name().find(search_string) == string::npos) &&
+            (search_string != "deleted" || !ri.deleted())) {
+            continue;
         }
-        FillRoutingInstanceInfo(&ri_list, *it);
+        FillRoutingInstanceInfo(&ri_list, ri);
     }
 
     ShowRoutingInstanceSummaryResp *resp = new ShowRoutingInstanceSummaryResp;
@@ -1875,7 +1882,7 @@ BgpSandeshContext::BgpSandeshContext()
 
 void BgpSandeshContext::SetNeighborShowExtensions(
     const NeighborListExtension &show_neighbor,
-    const NeighborListExtension &show_neighbor_summary,
+    const NeighborSummaryListExtension &show_neighbor_summary,
     const NeighborStatisticsExtension &show_neighbor_statistics) {
     show_neighbor_ext_ = show_neighbor;
     show_neighbor_summary_ext_ = show_neighbor_summary;
@@ -1890,7 +1897,7 @@ void BgpSandeshContext::ShowNeighborExtension(
 }
 
 void BgpSandeshContext::ShowNeighborSummaryExtension(
-    std::vector<BgpNeighborResp> *list, const BgpNeighborReq *req) {
+    std::vector<BgpNeighborResp> *list, const ShowBgpNeighborSummaryReq *req) {
     if (show_neighbor_summary_ext_) {
         show_neighbor_summary_ext_(list, this, req);
     }
