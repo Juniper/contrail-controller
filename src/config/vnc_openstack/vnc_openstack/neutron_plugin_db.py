@@ -71,6 +71,9 @@ class DBInterface(object):
 
     # Helper routines
     def _request_api_server(self, url, method, data=None, headers=None):
+        from eventlet.greenthread import getcurrent
+        token = getcurrent().contrail_vars.token
+
         if method == 'GET':
             return requests.get(url)
         if method == 'POST':
