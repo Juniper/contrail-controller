@@ -890,6 +890,15 @@ class VncServerCassandraClient(VncCassandraClient):
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
 
+    def update_perms2(self, obj_uuid):
+        bch = self._obj_uuid_cf.batch()
+        perms2 = copy.deepcopy(Provision.defaults.perms2)
+        perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
+                               for k, v in o.__dict__.iteritems()))
+        perms2 = json.loads(perms2_json)
+        self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
+        bch.send()
+
     def uuid_to_obj_dict(self, id):
         try:
             obj_cols = self._obj_uuid_cf.get(id)
@@ -907,6 +916,16 @@ class VncServerCassandraClient(VncCassandraClient):
             raise NoIdError(id)
         return id_perms
     # end uuid_to_obj_perms
+
+    def uuid_to_obj_perms2(self, id):
+        try:
+            perms2_json = self._obj_uuid_cf.get(
+                id, columns=['prop:perms2'])['prop:perms2']
+            perms2 = json.loads(perms2_json)
+        except pycassa.NotFoundException:
+            raise NoIdError(id)
+        return perms2
+    # end uuid_to_obj_perms2
 
     def useragent_kv_store(self, key, value):
         columns = {'value': value}
@@ -1503,6 +1522,9 @@ class VncDbClient(object):
                                                        'logical_router',
                                                        router['uuid'])
 
+                if obj_dict.get('perms2') is None:
+                    self._cassandra_db.update_perms2(obj_uuid)
+
                 if (obj_type == 'virtual_network' and
                     'network_ipam_refs' in obj_dict):
                     self.update_subnet_uuid(obj_dict, do_update=True)
@@ -1663,6 +1685,9 @@ class VncDbClient(object):
 
     @dbe_trace('create')
     def dbe_create(self, obj_type, obj_ids, obj_dict):
+        # build index for sharing
+        self.build_shared_index(obj_type, obj_ids['uuid'],  obj_dict)
+
         method_name = obj_type.replace('-', '_')
         (ok, result) = self._cassandra_db.create(method_name, obj_ids, obj_dict)
 
@@ -1728,6 +1753,9 @@ class VncDbClient(object):
 
     @dbe_trace('update')
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
+        # build index for sharing
+        self.build_shared_index(obj_type, obj_ids['uuid'],  new_obj_dict)
+
         method_name = obj_type.replace('-', '_')
         (ok, cassandra_result) = self._cassandra_db.update(
             method_name, obj_ids['uuid'], new_obj_dict)
@@ -1872,9 +1900,12 @@ class VncDbClient(object):
         self._cassandra_db.ref_update(obj_type, obj_uuid, ref_type, ref_uuid,
                                       ref_data, operation)
         self._msgbus.dbe_update_publish(obj_type.replace('_', '-'),
-                                        {'uuid':obj_uuid})
-        return obj_uuid
     # ref_update
+                                        {'uuid':obj_uuid})
+    def uuid_to_obj_perms2(self, obj_uuid):
+        return self._cassandra_db.uuid_to_obj_perms2(obj_uuid)
+    # end uuid_to_obj_perms2
+
 
     def get_resource_class(self, resource_type):
         return self._api_svr_mgr.get_resource_class(resource_type)
@@ -1898,5 +1929,64 @@ class VncDbClient(object):
     def get_server_port(self):
         return self._api_svr_mgr.get_server_port()
     # end get_server_port
+
+    # update index if object is shared
+    def build_shared_index(self, obj_type, obj_uuid, obj_dict):
+        """
+        fetch current sharing information to see what might have changed
+        Note that perms2 field may be missing if we are upgrading from earlier release
+        and this is called during synching of database on startup.
+        """
+        try:
+            cur_perms2 = self.uuid_to_obj_perms2(obj_uuid)
+        except Exception as e:
+            return
+
+        try:
+            perms = obj_dict['perms2']
+            share_perms = perms['share']
+            global_access = perms['global_access']
+        except Exception as e:
+            return
+
+        # change in global access?
+        if cur_perms2['global_access'] != global_access:
+            if global_access:
+                self._cassandra_db.set_shared(obj_type, obj_uuid, '*', group = '*', 
+                    rwx = global_access)
+            else:
+                self._cassandra_db.del_shared(obj_type, obj_uuid, '*', group = '*')
+
+        # change in shared list?
+        cur_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in cur_perms2['share'])
+        new_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in perms['share'])
+        if cur_shared_list == new_shared_list:
+            return
+
+        for share_info in cur_shared_list - new_shared_list:
+            share_info = share_info.split(":")
+            self._cassandra_db.del_shared(obj_type, obj_uuid, share_info[0])
+
+        # share this object with specified tenants
+        for share_info in new_shared_list - cur_shared_list:
+            share_info = share_info.split(":")
+            self._cassandra_db.set_shared(obj_type, obj_uuid,
+                share_info[0], rwx = int(share_info[1]))
+    # end build_shared_index
+
+    def get_shared_objects(self, obj_type, obj_uuid):
+        shared = []
+        # specific shared
+        l1 = self._cassandra_db.get_shared(obj_type, obj_uuid, group = 'tenant')
+        if l1:
+            shared.extend(l1)
+
+        # global shares
+        l2 = self._cassandra_db.get_shared(obj_type, '*', group = '*')
+        if l2:
+            shared.extend(l2)
+
+        return shared
+    # end get_shared_objects
 
 # end class VncDbClient
