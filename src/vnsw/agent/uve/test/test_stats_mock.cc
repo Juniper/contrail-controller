@@ -719,6 +719,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     collector->vrf_stats_responses_ = 0;
 
     util_.EnqueueAgentStatsCollectorTask(1);
+    client->WaitForIdle(3);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
     client->WaitForIdle(3);
@@ -770,6 +771,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     collector->vrf_stats_responses_ = 0;
 
     util_.EnqueueAgentStatsCollectorTask(1);
+    client->WaitForIdle(3);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
     client->WaitForIdle(3);
@@ -801,6 +803,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     collector->vrf_stats_responses_ = 0;
 
     util_.EnqueueAgentStatsCollectorTask(1);
+    client->WaitForIdle(3);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
     client->WaitForIdle(3);
@@ -823,6 +826,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     collector->vrf_stats_responses_ = 0;
 
     util_.EnqueueAgentStatsCollectorTask(1);
+    client->WaitForIdle(3);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ >= 1));
     client->WaitForIdle(3);
