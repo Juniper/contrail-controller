@@ -21,7 +21,7 @@ import pycassa
 import utils
 
 import vnc_cfg_ifmap
-from schema_transformer import to_bgp
+from schema_transformer.db import SchemaTransformerDB
 from discovery import disc_cassdb
 from svc_monitor import db as svc_monitor_db
 
@@ -170,7 +170,7 @@ class DatabaseChecker(object):
         for server in self._cassandra_servers:
             sys_mgr = pycassa.SystemManager(server)
             db_info = vnc_cfg_ifmap.VncCassandraClient.get_db_info() + \
-                      to_bgp.SchemaTransformer.get_db_info() + \
+                      SchemaTransformerDB.get_db_info() + \
                       disc_cassdb.DiscoveryCassandraClient.get_db_info() + \
                       svc_monitor_db.ServiceMonitorDB.get_db_info()
             for ks_name, _ in db_info:
