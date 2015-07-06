@@ -21,28 +21,24 @@ import cStringIO
 import argparse
 import socket
 
-import re
 import os
 
 import logging
 import logging.handlers
 
-from cfgm_common import exceptions
 from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
 from cfgm_common import utils
 
 from cfgm_common.vnc_kombu import VncKombuClient
-from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_db import DBBase
 from config_db import *
 from cfgm_common.dependency_tracker import DependencyTracker
 
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
-    ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
 
@@ -50,9 +46,8 @@ from vnc_api.vnc_api import *
 
 import discoveryclient.client as client
 
-from db import ServiceInstanceDB
+from db import ServiceMonitorDB
 from logger import ServiceMonitorLogger
-from instance_manager import InstanceManager
 from loadbalancer_agent import LoadbalancerAgent
 
 from novaclient import exceptions as nc_exc
@@ -142,20 +137,14 @@ class SvcMonitor(object):
     def __init__(self, args=None):
         self._args = args
 
-        # create database and logger
-        self.si_db = ServiceInstanceDB(args)
-
         # initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
             self._disc = client.DiscoveryClient(self._args.disc_server_ip,
                                                 self._args.disc_server_port,
                                                 ModuleNames[Module.SVC_MONITOR])
-
         # initialize logger
-        self.logger = ServiceMonitorLogger(self.si_db, self._disc, args)
-        self.si_db.add_logger(self.logger)
-        self.si_db.init_database()
+        self.logger = ServiceMonitorLogger(self._disc, args)
 
         # rotating log file for catchall errors
         self._err_file = self._args.trace_file
@@ -188,19 +177,11 @@ class SvcMonitor(object):
                                          rabbit_user, rabbit_password,
                                          rabbit_vhost, rabbit_ha_mode,
                                          q_name, self._vnc_subscribe_callback,
-                                         self.config_log)
+                                         self.logger.log)
 
-        cass_server_list = self._args.cassandra_server_list
-        # don't reset the vnc keyspace
-        self._cassandra = VncCassandraClient(cass_server_list,
-                                             self._args.cluster_id,
-                                             None,
-                                             self.config_log)
+        self._cassandra = ServiceMonitorDB(self._args, self.logger)
         DBBase.init(self, self.logger, self._cassandra)
     # end _connect_rabbit
-
-    def config_log(self, msg, level):
-        self.logger.log(msg)
 
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
@@ -212,7 +193,7 @@ class SvcMonitor(object):
     def _vnc_subscribe_actions(self, oper_info):
         try:
             msg = "Notification Message: %s" % (pformat(oper_info))
-            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            self.logger.log_debug(msg)
             obj_type = oper_info['type'].replace('-', '_')
             obj_class = DBBase._OBJ_TYPE_MAP.get(obj_type)
             if obj_class is None:
@@ -240,13 +221,13 @@ class SvcMonitor(object):
                 obj_class.delete(obj_id)
             else:
                 # unknown operation
-                self.config_log('Unknown operation %s' % oper_info['oper'],
-                                level=SandeshLevel.SYS_ERR)
+                self.logger.log_error('Unknown operation %s' %
+                                      oper_info['oper'])
                 return
 
             if obj is None:
-                self.config_log('Error while accessing %s uuid %s' % (
-                                obj_type, obj_id))
+                self.logger.log_error('Error while accessing %s uuid %s' % (
+                                      obj_type, obj_id))
                 return
 
         except Exception:
@@ -325,19 +306,19 @@ class SvcMonitor(object):
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
             'svc_monitor.virtual_machine_manager.VirtualMachineManager',
-            self._vnc_lib, self.si_db, self.logger,
+            self._vnc_lib, self._cassandra, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
         # load network namespace instance manager
         self.netns_manager = importutils.import_object(
             'svc_monitor.instance_manager.NetworkNamespaceManager',
-            self._vnc_lib, self.si_db, self.logger,
+            self._vnc_lib, self._cassandra, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
         # load a vrouter instance manager
         self.vrouter_manager = importutils.import_object(
             'svc_monitor.vrouter_instance_manager.VRouterInstanceManager',
-            self._vnc_lib, self.si_db, self.logger,
+            self._vnc_lib, self._cassandra, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
         # load a loadbalancer agent
@@ -923,7 +904,7 @@ def launch_timer(monitor):
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
     cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-    monitor.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+    monitor.logger.log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
 def parse_args(args_str):
     '''
