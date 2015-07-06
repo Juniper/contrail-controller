@@ -53,6 +53,7 @@ def parse_args(args_str):
         'logger_class': None,
         'multi_tenancy': True,
         'disc_server_ip': None,
+        'rbac': False,
         'disc_server_port': '5998',
         'zk_server_ip': '127.0.0.1:2181',
         'worker_id': '0',
@@ -100,6 +101,8 @@ def parse_args(args_str):
             if 'multi_tenancy' in config.options('DEFAULTS'):
                 defaults['multi_tenancy'] = config.getboolean(
                     'DEFAULTS', 'multi_tenancy')
+            if 'rbac' in config.options('DEFAULTS'):
+                defaults['rbac'] = config.getboolean('DEFAULTS', 'rbac')
             if 'default_encoding' in config.options('DEFAULTS'):
                 default_encoding = config.get('DEFAULTS', 'default_encoding')
                 gen.resource_xsd.ExternalEncoding = default_encoding
@@ -224,6 +227,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--multi_tenancy", action="store_true",
         help="Validate resource permissions (implies token validation)")
+    parser.add_argument(
+        "--rbac", action="store_false",
+        help="Validate API and resource permissions (implies token validation)")
     parser.add_argument(
         "--worker_id",
         help="Worker Id")
