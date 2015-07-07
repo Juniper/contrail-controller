@@ -41,6 +41,12 @@ struct AgentXmppDnsData {
     12: string xmpp_auth_type;
 }
 
+struct AgentDiscoveryXmppConnections {
+    1: string agent_controller_ip;
+    2: u32 agent_controller_port;
+    3: string discovery_controller_ip;
+    4: u32 discovery_controller_port;
+}
 
 traceobject sandesh AgentXmppTrace {
     1: string peer;
@@ -125,4 +131,18 @@ request sandesh AgentDnsXmppConnectionStatusReq {
 
 response sandesh AgentDnsXmppConnectionStatus {
     1: list<AgentXmppDnsData>peer;
+}
+
+request sandesh AgentDiscoveryXmppConnectionsRequest {
+}
+
+response sandesh AgentDiscoveryXmppConnectionsResponse {
+    1: list<AgentDiscoveryXmppConnections>xmppc;
+}
+
+request sandesh AgentDiscoveryDnsXmppConnectionsRequest {
+}
+
+response sandesh AgentDiscoveryDnsXmppConnectionsResponse {
+    1: list<AgentDiscoveryXmppConnections>xmppc;
 }
