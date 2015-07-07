@@ -7,13 +7,21 @@ import os
 
 class RunTestsCommand(setuptools.Command):
     description = "Test command to run testr in virtualenv"
-    user_options = []
+    user_options = [
+        ('coverage', 'c',
+         "Generate code coverage report"),
+        ]
+    boolean_options = ['coverage']
     def initialize_options(self):
         self.cwd = None
+        self.coverage = False
     def finalize_options(self):
         self.cwd = os.getcwd()
     def run(self):
-        os.system('./run_tests.sh -V')
+        args = '-V'
+        if self.coverage:
+            args += ' -c'
+        os.system('./run_tests.sh %s' % args)
 
 def requirements(filename):
     with open(filename) as f:
@@ -22,7 +30,7 @@ def requirements(filename):
     return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
 
 setuptools.setup(
-    name='svc-monitor',
+    name='svc_monitor',
     version='0.1dev',
     packages=setuptools.find_packages(),
     package_data={'': ['*.html', '*.css', '*.xml']},

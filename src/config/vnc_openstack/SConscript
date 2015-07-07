@@ -30,6 +30,7 @@ test_sources = [
            'requirements.txt',
            'test-requirements.txt',
            '.testr.conf',
+           '.coveragerc',
            'vnc_openstack/tests',
           ]
 

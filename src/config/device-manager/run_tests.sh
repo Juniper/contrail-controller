@@ -167,7 +167,7 @@ function run_tests {
     echo "Generating coverage report in covhtml/"
     # Don't compute coverage for common code, which is tested elsewhere
     ${wrapper} coverage combine
-    ${wrapper} coverage html --include='nova/*' --omit='nova/openstack/common/*' -d covhtml -i
+    ${wrapper} coverage html --include='./*' --omit='./tests/*' -d covhtml -i
   fi
 
   return $RESULT

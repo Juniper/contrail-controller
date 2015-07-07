@@ -14,6 +14,7 @@ sources = [
     'run_tests.sh',
     'test-requirements.txt',
     '.testr.conf',
+    '.coveragerc',
     'MANIFEST.in',
     'svc_monitor/__init__.py',
     'svc_monitor/svc_monitor.py',
@@ -93,6 +94,9 @@ else:
     top_dir = Dir('.')
 
 # unit test
+cov_cmd = env.Command('coveragetest.log', sdist_gen,
+          'cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log')
+
 test_cmd = env.Command('test.log', sdist_gen,
           'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
@@ -103,5 +107,7 @@ test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
                 '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',]
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('controller/src/config/svc_monitor:test', test_cmd)
+env.Alias('controller/src/config/svc_monitor:coverage', cov_cmd)
