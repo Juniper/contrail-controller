@@ -135,8 +135,8 @@ void PeerCloseManager::CloseComplete(IPeer *ipeer, BgpTable *table,
                                      bool from_timer, bool gr_cancelled) {
     tbb::recursive_mutex::scoped_lock lock(mutex_);
 
-    BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_NA, "Close process is complete");
+    BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA, "Close procedure completed");
 
     close_in_progress_ = false;
     bool close_request_pending = close_request_pending_;
@@ -221,12 +221,12 @@ void PeerCloseManager::Close() {
         if (peer_close->IsCloseGraceful()) {
             close_request_pending_ = true;
         }
-        BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_NA, "Close process is already in progress");
+        BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Close procedure already in progress");
         return;
     } else {
-        BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_NA, "Initiating close process");
+        BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Close procedure initiated");
     }
 
     close_in_progress_ = true;
