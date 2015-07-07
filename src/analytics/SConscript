@@ -106,6 +106,15 @@ db_handler_obj = AnalyticsEnv_excep.Object('db_handler.o', 'db_handler.cc')
 main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
 AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
 
+lib_cpuinfo = File('../base/libcpuinfo.a')
+if sys.platform != 'darwin':
+    AnalyticsEnv.Prepend(LINKFLAGS =
+                         ['-Wl,--whole-archive',
+                          '-lcpuinfo',
+                          '-Wl,--no-whole-archive'])
+else:
+    AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
+
 buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
                       '../../lib/libcurl.a', '../gendb/libgendb.a', '../../lib/libthrift.a', '../cdb/libcdb.a',
                       '../analytics/ruleparser/libruleparser.a', '../xml/libxml.a', '../base/libbase.a', '../io/libio.a',
