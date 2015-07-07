@@ -37,14 +37,13 @@ class AgentRouteTable::DeleteActor : public LifetimeActor {
     virtual ~DeleteActor() { 
     }
     virtual bool MayDelete() const {
-        if (table_->HasListeners() || table_->Size() != 0) {
-            return false;
-        }
-        return true;
+        return table_->MayDelete();
     }
     virtual void Shutdown() {
     }
     virtual void Destroy() {
+        assert(table_->vrf_entry_.get() != NULL);
+        table_->vrf_entry_->SetRouteTableDeleted(table_->GetTableType());
         //Release refernces
         table_->vrf_delete_ref_.Reset(NULL);
         table_->vrf_entry_ = NULL;
