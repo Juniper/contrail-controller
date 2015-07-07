@@ -175,9 +175,9 @@ class DeviceManager(object):
                                          self.config_log)
 
         cass_server_list = self._args.cassandra_server_list
-        reset_config = self._args.reset_config
-        self._cassandra = VncCassandraClient(cass_server_list, reset_config,
-                                             self._args.cluster_id, None,
+        self._cassandra = VncCassandraClient(cass_server_list,
+                                             self._args.cluster_id,
+                                             None,
                                              self.config_log)
 
         DBBase.init(self, self._sandesh.logger(), self._cassandra)
