@@ -43,7 +43,6 @@ class MaxNinTtime(object):
 class Controller(object):
     def __init__(self, config):
         self._config = config
-        self._me = socket.gethostname() + ':' + str(os.getpid())
         self.uve = SnmpUve(self._config)
         self._logger = self.uve.logger()
         self.sleep_time()
@@ -254,6 +253,8 @@ class Controller(object):
     def run(self):
         i = 0
         self._sem = Semaphore()
+        self._logger.debug('Starting.. %s' % str(
+                    self._config.zookeeper_server()))
         constnt_schdlr = ConsistentScheduler(
                             self._config._name,
                             zookeeper=self._config.zookeeper_server(),
