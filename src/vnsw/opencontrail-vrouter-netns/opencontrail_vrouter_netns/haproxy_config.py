@@ -8,7 +8,7 @@ PROTO_HTTPS = 'HTTPS'
 PROTO_MAP = {
     PROTO_TCP: 'tcp',
     PROTO_HTTP: 'http',
-    PROTO_HTTPS: 'tcp'
+    PROTO_HTTPS: 'http'
 }
 
 LB_METHOD_MAP = {
@@ -71,8 +71,8 @@ def _set_defaults(config):
 def _set_frontend(config):
     port = config['vip']['port']
     ssl = ''
-    if port == HTTPS_PORT:
-        ssl = 'ssl crt %s' % ssl_cert_path
+    if config['vip']['protocol'] == PROTO_HTTPS:
+        ssl = 'ssl crt %s' % config['ssl-crt']
     conf = [
         'frontend %s' % config['vip']['id'],
         'option tcplog',
@@ -82,7 +82,8 @@ def _set_frontend(config):
     ]
     if config['vip']['connection-limit'] >= 0:
         conf.append('maxconn %s' % config['vip']['connection-limit'])
-    if config['vip']['protocol'] == PROTO_HTTP:
+    if config['vip']['protocol'] == PROTO_HTTP or \
+            config['vip']['protocol'] == PROTO_HTTPS:
         conf.append('option forwardfor')
     return ("\n\t".join(conf))
 
