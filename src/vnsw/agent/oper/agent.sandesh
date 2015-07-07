@@ -368,6 +368,9 @@ response sandesh VmListResp {
 }
 
 request sandesh NhListReq {
+    1: string type;
+    2: string nh_index;
+    3: string policy_enabled;
 }
 
 response sandesh NhListResp {
