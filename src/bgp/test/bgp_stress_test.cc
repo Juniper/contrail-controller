@@ -1018,12 +1018,12 @@ void BgpStressTest::AddBgpInet6VpnRoute(int peer_id, int route_id,
 
     // For odd peer_id's, choose hard-coded value; for even, choose the
     // peer_id. This is to have half of the RD's as dups.
-    string peer_id_str = (peer_id & 1) ? "9999" : integerToHexString(peer_id);
+    string peer_id_str = (peer_id & 1) ? "9999" : integerToString(peer_id);
 
     // b's in the address for bgp-peer routes. We will get 'n_peers_' routes
     // with prefix 2001:bbbb:bbbb::0:0:route_id, each with its own RD.
     string pre_prefix;
-    pre_prefix = "65412:" + integerToHexString(peer_id) + ":2001:bbbb:bbbb::";
+    pre_prefix = "65412:" + integerToString(peer_id) + ":2001:bbbb:bbbb::";
     Inet6VpnPrefix b_prefix6 =
         CreateInet6VpnPrefix(pre_prefix, 0, 0, route_id);
 
@@ -1214,11 +1214,11 @@ void BgpStressTest::DeleteBgpInet6VpnRoute(int peer_id, int route_id,
 
     // For odd peer_id's, choose hard-coded value; for even, choose the
     // peer_id. This is have half of the RD's as dups.
-    string peer_id_str = (peer_id & 1) ? "9999" : integerToHexString(peer_id);
+    string peer_id_str = (peer_id & 1) ? "9999" : integerToString(peer_id);
 
     // b's in the address for bgp-peer routes
-    string pre_prefix = "65412:";
-    pre_prefix = "65412:" + integerToHexString(peer_id) + ":2001:bbbb:bbbb::";
+    string pre_prefix;
+    pre_prefix = "65412:" + integerToString(peer_id) + ":2001:bbbb:bbbb::";
     Inet6VpnPrefix b_prefix6 =
         CreateInet6VpnPrefix(pre_prefix, 0, 0, route_id);
 
