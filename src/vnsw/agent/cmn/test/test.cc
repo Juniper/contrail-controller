@@ -402,6 +402,13 @@ void TestInit() {
     TableB::ClearCount();
 }
 
+// Validate partition count
+TEST_F(DBTest, Partition_0) {
+    TestInit();
+    EXPECT_EQ(1, table_a_->PartitionCount());
+    EXPECT_EQ(1, table_b_->PartitionCount());
+}
+
 // Add Entry-B, Add Entry-A, Del Entry-B, Del Entry-A
 TEST_F(DBTest, TestRef_RefWait_0) {
     TestInit();

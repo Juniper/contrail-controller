@@ -125,6 +125,7 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class AgentDBTable : public DBTable {
 public:
+    static const int kPartitionCount = 1;
     AgentDBTable(DB *db, const std::string &name) : 
         DBTable(db, name), ref_listener_id_(-1), agent_(NULL) {
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
@@ -139,6 +140,7 @@ public:
 
     virtual ~AgentDBTable() { };
 
+    virtual int PartitionCount() const { return kPartitionCount; }
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
     virtual DBEntry *CfgAdd(DBRequest *req) {return NULL;};

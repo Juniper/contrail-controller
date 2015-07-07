@@ -102,12 +102,14 @@ struct RouteTableWalkerState {
 // bridge. This base class contains common code for all route tables
 class AgentRouteTable : public RouteTable {
 public:
+    static const int kPartitionCount = 1;
     typedef std::set<const AgentRoute *, RouteComparator> UnresolvedRouteTree;
     typedef std::set<const NextHop *, NHComparator> UnresolvedNHTree;
 
     AgentRouteTable(DB *db, const std::string &name);
     virtual ~AgentRouteTable();
 
+    virtual int PartitionCount() const { return kPartitionCount; }
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;}
     virtual size_t Hash(const DBRequestKey *key) const {return 0;}
