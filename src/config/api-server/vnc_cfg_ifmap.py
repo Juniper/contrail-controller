@@ -240,7 +240,7 @@ class VncIfmapClient(VncIfmapClientGen):
             requests_len = 0
             traces = []
             while True:
-                # drain the queue till empty or max message size 
+                # drain the queue till empty or max message size
                 # or change of oper because ifmap does not like
                 # different operations in same message
                 if oper == 'publish_discovery':
@@ -499,9 +499,15 @@ class VncServerCassandraClient(VncCassandraClient):
         keyspaces = {
             self._USERAGENT_KEYSPACE_NAME: [(self._USERAGENT_KV_CF_NAME, None)]
         }
+        if reset_config:
+            reset_config = [self._USERAGENT_KEYSPACE_NAME,
+                            VncCassandraClient._UUID_KEYSPACE_NAME]
+        else:
+            reset_config = []
         super(VncServerCassandraClient, self).__init__(
-            cass_srv_list, reset_config, db_prefix,keyspaces, self.config_log,
-            db_client_mgr.generate_url)
+            cass_srv_list, db_prefix, keyspaces, self.config_log,
+            generate_url=db_client_mgr.generate_url,
+            reset_config=reset_config)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
