@@ -23,6 +23,25 @@ struct AgentXmppData {
     11: ControllerProtoStats tx_proto_stats;
 }
 
+struct AgentXmppDnsData {
+    1: string dns_controller_ip;
+    2: string state;
+    3: string last_state;
+    4: string last_event;
+    5: string last_state_at;
+    6: u32 flap_count;
+    7: string flap_time;
+    8: ControllerProtoStats rx_proto_stats;
+    9: ControllerProtoStats tx_proto_stats;
+}
+
+struct AgentDiscoveryXmppConnections {
+    1: string agent_controller_ip;
+    2: u32 agent_controller_port;
+    3: string discovery_controller_ip;
+    4: u32 discovery_controller_port;
+}
+
 traceobject sandesh AgentXmppTrace {
     1: string peer;
     2: string vrf;
@@ -99,4 +118,25 @@ request sandesh AgentXmppConnectionStatusReq {
 
 response sandesh AgentXmppConnectionStatus {
     1: list<AgentXmppData>peer;
+}
+
+request sandesh AgentDnsXmppConnectionStatusReq {
+}
+
+response sandesh AgentDnsXmppConnectionStatus {
+    1: list<AgentXmppDnsData>peer;
+}
+
+request sandesh AgentDiscoveryXmppConnectionsRequest {
+}
+
+response sandesh AgentDiscoveryXmppConnectionsResponse {
+    1: list<AgentDiscoveryXmppConnections>xmppc;
+}
+
+request sandesh AgentDiscoveryDnsXmppConnectionsRequest {
+}
+
+response sandesh AgentDiscoveryDnsXmppConnectionsResponse {
+    1: list<AgentDiscoveryXmppConnections>xmppc;
 }

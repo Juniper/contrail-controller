@@ -337,6 +337,50 @@ public:
 
     // TODO: Should they be moved under controller/dns/cfg?
 
+    // Discovery Control-Node Server Response
+    const std::string &controller_ifmap_discovery_xmpp_server(uint8_t idx) const {
+        return xs_disc_addr_[idx];
+    }
+    void set_controller_ifmap_discovery_xmpp_server(const std::string &addr, uint8_t idx) {
+        xs_disc_addr_[idx] = addr;
+    }
+    const uint32_t controller_ifmap_discovery_xmpp_port(uint8_t idx) const {
+        return xs_disc_port_[idx];
+    }
+    void set_controller_ifmap_discovery_xmpp_port(uint32_t port, uint8_t idx) {
+        xs_disc_port_[idx] = port;
+    }
+    void reset_controller_ifmap_discovery_xmpp_servers() {
+        uint8_t count = 0;
+        while (count < MAX_XMPP_SERVERS) {
+            xs_disc_addr_[count].clear();
+            xs_disc_port_[count] = 0;
+            count++;
+        }
+    }
+
+    // Discovery Dns Server Response
+    const std::string &dns_discovery_server(uint8_t idx) const {
+        return dns_disc_addr_[idx];
+    }
+    void set_dns_discovery_server(const std::string &addr, uint8_t idx) {
+        dns_disc_addr_[idx] = addr;
+    }
+    const uint32_t dns_discovery_port(uint8_t idx) const {
+        return dns_disc_port_[idx];
+    }
+    void set_dns_discovery_port(uint32_t port, uint8_t idx) {
+        dns_disc_port_[idx] = port;
+    }
+    void reset_dns_discovery_servers() {
+        uint8_t count = 0;
+        while (count < MAX_XMPP_SERVERS) {
+            dns_disc_addr_[count].clear();
+            dns_disc_port_[count] = 0;
+            count++;
+        }
+    }
+
     // Common XMPP Client for control-node and config clients
     const std::string &controller_ifmap_xmpp_server(uint8_t idx) const {
         return xs_addr_[idx];
@@ -783,6 +827,12 @@ private:
     int8_t xs_dns_idx_;
     std::string dns_addr_[MAX_XMPP_SERVERS];
     uint32_t dns_port_[MAX_XMPP_SERVERS];
+    // Discovery Responses
+    std::string xs_disc_addr_[MAX_XMPP_SERVERS];
+    uint32_t xs_disc_port_[MAX_XMPP_SERVERS];
+    std::string dns_disc_addr_[MAX_XMPP_SERVERS];
+    uint32_t dns_disc_port_[MAX_XMPP_SERVERS];
+    // Discovery
     std::string dss_addr_;
     uint32_t dss_port_;
     int dss_xs_instances_;
