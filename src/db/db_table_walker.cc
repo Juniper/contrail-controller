@@ -163,7 +163,7 @@ DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
     : id_(id), wkmgr_(wkmgr), table_(table),
       key_start_(const_cast<DBRequestKey *>(key)), 
       walker_fn_(walker), done_fn_(walk_done) {
-    int num_worker = DB::PartitionCount(); 
+    int num_worker = table->PartitionCount();
     should_stop_ = false;
     status_ = num_worker;
     for (int i = 0; i < num_worker; i++) {
