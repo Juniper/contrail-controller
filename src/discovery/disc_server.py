@@ -60,6 +60,7 @@ class DiscoveryServer():
         self._homepage_links = []
         self._args = args
         self.service_config = args.service_config
+        self.cassandra_config = args.cassandra_config
         self._debug = {
             'hb_stray': 0,
             'msg_pubs': 0,
@@ -272,10 +273,13 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
+        cred = None
+        if 'cassandra' in self.cassandra_config.keys():
+            cred = {'username':self.cassandra_config['cassandra']['cassandra_user'],'password':self.cassandra_config['cassandra']['cassandra_password']}
         self._db_conn = DiscoveryCassandraClient("discovery",
             self._args.cassandra_server_list, reset_config,
             self._args.cass_max_retries,
-            self._args.cass_timeout)
+            self._args.cass_timeout, cred)
     # end _db_connect
 
     def cleanup(self):
@@ -982,13 +986,26 @@ def parse_args(args_str):
     default_service_opts = {
         'policy': None,
     }
+
+    cassandra_opts = {
+        'cassandra_user'     : None,
+        'cassandra_password' : None,
+    }
+
     service_config = {}
+    cassandra_config = {}
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
+        defaults.update(cassandra_opts)
         for section in config.sections():
+            if section == "CASSANDRA":
+                cassandra_config[section.lower()] = cassandra_opts.copy()
+                cassandra_config[section.lower()].update(
+                    dict(config.items(section)))
+                continue
             if section == "DEFAULTS":
                 continue
             service_config[
@@ -1065,11 +1082,17 @@ def parse_args(args_str):
     parser.add_argument(
         "--logger_class",
         help=("Optional external logger class, default: None"))
+    parser.add_argument("--cassandra_user",
+            help="Cassandra user name")
+    parser.add_argument("--cassandra_password",
+            help="Cassandra password")
 
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config
     args.default_service_opts = default_service_opts
+    args.cassandra_config = cassandra_config
+    args.cassandra_opts = cassandra_opts
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list =\
             args.cassandra_server_list.split()

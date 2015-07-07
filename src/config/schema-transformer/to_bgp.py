@@ -3552,6 +3552,10 @@ def parse_args(args_str):
         'admin_password': 'password1',
         'admin_tenant_name': 'default-domain'
     }
+    cassandraopts = {
+        'cassandra_user'     : None,
+        'cassandra_password' : None,
+    }
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
@@ -3563,6 +3567,10 @@ def parse_args(args_str):
                 secopts.update(dict(config.items("SECURITY")))
         if 'KEYSTONE' in config.sections():
             ksopts.update(dict(config.items("KEYSTONE")))
+
+        if 'CASSANDRA' in config.sections():
+                cassandraopts.update(dict(config.items('CASSANDRA')))
+
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -3576,6 +3584,7 @@ def parse_args(args_str):
     )
     defaults.update(secopts)
     defaults.update(ksopts)
+    defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -3639,6 +3648,10 @@ def parse_args(args_str):
     parser.add_argument(
         "--logger_class",
         help=("Optional external logger class, default: None"))
+    parser.add_argument("--cassandra_user",
+            help="Cassandra user name")
+    parser.add_argument("--cassandra_password",
+            help="Cassandra password")
 
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:

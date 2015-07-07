@@ -191,10 +191,13 @@ class SvcMonitor(object):
 
         cass_server_list = self._args.cassandra_server_list
         # don't reset the vnc keyspace
+        cred = None
+        if self._args.cassandra_user is not None:
+            cred={'username':self._args.cassandra_user,'password':self._args.cassandra_password}
         self._cassandra = VncCassandraClient(cass_server_list,
                                              self._args.cluster_id,
                                              None,
-                                             self.config_log)
+                                             self.config_log, credential=cred)
         DBBase.init(self, self.logger, self._cassandra)
     # end _connect_rabbit
 
@@ -926,6 +929,11 @@ def parse_args(args_str):
         'availability_zone': None,
         'netns_availability_zone': None,
     }
+    cassandraopts = {
+        'cassandra_user'     : None,
+        'cassandra_password' : None,
+    }
+
 
     config = ConfigParser.SafeConfigParser()
     if args.conf_file:
@@ -939,6 +947,9 @@ def parse_args(args_str):
             ksopts.update(dict(config.items("KEYSTONE")))
         if 'SCHEDULER' in config.sections():
             schedops.update(dict(config.items("SCHEDULER")))
+        if 'CASSANDRA' in config.sections():
+            cassandraopts.update(dict(config.items('CASSANDRA')))
+ 
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -953,6 +964,7 @@ def parse_args(args_str):
     defaults.update(secopts)
     defaults.update(ksopts)
     defaults.update(schedops)
+    defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -1016,6 +1028,10 @@ def parse_args(args_str):
     parser.add_argument(
         "--logger_class",
         help=("Optional external logger class, default: None"))
+    parser.add_argument("--cassandra_user",
+            help="Cassandra user name")
+    parser.add_argument("--cassandra_password",
+            help="Cassandra password")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config
