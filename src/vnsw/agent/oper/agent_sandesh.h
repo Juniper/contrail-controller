@@ -219,11 +219,21 @@ private:
 
 class AgentNhSandesh : public AgentSandesh {
 public:
-    AgentNhSandesh(std::string context) : AgentSandesh(context, "") {}
+    AgentNhSandesh(const std::string &context, const std::string &type,
+                   const std::string &nh_index, const std::string &policy_enabled);
+    ~AgentNhSandesh() { }
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
 
 private:
+    friend class NhListReq;
     DBTable *AgentGetTable();
     void Alloc();
+
+    // Filters
+    std::string type_;
+    std::string nh_index_;
+    std::string policy_enabled_;
 };
 
 class AgentMplsSandesh : public AgentSandesh {

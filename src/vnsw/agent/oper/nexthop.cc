@@ -2401,11 +2401,14 @@ bool NextHop::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 void NhListReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentNhSandesh(context()));
+    AgentSandeshPtr sand(new AgentNhSandesh(context(), get_type(),
+                                  get_nh_index(), get_policy_enabled()));
     sand->DoSandesh(sand);
 }
 
 AgentSandeshPtr NextHopTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                               const std::string &context) {
-    return AgentSandeshPtr(new AgentNhSandesh(context));
+    return AgentSandeshPtr(new AgentNhSandesh(context,
+                                              args->GetString("type"), args->GetString("nh_index"),
+                                              args->GetString("policy_enabled")));
 }
