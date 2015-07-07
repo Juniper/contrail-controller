@@ -2478,6 +2478,16 @@ void FlushFlowTable() {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 }
 
+static bool FlowDeleteTrigger(FlowKey key) {
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
+    if (table->Find(key) == NULL) {
+        return true;
+    }
+
+    table->Delete(key, true);
+    return true;
+}
+
 bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
                 uint8_t proto, uint16_t sport, uint16_t dport, int nh_id) {
 
@@ -2500,7 +2510,11 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    table->Delete(key, true);
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    std::auto_ptr<TaskTrigger> trigger_
+        (new TaskTrigger(boost::bind(FlowDeleteTrigger, key), task_id, 0));
+    trigger_->Set();
+    client->WaitForIdle();
     return true;
 }
 
