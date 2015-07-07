@@ -86,7 +86,6 @@ public:
                                        uint32_t ethernet_tag);
 
 private:
-    DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(EvpnAgentRouteTable);
 };
 

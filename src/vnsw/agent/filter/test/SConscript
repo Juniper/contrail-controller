@@ -11,28 +11,15 @@ env = AgentEnv.Clone()
 
 AgentEnv.MakeTestEnv(env)
 
-#acl_entry_test = env.Program('acl_entry_test',
-#                             ['acl_entry_test.cc'])
-#
-#env.Alias('agent:acl_entry_test', acl_entry_test)
-
-#acl_test = env.Program('acl_test',
-#                       ['acl_test.cc'])
-#env.Alias('agent:acl_test', acl_test)
-#policy_test = env.Program('policy_test',
-#                             ['policy_test.cc'])
-#env.Alias('agent:policy_test', policy_test)
-
-#test = env.TestSuite('agent-test', test_suite)
-#env.Alias('controller/src/vnsw/agent/filter:test', test)
-
 filter_flaky_test_suite = []
+filter_test_suite = []
 acl_entry_test = AgentEnv.MakeTestCmd(env, 'acl_entry_test', filter_flaky_test_suite)
 acl_test = AgentEnv.MakeTestCmd(env, 'acl_test', filter_flaky_test_suite)
 acl_change_test = AgentEnv.MakeTestCmd(env, 'acl_change_test', filter_flaky_test_suite)
-#policy_test = AgentEnv.MakeTestCmd(env, 'policy_test', filter_flaky_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', filter_flaky_test_suite)
+test = env.TestSuite('agent-test', filter_test_suite)
+env.Alias('agent:filter', test)
 env.Alias('controller/src/vnsw/agent/filter:flaky_test', flaky_test)
 
-#Return('test_suite')
+Return('filter_test_suite')

@@ -142,8 +142,11 @@ bool CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());
     CfgVnPortTree::iterator it = uuid_tree_.find(vn_port_key);
 
-    assert(it != uuid_tree_.end());
-    uuid_tree_.erase(it);
+    // Delete entry from UUID tree.
+    if (it != uuid_tree_.end()) {
+        // If duplicate delete, there will be no entry in UUID tree
+        uuid_tree_.erase(it);
+    }
     return true;
 }
 

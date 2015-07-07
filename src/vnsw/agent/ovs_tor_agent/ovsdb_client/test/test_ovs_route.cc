@@ -44,45 +44,6 @@
 
 using namespace pugi;
 
-EventManager evm1;
-ServerThread *thread1;
-test::ControlNodeMock *bgp_peer1;
-
-EventManager evm2;
-ServerThread *thread2;
-test::ControlNodeMock *bgp_peer2;
-
-void RouterIdDepInit(Agent *agent) {
-    Agent::GetInstance()->controller()->Connect();
-}
-
-void StartControlNodeMock() {
-    thread1 = new ServerThread(&evm1);
-    bgp_peer1 = new test::ControlNodeMock(&evm1, "127.0.0.1");
-
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
-    Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer1->GetServerPort(), 0);
-    Agent::GetInstance()->set_dns_server("", 0);
-    Agent::GetInstance()->set_dns_server_port(bgp_peer1->GetServerPort(), 0);
-    thread1->Start();
-}
-
-void StopControlNodeMock() {
-    Agent::GetInstance()->controller()->DisConnect();
-    client->WaitForIdle();
-    TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(0));
-
-    bgp_peer1->Shutdown();
-    client->WaitForIdle();
-    delete bgp_peer1;
-
-    evm1.Shutdown();
-    thread1->Join();
-    delete thread1;
-
-    client->WaitForIdle();
-}
-
 class OvsRouteTest : public ::testing::Test {
 protected:
     OvsRouteTest() {
@@ -97,7 +58,6 @@ protected:
 
     virtual void TearDown() {
         //Clean up any pending routes in conrol node mock
-        bgp_peer1->Clear();
         EXPECT_EQ(peer_manager_->Size(), 0);
     }
 
@@ -113,16 +73,12 @@ TEST_F(OvsRouteTest, OvsPeer_1) {
     peer_manager_->Free(peer);
 }
 
-TEST_F(OvsRouteTest, RouteTest_1) {
-}
-
 int main(int argc, char *argv[]) {
-    //::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
     client = OvsTestInit(init_file, ksync_init);
-    StartControlNodeMock();
     int ret = RUN_ALL_TESTS();
-    StopControlNodeMock();
+    TestShutdown();
+    delete client;
 
     return ret;
 }

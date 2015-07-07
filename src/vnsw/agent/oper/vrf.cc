@@ -41,8 +41,8 @@ class VrfEntry::DeleteActor : public LifetimeActor {
     virtual ~DeleteActor() { 
     }
     virtual bool MayDelete() const {
-        //No route entry present, then this VRF can be deleted
-        return true;
+        //No table present, then this VRF can be deleted
+        return table_->AllRouteTableDeleted();
     }
     virtual void Shutdown() {
     }
@@ -60,7 +60,8 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags) :
         walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
         rt_table_db_(), delete_timeout_timer_(NULL),
         table_label_(MplsTable::kInvalidLabel),
-        vxlan_id_(VxLanTable::kInvalidvxlan_id) {
+        vxlan_id_(VxLanTable::kInvalidvxlan_id),
+        rt_table_delete_bmap_(0) {
 }
 
 VrfEntry::~VrfEntry() {
@@ -217,6 +218,23 @@ InetUnicastRouteEntry *VrfEntry::GetUcRoute(const InetUnicastRouteEntry &rt_key)
 
 LifetimeActor *VrfEntry::deleter() {
     return deleter_.get();
+}
+
+bool VrfEntry::AllRouteTableDeleted() const {
+    for (int i = Agent::INET4_UNICAST; i < Agent::ROUTE_TABLE_MAX; i++) {
+        if ((rt_table_delete_bmap_ & (1 << i)) == 0)
+            return false;
+    }
+
+    return true;
+}
+
+bool VrfEntry::RouteTableDeleted(uint8_t table_type) const {
+    return (rt_table_delete_bmap_ & (1 << table_type));
+}
+
+void VrfEntry::SetRouteTableDeleted(uint8_t table_type) {
+    rt_table_delete_bmap_ |= (1 << table_type);
 }
 
 AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
