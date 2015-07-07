@@ -35,8 +35,8 @@ class VncCassandraClient(VncCassandraClientGen):
         return db_info
     # end get_db_info
 
-    def __init__(self, server_list, reset_config, db_prefix, keyspaces, logger,
-                 generate_url=None):
+    def __init__(self, server_list, db_prefix, keyspaces, logger,
+                 generate_url=None, reset_config=[]):
         super(VncCassandraClient, self).__init__()
         self._reset_config = reset_config
         self._cache_uuid_to_fq_name = {}
@@ -45,6 +45,7 @@ class VncCassandraClient(VncCassandraClientGen):
         else:
             self._db_prefix = ''
         self._server_list = server_list
+        self._num_dbnodes = len(self._server_list)
         self._conn_state = ConnectionStatus.INIT
         self._logger = logger
 
@@ -98,7 +99,7 @@ class VncCassandraClient(VncCassandraClientGen):
         # 2. Read in persisted data and publish to ifmap server
 
         self._update_sandesh_status(ConnectionStatus.INIT)
-        
+
         ColumnFamily.get = self._handle_exceptions(ColumnFamily.get)
         ColumnFamily.multiget = self._handle_exceptions(ColumnFamily.multiget)
         ColumnFamily.xget = self._handle_exceptions(ColumnFamily.xget)
@@ -114,24 +115,28 @@ class VncCassandraClient(VncCassandraClientGen):
         self._cassandra_init_conn_pools()
     # end _cassandra_init
 
-    def _cassandra_ensure_keyspace(self, server_list,
-                                   keyspace_name, cf_info_list):
+    def _cassandra_system_manager(self):
         # Retry till cassandra is up
         server_idx = 0
-        num_dbnodes = len(self._server_list)
         connected = False
         while not connected:
             try:
                 cass_server = self._server_list[server_idx]
                 sys_mgr = SystemManager(cass_server)
                 connected = True
-            except Exception as e:
+            except Exception:
                 # TODO do only for
                 # thrift.transport.TTransport.TTransportException
-                server_idx = (server_idx + 1) % num_dbnodes
+                server_idx = (server_idx + 1) % self._num_dbnodes
                 time.sleep(3)
+        return sys_mgr
+    # end _cassandra_system_manager
 
-        if self._reset_config:
+    def _cassandra_ensure_keyspace(self, server_list,
+                                   keyspace_name, cf_info_list):
+        sys_mgr = self._cassandra_system_manager()
+
+        if keyspace_name in self._reset_config:
             try:
                 sys_mgr.drop_keyspace(keyspace_name)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
@@ -140,13 +145,13 @@ class VncCassandraClient(VncCassandraClientGen):
 
         try:
             sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                                    {'replication_factor': str(num_dbnodes)})
+                                    {'replication_factor': str(self._num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             # TODO verify only EEXISTS
             self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
         gc_grace_sec = 0
-        if num_dbnodes > 1:
+        if self._num_dbnodes > 1:
             gc_grace_sec = 60
 
         for cf_info in cf_info_list:
@@ -179,12 +184,12 @@ class VncCassandraClient(VncCassandraClientGen):
 
             rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
             wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-            
+
             for (cf, _) in cf_list:
                 self._cf_dict[cf] = ColumnFamily(
                     pool, cf, read_consistency_level = rd_consistency,
                     write_consistency_level = wr_consistency)
-    
+
         ConnectionState.update(conn_type = ConnectionType.DATABASE,
             name = 'Cassandra', status = ConnectionStatus.UP, message = '',
             server_addrs = self._server_list)
