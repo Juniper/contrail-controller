@@ -483,6 +483,8 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       lb_mgr_(new LabelBlockManager()) {
     channel_->RegisterReceive(peer_id_,
          boost::bind(&BgpXmppChannel::ReceiveUpdate, this, _1));
+    BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Created");
 }
 
 BgpXmppChannel::~BgpXmppChannel() {
@@ -496,6 +498,8 @@ BgpXmppChannel::~BgpXmppChannel() {
         manager_->decrement_closing_count();
     STLDeleteElements(&defer_q_);
     assert(peer_->IsDeleted());
+    BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Deleted");
     channel_->UnRegisterReceive(peer_id_);
 }
 
