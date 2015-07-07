@@ -151,6 +151,7 @@ def _access_control_list_update(acl_obj, name, obj, entries):
 class VirtualNetworkST(DBBase):
     _dict = {}
     _autonomous_system = 0
+    obj_type = 'virtual_network'
 
     def __init__(self, name, obj=None, acl_dict=None, ri_dict=None):
         self.obj = obj or _vnc_lib.virtual_network_read(fq_name_str=name)
@@ -1039,6 +1040,7 @@ class VirtualNetworkST(DBBase):
 
 class RouteTargetST(DBBase):
     _dict = {}
+    obj_type = 'route_target'
 
     def __init__(self, rt_key, obj=None):
         self.name = rt_key
@@ -1063,6 +1065,7 @@ class RouteTargetST(DBBase):
 
 class NetworkPolicyST(DBBase):
     _dict = {}
+    obj_type = 'network_policy'
 
     def __init__(self, name):
         self.name = name
@@ -1101,6 +1104,7 @@ class NetworkPolicyST(DBBase):
 
 class RouteTableST(DBBase):
     _dict = {}
+    obj_type = 'route_table'
 
     def __init__(self, name):
         self.name = name
@@ -1117,6 +1121,7 @@ class RouteTableST(DBBase):
 
 class SecurityGroupST(DBBase):
     _dict = {}
+    obj_type = 'security_group'
 
     def update_acl(self, from_value, to_value):
         for acl in [self.ingress_acl, self.egress_acl]:
@@ -1432,7 +1437,8 @@ class RoutingInstanceST(object):
 
 class ServiceChain(DBBase):
     _dict = {}
-    
+    obj_type = 'service_chain'
+
     @classmethod
     def init(cls):
         # When schema transformer restarts, read all service chains from cassandra
@@ -1886,6 +1892,8 @@ class AclRuleListST(object):
 class BgpRouterST(DBBase):
     _dict = {}
     _ibgp_auto_mesh = None
+    obj_type = 'bgp_router'
+
     def __init__(self, name, params):
         self.name = name
         self.vendor = (params.vendor or 'contrail').lower()
@@ -1978,6 +1986,7 @@ class VirtualMachineInterfaceST(DBBase):
     _dict = {}
     _vn_dict = {}
     _service_vmi_list = []
+    obj_type = 'virtual_machine_interface'
 
     def __init__(self, name, obj=None):
         self.name = name
@@ -2285,6 +2294,7 @@ class VirtualMachineInterfaceST(DBBase):
 
 class InstanceIpST(DBBase):
     _dict = {}
+    obj_type = 'instance_ip'
 
     def __init__(self, name, address):
         self.name = name
@@ -2295,6 +2305,7 @@ class InstanceIpST(DBBase):
 
 class FloatingIpST(DBBase):
     _dict = {}
+    obj_type = 'floating_ip'
 
     def __init__(self, name, address):
         self.name = name
@@ -2306,6 +2317,8 @@ class FloatingIpST(DBBase):
 class VirtualMachineST(DBBase):
     _dict = {}
     _si_dict = {}
+    obj_type = 'virtual_machine'
+
     def __init__(self, name, si):
         self.name = name
         self.interfaces = set()
@@ -2371,6 +2384,7 @@ class VirtualMachineST(DBBase):
 
 class LogicalRouterST(DBBase):
     _dict = {}
+    obj_type = 'logical_router'
 
     def __init__(self, name):
         self.name = name
@@ -3375,18 +3389,8 @@ class SchemaTransformer(object):
 
     @staticmethod
     def reset():
-        VirtualNetworkST.reset()
-        RouteTargetST.reset()
-        NetworkPolicyST.reset()
-        RouteTableST.reset()
-        SecurityGroupST.reset()
-        ServiceChain.reset()
-        BgpRouterST.reset()
-        VirtualMachineInterfaceST.reset()
-        InstanceIpST.reset()
-        FloatingIpST.reset()
-        VirtualMachineST.reset()
-        LogicalRouterST.reset()
+        for cls in DBBase.get_obj_type_map().values():
+            cls.reset()
     # end reset
 # end class SchemaTransformer
 
