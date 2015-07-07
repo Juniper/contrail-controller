@@ -472,6 +472,15 @@ bool sg_introspec_test = false;
 static void SgListResponse(Sandesh *sandesh, int id, int sg_id, int num_entries)
 {
     SgListResp *resp = dynamic_cast<SgListResp *>(sandesh);
+    if (resp == NULL) {
+            Pagination *page = dynamic_cast<Pagination *>(sandesh);
+            if (page != NULL) {
+                    return;
+                }
+            sg_introspec_test = false;
+            return;
+    }
+
     EXPECT_EQ(resp->get_sg_list().size(), num_entries);
     if (!sg_id) {
         EXPECT_EQ(resp->get_sg_list()[0].sg_uuid, UuidToString(MakeUuid(id)));
