@@ -360,12 +360,17 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
 bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp) {
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
+    agent_->reset_controller_ifmap_discovery_xmpp_servers();
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
         count ++;
 
         CONTROLLER_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
             count, dr.ep.address().to_string(), integerToString(dr.ep.port()));
+        agent_->set_controller_ifmap_discovery_xmpp_server(
+            dr.ep.address().to_string(), count);
+        agent_->set_controller_ifmap_discovery_xmpp_port(
+            dr.ep.port(), count);
 
         AgentXmppChannel *chnl = FindAgentXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
@@ -425,21 +430,6 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
         }
     }
 
-    /* Remove stale Servers */
-    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (agent_->controller_xmpp_channel(idx) != NULL) {
-
-            if (!AgentXmppServerExists(
-                 agent_->controller_ifmap_xmpp_server(idx), resp)) {
-
-                CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
-                     idx, agent_->controller_ifmap_xmpp_server(idx), "");
-                DisConnectControllerIfmapServer(idx);
-                agent_->reset_controller_ifmap_xmpp_server(idx);
-            }
-        }
-    }
-
     XmppServerConnect();
     return true;
 }
@@ -488,12 +478,15 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
 
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
+    agent_->reset_dns_discovery_servers();
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
         count++;
 
         CONTROLLER_TRACE(DiscoveryConnection, "DNS Discovery Server Response", count,
             dr.ep.address().to_string(), integerToString(dr.ep.port()));
+        agent_->set_dns_discovery_server(dr.ep.address().to_string(), count);
+        agent_->set_dns_discovery_port(dr.ep.port(), count);
 
         AgentDnsXmppChannel *chnl = FindAgentDnsXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
@@ -550,21 +543,6 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
            }
         }
     } 
-
-    /* Remove stale Servers */
-    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (agent_->dns_xmpp_channel(idx) != NULL) {
-
-            if (AgentXmppServerExists(
-                agent_->dns_server(idx), resp)) {
-
-                CONTROLLER_TRACE(DiscoveryConnection, "Cleanup Older Dns Xmpp",
-                    idx, agent_->dns_server(idx), "");
-                DisConnectDnsServer(idx);
-                agent_->reset_dns_server(idx);
-            }
-        }
-    }
 
     DnsXmppServerConnect();
 }
