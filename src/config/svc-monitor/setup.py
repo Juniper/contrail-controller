@@ -7,13 +7,21 @@ import os
 
 class RunTestsCommand(setuptools.Command):
     description = "Test command to run testr in virtualenv"
-    user_options = []
+    user_options = [
+        ('coverage', 'c',
+         "Generate code coverage report"),
+        ]
+    boolean_options = ['coverage']
     def initialize_options(self):
         self.cwd = None
+        self.coverage = False
     def finalize_options(self):
         self.cwd = os.getcwd()
     def run(self):
-        os.system('./run_tests.sh -V')
+        args = '-V'
+        if self.coverage:
+            args += ' -c'
+        os.system('./run_tests.sh %s' % args)
 
 def requirements(filename):
     with open(filename) as f:
