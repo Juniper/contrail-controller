@@ -817,27 +817,3 @@ class ServiceApplianceSetSM(DBBase):
     # end delete
 # end ServiceApplianceSetSM
 
-
-DBBase._OBJ_TYPE_MAP = {
-    'loadbalancer_pool': LoadbalancerPoolSM,
-    'loadbalancer_member': LoadbalancerMemberSM,
-    'virtual_ip': VirtualIpSM,
-    'loadbalancer_healthmonitor': HealthMonitorSM,
-    'service_template': ServiceTemplateSM,
-    'service_instance': ServiceInstanceSM,
-    'virtual_network': VirtualNetworkSM,
-    'virtual_machine': VirtualMachineSM,
-    'virtual_machine_interface': VirtualMachineInterfaceSM,
-    'interface_route_table': InterfaceRouteTableSM,
-    'instance_ip': InstanceIpSM,
-    'floating_ip': FloatingIpSM,
-    'logical_interface': LogicalInterfaceSM,
-    'physical_interface': PhysicalInterfaceSM,
-    'virtual_router': VirtualRouterSM,
-    'physical_router': PhysicalRouterSM,
-    'project': ProjectSM,
-    'domain': DomainSM,
-    'security_group': SecurityGroupSM,
-    'service_appliance': ServiceApplianceSM,
-    'service_appliance_set': ServiceApplianceSetSM,
-}

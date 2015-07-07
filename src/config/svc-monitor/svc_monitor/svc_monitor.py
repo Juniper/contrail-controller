@@ -190,13 +190,13 @@ class SvcMonitor(object):
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.logger.log_debug(msg)
             obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBase._OBJ_TYPE_MAP.get(obj_type)
+            obj_class = DBBase.get_obj_type_map().get(obj_type)
             if obj_class is None:
                 return
 
             if oper_info['oper'] == 'CREATE' or oper_info['oper'] == 'UPDATE':
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP,
-                    self._REACTION_MAP)
+                dependency_tracker = DependencyTracker(
+                    DBBase.get_obj_type_map(), self._REACTION_MAP)
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
                 if obj is not None:
@@ -210,8 +210,8 @@ class SvcMonitor(object):
                 obj = obj_class.get(obj_id)
                 if obj is None:
                     return
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP,
-                    self._REACTION_MAP)
+                dependency_tracker = DependencyTracker(
+                    DBBase.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 obj_class.delete(obj_id)
             else:
@@ -731,7 +731,7 @@ class SvcMonitor(object):
 
     @staticmethod
     def reset():
-        for cls in DBBase._OBJ_TYPE_MAP.values():
+        for cls in DBBase.get_obj_type_map().values():
             cls.reset()
 
 
