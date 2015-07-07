@@ -50,6 +50,7 @@ setup_sources = [
            'requirements.txt',
            'test-requirements.txt',
            '.testr.conf',
+           '.coveragerc',
            'tests',
           ]
 

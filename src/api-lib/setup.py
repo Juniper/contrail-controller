@@ -7,14 +7,23 @@ import os, sys, re
 
 class RunTestsCommand(Command):
     description = "Test command to run testr in virtualenv"
-    user_options = []
+    user_options = [
+        ('coverage', 'c',
+         "Generate code coverage report"),
+        ]
+    boolean_options = ['coverage']
     def initialize_options(self):
-        pass
+        self.coverage = False
     def finalize_options(self):
         pass
     def run(self):
-        os.system('./run_tests.sh -V')
-        with open('test.log') as f:
+        logfname = 'test.log'
+        args = '-V'
+        if self.coverage:
+            logfname = 'coveragetest.log'
+            args += ' -c'
+        os.system('./run_tests.sh %s' % args)
+        with open(logfname) as f:
             if not re.search('\nOK', ''.join(f.readlines())):
                 os._exit(1)
 
