@@ -89,6 +89,7 @@ class TestGetHostPrefixes(testtools.TestCase):
         def db_fake_init(self, admin_name, admin_password, admin_tenant_name,
                  api_srvr_ip, api_srvr_port, user_info=None,
                  contrail_extensions_enabled=True,
+                 list_optimization_enabled=False,
                  apply_subnet_host_routes=False):
             pass
 
