@@ -34,7 +34,8 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		    data.set_mcast_controller("No");
 		}
 
-		if (Agent::GetInstance()->ifmap_active_xmpp_server().compare(Agent::GetInstance()->controller_ifmap_xmpp_server(count)) == 0) {
+		if (Agent::GetInstance()->ifmap_active_xmpp_server().compare
+                    (Agent::GetInstance()->controller_ifmap_xmpp_server(count)) == 0) {
 		    data.set_cfg_controller("Yes");
 		} else {
 		    data.set_cfg_controller("No");
@@ -124,6 +125,73 @@ void AgentDnsXmppConnectionStatusReq::HandleRequest() const {
         }
         dns_count++;
     }
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
+void AgentDiscoveryXmppConnectionsRequest::HandleRequest() const {
+    uint8_t count = 0;
+    AgentDiscoveryXmppConnectionsResponse *resp =
+        new AgentDiscoveryXmppConnectionsResponse();
+
+    while (count < MAX_XMPP_SERVERS) {
+
+        AgentDiscoveryXmppConnections data;
+        if (!Agent::GetInstance()->controller_ifmap_xmpp_server(count).empty()) {
+            data.set_agent_controller_ip(
+                Agent::GetInstance()->controller_ifmap_xmpp_server(count));
+            data.set_agent_controller_port(
+                Agent::GetInstance()->controller_ifmap_xmpp_port(count));
+        }
+        if (!Agent::GetInstance()->
+            controller_ifmap_discovery_xmpp_server(count).empty()) {
+            data.set_discovery_controller_ip(Agent::GetInstance()->
+                controller_ifmap_discovery_xmpp_server(count));
+            data.set_discovery_controller_port(Agent::GetInstance()->
+                controller_ifmap_discovery_xmpp_port(count));
+        }
+
+        std::vector<AgentDiscoveryXmppConnections> &list =
+            const_cast<std::vector<AgentDiscoveryXmppConnections>&>(resp->get_xmppc());
+        list.push_back(data);
+
+        count++;
+    }
+
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
+void AgentDiscoveryDnsXmppConnectionsRequest::HandleRequest() const {
+    uint8_t dns_count = 0;
+    AgentDiscoveryDnsXmppConnectionsResponse *resp =
+        new AgentDiscoveryDnsXmppConnectionsResponse();
+
+    while (dns_count < MAX_XMPP_SERVERS) {
+
+        AgentDiscoveryXmppConnections data;
+        if (!Agent::GetInstance()->dns_server(dns_count).empty()) {
+            data.set_agent_controller_ip(
+                Agent::GetInstance()->dns_server(dns_count));
+            data.set_agent_controller_port(
+                Agent::GetInstance()->dns_server_port(dns_count));
+        }
+        if (!Agent::GetInstance()->dns_discovery_server(dns_count).empty()) {
+            data.set_discovery_controller_ip(
+                Agent::GetInstance()->dns_discovery_server(dns_count));
+            data.set_discovery_controller_port(
+                Agent::GetInstance()->dns_discovery_port(dns_count));
+        }
+
+        std::vector<AgentDiscoveryXmppConnections> &list =
+            const_cast<std::vector<AgentDiscoveryXmppConnections>&>(resp->get_xmppc());
+        list.push_back(data);
+
+        dns_count++;
+    }
+
     resp->set_context(context());
     resp->set_more(false);
     resp->Response();
