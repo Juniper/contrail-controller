@@ -612,7 +612,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
 
         hdr->sub_rcvd_++;
         hdr->attempts_ = 0;
-        if ((hdr->chksum_ == gen_chksum) || (ds_response.size() == 0)) {
+        if (ds_response.size() == 0) {
             //Restart Subscribe Timer
             hdr->StartSubscribeTimer(ttl);
             DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
@@ -624,8 +624,10 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             return; //No change in message, ignore
         }
 
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
-                               serviceName, xmls);
+        if (hdr->chksum_ != gen_chksum) {
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
+                                   serviceName, xmls);
+        }
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                 serviceName, ConnectionStatus::UP, ds_endpoint_,
