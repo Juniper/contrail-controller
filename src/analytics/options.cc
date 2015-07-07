@@ -45,13 +45,16 @@ void Options::Initialize(EventManager &evm,
         exit(-1);
     }
 
+    vector<string> conf_files;
+    conf_files.push_back("/etc/contrail/contrail-collector.conf");
+
     opt::options_description generic("Generic options");
 
     // Command line only options.
     generic.add_options()
-        ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/contrail-collector.conf"),
-             "Configuration file")
+        ("conf_file", opt::value<vector<string> >()->default_value(
+                                               conf_files,
+             "Configuration file"))
          ("help", "help message")
         ("version", "Display version information")
     ;
@@ -69,6 +72,14 @@ void Options::Initialize(EventManager &evm,
 
     vector<string> default_kafka_broker_list;
     default_kafka_broker_list.push_back("");
+
+    // Command line and config file options.
+    opt::options_description cassandra_config("cassandra Configuration options");
+    cassandra_config.add_options()
+        ("CASSANDRA.cassandra_user",opt::value<string>()->default_value(""),
+              "Cassandra user name")
+        ("CASSANDRA.cassandra_password",opt::value<string>()->default_value(""),
+              "Cassandra password");
 
     // Command line and config file options.
     opt::options_description config("Configuration options");
@@ -163,8 +174,8 @@ void Options::Initialize(EventManager &evm,
              "password for Redis Server")
         ;
 
-    config_file_options_.add(config);
-    cmdline_options.add(generic).add(config);
+    config_file_options_.add(config).add(cassandra_config);
+    cmdline_options.add(generic).add(config).add(cassandra_config);
 }
 
 template <typename ValueType>
@@ -230,16 +241,18 @@ void Options::Process(int argc, char *argv[],
     // Process options off command line first.
     opt::variables_map var_map;
     opt::store(opt::parse_command_line(argc, argv, cmdline_options), var_map);
-
     // Process options off configuration file.
-    GetOptValue<string>(var_map, config_file_, "conf_file");
+    GetOptValue< vector<string> >(var_map, config_file_,
+                                  "conf_file");
     ifstream config_file_in;
-    config_file_in.open(config_file_.c_str());
-    if (config_file_in.good()) {
-        opt::store(opt::parse_config_file(config_file_in, config_file_options_),
+    for(std::vector<int>::size_type i = 0; i != config_file_.size(); i++) {
+        config_file_in.open(config_file_[i].c_str());
+        if (config_file_in.good()) {
+           opt::store(opt::parse_config_file(config_file_in, config_file_options_),
                    var_map);
+        }
+        config_file_in.close();
     }
-    config_file_in.close();
 
     opt::notify(var_map);
 
@@ -310,4 +323,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");
+    GetOptValue<string>(var_map, cassandra_user_, "CASSANDRA.cassandra_user");
+    GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
 }

@@ -256,7 +256,9 @@ main(int argc, char *argv[]) {
             options.redis_password(),
             max_tasks,
             options.max_slice(),
-            options.analytics_data_ttl());
+            options.analytics_data_ttl(),
+            options.cassandra_user(),
+            options.cassandra_password());
     } else {
         qe = new QueryEngine(&evm,
             cassandra_ips,
@@ -267,6 +269,8 @@ main(int argc, char *argv[]) {
             max_tasks,
             options.max_slice(),
             options.analytics_data_ttl(),
+            options.cassandra_user(),
+            options.cassandra_password(),
             options.start_time());
     }
     (void) qe;
