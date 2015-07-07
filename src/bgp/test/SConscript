@@ -493,6 +493,7 @@ if 'BGP_STRESS_TEST_SUITE' in envs and envs['BGP_STRESS_TEST_SUITE'] != "0":
                   env.UnitTest('bgp_stress_test4', ['bgp_stress_test4.cc']),
                   env.UnitTest('bgp_stress_test5', ['bgp_stress_test5.cc']),
                   env.UnitTest('bgp_stress_test6', ['bgp_stress_test6.cc']),
+                  env.UnitTest('bgp_stress_test7', ['bgp_stress_test7.cc']),
               ]))
 
 Return('test_suite')
