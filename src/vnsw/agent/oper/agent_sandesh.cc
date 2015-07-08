@@ -353,6 +353,45 @@ void AgentMplsSandesh::Alloc() {
     resp_ = new MplsResp();
 }
 
+AgentMplsSandesh::AgentMplsSandesh(const std::string &context,
+                               const std::string &type,
+                               const std::string &ecmp_label) :
+        AgentSandesh(context, ""), type_(type), ecmp_label_(ecmp_label) {
+
+}
+
+bool AgentMplsSandesh::Filter(const DBEntryBase *entry) {
+    const MplsLabel *interface = dynamic_cast<const MplsLabel *>(entry);
+    assert(interface);
+
+    if (type_.empty() == false) {
+        MplsLabel::Type itf_type = interface->GetType();
+        if (type_ == "invalid" &&
+             (itf_type != MplsLabel::INVALID))
+           return false;
+        if (type_ == "vport_nh" &&
+             (itf_type != MplsLabel::VPORT_NH))
+           return false;
+        if (type_ == "mcast_nh" &&
+             (itf_type != MplsLabel::MCAST_NH))
+           return false;
+
+    }
+
+    if (ecmp_label_.empty() == false) {
+        if (((interface->label()) == boost::lexical_cast<uint32_t>(ecmp_label_)) == false)
+           return false;
+    }
+    return true;
+
+    }
+
+bool AgentMplsSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("type", type_);
+    args->Add("ecmp_label", ecmp_label_);
+    return true;
+}
+
 DBTable *AgentVrfSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->vrf_table());
 }

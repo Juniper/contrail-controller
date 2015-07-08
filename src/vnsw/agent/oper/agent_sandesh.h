@@ -238,11 +238,21 @@ private:
 
 class AgentMplsSandesh : public AgentSandesh {
 public:
-    AgentMplsSandesh(std::string context) : AgentSandesh(context, "") {}
+    AgentMplsSandesh(const std::string &context, const std::string &type,
+                     const std::string &ecmp_label);
+    ~AgentMplsSandesh() { }
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
 
 private:
+    friend class MplsReq;
     DBTable *AgentGetTable();
     void Alloc();
+
+    // Filters
+    std::string type_;
+    std::string ecmp_label_;
+
 };
 
 class AgentVrfSandesh : public AgentSandesh {
