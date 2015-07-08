@@ -267,6 +267,84 @@ void AgentNhSandesh::Alloc() {
     resp_ = new NhListResp();
 }
 
+AgentNhSandesh::AgentNhSandesh(const std::string &context,
+                               const std::string &type,
+                               const std::string &nh_index,
+                               const std::string &policy_enabled) :
+        AgentSandesh(context, ""), type_(type), nh_index_(nh_index),
+                                   policy_enabled_(policy_enabled) {
+
+}
+
+bool AgentNhSandesh::Filter(const DBEntryBase *entry) {
+    const NextHop *nh = dynamic_cast<const NextHop *>(entry);
+    assert(nh);
+
+    if (type_.empty() == false) {
+        NextHop::Type nh_type = nh->GetType();
+        if (type_ == "invalid" &&
+             (nh_type != NextHop::INVALID))
+           return false;
+        if (type_ == "discard" &&
+             (nh_type != NextHop::DISCARD))
+           return false;
+        if (type_ == "l2-receive" &&
+             (nh_type != NextHop::L2_RECEIVE))
+           return false;
+        if (type_ == "receive" &&
+             (nh_type != NextHop::RECEIVE))
+           return false;
+        if (type_ == "resolve" &&
+             (nh_type != NextHop::RESOLVE))
+           return false;
+        if (type_ == "arp" &&
+             (nh_type != NextHop::ARP))
+           return false;
+        if (type_ == "vrf" &&
+             (nh_type != NextHop::VRF))
+           return false;
+        if (type_ == "interface" &&
+             (nh_type != NextHop::INTERFACE))
+           return false;
+        if (type_ == "tunnel" &&
+             (nh_type != NextHop::TUNNEL))
+           return false;
+        if (type_ == "mirror" &&
+             (nh_type != NextHop::MIRROR))
+           return false;
+        if (type_ == "composite" &&
+             (nh_type != NextHop::COMPOSITE))
+           return false;
+        if (type_ == "vlan" &&
+             (nh_type != NextHop::VLAN))
+           return false;
+
+    }
+
+    if (policy_enabled_.empty() == false) {
+        bool policy_flag = true;
+        if (MatchSubString("enabled", policy_enabled_) == false) {
+            policy_flag = false;
+        }
+        if (policy_flag != nh->PolicyEnabled()) {
+           return false;
+        }
+    }
+    if (nh_index_.empty() == false) {
+        if (((nh->id()) == boost::lexical_cast<uint32_t>(nh_index_)) == false)
+           return false;
+    }
+    return true;
+
+    }
+
+bool AgentNhSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("type", type_);
+    args->Add("nh_index", nh_index_);
+    args->Add("policy_enabled", policy_enabled_);
+    return true;
+}
+
 DBTable *AgentMplsSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->mpls_table());
 }
