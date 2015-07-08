@@ -391,32 +391,48 @@ bool DhcpHandler::HandleVmRequest() {
             out_msg_type_ = DHCP_OFFER;
             dhcp_proto->IncrStatsDiscover();
             DHCP_TRACE(Trace, "DHCP discover received on interface : "
-                       << vm_itf_->name());
+                       << vm_itf_->name() << " Mac : " <<
+                       request_.mac_addr.ToString());
             break;
 
         case DHCP_REQUEST:
             out_msg_type_ = DHCP_ACK;
             dhcp_proto->IncrStatsRequest();
             DHCP_TRACE(Trace, "DHCP request received on interface : "
-                       << vm_itf_->name());
+                       << vm_itf_->name() << " Mac : " <<
+                       request_.mac_addr.ToString());
             break;
 
         case DHCP_INFORM:
             out_msg_type_ = DHCP_ACK;
             dhcp_proto->IncrStatsInform();
             DHCP_TRACE(Trace, "DHCP inform received on interface : "
-                       << vm_itf_->name());
+                       << vm_itf_->name() << " Mac : " <<
+                       request_.mac_addr.ToString());
             break;
 
         case DHCP_DECLINE:
             dhcp_proto->IncrStatsDecline();
             DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " << 
-                       pkt_info_->vrf << " ifindex = " << GetInterfaceIndex());
+                       pkt_info_->vrf << " ifindex = " << GetInterfaceIndex() <<
+                       " Mac : " << request_.mac_addr.ToString());
+            if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
+                ReleaseGatewayInterfaceLease();
+            }
+            return true;
+
+        case DHCP_RELEASE:
+            DHCP_TRACE(Error, "DHCP lease released : vrf = " <<
+                       pkt_info_->vrf << " ifindex = " << GetInterfaceIndex() <<
+                       " Mac : " << request_.mac_addr.ToString());
+            if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
+                ReleaseGatewayInterfaceLease();
+            }
+            dhcp_proto->IncrStatsRelease();
             return true;
 
         case DHCP_ACK:
         case DHCP_NAK:
-        case DHCP_RELEASE:
         case DHCP_LEASE_QUERY:
         case DHCP_LEASE_UNASSIGNED:
         case DHCP_LEASE_UNKNOWN:
@@ -424,6 +440,7 @@ bool DhcpHandler::HandleVmRequest() {
         default:
             DHCP_TRACE(Trace, ServicesSandesh::DhcpMsgType(msg_type_) <<
                        " received on interface : " << vm_itf_->name() <<
+                       " Mac : " << request_.mac_addr.ToString() <<
                        "; ignoring");
             dhcp_proto->IncrStatsOther();
             return true;
@@ -554,15 +571,15 @@ bool DhcpHandler::GetGatewayInterfaceLease() {
     DhcpLeaseDb *dhcp_lease_db = agent()->GetDhcpProto()->GetLeaseDb(vm_itf_);
     if (dhcp_lease_db) {
         Ip4Address ip;
-        MacAddress mac(request_.mac_addr);
         const VnIpam *vn_ipam = (vm_itf_->vn()) ?
             vm_itf_->vn()->GetIpam(IpAddress(vm_itf_->subnet())) : NULL;
-        if (!vn_ipam ||
-            !dhcp_lease_db->Allocate(mac, &ip, DHCP_GW_LEASE_TIME)) {
+        if (!vn_ipam || !dhcp_lease_db->Allocate(request_.mac_addr, &ip,
+                                                 DHCP_GW_LEASE_TIME)) {
             agent()->GetDhcpProto()->IncrStatsErrors();
             DHCP_TRACE(Error, "DHCP request from Gateway interface failed :"
                        " could not allocate IP address for Mac : " <<
-                       mac.ToString() << " on VMI : " << vm_itf_->name());
+                       request_.mac_addr.ToString() << " on VMI : " <<
+                       vm_itf_->name());
             return false;
         }
         config_.lease_time = DHCP_GW_LEASE_TIME;
@@ -575,6 +592,16 @@ bool DhcpHandler::GetGatewayInterfaceLease() {
     DHCP_TRACE(Error, "DHCP request on VMI " << vm_itf_->name() <<
                " could not be served - DHCP lease db is not created");
     return false;
+}
+
+void DhcpHandler::ReleaseGatewayInterfaceLease() {
+    DhcpLeaseDb *dhcp_lease_db = agent()->GetDhcpProto()->GetLeaseDb(vm_itf_);
+    if (!dhcp_lease_db || !dhcp_lease_db->Release(request_.mac_addr)) {
+        agent()->GetDhcpProto()->IncrStatsErrors();
+        DHCP_TRACE(Error, "DHCP lease release failed : vrf = " <<
+                   pkt_info_->vrf << " ifindex = " << GetInterfaceIndex() <<
+                   " Mac : " << request_.mac_addr.ToString());
+    }
 }
 
 bool DhcpHandler::FindLeaseData() {
@@ -913,7 +940,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
     dhcp_->siaddr = siaddr;
     dhcp_->giaddr = 0;
     memset (dhcp_->chaddr, 0, DHCP_CHADDR_LEN);
-    memcpy(dhcp_->chaddr, request_.mac_addr, ETHER_ADDR_LEN);
+    request_.mac_addr.ToArray(dhcp_->chaddr, ETHER_ADDR_LEN);
     // not supporting dhcp_->sname, dhcp_->file for now
     memset(dhcp_->sname, '\0', DHCP_NAME_LEN);
     memset(dhcp_->file, '\0', DHCP_FILE_LEN);

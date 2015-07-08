@@ -263,18 +263,17 @@ class DhcpHandler : public DhcpHandlerBase {
 public:
 
     struct DhcpRequestData {
-        DhcpRequestData() : xid(-1), flags(0), ip_addr(0) {
-            memset(mac_addr, 0, ETHER_ADDR_LEN);
+        DhcpRequestData() : xid(-1), flags(0), mac_addr(), ip_addr(0) {
         }
         void UpdateData(uint32_t id, uint16_t fl, uint8_t *mac) {
             xid = id;
             flags = fl;
-            memcpy(mac_addr, mac, ETHER_ADDR_LEN);
+            mac_addr = mac;
         }
 
         uint32_t  xid;
         uint16_t  flags;
-        uint8_t   mac_addr[ETHER_ADDR_LEN];
+        MacAddress mac_addr;
         in_addr_t ip_addr;
     };
 
@@ -319,6 +318,7 @@ private:
     bool HandleDhcpFromFabric();
     bool ReadOptions(int16_t opt_rem_len);
     bool GetGatewayInterfaceLease();
+    void ReleaseGatewayInterfaceLease();
     bool FindLeaseData();
     void FillDhcpInfo(Ip4Address &addr, int plen,
                       Ip4Address &gw, Ip4Address &dns);
