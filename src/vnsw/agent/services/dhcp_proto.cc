@@ -174,9 +174,10 @@ void DhcpProto::CreateLeaseDb(VmInterface *vmi) {
         DHCP_TRACE(Trace, "Created new DHCP Lease DB : " <<
                    vmi->name() << " " << vmi->subnet().to_string() << "/" <<
                    vmi->subnet_plen() << "; Reserved : " << res);
-        DhcpLeaseDb *lease_db = new DhcpLeaseDb(vmi->subnet(),
+        DhcpLeaseDb *lease_db = new DhcpLeaseDb(this, vmi->subnet(),
                                                 vmi->subnet_plen(),
                                                 reserve_list,
+                                                UuidToString(vmi->GetUuid()),
                                                 io_);
         lease_manager_.insert(LeaseManagerPair(vmi, lease_db));
     } else {
