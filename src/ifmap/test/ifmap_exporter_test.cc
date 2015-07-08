@@ -138,6 +138,15 @@ protected:
         return table->FindLink(name);
     }
 
+    size_t LinkTableSize() {
+        IFMapLinkTable *table = static_cast<IFMapLinkTable *>
+            (db_.FindTable("__ifmap_metadata__.0"));
+        if (table == NULL) {
+            return 0;
+        }
+        return table->Size();
+    }
+
     // Read all the updates in the queue and consider them sent.
     void ProcessQueue() {
         IFMapUpdateQueue *queue = server_.queue();
@@ -899,6 +908,132 @@ TEST_F(IFMapExporterTest, PR1454380) {
         link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
     TASK_UTIL_EXPECT_TRUE(
         link_state->GetUpdate(IFMapListEntry::DELETE) == NULL);
+}
+
+TEST_F(IFMapExporterTest, ConfigTracker) {
+    server_.SetSender(new IFMapUpdateSenderMock(&server_));
+    TestClient c1("192.168.1.1");
+    TestClient c2("192.168.1.2");
+    TestClient c3("192.168.1.3");
+    TestClient c4("192.168.1.4");
+
+    server_.ClientRegister(&c1);
+    server_.ClientRegister(&c2);
+    server_.ClientRegister(&c3);
+    server_.ClientRegister(&c4);
+
+    IFMapMsgLink("domain", "project", "user1", "vnc");
+    IFMapMsgLink("project", "virtual-network", "vnc", "blue");
+    // vm-vmi and vmi-vn for c1.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c1", "vm_c1:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c1:veth0", "blue");
+    // vm-vmi and vmi-vn for c2.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c2", "vm_c2:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c2:veth0", "blue");
+    // vm-vmi and vmi-vn for c3.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c3", "vm_c3:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c3:veth0", "blue");
+    // vm-vmi and vmi-vn for c4.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c4", "vm_c4:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c4:veth0", "blue");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(LinkTableSize(), 10);
+
+    EXPECT_TRUE(c1.ConfigTrackerEmpty());
+    EXPECT_TRUE(c2.ConfigTrackerEmpty());
+    EXPECT_TRUE(c3.ConfigTrackerEmpty());
+    EXPECT_TRUE(c4.ConfigTrackerEmpty());
+
+    // Add the vr-vm link for c1. The state for VN 'blue' must have c1.
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "blue") != NULL);
+    IFMapNode *blue = TableLookup("virtual-network", "blue");
+    ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(blue) != NULL);
+    IFMapNodeState *state = exporter_->NodeStateLookup(blue);
+    ASSERT_TRUE(state != NULL);
+    TASK_UTIL_EXPECT_TRUE(state->interest().test(c1.index()));
+    TASK_UTIL_EXPECT_TRUE(c1.ConfigTrackerHasState(state));
+
+    // Add the vr-vm link for c2. The state for VN 'blue' must have c2.
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->interest().test(c2.index()));
+    TASK_UTIL_EXPECT_TRUE(c2.ConfigTrackerHasState(state));
+
+    // Add the vr-vm link for c3. The state for VN 'blue' must have c3.
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->interest().test(c3.index()));
+    TASK_UTIL_EXPECT_TRUE(c3.ConfigTrackerHasState(state));
+
+    // Add the vr-vm link for c4. The state for VN 'blue' must have c4.
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->interest().test(c4.index()));
+    TASK_UTIL_EXPECT_TRUE(c4.ConfigTrackerHasState(state));
+
+    // Check if all the bits are set for VN 'blue' and all the clients have
+    // 'blue' in their config-tracker.
+    EXPECT_TRUE(state->interest().test(c1.index()));
+    EXPECT_TRUE(state->interest().test(c2.index()));
+    EXPECT_TRUE(state->interest().test(c3.index()));
+    EXPECT_TRUE(state->interest().test(c4.index()));
+    EXPECT_TRUE(c1.ConfigTrackerHasState(state));
+    EXPECT_TRUE(c2.ConfigTrackerHasState(state));
+    EXPECT_TRUE(c3.ConfigTrackerHasState(state));
+    EXPECT_TRUE(c4.ConfigTrackerHasState(state));
+    // VR, VM, VMI, VN, VR-VM, VM-VMI, VMI-VN i.e. 7
+    EXPECT_EQ(c1.ConfigTrackerSize(), 7);
+    EXPECT_EQ(c2.ConfigTrackerSize(), 7);
+    EXPECT_EQ(c3.ConfigTrackerSize(), 7);
+    EXPECT_EQ(c4.ConfigTrackerSize(), 7);
+
+    ProcessQueue();
+    task_util::WaitForIdle();
+
+    // Remove the vr-vm link for c1.
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(state->interest().test(c1.index()));
+    TASK_UTIL_EXPECT_FALSE(c1.ConfigTrackerHasState(state));
+
+    // Remove the vr-vm link for c2.
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(state->interest().test(c2.index()));
+    TASK_UTIL_EXPECT_FALSE(c2.ConfigTrackerHasState(state));
+
+    // Remove the vr-vm link for c3.
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(state->interest().test(c3.index()));
+    TASK_UTIL_EXPECT_FALSE(c3.ConfigTrackerHasState(state));
+
+    // Remove the vr-vm link for c4.
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(state->interest().test(c4.index()));
+    TASK_UTIL_EXPECT_FALSE(c4.ConfigTrackerHasState(state));
+
+    // The config-tracker must be empty for all clients.
+    EXPECT_TRUE(state->interest().empty());
+    EXPECT_TRUE(c1.ConfigTrackerEmpty());
+    EXPECT_TRUE(c2.ConfigTrackerEmpty());
+    EXPECT_TRUE(c3.ConfigTrackerEmpty());
+    EXPECT_TRUE(c4.ConfigTrackerEmpty());
+
+    ProcessQueue();
 }
 
 int main(int argc, char **argv) {
