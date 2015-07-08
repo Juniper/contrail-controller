@@ -26,6 +26,7 @@
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_update_queue.h"
 #include "ifmap/ifmap_update_sender.h"
+#include "ifmap/ifmap_util.h"
 #include "ifmap/ifmap_uuid_mapper.h"
 #include "ifmap/ifmap_xmpp.h"
 #include "schema/vnc_cfg_types.h"
@@ -511,6 +512,43 @@ protected:
                          boost::bind(&XmppIfmapTest::CheckLinkBits, this, _1,
                                      index, binterest, badvertised));
         }
+    }
+
+    void CheckNodeBitsAndCount(DBGraphVertex *vertex, int index, bool binterest,
+            bool badvertised, int *count) {
+        IFMapNode *node = static_cast<IFMapNode *>(vertex);
+        IFMapNodeState *state = exporter_->NodeStateLookup(node);
+        TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
+        TASK_UTIL_EXPECT_TRUE(state->advertised().test(index) == badvertised);
+        ++(*count);
+    }
+
+    void CheckLinkBitsAndCount(DBGraphEdge *edge, int index, bool binterest,
+            bool badvertised, int *count) {
+        IFMapLink *link = static_cast<IFMapLink *>(edge);
+        IFMapLinkState *state = exporter_->LinkStateLookup(link);
+        TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
+        TASK_UTIL_EXPECT_TRUE(state->advertised().test(index) == badvertised);
+        ++(*count);
+    }
+
+    int ClientGraphWalkVerify(const string &client_name, size_t index,
+                              bool binterest, bool badvertised) {
+        int count = 0;
+        IFMapNode *node = TableLookup("virtual-router", client_name);
+        if (node) {
+            IFMapNodeState *state = exporter_->NodeStateLookup(node);
+            TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
+            TASK_UTIL_EXPECT_TRUE(state->advertised().test(index)
+                                  == badvertised);
+            graph_.Visit(node,
+                boost::bind(&XmppIfmapTest::CheckNodeBitsAndCount, this, _1,
+                            index, binterest, badvertised, &count),
+                boost::bind(&XmppIfmapTest::CheckLinkBitsAndCount, this, _1,
+                            index, binterest, badvertised, &count),
+                exporter_->get_traversal_white_list());
+        }
+        return count;
     }
 
     void SetObjectsPerMessage(int num) {
@@ -1682,8 +1720,10 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     // Allow sender to run and send all the config
     TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
-
     size_t cli_index = static_cast<size_t>(client->index());
+    int walk_count = ClientGraphWalkVerify(client_name, cli_index, true, true);
+    EXPECT_EQ(client->ConfigTrackerSize(), walk_count);
+    EXPECT_EQ(client->ConfigTrackerSize(), 32);
 
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     // client close generates a TcpClose event on server
