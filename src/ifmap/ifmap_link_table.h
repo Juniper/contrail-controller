@@ -16,6 +16,7 @@ class IFMapTable;
 
 class IFMapLinkTable : public DBTable {
 public:
+    static const int kPartitionCount = 1;
     struct RequestKey : DBRequestKey {
         std::string name;
     };
@@ -24,6 +25,10 @@ public:
     };
 
     IFMapLinkTable(DB *db, const std::string &name, DBGraph *graph);
+
+    virtual int PartitionCount() const {
+        return kPartitionCount;
+    }
 
     // The Link table is modified from the IFMapTable code directly. Its input
     // method should never be called.
