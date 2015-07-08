@@ -1081,6 +1081,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
         }
     }
 
+    // Check for OriginatorId loop in case we are an RR client.
+    if (peer_type_ == BgpProto::IBGP &&
+        path_attr->originator_id().to_ulong() == ntohl(local_bgp_id_)) {
+        flags |= BgpPath::OriginatorIdLooped;
+    }
+
     uint32_t reach_count = 0, unreach_count = 0;
     RoutingInstance *instance = GetRoutingInstance();
     if (msg->nlri.size() || msg->withdrawn_routes.size()) {
