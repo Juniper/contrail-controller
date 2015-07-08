@@ -15,6 +15,7 @@ do {                                                                         \
     Dhcp##obj::TraceMsg(DhcpTraceBuf, __FILE__, __LINE__, _str.str());       \
 } while (false)                                                              \
 
+class Timer;
 class Interface;
 class DhcpLeaseDb;
 typedef boost::asio::ip::udp boost_udp;
@@ -22,6 +23,7 @@ typedef boost::asio::ip::udp boost_udp;
 class DhcpProto : public Proto {
 public:
     static const uint32_t kDhcpMaxPacketSize = 1024;
+    static const uint32_t kDhcpLeaseFileDeleteTimeout = 60 * 60 * 1000; // 60min
 
     enum DhcpMsgType {
         DHCP_VHOST_MSG,
@@ -42,7 +44,7 @@ public:
     struct DhcpStats {
         DhcpStats() { Reset(); }
         void Reset() {
-            discover = request = inform = decline = other =
+            discover = request = inform = decline = release = other =
             offers = acks = nacks = errors = relay_req = relay_resp = 0;
         }
 
@@ -50,6 +52,7 @@ public:
         uint32_t request;
         uint32_t inform;
         uint32_t decline;
+        uint32_t release;
         uint32_t other;
         uint32_t offers;
         uint32_t acks;
@@ -89,11 +92,13 @@ public:
     void set_ip_fabric_interface_mac(const MacAddress &mac) {
         ip_fabric_interface_mac_ = mac;
     }
+    bool IsRunningWithVrouter() const { return run_with_vrouter_; }
 
     void IncrStatsDiscover() { stats_.discover++; }
     void IncrStatsRequest() { stats_.request++; }
     void IncrStatsInform() { stats_.inform++; }
     void IncrStatsDecline() { stats_.decline++; }
+    void IncrStatsRelease() { stats_.release++; }
     void IncrStatsOther() { stats_.other++; }
     void IncrStatsOffers() { stats_.offers++; }
     void IncrStatsAcks() { stats_.acks++; }
@@ -114,6 +119,9 @@ private:
     void VnNotify(DBEntryBase *entry);
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &error, std::size_t len);
+    std::string GetLeaseFileName(const VmInterface *vmi);
+    void StartLeaseFileCleanupTimer();
+    bool LeaseFileCleanupExpiry(uint32_t seqno);
 
     bool run_with_vrouter_;
     bool dhcp_relay_mode_;
@@ -131,6 +139,8 @@ private:
 
     std::set<VmInterface *> gw_vmi_list_;
     LeaseManagerMap lease_manager_;
+    uint32_t gateway_delete_seqno_;
+    Timer *lease_file_cleanup_timer_;
 
     DISALLOW_COPY_AND_ASSIGN(DhcpProto);
 };
