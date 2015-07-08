@@ -467,6 +467,8 @@ response sandesh ItfResp {
 }
 
 request sandesh MplsReq {
+    1: string type;
+    2: string label;
 }
 
 response sandesh MplsResp {
