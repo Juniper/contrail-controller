@@ -376,7 +376,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           flap_count_(0),
           last_flap_(0),
           inuse_authkey_type_(AuthenticationData::NIL) {
-
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Created");
     if (peer_name_.find(rtinstance_->name()) == 0) {
         peer_basename_ = peer_name_.substr(rtinstance_->name().size() + 1);
     } else {
@@ -417,6 +418,8 @@ BgpPeer::~BgpPeer() {
     peer_info.set_name(ToUVEKey());
     peer_info.set_deleted(true);
     BGPPeerInfo::Send(peer_info);
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Deleted");
 }
 
 void BgpPeer::Initialize() {
@@ -688,6 +691,8 @@ void BgpPeer::CustomClose() {
 //
 void BgpPeer::Close() {
     if (membership_req_pending_) {
+        BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+            BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
         return;
     }
@@ -783,6 +788,8 @@ void BgpPeer::RegisterAllTables() {
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
 
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_PEER_DIR_NA, "Established");
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
