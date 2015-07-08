@@ -118,11 +118,9 @@ private:
     };
     bool ClientWorker(QueueEntry work_entry);
     void ClientGraphDownload(IFMapClient *client);
-    void ClientGraphCleanup(IFMapClient *client);
+    void ClientConfigDbCleanup(IFMapClient *client);
     void RemoveSelfAddedLinksAndObjects(IFMapClient *client);
     void CleanupUuidMapper(IFMapClient *client);
-    void LinkResetClient(DBGraphEdge *edge, const BitSet &bset);
-    void NodeResetClient(DBGraphVertex *vertex, const BitSet &bset);
     bool StaleNodesProcTimeout();
     const ClientMap &GetClientMap() const { return client_map_; }
     void SimulateDeleteClient(IFMapClient *client);

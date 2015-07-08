@@ -5,6 +5,8 @@
 #include "ifmap/ifmap_client.h"
 
 #include "ifmap/ifmap_exporter.h"
+#include "base/bitset.h"
+#include "ifmap/ifmap_update.h"
 
 IFMapClient::IFMapClient()
     : index_(kIndexInvalid), exporter_(NULL), msgs_sent_(0), msgs_blocked_(0),
@@ -28,5 +30,40 @@ std::vector<std::string> IFMapClient::vm_list() const {
         vm_list.push_back(iter->first);
     }
     return vm_list;
+}
+
+void IFMapClient::ConfigTrackerAdd(IFMapState *state) {
+    config_tracker_.insert(state);
+}
+
+void IFMapClient::ConfigTrackerDelete(IFMapState *state) {
+    CtSz_t num = config_tracker_.erase(state);
+    assert(num == 1);
+}
+    
+bool IFMapClient::ConfigTrackerHasState(IFMapState *state) {
+    ConfigTracker::iterator iter = config_tracker_.find(state);
+    return (iter == config_tracker_.end() ? false : true);
+}
+
+bool IFMapClient::ConfigTrackerEmpty() {
+    return config_tracker_.empty();
+}
+
+size_t IFMapClient::ConfigTrackerSize() {
+    return config_tracker_.size();
+}
+
+void IFMapClient::ConfigDbCleanup() {
+    BitSet rm_bs;
+    rm_bs.set(index_);
+
+    for (ConfigTracker::iterator iter = config_tracker_.begin();
+            iter != config_tracker_.end(); ++iter) {
+        IFMapState *state = *iter;
+        state->InterestReset(rm_bs);
+        state->AdvertisedReset(rm_bs);
+    }
+    config_tracker_.clear();
 }
 

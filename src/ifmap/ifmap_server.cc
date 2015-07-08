@@ -240,7 +240,7 @@ bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
         ClientRegister(client);
         ClientGraphDownload(client);
     } else {
-        ClientGraphCleanup(client);
+        ClientConfigDbCleanup(client);
         RemoveSelfAddedLinksAndObjects(client);
         CleanupUuidMapper(client);
         ClientUnregister(client);
@@ -281,24 +281,6 @@ bool IFMapServer::ClientWorker(QueueEntry work_entry) {
     bool done = ProcessClientWork(add, client);
 
     return done;
-}
-
-void IFMapServer::NodeResetClient(DBGraphVertex *vertex, const BitSet &bset) {
-    IFMapNode *node = static_cast<IFMapNode *>(vertex);
-    IFMapNodeState *state = exporter_->NodeStateLookup(node);
-    if (state) {
-        state->InterestReset(bset);
-        state->AdvertisedReset(bset);
-    }
-}
-
-void IFMapServer::LinkResetClient(DBGraphEdge *edge, const BitSet &bset) {
-    IFMapLink *link = static_cast<IFMapLink *>(edge);
-    IFMapLinkState *state = exporter_->LinkStateLookup(link);
-    if (state) {
-        state->InterestReset(bset);
-        state->AdvertisedReset(bset);
-    }
 }
 
 // Get the list of subscribed VMs. For each item in the list, if it exist in the
@@ -351,28 +333,8 @@ void IFMapServer::ClientGraphDownload(IFMapClient *client) {
     }
 }
 
-void IFMapServer::ClientGraphCleanup(IFMapClient *client) {
-    IFMapTable *table = IFMapTable::FindTable(db_, "virtual-router");
-    assert(table);
-
-    IFMapNode *node = table->FindNode(client->identifier());
-    if (node != NULL) {
-        IFMapNodeState *state = exporter_->NodeStateLookup(node);
-        if (state == NULL) {
-            return;
-        }
-
-        BitSet rm_bs;
-        rm_bs.set(client->index());
-        state->InterestReset(rm_bs);
-        state->AdvertisedReset(rm_bs);
-
-        if (node->IsVertexValid()) {
-            graph_->Visit(node,
-                boost::bind(&IFMapServer::NodeResetClient, this, _1, rm_bs),
-                boost::bind(&IFMapServer::LinkResetClient, this, _1, rm_bs));
-        }
-    }
+void IFMapServer::ClientConfigDbCleanup(IFMapClient *client) {
+    client->ConfigDbCleanup();
 }
 
 IFMapClient *IFMapServer::FindClient(const std::string &id) {

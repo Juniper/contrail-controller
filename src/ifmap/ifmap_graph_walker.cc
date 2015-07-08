@@ -83,7 +83,7 @@ void IFMapGraphWalker::JoinVertex(DBGraphVertex *vertex, const BitSet &bset) {
     IFMapNodeState *state = exporter_->NodeStateLocate(node);
     IFMAP_DEBUG(JoinVertex, vertex->ToString(), state->interest().ToString(),
                 bset.ToString());
-    state->InterestOr(bset);
+    exporter_->StateInterestOr(state, bset);
     node->table()->Change(node);
     // Mark all dependent links as potentially modified.
     for (IFMapNodeState::iterator iter = state->begin(); iter != state->end();
@@ -212,7 +212,7 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
         return;
     }
 
-    state->SetInterest(ninterest);
+    exporter_->StateInterestSet(state, ninterest);
     node->table()->Change(node);
 
     // Mark all dependent links as potentially modified.
@@ -233,6 +233,10 @@ void IFMapGraphWalker::LinkDeleteWalkBatchEnd() {
         CleanupInterest(vertex);
     }
     rm_mask_.clear();
+}
+
+IFMapTypenameWhiteList IFMapGraphWalker::get_traversal_white_list() {
+    return *traversal_white_list_.get();
 }
 
 // The nodes listed below and the nodes in 

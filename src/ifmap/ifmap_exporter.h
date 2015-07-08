@@ -29,6 +29,8 @@ class IFMapUpdate;
 class IFMapUpdateQueue;
 class IFMapUpdateSender;
 
+struct IFMapTypenameWhiteList;
+
 // The IFMapExporter makes sure that the right entries are added to the update
 // queue. It uses the GraphWalker to calculate the 'interest' set for each node
 // and then ensures that all clients see the necessary information. It also
@@ -58,6 +60,13 @@ public:
     IFMapServer *server() { return server_; }
 
     bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
+
+    void UpdateClientConfigTracker(IFMapState *state, const BitSet& client_bits,
+                                   bool add);
+    void StateInterestSet(IFMapState *state, const BitSet& interest_bits);
+    void StateInterestOr(IFMapState *state, const BitSet& interest_bits);
+    void StateInterestReset(IFMapState *state, const BitSet& interest_bits);
+    IFMapTypenameWhiteList get_traversal_white_list();
 
 private:
     friend class XmppIfmapTest;

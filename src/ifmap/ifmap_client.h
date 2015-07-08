@@ -9,13 +9,17 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <boost/unordered_set.hpp>
 
 class IFMapExporter;
+class IFMapState;
 
 // An XmppPeer that receives IFMap updates from the server component
 class IFMapClient {
 public:
     typedef std::map<std::string, std::string> VmMap;
+    typedef boost::unordered_set<IFMapState *> ConfigTracker;
+    typedef ConfigTracker::size_type CtSz_t;
     static const int kIndexInvalid = -1;
 
     IFMapClient();
@@ -62,7 +66,14 @@ public:
         return (vm_map_.size() != 0);
     }
     // return vm_map_ as a list of strings
-    std::vector<std::string> vm_list() const; 
+    std::vector<std::string> vm_list() const;
+
+    void ConfigTrackerAdd(IFMapState *state);
+    void ConfigTrackerDelete(IFMapState *state);
+    bool ConfigTrackerHasState(IFMapState *state);
+    bool ConfigTrackerEmpty();
+    size_t ConfigTrackerSize();
+    void ConfigDbCleanup();
 
 private:
     int index_;
@@ -75,6 +86,7 @@ private:
     bool send_is_blocked_;
     VmMap vm_map_;
     std::string name_;
+    ConfigTracker config_tracker_;
 };
 
 #endif

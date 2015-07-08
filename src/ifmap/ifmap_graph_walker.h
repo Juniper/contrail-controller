@@ -31,6 +31,7 @@ public:
     void LinkRemove(const BitSet &bset);
 
     bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
+    IFMapTypenameWhiteList get_traversal_white_list();
 
 private:
     static const int kMaxLinkDeleteWalks = 1;
