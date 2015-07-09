@@ -756,6 +756,7 @@ request sandesh MirrorCfgDisplayReq {
 }
 
 request sandesh VxLanReq {
+    1: string vxlan_id;
 }
 
 struct VxLanConfigEntry {

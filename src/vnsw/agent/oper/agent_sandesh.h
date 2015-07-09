@@ -397,11 +397,18 @@ private:
 
 class AgentVxLanSandesh : public AgentSandesh {
 public:
-    AgentVxLanSandesh(std::string context) : AgentSandesh(context, "") {}
+    AgentVxLanSandesh(const std::string &context, const std::string &vxlan_id);
+    ~AgentVxLanSandesh() { }
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
 
 private:
+    friend class VxLanReq;
     DBTable *AgentGetTable();
     void Alloc();
+
+    //Filters
+    std::string vxlan_id_;
 };
 
 class AgentServiceInstanceSandesh : public AgentSandesh {
