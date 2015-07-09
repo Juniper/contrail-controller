@@ -98,36 +98,23 @@ protected:
                  (tcp_session_->client_idl() != NULL));
         WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
 
-        AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
-                            "client/test/xml/ucast-local-test-setup.xml");
         // set current session in test context
         OvsdbTestSetSessionContext(tcp_session_);
-        AgentUtXmlOperInit(&test);
-        AgentUtXmlPhysicalDeviceInit(&test);
-        AgentUtXmlOvsdbInit(&test);
-        if (test.Load() == true) {
-            test.ReadXml();
-            string str;
-            test.ToString(&str);
-            cout << str << endl;
-            test.Run();
-        }
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
+                   "client/test/xml/ucast-local-test-setup.xml");
+        teardown_done_in_test_ = false;
     }
 
     virtual void TearDown() {
-        AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
-                            "client/test/xml/ucast-local-test-teardown.xml");
-        // set current session in test context
-        AgentUtXmlOperInit(&test);
-        AgentUtXmlPhysicalDeviceInit(&test);
-        AgentUtXmlOvsdbInit(&test);
-        if (test.Load() == true) {
-            test.ReadXml();
-            string str;
-            test.ToString(&str);
-            cout << str << endl;
-            test.Run();
+        if (teardown_done_in_test_) {
+            client->WaitForIdle();
+            teardown_done_in_test_ = false;
+            return;
         }
+        // set current session in test context
+        OvsdbTestSetSessionContext(tcp_session_);
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
+                   "client/test/xml/ucast-local-test-teardown.xml");
         client->WaitForIdle();
     }
 
@@ -135,6 +122,7 @@ protected:
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
     OvsdbClientTcpSession *tcp_session_;
+    bool teardown_done_in_test_;
 };
 
 TEST_F(UnicastLocalRouteTest, UnicastLocalBasic) {
@@ -164,6 +152,86 @@ TEST_F(UnicastLocalRouteTest, UnicastLocalBasic) {
         // Wait for entry to del
         WAIT_FOR(100, 10000,
                  (NULL == FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+    }
+}
+
+TEST_F(UnicastLocalRouteTest, UnicastLocalDelayLogicalSwitchDelete) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == add_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01",
+                                              "11.11.11.11")));
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+
+        // set current session in test context
+        OvsdbTestSetSessionContext(tcp_session_);
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/"
+                   "test/xml/ucast-local-test-ls-pending-teardown.xml");
+        client->WaitForIdle();
+        teardown_done_in_test_ = true;
+
+        WAIT_FOR(1000, 1000,
+                 (NULL != (entry = static_cast<LogicalSwitchEntry *>
+                           (table->Find(&key)))));
+        // entry should be waiting for Local MAC ref to go
+        WAIT_FOR(1000, 1000, (true == entry->IsLocalMacsRef()));
+
+        WAIT_FOR(10, 10000,
+                 (true == del_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01")));
+        // Wait for entry to del
+        WAIT_FOR(1000, 1000, (NULL == table->Find(&key)));
+    }
+}
+
+TEST_F(UnicastLocalRouteTest, UnicastLocalDelayLogicalSwitchDeleteAndRenew) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == add_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01",
+                                              "11.11.11.11")));
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+
+        // set current session in test context
+        OvsdbTestSetSessionContext(tcp_session_);
+        LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/"
+                   "test/xml/ucast-local-test-ls-pending-teardown.xml");
+        client->WaitForIdle();
+        teardown_done_in_test_ = true;
+
+        WAIT_FOR(1000, 1000,
+                 (NULL != (entry = static_cast<LogicalSwitchEntry *>
+                           (table->Find(&key)))));
+        // entry should be waiting for Local MAC ref to go
+        WAIT_FOR(1000, 1000, (true == entry->IsLocalMacsRef()));
+
+        // readd setup config
+        SetUp();
+
+        WAIT_FOR(1000, 1000, (NULL != table->Find(&key)));
+
+        WAIT_FOR(10, 10000,
+                 (true == del_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01")));
+
+        // entry should be active without Local MAC ref
+        WAIT_FOR(1000, 1000, (false == entry->IsLocalMacsRef()));
     }
 }
 
