@@ -36,8 +36,7 @@ from vnc_api.common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from cfgm_common.vnc_db import DBBase
-from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
+from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
     GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM
 from cfgm_common.dependency_tracker import DependencyTracker
@@ -180,7 +179,7 @@ class DeviceManager(object):
                                              None,
                                              self.config_log)
 
-        DBBase.init(self, self._sandesh.logger(), self._cassandra)
+        DBBaseDM.init(self, self._sandesh.logger(), self._cassandra)
         ok, global_system_config_list = self._cassandra._cassandra_global_system_config_list()
         if not ok:
             self.config_log('global system config list returned error: %s' %
@@ -286,7 +285,7 @@ class DeviceManager(object):
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBase.get_obj_type_map().get(obj_type)
+            obj_class = DBBaseDM.get_obj_type_map().get(obj_type)
             if obj_class is None:
                 return
 
@@ -295,7 +294,7 @@ class DeviceManager(object):
                 obj_id = obj_dict['uuid']
                 obj = obj_class.locate(obj_id, obj_dict)
                 dependency_tracker = DependencyTracker(
-                    DBBase.get_obj_type_map(), self._REACTION_MAP)
+                    DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'UPDATE':
                 obj_id = oper_info['uuid']
@@ -303,13 +302,13 @@ class DeviceManager(object):
                 old_dt = None
                 if obj is not None:
                     old_dt = DependencyTracker(
-                        DBBase.get_obj_type_map(), self._REACTION_MAP)
+                        DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                     old_dt.evaluate(obj_type, obj)
                 else:
                     obj = obj_class.locate(obj_id)
                 obj.update()
                 dependency_tracker = DependencyTracker(
-                    DBBase.get_obj_type_map(), self._REACTION_MAP)
+                    DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 if old_dt:
                     for resource, ids in old_dt.resources.items():
@@ -325,7 +324,7 @@ class DeviceManager(object):
                 if obj is None:
                     return
                 dependency_tracker = DependencyTracker(
-                    DBBase.get_obj_type_map(), self._REACTION_MAP)
+                    DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 obj_class.delete(obj_id)
             else:

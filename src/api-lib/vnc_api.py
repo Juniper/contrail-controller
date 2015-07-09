@@ -23,15 +23,6 @@ from cfgm_common.exceptions import *
 
 from pprint import pformat
 
-def str_to_class(class_name):
-    try:
-        return reduce(getattr, class_name.split("."), sys.modules[__name__])
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.warn("Exception: %s", str(e))
-        return None
-#end str_to_class
-
 def compare_refs(old_refs, new_refs):
     # compare refs in an object
     old_ref_dict = {':'.join(ref['to']): ref['attr'] for ref in old_refs}
@@ -314,14 +305,12 @@ class VncApi(VncApiClientGen):
             # strip base from *_url to get *_uri
             uri = link['link']['href'].replace(srv_root_url, '')
             if link['link']['rel'] == 'collection':
-                class_name = "%s" % (utils.CamelCase(link['link']['name']))
-                cls = str_to_class(class_name)
+                cls = utils.obj_type_to_vnc_class(link['link']['name'], __name__)
                 if not cls:
                     continue
                 cls.create_uri = uri
             elif link['link']['rel'] == 'resource-base':
-                class_name = "%s" % (utils.CamelCase(link['link']['name']))
-                cls = str_to_class(class_name)
+                cls = utils.obj_type_to_vnc_class(link['link']['name'], __name__)
                 if not cls:
                     continue
                 resource_type = link['link']['name']
@@ -519,8 +508,7 @@ class VncApi(VncApiClientGen):
     #end fetch_records
 
     def restore_config(self, create, resource, json_body):
-        class_name = "%s" % (utils.CamelCase(resource))
-        cls = str_to_class(class_name)
+        cls = utils.obj_type_to_vnc_class(resource, __name__)
         if not cls:
             return None
 
@@ -606,8 +594,7 @@ class VncApi(VncApiClientGen):
         if not obj_type:
             raise ResourceTypeUnknownError(obj_type)
 
-        class_name = "%s" % (utils.CamelCase(obj_type))
-        obj_class = str_to_class(class_name)
+        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
         if not obj_class:
             raise ResourceTypeUnknownError(obj_type)
 

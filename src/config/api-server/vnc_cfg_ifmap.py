@@ -528,7 +528,7 @@ class VncServerCassandraClient(VncCassandraClient):
     def count_children(self, method_name, *args, **kwargs):
         method = getattr(self, '_cassandra_%s_count_children' % (method_name))
         return method(*args, **kwargs)
-    # end read
+    # end count_children
 
 
     def update(self, method_name, *args, **kwargs):
@@ -1218,7 +1218,7 @@ class VncDbClient(object):
     # end update_subnet_uuid
 
     def _dbe_resync(self, obj_type, obj_uuids):
-        obj_class = self._api_svr_mgr.str_to_class(utils.CamelCase(obj_type))
+        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._cassandra_db.read(
                                obj_type, obj_uuids, field_names=obj_fields)

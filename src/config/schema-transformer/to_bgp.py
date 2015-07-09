@@ -81,7 +81,7 @@ def get_si_vns(si_obj, si_props):
 
     st_refs = si_obj.get_service_template_refs()
     uuid = st_refs[0]['uuid']
-    st_obj = _vnc_lib.service_template_read(id=uuid)
+    st_obj = DBBaseST().read_vnc_obj(uuid, obj_type='service_template')
     st_props = st_obj.get_service_template_properties()
     if st_props.get_ordered_interfaces():
         st_if_list = st_props.get_interface_type()
@@ -144,17 +144,20 @@ def _access_control_list_update(acl_obj, name, obj, entries):
     return acl_obj
 # end _access_control_list_update
 
+class DBBaseST(DBBase):
+    obj_type = __name__
+
 # a struct to store attributes related to Virtual Networks needed by
 # schema transformer
 
 
-class VirtualNetworkST(DBBase):
+class VirtualNetworkST(DBBaseST):
     _dict = {}
     _autonomous_system = 0
     obj_type = 'virtual_network'
 
     def __init__(self, name, obj=None, acl_dict=None, ri_dict=None):
-        self.obj = obj or _vnc_lib.virtual_network_read(fq_name_str=name)
+        self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.name = name
         self.policies = OrderedDict()
         self.connections = set()
@@ -168,7 +171,8 @@ class VirtualNetworkST(DBBase):
             if acl_dict:
                 acl_obj = acl_dict[acl['uuid']]
             else:
-                acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'])
+                acl_obj = self.read_vnc_obj(acl['uuid'],
+                                            obj_type='access_control_list')
             if acl_obj.name == self.obj.name:
                 self.acl = acl_obj
             elif acl_obj.name == 'dynamic':
@@ -266,8 +270,8 @@ class VirtualNetworkST(DBBase):
     @classmethod
     def get_autonomous_system(cls):
         if cls._autonomous_system == 0:
-            gsc = _vnc_lib.global_system_config_read(
-                fq_name=['default-global-system-config'])
+            gsc = DBBaseST().read_vnc_obj(fq_name=['default-global-system-config'],
+                                    obj_type='global_system_config')
             cls._autonomous_system = int(gsc.get_autonomous_system())
         return cls._autonomous_system
     # end get_autonomous_system
@@ -291,7 +295,7 @@ class VirtualNetworkST(DBBase):
             new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
             old_rtgt_obj = RouteTarget(old_rtgt_name)
             inst_tgt_data = InstanceTargetType()
-            ri.obj = _vnc_lib.routing_instance_read(fq_name_str=ri_fq_name)
+            ri.obj = ri.read_vnc_obj(fq_name=ri_fq_name)
             ri.obj.del_route_target(old_rtgt_obj)
             ri.obj.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
             _vnc_lib.routing_instance_update(ri.obj)
@@ -493,8 +497,8 @@ class VirtualNetworkST(DBBase):
                 if ri_dict:
                     rinst_obj = ri_dict[rinst_fq_name_str]
                 else:
-                    rinst_obj = _vnc_lib.routing_instance_read(
-                        fq_name_str=rinst_fq_name_str)
+                    rinst_obj = self.read_vnc_obj(
+                        fq_name=rinst_fq_name_str, obj_type='routing_instance')
                 if rinst_obj.parent_uuid != self.obj.uuid:
                     # Stale object. Delete it.
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
@@ -653,7 +657,8 @@ class VirtualNetworkST(DBBase):
     # service instance and get the primary and service routing instances
     def _get_routing_instance_from_route(self, next_hop):
         try:
-            si = _vnc_lib.service_instance_read(fq_name_str=next_hop)
+            si = self.read_vnc_obj(fq_name=next_hop,
+                                   obj_type='service_instance')
             si_props = si.get_service_instance_properties()
             if si_props is None:
                 return None
@@ -826,9 +831,10 @@ class VirtualNetworkST(DBBase):
         vn_analyzer = None
         ip_analyzer = None
         try:
-            si = _vnc_lib.service_instance_read(fq_name_str=analyzer_name)
+            si = self.read_vnc_obj(fq_name=analyzer_name,
+                                   obj_type='service_instance')
 
-            vm_analyzer = si.get_virtual_machine_back_refs()
+            vm_analyzer = getattr(si, 'virtual_machine_back_refs', None)
             if vm_analyzer is None:
                 return (None, None)
             vm_analyzer_obj = VirtualMachineST.get(':'.join(vm_analyzer[0]['to']))
@@ -1047,14 +1053,14 @@ class VirtualNetworkST(DBBase):
 # end class VirtualNetworkST
 
 
-class RouteTargetST(DBBase):
+class RouteTargetST(DBBaseST):
     _dict = {}
     obj_type = 'route_target'
-
+    
     def __init__(self, rt_key, obj=None):
         self.name = rt_key
         try:
-            self.obj = obj or _vnc_lib.route_target_read(fq_name=[rt_key])
+            self.obj = obj or self.read_vnc_obj(fq_name=[rt_key])
         except NoIdError:
             self.obj = RouteTarget(rt_key)
             _vnc_lib.route_target_create(self.obj)
@@ -1072,7 +1078,7 @@ class RouteTargetST(DBBase):
 # transformer
 
 
-class NetworkPolicyST(DBBase):
+class NetworkPolicyST(DBBaseST):
     _dict = {}
     obj_type = 'network_policy'
 
@@ -1111,7 +1117,7 @@ class NetworkPolicyST(DBBase):
 # end class NetworkPolicyST
 
 
-class RouteTableST(DBBase):
+class RouteTableST(DBBaseST):
     _dict = {}
     obj_type = 'route_table'
 
@@ -1128,7 +1134,7 @@ class RouteTableST(DBBase):
 # transformer
 
 
-class SecurityGroupST(DBBase):
+class SecurityGroupST(DBBaseST):
     _dict = {}
     obj_type = 'security_group'
 
@@ -1158,10 +1164,10 @@ class SecurityGroupST(DBBase):
         def _get_acl(uuid):
             if acl_dict:
                 return acl_dict[uuid]
-            return _vnc_lib.access_control_list_read(id=uuid)
+            return self.read_vnc_obj(uuid, obj_type='access_control_list')
 
         self.name = name
-        self.obj = obj or _vnc_lib.security_group_read(fq_name_str=name)
+        self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.config_sgid = None
         self.sg_id = None
         self.ingress_acl = None
@@ -1333,6 +1339,11 @@ class RoutingInstanceST(object):
             self.connections.add(':'.join(ri_ref['to']))
     # end __init__
 
+    def read_vnc_obj(self, uuid=None, fq_name=None, obj_type=None):
+        return DBBaseST().read_vnc_obj(uuid, fq_name,
+                                     obj_type or 'routing_instance')
+    # end read_vnc_obj
+
     def get_fq_name(self):
         return self.obj.get_fq_name()
     # end get_fq_name
@@ -1344,8 +1355,8 @@ class RoutingInstanceST(object):
     def add_connection(self, ri2):
         self.connections.add(ri2.get_fq_name_str())
         ri2.connections.add(self.get_fq_name_str())
-        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
-        ri2.obj = _vnc_lib.routing_instance_read(id=ri2.obj.uuid)
+        self.obj = self.read_vnc_obj(self.obj.uuid)
+        ri2.obj = self.read_vnc_obj(ri2.obj.uuid)
 
         conn_data = ConnectionType()
         self.obj.add_routing_instance(ri2.obj, conn_data)
@@ -1356,7 +1367,7 @@ class RoutingInstanceST(object):
         self.connections.discard(ri2.get_fq_name_str())
         ri2.connections.discard(self.get_fq_name_str())
         try:
-            self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+            self.obj = self.read_vnc_obj(self.obj.uuid)
         except NoIdError:
             return
         self.obj.del_routing_instance(ri2.obj)
@@ -1365,9 +1376,8 @@ class RoutingInstanceST(object):
 
     def delete_connection_fq_name(self, ri2_fq_name_str):
         self.connections.discard(ri2_fq_name_str)
-        rinst1_obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
-        rinst2_obj = _vnc_lib.routing_instance_read(
-            fq_name_str=ri2_fq_name_str)
+        rinst1_obj = self.read_vnc_obj(self.obj.uuid)
+        rinst2_obj = self.read_vnc_obj(fq_name=ri2_fq_name_str)
         rinst1_obj.del_routing_instance(rinst2_obj)
         _vnc_lib.routing_instance_update(rinst1_obj)
     # end delete_connection_fq_name
@@ -1408,10 +1418,10 @@ class RoutingInstanceST(object):
 
     def delete(self, vn_obj=None):
         # refresh the ri object because it could have changed
-        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+        self.obj = self.read_vnc_obj(self.obj.uuid, obj_type='routing_instance')
         rtgt_list = self.obj.get_route_target_refs()
         ri_fq_name_str = self.obj.get_fq_name_str()
-        DBBase._cassandra.free_route_target(ri_fq_name_str)
+        DBBaseST._cassandra.free_route_target(ri_fq_name_str)
 
         service_chain = self.service_chain
         if vn_obj is not None and service_chain is not None:
@@ -1422,13 +1432,13 @@ class RoutingInstanceST(object):
             uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
             uve_msg.send(sandesh=_sandesh)
 
-        vmi_refs = self.obj.get_virtual_machine_interface_back_refs()
-        for vmi in vmi_refs or []:
+        vmi_refs = getattr(self.obj, 'virtual_machine_interface_back_refs', [])
+        for vmi in vmi_refs:
             try:
-                vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                    id=vmi['uuid'])
+                vmi_obj = self.read_vnc_obj(
+                    vmi['uuid'], obj_type='virtual_machine_interface')
                 if service_chain is not None:
-                    DBBase._cassandra.free_service_chain_vlan(
+                    DBBaseST._cassandra.free_service_chain_vlan(
                         vmi_obj.get_parent_fq_name_str(), service_chain)
             except NoIdError:
                 continue
@@ -1448,7 +1458,7 @@ class RoutingInstanceST(object):
 # end class RoutingInstanceST
 
 
-class ServiceChain(DBBase):
+class ServiceChain(DBBaseST):
     _dict = {}
     obj_type = 'service_chain'
 
@@ -1902,7 +1912,7 @@ class AclRuleListST(object):
 # end AclRuleListST
 
 
-class BgpRouterST(DBBase):
+class BgpRouterST(DBBaseST):
     _dict = {}
     _ibgp_auto_mesh = None
     obj_type = 'bgp_router'
@@ -1914,8 +1924,8 @@ class BgpRouterST(DBBase):
         self.identifier = params.identifier
 
         if self._ibgp_auto_mesh is None:
-            gsc = _vnc_lib.global_system_config_read(
-                fq_name=['default-global-system-config'])
+            gsc = self.read_vnc_obj(fq_name=['default-global-system-config'],
+                                    obj_type='global_system_config')
             self._ibgp_auto_mesh = gsc.get_ibgp_auto_mesh()
             if self._ibgp_auto_mesh is None:
                 self._ibgp_auto_mesh = True
@@ -1931,7 +1941,7 @@ class BgpRouterST(DBBase):
     def update_global_asn(self, asn):
         if self.vendor != 'contrail' or self.asn == int(asn):
             return
-        router_obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
+        router_obj = self.read_vnc_obj(fq_name=self.name)
         params = router_obj.get_bgp_router_parameters()
         params.autonomous_system = int(asn)
         router_obj.set_bgp_router_parameters(params)
@@ -1964,7 +1974,7 @@ class BgpRouterST(DBBase):
         if self.asn != global_asn:
             return
         try:
-            obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
+            obj = self.read_vnc_obj(fq_name=self.name)
         except NoIdError as e:
             _sandesh._logger.error("NoIdError while reading bgp router "
                                    "%s: %s", self.name, str(e))
@@ -1995,7 +2005,7 @@ class BgpRouterST(DBBase):
 # end class BgpRouterST
 
 
-class VirtualMachineInterfaceST(DBBase):
+class VirtualMachineInterfaceST(DBBaseST):
     _dict = {}
     _vn_dict = {}
     _service_vmi_list = []
@@ -2010,7 +2020,7 @@ class VirtualMachineInterfaceST(DBBase):
         self.uuid = None
         self.instance_ips = set()
         self.floating_ips = set()
-        self.obj = obj or _vnc_lib.virtual_machine_interface_read(fq_name_str=name)
+        self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.uuid = self.obj.uuid
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
     # end __init__
@@ -2305,7 +2315,7 @@ class VirtualMachineInterfaceST(DBBase):
 # end VirtualMachineInterfaceST
 
 
-class InstanceIpST(DBBase):
+class InstanceIpST(DBBaseST):
     _dict = {}
     obj_type = 'instance_ip'
 
@@ -2316,7 +2326,7 @@ class InstanceIpST(DBBase):
 # end InstanceIpST
 
 
-class FloatingIpST(DBBase):
+class FloatingIpST(DBBaseST):
     _dict = {}
     obj_type = 'floating_ip'
 
@@ -2327,7 +2337,7 @@ class FloatingIpST(DBBase):
 # end FloatingIpST
 
 
-class VirtualMachineST(DBBase):
+class VirtualMachineST(DBBaseST):
     _dict = {}
     _si_dict = {}
     obj_type = 'virtual_machine'
@@ -2340,7 +2350,7 @@ class VirtualMachineST(DBBase):
         for vmi in VirtualMachineInterfaceST.values():
             if vmi.virtual_machine == name:
                 self.add_interface(vmi.name)
-        self.obj = _vnc_lib.virtual_machine_read(fq_name_str=name)
+        self.obj = self.read_vnc_obj(fq_name=name)
         self.uuid = self.obj.uuid
     # end __init__
 
@@ -2372,8 +2382,8 @@ class VirtualMachineST(DBBase):
         if self.service_instance is None:
             return None
         try:
-            si_obj = _vnc_lib.service_instance_read(
-                fq_name_str=self.service_instance)
+            si_obj = self.read_vnc_obj(
+                fq_name=self.service_instance, obj_type='service_instance')
         except NoIdError:
             _sandesh._logger.error("NoIdError while reading service instance "
                                    + self.service_instance)
@@ -2384,7 +2394,8 @@ class VirtualMachineST(DBBase):
                                    + self.service_instance)
             return None
         try:
-            st_obj = _vnc_lib.service_template_read(id=st_refs[0]['uuid'])
+            st_obj = self.read_vnc_obj(st_refs[0]['uuid'],
+                                       obj_type='service_template')
         except NoIdError:
             _sandesh._logger.error("NoIdError while reading service template "
                                    + st_refs[0]['uuid'])
@@ -2395,7 +2406,7 @@ class VirtualMachineST(DBBase):
 # end VirtualMachineST
 
 
-class LogicalRouterST(DBBase):
+class LogicalRouterST(DBBaseST):
     _dict = {}
     obj_type = 'logical_router'
 
@@ -2404,7 +2415,7 @@ class LogicalRouterST(DBBase):
         self.interfaces = set()
         self.virtual_networks = set()
         if not obj:
-            obj = _vnc_lib.logical_router_read(fq_name_str=name)
+            obj = self.read_vnc_obj(fq_name=name)
         rt_ref = obj.get_route_target_refs()
         old_rt_key = None
         if rt_ref:
@@ -2478,7 +2489,7 @@ class LogicalRouterST(DBBase):
         rt_key = "target:%s:%d" % (asn, rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key)
         try:
-            obj = _vnc_lib.logical_router_read(fq_name_str=self.name)
+            obj = self.read_vnc_obj(fq_name=self.name)
             obj.set_route_target(rtgt_obj.obj)
             _vnc_lib.logical_router_update(obj)
         except NoIdError:
@@ -2544,7 +2555,7 @@ class SchemaTransformer(object):
                 NodeStatusUVE, NodeStatus)
 
         self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
-        DBBase.init(self, _sandesh.logger(), self._cassandra)
+        DBBaseST.init(self, _sandesh.logger(), self._cassandra)
         ServiceChain.init()
         self.reinit()
         self.ifmap_search_done = False
@@ -2975,7 +2986,8 @@ class SchemaTransformer(object):
             self.delete_service_instance_properties(idents, meta)
             return
         try:
-            si = _vnc_lib.service_instance_read(fq_name_str=si_name)
+            si = DBBaseST().read_vnc_obj(fq_name=si_name,
+                                       obj_type='service_instance')
         except NoIdError:
             _sandesh._logger.error("NoIdError while reading service "
                                    "instance %s", si_name)
@@ -3137,7 +3149,6 @@ class SchemaTransformer(object):
         # end for result_type
 
         if not something_done:
-            _sandesh._logger.debug("Process IF-MAP: Nothing was done, skip.")
             return
 
         # Second pass to construct ACL entries and connectivity table
@@ -3406,7 +3417,7 @@ class SchemaTransformer(object):
 
     @staticmethod
     def reset():
-        for cls in DBBase.get_obj_type_map().values():
+        for cls in DBBaseST.get_obj_type_map().values():
             cls.reset()
     # end reset
 # end class SchemaTransformer
