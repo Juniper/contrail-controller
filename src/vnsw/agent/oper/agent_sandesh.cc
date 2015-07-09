@@ -466,6 +466,29 @@ void AgentMirrorSandesh::Alloc(){
     resp_ = new MirrorEntryResp();
 }
 
+AgentMirrorSandesh::AgentMirrorSandesh(const std::string &context,
+                               const std::string &analyzer_name) :
+        AgentSandesh(context, ""), analyzer_name_(analyzer_name) {
+
+}
+
+bool AgentMirrorSandesh::Filter(const DBEntryBase *entry) {
+    const MirrorEntry *mrentry = dynamic_cast<const MirrorEntry *>(entry);
+    assert(mrentry);
+
+    if (MatchSubString(mrentry->GetAnalyzerName(), analyzer_name_) == false) {
+        return false;
+    }
+
+    return true;
+}
+
+bool AgentMirrorSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("analyzer_name", analyzer_name_);
+
+    return true;
+}
+
 DBTable *AgentVrfAssignSandesh::AgentGetTable(){
     return static_cast<DBTable *>(Agent::GetInstance()->vrf_assign_table());
 }

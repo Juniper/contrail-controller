@@ -487,6 +487,7 @@ response sandesh VrfAssignResp {
 }
 
 request sandesh MirrorEntryReq {
+    1: string analyzer_name;
 }
 
 response sandesh MirrorEntryResp {
