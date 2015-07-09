@@ -335,6 +335,7 @@ private:
     uint16_t dns_port_1_;
     uint16_t dns_port_2_;
     std::string dss_server_;
+    uint16_t dss_port_;
     Ip4Address mgmt_ip_;
     HypervisorMode hypervisor_mode_;
     PortInfo xen_ll_;
