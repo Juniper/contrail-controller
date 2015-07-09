@@ -335,8 +335,12 @@ private:
     TASK_UTIL_EXPECT_EQ_MSG(NULL, peer, "Peer Deletion")
 
 #define BGP_VERIFY_ROUTE_COUNT(table, count)                                   \
-    TASK_UTIL_EXPECT_EQ_MSG(count, static_cast<int>((table)->Size()),          \
-                            "Wait for route count")
+    do {                                                                       \
+        ostringstream _os;                                                     \
+        _os << "Wait for route count in table " << (table)->name();            \
+        TASK_UTIL_EXPECT_EQ_MSG(count, static_cast<int>((table)->Size()),      \
+                                _os.str());                                    \
+    } while (false)
 
 #define BGP_VERIFY_ROUTE_PRESENCE(table, route) \
     TASK_UTIL_EXPECT_NE_MSG(static_cast<BgpRoute *>(NULL),                     \
