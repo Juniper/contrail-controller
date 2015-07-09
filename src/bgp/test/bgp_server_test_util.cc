@@ -145,6 +145,20 @@ const BgpPeer *BgpServerTest::FindMatchingPeer(const char *routing_instance,
     return NULL;
 }
 
+void BgpServerTest::DisableAllPeers() {
+    for (BgpPeerList::iterator it = peer_list_.begin();
+         it != peer_list_.end(); ++it) {
+        it->second->SetAdminState(true);
+    }
+}
+
+void BgpServerTest::EnableAllPeers() {
+    for (BgpPeerList::iterator it = peer_list_.begin();
+         it != peer_list_.end(); ++it) {
+        it->second->SetAdminState(false);
+    }
+}
+
 string BgpServerTest::ToString() const {
     ostringstream out;
 
