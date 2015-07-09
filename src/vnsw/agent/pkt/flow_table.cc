@@ -1987,7 +1987,7 @@ bool RouteFlowKey::FlowDestMatch(const FlowEntry *flow) const {
         return (flow->data().dmac == mac);
     }
 
-    if (flow->data().source_plen != plen ||
+    if (flow->data().dest_plen != plen ||
         flow->key().family != family)
         return false;
 
