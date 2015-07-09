@@ -56,6 +56,9 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
     mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL) {
 }
 
+LogicalSwitchEntry::~LogicalSwitchEntry() {
+}
+
 Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
     PhysicalSwitchEntry *p_switch =
         static_cast<PhysicalSwitchEntry *>(physical_switch_.get());
@@ -214,6 +217,10 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
     return NULL;
 }
 
+bool LogicalSwitchEntry::IsLocalMacsRef() const {
+    return (local_mac_ref_.get() != NULL);
+}
+
 void LogicalSwitchEntry::SendTrace(Trace event) const {
     SandeshLogicalSwitchInfo info;
     switch (event) {
@@ -306,6 +313,16 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         }
     } else {
         assert(0);
+    }
+
+    if (entry) {
+        if (entry->mcast_local_row_ != NULL ||
+            !entry->ucast_local_row_list_.empty()) {
+            if (entry->IsActive())
+                entry->local_mac_ref_ = entry;
+        } else {
+            entry->local_mac_ref_ = NULL;
+        }
     }
 }
 
@@ -412,6 +429,16 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
     } else {
         assert(0);
     }
+
+    if (entry) {
+        if (entry->mcast_local_row_ != NULL ||
+            !entry->ucast_local_row_list_.empty()) {
+            if (entry->IsActive())
+                entry->local_mac_ref_ = entry;
+        } else {
+            entry->local_mac_ref_ = NULL;
+        }
+    }
 }
 
 KSyncEntry *LogicalSwitchTable::Alloc(const KSyncEntry *key, uint32_t index) {
@@ -505,6 +532,9 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_physical_switch(entry->device_name());
     lentry.set_vxlan_id(entry->vxlan_id());
     lentry.set_tor_service_node(entry->tor_service_node());
+    if (entry->IsDeleted() && entry->IsLocalMacsRef()) {
+        lentry.set_message("Waiting for Local Macs Cleanup");
+    }
     OvsdbLogicalSwitchResp *ls_resp =
         static_cast<OvsdbLogicalSwitchResp *>(resp);
     std::vector<OvsdbLogicalSwitchEntry> &lswitch =
