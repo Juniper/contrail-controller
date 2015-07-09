@@ -69,7 +69,8 @@ void AgentUtXmlOvsdbInit(AgentUtXmlTest *test) {
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlLogicalSwitchValidate::AgentUtXmlLogicalSwitchValidate
 (const string &name, const uuid &id, const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
+    AgentUtXmlValidationNode(name, node), id_(id), vxlan_id_(0),
+    match_vxlan_(false) {
 }
 
 AgentUtXmlLogicalSwitchValidate::~AgentUtXmlLogicalSwitchValidate() {
@@ -78,6 +79,7 @@ AgentUtXmlLogicalSwitchValidate::~AgentUtXmlLogicalSwitchValidate() {
 bool AgentUtXmlLogicalSwitchValidate::ReadXml() {
     if (AgentUtXmlValidationNode::ReadXml() == false)
         return false;
+    match_vxlan_ = GetUintAttribute(node(), "vxlan-id", &vxlan_id_);
     return true;
 }
 
@@ -87,7 +89,11 @@ bool AgentUtXmlLogicalSwitchValidate::Validate() {
     LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
         (table->Find(&key));
     if (present()) {
-        return (entry != NULL && entry->GetState() == KSyncEntry::IN_SYNC);
+        bool ret = (entry != NULL && entry->GetState() == KSyncEntry::IN_SYNC);
+        if (ret == true && match_vxlan_) {
+            ret = ((uint16_t)entry->vxlan_id() == vxlan_id_);
+        }
+        return ret;
     } else {
         return (entry == NULL);
     }
