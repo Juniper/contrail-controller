@@ -16,7 +16,6 @@ extern "C" {
 
 #include <oper/vn.h>
 #include <oper/vrf.h>
-#include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
 #include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
@@ -35,8 +34,8 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
     name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
     mcast_remote_row_(NULL), mc_flood_entry_(NULL) {
     vxlan_id_ = entry->vxlan_id();
-    device_name_ = entry->device()->name();
-    tor_ip_ = entry->device()->ip();
+    device_name_ = entry->device_display_name();
+    tor_ip_ = entry->tor_ip();
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
@@ -183,8 +182,8 @@ bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
         vxlan_id_ = entry->vxlan_id();
         change = true;
     }
-    if (device_name_ != entry->device()->name()) {
-        device_name_ = entry->device()->name();
+    if (device_name_ != entry->device_display_name()) {
+        device_name_ = entry->device_display_name();
         change = true;
     }
     if (tor_ip_ != entry->tor_ip()) {
@@ -464,18 +463,6 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
         const DBEntry *db_entry, const OvsdbDBEntry *ovsdb_entry) {
     const PhysicalDeviceVn *entry =
         static_cast<const PhysicalDeviceVn *>(db_entry);
-
-    // Physical Device missing, trigger delete
-    if (entry->device() == NULL) {
-        if (ovsdb_entry != NULL) {
-            OVSDB_TRACE(Trace, "Missing Physical Device info, triggering delete"
-                               " of logical switch");
-        } else {
-            OVSDB_TRACE(Trace, "Missing Physical Device info, ignoring"
-                               " logical switch");
-        }
-        return DBFilterDelete;
-    }
 
     // Delete the entry which has invalid VxLAN id associated.
     if (entry->vxlan_id() == 0) {

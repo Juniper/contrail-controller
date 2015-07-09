@@ -17,7 +17,6 @@ extern "C" {
 
 #include <oper/vn.h>
 #include <oper/interface_common.h>
-#include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
 #include <ovsdb_sandesh.h>
 #include <ovsdb_types.h>
@@ -34,14 +33,9 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
-    logical_switch_name_(), physical_port_name_(),
-    physical_device_name_(""), vlan_(entry->vlan()), vmi_uuid_(nil_uuid()),
-    old_logical_switch_name_() {
-    RemotePhysicalInterface *phy_intf = dynamic_cast<RemotePhysicalInterface *>
-        (entry->physical_interface());
-    assert(phy_intf);
-    physical_port_name_ = phy_intf->display_name();
-    physical_device_name_ = phy_intf->physical_device()->name();
+    logical_switch_name_(), physical_port_name_(entry->phy_intf_display_name()),
+    physical_device_name_(entry->phy_dev_display_name()), vlan_(entry->vlan()),
+    vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
@@ -292,18 +286,16 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
 
     // Since we need physical port name and device name as key, ignore entry
     // if physical port or device is not yet present.
-    RemotePhysicalInterface *phy_intf = dynamic_cast<RemotePhysicalInterface *>
-        (l_port->physical_interface());
-    if (phy_intf == NULL) {
+    if (l_port->phy_intf_display_name().empty()) {
         OVSDB_TRACE(Trace, "Ignoring Port Vlan Binding due to physical port "
-                "unavailablity Logical port = " + l_port->name());
-        return DBFilterIgnore; // TODO(Prabhjot) check if Delete is required.
+                "name unavailablity Logical port = " + l_port->name());
+        return DBFilterIgnore;
     }
 
-    if (phy_intf->physical_device() == NULL) {
-        OVSDB_TRACE(Trace, "Ignoring Port Vlan Binding due to device "
+    if (l_port->phy_dev_display_name().empty()) {
+        OVSDB_TRACE(Trace, "Ignoring Port Vlan Binding due to device name "
                 "unavailablity Logical port = " + l_port->name());
-        return DBFilterIgnore; // TODO(Prabhjot) check if Delete is required.
+        return DBFilterIgnore;
     }
     return DBFilterAccept;
 }

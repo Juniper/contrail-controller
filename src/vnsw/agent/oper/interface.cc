@@ -60,10 +60,15 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
     typedef IFMapDependencyTracker::ReactionMap ReactionMap;
 
     ReactionMap physical_port_react = map_list_of<std::string, PropagateList>
-        ("self", list_of("self") ("physical-router-physical-interface"))
+        ("self",
+         list_of("self")
+                ("physical-router-physical-interface")
+                ("physical-interface-logical-interface"))
         ("physical-interface-logical-interface",
          list_of("physical-router-physical-interface"))
-        ("physical-router-physical-interface", list_of("self"));
+        ("physical-router-physical-interface",
+         list_of("self")
+                ("physical-interface-logical-interface"));
     dep->RegisterReactionMap("physical-interface", physical_port_react);
     dep->Register("physical-interface",
                   boost::bind(&AgentOperDBTable::ConfigEventHandler, this, _1));
@@ -73,7 +78,8 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
     ReactionMap logical_port_react = map_list_of<std::string, PropagateList>
         ("self", list_of("self") ("physical-interface-logical-interface"))
         ("physical-interface-logical-interface",
-         list_of("physical-router-physical-interface"))
+         list_of("self")
+                ("physical-router-physical-interface"))
         ("logical-interface-virtual-machine-interface",
          list_of("physical-interface-logical-interface") ("self"));
     dep->RegisterReactionMap("logical-interface", logical_port_react);
@@ -719,8 +725,14 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         break;
 
     case Interface::LOGICAL:
-        data.set_type("logical-port");
-        data.set_vrf_name("--NA--");
+        {
+            const LogicalInterface *lintf =
+                static_cast<const LogicalInterface*>(this);
+            data.set_type("logical-port");
+            data.set_vrf_name("--NA--");
+            data.set_physical_device(lintf->phy_dev_display_name());
+            data.set_physical_interface(lintf->phy_intf_display_name());
+        }
         break;
 
     case Interface::VM_INTERFACE: {
