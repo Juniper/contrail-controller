@@ -661,18 +661,17 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     MCTRACE(Log, "XMPP call(EVPN) multicast handler ", vrf_name,
             grp.to_string(), 0);
 
-    if (obj == NULL) {
-        return;
-    }
-
     bool delete_op = false;
     if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
         delete_op = true;
+    } else if (obj == NULL) {
+        return;
     }
 
     TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
                              peer_identifier, delete_op, Composite::EVPN,
-                             obj->evpn_mpls_label(), false, ethernet_tag);
+                             (obj ? obj->evpn_mpls_label() : 0), false,
+                             ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
@@ -688,18 +687,17 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
     MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     MCTRACE(Log, "TOR multicast handler ", vrf_name, grp.to_string(), 0);
 
-    if (obj == NULL) {
-        return;
-    }
-
     bool delete_op = false;
     if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
         delete_op = true;
+    } else if (obj == NULL) {
+        return;
     }
 
     TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
                              peer_identifier, delete_op, Composite::TOR,
-                             obj->evpn_mpls_label(), false, ethernet_tag);
+                             (obj ? obj->evpn_mpls_label() : 0), false,
+                             ethernet_tag);
     MCTRACE(Log, "Add external TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
