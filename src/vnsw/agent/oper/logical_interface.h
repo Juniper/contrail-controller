@@ -34,6 +34,8 @@ class LogicalInterface : public Interface {
                           const LogicalInterfaceData *data);
 
     const std::string &display_name() const { return display_name_; }
+    const std::string &phy_dev_display_name() const { return phy_dev_display_name_; }
+    const std::string &phy_intf_display_name() const { return phy_intf_display_name_; }
     Interface *physical_interface() const;
     VmInterface *vm_interface() const;
     PhysicalDevice *physical_device() const;
@@ -45,6 +47,8 @@ class LogicalInterface : public Interface {
     InterfaceRef vm_interface_;
     boost::uuids::uuid vm_uuid_;
     PhysicalDeviceRef physical_device_;
+    std::string phy_dev_display_name_;
+    std::string phy_intf_display_name_;
     DISALLOW_COPY_AND_ASSIGN(LogicalInterface);
 };
 
@@ -59,14 +63,18 @@ struct LogicalInterfaceData : public InterfaceData {
     LogicalInterfaceData(Agent *agent, IFMapNode *node,
                          const std::string &display_name,
                          const std::string &physical_interface,
-                        const boost::uuids::uuid &vif,
-                        const boost::uuids::uuid &device_uuid);
+                         const boost::uuids::uuid &vif,
+                         const boost::uuids::uuid &device_uuid,
+                         const std::string &phy_dev_display_name,
+                         const std::string &phy_intf_display_name);
     virtual ~LogicalInterfaceData();
 
     std::string display_name_;
     std::string physical_interface_;
     boost::uuids::uuid vm_interface_;
     boost::uuids::uuid device_uuid_;
+    std::string phy_dev_display_name_;
+    std::string phy_intf_display_name_;
 };
 
 struct VlanLogicalInterfaceKey : public LogicalInterfaceKey {
@@ -86,6 +94,8 @@ struct VlanLogicalInterfaceData : public LogicalInterfaceData {
                              const std::string &physical_interface,
                              const boost::uuids::uuid &vif,
                              const boost::uuids::uuid &device_uuid,
+                             const std::string &phy_dev_display_name,
+                             const std::string &phy_intf_display_name,
                              uint16_t vlan);
     virtual ~VlanLogicalInterfaceData();
 

@@ -294,13 +294,14 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
     // if physical port or device is not yet present.
     RemotePhysicalInterface *phy_intf = dynamic_cast<RemotePhysicalInterface *>
         (l_port->physical_interface());
-    if (phy_intf == NULL) {
+    if (phy_intf == NULL || phy_intf->display_name().empty()) {
         OVSDB_TRACE(Trace, "Ignoring Port Vlan Binding due to physical port "
                 "unavailablity Logical port = " + l_port->name());
         return DBFilterIgnore; // TODO(Prabhjot) check if Delete is required.
     }
 
-    if (phy_intf->physical_device() == NULL) {
+    if (phy_intf->physical_device() == NULL ||
+        phy_intf->physical_device()->name().empty()) {
         OVSDB_TRACE(Trace, "Ignoring Port Vlan Binding due to device "
                 "unavailablity Logical port = " + l_port->name());
         return DBFilterIgnore; // TODO(Prabhjot) check if Delete is required.
