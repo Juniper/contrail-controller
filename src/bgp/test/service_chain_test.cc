@@ -10,6 +10,7 @@
 #include <boost/assign/list_of.hpp>
 #include <pugixml/pugixml.hpp>
 
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -967,6 +968,16 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void VerifyServiceChainCount(uint32_t count) {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_service_chains());
+    }
+
+    void VerifyDownServiceChainCount(uint32_t count) {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_down_service_chains());
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
@@ -1007,8 +1018,14 @@ TEST_P(ServiceChainParamTest, Basic) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
+    VerifyServiceChainCount(0);
+    VerifyDownServiceChainCount(0);
+
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
@@ -1019,6 +1036,9 @@ TEST_P(ServiceChainParamTest, Basic) {
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
 
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(0);
+
     // Check for aggregated route
     VerifyInetRouteExists("blue", "192.168.1.0/24");
     VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
@@ -1028,6 +1048,9 @@ TEST_P(ServiceChainParamTest, Basic) {
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 }
 
 TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress1) {
@@ -1440,11 +1463,17 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
+    VerifyServiceChainCount(0);
+    VerifyDownServiceChainCount(0);
+
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 
     // Check for aggregated route
     VerifyInetRouteNoExists("blue", "192.168.1.0/24");
@@ -1459,6 +1488,9 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(0);
+
     // Add MoreSpecific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
 
@@ -1468,6 +1500,9 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    VerifyServiceChainCount(1);
+    VerifyDownServiceChainCount(1);
 }
 
 TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
