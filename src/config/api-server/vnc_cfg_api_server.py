@@ -205,15 +205,6 @@ def mask_password(message, secret="***"):
         message = re.sub(pattern, secret, message)
     return message
 
-def str_to_class(class_name):
-    try:
-        return reduce(getattr, class_name.split("."), sys.modules[__name__])
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.warn("Exception: %s", str(e))
-        return None
-#end str_to_class
-
 class VncApiServer(VncApiServerGen):
 
     """
@@ -825,7 +816,7 @@ class VncApiServer(VncApiServerGen):
             return self._resource_classes[resource_type.replace('-', '_')]
 
         cls_name = '%sServerGen' %(cfgm_common.utils.CamelCase(resource_type))
-        return self.str_to_class(cls_name)
+        return cfgm_common.utils.str_to_class(cls_name, __name__)
     # end get_resource_class
 
     def set_resource_class(self, resource_type, resource_class):
@@ -886,10 +877,6 @@ class VncApiServer(VncApiServerGen):
                                      obj_uuids, is_count, is_detail, filters,
                                      req_fields)
     # end list_bulk_collection_http_post
-
-    def str_to_class(self, class_name):
-        return str_to_class(class_name)
-    # end str_to_class
 
     # Private Methods
     def _parse_args(self, args_str):
