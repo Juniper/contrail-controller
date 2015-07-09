@@ -464,6 +464,7 @@ query_status_t SelectQuery::process_query() {
                             break;
                           }
                     case GenDb::DbDataType::AsciiType:
+                    case GenDb::DbDataType::UTF8Type:
                           {
                             try {
                                 elem_value = boost::get<std::string>(kt->second);
