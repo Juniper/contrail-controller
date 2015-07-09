@@ -31,7 +31,6 @@ from cfgm_common import importutils
 from cfgm_common import svc_info
 
 from cfgm_common.vnc_kombu import VncKombuClient
-from cfgm_common.vnc_db import DBBase
 from config_db import *
 from cfgm_common.dependency_tracker import DependencyTracker
 
@@ -175,7 +174,7 @@ class SvcMonitor(object):
                                          self.logger.log)
 
         self._cassandra = ServiceMonitorDB(self._args, self.logger)
-        DBBase.init(self, self.logger, self._cassandra)
+        DBBaseSM.init(self, self.logger, self._cassandra)
     # end _connect_rabbit
 
     def _vnc_subscribe_callback(self, oper_info):
@@ -190,13 +189,13 @@ class SvcMonitor(object):
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.logger.log_debug(msg)
             obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBase.get_obj_type_map().get(obj_type)
+            obj_class = DBBaseSM.get_obj_type_map().get(obj_type)
             if obj_class is None:
                 return
 
             if oper_info['oper'] == 'CREATE' or oper_info['oper'] == 'UPDATE':
                 dependency_tracker = DependencyTracker(
-                    DBBase.get_obj_type_map(), self._REACTION_MAP)
+                    DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
                 if obj is not None:
@@ -211,7 +210,7 @@ class SvcMonitor(object):
                 if obj is None:
                     return
                 dependency_tracker = DependencyTracker(
-                    DBBase.get_obj_type_map(), self._REACTION_MAP)
+                    DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 obj_class.delete(obj_id)
             else:
@@ -731,7 +730,7 @@ class SvcMonitor(object):
 
     @staticmethod
     def reset():
-        for cls in DBBase.get_obj_type_map().values():
+        for cls in DBBaseSM.get_obj_type_map().values():
             cls.reset()
 
 
