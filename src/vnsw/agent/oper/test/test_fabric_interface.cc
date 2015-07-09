@@ -106,7 +106,7 @@ static void CfgIntfSync(FabricInterfaceTest *t, int id, const char *cfg_name,
 
 static void NovaDel(FabricInterfaceTest *t, int id) {
     VmInterface::Delete(t->interface_table_, MakeUuid(id),
-                        VmInterface::CONFIG);
+                        VmInterface::INSTANCE_MSG);
 }
 
 static void NovaIntfAdd(FabricInterfaceTest *t, int id, const char *name,

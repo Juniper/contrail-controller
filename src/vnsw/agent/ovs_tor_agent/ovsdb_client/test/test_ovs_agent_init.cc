@@ -197,7 +197,8 @@ void TestOvsAgentInit::set_ovs_init(bool ovs_init) {
 }
 
 void TestOvsAgentInit::KSyncShutdown() {
-    ovsdb_client_->shutdown();
+    if (ovsdb_client_.get())
+        ovsdb_client_->shutdown();
 }
 
 void LoadAndRun(const std::string &file_name) {
