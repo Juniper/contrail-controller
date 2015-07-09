@@ -111,8 +111,15 @@ public:
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
     void CreateTableLabel();
+    void DeleteRouteTables();
+
 private:
     friend class VrfTable;
+    void set_route_table_ptr_usable(Agent::RouteTableType type);
+    void reset_route_table_ptr_usable(Agent::RouteTableType type);
+    bool is_route_table_ptr_usable(Agent::RouteTableType type) const;
+    void CreateRouteTables();
+
     class DeleteActor;
     string name_;
     uint32_t id_;
@@ -124,6 +131,7 @@ private:
     Timer *delete_timeout_timer_;
     uint32_t table_label_;
     uint32_t vxlan_id_;
+    uint8_t route_table_ptr_usable_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
@@ -205,6 +213,7 @@ public:
 
     void DeleteRoutes();
     void Shutdown();
+    void DeleteFromDbTree(int table_type, const std::string &vrf_name);
 private:
     friend class VrfEntry;
 
