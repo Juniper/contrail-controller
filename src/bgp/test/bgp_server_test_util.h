@@ -192,6 +192,8 @@ public:
                       const std::string &peername);
     const BgpPeer *FindMatchingPeer(const char *routing_instance,
                                     const std::string &name);
+    void DisableAllPeers();
+    void EnableAllPeers();
     void Shutdown(bool verify = true);
     void VerifyShutdown() const;
 
