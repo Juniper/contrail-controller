@@ -104,7 +104,6 @@ void IFMapDependencyTracker::PropagateChanges() {
 // list.
 //
 void IFMapDependencyTracker::Clear() {
-    vertex_list_.clear();
     node_list_.clear();
     edge_list_.clear();
 }
@@ -209,15 +208,9 @@ void IFMapDependencyTracker::PropagateEdge(
 }
 
 //
-// Add the IFMapNode to the change list it's not already on there.
+// Add the IFMapNode to the change list.
 //
 void IFMapDependencyTracker::AddChangeEvent(IFMapNode *node) {
-    ostringstream identifier;
-    identifier << node->table()->Typename() << ':' << node->name();
-    if (vertex_list_.count(identifier.str()) > 0) {
-        return;
-    }
     observer_(node);
-    vertex_list_.insert(identifier.str());
 }
 
