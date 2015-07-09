@@ -65,6 +65,11 @@ bool PhysicalDeviceVn::Copy(PhysicalDeviceVnTable *table,
         ret = true;
     }
 
+    if (dev && (dev->name() != device_display_name_)) {
+        device_display_name_ = dev->name();
+        ret = true;
+    }
+
     VnEntry *vn = table->agent()->vn_table()->Find(vn_uuid_);
     if (vn != vn_.get()) {
         vn_.reset(vn);
