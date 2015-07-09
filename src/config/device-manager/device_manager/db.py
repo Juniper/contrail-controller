@@ -16,7 +16,10 @@ import socket
 import gevent
 from gevent import queue
 
-class BgpRouterDM(DBBase):
+class DBBaseDM(DBBase):
+    obj_type = __name__
+
+class BgpRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'bgp_router'
 
@@ -85,7 +88,7 @@ class BgpRouterDM(DBBase):
 # end class BgpRouterDM
 
 
-class PhysicalRouterDM(DBBase):
+class PhysicalRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_router'
     _sandesh = None
@@ -323,7 +326,7 @@ class PhysicalRouterDM(DBBase):
 
 # end PhysicalRouterDM
 
-class GlobalVRouterConfigDM(DBBase):
+class GlobalVRouterConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'global_vrouter_config'
     global_vxlan_id_mode = None
@@ -365,7 +368,7 @@ class GlobalVRouterConfigDM(DBBase):
     # end delete
 # end GlobalVRouterConfigDM
 
-class GlobalSystemConfigDM(DBBase):
+class GlobalSystemConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'global_system_config'
     global_asn = None
@@ -397,7 +400,7 @@ class GlobalSystemConfigDM(DBBase):
     # end delete
 # end GlobalSystemConfigDM
 
-class PhysicalInterfaceDM(DBBase):
+class PhysicalInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_interface'
 
@@ -430,7 +433,7 @@ class PhysicalInterfaceDM(DBBase):
 # end PhysicalInterfaceDM
 
 
-class LogicalInterfaceDM(DBBase):
+class LogicalInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'logical_interface'
 
@@ -476,7 +479,7 @@ class LogicalInterfaceDM(DBBase):
     # end delete
 # end LogicalInterfaceDM
 
-class FloatingIpDM(DBBase):
+class FloatingIpDM(DBBaseDM):
     _dict = {}
     obj_type = 'floating_ip'
 
@@ -513,7 +516,7 @@ class FloatingIpDM(DBBase):
 
 #end FloatingIpDM
 
-class InstanceIpDM(DBBase):
+class InstanceIpDM(DBBaseDM):
     _dict = {}
     obj_type = 'instance_ip'
 
@@ -542,7 +545,7 @@ class InstanceIpDM(DBBase):
 
 #end InstanceIpDM
 
-class VirtualMachineInterfaceDM(DBBase):
+class VirtualMachineInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
 
@@ -586,7 +589,7 @@ class VirtualMachineInterfaceDM(DBBase):
 # end VirtualMachineInterfaceDM
 
 
-class VirtualNetworkDM(DBBase):
+class VirtualNetworkDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_network'
 
@@ -687,7 +690,7 @@ class VirtualNetworkDM(DBBase):
 # end VirtualNetworkDM
 
 
-class RoutingInstanceDM(DBBase):
+class RoutingInstanceDM(DBBaseDM):
     _dict = {}
     obj_type = 'routing_instance'
 

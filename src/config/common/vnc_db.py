@@ -6,6 +6,8 @@
 This file contains implementation of database model for contrail config daemons
 """
 from vnc_api.common.exceptions import NoIdError
+from vnc_api.gen.resource_client import *
+from utils import obj_type_to_vnc_class
 
 class DBBase(object):
     # This is the base class for all DB objects. All derived objects must
@@ -170,9 +172,23 @@ class DBBase(object):
         if not ok:
             self._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
-            raise NoIdError('')
+            raise NoIdError(uuid)
         return objs[0]
     # end read_obj
+
+    def read_vnc_obj(self, uuid=None, fq_name=None, obj_type=None):
+        if uuid is None and fq_name is None:
+            raise NoIdError('')
+        obj_type = obj_type or self.obj_type
+        if uuid is None:
+            if isinstance(fq_name, str):
+                fq_name = fq_name.split(':')
+            uuid = self._cassandra.fq_name_to_uuid(obj_type, fq_name)
+        obj_dict = self.read_obj(uuid, obj_type)
+        cls = obj_type_to_vnc_class(obj_type, __name__)
+        obj = cls.from_dict(**obj_dict)
+        return obj
+    # end read_vnc_obj
 
     def get_parent_uuid(self, obj):
         if 'parent_uuid' in obj:
@@ -199,9 +215,11 @@ class DBBase(object):
     def reset(cls):
         cls._dict = {}
 
-    @staticmethod
-    def get_obj_type_map():
-        return dict((x.obj_type, x) for x in DBBase.__subclasses__())
+    @classmethod
+    def get_obj_type_map(cls):
+        module_base = [x for x in DBBase.__subclasses__()
+                       if cls.__module__ == x.obj_type]
+        return dict((x.obj_type, x) for x in module_base[0].__subclasses__())
 
 # end class DBBase
 
