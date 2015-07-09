@@ -1735,6 +1735,7 @@ void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
     PeerRibMembershipManager *mgr = server_->membership_mgr();
     mgr->FillPeerMembershipInfo(this, &nbr);
+    nbr.set_routing_instances(vector<BgpNeighborRoutingInstance>());
     nbr_list->push_back(nbr);
 }
 

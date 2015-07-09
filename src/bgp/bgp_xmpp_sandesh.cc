@@ -50,6 +50,8 @@ static void ShowXmppNeighborVisitor(
     resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
     resp.set_auth_type(connection->GetXmppAuthenticationType());
 
+    resp.set_configured_address_families(vector<string>());
+    resp.set_negotiated_address_families(vector<string>());
     PeerRibMembershipManager *mgr =
         bx_channel->Peer()->server()->membership_mgr();
     mgr->FillPeerMembershipInfo(bx_channel->Peer(), &resp);

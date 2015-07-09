@@ -950,6 +950,8 @@ public:
         size_t markers = 0;
         rit.set_pending_updates(table->GetPendingRiboutsCount(&markers));
         rit.set_markers(markers);
+        rit.set_listeners(table->GetListenerCount());
+        rit.set_walkers(table->walker_count());
         rit.prefixes = table->Size();
         rit.primary_paths = table->GetPrimaryPathCount();
         rit.secondary_paths = table->GetSecondaryPathCount();

@@ -234,7 +234,7 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
 }
 
 std::string ServiceChain::ToString() const {
-    return (std::string("ServiceChain" ) + service_chain_addr_.to_string());
+    return (std::string("ServiceChain " ) + service_chain_addr_.to_string());
 }
 
 bool ServiceChain::is_more_specific(BgpRoute *route,

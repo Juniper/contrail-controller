@@ -223,6 +223,8 @@ struct ShowRoutingInstanceTable {
     10: u64 walk_cancels;
     11: u64 pending_updates;
     12: u64 markers;
+    14: u64 listeners;
+    15: u64 walkers;
 }
 
 struct ShowRoutingInstance {
