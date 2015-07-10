@@ -410,7 +410,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
 
     //Move to l2 mode
     ModifyForwardingModeVn("vn1", 1, "l2");
-    client->WaitForIdle();
+    client->WaitForIdle(5);
     l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
     l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
     uc_rt = RouteGet(vrf_name, vm_ip, 32);
@@ -472,10 +472,10 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     CreateL2VmportEnv(input, 1);
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     EXPECT_TRUE(VmPortL2Active(input, 0));
     AddIPAM("vn1", ipam_info, 1);
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     VnEntry *vn = VnGet(1);
     EXPECT_TRUE(vn->GetVxLanId() == 1);
 
