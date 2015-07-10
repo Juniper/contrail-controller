@@ -378,11 +378,18 @@ private:
 
 class AgentMirrorSandesh : public AgentSandesh {
 public:
-    AgentMirrorSandesh(std::string context) : AgentSandesh(context, "") {}
+    AgentMirrorSandesh(const std::string &context, const std::string &analyzer_name);
+    ~AgentMirrorSandesh() { }
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
 
 private:
+    friend class MirrorEntryReq;
     DBTable *AgentGetTable();
     void Alloc();
+
+    //Filters
+    std::string analyzer_name_;
 };
 
 class AgentVrfAssignSandesh : public AgentSandesh {
