@@ -185,6 +185,7 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
                                                const DBRequestKey *key_start, 
                                                WalkFn walkerfn , 
                                                WalkCompleteFn walk_complete) {
+    if (table == NULL) return DBTableWalker::kInvalidWalkerId;
     table->incr_walk_request_count();
     tbb::mutex::scoped_lock lock(walkers_mutex_);
     size_t i = walker_map_.find_first();
