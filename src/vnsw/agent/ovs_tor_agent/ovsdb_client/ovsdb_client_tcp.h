@@ -118,6 +118,7 @@ public:
 
     // Used by Test Code to trigger events in specific order
     void set_connect_complete_cb(SessionEventCb cb);
+    void set_pre_connect_complete_cb(SessionEventCb cb);
 
     // API to shutdown the TCP server
     void shutdown();
@@ -136,6 +137,7 @@ private:
     Ip4Address tsn_ip_;
     bool shutdown_;
     SessionEventCb connect_complete_cb_;
+    SessionEventCb pre_connect_complete_cb_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };
