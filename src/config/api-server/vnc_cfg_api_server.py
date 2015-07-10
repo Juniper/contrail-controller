@@ -1923,8 +1923,8 @@ class VncApiServer(object):
             obj_class = self.get_resource_class(obj_type)
             obj_fields = list(obj_class.prop_fields) + \
                          list(obj_class.ref_fields)
-            if 'fields' in bottle.request.query:
-                obj_fields.extend(bottle.request.query.fields.split(','))
+            if req_fields:
+                obj_fields.extend(req_fields)
             (ok, result) = self._db_conn.dbe_read_multi(
                                 obj_type, obj_ids_list, obj_fields)
 
