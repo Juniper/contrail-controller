@@ -130,6 +130,7 @@ struct OvsdbLogicalSwitchEntry {
     3: string physical_switch;
     4: i64 vxlan_id;
     5: string tor_service_node;
+    6: optional string message;
 }
 
 response sandesh OvsdbLogicalSwitchResp {
