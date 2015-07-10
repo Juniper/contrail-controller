@@ -1209,21 +1209,6 @@ class VncApiServer(VncApiServerGen):
             sandesh=self._sandesh)
     # end config_log
 
-    def add_virtual_network_refs(self, vn_log, obj_dict):
-        # Reference to policies
-        if not 'network_policy_refs' in obj_dict:
-            return
-        pols = obj_dict['network_policy_refs']
-        vn_log.attached_policies = []
-        for pol_ref in pols:
-            pol_name = ":".join(pol_ref['to'])
-            maj_num = pol_ref['attr']['sequence']['major']
-            min_num = pol_ref['attr']['sequence']['minor']
-            vn_policy = VnPolicy(vnp_major=maj_num, vnp_minor=min_num,
-                                 vnp_name=pol_name)
-            vn_log.attached_policies.append(vn_policy)
-    # end add_virtual_network_refs
-
     def _set_api_audit_info(self, apiConfig):
         apiConfig.url = bottle.request.url
         apiConfig.remote_ip = bottle.request.headers.get('Host')
