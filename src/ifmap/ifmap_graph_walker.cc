@@ -83,7 +83,7 @@ void IFMapGraphWalker::JoinVertex(DBGraphVertex *vertex, const BitSet &bset) {
     IFMapNodeState *state = exporter_->NodeStateLocate(node);
     IFMAP_DEBUG(JoinVertex, vertex->ToString(), state->interest().ToString(),
                 bset.ToString());
-    state->InterestOr(bset);
+    exporter_->StateInterestOr(state, bset);
     node->table()->Change(node);
     // Mark all dependent links as potentially modified.
     for (IFMapNodeState::iterator iter = state->begin(); iter != state->end();
@@ -119,7 +119,7 @@ void IFMapGraphWalker::LinkAdd(IFMapNode *lnode, const BitSet &lhs,
 }
 
 void IFMapGraphWalker::LinkRemove(const BitSet &bset) {
-    link_delete_clients_.Set(bset);     // link_delete_clients_ | bset
+    OrLinkDeleteClients(bset);          // link_delete_clients_ | bset
     link_delete_walk_trigger_->Set();
 }
 
@@ -177,7 +177,7 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
         i = link_delete_clients_.find_next(i);
     }
     // Remove the subset of clients that we have finished processing.
-    link_delete_clients_.Reset(done_set);
+    ResetLinkDeleteClients(done_set);
     rm_mask_ |= done_set;
 
     LinkDeleteWalkBatchEnd();
@@ -189,6 +189,14 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
         walk_client_index_ = i;
         return false;
     }
+}
+
+void IFMapGraphWalker::OrLinkDeleteClients(const BitSet &bset) {
+    link_delete_clients_.Set(bset);     // link_delete_clients_ | bset
+}
+
+void IFMapGraphWalker::ResetLinkDeleteClients(const BitSet &bset) {
+    link_delete_clients_.Reset(bset);
 }
 
 void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
@@ -212,7 +220,7 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
         return;
     }
 
-    state->SetInterest(ninterest);
+    exporter_->StateInterestSet(state, ninterest);
     node->table()->Change(node);
 
     // Mark all dependent links as potentially modified.
@@ -233,6 +241,11 @@ void IFMapGraphWalker::LinkDeleteWalkBatchEnd() {
         CleanupInterest(vertex);
     }
     rm_mask_.clear();
+}
+
+const IFMapTypenameWhiteList &IFMapGraphWalker::get_traversal_white_list()
+        const {
+    return *traversal_white_list_.get();
 }
 
 // The nodes listed below and the nodes in 
