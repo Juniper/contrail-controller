@@ -216,7 +216,7 @@ class VncIfmapClient(VncIfmapClientGen):
                 self._publish_to_ifmap_dequeue()
             except Exception as e:
                 tb = utils.detailed_traceback()
-                self.config_log(tb, level=SandeshLevel.SYS_ERROR)
+                self.config_log(tb, level=SandeshLevel.SYS_ERR)
 
     def _publish_to_ifmap_dequeue(self):
         def _publish(requests, traces, publish_discovery=False):
