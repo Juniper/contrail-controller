@@ -1549,13 +1549,51 @@ void QueryEngine::QueryEngine_Test()
 std::map< std::string, int > trace_enable_map;
 void TraceEnable::HandleRequest() const
 {
-    if (get_enable())
-    {
-        std::string trace_type = get_TraceType();
-        trace_enable_map.insert(std::make_pair(trace_type, 0));
+    TraceEnableRes *resp = new TraceEnableRes;
+    std::string status;
+    std::string trace_type = get_TraceType();
+    if (trace_type == WHERE_RESULT_TRACE || trace_type == SELECT_RESULT_TRACE ||
+        trace_type == POSTPROCESS_RESULT_TRACE) {
+        if (get_enable())
+        {
+            trace_enable_map.insert(std::make_pair(trace_type, 1));
+            status = "Trace buffer Enabled";
+        } else {
+            trace_enable_map.erase(trace_type);
+            status = "Trace buffer Disabled";
+        }
     } else {
-        trace_enable_map.erase(get_TraceType());
+        status = "Invalid Trace buffer";
     }
+    resp->set_enable_disable_status(status);
+    resp->set_TraceType(trace_type);
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
+void TraceStatusReq::HandleRequest() const {
+    std::vector<std::string> trace_buf_list;
+    trace_buf_list.push_back(WHERE_RESULT_TRACE);
+    trace_buf_list.push_back(SELECT_RESULT_TRACE);
+    trace_buf_list.push_back(POSTPROCESS_RESULT_TRACE);
+    std::vector<TraceStatusInfo> trace_status_list;
+    for (std::vector<std::string>::const_iterator it = trace_buf_list.begin();
+         it != trace_buf_list.end(); ++it) {
+        TraceStatusInfo trace_status;
+        trace_status.set_TraceType(*it);
+        if (IS_TRACE_ENABLED(*it)) {
+            trace_status.set_enable_disable("Enabled");
+        } else {
+            trace_status.set_enable_disable("Disabled");
+        }
+        trace_status_list.push_back(trace_status);
+    }
+    TraceStatusRes *resp = new TraceStatusRes;
+    resp->set_trace_status_list(trace_status_list);
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
 }
 
 std::ostream& operator<<(std::ostream& out, const flow_tuple& ft) {
