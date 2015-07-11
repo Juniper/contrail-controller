@@ -19,6 +19,7 @@ local_sources = [
                  'analytics_systest.py',
                  'analytics_statstest.py',
                  'analytics_db_test.py',
+                 'analytics_db_test_password.py',
                  'overlay_to_underlay_mapper_test.py',
                  'alarm_test.py',
                  ]

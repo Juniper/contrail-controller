@@ -28,10 +28,11 @@ class DiscoveryCassandraClient(object):
     # end get_db_info
 
     def __init__(self, module, cass_srv_list, reset_config=False,
-                 max_retries=5, timeout=5):
+                 max_retries=5, timeout=5, cass_credential=None):
         self._disco_cf_name = 'discovery'
         self._keyspace_name = 'DISCOVERY_SERVER'
         self._reset_config = reset_config
+        self._credential = cass_credential
         self._cassandra_init(cass_srv_list, max_retries, timeout)
 
         self._debug = {
@@ -53,7 +54,8 @@ class DiscoveryCassandraClient(object):
                                       server_list, max_overflow=-1,
                                       use_threadlocal=True, prefill=True,
                                       pool_size=100, pool_timeout=120,
-                                      max_retries=max_retries, timeout=timeout)
+                                      max_retries=max_retries, timeout=timeout,
+                                      credentials=self._credential)
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
         self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name,
@@ -70,7 +72,7 @@ class DiscoveryCassandraClient(object):
         while not connected:
             try:
                 cass_server = server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
+                sys_mgr = SystemManager(cass_server,credentials=self._credential)
                 connected = True
             except Exception as e:
                 # TODO do only for thrift.transport.TTransport.TTransportException
