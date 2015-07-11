@@ -26,6 +26,7 @@ from collections import OrderedDict
 import sys
 import cgitb
 import cStringIO
+import logging
 
 def detailed_traceback():
     buf = cStringIO.StringIO()
@@ -107,4 +108,17 @@ def CamelCase(input):
     for w in words:
         name += w.capitalize()
     return name
-#end CamelCase
+# end CamelCase
+
+def str_to_class(class_name, module_name):
+    try:
+        return reduce(getattr, class_name.split("."), sys.modules[module_name])
+    except Exception as e:
+        logger = logging.getLogger(module_name)
+        logger.warn("Exception: %s", str(e))
+        return None
+# end str_to_class
+
+def obj_type_to_vnc_class(obj_type, module_name):
+    return str_to_class(CamelCase(obj_type), module_name)
+# end obj_type_to_vnc_class
