@@ -715,7 +715,8 @@ class VncServerCassandraClient(VncCassandraClient):
         return db_info
     # end get_db_info
 
-    def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix):
+    def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
+                      cassandra_credential):
         self._db_client_mgr = db_client_mgr
         keyspaces = {
             self._USERAGENT_KEYSPACE_NAME: [(self._USERAGENT_KV_CF_NAME, None)]
@@ -728,7 +729,7 @@ class VncServerCassandraClient(VncCassandraClient):
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, self.config_log,
             generate_url=db_client_mgr.generate_url,
-            reset_config=reset_config)
+            reset_config=reset_config,credential=cassandra_credential)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
@@ -1285,7 +1286,7 @@ class VncDbClient(object):
                  passwd, cass_srv_list,
                  rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
                  rabbit_vhost, rabbit_ha_mode, reset_config=False,
-                 zk_server_ip=None, db_prefix=''):
+                 zk_server_ip=None, db_prefix='', cassandra_credential=None):
 
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
@@ -1336,7 +1337,7 @@ class VncDbClient(object):
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         self._cassandra_db = VncServerCassandraClient(
-            self, cass_srv_list, reset_config, db_prefix)
+            self, cass_srv_list, reset_config, db_prefix, cassandra_credential)
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)

@@ -29,12 +29,16 @@ public:
         }
         return collector_protobuf_port_configured_;
     }
-    const std::string config_file() const { return config_file_; };
+    const std::vector<std::string> config_file() const {
+        return config_file_;
+    }
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
     const std::string redis_server() const { return redis_server_; }
     const uint16_t redis_port() const { return redis_port_; }
     const std::string redis_password() const { return redis_password_; }
+    const std::string cassandra_user() const { return cassandra_user_; }
+    const std::string cassandra_password() const { return cassandra_password_; }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -88,12 +92,14 @@ private:
     uint16_t collector_port_;
     uint16_t collector_protobuf_port_;
     bool collector_protobuf_port_configured_;
-    std::string config_file_;
+    std::vector<std::string> config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
     std::string redis_server_;
     uint16_t redis_port_;
     std::string redis_password_;
+    std::string cassandra_user_;
+    std::string cassandra_password_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
