@@ -11,6 +11,7 @@
 #include "vgw/cfg_vgw.h"
 #include "vgw/vgw.h"
 #include "oper/mpls.h"
+#include "pkt/test/test_flow_util.h"
 
 namespace opt = boost::program_options;
 
@@ -20,6 +21,7 @@ void RouterIdDepInit(Agent *agent) {
 class VgwTest : public ::testing::Test {
 public:
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
     }
 
     virtual void TearDown() {
@@ -27,6 +29,7 @@ public:
 
     opt::options_description desc;
     opt::variables_map var_map;
+    Agent *agent_;
 };
 
 TEST_F(VgwTest, conf_file_1) {
@@ -246,6 +249,130 @@ TEST_F(VgwTest, RouteResync) {
                      Ip4Address::from_string("0.0.0.0"), 0);
     EXPECT_TRUE(route != NULL);
     ValidateVgwInterface(route, "vgw");
+}
+
+void AddVmPort() {
+    struct PortInfo input[] = {
+        {"vnet2", 2, "2.2.2.3", "00:00:02:02:02:03", 2, 2}
+    };
+
+    AddVn("default-domain:admin:public", 2, true);
+    AddVrf("default-domain:admin:public:public");
+    AddVm("vm2", 2);
+    AddPort("vnet2", 2);
+    AddVmPortVrf("vnet2", "", 0);
+    IntfCfgAdd(input, 0);
+    AddInstanceIp("instance-ip-2", 2, "2.2.2.3");
+    AddLink("virtual-machine-interface", "vnet2",
+            "virtual-network", "default-domain:admin:public");
+    AddLink("virtual-network", "default-domain:admin:public",
+            "routing-instance", "default-domain:admin:public:public");
+    AddLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
+    AddLink("virtual-machine-interface-routing-instance", "vnet2",
+            "routing-instance", "default-domain:admin:public:public");
+    AddLink("virtual-machine-interface-routing-instance", "vnet2",
+            "virtual-machine-interface", "vnet2");
+    AddLink("virtual-machine-interface", "vnet2",
+            "instance-ip", "instance-ip-2");
+    client->WaitForIdle();
+}
+
+void DelVmPort() {
+    struct PortInfo input[] = {
+        {"vnet2", 2, "2.2.2.3", "00:00:02:02:02:03", 2, 2}
+    };
+
+    DelLink("virtual-machine-interface", "vnet2",
+            "virtual-network", "default-domain:admin:public");
+    DelLink("virtual-network", "default-domain:admin:public",
+            "routing-instance", "default-domain:admin:public:public");
+    DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
+    DelLink("virtual-machine-interface-routing-instance", "vnet2",
+            "routing-instance", "default-domain:admin:public:public");
+    DelLink("virtual-machine-interface-routing-instance", "vnet2",
+            "virtual-machine-interface", "vnet2");
+    DelLink("virtual-machine-interface", "vnet2",
+            "instance-ip", "instance-ip-2");
+    DelVn("default-domain:admin:public");
+    DelVrf("default-domain:admin:public:public");
+    DelVm("vm2");
+    DelPort("vnet2");
+    DelVmPortVrf("vnet2");
+    DelInstanceIp("instance-ip-2");
+    IntfCfgDel(input, 0);
+    DelNode("virtual-machine-interface", "vnet2");
+    DelNode("virtual-machine-interface-routing-instance", "vnet2");
+    client->WaitForIdle();
+}
+
+TEST_F(VgwTest, IngressFlow_1) {
+    AddVmPort();
+    WAIT_FOR(1000, 100, (VmPortFind(2) == true));
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vmi != NULL);
+
+    const InetInterface *gw = InetInterfaceGet("vgw");
+    EXPECT_TRUE(gw != NULL);
+    if (gw == NULL)
+        return;
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, "2.2.2.2", "100.100.100.100", 1, 0, 0,
+                        "default-domain:admin:public:public", vmi->id()),
+        },
+    };
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(vmi->vrf_id(), "2.2.2.2", "100.100.100.100",
+                              1, 0, 0, vmi->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (agent_->pkt()->flow_table()->Size() == 0));
+
+    DelVmPort();
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(2));
+    WAIT_FOR(1000, 100, (VmPortFind(2) == false));
+}
+
+TEST_F(VgwTest, EgressFlow_1) {
+    AddVmPort();
+    WAIT_FOR(1000, 100, (VmPortFind(2) == true));
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vmi != NULL);
+
+    const InetInterface *gw = InetInterfaceGet("vgw");
+    EXPECT_TRUE(gw != NULL);
+    if (gw == NULL)
+        return;
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, "100.100.100.100", "2.2.2.2", 1, 0, 0,
+                        "default-domain:admin:public:public", "20.20.20.20",
+                        gw->label()),
+        },
+    };
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    MplsLabel *label = GetActiveLabel(MplsLabel::VPORT_NH, gw->label());
+    FlowEntry *fe = FlowGet(vmi->vrf_id(), "100.100.100.100", "2.2.2.2",
+                              1, 0, 0, label->nexthop()->id());
+    EXPECT_TRUE(fe != NULL);
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (agent_->pkt()->flow_table()->Size() == 0));
+
+    DelVmPort();
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(2));
+    WAIT_FOR(1000, 100, (VmPortFind(2) == false));
 }
 
 int main(int argc, char **argv) {
