@@ -160,6 +160,18 @@ static const NextHop* GetPolicyDisabledNH(NextHopTable *nh_table,
     return static_cast<const NextHop *>(nh_table->FindActiveEntry(key.get()));
 }
 
+static bool IsVgwOrVmInterface(const Interface *intf) {
+    if (intf->type() == Interface::VM_INTERFACE)
+        return true;
+
+    if (intf->type() == Interface::INET) {
+        const InetInterface *inet = static_cast<const InetInterface *>(intf);
+        if (inet->sub_type() == InetInterface::SIMPLE_GATEWAY)
+            return true;
+    }
+    return false;
+}
+
 // Get interface from a NH. Also, decode ECMP information from NH
 // Responsible to set following fields,
 // out->nh_ : outgoing Nexthop Index. Will also be used to set reverse flow-key
@@ -345,8 +357,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         if (!out->intf_->IsActive()) {
             out->intf_ = NULL;
             ret = false;
-        } else if (force_vmport &&
-                   out->intf_->type() != Interface::VM_INTERFACE) {
+        } else if (force_vmport && IsVgwOrVmInterface(out->intf_) == false) {
             out->intf_ = NULL;
             out->vrf_ = NULL;
             ret = true;
@@ -1126,6 +1137,11 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
             l3_flow = true;
         }
     }
+
+    if (out->vrf_ == NULL) {
+        return;
+    }
+
     UpdateRoute(&out->rt_, out->vrf_, pkt->ip_daddr, pkt->dmac,
                 flow_dest_plen_map);
     UpdateRoute(&in->rt_, out->vrf_, pkt->ip_saddr, pkt->smac,
