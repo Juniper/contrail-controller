@@ -123,5 +123,5 @@ void TestAgentInit::FlowStatsCollectorShutdown() {
 }
 
 void TestAgentInit::WaitForIdle() {
-    task_util::WaitForIdle();
+    task_util::WaitForIdle(3);
 }

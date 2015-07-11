@@ -240,6 +240,8 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     EXPECT_EQ(1U, vnut->delete_count());
 
     //other cleanup
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -255,6 +257,8 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     client->WaitForIdle();
     IntfCfgDel(input, 0);
     client->WaitForIdle();
+    WAIT_FOR(1000, 5000, (VrfFind("vrf1") == false));
+    WAIT_FOR(1000, 5000, (vnut->GetVnUveEntry("vn1") == NULL));
 
     //clear counters at the end of test case
     client->Reset();
