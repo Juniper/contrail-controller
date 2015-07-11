@@ -58,7 +58,8 @@ class Query(object):
 class Collector(object):
     def __init__(self, analytics_fixture, redis_uve, 
                  logger, ipfix_port = False, syslog_port = False,
-                 protobuf_port = False, kafka = None, is_dup=False):
+                 protobuf_port = False, kafka = None, is_dup=False,
+                 cassandra_user= None, cassandra_password= None):
         self.analytics_fixture = analytics_fixture
         self.syslog_port = syslog_port
         if kafka is None:
@@ -91,6 +92,8 @@ class Collector(object):
             self.hostname = self.hostname+'dup'
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
                             ':'+ModuleNames[Module.COLLECTOR]+':0'
+        self.cassandra_user = analytics_fixture.cassandra_user
+        self.cassandra_password = analytics_fixture.cassandra_password
     # end __init__
 
     def get_addr(self):
@@ -146,6 +149,12 @@ class Collector(object):
             self.protobuf_port = AnalyticsFixture.get_free_port()
             args.append('--COLLECTOR.protobuf_port')
             args.append(str(self.protobuf_port))
+        if self.cassandra_user is not None and \
+           self.cassandra_password is not None:
+               args.append('--CASSANDRA.cassandra_user')
+               args.append(self.cassandra_user)
+               args.append('--CASSANDRA.cassandra_password')
+               args.append(self.cassandra_password)
         else:
             self.protobuf_port = None
         if self.kafka_port:
@@ -323,6 +332,12 @@ class OpServer(object):
         if self._is_dup:
             args.append('--dup')
 
+        if self.analytics_fixture.cassandra_user is not None:
+            args.append('--cassandra_user')
+            args.append(self.analytics_fixture.cassandra_user)
+        if self.analytics_fixture.cassandra_password is not None:
+            args.append('--cassandra_password')
+            args.append(self.analytics_fixture.cassandra_password)
         self._logger.info('Setting up OpServer: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -366,7 +381,9 @@ class QueryEngine(object):
         self.hostname = socket.gethostname()
         self._instance = None
         self._logger = logger
-        self.redis_password = None 
+        self.redis_password = None
+        self.cassandra_user = self.analytics_fixture.cassandra_user
+        self.cassandra_password = self.analytics_fixture.cassandra_password
         if self.analytics_fixture.redis_uves[0].password:
            self.redis_password = str(self.analytics_fixture.redis_uves[0].password) 
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
@@ -405,6 +422,10 @@ class QueryEngine(object):
             args.append(self.secondary_collector)
         if analytics_start_time is not None:
             args += ['--DEFAULT.start_time', str(analytics_start_time)]
+        if self.cassandra_user is not None:
+            args += ['--CASSANDRA.cassandra_user', self.cassandra_user]
+        if self.cassandra_password is not None:
+            args += ['--CASSANDRA.cassandra_password', self.cassandra_password]
         self._logger.info('Setting up contrail-query-engine: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -494,7 +515,8 @@ class AnalyticsFixture(fixtures.Fixture):
     def __init__(self, logger, builddir, redis_port, cassandra_port,
                  ipfix_port = False, syslog_port = False, protobuf_port = False,
                  noqed=False, collector_ha_test=False, redis_password=None,
-                 kafka_zk=0):
+                 kafka_zk=0,
+                 cassandra_user=None, cassandra_password=None):
 
         self.builddir = builddir
         self.redis_port = redis_port
@@ -511,6 +533,8 @@ class AnalyticsFixture(fixtures.Fixture):
         self.opserver = None
         self.query_engine = None
         self.alarmgen = None
+        self.cassandra_user = cassandra_user
+        self.cassandra_password = cassandra_password
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
@@ -1920,7 +1944,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return res
     # end verify_collector_object_log
 
-    @retry(delay=1, tries=5)
+    @retry(delay=2, tries=5)
     def verify_collector_object_log_before_purge(self, start_time, end_time):
         self.logger.info('verify_collector_object_log_before_purge')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);

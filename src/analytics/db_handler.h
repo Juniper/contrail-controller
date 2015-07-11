@@ -92,7 +92,9 @@ public:
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        std::string name, const TtlMap& ttl_map);
+        std::string name, const TtlMap& ttl_map,
+        const std::string& cassandra_user,
+        const std::string& cassandra_password);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -211,7 +213,9 @@ class DbHandlerInitializer {
         const std::string &timer_task_name, InitializeDoneCb callback,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        const DbHandler::TtlMap& ttl_map);
+        const DbHandler::TtlMap& ttl_map,
+        const std::string& cassandra_user,
+        const std::string& cassandra_password);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,

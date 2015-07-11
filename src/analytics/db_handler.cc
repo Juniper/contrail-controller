@@ -52,7 +52,9 @@ DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        std::string name, const TtlMap& ttl_map) :
+        std::string name, const TtlMap& ttl_map,
+        const std::string& cassandra_user,
+        const std::string& cassandra_password) :
     name_(name),
     drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
         int analytics_ttl = DbHandler::GetTtlFromMap(ttl_map, DbHandler::GLOBAL_TTL);
@@ -61,7 +63,8 @@ DbHandler::DbHandler(EventManager *evm,
             analytics_ttl = 0;
         }
         dbif_.reset(GenDb::GenDbIf::GenDbIfImpl(err_handler,
-          cassandra_ips, cassandra_ports, analytics_ttl, name, false));
+          cassandra_ips, cassandra_ports, analytics_ttl, name, false,
+          cassandra_user, cassandra_password));
 
         error_code error;
         col_name_ = boost::asio::ip::host_name(error);
@@ -1316,12 +1319,14 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &timer_task_name,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
-    const std::vector<int> &cassandra_ports, const DbHandler::TtlMap& ttl_map) :
+    const std::vector<int> &cassandra_ports, const DbHandler::TtlMap& ttl_map,
+    const std::string& cassandra_user, const std::string& cassandra_password) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
-        cassandra_ips, cassandra_ports, db_name, ttl_map)),
+        cassandra_ips, cassandra_ports, db_name, ttl_map,
+        cassandra_user, cassandra_password)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",

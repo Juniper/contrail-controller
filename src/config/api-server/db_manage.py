@@ -47,9 +47,15 @@ class DatabaseChecker(object):
         db_info = vnc_cfg_ifmap.VncServerCassandraClient.get_db_info()
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         self._cf_dict = {}
+        cred = None
+        if self._args.cassandra_user is not None and \
+           self._args.cassandra_password is not None:
+               cred={'username':self._args.cassandra_user,
+                     'password':self._args.cassandra_password}
         for ks_name, cf_name_list in db_info:
             pool = pycassa.ConnectionPool(keyspace=ks_name,
-                       server_list=self._cassandra_servers, prefill=False)
+                       server_list=self._cassandra_servers, prefill=False,
+                       credentials=cred)
             for cf_name in cf_name_list:
                 self._cf_dict[cf_name] = pycassa.ColumnFamily(pool, cf_name,
                                          read_consistency_level=rd_consistency)
@@ -166,8 +172,13 @@ class DatabaseChecker(object):
         ret_ok = True
         ret_msg = ''
         logger = self._logger
+        cred = None
+        if self._args.cassandra_user is not None and \
+           self._args.cassandra_password is not None:
+               cred={'username':self._args.cassandra_user,
+                     'password':self._args.cassandra_password}
         for server in self._cassandra_servers:
-            sys_mgr = pycassa.SystemManager(server)
+            sys_mgr = pycassa.SystemManager(server,credentials=cred)
             db_info = vnc_cfg_ifmap.VncCassandraClient.get_db_info() + \
                       SchemaTransformerDB.get_db_info() + \
                       disc_cassdb.DiscoveryCassandraClient.get_db_info()

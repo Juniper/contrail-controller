@@ -34,6 +34,7 @@ protected:
         host_ip_ = GetHostIp(evm_.io_service(), hostname_);
         default_cassandra_server_list_.push_back("127.0.0.1:9160");
         default_collector_server_list_.push_back("127.0.0.1:8086");
+        default_conf_files_.push_back("/etc/contrail/contrail-query-engine.conf");
     }
 
     virtual void TearDown() {
@@ -45,6 +46,7 @@ protected:
     std::string host_ip_;
     vector<string> default_cassandra_server_list_;
     vector<string> default_collector_server_list_;
+    vector<string> default_conf_files_;
     Options options_;
 };
 
@@ -56,13 +58,17 @@ TEST_F(OptionsTest, NoArguments) {
 
     options_.Parse(evm_, argc, argv);
 
+    vector<string> expected_conf_files_;
+    expected_conf_files_.push_back("/etc/contrail/contrail-query-engine.conf");
+
     TASK_UTIL_EXPECT_VECTOR_EQ(default_cassandra_server_list_,
                      options_.cassandra_server_list());
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-query-engine.conf");
+    TASK_UTIL_EXPECT_VECTOR_EQ(expected_conf_files_,
+                     options_.config_file());
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -91,6 +97,9 @@ TEST_F(OptionsTest, DefaultConfFile) {
     argv[1] = argv_1;
 
     options_.Parse(evm_, argc, argv);
+    vector<string> passed_conf_files;
+    passed_conf_files.push_back("controller/src/query_engine/contrail-query-engine.conf");
+
 
     TASK_UTIL_EXPECT_VECTOR_EQ(default_cassandra_server_list_,
                      options_.cassandra_server_list());
@@ -98,8 +107,8 @@ TEST_F(OptionsTest, DefaultConfFile) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
-    EXPECT_EQ(options_.config_file(),
-              "controller/src/query_engine/contrail-query-engine.conf");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
+                               passed_conf_files);
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -130,6 +139,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     argv[2] = argv_2;
 
     options_.Parse(evm_, argc, argv);
+    vector<string> passed_conf_files;
+    passed_conf_files.push_back("controller/src/query_engine/contrail-query-engine.conf");
 
     TASK_UTIL_EXPECT_VECTOR_EQ(default_cassandra_server_list_,
                      options_.cassandra_server_list());
@@ -137,8 +148,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
-    EXPECT_EQ(options_.config_file(),
-              "controller/src/query_engine/contrail-query-engine.conf");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
+                               passed_conf_files);
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -169,6 +180,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     argv[2] = argv_2;
 
     options_.Parse(evm_, argc, argv);
+    vector<string> passed_conf_files;
+    passed_conf_files.push_back("controller/src/query_engine/contrail-query-engine.conf");
 
     TASK_UTIL_EXPECT_VECTOR_EQ(default_cassandra_server_list_,
                      options_.cassandra_server_list());
@@ -176,8 +189,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
-    EXPECT_EQ(options_.config_file(),
-              "controller/src/query_engine/contrail-query-engine.conf");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
+                               passed_conf_files);
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -235,14 +248,29 @@ TEST_F(OptionsTest, CustomConfigFile) {
     config_file << config;
     config_file.close();
 
-    int argc = 2;
+    string cassandra_config = ""
+        "[CASSANDRA]\n"
+        "cassandra_user=cassandra1\n"
+        "cassandra_password=cassandra1\n";
+
+    config_file.open("./options_test_cassandra_config_file.conf");
+    config_file << cassandra_config;
+    config_file.close();
+
+    int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_query_engine.conf";
+    char argv_2[] = "--conf_file=./options_test_cassandra_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
+    argv[2] = argv_2;
 
     options_.Parse(evm_, argc, argv);
+
+    vector<string> input_conf_files;
+    input_conf_files.push_back("./options_test_query_engine.conf");
+    input_conf_files.push_back("./options_test_cassandra_config_file.conf");
 
     vector<string> cassandra_server_list;
     cassandra_server_list.push_back("10.10.10.1:100");
@@ -260,8 +288,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
 
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
-    EXPECT_EQ(options_.config_file(),
-              "./options_test_query_engine.conf");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
+                               input_conf_files);
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -279,6 +307,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.max_tasks(), 200);
     EXPECT_EQ(options_.max_slice(), 500);
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.cassandra_user(), "cassandra1");
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -320,7 +349,16 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 15;
+    string cassandra_config = ""
+        "[CASSANDRA]\n"
+        "cassandra_user=cassandra1\n"
+        "cassandra_password=cassandra1\n";
+
+    config_file.open("./options_test_cassandra_config_file.conf");
+    config_file << cassandra_config;
+    config_file.close();
+
+    int argc = 18;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_query_engine.conf";
@@ -336,6 +374,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_11[] = "--DEFAULT.collectors=11.10.10.1:100";
     char argv_12[] = "--DEFAULT.collectors=21.20.20.2:200";
     char argv_13[] = "--DEFAULT.collectors=31.30.30.3:300";
+    char argv_14[] = "--CASSANDRA.cassandra_user=cassandra";
+    char argv_15[] = "--CASSANDRA.cassandra_password=cassandra";
+    char argv_16[] = "--conf_file=./options_test_cassandra_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -350,6 +391,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[11] = argv_11;
     argv[12] = argv_12;
     argv[14] = argv_13;
+    argv[15] = argv_14;
+    argv[16] = argv_15;
+    argv[17] = argv_16;
 
     options_.Parse(evm_, argc, argv);
 
@@ -369,8 +413,13 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
 
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
-    EXPECT_EQ(options_.config_file(),
-              "./options_test_query_engine.conf");
+    vector<string> input_conf_files;
+    input_conf_files.push_back("./options_test_query_engine.conf");
+    input_conf_files.push_back("./options_test_cassandra_config_file.conf");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
+                               input_conf_files);
+    EXPECT_EQ(options_.cassandra_user(),"cassandra");
+    EXPECT_EQ(options_.cassandra_password(),"cassandra");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -388,17 +437,21 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 900);
     EXPECT_EQ(options_.max_slice(), 800);
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.cassandra_user(),"cassandra");
 }
 
 TEST_F(OptionsTest, MultitokenVector) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--DEFAULT.collectors=10.10.10.1:100 20.20.20.2:200";
     char argv_2[] = "--DEFAULT.cassandra_server_list=30.30.30.3:300";
+    char argv_3[] = "--conf_file=controller/src/analytics/contrail-collector.conf"
+                    " controller/src/analytics/contrail-database.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
 

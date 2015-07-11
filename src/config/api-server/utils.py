@@ -81,6 +81,12 @@ def parse_args(args_str):
         'admin_tenant_name': '',
         'insecure': True
     }
+    # cassandra options
+    cassandraopts = {
+        'cassandra_user'     : None,
+        'cassandra_password' : None
+    }
+
 
     config = None
     if args.conf_file:
@@ -106,6 +112,8 @@ def parse_args(args_str):
         if 'default_encoding' in config.options('DEFAULTS'):
             default_encoding = config.get('DEFAULTS', 'default_encoding')
             gen.resource_xsd.ExternalEncoding = default_encoding
+        if 'CASSANDRA' in config.sections():
+                cassandraopts.update(dict(config.items('CASSANDRA')))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -119,6 +127,7 @@ def parse_args(args_str):
     )
     defaults.update(secopts)
     defaults.update(ksopts)
+    defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -244,6 +253,10 @@ def parse_args(args_str):
     parser.add_argument(
         "--max_requests", type=int,
         help="Maximum number of concurrent requests served by api server")
+    parser.add_argument("--cassandra_user",
+            help="Cassandra user name")
+    parser.add_argument("--cassandra_password",
+            help="Cassandra password")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:

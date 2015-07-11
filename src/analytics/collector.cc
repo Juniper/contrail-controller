@@ -81,7 +81,9 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
         std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, const DbHandler::TtlMap& ttl_map) :
+        std::vector<int> cassandra_ports, const DbHandler::TtlMap& ttl_map,
+        const std::string &cassandra_user,
+        const std::string &cassandra_password) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -91,6 +93,8 @@ Collector::Collector(EventManager *evm, short server_port,
         cassandra_ports_(cassandra_ports),
         ttl_map_(ttl_map),
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
+        cassandra_user_(cassandra_user),
+        cassandra_password_(cassandra_password),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
 
@@ -340,7 +344,8 @@ void Collector::TestDatabaseConnection() {
     // try to instantiate a new dbif instance for testing db connection
     testdbif_.reset( GenDb::GenDbIf::GenDbIfImpl(
         boost::bind(&Collector::TestDbConnErrHandler, this),
-        cassandra_ips_, cassandra_ports_, 3600, db_handler_->GetName(), true));
+        cassandra_ips_, cassandra_ports_, 3600, db_handler_->GetName(), true,
+        cassandra_user_, cassandra_password_));
 
     if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_)) {
         if (dbConnStatus_ != ConnectionStatus::DOWN) {

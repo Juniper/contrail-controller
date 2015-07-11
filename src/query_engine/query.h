@@ -729,7 +729,8 @@ public:
             std::string>& json_api_data, uint64_t analytics_start_time,
             EventManager *evm, std::vector<std::string> cassandra_ips, 
             std::vector<int> cassandra_ports, int batch,
-            int total_batches);
+            int total_batches, const std::string& cassandra_user,
+            const std::string &cassandra_password);
     AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif, 
             std::map<std::string, std::string> json_api_data,
             uint64_t analytics_start_time, int batch, int total_batches);
@@ -889,12 +890,16 @@ public:
             const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password,
             int max_tasks, int max_slice, uint64_t anal_ttl,
+            const std::string & cassandra_name,
+            const std::string & cassandra_password,
             uint64_t start_time=0);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password, int max_tasks,
-            int max_slice, uint64_t anal_ttl);
+            int max_slice, uint64_t anal_ttl,
+            const std::string  & cassandra_user,
+            const std::string  & cassandra_password);
     
     int
     QueryPrepare(QueryParams qp,
@@ -932,7 +937,8 @@ private:
     EventManager *evm_;
     std::vector<int> cassandra_ports_;
     std::vector<std::string> cassandra_ips_;
-    
+    std::string cassandra_user_;
+    std::string cassandra_password_;
 };
 
 #endif

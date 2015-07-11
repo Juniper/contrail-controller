@@ -17,6 +17,10 @@ import subprocess
 import logging
 import socket
 import platform
+import time
+import pycassa
+from pycassa.pool import ConnectionPool
+
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
@@ -24,7 +28,7 @@ cassandra_version = '1.2.11'
 cassandra_bdir = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
 cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
-def start_cassandra(cport, sport_arg=None):
+def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_password = None):
     '''
     Client uses this function to start an instance of Cassandra
     Arguments:
@@ -83,6 +87,11 @@ def start_cassandra(cport, sport_arg=None):
         ("/var/lib/cassandra/commitlog",  cassbase + "commitlog"), \
         ("/var/lib/cassandra/saved_caches",  cassbase + "saved_caches")])
 
+    if cassandra_user is not None:
+        logging.info('Cassandra setting password')
+        replace_string_(confdir + "cassandra.yaml", \
+            [("authenticator: AllowAllAuthenticator",  "authenticator: PasswordAuthenticator")])
+
     replace_string_(confdir + "log4j-server.properties", \
        [("/var/log/cassandra/system.log", cassbase + "system.log"),
         ("INFO","DEBUG")])
@@ -103,6 +112,7 @@ def start_cassandra(cport, sport_arg=None):
 
 
     output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
+    assert(verify_cassandra(cport, cassandra_user, cassandra_password))
 
     return cassbase, basefile
 
@@ -135,6 +145,24 @@ def replace_string_(filePath, findreplace):
     output.close()
     input.close()
     os.rename(tempName,filePath)
+
+def verify_cassandra(cport, cassandra_user, cassandra_password):
+    retry_threshold = 10
+    retry = 1
+    while retry < retry_threshold:
+         try:
+             if cassandra_user is None:
+                 pool = ConnectionPool(None,['localhost:'+str(cport)])
+             else:
+                 cred={'username':cassandra_user,'password':cassandra_password}
+                 pool = ConnectionPool(None, ['localhost:'+str(cport)], credentials=cred)
+             return True
+         except Exception as e:
+             logging.info("Exception: Failure in connection to "
+                "AnalyticsDb %s" % e)
+             retry = retry +1
+             time.sleep(5)
+    return False
 
 def call_command_(command):
 

@@ -12,9 +12,11 @@ using namespace GenDb;
 GenDbIf *GenDbIf::GenDbIfImpl(GenDbIf::DbErrorHandler hdlr,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        int analytics_ttl, std::string name, bool only_sync) {
+        int analytics_ttl, std::string name, bool only_sync,
+        const std::string& cassandra_user,
+        const std::string& cassandra_password ) {
     return (new CdbIf(hdlr, cassandra_ips, cassandra_ports, analytics_ttl,
-        name, only_sync));
+        name, only_sync, cassandra_user, cassandra_password));
 }
 
 size_t NewCol::GetSize() const {

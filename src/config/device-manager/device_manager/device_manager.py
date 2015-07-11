@@ -174,10 +174,15 @@ class DeviceManager(object):
                                          self.config_log)
 
         cass_server_list = self._args.cassandra_server_list
+        cred = None
+        if self._args.cassandra_user is not None and \
+           self._args.cassandra_password is not None:
+            cred={'username':self._args.cassandra_user,
+                  'password':self._args.cassandra_password}
         self._cassandra = VncCassandraClient(cass_server_list,
                                              self._args.cluster_id,
                                              None,
-                                             self.config_log)
+                                             self.config_log,credential=cred)
 
         DBBaseDM.init(self, self._sandesh.logger(), self._cassandra)
         ok, global_system_config_list = self._cassandra._cassandra_global_system_config_list()
@@ -426,7 +431,11 @@ def parse_args(args_str):
     ksopts = {
         'admin_user': 'user1',
         'admin_password': 'password1',
-        'admin_tenant_name': 'default-domain'
+        'admin_tenant_name': 'default-domain',
+    }
+    cassandraopts = {
+        'cassandra_user'     : None,
+        'cassandra_password' : None
     }
 
     if args.conf_file:
@@ -439,6 +448,9 @@ def parse_args(args_str):
                 secopts.update(dict(config.items("SECURITY")))
         if 'KEYSTONE' in config.sections():
             ksopts.update(dict(config.items("KEYSTONE")))
+        if 'CASSANDRA' in config.sections():
+            cassandraopts.update(dict(config.items('CASSANDRA')))
+
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -452,6 +464,7 @@ def parse_args(args_str):
     )
     defaults.update(secopts)
     defaults.update(ksopts)
+    defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -498,6 +511,10 @@ def parse_args(args_str):
                         help="Tenant name for keystone admin user")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument("--cassandra_user",
+            help="Cassandra user name")
+    parser.add_argument("--cassandra_password",
+            help="Cassandra password")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()

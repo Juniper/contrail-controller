@@ -1727,12 +1727,17 @@ class VncApiServer(object):
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
         rabbit_ha_mode = self._args.rabbit_ha_mode
-
+        cassandra_user = self._args.cassandra_user
+        cassandra_password = self._args.cassandra_password
+        cred = None
+        if cassandra_user is not None and cassandra_password is not None:
+            cred = {'username':cassandra_user,'password':cassandra_password}
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
                               cass_server_list, rabbit_servers, rabbit_port,
                               rabbit_user, rabbit_password, rabbit_vhost,
                               rabbit_ha_mode, reset_config,
-                              zk_server, self._args.cluster_id)
+                              zk_server, self._args.cluster_id,
+                              cassandra_credential=cred)
         self._db_conn = db_conn
     # end _db_connect
 

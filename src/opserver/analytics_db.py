@@ -29,20 +29,29 @@ import struct
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
-                    redis_query_port, redis_password):
+                    redis_query_port, redis_password, cassandra_user,
+                    cassandra_password):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
         self._redis_query_port = redis_query_port
         self._redis_password = redis_password
         self._pool = None
+        self._cassandra_user = cassandra_user
+        self._cassandra_password = cassandra_password
         self.connect_db()
         self.number_of_purge_requests = 0
     # end __init__
 
     def connect_db(self):
         try:
-            self._pool = ConnectionPool(COLLECTOR_KEYSPACE,
-                         server_list=self._cassandra_server_list, timeout=None)
+             creds=None
+             if self._cassandra_user is not None and \
+                self._cassandra_password is not None:
+                    creds =  {'username':self._cassandra_user,
+                              'password':self._cassandra_password}
+             self._pool = ConnectionPool(COLLECTOR_KEYSPACE,
+                         server_list=self._cassandra_server_list, timeout=None,
+                         credentials=creds)
         except Exception as e:
             self._logger.error("Exception: Failure in connection to "
                 "AnalyticsDb %s" % e)
@@ -51,9 +60,15 @@ class AnalyticsDb(object):
     # end connect_db
 
     def _get_sysm(self):
+        creds=None
+        if self._cassandra_user is not None and \
+           self._cassandra_password is not None:
+               creds =  {'username':self._cassandra_user,
+                         'password':self._cassandra_password}
         for server_and_port in self._cassandra_server_list:
             try:
-                sysm = pycassa.system_manager.SystemManager(server_and_port)
+                sysm = pycassa.system_manager.SystemManager(server_and_port,
+                                                            credentials=creds)
             except Exception as e:
                 self._logger.error("Exception: SystemManager failed %s" % e)
                 continue
