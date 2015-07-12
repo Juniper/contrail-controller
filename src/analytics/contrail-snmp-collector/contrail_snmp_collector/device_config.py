@@ -5,6 +5,16 @@ from snmp import SnmpSession
 import copy, traceback, time, ConfigParser
 from vnc_api.vnc_api import VncApi
 
+class DeviceDict(dict):
+    def __init__(self, name, vnc, *a, **k):
+        super(DeviceDict, self).__init__(*a, **k)
+        self.name = name
+        self._vnc = vnc
+
+    def vnc(self):
+        return self._vnc
+
+
 class DeviceConfig(object):
     __pat = None
 
@@ -103,13 +113,20 @@ class DeviceConfig(object):
     @staticmethod
     def fom_api_server(api_servers, usr, passwd, tenant, auth_host=None,
             auth_port=None, auth_protocol=None, notifycb=None):
-        devices = []
-
         vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
                 auth_host=auth_host, auth_port=auth_port,
                 auth_protocol=auth_protocol, notifycb=notifycb)
-        for x in vnc.physical_routers_list()['physical-routers']:
-            pr = vnc.physical_router_read(id=x['uuid'])
+        devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
+                                           vnc.physical_routers_list()[
+                        'physical-routers'])
+        return devices
+
+    @staticmethod
+    def populate_cfg(devicelist):
+        devices = []
+        vnc = devicelist[0].vnc()
+        for pr in vnc.physical_routers_list(detail=True, obj_uuids=[
+                x['uuid'] for x in devicelist]):
             snmp = pr.get_physical_router_snmp_credentials()
             if snmp:
                 nd = { 'Version': snmp.get_version() }
