@@ -505,6 +505,31 @@ void AgentVxLanSandesh::Alloc() {
     resp_ = new VxLanResp();
 }
 
+AgentVxLanSandesh::AgentVxLanSandesh(const std::string &context,
+                             const std::string &vxlan_id):
+       AgentSandesh(context, ""), vxlan_id_(vxlan_id) {
+
+}
+
+bool AgentVxLanSandesh::Filter(const DBEntryBase *entry) {
+    const VxLanId *identry = dynamic_cast<const VxLanId *>(entry);
+    assert(identry);
+
+    if (vxlan_id_.empty() == false) {
+        if (((identry->vxlan_id()) == boost::lexical_cast<uint32_t>(vxlan_id_)) == false) {
+           return false;
+       }
+    }
+
+    return true;
+}
+
+bool AgentVxLanSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("vxlan_id", vxlan_id_);
+
+    return true;
+}
+
 DBTable *AgentServiceInstanceSandesh::AgentGetTable() {
     return static_cast<DBTable *>(Agent::GetInstance()->service_instance_table());
 }

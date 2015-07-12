@@ -249,13 +249,14 @@ void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 void VxLanReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentVxLanSandesh(context()));
+    AgentSandeshPtr sand(new AgentVxLanSandesh(context(), get_vxlan_id()));
     sand->DoSandesh(sand);
 }
 
 AgentSandeshPtr VxLanTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context) {
-    return AgentSandeshPtr(new AgentVxLanSandesh(context));
+    return AgentSandeshPtr(new AgentVxLanSandesh(context,
+                                               args->GetString("vxlan_id")));
 }
 
 /////////////////////////////////////////////////////////////////////////////
