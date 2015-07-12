@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/filesystem.hpp>
+#include "base/timer.h"
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
 #include "oper/vn.h"
@@ -22,7 +24,8 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     Proto(agent, "Agent::Services", PktHandler::DHCP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_(NULL),
     ip_fabric_interface_index_(-1), pkt_interface_index_(-1),
-    dhcp_server_socket_(io), dhcp_server_read_buf_(NULL) {
+    dhcp_server_socket_(io), dhcp_server_read_buf_(NULL),
+    gateway_delete_seqno_(0) {
 
     dhcp_relay_mode_ = agent->params()->dhcp_relay_mode();
     if (dhcp_relay_mode_) {
@@ -47,6 +50,11 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
                   boost::bind(&DhcpProto::ItfNotify, this, _2));
     vnid_ = agent->vn_table()->Register(
                   boost::bind(&DhcpProto::VnNotify, this, _2));
+
+    lease_file_cleanup_timer_ =
+        TimerManager::CreateTimer(io, "DhcpLeaseFileCleanupTimer",
+        TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+        PktHandler::DHCP);
 }
 
 DhcpProto::~DhcpProto() {
@@ -64,6 +72,8 @@ DhcpProto::~DhcpProto() {
     agent_->interface_table()->Unregister(iid_);
     agent_->vn_table()->Unregister(vnid_);
     if (dhcp_server_read_buf_) delete [] dhcp_server_read_buf_;
+    lease_file_cleanup_timer_->Cancel();
+    TimerManager::DeleteTimer(lease_file_cleanup_timer_);
 }
 
 void DhcpProto::AsyncRead() {
@@ -115,6 +125,7 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             VmInterface *vmi = static_cast<VmInterface *>(itf);
             if (gw_vmi_list_.erase(vmi)) {
                 DHCP_TRACE(Trace, "Gateway interface deleted: " << itf->name());
+                StartLeaseFileCleanupTimer();
             }
             DeleteLeaseDb(vmi);
         }
@@ -177,6 +188,7 @@ void DhcpProto::CreateLeaseDb(VmInterface *vmi) {
         DhcpLeaseDb *lease_db = new DhcpLeaseDb(vmi->subnet(),
                                                 vmi->subnet_plen(),
                                                 reserve_list,
+                                                GetLeaseFileName(vmi),
                                                 io_);
         lease_manager_.insert(LeaseManagerPair(vmi, lease_db));
     } else {
@@ -214,4 +226,60 @@ DhcpLeaseDb *DhcpProto::GetLeaseDb(Interface *interface) {
         return it->second;
 
     return NULL;
+}
+
+std::string DhcpProto::GetLeaseFileName(const VmInterface *vmi) {
+    if (!run_with_vrouter_)
+        return "./dhcp." + UuidToString(vmi->GetUuid()) + ".leases";
+
+    boost::filesystem::path dir(agent()->params()->agent_base_dir() + "/dhcp");
+    boost::system::error_code ec;
+    if (!boost::filesystem::exists(dir, ec)) {
+        boost::filesystem::create_directory(dir, ec);
+        // boost::filesystem::permissions(dir, boost::filesystem::remove_perms |
+        //                                     boost::filesystem::others_all, ec);
+        if (ec) {
+            DHCP_TRACE(Error, "Cannot create DHCP Lease directory : " << dir);
+        }
+    }
+
+    return dir.string() + "/dhcp." + UuidToString(vmi->GetUuid()) + ".leases";
+}
+
+void DhcpProto::StartLeaseFileCleanupTimer() {
+    gateway_delete_seqno_++;
+    lease_file_cleanup_timer_->Cancel();
+    lease_file_cleanup_timer_->Start(kDhcpLeaseFileDeleteTimeout,
+                               boost::bind(&DhcpProto::LeaseFileCleanupExpiry,
+                                           this, gateway_delete_seqno_));
+}
+
+bool DhcpProto::LeaseFileCleanupExpiry(uint32_t seqno) {
+    if (seqno == gateway_delete_seqno_ && !gw_vmi_list_.empty()) {
+        // get valid file list
+        std::set<std::string> filelist;
+        for (std::set<VmInterface *>::const_iterator it = gw_vmi_list_.begin();
+             it != gw_vmi_list_.end(); ++it) {
+            filelist.insert(GetLeaseFileName(*it));
+        }
+
+        // delete unused files
+        boost::system::error_code ec;
+        boost::filesystem::path dir(agent()->params()->agent_base_dir() +
+                                    "/dhcp");
+        if (boost::filesystem::exists(dir, ec) &&
+            boost::filesystem::is_directory(dir, ec)) {
+            for (boost::filesystem::directory_iterator it(dir);
+                 it != boost::filesystem::directory_iterator(); ++it) {
+                std::string filename = it->path().string();
+                if (boost::filesystem::is_regular_file(it->status()) &&
+                    filelist.find(filename) == filelist.end()) {
+                    DHCP_TRACE(Trace, "Removing DHCP Lease file : " << filename);
+                    remove(filename.c_str()); // doesnt invalidate iterator
+                }
+            }
+        }
+    }
+
+    return false;
 }
