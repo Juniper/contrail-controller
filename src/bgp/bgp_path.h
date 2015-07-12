@@ -22,6 +22,7 @@ public:
         NoNeighborAs = 1 << 1,
         Stale = 1 << 2,
         NoTunnelEncap = 1 << 3,
+        OriginatorIdLooped = 1 << 4,
     };
 
     // Ordered in the ascending order of path preference
@@ -34,7 +35,7 @@ public:
     };
 
     static const uint32_t INFEASIBLE_MASK =
-        (AsPathLooped|NoNeighborAs|NoTunnelEncap);
+        (AsPathLooped|NoNeighborAs|NoTunnelEncap|OriginatorIdLooped);
 
     static std::string PathIdString(uint32_t path_id);
     static std::string PathSourceString(PathSource source);
