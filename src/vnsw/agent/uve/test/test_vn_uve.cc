@@ -29,7 +29,6 @@
 #include "pkt/test/test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
-#include <uve/test/vn_uve_table_test.h>
 #include "uve/test/test_uve_util.h"
 
 using namespace std;
@@ -1146,45 +1145,60 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
 }
 
 TEST_F(UveVnUveTest, VnBandwidth) {
-    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (Agent::GetInstance()->stats_collector());
-    collector->interface_stats_responses_ = 0;
-
     KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     EXPECT_EQ(0U, ksock->flow_map.size());
 
-    struct PortInfo stats_if[] = {
-        {"test0", 8, "3.1.1.1", "00:00:00:01:01:01", 6, 3},
-        {"test1", 9, "3.1.1.2", "00:00:00:01:01:02", 6, 4},
-    };
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
     vnut->ClearCount();
+    FlowSetUp();
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
 
-    client->Reset();
-    CreateVmportEnv(stats_if, 2);
+    CreateFlow(flow, 2);
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    WAIT_FOR(1000, 500, (VmPortActive(stats_if, 0) == true));
-    WAIT_FOR(1000, 500, (VmPortActive(stats_if, 1) == true));
+    //Verify Vn stats (in and out bytes)
+    EXPECT_TRUE(util_.FlowBasedVnStatsMatch("vn5", 120, 120));
 
-    VmInterface *test0, *test1;
-    test0 = VmInterfaceGet(stats_if[0].intf_id);
-    assert(test0);
-    test1 = VmInterfaceGet(stats_if[1].intf_id);
-    assert(test1);
+    const FlowEntry *fe1 = flow[0].pkt_.FlowFetch();
+    const FlowEntry *fe2 = flow[1].pkt_.FlowFetch();
+    //Inter-VN stats updation when flow stats are updated
+    //Change the stats in mock kernel
+    KSyncSockTypeMap::IncrFlowStats(fe1->flow_handle(), 1, 180);
+    KSyncSockTypeMap::IncrFlowStats(fe2->flow_handle(), 1, 200);
+    client->WaitForIdle(10);
 
-    //Change the stats
-    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 5000, 100, 0, 2000, 20, 0);
-    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 5000, 100, 0, 2000, 20, 0);
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
 
-    collector->SendInterfaceBulkGet();
-    client->WaitForIdle(2);
-    WAIT_FOR(1000, 500, ((collector->interface_stats_responses_) > 0));
+    //Verify Vn stats
+    EXPECT_TRUE(util_.FlowBasedVnStatsMatch("vn5", 500, 500));
 
-    const VnEntry *vn = VnGet(stats_if[0].vn_id);
+    const VnEntry *vn = flow0->vn();
     EXPECT_TRUE(vn != NULL);
-    VnUveEntry* vne = vnut->GetVnUveEntry(vn->GetName());
+    VnUveEntry* vne = vnut->GetVnUveEntry("vn5");
     EXPECT_TRUE(vne != NULL);
 
     //Update prev_time to current_time - 1 sec
@@ -1196,18 +1210,16 @@ TEST_F(UveVnUveTest, VnBandwidth) {
     vne->FrameVnStatsMsg(vn, uve, false);
 
     //Verify that UVE msg has bandwidth
-    EXPECT_TRUE(uve.get_in_bandwidth_usage() == 80000);
-    EXPECT_TRUE(uve.get_out_bandwidth_usage() == 32000);
+    EXPECT_TRUE(uve.get_in_bandwidth_usage() == 4000);
+    EXPECT_TRUE(uve.get_out_bandwidth_usage() == 4000);
 
-    //Reset the stats so that repeat of this test case works
-    KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
-    KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
+    FlowTearDown();
 
-    //cleanup
-    DeleteVmportEnv(stats_if, 2, 1);
-    client->WaitForIdle(10);
-    WAIT_FOR(1000, 500, (VmInterfaceGet(stats_if[0].intf_id) == NULL));
-    WAIT_FOR(1000, 500, (VmInterfaceGet(stats_if[1].intf_id) == NULL));
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn5") == NULL));
+    vnut->ClearCount();
+    EXPECT_EQ(0U, ksock->flow_map.size());
 }
 
 int main(int argc, char **argv) {

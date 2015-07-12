@@ -4,6 +4,7 @@
 #ifndef __test_uve_util__
 #define __test_uve_util__
 
+#include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
 
 class ProuterUveSendTask : public Task {
@@ -289,6 +290,20 @@ public:
                 vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+    }
+
+    bool FlowBasedVnStatsMatch(const std::string &vn, uint64_t in,
+                               uint64_t out) {
+        VnUveTableTest *vut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+        const VnUveEntry *entry = vut->GetVnUveEntry(vn);
+        if (!entry) {
+            return false;
+        }
+        if ((entry->in_bytes() == in) && (entry->out_bytes() == out)) {
+            return true;
+        }
+        return false;
     }
 
 };
