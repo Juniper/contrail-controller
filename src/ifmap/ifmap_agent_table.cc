@@ -78,7 +78,11 @@ IFMapNode *IFMapAgentTable::EntryLocate(IFMapNode *node, RequestKey *req) {
 
         obj = node->GetObject();
         assert(obj);
+        //We dont accept lesser sequence number updates
+        assert(obj->sequence_number() <= req->id_seq_num);
+
         node->Remove(obj);
+
     } else {
         auto_ptr<DBEntry> key(AllocEntry(req));
         node = const_cast<IFMapNode *>(
@@ -103,6 +107,8 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
     assert(ltable != NULL);
 
     DBGraphVertex::adjacency_iterator iter;
+    bool origin_exists;
+    uint64_t seq;
     for (iter = node->begin(graph_); iter != node->end(graph_);) {
                                                 
         right = static_cast<IFMapNode *>(iter.operator->());
@@ -110,16 +116,18 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
         edge = graph_->GetEdge(node, right);
         assert(edge);
         IFMapLink *l = static_cast<IFMapLink *>(edge);
+        seq = l->sequence_number(IFMapOrigin::UNKNOWN, &origin_exists);
+        assert(origin_exists);
    
         // Create both the request keys
         auto_ptr <IFMapAgentLinkTable::RequestKey> req_key (new IFMapAgentLinkTable::RequestKey);
         req_key->left_key.id_name = node->name();
         req_key->left_key.id_type = node->table()->Typename();
-        req_key->left_key.id_seq_num = node->GetObject()->sequence_number();
+        req_key->left_key.id_seq_num = seq;
 
         req_key->right_key.id_name = right->name();
         req_key->right_key.id_type = right->table()->Typename();
-        req_key->right_key.id_seq_num = right->GetObject()->sequence_number();
+        req_key->right_key.id_seq_num = seq;
         req_key->metadata = l->metadata();
 
         DBRequest req; 
@@ -158,6 +166,7 @@ void IFMapAgentTable::NotifyNode(IFMapNode *node) {
 // Process link-defer list based for the request.
 // If request is add, create left->right and right-left defer nodes
 // If request is delete, remove left->right and right->left defer nodes
+// The sequence number is valid only in the DeferrendNode entry
 void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
     RequestKey *key = static_cast<RequestKey *>(request->key.get());
 
@@ -174,6 +183,7 @@ void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
         right = right_it->second;
 
     if (request->oper == DBRequest::DB_ENTRY_DELETE)  {
+        //We need to delete the old sequence links as well
         // remove left->right entry
         if (left) {
             for(it = left->begin(); it != left->end(); it++) {
@@ -295,6 +305,12 @@ void IFMapAgentTable::Input(DBTablePartition *partition, DBClient *client,
             return;
         }
 
+        obj = node->GetObject();
+        //We dont accept lesser sequence number updates
+        assert(obj->sequence_number() <= key->id_seq_num);
+
+        //Upate the sequence number even for deletion of node
+        obj->set_sequence_number(key->id_seq_num);
         DeleteNode(node);
         return;
     }
@@ -308,8 +324,10 @@ void IFMapAgentTable::Input(DBTablePartition *partition, DBClient *client,
 
     //Set the sequence number of the object
     obj->set_sequence_number(key->id_seq_num);
+
     node->Insert(obj);
     NotifyNode(node);
+
     IFMapAgentLinkTable *link_table = static_cast<IFMapAgentLinkTable *>(
         database()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
     link_table->EvalDefLink(key);
@@ -495,11 +513,17 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
             continue;
 
         // Skip if right-node is not yet present
-        if (IFMapAgentTable::TableEntryLookup(database(),
-                    &((*left_list_entry).node_key))
-            == NULL) {
+        IFMapNode *node = IFMapAgentTable::TableEntryLookup(database(),
+                    &((*left_list_entry).node_key));
+        if (!node)
             continue;
-        }
+
+        //If the other end of the node is not from active control node,
+        //dont consider the link
+        IFMapObject *obj = node->GetObject();
+        if (obj->sequence_number() < key->id_seq_num)
+            continue;
+
 
         // left->right entry found defer-list. Find the right->left entry
         LinkDefMap::iterator right_defmap_it =
@@ -508,20 +532,23 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
 
         std::list<DeferredNode> *right_list = right_defmap_it->second;
         std::list<DeferredNode>::iterator right_it, right_list_entry;
-        for(right_it = right_list->begin(); right_it != right_list->end();) {
-            right_list_entry = right_it++;
+        for(right_it = right_list->begin(); right_it !=
+                right_list->end(); right_it++) {
 
             // If link seq is older, dont consider the link. 
-            if ((*right_list_entry).node_key.id_seq_num < key->id_seq_num)
+            if ((*right_it).node_key.id_seq_num < key->id_seq_num)
                 continue;
 
-            if ((*right_list_entry).node_key.id_type == key->id_type &&
-                    (*right_list_entry).node_key.id_name == key->id_name) {
+            if ((*right_it).node_key.id_type == key->id_type &&
+                    (*right_it).node_key.id_name == key->id_name) {
                 RemoveDefListEntry(&link_def_map_, right_defmap_it,
-                               &right_list_entry);
+                               &right_it);
                 break;
             }
         }
+
+        //We should have removed something in the above iteration
+        assert(right_it != right_list->end());
 
         //Remove from deferred list before enqueing
         auto_ptr <RequestKey> req_key (new RequestKey);
