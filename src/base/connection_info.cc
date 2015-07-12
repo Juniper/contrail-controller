@@ -37,6 +37,12 @@ ConnectionState* ConnectionState::GetInstance() {
     return instance_.get();
 }
 
+void ConnectionState::Update() {
+    if (!send_uve_cb_.empty()) {
+        send_uve_cb_();
+    }
+}
+
 void ConnectionState::Update(ConnectionType::type ctype,
     const std::string &name, ConnectionStatus::type status,
     Endpoint server, std::string message) {

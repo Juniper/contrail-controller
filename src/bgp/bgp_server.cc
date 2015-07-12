@@ -6,6 +6,7 @@
 
 #include <boost/assign.hpp>
 
+#include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
@@ -27,6 +28,7 @@
 #include "io/event_manager.h"
 
 using boost::system::error_code;
+using process::ConnectionState;
 using std::string;
 
 // The ConfigUpdater serves as glue between the BgpConfigManager and the
@@ -49,27 +51,36 @@ public:
                                BgpConfigManager::EventType event) {
         const string &instance_name = protocol_config->instance_name();
 
-        //
-        // At the moment, we only support BGP sessions in master instance
-        //
+        // We only support BGP sessions in master instance for now.
         if (instance_name != BgpConfigManager::kMasterInstance) {
             return;
         }
 
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
-        } else if (event != BgpConfigManager::CFG_DELETE) {
+            BgpServerConfigUpdate(instance_name, protocol_config);
+        } else if (event == BgpConfigManager::CFG_DELETE) {
+            BgpServerConfigUpdate(instance_name, NULL);
+        } else {
             assert(false);
-            return;
         }
-
-        BgpServerConfigUpdate(instance_name, protocol_config);
     }
 
     void BgpServerConfigUpdate(string instance_name,
                                const BgpProtocolConfig *config) {
         boost::system::error_code ec;
-        Ip4Address identifier(ntohl(config->identifier()));
+        uint32_t config_identifier = 0;
+        uint32_t config_autonomous_system = 0;
+        uint32_t config_local_autonomous_system = 0;
+        uint16_t config_hold_time = 0;
+        if (config) {
+            config_identifier = config->identifier();
+            config_autonomous_system = config->autonomous_system();
+            config_local_autonomous_system = config->local_autonomous_system();
+            config_hold_time = config->hold_time();
+        }
+
+        Ip4Address identifier(ntohl(config_identifier));
         if (server_->bgp_identifier_ != identifier) {
             SandeshLevel::type log_level;
             if (!server_->bgp_identifier_.is_unspecified()) {
@@ -80,7 +91,7 @@ public:
             BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
                         "Updated Router ID from " <<
                         server_->bgp_identifier_.to_string() << " to " <<
-                        config->identifier());
+                        identifier.to_string());
             Ip4Address old_identifier = server_->bgp_identifier_;
             server_->bgp_identifier_ = identifier;
             server_->NotifyIdentifierUpdate(old_identifier);
@@ -89,12 +100,11 @@ public:
         bool notify_asn_update = false;
         uint32_t old_asn = server_->autonomous_system_;
         uint32_t old_local_asn = server_->local_autonomous_system_;
-        server_->autonomous_system_ = config->autonomous_system();
-        if (config->local_autonomous_system()) {
-            server_->local_autonomous_system_ =
-                config->local_autonomous_system();
+        server_->autonomous_system_ = config_autonomous_system;
+        if (config_local_autonomous_system) {
+            server_->local_autonomous_system_ = config_local_autonomous_system;
         } else {
-            server_->local_autonomous_system_ = config->autonomous_system();
+            server_->local_autonomous_system_ = config_autonomous_system;
         }
 
         if (server_->autonomous_system_ != old_asn) {
@@ -128,12 +138,14 @@ public:
             server_->NotifyASNUpdate(old_asn, old_local_asn);
         }
 
-        if (server_->hold_time_ != config->hold_time()) {
+        if (server_->hold_time_ != config_hold_time) {
             BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
                         "Updated Hold Time from " <<
-                        server_->hold_time_ << " to " << config->hold_time());
-            server_->hold_time_ = config->hold_time();
+                        server_->hold_time_ << " to " << config_hold_time);
+            server_->hold_time_ = config_hold_time;
         }
+
+        ConnectionState::GetInstance()->Update();
     }
 
     void ProcessNeighborConfig(const BgpNeighborConfig *neighbor_config,
