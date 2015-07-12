@@ -289,18 +289,21 @@ bool ControlNodeInfoLogger(BgpServer *server,
     if (router_id != prev_state.get_router_id() || first) {
         state.set_router_id(router_id);
         prev_state.set_router_id(router_id);
+        change = true;
     }
 
     uint32_t local_asn = server->local_autonomous_system();
     if (local_asn != prev_state.get_local_asn() || first) {
         state.set_local_asn(local_asn);
         prev_state.set_local_asn(local_asn);
+        change = true;
     }
 
     uint32_t global_asn = server->autonomous_system();
     if (global_asn != prev_state.get_global_asn() || first) {
         state.set_global_asn(global_asn);
         prev_state.set_global_asn(global_asn);
+        change = true;
     }
 
     if (first) {
