@@ -53,8 +53,10 @@
 
 using namespace std;
 using namespace boost::asio::ip;
+using process::ConnectionInfo;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ProcessState;
 
 static EventManager evm;
 
@@ -461,6 +463,20 @@ void ControlNodeShutdown() {
     evm.Shutdown();
 }
 
+static void ControlNodeGetProcessStateCb(const BgpServer *server,
+    const std::vector<ConnectionInfo> &cinfos,
+    ProcessState::type &state, std::string &message,
+    size_t expected_connections) {
+    GetProcessStateCb(cinfos, state, message, expected_connections);
+    if (state == ProcessState::NON_FUNCTIONAL)
+        return;
+    if (server->bgp_identifier() &&
+        server->local_autonomous_system() && server->autonomous_system())
+        return;
+    state = ProcessState::NON_FUNCTIONAL;
+    message = "No BGP configuration for self";
+}
+
 int main(int argc, char *argv[]) {
     Options options;
     bool sandesh_generator_init = true;
@@ -485,20 +501,6 @@ int main(int argc, char *argv[]) {
 
     TaskScheduler::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
-    // Determine if the number of connections is as expected. At the moment, we
-    // consider connections to collector, discovery server and IFMap (irond)
-    // servers as critical to the normal functionality of control-node.
-    //
-    // 1. Collector client
-    // 2. Discovery Server publish XmppServer
-    // 3. Discovery Server subscribe Collector
-    // 4. Discovery Server subscribe IfmapServer
-    // 5. IFMap Server (irond)
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Init(*evm.io_service(), options.hostname(),
-            module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
-            boost::bind(&GetProcessStateCb, _1, _2, _3, 5));
-    BgpSandeshContext sandesh_context;
 
     /* If Sandesh initialization is not being done via discovery we need to
      * initialize here. We need to do sandesh initialization here for cases
@@ -511,8 +513,8 @@ int main(int argc, char *argv[]) {
         sandesh_generator_init = false;
     }
 
+    BgpSandeshContext sandesh_context;
     RegisterSandeshShowXmppExtensions(&sandesh_context);
-
     if (sandesh_generator_init) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
@@ -591,6 +593,21 @@ int main(int argc, char *argv[]) {
     Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
     IFMapSandeshContext ifmap_sandesh_context(&ifmap_server);
     Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
+
+    // Determine if the number of connections is as expected. At the moment,
+    // consider connections to collector, discovery server and IFMap (irond)
+    // servers as critical to the normal functionality of control-node.
+    //
+    // 1. Collector client
+    // 2. Discovery Server publish XmppServer
+    // 3. Discovery Server subscribe Collector
+    // 4. Discovery Server subscribe IfmapServer
+    // 5. IFMap Server (irond)
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*evm.io_service(), options.hostname(),
+            module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
+            boost::bind(&ControlNodeGetProcessStateCb,
+                bgp_server.get(), _1, _2, _3, 5));
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL; 

@@ -2541,15 +2541,6 @@ TEST_F(BgpXmppInet6Test2Peers, CreateInstanceConfigLater) {
     agent_b_->SessionDown();
 }
 
-static const char *two_bgp_peers_delete_config = "\
-<delete>\
-    <bgp-router name=\'X\'>\
-    </bgp-router>\
-    <bgp-router name=\'Y\'>\
-    </bgp-router>\
-</delete>\
-";
-
 // BGP session goes down and comes up after routes have been exchanged. The
 // RI's are not connected.
 TEST_F(BgpXmppInet6Test2Peers, BgpSessionBounce) {
@@ -2592,9 +2583,9 @@ TEST_F(BgpXmppInet6Test2Peers, BgpSessionBounce) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->Inet6RouteCount("blue"));
 
-    // Unconfigure the BGP session.
-    bgp_server1_->Configure(two_bgp_peers_delete_config);
-    bgp_server2_->Configure(two_bgp_peers_delete_config);
+    // Bring down the BGP session.
+    bgp_server1_->DisableAllPeers();
+    bgp_server2_->DisableAllPeers();
     task_util::WaitForIdle();
 
     // Verify that routes from remote agents are cleaned up.
@@ -2603,8 +2594,9 @@ TEST_F(BgpXmppInet6Test2Peers, BgpSessionBounce) {
     TASK_UTIL_EXPECT_EQ(1, agent_b_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_b_->Inet6RouteCount("blue"));
 
-    // Configure the BGP session.
-    Configure(two_cns_unconnected_instances_config);
+    // Bring up the BGP session.
+    bgp_server1_->EnableAllPeers();
+    bgp_server2_->EnableAllPeers();
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -3956,9 +3948,10 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeBgpBounce) {
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateEncap("pink", route_a.str(), "gre",
                                                  agent_b_.get()));
 
-    // Unconfigure the BGP session.
-    bgp_server1_->Configure(two_bgp_peers_delete_config);
-    bgp_server2_->Configure(two_bgp_peers_delete_config);
+    // Bring down the BGP session.
+    // B should not have routes now.
+    bgp_server1_->DisableAllPeers();
+    bgp_server2_->DisableAllPeers();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount());
@@ -3969,9 +3962,10 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeBgpBounce) {
     agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1);
     task_util::WaitForIdle();
 
-    // Re-configure the BGP session. B should have routes now.
-    Configure(two_cns_connected_instances_config);
-    usleep(5000);
+    // Bring up the BGP session.
+    // B should have routes now.
+    bgp_server1_->EnableAllPeers();
+    bgp_server2_->EnableAllPeers();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->Inet6RouteCount());
@@ -4486,9 +4480,9 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeBgpBounce) {
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
                                                  agent_b_.get()));
 
-    // Unconfigure the BGP session.
-    bgp_server1_->Configure(two_bgp_peers_delete_config);
-    bgp_server2_->Configure(two_bgp_peers_delete_config);
+    // Bring down the BGP session.
+    bgp_server1_->DisableAllPeers();
+    bgp_server2_->DisableAllPeers();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount());
@@ -4504,10 +4498,10 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeBgpBounce) {
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
                                                  agent_a_.get()));
 
-    // Re-configure the BGP session. B should have the new sgid-list now.
-    Configure(two_cns_connected_instances_config);
-    usleep(5000);
-    task_util::WaitForIdle();
+    // Bring up the BGP session.
+    // B should have the new sgid-list now.
+    bgp_server1_->EnableAllPeers();
+    bgp_server2_->EnableAllPeers();
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->Inet6RouteCount());
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
@@ -5061,9 +5055,9 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpBounce) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount("yellow"));
 
-    // Unconfigure the BGP session.
-    bgp_server1_->Configure(two_bgp_peers_delete_config);
-    bgp_server2_->Configure(two_bgp_peers_delete_config);
+    // Bring down the BGP session.
+    bgp_server1_->DisableAllPeers();
+    bgp_server2_->DisableAllPeers();
     task_util::WaitForIdle();
 
     // B and Y2 should have no routes. No change at A and Y1.
@@ -5094,9 +5088,10 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpBounce) {
     TASK_UTIL_EXPECT_EQ(0, agent_y2_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_y2_->Inet6RouteCount("yellow"));
 
-    // Re-configure the BGP session. B and Y2 should have routes now.
-    Configure(two_cns_connected_instances_config);
-    usleep(5000);
+    // Bring up the BGP session.
+    // B and Y2 should have routes now.
+    bgp_server1_->EnableAllPeers();
+    bgp_server2_->EnableAllPeers();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(4, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount("blue"));
