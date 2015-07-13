@@ -753,21 +753,21 @@ class WorkerThread {
     WorkerFn fn_;
 };
 
-TEST_F(UUIDRandomGenTest, SingleThread) {
+TEST_F(UUIDRandomGenTest, DISABLED_SingleThread) {
     unsigned int count = 10000;
     std::map<std::string, unsigned int> uuid_map;
     bool unique = PopulateUUIDMap(uuid_map, count, false, false);
     EXPECT_TRUE(unique);
 }
 
-TEST_F(UUIDRandomGenTest, SingleThreadOnStack) {
+TEST_F(UUIDRandomGenTest, DISABLED_SingleThreadOnStack) {
     unsigned int count = 10000;
     std::map<std::string, unsigned int> uuid_map;
     bool unique = PopulateUUIDMap(uuid_map, count, false, true);
     EXPECT_TRUE(unique);
 }
 
-TEST_F(UUIDRandomGenTest, MultiThreadedLocked) {
+TEST_F(UUIDRandomGenTest, DISABLED_MultiThreadedLocked) {
     unsigned int count = 1000000;
     std::map<std::string, unsigned int> uuid_map1;
     WorkerThread t1(boost::bind(&UUIDRandomGenTest::PopulateUUIDMap, this,
