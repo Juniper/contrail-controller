@@ -198,6 +198,21 @@ class VncCassandraClient(VncCassandraClientGen):
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
     # end _cassandra_init_conn_pools
 
+    def read(self, method_name, *args, **kwargs):
+        method = getattr(self, '_cassandra_%s_read' % (method_name))
+        return method(*args, **kwargs)
+    # end read
+
+    def count_children(self, method_name, *args, **kwargs):
+        method = getattr(self, '_cassandra_%s_count_children' % (method_name))
+        return method(*args, **kwargs)
+    # end count_children
+
+    def list(self, method_name, *args, **kwargs):
+        method = getattr(self, '_cassandra_%s_list' % (method_name))
+        return method(*args, **kwargs)
+    # end list
+
     def cache_uuid_to_fq_name_add(self, id, fq_name, obj_type):
         self._cache_uuid_to_fq_name[id] = (fq_name, obj_type)
     # end cache_uuid_to_fq_name_add
