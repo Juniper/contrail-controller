@@ -3,6 +3,7 @@
 #
 
 import copy
+import uuid
 from netaddr import *
 from vnc_quota import *
 from pprint import pformat
@@ -661,7 +662,7 @@ class AddrMgmt(object):
         return True, ""
     # end net_check_subnet_overlap
 
-    def net_check_subnet(self, db_vn_dict, req_vn_dict):
+    def net_check_subnet(self, req_vn_dict):
         ipam_refs = req_vn_dict.get('network_ipam_refs', [])
         for ipam_ref in ipam_refs:
             vnsn_data = ipam_ref['attr']
@@ -673,6 +674,16 @@ class AddrMgmt(object):
                 network = IPNetwork('%s/%s' % (prefix, prefix_len))
                 subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                     subnet_dict['ip_prefix_len'])
+
+                # check subnet-uuid
+                ipam_cfg_subnet_uuid = ipam_subnet.get('subnet_uuid', None)
+                try:
+                    if ipam_cfg_subnet_uuid:
+                        subnet_uuid = uuid.UUID(ipam_cfg_subnet_uuid)
+                except ValueError:
+                    err_msg = "Invalid subnet-uuid %s in subnet:%s" \
+                        %(ipam_cfg_subnet_uuid, subnet_name)
+                    return False, err_msg
 
                 # check allocation-pool
                 alloc_pools = ipam_subnet.get('allocation_pools', None)
