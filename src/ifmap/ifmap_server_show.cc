@@ -15,6 +15,7 @@
 #include "db/db_table_partition.h"
 #include "base/bitset.h"
 
+#include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_exporter.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
@@ -586,32 +587,74 @@ public:
         return static_cast<RequestPipeline::InstData *>(new TrackerData);
     }
 
-    static bool CopyNode(IFMapPerClientNodesShowInfo *dest, IFMapNode *src,
+    static void FillNodeInfo(IFMapNode *src_node, IFMapState *state,
+                             IFMapServer *server, int client_index,
+                             IFMapPerClientNodesShowInfo *dest);
+    static bool CopyNode(IFMapPerClientNodesShowInfo *dest, IFMapNode *src_node,
                          IFMapServer *server, int client_index);
     static bool BufferStage(const Sandesh *sr,
                             const RequestPipeline::PipeSpec ps, int stage,
                             int instNum, RequestPipeline::InstData *data);
+    static bool BufferStaleEntries(IFMapClient *client, IFMapServer *server,
+                                   ShowData *show_data);
     static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
                           int stage, int instNum,
                           RequestPipeline::InstData *data);
 };
 
+void ShowIFMapPerClientNodes::FillNodeInfo(IFMapNode *src_node,
+        IFMapState *state, IFMapServer *server, int client_index,
+        IFMapPerClientNodesShowInfo *dest) {
+    dest->node_name = src_node->ToString();
+    if (state->advertised().test(client_index)) {
+        dest->sent = "Yes";
+    } else {
+        dest->sent = "No";
+    }
+    IFMapClient *client = server->GetClient(client_index);
+    if (client) {
+        if (client->ConfigTrackerHasState(state)) {
+            dest->tracked = "Yes";
+        } else {
+            dest->tracked = "No";
+        }
+    } else {
+        dest->tracked = "Client unknown";
+    }
+}
+
 bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
-                                       IFMapNode *src, IFMapServer *server,
+                                       IFMapNode *src_node, IFMapServer *server,
                                        int client_index) {
-    IFMapNodeState *state = server->exporter()->NodeStateLookup(src);
+    IFMapNodeState *state = server->exporter()->NodeStateLookup(src_node);
 
     if (state && state->interest().test(client_index)) {
-        dest->node_name = src->ToString();
-        if (state->advertised().test(client_index)) {
-            dest->sent = "Yes";
-        } else {
-            dest->sent = "No";
-        }
+        FillNodeInfo(src_node, state, server, client_index, dest);
         return true;
     } else {
         return false;
     }
+    return true;
+}
+
+// If the config-tracker has it but interest is not set, its stale.
+bool ShowIFMapPerClientNodes::BufferStaleEntries(IFMapClient *client,
+        IFMapServer *ifmap_server, ShowData *show_data) {
+    int client_index = client->index();
+    for (IFMapClient::Ct_const_iterator iter = client->config_tracker_begin();
+         iter != client->config_tracker_end(); ++iter) {
+        IFMapState *state = *iter;
+        if (state->IsNode() && (!state->interest().test(client_index))) {
+            IFMapNode *src_node = state->GetIFMapNode();
+            if (src_node) {
+                IFMapPerClientNodesShowInfo dest;
+                FillNodeInfo(src_node, state, ifmap_server, client_index,
+                             &dest);
+                show_data->send_buffer.push_back(dest);
+            }
+        }
+    }
+    return true;
 }
 
 bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
@@ -624,6 +667,10 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
     IFMapServer *ifmap_server = sctx->ifmap_server();
 
     string client_index_or_name = request->get_client_index_or_name();
+    if (client_index_or_name.empty()) {
+        return true;
+    }
+
     // The user gives us either a name or an index. If the input is not a
     // number, find the client's index using its name. If we cant find it,
     // we cant process this request. If we have the index, continue processing.
@@ -635,8 +682,20 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
         }
     }
 
-    string search_string = request->get_search_string();
     ShowData *show_data = static_cast<ShowData *>(data);
+
+    // If the user wants only stale entries, collect them and return. Ignore
+    // the search string for stale entries.
+    if (request->get_show_tracker_stale_entries()) {
+        IFMapClient *client = ifmap_server->GetClient(client_index);
+        if (client) {
+            return BufferStaleEntries(client, ifmap_server, show_data);
+        } else {
+            return true;
+        }
+    }
+
+    string search_string = request->get_search_string();
     DB *db = ifmap_server->database();
     for (DB::iterator iter = db->lower_bound("__ifmap__.");
          iter != db->end(); ++iter) {
@@ -763,33 +822,73 @@ public:
         return static_cast<RequestPipeline::InstData *>(new TrackerData);
     }
 
-    static bool CopyNode(IFMapPerClientLinksShowInfo *dest, IFMapLink *src,
+    static void FillLinkInfo(IFMapLink *src_link, IFMapState *state,
+                             IFMapServer *server, int client_index,
+                             IFMapPerClientLinksShowInfo *dest);
+    static bool CopyNode(IFMapPerClientLinksShowInfo *dest, IFMapLink *src_link,
                          IFMapServer *server, int client_index);
     static bool BufferStage(const Sandesh *sr,
                             const RequestPipeline::PipeSpec ps, int stage,
                             int instNum, RequestPipeline::InstData *data);
+    static bool BufferStaleEntries(IFMapClient *client, IFMapServer *server,
+                                   ShowData *show_data);
     static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
                           int stage, int instNum,
                           RequestPipeline::InstData *data);
 };
 
-bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
-        IFMapLink *src, IFMapServer *server, int client_index) {
-    IFMapLinkState *state = server->exporter()->LinkStateLookup(src);
-
-    if (state && state->interest().test(client_index)) {
-        dest->metadata = src->metadata();
-        dest->left = src->left()->ToString();
-        dest->right = src->right()->ToString();
-        if (state->advertised().test(client_index)) {
-            dest->sent = "Yes";
+void ShowIFMapPerClientLinkTable::FillLinkInfo(IFMapLink *src_link,
+        IFMapState *state, IFMapServer *server, int client_index,
+        IFMapPerClientLinksShowInfo *dest) {
+    dest->metadata = src_link->metadata();
+    dest->left = src_link->left()->ToString();
+    dest->right = src_link->right()->ToString();
+    if (state->advertised().test(client_index)) {
+        dest->sent = "Yes";
+    } else {
+        dest->sent = "No";
+    }
+    IFMapClient *client = server->GetClient(client_index);
+    if (client) {
+        if (client->ConfigTrackerHasState(state)) {
+            dest->tracked = "Yes";
         } else {
-            dest->sent = "No";
+            dest->tracked = "No";
         }
+    } else {
+        dest->tracked = "Client unknown";
+    }
+}
+
+bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
+        IFMapLink *src_link, IFMapServer *server, int client_index) {
+    IFMapLinkState *state = server->exporter()->LinkStateLookup(src_link);
+    if (state && state->interest().test(client_index)) {
+        FillLinkInfo(src_link, state, server, client_index, dest);
         return true;
     } else {
         return false;
     }
+}
+
+// If the config-tracker has it but interest is not set, its stale.
+bool ShowIFMapPerClientLinkTable::BufferStaleEntries(IFMapClient *client,
+        IFMapServer *ifmap_server, ShowData *show_data) {
+    int client_index = client->index();
+    for (IFMapClient::Ct_const_iterator iter = client->config_tracker_begin();
+         iter != client->config_tracker_end(); ++iter) {
+        IFMapState *state = *iter;
+        if (state->IsLink() && (!state->interest().test(client_index))) {
+            IFMapLink *src_link = state->GetIFMapLink();
+            if (src_link) {
+                IFMapPerClientLinksShowInfo dest;
+                FillLinkInfo(src_link, state, ifmap_server, client_index,
+                             &dest);
+                show_data->send_buffer.push_back(dest);
+            }
+        }
+    }
+    return true;
 }
 
 bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
@@ -799,7 +898,13 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
     IFMapSandeshContext *sctx = 
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    IFMapServer *ifmap_server = sctx->ifmap_server();
+
     string client_index_or_name = request->get_client_index_or_name();
+    if (client_index_or_name.empty()) {
+        return true;
+    }
+
     // The user gives us either a name or an index. If the input is not a
     // number, find the client's index using its name. If we cant find it,
     // we cant process this request. If we have the index, continue processing.
@@ -811,11 +916,23 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         }
     }
 
+    ShowData *show_data = static_cast<ShowData *>(data);
+
+    // If the user wants only stale entries, collect them and return. Ignore
+    // the search string for stale entries.
+    if (request->get_show_tracker_stale_entries()) {
+        IFMapClient *client = ifmap_server->GetClient(client_index);
+        if (client) {
+            return BufferStaleEntries(client, ifmap_server, show_data);
+        } else {
+            return true;
+        }
+    }
+
     string search_string = request->get_search_string();
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
         sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
     if (table) {
-        ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(table->Size());
 
         DBTablePartBase *partition = table->GetTablePartition(0);

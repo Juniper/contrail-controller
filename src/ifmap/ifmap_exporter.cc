@@ -137,7 +137,7 @@ IFMapNodeState *IFMapExporter::NodeStateLocate(IFMapNode *node){
     IFMapNodeState *state = static_cast<IFMapNodeState *>(
         node->GetState(node->table(), tinfo->id()));
     if (state == NULL) {
-        state = new IFMapNodeState();
+        state = new IFMapNodeState(node);
         node->SetState(node->table(), tinfo->id(), state);
     }
     return state;
@@ -356,7 +356,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
 
     if (IsFeasible(node)) {
         if (state == NULL) {
-            state = new IFMapNodeState();
+            state = new IFMapNodeState(node);
             entry->SetState(table, tinfo->id(), state);
         }
         state->SetValid(node);

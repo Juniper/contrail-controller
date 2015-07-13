@@ -133,11 +133,13 @@ response sandesh IFMapServerClientShowResp {
 struct IFMapPerClientNodesShowInfo {
     1: string node_name (link="IFMapNodeShowReq")
     2: string sent;
+    3: string tracked;
 }
 
 request sandesh IFMapPerClientNodesShowReq {
     1: string client_index_or_name;
     2: string search_string;
+    3: bool show_tracker_stale_entries;
 }
 
 response sandesh IFMapPerClientNodesShowResp {
@@ -151,11 +153,13 @@ struct IFMapPerClientLinksShowInfo {
     2: string left (link="IFMapNodeShowReq")
     3: string right (link="IFMapNodeShowReq")
     4: string sent;
+    5: string tracked;
 }
 
 request sandesh IFMapPerClientLinksShowReq {
     1: string client_index_or_name;
     2: string search_string;
+    3: bool show_tracker_stale_entries;
 }
 
 response sandesh IFMapPerClientLinksShowResp {

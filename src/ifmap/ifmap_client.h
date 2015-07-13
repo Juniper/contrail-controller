@@ -20,6 +20,7 @@ public:
     typedef std::map<std::string, std::string> VmMap;
     typedef boost::unordered_set<IFMapState *> ConfigTracker;
     typedef ConfigTracker::size_type CtSz_t;
+    typedef ConfigTracker::const_iterator Ct_const_iterator;
     static const int kIndexInvalid = -1;
 
     IFMapClient();
@@ -75,6 +76,12 @@ public:
     size_t ConfigTrackerSize();
     void ConfigDbCleanup();
     void ResetLinkDeleteClients();
+    Ct_const_iterator config_tracker_begin() const {
+        return config_tracker_.begin();
+    }
+    Ct_const_iterator config_tracker_end() const {
+        return config_tracker_.end();
+    }
 
 private:
     int index_;
