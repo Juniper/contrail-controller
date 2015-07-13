@@ -674,6 +674,19 @@ class AddrMgmt(object):
                 subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                     subnet_dict['ip_prefix_len'])
 
+                # check subnet-uuid
+                ipam_cfg_subnet_uuid = ipam_subnet.get('subnet_uuid', None)
+                if ipam_cfg_subnet_uuid is None:
+                    err_msg = "No subnet-uuid in subnet:%s" %(subnet_name)
+                    return False, err_msg
+
+                try:
+                    subnet_uuid = uuid.UUID(ipam_cfg_subnet_uuid)
+                except ValueError:
+                    err_msg = "Invalid subnet-uuid %s in subnet:%s" \
+                        %(ipam_cfg_subnet_uuid, subnet_name)
+                    return False, err_msg
+
                 # check allocation-pool
                 alloc_pools = ipam_subnet.get('allocation_pools', None)
                 for pool in alloc_pools or []:
