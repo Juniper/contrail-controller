@@ -6,6 +6,7 @@ import gevent
 import hashlib
 import logging
 from kazoo.client import KazooClient
+from random import randint
 import struct
 import traceback
 
@@ -19,6 +20,8 @@ class ConsistentScheduler(object):
         This class also provides syncronization premitives to ensure apps
         to clean up b4 giving up their partitions
     '''
+    _MAX_WAIT_4_ALLOCATION = 6 + randint(0, 9)
+
     def __init__(self, service_name=None, zookeeper='127.0.0.1:2181',
                  delete_hndlr=None, add_hndlr=None, bucketsize=47,
                  item2part_func=None, partitioner=None, logger=None):
@@ -40,11 +43,16 @@ class ConsistentScheduler(object):
         self._partition_set = map(str, range(self._bucketsize))
         self._zk_path = '/'.join(['/contrail_cs', self._service_name])
         self._zk = KazooClient(self._zookeeper_srvr)
+        self._zk.add_listener(self._zk_lstnr)
         self._zk.start()
         self._pc = self._zk.SetPartitioner(path=self._zk_path,
                                            set=self._partition_set,
                                            partition_func=self._partitioner)
+        self._wait_allocation = 0
         gevent.sleep(0)
+
+    def _zk_lstnr(self, state):
+        self._supress_log('zk state change to %s' % str(state))
 
     def schedule(self, items, lock_timeout=30):
         gevent.sleep(0)
@@ -57,9 +65,15 @@ class ConsistentScheduler(object):
         elif self._pc.allocating:
             self._supress_log('Waiting for allocation...')
             self._pc.wait_for_acquire(lock_timeout)
+            if self._wait_allocation < self._MAX_WAIT_4_ALLOCATION:
+                self._wait_allocation += 1
+            else:
+                raise StopIteration('Giving up after %d tries!' % (
+                            self._wait_allocation))
         elif self._pc.acquired:
             self._supress_log('got work: ', list(self._pc))
             ret = True
+            self._wait_allocation = 0
             self._populate_work_items(items)
             self._supress_log('work items: ',
                               self._items2name(self.work_items()),
