@@ -185,86 +185,48 @@ class DeviceManager(object):
                                              self.config_log,credential=cred)
 
         DBBaseDM.init(self, self._sandesh.logger(), self._cassandra)
-        ok, global_system_config_list = self._cassandra._cassandra_global_system_config_list()
-        if not ok:
-            self.config_log('global system config list returned error: %s' %
-                            global_system_config_list)
-        else:
-            for fq_name, uuid in global_system_config_list:
-                GlobalSystemConfigDM.locate(uuid)
+        for obj in GlobalSystemConfigDM.list_obj():
+            GlobalSystemConfigDM.locate(obj['uuid'], obj)
 
-        ok, global_vrouter_config_list = self._cassandra._cassandra_global_vrouter_config_list()
-        if not ok:
-            self.config_log('global vrouter config list returned error: %s' %
-                            global_vrouter_config_list)
-        else:
-            for fq_name, uuid in global_vrouter_config_list:
-                GlobalVRouterConfigDM.locate(uuid)
+        for obj in GlobalVRouterConfigDM.list_obj():
+            GlobalVRouterConfigDM.locate(obj['uuid'], obj)
 
-        ok, vn_list = self._cassandra._cassandra_virtual_network_list()
-        if not ok:
-            self.config_log('virtual network list returned error: %s' %
-                            vn_list)
-        else:
-            for fq_name, uuid in vn_list:
-                vn = VirtualNetworkDM.locate(uuid)
-                if vn is not None and vn.routing_instances is not None:
-                    for ri_id in vn.routing_instances:
-                        ri_obj = RoutingInstanceDM.locate(ri_id)
+        for obj in VirtualNetworkDM.list_obj():
+            vn = VirtualNetworkDM.locate(obj['uuid'], obj)
+            if vn is not None and vn.routing_instances is not None:
+                for ri_id in vn.routing_instances:
+                    ri_obj = RoutingInstanceDM.locate(ri_id)
 
-        ok, bgp_list = self._cassandra._cassandra_bgp_router_list()
-        if not ok:
-            self.config_log('bgp router list returned error: %s' %
-                            bgp_list)
-        else:
-            for fq_name, uuid in bgp_list:
-                BgpRouterDM.locate(uuid)
+        for obj in BgpRouterDM.list_obj():
+            BgpRouterDM.locate(obj['uuid'], obj)
 
-        ok, pr_list = self._cassandra._cassandra_physical_router_list()
-        if not ok:
-            self.config_log('physical router list returned error: %s' %
-                            pr_list)
-        else:
-            for fq_name, uuid in pr_list:
-                pr = PhysicalRouterDM.locate(uuid)
-                if pr.bgp_router:
-                    BgpRouterDM.locate(pr.bgp_router)
-                li_set = pr.logical_interfaces
-                for pi_id in pr.physical_interfaces:
-                    pi = PhysicalInterfaceDM.locate(pi_id)
-                    if pi:
-                        li_set |= pi.logical_interfaces
-                vmi_set = set()
-                for li_id in li_set:
-                    li = LogicalInterfaceDM.locate(li_id)
-                    if li and li.virtual_machine_interface:
-                        vmi_set |= set([li.virtual_machine_interface])
-                for vmi_id in vmi_set:
-                    vmi = VirtualMachineInterfaceDM.locate(vmi_id)
+        for obj in PhysicalRouterDM.list_obj():
+            pr = PhysicalRouterDM.locate(obj['uuid'], obj)
+            li_set = pr.logical_interfaces
+            for pi_id in pr.physical_interfaces:
+                pi = PhysicalInterfaceDM.locate(pi_id)
+                if pi:
+                    li_set |= pi.logical_interfaces
+            vmi_set = set()
+            for li_id in li_set:
+                li = LogicalInterfaceDM.locate(li_id)
+                if li and li.virtual_machine_interface:
+                    vmi_set |= set([li.virtual_machine_interface])
+            for vmi_id in vmi_set:
+                vmi = VirtualMachineInterfaceDM.locate(vmi_id)
 
-            ok, ip_list = self._cassandra._cassandra_instance_ip_list()
-            if not ok:
-                self.config_log('instance ip list returned error: %s' %
-                            ip_list)
-            else:
-                for fq_name, uuid in ip_list:
-                    InstanceIpDM.locate(uuid)
+        for obj in InstanceIpDM.list_obj():
+            InstanceIpDM.locate(obj['uuid'], obj)
 
-            ok, fip_list = self._cassandra._cassandra_floating_ip_list()
-            if not ok:
-                self.config_log('floating ip list returned error: %s' %
-                            fip_list)
-            else:
-                for fq_name, uuid in fip_list:
-                    FloatingIpDM.locate(uuid)
+        for obj in FloatingIpDM.list_obj():
+            FloatingIpDM.locate(obj['uuid'], obj)
 
-            for fq_name, uuid in vn_list:
-                vn = VirtualNetworkDM.locate(uuid)
-                if vn is not None:
-                    vn.update_instance_ip_map()
+        for vn in VirtualNetworkDM.values():
+            vn.update_instance_ip_map()
 
-            for pr in PhysicalRouterDM.values():
-                pr.set_config_state()
+        for pr in PhysicalRouterDM.values():
+            pr.set_config_state()
+
         self._db_resync_done.set()
         while 1:
             # Just wait indefinitely
