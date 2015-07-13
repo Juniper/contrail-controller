@@ -436,12 +436,17 @@ void AgentParam::ParseDefaultSection() {
         log_flow_ = false;
     }
 
+
     if (!GetValueFromTree<bool>(xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable")) {
         xmpp_auth_enable_ = false;
     }
 
     if (!GetValueFromTree<string>(xmpp_server_cert_, "DEFAULT.xmpp_server_cert")) {
         xmpp_server_cert_ = "/etc/contrail/ssl/certs/server.pem";
+    }
+
+    if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
+        log_property_file_ = "";
     }
 }
 
