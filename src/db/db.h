@@ -48,6 +48,7 @@ public:
 
     DBGraph *GetGraph(const std::string &name);
     void SetGraph(const std::string &name, DBGraph *graph);
+    void SetQueueDisable(bool disable);
 
     static int PartitionCount();
     static void RegisterFactory(const std::string &prefix,
