@@ -2591,16 +2591,12 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
-        lr_list = _vnc_lib.logical_routers_list(detail=True)
-        for lr in lr_list:
+        for lr in LogicalRouterST.list_vnc_obj():
            LogicalRouterST.locate(lr.get_fq_name_str(), lr)
-        vn_list = _vnc_lib.virtual_networks_list(detail=True,
-                                                 fields=['routing_instances',
-                                                         'access_control_lists'])
+        vn_list = list(VirtualNetworkST.list_vnc_obj())
         vn_id_list = [vn.uuid for vn in vn_list]
-        ri_list = _vnc_lib.routing_instances_list(detail=True)
         ri_dict = {}
-        for ri in ri_list:
+        for ri in DBBaseST.list_vnc_obj('routing_instance'):
             delete = False
             if ri.parent_uuid not in vn_id_list:
                 delete = True
@@ -2625,13 +2621,11 @@ class SchemaTransformer(object):
 
         # end for ri
 
-        sg_list = _vnc_lib.security_groups_list(detail=True,
-                                                fields=['access_control_lists'])
+        sg_list = list(SecurityGroupST.list_vnc_obj())
         sg_id_list = [sg.uuid for sg in sg_list]
-        acl_list = _vnc_lib.access_control_lists_list(detail=True)
         sg_acl_dict = {}
         vn_acl_dict = {}
-        for acl in acl_list or []:
+        for acl in DBBaseST.list_vnc_obj('access_control_list'):
             delete = False
             if acl.parent_type == 'virtual-network':
                 if acl.parent_uuid in vn_id_list:
@@ -2661,16 +2655,14 @@ class SchemaTransformer(object):
         for sg in sg_list:
             SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
         gevent.sleep(0.001)
-        rt_list = _vnc_lib.route_targets_list()['route-targets']
-        for rt in rt_list:
+        for rt in RouteTargetST.list_vnc_obj():
             rt_name = ':'.join(rt['fq_name'])
             RouteTargetST.locate(rt_name, RouteTarget(rt_name))
         for vn in vn_list:
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
                                     ri_dict)
         gevent.sleep(0.001)
-        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
-        for vmi in vmi_list:
+        for vmi in VirtualMachineInterfaceST.list_vnc_obj():
             VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
     # end reinit
 
