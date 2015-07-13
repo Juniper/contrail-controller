@@ -224,7 +224,7 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_XWINDOW_FONT_SERVER, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_REQ_IP_ADDRESS, DhcpHandler::OneIPv4)
-        // (DHCP_OPTION_IP_LEASE_TIME, DhcpHandler::Uint32bit) // agent adds this option
+        (DHCP_OPTION_IP_LEASE_TIME, DhcpHandler::Uint32bit)
         (DHCP_OPTION_OVERLOAD, DhcpHandler::Byte)
         // (DHCP_OPTION_MSG_TYPE, DhcpHandler::Byte)           // agent adds this option
         // (DHCP_OPTION_SERVER_IDENTIFIER, DhcpHandler::OneIPv4) // agent adds this option
@@ -960,7 +960,8 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
                             nak_msg_.data(), &opt_len);
     }
     else {
-        if (msg_type_ != DHCP_INFORM) {
+        if (msg_type_ != DHCP_INFORM &&
+            !is_flag_set(DHCP_OPTION_IP_LEASE_TIME)) {
             option_->SetNextOptionPtr(opt_len);
             uint32_t value = htonl(config_.lease_time);
             option_->WriteData(DHCP_OPTION_IP_LEASE_TIME, 4, &value, &opt_len);

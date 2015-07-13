@@ -1946,6 +1946,19 @@ TEST_F(DhcpTest, NameCompressionOption) {
                            true, OPTION_CATEGORY_COMPRESSED_NAME);
 }
 
+// Check dhcp options - lease value
+TEST_F(DhcpTest, LeaseValueOption) {
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>dhcp-lease-time</dhcp-option-name>\
+            <dhcp-option-value>1500</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    DhcpOptionCategoryTest(vm_interface_attr, true, "Lease time : 1500;", false, "");
+}
+
 // Check DHCP lease allocation & release for GW interface
 TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
     struct PortInfo input[] = {
