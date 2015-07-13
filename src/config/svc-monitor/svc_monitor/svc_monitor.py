@@ -403,177 +403,87 @@ class SvcMonitor(object):
         vn_set = set()
         vmi_set = set()
         iip_set = set()
-        ok, lb_pool_list = self._cassandra._cassandra_loadbalancer_pool_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in lb_pool_list:
-                lb_pool = LoadbalancerPoolSM.locate(uuid)
-                if lb_pool.virtual_machine_interface:
-                    vmi_set.add(lb_pool.virtual_machine_interface)
+        for obj in LoadbalancerPoolSM.list_obj():
+            lb_pool = LoadbalancerPoolSM.locate(obj['uuid'], obj)
+            if lb_pool.virtual_machine_interface:
+                vmi_set.add(lb_pool.virtual_machine_interface)
 
-        ok, lb_pool_member_list = self._cassandra._cassandra_loadbalancer_member_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in lb_pool_member_list:
-                lb_pool_member = LoadbalancerMemberSM.locate(uuid)
+        for obj in LoadbalancerMemberSM.list_obj():
+            lb_pool_member = LoadbalancerMemberSM.locate(obj['uuid'], obj)
 
-        ok, lb_vip_list = self._cassandra._cassandra_virtual_ip_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in lb_vip_list:
-                virtual_ip = VirtualIpSM.locate(uuid)
-                if virtual_ip.virtual_machine_interface:
-                    vmi_set.add(virtual_ip.virtual_machine_interface)
+        for obj in VirtualIpSM.list_obj():
+            virtual_ip = VirtualIpSM.locate(obj['uuid'], obj)
+            if virtual_ip.virtual_machine_interface:
+                vmi_set.add(virtual_ip.virtual_machine_interface)
 
-        ok, lb_hm_list = self._cassandra._cassandra_loadbalancer_healthmonitor_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in lb_hm_list:
-                lb_hm = HealthMonitorSM.locate(uuid)
+        for obj in HealthMonitorSM.list_obj():
+            lb_hm = HealthMonitorSM.locate(obj['uuid'], obj)
 
-        ok, si_list = self._cassandra._cassandra_service_instance_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in si_list:
-                si = ServiceInstanceSM.locate(uuid)
+        for obj in ServiceInstanceSM.list_obj():
+            si = ServiceInstanceSM.locate(obj['uuid'], obj)
 
-        ok, st_list = self._cassandra._cassandra_service_template_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in st_list:
-                st = ServiceTemplateSM.locate(uuid)
+        for obj in ServiceTemplateSM.list_obj():
+            st = ServiceTemplateSM.locate(obj['uuid'], obj))
 
-        ok, vn_list = self._cassandra._cassandra_virtual_network_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in vn_list:
-                vn = VirtualNetworkSM.locate(uuid)
-                vmi_set |= vn.virtual_machine_interfaces
+        for obj in VirtualNetworkSM.list_obj():
+            vn = VirtualNetworkSM.locate(obj['uuid'], obj)
+            vmi_set |= vn.virtual_machine_interfaces
 
-        ok, ifd_list = self._cassandra._cassandra_physical_interface_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in ifd_list:
-                ifd = PhysicalInterfaceSM.locate(uuid)
+        for obj in PhysicalInterfaceSM.list_obj():
+            ifd = PhysicalInterfaceSM.locate(uuid)
 
+        for obj in LogicalInterfaceSM.list_obj():
+            ifl = LogicalInterfaceSM.locate(obj['uuid'], obj)
+            if ifl.virtual_machine_interface:
+                vmi_set.add(ifl.virtual_machine_interface)
 
-        ok, ifl_list = self._cassandra._cassandra_logical_interface_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in ifl_list:
-                ifl = LogicalInterfaceSM.locate(uuid)
-                if ifl.virtual_machine_interface:
-                    vmi_set.add(ifl.virtual_machine_interface)
+        for obj in PhysicalRouterSM.list_obj():
+                pr = PhysicalRouterSM.locate(obj['uuid'], obj)
 
-        ok, pr_list = self._cassandra._cassandra_physical_router_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in pr_list:
-                pr = PhysicalRouterSM.locate(uuid)
+        for obj in VirtualRouterSM.list_obj():
+            vr = VirtualRouterSM.locate(obj['uuid'], obj)
 
-        ok, vr_list = self._cassandra._cassandra_virtual_router_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in vr_list:
-                vr = VirtualRouterSM.locate(uuid)
+        for obj in VirtualMachineInterfaceSM.list_obj():
+            vmi = VirtualMachineInterfaceSM.locate(obj['uuid'], obj)
+            if vmi.instance_ip:
+                iip_set.add(vmi.instance_ip)
 
-        ok, vmi_list = self._cassandra._cassandra_virtual_machine_interface_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in vmi_list:
-                vmi = VirtualMachineInterfaceSM.locate(uuid)
-                if vmi.instance_ip:
-                    iip_set.add(vmi.instance_ip)
+        for obj in InterfaceRouteTableSM.list_obj():
+            irt = InterfaceRouteTableSM.locate(obj['uuid'], obj)
 
-        ok, irt_list = self._cassandra._cassandra_interface_route_table_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in irt_list:
-                irt = InterfaceRouteTableSM.locate(uuid)
+        for obj in ProjectSM.list_obj():
+            prj = ProjectSM.locate(obj['uuid'], obj)
 
-        ok, project_list = self._cassandra._cassandra_project_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in project_list:
-                prj = ProjectSM.locate(uuid)
+        for obj in ServiceApplianceSetSM.list_obj():
+            sas = ServiceApplianceSetSM.locate(obj['uuid'], obj)
 
-        ok, sas_list = self._cassandra._cassandra_service_appliance_set_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in sas_list:
-                sas = ServiceApplianceSetSM.locate(uuid)
+        for obj in ServiceApplianceSM.list_obj():
+            sa = ServiceApplianceSM.locate(obj['uuid'], obj)
 
-        ok, sa_list = self._cassandra._cassandra_service_appliance_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in sa_list:
-                sa = ServiceApplianceSM.locate(uuid)
+        for obj in DomainSM.list_obj():
+            DomainSM.locate(obj['uuid'], obj)
 
-        ok, domain_list = self._cassandra._cassandra_domain_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in domain_list:
-                DomainSM.locate(uuid)
+        for obj in InstanceIpSM.list_obj():
+            InstanceIpSM.locate(obj['uuid'], obj)
 
-        ok, iip_list = self._cassandra._cassandra_instance_ip_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in iip_list:
-                InstanceIpSM.locate(uuid)
+        for obj in FloatingIpSM.list_obj():
+            FloatingIpSM.locate(obj['uuid'], obj)
 
-        ok, fip_list = self._cassandra._cassandra_floating_ip_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in fip_list:
-                FloatingIpSM.locate(uuid)
+        for obj in SecurityGroupSM.list_obj():
+            SecurityGroupSM.locate(obj['uuid'], obj)
 
-        ok, sg_list = self._cassandra._cassandra_security_group_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in sg_list:
-                SecurityGroupSM.locate(uuid)
-
-        ok, vm_list = self._cassandra._cassandra_virtual_machine_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in vm_list:
-                vm = VirtualMachineSM.locate(uuid)
-                if vm.service_instance:
+        for fq_name, uuid in vm_list:
+            vm = VirtualMachineSM.locate(obj['uuid'], obj)
+            if vm.service_instance:
+                continue
+            for vmi_id in vm.virtual_machine_interfaces:
+                vmi = VirtualMachineInterfaceSM.get(vmi_id)
+                if not vmi:
                     continue
-                for vmi_id in vm.virtual_machine_interfaces:
-                    vmi = VirtualMachineInterfaceSM.get(vmi_id)
-                    if not vmi:
-                        continue
-                    self.check_link_si_to_vm(vm, vmi)
+                self.check_link_si_to_vm(vm, vmi)
 
-
-        ok, lr_list = self._cassandra._cassandra_logical_router_list()
-        if not ok:
-            pass
-        else:
-            for fq_name, uuid in lr_list:
-                lr = LogicalRouterSM.locate(uuid)
+        for fq_name, uuid in lr_list:
+            lr = LogicalRouterSM.locate(obj['uuid'], obj)
 
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()

@@ -522,17 +522,6 @@ class VncServerCassandraClient(VncCassandraClient):
         return method(*args, **kwargs)
     # end create
 
-    def read(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_read' % (method_name))
-        return method(*args, **kwargs)
-    # end read
-
-    def count_children(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_count_children' % (method_name))
-        return method(*args, **kwargs)
-    # end count_children
-
-
     def update(self, method_name, *args, **kwargs):
         method = getattr(self, '_cassandra_%s_update' % (method_name))
         return method(*args, **kwargs)
@@ -542,12 +531,6 @@ class VncServerCassandraClient(VncCassandraClient):
         method = getattr(self, '_cassandra_%s_delete' % (method_name))
         return method(*args, **kwargs)
     # end delete
-
-    def list(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_list' % (method_name))
-        return method(*args, **kwargs)
-    # end list
-
 
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
         bch = self._obj_uuid_cf.batch()
