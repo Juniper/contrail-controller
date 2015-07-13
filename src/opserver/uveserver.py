@@ -150,6 +150,8 @@ class UVEServer(object):
         return False
 
     def get_part(self, part, r_inst):
+        # Get UVE and Type contents of given partition on given
+        # collector/redis instance.
         uves = {}
         try:
             r_ip = r_inst[0]
@@ -169,14 +171,13 @@ class UVEServer(object):
                 if not gen in gen_uves:
                      gen_uves[gen] = {}
                 if not key in gen_uves[gen]:
-                     gen_uves[gen][key] = set()
-                gen_uves[gen][key].add(typ)
-            uves[r_ip + ":" + str(r_port)] = gen_uves
+                     gen_uves[gen][key] = {}
+                gen_uves[gen][key][typ] = {}
         except Exception as e:
             self._logger.error("get_part failed %s for : %s:%d tb %s" \
                                % (str(e), r_ip, r_port, traceback.format_exc()))
             self._redis_uve_map[r_inst] = None
-        return uves
+        return r_ip + ":" + str(r_port) , gen_uves
 
     def get_uve(self, key, flat, filters=None, is_alarm=False, base_url=None):
         filters = filters or {}

@@ -648,11 +648,13 @@ OpServerProxy::UVENotif(const std::string &type,
     }
  
     if (deleted) {
-        rapidjson::Value val(rapidjson::kTrueType);
-        dd.AddMember("deleted", val, dd.GetAllocator());
+        rapidjson::Value val(rapidjson::kNullType);
+        val.SetNull();
+        dd.AddMember("value", val, dd.GetAllocator());
     } else {
-        rapidjson::Value val(rapidjson::kFalseType);
-        dd.AddMember("deleted", val, dd.GetAllocator());
+        rapidjson::Value val(rapidjson::kObjectType);
+        val.SetObject();
+        dd.AddMember("value", val, dd.GetAllocator());
     }
 
     rapidjson::StringBuffer sb;
