@@ -450,6 +450,28 @@ response sandesh ArpCacheResp {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+request sandesh ShowGwDhcpLeases {
+}
+
+struct DhcpLeaseData {
+    1: string mac;
+    2: string ip;
+    3: u64 expiry_us;
+    4: string released;
+}
+
+struct GwDhcpLeases {
+    1: string physical_interface;
+    2: string vm_interface;
+    3: list<DhcpLeaseData> leases;
+}
+
+response sandesh GwDhcpLeasesResponse {
+    1: list<GwDhcpLeases> gw_leases;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 trace sandesh ArpTrace {
     1: string op;
     2: string ip;

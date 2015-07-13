@@ -481,10 +481,15 @@ void AgentParam::ParseDhcpRelayMode() {
     }
 }
 
-void AgentParam::ParseAgentMode() {
+void AgentParam::ParseAgentInfo() {
     std::string mode;
     GetValueFromTree<string>(mode, "DEFAULT.agent_mode");
     set_agent_mode(mode);
+
+    if (!GetValueFromTree<string>(agent_base_dir_,
+                                  "DEFAULT.agent_base_directory")) {
+        agent_base_dir_ = "/var/lib/contrail";
+    }
 }
 
 void AgentParam::set_agent_mode(const std::string &mode) {
@@ -667,12 +672,14 @@ void AgentParam::ParseDhcpRelayModeArguments
     GetOptValue<bool>(var_map, dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode");
 }
 
-void AgentParam::ParseAgentModeArguments
+void AgentParam::ParseAgentInfoArguments
     (const boost::program_options::variables_map &var_map) {
     std::string mode;
     if (GetOptValue<string>(var_map, mode, "DEFAULT.agent_mode")) {
         set_agent_mode(mode);
     }
+    GetOptValue<string>(var_map, agent_base_dir_,
+                        "DEFAULT.agent_base_directory");
 }
 
 void AgentParam::ParseServiceInstanceArguments
@@ -764,7 +771,7 @@ void AgentParam::InitFromConfig() {
     ParseDhcpRelayMode();
     ParseSimulateEvpnTor();
     ParseServiceInstance();
-    ParseAgentMode();
+    ParseAgentInfo();
     ParseNexthopServer();
     ParsePlatform();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
@@ -786,7 +793,7 @@ void AgentParam::InitFromArguments() {
     ParseHeadlessModeArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
-    ParseAgentModeArguments(var_map_);
+    ParseAgentInfoArguments(var_map_);
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     return;
@@ -1035,6 +1042,7 @@ void AgentParam::LogConfig() const {
     }
     }
     LOG(DEBUG, "Nexthop server endpoint  : " << nexthop_server_endpoint_);
+    LOG(DEBUG, "Agent base directory     : " << agent_base_dir_);
 }
 
 void AgentParam::PostValidateLogConfig() const {
@@ -1104,7 +1112,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         exception_packet_interface_(""),
         platform_(VROUTER_ON_HOST),
         physical_interface_pci_addr_(""),
-        physical_interface_mac_addr_("") {
+        physical_interface_mac_addr_(""),
+        agent_base_dir_() {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1140,6 +1149,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DEFAULT.agent_mode", opt::value<string>(),
          "Run agent in vrouter / tsn / tor mode")
+        ("DEFAULT.agent_base_directory", opt::value<string>(),
+         "Base directory used by the agent")
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(DISCOVERY_SERVER_PORT),
          "Listen port of discovery server")
         ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
