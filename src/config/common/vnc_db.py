@@ -166,9 +166,7 @@ class DBBase(object):
     # end update_multiple_refs
 
     def read_obj(self, uuid, obj_type=None):
-        method_name = "_cassandra_%s_read" % (obj_type or self.obj_type)
-        method = getattr(self._cassandra, method_name)
-        ok, objs = method([uuid])
+        ok, objs = self._cassandra.read(obj_type or self.obj_type, [uuid])
         if not ok:
             self._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
@@ -190,6 +188,28 @@ class DBBase(object):
         obj.clear_pending_updates()
         return obj
     # end read_vnc_obj
+
+    @classmethod
+    def list_obj(cls, obj_type=None):
+        obj_type = obj_type or cls.obj_type
+        ok, result = cls._cassandra.list(obj_type)
+        if not ok:
+            return []
+        uuids = [uuid for _, uuid in result]
+        ok, objs = cls._cassandra.read(obj_type, uuids)
+        if not ok:
+            return []
+        return objs
+
+    @classmethod
+    def list_vnc_obj(cls, obj_type=None):
+        obj_type = obj_type or cls.obj_type
+        vnc_cls = obj_type_to_vnc_class(obj_type, __name__)
+        obj_dicts = cls.list_obj(obj_type)
+        for obj_dict in obj_dicts:
+            obj = vnc_cls.from_dict(**obj_dict)
+            obj.clear_pending_updates()
+            yield obj
 
     def get_parent_uuid(self, obj):
         if 'parent_uuid' in obj:
