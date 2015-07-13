@@ -78,6 +78,10 @@ void OvsdbClientTcp::set_connect_complete_cb(SessionEventCb cb) {
     connect_complete_cb_ = cb;
 }
 
+void OvsdbClientTcp::set_pre_connect_complete_cb(SessionEventCb cb) {
+    pre_connect_complete_cb_ = cb;
+}
+
 OvsdbClientSession *OvsdbClientTcp::FindSession(Ip4Address ip, uint16_t port) {
     // match both ip and port with available session
     // if port is not provided match only ip
@@ -222,12 +226,20 @@ bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
         }
         break;
     case TcpSession::CONNECT_COMPLETE:
-        ec = SetSocketOptions();
-        assert(ec.value() == 0);
-        set_status("Established");
-        OnEstablish();
-        if (!ovs_server->connect_complete_cb_.empty()) {
-            ovs_server->connect_complete_cb_(this);
+        if (!ovs_server->pre_connect_complete_cb_.empty()) {
+            ovs_server->pre_connect_complete_cb_(this);
+        }
+        if (!IsClosed()) {
+            ec = SetSocketOptions();
+            assert(ec.value() == 0);
+            set_status("Established");
+            OnEstablish();
+            if (!ovs_server->connect_complete_cb_.empty()) {
+                ovs_server->connect_complete_cb_(this);
+            }
+        } else {
+            OVSDB_SESSION_TRACE(Trace, this, "Skipping connection complete on"
+                                " closed session");
         }
         break;
     default:

@@ -127,6 +127,9 @@ void OvsdbClientSession::OnEstablish() {
 
 void OvsdbClientSession::OnClose() {
     OVSDB_SESSION_TRACE(Trace, this, "Connection to client Closed");
+    if (!idl_inited_) {
+        return;
+    }
     client_idl_->TriggerDeletion();
 }
 
