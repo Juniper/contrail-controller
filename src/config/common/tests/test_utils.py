@@ -501,7 +501,9 @@ class FakeIfmapClient(object):
 
             for (oper, result, info) in _items:
                 if oper == 'update':
-                    cls._published_messages.append((result, info))
+                    search_result = deepcopy(result)
+                    search_result.tag = 'searchResult'
+                    cls._published_messages.append((search_result, info))
                 else:
                     cls._published_messages = [
                         (r,i) for (r, i) in cls._published_messages

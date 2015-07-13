@@ -783,7 +783,7 @@ class ServiceApplianceSM(DBBaseSM):
 
 class ServiceApplianceSetSM(DBBaseSM):
     _dict = {}
-    obj_type = 'service_appliance'
+    obj_type = 'service_appliance_set'
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid

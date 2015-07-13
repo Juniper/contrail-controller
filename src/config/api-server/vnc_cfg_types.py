@@ -984,6 +984,14 @@ def _check_policy_rules(entries, network_policy_rule=False):
         if network_policy_rule:
             if rule.get('action_list') is None:
                 return (False, (400, 'Action is required'))
+        else:
+            src_sg = [addr.get('security_group') for addr in
+                      rule.get('src_addresses', [])]
+            dst_sg = [addr.get('security_group') for addr in
+                      rule.get('dst_addresses', [])]
+            if ('local' not in src_sg and 'local' not in dst_sg):
+                return (False, (400, "At least one of source or destination"
+                                     " addresses must be 'local'"))
     return True, ""
 # end _check_policy_rules
 
