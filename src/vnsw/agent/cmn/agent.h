@@ -526,9 +526,6 @@ public:
    }
 
     // DNS XMPP Server
-    const int8_t &dns_xmpp_server_index() const {return xs_dns_idx_;}
-    void set_dns_xmpp_server_index(uint8_t xs_idx) {xs_dns_idx_ = xs_idx;}
-
     XmppInit *dns_xmpp_init(uint8_t idx) const {
         return dns_xmpp_init_[idx];
     }
