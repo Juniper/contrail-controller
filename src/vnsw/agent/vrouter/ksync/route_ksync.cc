@@ -436,7 +436,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         //First search for v4
         const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>
             (l2_rt->FindMacVmBindingPath());
-        bool flood_dhcp = false;
+        bool flood_dhcp = true; // Flood DHCP if MacVmBindingPath is not present
         if (dhcp_path)
             flood_dhcp = dhcp_path->flood_dhcp();
 

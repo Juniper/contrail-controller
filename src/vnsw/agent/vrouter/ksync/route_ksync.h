@@ -33,6 +33,7 @@ public:
     uint32_t label() const { return label_; }
     bool proxy_arp() const { return proxy_arp_; }
     bool flood() const { return flood_; }
+    bool flood_dhcp() const { return flood_dhcp_; }
     bool wait_for_traffic() const { return wait_for_traffic_; }
     MacAddress mac() const { return mac_; }
     NHKSyncEntry* nh() const { 
