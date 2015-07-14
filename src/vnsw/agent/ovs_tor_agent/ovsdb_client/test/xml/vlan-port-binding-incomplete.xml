@@ -2,7 +2,7 @@
 <test_suite name="ovsdb-logical-switch-base">
 <test name="test1">
     <virtual-network uuid="2" name="vn-2"/>
-    <remote-physical-interface uuid="1" name="ge-0/0/0" device="test-router"/>
+    <remote-physical-interface uuid="1" name="ge-0/0/0" display="" device="test-router"/>
     <logical-interface uuid="1" name="l-ge-0/0/0" vlan="100"/>
     <logical-interface uuid="2" name="l-ge-0/0/0.1" vlan="1"/>
     <virtual-machine uuid="1" name="vm1"/>
@@ -12,7 +12,7 @@
      uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn-2" vn-uuid="2"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
     />
-    <physical-router uuid="1" name="test-router"/>
+    <physical-router uuid="1" name="test-router" display=""/>
     <validate name="test-router-1">
         <physical-router name="test-router" uuid="1" present="1" />
     </validate>
@@ -46,8 +46,19 @@
         <physical-router-vn name="router-vn-2" uuid="1" device="1" vn="2" vxlan-id="10" />
     </validate>
 
+    <remote-physical-interface uuid="1" name="ge-0/0/0" display="ge-0/0/0" device="test-router"/>
+
+    <physical-router uuid="1" name="test-router" display="test-router"/>
+    <validate name="test-router-1">
+        <physical-router name="test-router" uuid="1" display="test-router" present="1" />
+    </validate>
+
     <validate name="validate-logical-switch-1">
-        <ovs-logical-switch name="ls-1" uuid="1" device="1" vn="2" vxlan-id="10" />
+        <ovs-logical-switch name="ls-1" uuid="2" device="1" vn="2" vxlan-id="10" />
+    </validate>
+
+    <validate name="validate-vlan-port-incomplete">
+        <ovs-vlan-port-binding name="vp-incomplete" physical-device="test-router" physical-interface="" ls-uuid="2" vlan="1" uuid="1" present="no"/>
     </validate>
 
     <validate name="validate-vlan-port-1">
@@ -64,7 +75,7 @@
     <link name="link-8" uuid="1" left="virtual-machine-interface" left-name="tap1"
           right="virtual-network" right-name="vn-2" del="1"/>
     <link name="link-9" uuid="1" left="logical-interface" left-name="l-ge-0/0/0.1"
-          right="virtual-machine-interface" right-name="tap-1" del="1"/>
+          right="virtual-machine-interface" right-name="tap1" del="1"/>
     <link name="link-10" uuid="1" left="physical-router" left-name="test-router"
           right="physical-interface" right-name="dummy:test-router:ge-0/0/0" del="1"/>
     <link name="link-11" uuid="1" left="physical-interface" left-name="dummy:test-router:ge-0/0/0"

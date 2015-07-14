@@ -94,6 +94,8 @@ public:
     virtual const std::string ToString();
 private:
     const boost::uuids::uuid id_;
+    std::string display_name_;
+    bool match_display_name_;
 };
 
 class AgentUtXmlPhysicalInterfaceValidate : public AgentUtXmlValidationNode {

@@ -95,7 +95,12 @@ bool AgentUtXmlPhysicalDevice::ReadXml() {
 bool AgentUtXmlPhysicalDevice::ToXml(xml_node *parent) {
     xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
     AddXmlNodeWithValue(&n, "name", name());
-    AddXmlNodeWithValue(&n, "display-name", name());
+    string display_name;
+    if (GetStringAttribute(node(), "display", &display_name)) {
+        AddXmlNodeWithValue(&n, "display-name", display_name);
+    } else {
+        AddXmlNodeWithValue(&n, "display-name", name());
+    }
     AddXmlNodeWithValue(&n, "physical-router-dataplane-ip", "111.111.111.111");
     AddIdPerms(&n);
     return true;
@@ -139,8 +144,8 @@ bool AgentUtXmlPhysicalInterface::ToXml(xml_node *parent) {
     AddIdPerms(&n);
 
     if (device_name_ != "") {
-        LinkXmlNode(parent, NodeType(), name(), "physical-router",
-                    device_name_);
+        LinkXmlNode(parent, "physical-router", device_name_,
+                    NodeType(), name());
     }
 
     return true;
@@ -187,12 +192,17 @@ bool AgentUtXmlRemotePhysicalInterface::ToXml(xml_node *parent) {
         fqdn = "dummy:" + agent->agent_name() + ":" + name();
     }
     AddXmlNodeWithValue(&n, "name", fqdn);
-    AddXmlNodeWithValue(&n, "display-name", name());
+    string display_name;
+    if (GetStringAttribute(node(), "display", &display_name)) {
+        AddXmlNodeWithValue(&n, "display-name", display_name);
+    } else {
+        AddXmlNodeWithValue(&n, "display-name", name());
+    }
     AddIdPerms(&n);
 
     if (device_name_ != "") {
-        LinkXmlNode(parent, NodeType(), fqdn, "physical-router",
-                    device_name_);
+        LinkXmlNode(parent, "physical-router", device_name_,
+                    NodeType(), fqdn);
     }
 
     return true;
@@ -265,13 +275,16 @@ string AgentUtXmlLogicalInterface::NodeType() {
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlPhysicalDeviceValidate::AgentUtXmlPhysicalDeviceValidate
 (const string &name, const uuid &id, const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
+    AgentUtXmlValidationNode(name, node), id_(id), match_display_name_(false) {
 }
 
 AgentUtXmlPhysicalDeviceValidate::~AgentUtXmlPhysicalDeviceValidate() {
 }
 
 bool AgentUtXmlPhysicalDeviceValidate::ReadXml() {
+    if (AgentUtXmlValidationNode::ReadXml() == false)
+        return false;
+    match_display_name_ = GetStringAttribute(node(), "display", &display_name_);
     return true;
 }
 
@@ -281,7 +294,13 @@ bool AgentUtXmlPhysicalDeviceValidate::Validate() {
     dev = static_cast<PhysicalDevice *>
         (Agent::GetInstance()->physical_device_table()->FindActiveEntry(&key));
     if (present()) {
-        return dev != NULL;
+        if (dev != NULL) {
+            if (match_display_name_ && display_name_ != dev->name()) {
+                return false;
+            }
+            return true;
+        }
+        return false;
     } else {
         return dev == NULL;
     }
