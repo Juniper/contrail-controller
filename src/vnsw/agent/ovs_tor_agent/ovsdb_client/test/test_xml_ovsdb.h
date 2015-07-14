@@ -29,6 +29,8 @@ public:
 
 private:
     const boost::uuids::uuid id_;
+    uint16_t vxlan_id_;
+    bool match_vxlan_;
 };
 
 class AgentUtXmlOvsdbVrfValidate : public AgentUtXmlValidationNode {

@@ -30,7 +30,8 @@ using boost::uuids::uuid;
 LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
                                    const std::string &name) :
     Interface(Interface::LOGICAL, uuid, name, NULL), display_name_(),
-    physical_interface_(), vm_interface_(), physical_device_(NULL) {
+    physical_interface_(), vm_interface_(), physical_device_(NULL),
+    phy_dev_display_name_(), phy_intf_display_name_() {
 }
 
 LogicalInterface::~LogicalInterface() {
@@ -72,6 +73,14 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
         ret = true;
     }
 
+    if (phy_intf_display_name_ != data->phy_intf_display_name_) {
+        OPER_TRACE(Trace, "Changing Physical Interface display name from "
+                   + phy_intf_display_name_ + " to " +
+                   data->phy_intf_display_name_);
+        phy_intf_display_name_ = data->phy_intf_display_name_;
+        ret = true;
+    }
+
     VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, data->vm_interface_, "");
     Interface *interface = static_cast<Interface *>
         (table->agent()->interface_table()->FindActiveEntry(&vmi_key));
@@ -85,6 +94,14 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
                           Find(data->device_uuid_);
     if (dev != physical_device_.get()) {
         physical_device_.reset(dev);
+        ret = true;
+    }
+
+    if (phy_dev_display_name_ != data->phy_dev_display_name_) {
+        OPER_TRACE(Trace, "Changing Physical Device display name from "
+                   + phy_dev_display_name_ + " to " +
+                   data->phy_dev_display_name_);
+        phy_dev_display_name_ = data->phy_dev_display_name_;
         ret = true;
     }
 
@@ -129,10 +146,14 @@ LogicalInterfaceData::LogicalInterfaceData(Agent *agent, IFMapNode *node,
                                            const std::string &display_name,
                                            const std::string &port,
                                            const boost::uuids::uuid &vif,
-                                           const uuid &device_uuid) :
+                                           const uuid &device_uuid,
+                                           const std::string &phy_dev_display_name,
+                                           const std::string &phy_intf_display_name) :
     InterfaceData(agent, node, Interface::TRANSPORT_INVALID),
     display_name_(display_name),
-    physical_interface_(port), vm_interface_(vif), device_uuid_(device_uuid) {
+    physical_interface_(port), vm_interface_(vif), device_uuid_(device_uuid),
+    phy_dev_display_name_(phy_dev_display_name),
+    phy_intf_display_name_(phy_intf_display_name) {
 }
 
 LogicalInterfaceData::~LogicalInterfaceData() {
@@ -191,8 +212,11 @@ InterfaceKey *VlanLogicalInterfaceKey::Clone() const {
 VlanLogicalInterfaceData::VlanLogicalInterfaceData
 (Agent *agent, IFMapNode *node, const std::string &display_name,
  const std::string &physical_interface,
- const boost::uuids::uuid &vif, const boost::uuids::uuid &u, uint16_t vlan) :
-    LogicalInterfaceData(agent, node, display_name, physical_interface, vif, u),
+ const boost::uuids::uuid &vif, const boost::uuids::uuid &u,
+ const std::string &phy_dev_display_name,
+ const std::string &phy_intf_display_name, uint16_t vlan) :
+    LogicalInterfaceData(agent, node, display_name, physical_interface, vif, u,
+                         phy_dev_display_name, phy_intf_display_name),
     vlan_(vlan) {
 }
 
@@ -217,17 +241,24 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
                                        const autogen::LogicalInterface *port) {
     // Find link with physical-interface adjacency
     string physical_interface;
+    string phy_dev_display_name;
+    string phy_intf_display_name;
     IFMapNode *adj_node = NULL;
     boost::uuids::uuid dev_uuid = nil_uuid();
     adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
         (agent, node, "physical-interface");
     if (adj_node) {
         physical_interface = adj_node->name();
+        autogen::PhysicalInterface *port =
+            static_cast <autogen::PhysicalInterface *>(adj_node->GetObject());
+        assert(port);
+        phy_intf_display_name = port->display_name();
         IFMapNode *prouter_node = agent->cfg_listener()->FindAdjacentIFMapNode
             (agent, adj_node, "physical-router");
         if (prouter_node) {
             autogen::PhysicalRouter *router =
                 static_cast<autogen::PhysicalRouter *>(prouter_node->GetObject());
+            phy_dev_display_name = router->display_name();
             autogen::IdPermsType id_perms = router->id_perms();
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                        dev_uuid);
@@ -280,6 +311,8 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
 
     return new VlanLogicalInterfaceData(agent, node, port->display_name(),
                                         physical_interface, vmi_uuid, dev_uuid,
+                                        phy_dev_display_name,
+                                        phy_intf_display_name,
                                         port->vlan_tag());
 }
 
