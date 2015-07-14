@@ -18,12 +18,19 @@
 DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)
     : ProtoHandler(agent, info, io), resp_ptr_(NULL), dns_resp_size_(0),
-      xid_(-1), retries_(0), action_(NONE), rkey_(NULL),
+      xid_(-1), action_(NONE), rkey_(NULL),
       query_name_update_(false), pend_req_(0) {
     dns_ = (dnshdr *) pkt_info_->data;
-    timer_ = TimerManager::CreateTimer(io, "DnsHandlerTimer",
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        retries_[count] = 0;
+        std::stringstream ss;
+        ss << "DnsHandlerTimer " << count;
+        timer_[count] = TimerManager::CreateTimer(io, ss.str(),
              TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
              PktHandler::DNS);
+        count++;
+    }
 }
 
 DnsHandler::~DnsHandler() {
@@ -34,8 +41,12 @@ DnsHandler::~DnsHandler() {
     if (rkey_) {
         delete rkey_;
     }
-    timer_->Cancel();
-    TimerManager::DeleteTimer(timer_);
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        timer_[count]->Cancel();
+        TimerManager::DeleteTimer(timer_[count]);
+        count++;
+    }
 }
 
 bool DnsHandler::Run() {
@@ -315,10 +326,25 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
                 break;
             }
             UpdateQueryNames();
-            xid_ = dns_proto->GetTransId();
+
+            int8_t count = 0;
+            int8_t query_failed = 0;
             action_ = DnsHandler::DNS_QUERY;
-            if (SendDnsQuery())
+            while (count < MAX_XMPP_SERVERS) { 
+                if (!agent()->dns_server(count).empty()) { 
+                    uint16_t xid = dns_proto->GetTransId();
+                    if (SendDnsQuery(count, xid) == true) {
+                        dns_proto->AddDnsQueryIndex(xid, count);
+                    } else {
+                        query_failed++;
+                    }
+                }
+                count++;
+            }
+            if (query_failed == 0) {
+                // query sent succesful, do not delete request yet.
                 return false;
+            }
             break;
         }
 
@@ -355,43 +381,44 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
             break;
         }
     }
+    
     dns_proto->DelVmRequest(rkey_);
     return true;
 }
 
-bool DnsHandler::SendDnsQuery() {
+bool DnsHandler::SendDnsQuery(int8_t idx, uint16_t xid) {
     uint8_t *pkt = NULL;
     std::size_t len = 0;
     DnsProto *dns_proto = agent()->GetDnsProto();
-    bool in_progress = dns_proto->IsDnsQueryInProgress(xid_);
+    bool in_progress = dns_proto->IsDnsQueryInProgress(xid);
     if (in_progress) {
-        if (retries_ >= dns_proto->max_retries()) {
+        if (retries_[idx] >= dns_proto->max_retries()) {
             DNS_BIND_TRACE(DnsBindTrace, 
-                           "Max retries reached for query; xid = " << xid_ <<
+                           "Max retries reached for query; xid = " << xid <<
                            " " << DnsItemsToString(items_));
             goto cleanup;
-        } else
-            retries_++;
+        } else {
+            retries_[idx]++;
+        }
     } else {
-        dns_proto->AddDnsQuery(xid_, this);
+        dns_proto->AddDnsQuery(xid, this);
     }
 
     pkt = new uint8_t[BindResolver::max_pkt_size];
-    len = BindUtil::BuildDnsQuery(pkt, xid_, 
+    len = BindUtil::BuildDnsQuery(pkt, xid, 
           ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
-    if (BindResolver::Resolver()->DnsSend(pkt, agent()->dns_xmpp_server_index(),
-                                          len)) {
+    if (BindResolver::Resolver()->DnsSend(pkt, idx, len)) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to named server : " <<
-                       agent()->dns_server(agent()->dns_xmpp_server_index()) <<
-                       "; xid =" << xid_ << " " << DnsItemsToString(items_));
-        timer_->Start(dns_proto->timeout(),
-                      boost::bind(&DnsHandler::TimerExpiry, this, xid_));
+                       agent()->dns_server(idx) <<
+                       "; xid =" << xid << " " << DnsItemsToString(items_));
+        timer_[idx]->Start(dns_proto->timeout(),
+                           boost::bind(&DnsHandler::TimerExpiry, this, xid));
         return true;
     } 
-
 cleanup:
     dns_proto->IncrStatsDrop();
-    dns_proto->DelDnsQuery(xid_);
+    dns_proto->DelDnsQuery(xid);
+    dns_proto->DelDnsQueryIndex(xid);
     return false;
 }
 
@@ -508,6 +535,7 @@ bool DnsHandler::HandleDefaultDnsResponse() {
 }
 
 bool DnsHandler::HandleBindResponse() {
+    tbb::mutex::scoped_lock lock(mutex_);
     DnsProto::DnsIpc *ipc = static_cast<DnsProto::DnsIpc *>(pkt_info_->ipc);
     uint16_t xid = ntohs(*(uint16_t *)ipc->resp);
     DnsProto *dns_proto = agent()->GetDnsProto();
@@ -543,12 +571,20 @@ bool DnsHandler::HandleBindResponse() {
             DNS_BIND_TRACE(DnsBindTrace,
                            "Received invalid BIND response: xid = " << xid);
         }
+
         dns_proto->DelDnsQuery(xid);
+        dns_proto->DelDnsQueryIndex(xid);
+        dns_proto->DelDnsQueryHandler(handler);
+
+        /* Delete Request on Response from any one DNS Server */
         dns_proto->DelVmRequest(handler->rkey_);
         delete handler;
-    } else
-        DNS_BIND_TRACE(DnsBindError, "Invalid xid " << xid <<
-                       "received from DNS server - dropping");
+    } else {
+        DNS_BIND_TRACE(DnsBindError, "Invalid or Response ignored xid " << xid <<
+                       " received from DNS server - dropping");
+
+        dns_proto->DelDnsQueryIndex(xid);
+    }
 
     delete ipc;
     return true;
@@ -557,12 +593,17 @@ bool DnsHandler::HandleBindResponse() {
 bool DnsHandler::HandleRetryExpiry() {
     DnsProto::DnsIpc *ipc = static_cast<DnsProto::DnsIpc *>(pkt_info_->ipc);
     DnsProto *dns_proto = agent()->GetDnsProto();
-    DnsHandler *handler = dns_proto->GetDnsQueryHandler(ipc->xid);
-    if (handler && !handler->SendDnsQuery()) {
-            dns_proto->DelVmRequest(handler->rkey_);
-            delete handler;
+    uint16_t xid = ipc->xid;
+    DnsHandler *handler = dns_proto->GetDnsQueryHandler(xid);
+    if (handler) {
+        uint16_t idx = dns_proto->GetDnsQueryServerIndex(ipc->xid);
+        if (!handler->SendDnsQuery(idx, xid)) {
+            if (!dns_proto->IsDnsHandlerInUse(handler)) {
+                dns_proto->DelVmRequest(handler->rkey_);
+                delete handler;
+            }
+        }
     }
-
     delete ipc;
     return true;
 }

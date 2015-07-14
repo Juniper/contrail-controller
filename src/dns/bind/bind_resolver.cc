@@ -81,6 +81,8 @@ void BindResolver::SetupResolver(const DnsServer &server, uint8_t idx) {
 
 bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index, 
                            std::size_t len) {
+
+    std::cout << "\n\n DnsSend srv_idx:" << dns_srv_index << "\n\n";
     if (dns_srv_index < dns_ep_.size() && dns_ep_[dns_srv_index] && len > 0) {
         sock_.async_send_to(
               boost::asio::buffer(pkt, len), *dns_ep_[dns_srv_index],
@@ -101,6 +103,7 @@ void BindResolver::DnsSendHandler(const boost::system::error_code &error,
     if (error)
         DNS_BIND_TRACE(DnsBindError, "Error sending packet to DNS server : " <<
                        boost::system::system_error(error).what() << ";");
+    std::cout << "\n\n *******BindResolver::DnsSendHandler delete pkt:" << pkt << "\n\n";
     delete [] pkt;
 }
 
