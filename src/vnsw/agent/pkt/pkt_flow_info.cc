@@ -848,7 +848,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (VrfTranslate(pkt, in, out, fip_it->floating_ip_) == false) {
+    if (VrfTranslate(pkt, in, out, fip_it->floating_ip_, true) == false) {
         return;
     }
     if (out->rt_ == NULL || in->rt_ == NULL) {
@@ -896,7 +896,8 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 }
 
 bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
-                               PktControlInfo *out, const IpAddress &src_ip) {
+                               PktControlInfo *out, const IpAddress &src_ip,
+                               bool nat_flow) {
     const Interface *intf = NULL;
     if (ingress) {
         intf = in->intf_;
@@ -911,7 +912,12 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //If interface has a VRF assign rule, choose the acl and match the
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
-    const AclDBEntry *acl = vm_intf->vrf_assign_acl();
+    const AclDBEntry *acl = NULL;
+    if (nat_flow == false) {
+        acl = vm_intf->vrf_assign_acl();
+    }
+    //In case of floating IP translation, dont apply
+    //interface VRF assign rule
     if (acl == NULL) {
         if (ingress && in->vn_) {
             //Check if the network ACL is present
@@ -999,7 +1005,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     //exact same route with different nexthop, hence if both ingress
     //route and egress route are present in native vrf, acl match condition
     //can be applied
-    if (VrfTranslate(pkt, in, out, pkt->ip_saddr) == false) {
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, false) == false) {
         return;
     }
 
@@ -1130,7 +1136,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     //Apply vrf translate ACL to get ingress route
-    if (VrfTranslate(pkt, in, out, pkt->ip_saddr) == false) {
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, false) == false) {
         return;
     }
 
