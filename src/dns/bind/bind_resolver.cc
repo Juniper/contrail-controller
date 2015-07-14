@@ -81,6 +81,7 @@ void BindResolver::SetupResolver(const DnsServer &server, uint8_t idx) {
 
 bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index, 
                            std::size_t len) {
+
     if (dns_srv_index < dns_ep_.size() && dns_ep_[dns_srv_index] && len > 0) {
         sock_.async_send_to(
               boost::asio::buffer(pkt, len), *dns_ep_[dns_srv_index],
