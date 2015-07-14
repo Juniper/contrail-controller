@@ -15,6 +15,7 @@
 #include "db/db_table_partition.h"
 #include "base/bitset.h"
 
+#include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_exporter.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
@@ -877,6 +878,16 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
         } else {
             dest->sent = "No";
         }
+        IFMapClient *client = server->GetClient(client_index);
+        if (client) {
+            if (client->ConfigTrackerHasState(state)) {
+                dest->tracked = "Yes";
+            } else {
+                dest->tracked = "No";
+            }
+        } else {
+            dest->tracked = "Client unknown";
+        }
         return true;
     } else {
         return false;
@@ -893,6 +904,10 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
     IFMapServer *ifmap_server = sctx->ifmap_server();
 
     string client_index_or_name = request->get_client_index_or_name();
+    if (client_index_or_name.empty()) {
+        return true;
+    }
+
     // The user gives us either a name or an index. If the input is not a
     // number, find the client's index using its name. If we cant find it,
     // we cant process this request. If we have the index, continue processing.
@@ -1055,6 +1070,16 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
         } else {
             dest->sent = "No";
         }
+        IFMapClient *client = server->GetClient(client_index);
+        if (client) {
+            if (client->ConfigTrackerHasState(state)) {
+                dest->tracked = "Yes";
+            } else {
+                dest->tracked = "No";
+            }
+        } else {
+            dest->tracked = "Client unknown";
+        }
         return true;
     } else {
         return false;
@@ -1068,7 +1093,12 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
     IFMapSandeshContext *sctx = 
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+
     string client_index_or_name = request->get_client_index_or_name();
+    if (client_index_or_name.empty()) {
+        return true;
+    }
+
     // The user gives us either a name or an index. If the input is not a
     // number, find the client's index using its name. If we cant find it,
     // we cant process this request. If we have the index, continue processing.
