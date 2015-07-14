@@ -120,9 +120,7 @@ struct ShowPmsiTunnel {
 
 struct ShowRoutePath {
     1: string protocol;
-    2: u32 preference;
     3: string last_modified;
-    4: u32 metric;
     5: u32 local_preference;
     6: u32 local_as;
     7: u32 peer_as;
