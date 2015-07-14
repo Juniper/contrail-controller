@@ -488,7 +488,6 @@ void VNController::DisConnectDnsServer(uint8_t idx) {
     agent_->set_dns_xmpp_init(NULL, idx);
 
     agent_->reset_dns_server(idx);
-    agent_->set_dns_xmpp_server_index(-1);
 }
 
 

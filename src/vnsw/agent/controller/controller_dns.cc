@@ -93,21 +93,9 @@ void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
 
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                        xmps::PeerState state) {
-    Agent *agent = peer->agent();
     peer->UpdateConnectionInfo(state);
     if (state == xmps::READY) {
-        if (agent->dns_xmpp_server_index() == -1)
-            agent->set_dns_xmpp_server_index(peer->xs_idx_);
         peer->dns_xmpp_event_handler_cb_(peer);
-    } else if (state == xmps::NOT_READY) {
-        if (agent->dns_xmpp_server_index() == peer->xs_idx_) {
-            agent->set_dns_xmpp_server_index(-1);
-            uint8_t o_idx = ((peer->xs_idx_ == 0) ? 1 : 0);
-            AgentDnsXmppChannel *o_chn = agent->dns_xmpp_channel(o_idx);
-            if (o_chn && o_chn->GetXmppChannel() &&
-                o_chn->GetXmppChannel()->GetPeerState() == xmps::READY)
-                agent->set_dns_xmpp_server_index(o_idx);
-        }
     } else if (state == xmps::TIMEDOUT) {
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
