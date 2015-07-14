@@ -207,6 +207,15 @@ void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
 void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
     DnsStats *dns = new DnsStats();
     const DnsProto::DnsStats &nstats = Agent::GetInstance()->GetDnsProto()->GetStats();
+    uint8_t count = 0;
+    std::vector<string> &list =
+        const_cast<std::vector<string>&>(dns->get_dns_resolver());
+    while (count < MAX_XMPP_SERVERS) {
+        if (!Agent::GetInstance()->dns_server(count).empty()) {
+            list.push_back(Agent::GetInstance()->dns_server(count)); 
+        }
+        count++;
+    }
     dns->set_dns_requests(nstats.requests);
     dns->set_dns_resolved(nstats.resolved);
     dns->set_dns_retransmit_reqs(nstats.retransmit_reqs);
