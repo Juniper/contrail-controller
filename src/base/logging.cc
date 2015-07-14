@@ -81,3 +81,10 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
 
     CheckEnvironmentAndUpdate();
 }
+
+
+void LoggingInit(const std::string &propertyFile) {
+    PropertyConfigurator::doConfigure(propertyFile);
+    CheckEnvironmentAndUpdate();
+}
+

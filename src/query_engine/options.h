@@ -31,6 +31,7 @@ public:
     const int max_tasks() const { return max_tasks_; }
     const int max_slice() const { return max_slice_; }
     const std::string log_category() const { return log_category_; }
+    const std::string log_property_file() const { return log_property_file_; }
     const bool log_disable() const { return log_disable_; }
     const std::string log_file() const { return log_file_; }
     const int log_files_count() const { return log_files_count_; }
@@ -69,6 +70,7 @@ private:
     std::string host_ip_;
     uint16_t http_server_port_;
     std::string log_category_;
+    std::string log_property_file_;
     bool log_disable_;
     std::string log_file_;
     int log_files_count_;
