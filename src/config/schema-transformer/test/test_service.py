@@ -83,7 +83,12 @@ class TestPolicy(test_case.STTestCase):
         if not ri_refs:
             print "retrying ... ", test_common.lineno()
             raise Exception('ri_refs is None for %s' % fq_name)
-        self.assertEqual(ri_refs[0]['to'], to_fq_name)
+        found = False
+        for ri_ref in ri_refs:
+            if ri_ref['to'] == to_fq_name:
+                found = True
+                break
+        self.assertTrue(found)
 
     @retries(5, hook=retry_exc_handler)
     def check_ri_refs_are_deleted(self, fq_name):
@@ -145,6 +150,53 @@ class TestPolicy(test_case.STTestCase):
                     return
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.match_condition.src_address.virtual_network == vn1_fq_name and
+                rule.match_condition.dst_address.virtual_network == vn2_fq_name):
+                    return
+        raise Exception('nets %s/%s not found in ACL rules for %s' %
+                        (vn1_fq_name, vn2_fq_name, fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_not_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
+        acl = None
+        try:
+            acl = self._vnc_lib.access_control_list_read(fq_name)
+        except NoIdError:
+            return
+        found = False
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.match_condition.src_address.virtual_network == vn1_fq_name and
+                rule.match_condition.dst_address.virtual_network == vn2_fq_name):
+                found = True
+        if found == True:
+            raise Exception('nets %s/%s found in ACL rules for %s' %
+                        (vn1_fq_name, vn2_fq_name, fq_name))
+        return
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_not_match_mirror_to_ip(self, fq_name):
+        acl = None
+        try:
+            acl = self._vnc_lib.access_control_list_read(fq_name)
+        except NoIdError:
+            return
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.action_list.mirror_to.analyzer_ip_address is not None):
+                raise Exception('mirror to ip %s found in ACL rules for %s' % (fq_name))
+        return
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_match_mirror_to_ip(self, fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.action_list.mirror_to.analyzer_ip_address is not None):
+                return
+        raise Exception('mirror to ip not found in ACL rules for %s' % (fq_name))
 
     @retries(5, hook=retry_exc_handler)
     def check_route_target_in_routing_instance(self, ri_name, rt_list):
@@ -847,6 +899,48 @@ class TestPolicy(test_case.STTestCase):
                 raise Exception('floating is still present: ' + floating_ip)
             except:
                 pass
+
+    def test_analyzer(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], 'transparent', 'analyzer', action_type = 'mirror-to')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
+        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        sc = self.wait_to_get_sc()
+
+        svc_vn_fq_name = 'default-domain:default-project:svc-vn-left'.split(':')
+        self.check_ri_state_vn_policy(svc_vn_fq_name, self.get_ri_name(vn1_obj))
+        self.check_ri_state_vn_policy(svc_vn_fq_name, self.get_ri_name(vn2_obj))
+
+        self.check_acl_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.check_acl_not_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_not_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_not_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
 
     def test_fip(self):
 
