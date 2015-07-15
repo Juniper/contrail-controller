@@ -449,7 +449,12 @@ void OvsdbClientIdl::TriggerDeletion() {
     // trigger KSync Object delete for all objects.
     vm_interface_table_->DeleteTable();
     physical_switch_table_->DeleteTable();
-    logical_switch_table_->DeleteTable();
+
+    // trigger Process Delete, which will do internal processing to
+    // clear self reference from logical switch before triggering
+    // delete table
+    logical_switch_table_->ProcessDeleteTableReq();
+
     physical_port_table_->DeleteTable();
     physical_locator_table_->DeleteTable();
     vlan_port_table_->DeleteTable();
