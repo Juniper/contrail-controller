@@ -95,6 +95,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
 from sandesh.traces.ttypes import RestApiTrace
+from vnc_bottle import get_bottle_server
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
@@ -847,6 +848,7 @@ class VncApiServer(VncApiServerGen):
             'rabbit_vhost': None,
             'rabbit_max_pending_updates': '4096',
             'cluster_id': '',
+            'max_requests': 1024,
         }
         # ssl options
         secopts = {
@@ -1014,6 +1016,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--cluster_id",
             help="Used for database keyspace separation")
+        parser.add_argument(
+            "--max_requests", type=int,
+            help="Maximum number of concurrent requests served by api server")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -1688,7 +1693,7 @@ def main(args_str=None):
 
     try:
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
-                   server='gevent')
+                   server=get_bottle_server(server._args.max_requests))
     except KeyboardInterrupt:
         # quietly handle Ctrl-C
         pass
