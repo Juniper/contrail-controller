@@ -41,6 +41,7 @@ class CpuInfoData(object):
         cpu_load_avg.one_min_avg = load_avg[0]
         cpu_load_avg.five_min_avg = load_avg[1]
         cpu_load_avg.fifteen_min_avg = load_avg[2]
+        return cpu_load_avg
     #end _get_cpu_load_avg
 
     def _get_cpu_share(self):
