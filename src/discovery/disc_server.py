@@ -194,7 +194,7 @@ class DiscoveryServer():
                                           size=1000)
 
         # DB interface initialization
-        self._db_connect(self._args.reset_config)
+        self._db_conn = self._db_connect(self._args.reset_config)
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -272,7 +272,7 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
-        self._db_conn = DiscoveryCassandraClient("discovery",
+        return DiscoveryCassandraClient("discovery",
             self._args.cassandra_server_list, reset_config,
             self._args.cass_max_retries,
             self._args.cass_timeout)
