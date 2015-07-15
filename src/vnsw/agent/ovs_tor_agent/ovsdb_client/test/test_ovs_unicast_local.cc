@@ -103,6 +103,7 @@ protected:
         LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
                    "client/test/xml/ucast-local-test-setup.xml");
         teardown_done_in_test_ = false;
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -232,6 +233,52 @@ TEST_F(UnicastLocalRouteTest, UnicastLocalDelayLogicalSwitchDeleteAndRenew) {
 
         // entry should be active without Local MAC ref
         WAIT_FOR(1000, 1000, (false == entry->IsLocalMacsRef()));
+    }
+}
+
+TEST_F(UnicastLocalRouteTest, ConnectionCloseWhileUnicastLocalPresent) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == add_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01",
+                                              "11.11.11.11")));
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
+
+        // Take reference to idl so that session object itself is not deleted.
+        OvsdbClientIdlPtr tcp_idl = tcp_session_->client_idl();
+        tcp_session_->TriggerClose();
+        client->WaitForIdle();
+
+        // validate refcount to be 2 one from session and one locally held
+        // to validate session closure, when we release refcount
+        WAIT_FOR(1000, 1000, (2 == tcp_idl->refcount()));
+        tcp_idl = NULL;
+    }
+
+    WAIT_FOR(100, 10000,
+             (tcp_session_ = static_cast<OvsdbClientTcpSession *>
+              (init_->ovsdb_client()->NextSession(NULL))) != NULL);
+    client->WaitForIdle();
+
+    table = tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key1(table, UuidToString(MakeUuid(1)));
+    entry = static_cast<LogicalSwitchEntry *> (table->Find(&key1));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == del_ucast_mac_local(entry->name(),
+                                              "00:00:00:00:01:01")));
+        // Wait for entry to del
+        WAIT_FOR(100, 10000,
+                 (NULL == FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
     }
 }
 

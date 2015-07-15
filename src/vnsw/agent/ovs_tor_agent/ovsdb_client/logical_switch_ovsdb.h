@@ -31,8 +31,23 @@ public:
     OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row);
     DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry,
                                     const OvsdbDBEntry *ovsdb_entry);
+    void ProcessDeleteTableReq();
 
 private:
+    class ProcessDeleteTableReqTask : public Task {
+    public:
+        static const int KEntriesPerIteration = 32;
+        ProcessDeleteTableReqTask(LogicalSwitchTable *table);
+        virtual ~ProcessDeleteTableReqTask();
+
+        bool Run();
+
+    private:
+        LogicalSwitchTable *table_;
+        KSyncEntry::KSyncEntryPtr entry_;
+        DISALLOW_COPY_AND_ASSIGN(ProcessDeleteTableReqTask);
+    };
+
     OvsdbIdlRowMap  idl_row_map_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchTable);
 };

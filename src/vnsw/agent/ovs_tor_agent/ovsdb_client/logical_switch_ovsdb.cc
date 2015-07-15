@@ -471,6 +471,50 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
     return DBFilterAccept;
 }
 
+void LogicalSwitchTable::ProcessDeleteTableReq() {
+    ProcessDeleteTableReqTask *task =
+        new ProcessDeleteTableReqTask(this);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
+
+LogicalSwitchTable::ProcessDeleteTableReqTask::ProcessDeleteTableReqTask(
+        LogicalSwitchTable *table) :
+    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
+    table_(table), entry_(NULL) {
+}
+
+LogicalSwitchTable::ProcessDeleteTableReqTask::~ProcessDeleteTableReqTask() {
+}
+
+bool LogicalSwitchTable::ProcessDeleteTableReqTask::Run() {
+    KSyncEntry *kentry = entry_.get();
+    if (kentry == NULL) {
+        kentry = table_->Next(kentry);
+    }
+
+    int count = 0;
+    while (kentry != NULL) {
+        LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+        count++;
+        kentry = table_->Next(kentry);
+        // while table is set for deletion reset the local_mac_ref
+        // since there will be no trigger from OVSDB database
+        entry->local_mac_ref_ = NULL;
+
+        // check for yield
+        if (count == KEntriesPerIteration && kentry != NULL) {
+            entry_ = kentry;
+            return false;
+        }
+    }
+
+    entry_ = NULL;
+    // Done processing delete request, schedule delete table
+    table_->DeleteTable();
+    return true;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
