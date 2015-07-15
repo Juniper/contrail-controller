@@ -256,6 +256,12 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         }
     }
 
+    if (nh_ && nh_->GetType() == NextHop::ARP) {
+        if (CopyArpData()) {
+            ret = true;
+        }
+    }
+
     if (vrf_name_ == Agent::NullString()) {
         return ret;
     }
@@ -293,7 +299,6 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         dependant_rt_.reset(rt);
         ret = true;
     }
-
     return ret;
 }
 
@@ -313,6 +318,28 @@ bool AgentPath::IsLess(const AgentPath &r_path) const {
 
 void AgentPath::set_nexthop(NextHop *nh) {
     nh_ = nh;
+}
+
+bool AgentPath::CopyArpData() {
+    bool ret = false;
+    if (nh_ && nh_->GetType() == NextHop::ARP) {
+        const ArpNH *arp_nh = static_cast<const ArpNH *>(nh_.get());
+        if (arp_mac() != arp_nh->GetMac()) {
+            set_arp_mac(arp_nh->GetMac());
+            ret = true;
+        }
+
+        if (arp_interface() != arp_nh->GetInterface()) {
+            set_arp_interface(arp_nh->GetInterface());
+            ret = true;
+        }
+
+        if (arp_valid() != arp_nh->IsValid()) {
+            set_arp_valid(arp_nh->IsValid());
+            ret = true;
+        }
+    }
+    return ret;
 }
 
 EvpnDerivedPath::EvpnDerivedPath(const EvpnPeer *evpn_peer,
