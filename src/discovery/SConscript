@@ -4,6 +4,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -31,6 +32,8 @@ generated_rule = env.Command(generated_files,
                              autogen_cmd + ' $SOURCE')
 
 setup_sources = [
+           'requirements.txt',
+           'test-requirements.txt',
            'setup.py',
            'MANIFEST.in',
           ]
@@ -49,12 +52,52 @@ local_sources = [
            'client.py',
            'disc_zk.py',
            'disc_cassdb.py',
-           'output.py',
+           'output.py'
           ]
+
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(
         env.Install("discovery", '#controller/src/discovery/' + file))
+
+packages = [
+    '%s/discovery/client/dist/discoveryclient-0.1dev.tar.gz' % env['TOP'],
+    '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
+    '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
+    '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
+]
+
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
+
+def GeneratePyTestSetup(env, targets, source):
+    """
+    Generate a setup.cfg file that contains a list of directories
+    where dependent packages can be found. The fact that package directory
+    list is being given as a source automatically adds them as dependencies.
+    """
+    target = env.File('setup.cfg')
+    return env.Command(target=target, source=source, action=BuildPyTestSetup);
+
+env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
+
+test_sources = [
+           'tests/__init__.py',
+           'tests/test_disc_server.py'
+]
+
+test_sources_rules = []
+for file in test_sources:
+    test_sources_rules.append(
+        env.Install("discovery/tests", '#controller/src/discovery/' + file))
+test_packages = env.PythonTestSetup(source=packages)
 
 introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/sandesh/', False)
 
@@ -93,8 +136,21 @@ env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-discovery.ini'))
 
 subdirs = [
-           'client'
+           'client',
+           'tests'
           ]
 
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)
+
+test_depends = [generated_rule]
+test_depends.extend(setup_sources_rules)
+test_depends.extend(local_sources_rules)
+test_depends.extend(test_sources_rules)
+test_depends.extend(introspect_pkg)
+test_depends.extend(test_packages)
+
+test_cmd = env.Command(None, test_depends,
+        cd_cmd + 'python setup.py test')
+
+env.Alias('controller/src/discovery:test', test_cmd)
