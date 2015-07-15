@@ -106,7 +106,7 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     }
 
     std::vector<GeneratorSummaryInfo> infos;
-    collector->GetGeneratorSummaryInfo(infos);
+    collector->GetGeneratorSummaryInfo(&infos);
 
     state.set_generator_infos(infos);
 
