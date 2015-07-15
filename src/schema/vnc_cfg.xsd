@@ -750,6 +750,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:element name="forwarding-mode" type="ForwardingModeType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('forwarding-mode', 'global-vrouter-config') -->
+
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-properties', 'virtual-network') -->
