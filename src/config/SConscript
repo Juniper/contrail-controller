@@ -21,7 +21,6 @@ subdirs=[
     'common',
     'device-manager',
     'schema-transformer',
-    'test',
     'utils',
     'uve',
     'vnc_openstack',
