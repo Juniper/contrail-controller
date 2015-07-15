@@ -998,6 +998,74 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
 # end class TestVncCfgApiServer
 
+class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
+    """ Tests to verify the max_requests config parameter of api-server."""
+    def __init__(self, *args, **kwargs):
+        super(TestVncCfgApiServerRequests, self).__init__(*args, **kwargs)
+        self._config_knobs.extend([('DEFAULTS', 'max_requests', 10),])
+
+
+    def api_requests(self, orig_vn_read, count):
+        api_server = test_common.vnc_cfg_api_server.server
+        self.blocked = True
+        def slow_response_on_vn_read(*args, **kwargs):
+            while self.blocked:
+                gevent.sleep(1)
+            return orig_vn_read(*args, **kwargs)
+
+        api_server._db_conn._cassandra_db._cassandra_virtual_network_read = slow_response_on_vn_read
+
+        logger.info("Creating a test VN object.")
+        test_obj = self._create_test_object()
+        logger.info("Making max_requests(%s) to api server" % (count - 1))
+        def vn_read():
+            self._vnc_lib.virtual_network_read(id=test_obj.uuid)
+            gevent.sleep(0)
+
+        for i in range(count):
+            gevent.spawn(vn_read)
+        gevent.sleep(1)
+
+    def test_within_max_api_requests(self):
+        api_server = test_common.vnc_cfg_api_server.server
+        orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+        try:
+            self.api_requests(orig_vn_read, 5)
+            logger.info("Making one more requests well within the max_requests to api server")
+            vn_name = self.id() + 'testvn'
+            try:
+                greenlet = gevent.spawn(self.create_virtual_network, vn_name, '10.1.1.0/24')
+                gevent.sleep(0)
+                vn_obj = greenlet.get(timeout=3)
+            except gevent.timeout.Timeout as e:
+                self.assertFalse(greenlet.successful(), 'Request failed unexpectedly')
+            else:
+                self.assertEqual(vn_obj.name, vn_name)
+        finally:
+            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
+
+    def test_err_on_max_api_requests(self):
+        api_server = test_common.vnc_cfg_api_server.server
+        orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+        try:
+            self.api_requests(orig_vn_read, 11)
+            logger.info("Making one more requests (max_requests + 1) to api server")
+            try:
+                greenlet = gevent.spawn(self.create_virtual_network, 'testvn', '10.1.1.0/24')
+                gevent.sleep(0)
+                greenlet.get(timeout=3)
+            except gevent.timeout.Timeout as e:
+                logger.info("max_requests + 1 failed as expected.")
+                self.blocked = False
+                self.assertFalse(False, greenlet.successful())
+            else:
+                self.assertTrue(False, 'Request succeeded unexpectedly')
+        finally:
+            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
+
+# end class TestVncCfgApiServerRequests
+
+
 class TestLocalAuth(test_case.ApiServerTestCase):
     def __init__(self, *args, **kwargs):
         super(TestLocalAuth, self).__init__(*args, **kwargs)

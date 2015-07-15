@@ -21,6 +21,7 @@ except Exception:
     pass
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from vnc_bottle import get_bottle_server
 
 # Open port for access to API server for trouble shooting
 
@@ -63,7 +64,8 @@ class LocalAuth(object):
 
     def start_http_server(self):
         self._http_app.run(
-            host=self._http_host, port=self._http_port, server='gevent')
+            host=self._http_host, port=self._http_port,
+            server=get_bottle_server(self._conf_info.get('max_requests')))
     # end start_http_server
 # end class LocalAuth
 
@@ -137,6 +139,7 @@ class AuthServiceKeystone(object):
             'admin_password': args.admin_password,
             'admin_tenant_name': args.admin_tenant_name,
             'admin_port': args.admin_port,
+            'max_requests': args.max_requests,
         }
         self._server_mgr = server_mgr
         self._auth_method = args.auth
