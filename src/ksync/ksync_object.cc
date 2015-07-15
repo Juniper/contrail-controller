@@ -1314,9 +1314,15 @@ bool KSyncObjectManager::Process(KSyncObjectEvent *event) {
             while (entry != NULL) {
                 KSyncEntry *next_entry = event->obj_->Next(entry);
                 count++;
+
                 if (entry->IsDeleted() == false) {
                     // trigger delete if entry is not marked delete already.
+                    event->obj_->DeleteEntryCb(entry);
                     event->obj_->Delete(entry);
+                } else {
+                    // don't use entry after calling DeleteEntryCb, which can
+                    // release self reference and delete the entry itself
+                    event->obj_->DeleteEntryCb(entry);
                 }
 
                 if (count == kMaxEntriesProcess && next_entry != NULL) {

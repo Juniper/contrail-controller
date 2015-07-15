@@ -139,6 +139,11 @@ public:
     void set_delete_scheduled() { delete_scheduled_ = true;}
     bool delete_scheduled() { return delete_scheduled_;}
 
+    // can be overridden by derived class to take action on Delete Req
+    // due to table delete, where KSync state machine is not yet ready
+    // to trigger Delete msg
+    virtual void DeleteEntryCb(KSyncEntry *entry) {}
+
 protected:
     // Create an entry with default state. Used internally
     KSyncEntry *CreateImpl(const KSyncEntry *key);

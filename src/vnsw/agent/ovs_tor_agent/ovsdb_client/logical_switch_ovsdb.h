@@ -33,6 +33,9 @@ public:
                                     const OvsdbDBEntry *ovsdb_entry);
 
 private:
+    // Delete Entry Callback when Table is scheduled for deletion
+    void DeleteEntryCb(KSyncEntry *kentry);
+
     OvsdbIdlRowMap  idl_row_map_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchTable);
 };

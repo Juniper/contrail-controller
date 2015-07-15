@@ -471,6 +471,13 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
     return DBFilterAccept;
 }
 
+void LogicalSwitchTable::DeleteEntryCb(KSyncEntry *kentry) {
+    // while table is set for deletion reset the local_mac_ref
+    // since there will be no trigger from OVSDB database
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+    entry->local_mac_ref_ = NULL;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
