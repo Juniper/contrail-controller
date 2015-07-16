@@ -72,7 +72,7 @@ def _set_frontend(config):
     port = config['vip']['port']
     ssl = ''
     if config['vip']['protocol'] == PROTO_HTTPS:
-        ssl = 'ssl crt %s' % config['ssl-crt']
+        ssl = 'ssl crt %s no-sslv3' % config['ssl-crt']
     conf = [
         'frontend %s' % config['vip']['id'],
         'option tcplog',
