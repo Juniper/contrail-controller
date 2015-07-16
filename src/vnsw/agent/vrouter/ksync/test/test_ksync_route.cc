@@ -40,6 +40,12 @@ public:
             (vrf1_->GetState(table, vrf_listener_id_));
         vrf1_rt_obj_ = state->inet4_uc_route_table_;
 
+        vrf1_evpn_table_ = static_cast<EvpnAgentRouteTable *>
+            (vrf1_->GetEvpnRouteTable());
+        vrf1_bridge_table_ = static_cast<BridgeAgentRouteTable *>
+            (vrf1_->GetBridgeRouteTable());
+        vrf1_bridge_rt_obj_ = state->bridge_route_table_;
+
         VrfEntry *fabric_vrf =
             table->FindVrfFromName(agent_->fabric_vrf_name());
         fabric_uc_table_ = static_cast<InetUnicastAgentRouteTable *>
@@ -73,6 +79,21 @@ public:
         client->WaitForIdle();
     }
 
+    void AddRemoteEvpnRoute(Peer *peer, const MacAddress &mac,
+                            const IpAddress &addr, uint32_t ethernet_tag,
+                            const string &vn) {
+        SecurityGroupList sg_list;
+        PathPreference path_pref;
+        ControllerVmRoute *data = NULL;
+        data = ControllerVmRoute::MakeControllerVmRoute
+            (NULL, agent_->fabric_vrf_name(), agent_->router_id(),
+             "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
+             100, vn, sg_list, path_pref);
+        vrf1_evpn_table_->AddRemoteVmRouteReq(peer, "vrf1", mac, addr,
+                                              ethernet_tag, data);
+        client->WaitForIdle();
+    }
+
     Agent *agent_;
     VnswInterfaceListener *vnswif_;
     VmInterface *vnet1_;
@@ -82,7 +103,10 @@ public:
     VrfKSyncObject *vrf1_obj_;
     InetUnicastAgentRouteTable *vrf1_uc_table_;
     InetUnicastAgentRouteTable *fabric_uc_table_;
+    EvpnAgentRouteTable *vrf1_evpn_table_;
+    BridgeAgentRouteTable *vrf1_bridge_table_;
     RouteKSyncObject *vrf1_rt_obj_;
+    RouteKSyncObject *vrf1_bridge_rt_obj_;
     RouteKSyncObject *fabric_rt_obj_;
 };
 
@@ -154,6 +178,32 @@ TEST_F(TestKSyncRoute, remote_route_2) {
 
     vrf1_uc_table_->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     DelIPAM("vn1");
+    client->WaitForIdle();
+}
+
+// dhcp_flood flag for remote EVPN route
+TEST_F(TestKSyncRoute, remote_evpn_route_1) {
+    MacAddress vmi_mac(input[0].mac);
+    BridgeRouteEntry *vmi_rt = vrf1_bridge_table_->FindRoute(vmi_mac);
+    EXPECT_TRUE(vmi_rt != NULL);
+    std::auto_ptr<RouteKSyncEntry> ksync_vmi(new RouteKSyncEntry(
+                                             vrf1_bridge_rt_obj_, vmi_rt));
+    ksync_vmi->Sync(vmi_rt);
+    EXPECT_FALSE(ksync_vmi->flood_dhcp()); // flood DHCP not set when VMI exists
+
+    uint32_t ethernet_tag = 1000;
+    MacAddress mac("00:01:02:03:04:05");
+    IpAddress addr = IpAddress(Ip4Address::from_string("1.1.1.100"));
+    AddRemoteEvpnRoute(NULL, mac, addr, ethernet_tag, "vn1");
+
+    BridgeRouteEntry *rt = vrf1_bridge_table_->FindRoute(mac);
+    EXPECT_TRUE(rt != NULL);
+
+    std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf1_bridge_rt_obj_, rt));
+    ksync->Sync(rt);
+    EXPECT_TRUE(ksync->flood_dhcp()); // flood DHCP set for MAC without VMI
+
+    vrf1_evpn_table_->DeleteReq(NULL, "vrf1", mac, addr, ethernet_tag);
     client->WaitForIdle();
 }
 
