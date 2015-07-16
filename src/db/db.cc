@@ -122,6 +122,12 @@ void DB::SetGraph(const std::string &name, DBGraph *graph) {
     assert(result.second);
 }
 
+void DB::SetQueueDisable(bool disable) {
+    for (int i = 0; i < PartitionCount(); i++) {
+        partitions_[i]->SetQueueDisable(disable);
+    }
+}
+
 void DB::Clear() {
     STLDeleteElements(&tables_);
     STLDeleteValues(&partitions_);
