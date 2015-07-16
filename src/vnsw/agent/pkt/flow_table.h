@@ -772,9 +772,9 @@ private:
     void AddRouteFlowInfo(FlowEntry *fe);
 
     void DeleteAclFlows(const AclDBEntry *acl);
-    void DeleteInternal(FlowEntryMap::iterator &it);
-    void SendFlows(FlowEntry *flow, FlowEntry *rflow);
-    void SendFlowInternal(FlowEntry *fe);
+    void DeleteInternal(FlowEntryMap::iterator &it, uint64_t time);
+    void SendFlows(FlowEntry *flow, FlowEntry *rflow, uint64_t time);
+    void SendFlowInternal(FlowEntry *fe, uint64_t time);
 
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
