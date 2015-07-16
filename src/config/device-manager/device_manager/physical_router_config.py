@@ -541,11 +541,14 @@ class PhysicalRouterConfig(object):
         self.bgp_config_sent = False
     # end delete_config
 
-    def add_bgp_peer(self, router, params, external):
+    def add_bgp_peer(self, router, params, attr, external):
+        peer_data = {}
+        peer_data['params'] = params
+        peer_data['attr'] = attr
         if external:
-            self.external_peers[router] = params
+            self.external_peers[router] = peer_data
         else:
-            self.bgp_peers[router] = params
+            self.bgp_peers[router] = peer_data
         self.send_bgp_config()
     # end add_peer
 
@@ -560,19 +563,21 @@ class PhysicalRouterConfig(object):
     # end delete_bgp_peer
 
     def _get_neighbor_config_xml(self, bgp_config, peers):
-        for peer, params in peers.items():
+        for peer, peer_data in peers.items():
+            params = peer_data.get('params', {})
+            attr = peer_data.get('attr', {})
             nbr = etree.SubElement(bgp_config, "neighbor")
             etree.SubElement(nbr, "name").text = peer
-            bgp_sessions = params.get('session')
+            bgp_sessions = attr.get('session')
             if bgp_sessions:
                 # for now assume only one session
                 session_attrs = bgp_sessions[0].get('attributes', [])
-                for attr in session_attrs:
+                for session_attr in session_attrs:
                     # For not, only consider the attribute if bgp-router is
                     # not specified
-                    if attr.get('bgp_router') is None:
-                        self._add_family_etree(nbr, attr)
-                        self.add_bgp_auth_config(nbr, attr)
+                    if session_attr.get('bgp_router') is None:
+                        self._add_family_etree(nbr, session_attr)
+                        self.add_bgp_auth_config(nbr, session_attr)
                         break
             if params.get('autonomous_system') is not None:
                 etree.SubElement(nbr, "peer-as").text = str(params.get('autonomous_system'))
