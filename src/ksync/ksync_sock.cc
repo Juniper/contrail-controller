@@ -451,6 +451,8 @@ void KSyncSockTcp::Receive(mutable_buffers_1 buf) {
     mutable_buffers_1 netlink_header(buffer_cast<void *>(buf),
                                      sizeof(struct nlmsghdr));
 
+    bool blocking_socket = session_->socket()->non_blocking();
+    session_->socket()->non_blocking(false, ec);
     while (bytes_read < sizeof(struct nlmsghdr)) {
         mutable_buffers_1 buffer =
             static_cast<mutable_buffers_1>(netlink_header + bytes_read);
@@ -485,6 +487,7 @@ void KSyncSockTcp::Receive(mutable_buffers_1 buf) {
             assert(0);
         }
     }
+    session_->socket()->non_blocking(blocking_socket, ec);
 }
 
 TcpSession* KSyncSockTcp::AllocSession(Socket *socket) {
