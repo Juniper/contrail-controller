@@ -1322,6 +1322,64 @@ class TestLocalAuth(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertThat(resp.status_code, Equals(403))
 
+    def test_multi_tenancy_read_default(self):
+        logger.info("Read Default multi-tenancy")
+        url = '/multi-tenancy'
+        rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
+        rv = json.loads(rv_json)
+        self.assertThat(rv['enabled'], Equals(True))
+
+    def test_multi_tenancy_modify_fail(self):
+        url = '/multi-tenancy'
+        rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
+        rv = json.loads(rv_json)
+        self.assertThat(rv['enabled'], Equals(True))
+
+        logger.info("Disable Multi-Tenancy and read")
+        data = {'enabled': False}
+        try:
+            rv = self._vnc_lib._request_server(rest.OP_PUT, url, json.dumps(data))
+        except cfgm_common.exceptions.PermissionDenied:
+            # permission should be denied as Localauth class does not have admin credential
+            # mt_put should fail without changing it
+            rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
+            rv = json.loads(rv_json)
+            self.assertThat(rv['enabled'], Equals(True))
+        else:
+            self.assertTrue(False, 'Should never come')
+
+    def test_multi_tenancy_modify_pass(self):
+        url = '/multi-tenancy'
+        rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
+        rv = json.loads(rv_json)
+        self.assertThat(rv['enabled'], Equals(True))
+
+        # mock auh_header and signed_token methods to enable http_mt_put to set multi-tenancy
+        def fake_get_header(*args, **kwargs):
+            return 1
+
+        def fake_verify_signed_token(*args, **kwargs):
+            return 1
+
+        server = test_common.vnc_cfg_api_server.server
+        with test_common.patch(
+            bottle.LocalRequest, 'get_header', fake_get_header):
+            with test_common.patch(
+                server._auth_svc, 'verify_signed_token', fake_verify_signed_token):
+                logger.info("Disable Multi-Tenancy and read")
+                data = {'enabled': False}
+                rv = self._vnc_lib._request_server(rest.OP_PUT, url, json.dumps(data))
+                rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
+                rv = json.loads(rv_json)
+                self.assertThat(rv['enabled'], Equals(False))
+
+                logger.info("Restore Multi-Tenancy and read")
+                data = {'enabled': True}
+                rv = self._vnc_lib._request_server(rest.OP_PUT, url, json.dumps(data))
+                rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
+                rv = json.loads(rv_json)
+                self.assertThat(rv['enabled'], Equals(True))
+
 # end class TestLocalAuth
 
 class TestExtensionApi(test_case.ApiServerTestCase):
