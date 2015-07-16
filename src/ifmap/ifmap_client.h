@@ -18,8 +18,6 @@ class IFMapState;
 class IFMapClient {
 public:
     typedef std::map<std::string, std::string> VmMap;
-    typedef boost::unordered_set<IFMapState *> ConfigTracker;
-    typedef ConfigTracker::size_type CtSz_t;
     static const int kIndexInvalid = -1;
 
     IFMapClient();
@@ -68,14 +66,6 @@ public:
     // return vm_map_ as a list of strings
     std::vector<std::string> vm_list() const;
 
-    void ConfigTrackerAdd(IFMapState *state);
-    void ConfigTrackerDelete(IFMapState *state);
-    bool ConfigTrackerHasState(IFMapState *state);
-    bool ConfigTrackerEmpty();
-    size_t ConfigTrackerSize();
-    void ConfigDbCleanup();
-    void ResetLinkDeleteClients();
-
 private:
     int index_;
     IFMapExporter *exporter_;
@@ -87,7 +77,6 @@ private:
     bool send_is_blocked_;
     VmMap vm_map_;
     std::string name_;
-    ConfigTracker config_tracker_;
 };
 
 #endif

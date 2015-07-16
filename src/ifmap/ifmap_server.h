@@ -105,6 +105,7 @@ private:
     friend class IFMapRestartTest;
     friend class ShowIFMapXmppClientInfo;
     friend class XmppIfmapTest;
+    friend class IFMapExporterTest;
 
     enum QueueOp {
         ADD = 1,
@@ -116,9 +117,9 @@ private:
     };
     bool ClientWorker(QueueEntry work_entry);
     void ClientGraphDownload(IFMapClient *client);
-    void ClientConfigDbCleanup(IFMapClient *client);
     void RemoveSelfAddedLinksAndObjects(IFMapClient *client);
     void CleanupUuidMapper(IFMapClient *client);
+    void ClientExporterSetup(IFMapClient *client);
     void ClientExporterCleanup(IFMapClient *client);
     bool StaleNodesProcTimeout();
     const ClientMap &GetClientMap() const { return client_map_; }
