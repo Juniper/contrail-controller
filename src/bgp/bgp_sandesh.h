@@ -46,11 +46,18 @@ struct BgpSandeshContext : public SandeshContext {
     void ShowNeighborStatisticsExtension(size_t *count,
                                          const ShowNeighborStatisticsReq *req);
 
+    // For testing.
     bool test_mode() const { return test_mode_; }
     void set_test_mode(bool test_mode) { test_mode_ = test_mode; }
+    uint32_t page_limit() const { return page_limit_; }
+    void set_page_limit(uint32_t page_limit) { page_limit_ = page_limit; }
+    uint32_t iter_limit() const { return iter_limit_; }
+    void set_iter_limit(uint32_t iter_limit) { iter_limit_ = iter_limit; }
 
 private:
     bool test_mode_;
+    uint32_t page_limit_;
+    uint32_t iter_limit_;
     NeighborListExtension show_neighbor_ext_;
     NeighborSummaryListExtension show_neighbor_summary_ext_;
     NeighborStatisticsExtension show_neighbor_statistics_ext_;

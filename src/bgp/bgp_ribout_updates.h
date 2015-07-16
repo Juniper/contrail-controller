@@ -65,6 +65,7 @@ public:
     }
 
     QueueVec &queue_vec() { return queue_vec_; }
+    const QueueVec &queue_vec() const { return queue_vec_; }
 
     // Testing only
     void SetMessageBuilder(MessageBuilder *builder) { builder_ = builder; }

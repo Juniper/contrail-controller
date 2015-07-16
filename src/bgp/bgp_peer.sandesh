@@ -208,7 +208,7 @@ request sandesh ShowRouteSummaryReq {
 }
 
 struct ShowRoutingInstanceTable {
-    1: string name (link="ShowRouteReq"); // routing table name
+    1: string name (link="ShowRouteReq");
     13: bool deleted;
     2: list<string> peers;
     3: u64 prefixes;
@@ -230,23 +230,27 @@ struct ShowRoutingInstance {
     3: string virtual_network;                      // Virtual network
     6: i32 vn_index;                                // Virtual network index
     8: i32 vxlan_id;                                // VXLAN Identifier
-    7: bool deleted;                                // Deletion in progress
-    9: string deleted_at;                           // Delete timestamp
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
+    7: bool deleted;                                // Deletion in progress
+    9: string deleted_at;                           // Delete timestamp
     2: optional list<ShowRoutingInstanceTable> tables;
 }
 
 response sandesh ShowRoutingInstanceResp {
     1: list<ShowRoutingInstance> instances;
+    2: optional string next_batch (link="ShowRoutingInstanceReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowRoutingInstanceReq {
-    1: string name;
+    1: string search_string;
 }
 
 response sandesh ShowRoutingInstanceSummaryResp {
     1: list<ShowRoutingInstance> instances;
+    2: optional string next_batch (link="ShowRoutingInstanceSummaryReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowRoutingInstanceSummaryReq {

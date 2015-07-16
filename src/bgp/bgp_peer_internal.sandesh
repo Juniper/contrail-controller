@@ -30,6 +30,14 @@ response sandesh ShowRouteVrfResp {
     1: bgp_peer.ShowRoute route;
 }
 
+request sandesh ShowRoutingInstanceReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowRoutingInstanceSummaryReqIterate {
+    1: string iterate_info;
+}
+
 response sandesh ShowMulticastManagerDetailResp {
     1: list<bgp_peer.ShowMulticastTree> trees;
 }
