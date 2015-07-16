@@ -115,7 +115,7 @@ public:
 
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;
-    size_t GetPendingRiboutsCount(size_t *markers);
+    size_t GetPendingRiboutsCount(size_t *markers) const;
 
     void UpdatePathCount(const BgpPath *path, int count);
     const uint64_t GetPrimaryPathCount() const { return primary_path_count_; }

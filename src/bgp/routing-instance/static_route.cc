@@ -831,7 +831,7 @@ public:
             if (ri)
                 FillStaticRoutesInfo(&static_route_entries, ri);
         } else {
-            RoutingInstanceMgr::NameIterator i = rim->name_begin();
+            RoutingInstanceMgr::name_iterator i = rim->name_begin();
             for (; i != rim->name_end(); i++) {
                 FillStaticRoutesInfo(&static_route_entries, i->second);
             }

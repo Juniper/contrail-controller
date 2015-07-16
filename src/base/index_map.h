@@ -21,6 +21,7 @@ public:
     typedef std::vector<ValueType *> VectorType;
     typedef std::map<KeyType, ValueType *> MapType;
     typedef typename MapType::iterator iterator;
+    typedef typename MapType::const_iterator const_iterator;
 
     IndexMap() { }
     ~IndexMap() {
@@ -96,7 +97,14 @@ public:
 
     iterator begin() { return map_.begin(); }
     iterator end() { return map_.end(); }
-    iterator lower_bound(const KeyType &key) { return map_.lower_bound(key); }
+    iterator lower_bound(const KeyType &key) {
+        return map_.lower_bound(key);
+    }
+    const_iterator cbegin() { return map_.begin(); }
+    const_iterator cend() { return map_.end(); }
+    const_iterator clower_bound(const KeyType &key) {
+        return map_.lower_bound(key);
+    }
 
 private:
     BitsetType bits_;

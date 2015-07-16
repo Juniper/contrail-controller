@@ -333,6 +333,7 @@ public:
     const std::string &ToString() const { return name_; }
 
     RibOutUpdates *updates() { return updates_.get(); }
+    const RibOutUpdates *updates() const { return updates_.get(); }
     BgpExport *bgp_export() { return bgp_export_.get(); }
 
     BgpProto::BgpPeerType peer_type() const { return policy_.type; }
