@@ -225,6 +225,8 @@ struct VrouterStatsAgent {  // Agent stats
     42: optional AgentDropStats drop_stats;
     43: optional byte total_in_bandwidth_utilization;
     44: optional byte total_out_bandwidth_utilization;
+    45: optional u32 flows_added_per_second (tags="")
+    46: optional u32 flows_deleted_per_second (tags="")
 }
 
 uve sandesh VrouterStats {
