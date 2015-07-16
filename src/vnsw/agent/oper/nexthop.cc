@@ -836,7 +836,8 @@ bool TunnelNH::Change(const DBRequest *req) {
 void TunnelNH::Delete(const DBRequest *req) {
     InetUnicastAgentRouteTable *rt_table =
         (GetVrf()->GetInet4UnicastRouteTable());
-    rt_table->RemoveUnresolvedNH(this);
+    if (rt_table)
+        rt_table->RemoveUnresolvedNH(this);
 }
 
 void TunnelNH::SendObjectLog(AgentLogEvent::type event) const {
