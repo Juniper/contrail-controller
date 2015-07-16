@@ -401,6 +401,13 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_protocol("Local");
         }
 
+        const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+        if (bgp_peer) {
+            srp.set_local_as(bgp_peer->local_as());
+            srp.set_peer_as(bgp_peer->peer_as());
+            srp.set_peer_router_id(bgp_peer->bgp_identifier_string());
+        }
+
         const BgpAttr *attr = path->GetAttr();
         if (attr->as_path() != NULL)
             srp.set_as_path(attr->as_path()->path().ToString());
