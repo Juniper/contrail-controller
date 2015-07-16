@@ -769,8 +769,13 @@ class VncApiServer(VncApiServerGen):
         except KeyError:
             is_detail = False
 
+        req_fields = bottle.request.json.get('fields', [])
+        if req_fields:
+            req_fields = req_fields.split(',')
+
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
-                                     obj_uuids, is_count, is_detail)
+                                     obj_uuids, is_count, is_detail,
+                                     req_fields)
     # end list_bulk_collection_http_post
 
     # Private Methods
@@ -1207,7 +1212,8 @@ class VncApiServer(VncApiServerGen):
 
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
-                         is_count=False, is_detail=False):
+                         is_count=False, is_detail=False,
+                         req_fields=None):
         method_name = obj_type.replace('-', '_') # e.g. virtual_network
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
@@ -1254,8 +1260,8 @@ class VncApiServer(VncApiServerGen):
             obj_class = self._resource_classes[obj_type]
             obj_fields = list(obj_class.prop_fields) + \
                          list(obj_class.ref_fields)
-            if 'fields' in bottle.request.query:
-                obj_fields.extend(bottle.request.query.fields.split(','))
+            if req_fields:
+                obj_fields.extend(req_fields)
             (ok, result) = self._db_conn.dbe_read_multi(
                                 obj_type, obj_ids_list, obj_fields)
 
