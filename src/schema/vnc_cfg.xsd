@@ -725,6 +725,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      <xsd:restriction base='xsd:string'>
          <xsd:enumeration value='l2_l3'/>
          <xsd:enumeration value='l2'/>
+         <xsd:enumeration value='l3'/>
      </xsd:restriction>
 </xsd:simpleType>
 
