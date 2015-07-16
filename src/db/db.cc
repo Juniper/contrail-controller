@@ -64,6 +64,10 @@ DBTableBase *DB::FindTable(const string &name) {
     return NULL;
 }
 
+DB::iterator DB::FindTableIter(const string &name) {
+    return tables_.find(name);
+}
+
 void DB::AddTable(DBTableBase *tbl_base) {
     pair<TableMap::iterator, bool> result =
             tables_.insert(make_pair(tbl_base->name(), tbl_base));
