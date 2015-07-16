@@ -45,6 +45,10 @@ class SnatInstanceManager(unittest.TestCase):
             vn_obj.uuid = 'fake-vn-uuid'
             return
 
+        def iip_create(iip_obj):
+            iip_obj.uuid = 'fake-iip-uuid'
+            return
+
         def vn_read(vn_id):
             vn_obj = {}
             vn_obj['uuid'] = 'fake-vn-uuid'
@@ -86,6 +90,7 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
         self.mocked_vnc.virtual_network_create = vn_create
+        self.mocked_vnc.instance_ip_create = iip_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
