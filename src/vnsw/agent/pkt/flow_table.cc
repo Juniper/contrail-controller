@@ -1568,6 +1568,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
     } else {
         flow->stats_.setup_time = UTCTimestampUsec();
         agent_->stats()->incr_flow_created();
+        agent_->stats()->UpdateFlowAddMinMaxStats(flow->stats_.setup_time);
     }
 
     return flow;
@@ -1589,7 +1590,7 @@ RouteFlowInfo *FlowTable::RouteFlowInfoFind(RouteFlowKey &key) {
     return route_flow_tree_.Find(&rt_key);
 }
 
-void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
+void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time)
 {
     FlowInfo flow_info;
     FlowEntry *fe = it->second;
@@ -1625,12 +1626,14 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     }
 
     agent_->stats()->incr_flow_aged();
+    agent_->stats()->UpdateFlowDelMinMaxStats(time);
 }
 
 bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
 {
     FlowEntryMap::iterator it;
     FlowEntry *fe;
+    uint64_t time = 0;
 
     it = flow_entry_map_.find(key);
     if (it == flow_entry_map_.end()) {
@@ -1647,9 +1650,12 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
      * delete any flows because we need relationship between forward and
      * reverse flow during FlowExport. This relationship will be broken if
      * either of forward or reverse flow is deleted */
-    SendFlows(fe, reverse_flow);
+    if (!fe->deleted() || (reverse_flow && !reverse_flow->deleted())) {
+        time = UTCTimestampUsec();
+        SendFlows(fe, reverse_flow, time);
+    }
     /* Delete the forward flow */
-    DeleteInternal(it);
+    DeleteInternal(it, time);
 
     if (!reverse_flow) {
         return true;
@@ -1657,23 +1663,19 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
 
     it = flow_entry_map_.find(reverse_flow->key());
     if (it != flow_entry_map_.end()) {
-        DeleteInternal(it);
+        DeleteInternal(it, time);
         return true;
     }
     return false;
 }
 
-void FlowTable::SendFlowInternal(FlowEntry *fe)
+void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
 {
-    if (fe->deleted()) {
-        /* Already deleted return from here. */
-        return;
-    }
     FlowStatsCollector *fec = agent_->flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
-    fe->stats_.teardown_time = UTCTimestampUsec();
+    fe->stats_.teardown_time = time;
     FlowExport(fe, diff_bytes, diff_packets);
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
@@ -1682,11 +1684,11 @@ void FlowTable::SendFlowInternal(FlowEntry *fe)
     fe->stats_.teardown_time = 0;
 }
 
-void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow)
+void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow, uint64_t time)
 {
-    SendFlowInternal(flow);
+    SendFlowInternal(flow, time);
     if (rflow) {
-        SendFlowInternal(rflow);
+        SendFlowInternal(rflow, time);
     }
 }
 

@@ -48,6 +48,9 @@ public:
     void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);
     void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
     void WaitForWalkCompletion();
+    void set_prev_flow_setup_rate_export_time(uint64_t micro_secs);
+    void set_prev_flow_created(uint64_t count) { prev_flow_created_ = count; }
+    void set_prev_flow_aged(uint64_t count) { prev_flow_aged_ = count; }
 private:
     bool first_uve_dispatched_;
     uint32_t vrouter_msg_count_;
