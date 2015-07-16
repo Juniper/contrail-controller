@@ -8,6 +8,7 @@ from tempfile import NamedTemporaryFile, mkdtemp
 import cPickle as pickle
 from snmpuve import SnmpUve
 from opserver.consistent_schdlr import ConsistentScheduler
+from device_config import DeviceConfig, DeviceDict
 
 
 class MaxNinTtime(object):
@@ -178,6 +179,8 @@ class Controller(object):
         return cdir, input_file, output_file
 
     def _create_input(self, input_file, output_file, devices, i, restrict=None):
+        if isinstance(devices[0], DeviceDict):
+            devices = DeviceConfig.populate_cfg(devices)
         with open(input_file, 'wb') as f:
             data = dict(out=output_file,
                         netdev=devices,
