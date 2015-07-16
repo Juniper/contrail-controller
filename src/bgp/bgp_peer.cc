@@ -365,7 +365,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           vpn_tables_registered_(false),
           local_as_(config->local_as()),
           peer_as_(config_->peer_as()),
-          remote_bgp_id_(0),
+          local_bgp_id_(config->local_identifier()),
+          peer_bgp_id_(0),
+          configured_families_(config->address_families()),
           peer_type_((peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP),
           policy_(peer_type_, RibExportPolicy::BGP, peer_as_, -1, 0),
           peer_close_(new PeerClose(this)),
@@ -383,11 +385,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         peer_basename_ = peer_name_;
     }
 
-    boost::system::error_code ec;
-    local_bgp_id_ = config->local_identifier();
-
     refcount_ = 0;
-    configured_families_ = config->address_families();
     sort(configured_families_.begin(), configured_families_.end());
     BOOST_FOREACH(string family, configured_families_) {
         Address::Family fmly = Address::FamilyFromString(family);
@@ -405,7 +403,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_local_id(local_bgp_id_);
     if (!config->address_families().empty())
         peer_info.set_configured_families(config->address_families());
-
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
     BGPPeerInfo::Send(peer_info);
 }
@@ -670,7 +667,11 @@ bool BgpPeer::IsXmppPeer() const {
 }
 
 uint32_t BgpPeer::bgp_identifier() const {
-    return ntohl(remote_bgp_id_);
+    return ntohl(peer_bgp_id_);
+}
+
+string BgpPeer::bgp_identifier_string() const {
+    return Ip4Address(ntohl(peer_bgp_id_)).to_string();
 }
 
 //
@@ -986,7 +987,7 @@ void BgpPeer::SendNotification(BgpSession *session,
 }
 
 void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
-    remote_bgp_id_ = htonl(msg->identifier);
+    peer_bgp_id_ = htonl(msg->identifier);
     capabilities_.clear();
     std::vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
     for (it = msg->opt_params.begin(); it < msg->opt_params.end(); ++it) {
@@ -997,7 +998,7 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
-    peer_info.set_peer_id(remote_bgp_id_);
+    peer_info.set_peer_id(peer_bgp_id_);
 
     std::vector<std::string> families;
     std::vector<BgpProto::OpenMessage::Capability *>::iterator cap_it;
@@ -1716,7 +1717,7 @@ void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
     nbr.set_deleted(IsDeleted());
     nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
-    nbr.set_peer_id(Ip4Address(ntohl(remote_bgp_id_)).to_string());
+    nbr.set_peer_id(bgp_identifier_string());
     nbr.set_peer_asn(peer_as());
     nbr.set_encoding("BGP");
     nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
