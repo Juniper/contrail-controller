@@ -63,6 +63,9 @@ class VrouterProvisioner(object):
                                                 --admin_password contrail123 
                                                 --admin_tenant_name admin  
                                                 --openstack_ip 10.204.221.34
+                                                --snmp_monitor
+                                                --local_port 161
+                                                --v2_community public
         '''
 
         # Source any specified config/ini file
@@ -119,6 +122,12 @@ class VrouterProvisioner(object):
         parser.add_argument(
             "--device_tsn", help="TSN Name for the device")
         parser.add_argument(
+            "--snmp_monitor", help="monitor through snmp", action='store_true')
+        parser.add_argument(
+            "--local_port", help="snmp port to connect to")
+        parser.add_argument(
+            "--v2_community", help="community string for snmp")
+        parser.add_argument(
             "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument(
             "--api_server_port", help="Port of api server")
@@ -138,7 +147,8 @@ class VrouterProvisioner(object):
 
     def add_physical_device(self):
         pr = PhysicalRouter(self._args.device_name)
-        pr.physical_router_dataplane_ip = self._args.device_tunnel_ip
+        if pr.physical_router_dataplane_ip is not None:
+            pr.physical_router_dataplane_ip = self._args.device_tunnel_ip
         pr.physical_router_management_ip = self._args.device_mgmt_ip
         pr.physical_router_vendor_name = self._args.vendor_name
         pr.physical_router_product_name = self._args.product_name
@@ -154,6 +164,17 @@ class VrouterProvisioner(object):
             vrouter = vrouter_tmp.Get()
             if vrouter:
                 pr.add_virtual_router(vrouter)
+
+        if self._args.snmp_monitor:
+            local_port = 161
+            if self._args.local_port:
+                local_port = self._args.local_port
+            v2_community = 'public'
+            if self._args.v2_community:
+                v2_community = self._args.v2_community
+            snmp_credentials = SNMPCredentials(local_port=local_port, v2_community=v2_community)
+            pr.set_physical_router_snmp_credentials(snmp_credentials)
+
         self._vnc_lib.physical_router_update(pr)
     # end add_physical_device
 
