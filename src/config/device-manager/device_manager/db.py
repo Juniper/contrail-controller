@@ -172,14 +172,14 @@ class PhysicalRouterDM(DBBase):
         self.config_manager.reset_bgp_config()
         bgp_router = BgpRouterDM.get(self.bgp_router)
         if bgp_router:
-            for peer_uuid, params in bgp_router.bgp_routers.items():
+            for peer_uuid, attr in bgp_router.bgp_routers.items():
                 peer = BgpRouterDM.get(peer_uuid)
                 if peer is None:
                     continue
                 external = (bgp_router.params['autonomous_system'] !=
                             peer.params['autonomous_system'])
                 self.config_manager.add_bgp_peer(peer.params['address'],
-                                                 params, external)
+                                                 peer.params, attr, external)
             self.config_manager.set_bgp_config(bgp_router.params)
             self.config_manager.set_global_routing_options(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
@@ -623,7 +623,9 @@ class VirtualNetworkDM(DBBase):
                 self.prefixes.add('%s/%d' % (subnet['subnet']['ip_prefix'],
                                              subnet['subnet']['ip_prefix_len'])
                                   )
-                self.gateways.add(subnet['default_gateway'])
+                self.gateways.add('%s/%d' % (subnet['default_gateway'],
+                                             subnet['subnet']['ip_prefix_len'])
+                                  )
     # end update
 
     def get_vrf_name(self, vrf_type):
