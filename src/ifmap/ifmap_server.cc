@@ -238,9 +238,9 @@ void IFMapServer::ClientUnregister(IFMapClient *client) {
 bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
     if (add) {
         ClientRegister(client);
+        ClientExporterSetup(client);
         ClientGraphDownload(client);
     } else {
-        ClientConfigDbCleanup(client);
         RemoveSelfAddedLinksAndObjects(client);
         CleanupUuidMapper(client);
         ClientExporterCleanup(client);
@@ -334,12 +334,17 @@ void IFMapServer::ClientGraphDownload(IFMapClient *client) {
     }
 }
 
-void IFMapServer::ClientConfigDbCleanup(IFMapClient *client) {
-    client->ConfigDbCleanup();
+void IFMapServer::ClientExporterSetup(IFMapClient *client) {
+    exporter_->AddClientConfigTracker(client->index());
 }
 
 void IFMapServer::ClientExporterCleanup(IFMapClient *client) {
-    client->ResetLinkDeleteClients();
+    exporter_->CleanupClientConfigTrackedEntries(client->index());
+    exporter_->DeleteClientConfigTracker(client->index());
+
+    BitSet rm_bs;
+    rm_bs.set(client->index());
+    exporter_->ResetLinkDeleteClients(rm_bs);
 }
 
 IFMapClient *IFMapServer::FindClient(const std::string &id) {

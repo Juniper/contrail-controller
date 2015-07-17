@@ -878,15 +878,15 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
         } else {
             dest->sent = "No";
         }
-        IFMapClient *client = server->GetClient(client_index);
-        if (client) {
-            if (client->ConfigTrackerHasState(state)) {
+        if (server->exporter()->ClientHasConfigTracker(client_index)) {
+            if (server->exporter()->ClientConfigTrackerHasState(client_index,
+                                                                state)) {
                 dest->tracked = "Yes";
             } else {
                 dest->tracked = "No";
             }
         } else {
-            dest->tracked = "Client unknown";
+            dest->tracked = "No tracker";
         }
         return true;
     } else {
@@ -1070,15 +1070,15 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
         } else {
             dest->sent = "No";
         }
-        IFMapClient *client = server->GetClient(client_index);
-        if (client) {
-            if (client->ConfigTrackerHasState(state)) {
+        if (server->exporter()->ClientHasConfigTracker(client_index)) {
+            if (server->exporter()->ClientConfigTrackerHasState(client_index,
+                                                                state)) {
                 dest->tracked = "Yes";
             } else {
                 dest->tracked = "No";
             }
         } else {
-            dest->tracked = "Client unknown";
+            dest->tracked = "No tracker";
         }
         return true;
     } else {
