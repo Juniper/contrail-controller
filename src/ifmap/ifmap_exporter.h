@@ -42,6 +42,7 @@ class IFMapExporter {
 public:
     typedef boost::unordered_set<IFMapState *> ConfigSet;
     typedef ConfigSet::size_type CsSz_t;
+    typedef ConfigSet::const_iterator Cs_citer;
     typedef std::vector<ConfigSet *> ClientConfigTracker;
     typedef boost::crc_32_type::value_type crc32type;
     explicit IFMapExporter(IFMapServer *server);
@@ -74,6 +75,8 @@ public:
     bool ClientConfigTrackerHasState(int index, IFMapState *state);
     bool ClientConfigTrackerEmpty(int index);
     size_t ClientConfigTrackerSize(int index);
+    Cs_citer ClientConfigTrackerBegin(int index) const;
+    Cs_citer ClientConfigTrackerEnd(int index) const;
 
     void StateInterestSet(IFMapState *state, const BitSet& interest_bits);
     void StateInterestOr(IFMapState *state, const BitSet& interest_bits);
