@@ -150,6 +150,8 @@ public:
         hwater_index_ = -1;
         lwater_index_ = -1;
         disabled_ = false;
+        hwater_mark_set_ = false;
+        lwater_mark_set_ = false;
     }
 
     // Concurrency - should be called from a task whose policy
@@ -208,17 +210,18 @@ public:
     }
 
     void SetHighWaterMark(const WaterMarkInfos &high_water) {
-        tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         // Eliminate duplicates and sort by converting to set
         std::set<WaterMarkInfo> hwater_set(high_water.begin(),
             high_water.end());
         // Update both high and low water mark indexes
         SetWaterMarkIndexes(-1, -1);
         high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
+        hwater_mark_set_ = true;
     }
 
     void SetHighWaterMark(const WaterMarkInfo& hwm_info) {
-        tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         // Eliminate duplicates and sort by converting to set
         std::set<WaterMarkInfo> hwater_set(high_water_.begin(),
             high_water_.end());
@@ -226,32 +229,35 @@ public:
         // Update both high and low water mark indexes
         SetWaterMarkIndexes(-1, -1);
         high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
+        hwater_mark_set_ = true;
     }
 
     void ResetHighWaterMark() {
-        tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         // Update both high and low water mark indexes
         SetWaterMarkIndexes(-1, -1);
         high_water_.clear();
+        hwater_mark_set_ = false;
     }
 
     WaterMarkInfos GetHighWaterMark() const {
-        tbb::spin_rw_mutex::scoped_lock read_lock(hwater_mutex_, false);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         return high_water_;
     }
 
     void SetLowWaterMark(const WaterMarkInfos &low_water) {
-        tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         // Eliminate duplicates and sort by converting to set
         std::set<WaterMarkInfo> lwater_set(low_water.begin(),
             low_water.end());
         // Update both high and low water mark indexes
         SetWaterMarkIndexes(-1, -1);
         low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
+        lwater_mark_set_ = true;
      }
 
     void SetLowWaterMark(const WaterMarkInfo& lwm_info) {
-        tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         // Eliminate duplicates and sort by converting to set
         std::set<WaterMarkInfo> lwater_set(low_water_.begin(),
             low_water_.end());
@@ -259,37 +265,45 @@ public:
         // Update both high and low water mark indexes
         SetWaterMarkIndexes(-1, -1);
         low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
+        lwater_mark_set_ = true;
      }
 
     void ResetLowWaterMark() {
-        tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         // Update both high and low water mark indexes
         SetWaterMarkIndexes(-1, -1);
         low_water_.clear();
+        lwater_mark_set_ = false;
     }
 
     WaterMarkInfos GetLowWaterMark() const {
-        tbb::spin_rw_mutex::scoped_lock read_lock(lwater_mutex_, false);
+        tbb::mutex::scoped_lock lock(water_mutex_);
         return low_water_;
     }
 
     bool Enqueue(QueueEntryT entry) {
         if (bounded_) {
-            return EnqueueBounded(entry);
+            if (AreWaterMarksSet()) {
+                return EnqueueBoundedLocked(entry);
+            } else {
+                return EnqueueBounded(entry);
+            }
         } else {
-            return EnqueueInternal(entry);
+            if (AreWaterMarksSet()) {
+                return EnqueueInternalLocked(entry);
+            } else {
+                return EnqueueInternal(entry);
+            }
         }
     }
 
     // Returns true if pop is successful.
     bool Dequeue(QueueEntryT *entry) {
-        bool success = queue_.try_pop(*entry);
-        if (success) {
-            dequeues_++;
-            size_t ncount(AtomicDecrementQueueCount(entry));
-            ProcessLowWaterMarks(ncount);
+        if (AreWaterMarksSet()) {
+            return DequeueInternalLocked(entry);
+        } else {
+            return DequeueInternal(entry);
         }
-        return success;
     }
 
     int GetTaskId() const {
@@ -383,6 +397,26 @@ public:
     }
 
 private:
+    // Returns true if pop is successful.
+    bool DequeueInternal(QueueEntryT *entry) {
+        bool success = queue_.try_pop(*entry);
+        if (success) {
+            dequeues_++;
+            size_t ncount(AtomicDecrementQueueCount(entry));
+            ProcessLowWaterMarks(ncount);
+        }
+        return success;
+    }
+
+    bool DequeueInternalLocked(QueueEntryT *entry) {
+        tbb::mutex::scoped_lock lock(water_mutex_);
+        return DequeueInternal(entry);
+    }
+
+    bool AreWaterMarksSet() const {
+        return hwater_mark_set_ || lwater_mark_set_;
+    }
+
     void ShutdownLocked(bool delete_entries) {
         // Cancel QueueTaskRunner from the scheduler
         assert(!deleted_);
@@ -413,8 +447,7 @@ private:
     }
 
     void ProcessHighWaterMarks(size_t count) {
-        tbb::spin_rw_mutex::scoped_lock read_lock(hwater_mutex_, false);
-        if (high_water_.size() == 0) {
+        if (!hwater_mark_set_ || high_water_.size() == 0) {
             return;
         }
         // Are we crossing any new high water marks ? Assumption here is that
@@ -445,8 +478,7 @@ private:
     }
 
     void ProcessLowWaterMarks(size_t count) {
-        tbb::spin_rw_mutex::scoped_lock read_lock(lwater_mutex_, false);
-        if (low_water_.size() == 0) {
+        if (!lwater_mark_set_ || low_water_.size() == 0) {
             return;
         }
         // Get the high and low water indexes
@@ -482,24 +514,34 @@ private:
     bool EnqueueInternal(QueueEntryT entry) {
         enqueues_++;
         size_t ncount(AtomicIncrementQueueCount(&entry));
+        ProcessHighWaterMarks(ncount);
         queue_.push(entry);
         MayBeStartRunner();
-        ProcessHighWaterMarks(ncount);
         return ncount < size_;
+    }
+
+    bool EnqueueInternalLocked(QueueEntryT entry) {
+        tbb::mutex::scoped_lock lock(water_mutex_);
+        return EnqueueInternal(entry);
     }
 
     bool EnqueueBounded(QueueEntryT entry) {
         size_t ncount(AtomicIncrementQueueCount(&entry));
         if (ncount < size_) {
             enqueues_++;
+            ProcessHighWaterMarks(ncount);
             queue_.push(entry);
             MayBeStartRunner();
-            ProcessHighWaterMarks(ncount);
             return true;
         }
         AtomicDecrementQueueCount(&entry);
         drops_++;
         return false;
+    }
+
+    bool EnqueueBoundedLocked(QueueEntryT entry) {
+        tbb::mutex::scoped_lock lock(water_mutex_);
+        return EnqueueBounded(entry);
     }
 
     bool RunnerAbortLocked() {
@@ -531,13 +573,11 @@ private:
     }
 
     void GetWaterMarkIndexes(int *hwater_index, int *lwater_index) const {
-        tbb::mutex::scoped_lock lock(water_index_mutex_);
         *hwater_index = hwater_index_;
         *lwater_index = lwater_index_;
     }
 
     void SetWaterMarkIndexes(int hwater_index, int lwater_index) {
-        tbb::mutex::scoped_lock lock(water_index_mutex_);
         hwater_index_ = hwater_index;
         lwater_index_ = lwater_index;
     }
@@ -568,11 +608,11 @@ private:
     // Sorted in ascending order
     WaterMarkInfos high_water_; // When queue count goes above
     WaterMarkInfos low_water_; // When queue count goes below
-    mutable tbb::spin_rw_mutex hwater_mutex_;
-    mutable tbb::spin_rw_mutex lwater_mutex_;
     int hwater_index_;
     int lwater_index_;
-    mutable tbb::mutex water_index_mutex_;
+    mutable tbb::mutex water_mutex_;
+    tbb::atomic<bool> hwater_mark_set_;
+    tbb::atomic<bool> lwater_mark_set_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;

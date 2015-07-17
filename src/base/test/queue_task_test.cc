@@ -142,9 +142,12 @@ public:
         return (hwater_index == -1 && lwater_index == -1) ||
                (hwater_index + 1 == lwater_index);
     }
-    void WaterMarkCallbackVerifyIndexes(size_t wm_count) {
+    void WaterMarkCallbackVerifyIndexes(size_t wm_count,
+        WaterMarkTestCbType::type wm_cb) {
         bool success(VerifyWaterMarkIndexes());
         EXPECT_TRUE(success);
+        wm_cb_type_ = wm_cb;
+        wm_cb_qsize_ = wm_count;
     }
     bool DequeueTaskReady(bool start_runner) {
         if (start_runner) {
@@ -580,20 +583,26 @@ TEST_F(QueueTaskTest, ScheduleShutdownTest) {
 TEST_F(QueueTaskTest, ProcessWaterMarksParallelTest) {
     // Setup watermarks
     WaterMarkInfo hwm1(90000,
-        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1,
+            WaterMarkTestCbType::HWM1));
     work_queue_.SetHighWaterMark(hwm1);
     WaterMarkInfo hwm2(50000,
-        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1,
+            WaterMarkTestCbType::HWM2));
     work_queue_.SetHighWaterMark(hwm2);
     WaterMarkInfo hwm3(10000,
-        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1,
+            WaterMarkTestCbType::HWM3));
     work_queue_.SetHighWaterMark(hwm3);
     WaterMarkInfo lwm1(75000,
-        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1,
+            WaterMarkTestCbType::LWM1));
     WaterMarkInfo lwm2(35000,
-        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1,
+            WaterMarkTestCbType::LWM2));
     WaterMarkInfo lwm3(5000,
-        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1));
+        boost::bind(&QueueTaskTest::WaterMarkCallbackVerifyIndexes, this, _1,
+            WaterMarkTestCbType::LWM3));
     WaterMarkInfos lwm;
     lwm.push_back(lwm1);
     lwm.push_back(lwm2);
@@ -601,8 +610,8 @@ TEST_F(QueueTaskTest, ProcessWaterMarksParallelTest) {
     work_queue_.SetLowWaterMark(lwm);
     int hwater_index, lwater_index;
     WorkQueueWaterMarkIndexes(&hwater_index, &lwater_index);
-    EXPECT_EQ(hwater_index, -1);
-    EXPECT_EQ(lwater_index, -1);
+    EXPECT_EQ(-1, hwater_index);
+    EXPECT_EQ(-1, lwater_index);
     TaskScheduler *scheduler(TaskScheduler::GetInstance());
     EnqueueTask *etask(new EnqueueTask(&work_queue_,
                 scheduler->GetTaskId(
@@ -611,6 +620,10 @@ TEST_F(QueueTaskTest, ProcessWaterMarksParallelTest) {
     scheduler->Enqueue(etask);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(VerifyWaterMarkIndexes());
+    EXPECT_TRUE((wm_cb_type_ == WaterMarkTestCbType::LWM3 &&
+                 wm_cb_qsize_ == 5000) ||
+                (wm_cb_type_ == WaterMarkTestCbType::INVALID &&
+                 wm_cb_qsize_ == 0));
 }
 
 class QueueTaskShutdownTest : public ::testing::Test {
