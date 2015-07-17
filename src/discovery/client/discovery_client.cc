@@ -75,6 +75,9 @@ DSPublishResponse::DSPublishResponse(std::string serviceName,
                         TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       publish_conn_timer_(TimerManager::CreateTimer(*evm->io_service(), "Publish Conn Timer",
                           TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
+      may_publish_timer_(
+          TimerManager::CreateTimer(*evm->io_service(), "May Publish ReEvaluate Timer",
+          TaskScheduler::GetInstance()->GetTaskId("bgp::config"), 0)),
       ds_client_(ds_client), publish_msg_(""), attempts_(0),
       pub_sent_(0), pub_rcvd_(0), pub_fail_(0), pub_fallback_(0),
       pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0),
@@ -87,9 +90,20 @@ DSPublishResponse::~DSPublishResponse() {
 
     TimerManager::DeleteTimer(publish_hb_timer_);
     TimerManager::DeleteTimer(publish_conn_timer_);
+    TimerManager::DeleteTimer(may_publish_timer_);
 }
 
 bool DSPublishResponse::HeartBeatTimerExpired() {
+
+    // Check if MayPublish cb registered, if so enqueue re-evaluate trigger
+    DiscoveryServiceClient::MayPublishCbHandlerMap::iterator it =
+        ds_client_->may_publish_map_.find(serviceName_);
+    if (it != ds_client_->may_publish_map_.end()) {
+        ds_client_->reevaluate_publish_cb_queue_.Enqueue(
+            boost::bind(&DiscoveryServiceClient::ReEvaluatePublish, ds_client_,
+                        serviceName_, it->second));
+    }
+
     stringstream hb;
     hb.clear();
     hb << "<cookie>" << cookie_ << "</cookie>" ;
@@ -133,6 +147,25 @@ void DSPublishResponse::StartPublishConnectTimer(int seconds) {
         boost::bind(&DSPublishResponse::PublishConnectTimerExpired, this));
 }
 
+bool DSPublishResponse::MayPublishTimerExpired() {
+    ds_client_->MayPublishInternal(serviceName_);
+    if (pub_sent_) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+void DSPublishResponse::StartMayPublishTimer(int seconds) {
+    may_publish_timer_->Cancel();
+    may_publish_timer_->Start(seconds * 1000,
+        boost::bind(&DSPublishResponse::MayPublishTimerExpired, this));
+}
+
+void DSPublishResponse::StopMayPublishTimer() {
+    may_publish_timer_->Cancel();
+}
+
 static void WaitForIdle() {
     static const int kTimeout = 15;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -150,11 +183,17 @@ DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
                                                boost::asio::ip::tcp::endpoint ep,
                                                std::string client_name) 
     : http_client_(new HttpClient(evm)),
-      evm_(evm), ds_endpoint_(ep), 
+      evm_(evm), ds_endpoint_(ep),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
+      reevaluate_publish_cb_queue_(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+          boost::bind(&DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent,
+          this, _1)),
       shutdown_(false),
-      subscriber_name_(client_name)  {
+      subscriber_name_(client_name),
+      may_publish_interval_(DiscoveryServiceClient::kMayPublishInterval),
+      heartbeat_interval_(DiscoveryServiceClient::kHeartBeatInterval) {
 }
 
 void DiscoveryServiceClient::Init() {
@@ -318,7 +357,7 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             serviceName, ConnectionStatus::UP, ds_endpoint_,
             "Publish Response - HeartBeat");
         //Start periodic heartbeat, timer per service 
-        resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
+        resp->StartHeartBeatTimer(DiscoveryServiceClient::kHeartBeatInterval);
     } else {
         pugi::xml_node node = pugi->FindNode("h1");
         if (!pugi->IsNull(node)) {
@@ -368,7 +407,6 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
 }
 
 void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) {
-    //TODO save message for replay
     DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
@@ -389,6 +427,65 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_, 
                            serviceName, msg);
 }
+
+void DiscoveryServiceClient::MayPublishInternal(std::string serviceName) {
+
+    // Call the Registered cb Handler
+    MayPublishCbHandlerMap::iterator it = may_publish_map_.find(serviceName);
+    if (it != may_publish_map_.end()) {
+        MayPublishCbHandler cb = it->second;
+        if (cb() == true) {
+            Publish(serviceName);
+        }
+    }
+}
+
+void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName, 
+         MayPublishCbHandler cb) {
+
+    // Call the Registered cb Handler
+    if (cb() == false) {
+        WithdrawPublish(serviceName);
+
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+            "Withdraw Publish");
+
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "Withdraw Publish",
+                               serviceName, "");
+    }
+}
+
+bool DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent(EnqueuedCb cb) {
+    cb();
+    return true;
+}
+
+// Register application specific MayPublish cb
+void DiscoveryServiceClient::RegisterMayPublishCbHandler(
+         std::string serviceName, MayPublishCbHandler cb) {
+    may_publish_map_.insert(make_pair(serviceName, cb));
+}
+
+void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
+                                     MayPublishCbHandler cb) {
+    //Register the callback handler
+    RegisterMayPublishCbHandler(serviceName, cb);
+
+    DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
+    pub_msg->dss_ep_.address(ds_endpoint_.address());
+    pub_msg->dss_ep_.port(ds_endpoint_.port());
+    pub_msg->publish_msg_ = msg;
+    boost::system::error_code ec;
+    pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
+
+    //save it in a map
+    publish_response_map_.insert(make_pair(serviceName, pub_msg));
+
+    pub_msg->StartMayPublishTimer(GetMayPublishInterval());
+}
+
 
 void DiscoveryServiceClient::Publish(std::string serviceName) {
 
@@ -411,6 +508,7 @@ void DiscoveryServiceClient::WithdrawPublishInternal(std::string serviceName) {
     if (loc != publish_response_map_.end()) {
         DSPublishResponse *resp = loc->second;    
 
+        resp->StopMayPublishTimer();
         resp->StopPublishConnectTimer();
         resp->StopHeartBeatTimer();
        
@@ -839,6 +937,17 @@ DSPublishResponse *DiscoveryServiceClient::GetPublishResponse(
     }
 
     return resp;
+}
+
+bool DiscoveryServiceClient::IsPublishServiceRegistered(
+         std::string serviceName) {
+
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        return true;
+    }
+
+    return false;
 }
 
 void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
