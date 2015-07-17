@@ -90,6 +90,16 @@ DSPublishResponse::~DSPublishResponse() {
 }
 
 bool DSPublishResponse::HeartBeatTimerExpired() {
+
+    // Check if ReEvalPublish cb registered, if so enqueue re-evaluate trigger
+    DiscoveryServiceClient::ReEvalPublishCbHandlerMap::iterator it =
+        ds_client_->reeval_publish_map_.find(serviceName_);
+    if (it != ds_client_->reeval_publish_map_.end()) {
+        ds_client_->reevaluate_publish_cb_queue_.Enqueue(
+            boost::bind(&DiscoveryServiceClient::ReEvaluatePublish, ds_client_,
+                        serviceName_, it->second));
+    }
+
     stringstream hb;
     hb.clear();
     hb << "<cookie>" << cookie_ << "</cookie>" ;
@@ -150,11 +160,16 @@ DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
                                                boost::asio::ip::tcp::endpoint ep,
                                                std::string client_name) 
     : http_client_(new HttpClient(evm)),
-      evm_(evm), ds_endpoint_(ep), 
+      evm_(evm), ds_endpoint_(ep),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
+      reevaluate_publish_cb_queue_(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+          boost::bind(&DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent,
+          this, _1)),
       shutdown_(false),
-      subscriber_name_(client_name)  {
+      subscriber_name_(client_name),
+      heartbeat_interval_(DiscoveryServiceClient::kHeartBeatInterval) {
 }
 
 void DiscoveryServiceClient::Init() {
@@ -318,7 +333,7 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             serviceName, ConnectionStatus::UP, ds_endpoint_,
             "Publish Response - HeartBeat");
         //Start periodic heartbeat, timer per service 
-        resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
+        resp->StartHeartBeatTimer(DiscoveryServiceClient::kHeartBeatInterval);
     } else {
         pugi::xml_node node = pugi->FindNode("h1");
         if (!pugi->IsNull(node)) {
@@ -368,7 +383,6 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
 }
 
 void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) {
-    //TODO save message for replay
     DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
@@ -389,6 +403,97 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_, 
                            serviceName, msg);
 }
+
+void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
+                                               ReEvalPublishCbHandler cb) {
+
+    // Get Response Header
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *resp = loc->second;
+        bool admin_state = resp->admin_state;
+        resp->admin_state = cb();
+        if (resp->admin_state != admin_state) {
+       
+            auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+            if (impl->LoadDoc(resp->publish_msg_) == -1) {
+                resp->pub_fail_++;
+                return;
+            }
+
+            XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+            if (resp->admin_state) {
+                pugi->ModifyNode("admin-state", "up");
+
+                // Update connection info
+                ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                    serviceName, ConnectionStatus::UP, ds_endpoint_,
+                    "Change Publish State, UP");
+            } else {
+                pugi->ModifyNode("admin-state", "down");
+
+                // Update connection info
+                ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                    serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                    "Change Publish State, DOWN");
+            }
+
+            stringstream ss;
+            impl->PrintDoc(ss);
+            resp->publish_msg_ = ss.str();
+
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_, 
+                                   serviceName, resp->publish_msg_);
+            SendHttpPostMessage(resp->publish_hdr_, serviceName,
+                                resp->publish_msg_);
+
+        }
+    }
+}
+
+bool DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent(EnqueuedCb cb) {
+    cb();
+    return true;
+}
+
+// Register application specific ReEvalPublish cb
+void DiscoveryServiceClient::RegisterReEvalPublishCbHandler(
+         std::string serviceName, ReEvalPublishCbHandler cb) {
+    reeval_publish_map_.insert(make_pair(serviceName, cb));
+}
+
+void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
+                                     ReEvalPublishCbHandler cb) {
+    //Register the callback handler
+    RegisterReEvalPublishCbHandler(serviceName, cb);
+
+    DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
+    pub_msg->dss_ep_.address(ds_endpoint_.address());
+    pub_msg->dss_ep_.port(ds_endpoint_.port());
+    pub_msg->admin_state = false;
+
+    pub_msg->publish_msg_ += "<publish>" + msg;
+    pub_msg->publish_msg_ += "<service-type>" + serviceName + "</service-type>";
+    pub_msg->publish_msg_ += "<admin-state>down</admin-state>";
+    pub_msg->publish_msg_ += "</publish>";
+    boost::system::error_code ec;
+    pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
+    pub_msg->pub_sent_++;
+
+    //save it in a map
+    publish_response_map_.insert(make_pair(serviceName, pub_msg));
+
+    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName,
+                        pub_msg->publish_msg_);
+ 
+    // Update connection info
+    ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+        serviceName, ConnectionStatus::INIT, ds_endpoint_,
+        "Publish");
+    DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_,
+                           serviceName, pub_msg->publish_msg_);
+}
+
 
 void DiscoveryServiceClient::Publish(std::string serviceName) {
 
@@ -839,6 +944,18 @@ DSPublishResponse *DiscoveryServiceClient::GetPublishResponse(
     }
 
     return resp;
+}
+
+bool DiscoveryServiceClient::IsPublishServiceRegisteredUp(
+         std::string serviceName) {
+
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *pub_resp = loc->second;
+        return(pub_resp->admin_state);
+    }
+
+    return false;
 }
 
 void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
