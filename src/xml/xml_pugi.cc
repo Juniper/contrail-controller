@@ -238,10 +238,10 @@ int XmlPugi::DeleteNode(const std::string &key) {
 int XmlPugi::ModifyNode(const std::string &key, const std::string &value) {
     PugiPredicate p1(key);
     pugi::xml_node node = doc_.find_node(p1); 
-    if (IsNull(node_))
+    if (IsNull(node))
         return -1;
 
-    node.text() = value.c_str();
+    node.text().set(value.c_str());
 
     SetContext(node); 
     return 0;
