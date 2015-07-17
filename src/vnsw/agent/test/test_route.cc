@@ -250,6 +250,17 @@ public:
     int dummy_;
 };
 
+// Validate that routes db-tables have 1 partition only
+TEST_F(RouteTest, PartitionCount_1) {
+    string vrf_name = agent_->fabric_vrf_name();
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+
+    for (int i = Agent::INVALID + 1; i < Agent::ROUTE_TABLE_MAX; i++) {
+        EXPECT_EQ(1, vrf->GetRouteTable(i)->PartitionCount());
+    }
+}
+
 TEST_F(RouteTest, HostRoute_1) {
     //Host Route - Used to trap packets to agent
     //Add and delete host route

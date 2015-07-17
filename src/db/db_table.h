@@ -136,7 +136,7 @@ private:
     uint64_t enqueue_count_;
     uint64_t input_count_;
     uint64_t notify_count_;
-    uint64_t walker_count_;
+    tbb::atomic<uint64_t> walker_count_;
     tbb::atomic<uint64_t> walk_request_count_;
     tbb::atomic<uint64_t> walk_complete_count_;
     tbb::atomic<uint64_t> walk_cancel_count_;
