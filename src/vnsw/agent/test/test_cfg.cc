@@ -2351,6 +2351,7 @@ TEST_F(CfgTest, AssymetricLinkSeqTest) {
     cl->StaleTimeout(2);
     WaitForIdle();
     EXPECT_EQ(def_list.size(), 0);
+    delete cl;
 }
 
 int main(int argc, char **argv) {

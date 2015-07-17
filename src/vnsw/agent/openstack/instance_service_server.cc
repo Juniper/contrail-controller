@@ -64,28 +64,31 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         uuid vn_id = ConvertToUuid(port.vn_id);
         uuid vm_project_id = ConvertToUuid(port.vm_project_id);
         boost::system::error_code ec;
-        bool v6_correct = true, v4_correct = true;
         IpAddress ip = IpAddress::from_string(port.ip_address, ec);
-        if (ec.value() != 0) {
+        bool v4_valid = (ec.value() == 0);
+        if (v4_valid == false) {
             CFG_TRACE(IntfInfo,
                       "IPv4 address is not correct, " + port.ip_address);
-            v4_correct = false;
+            v4_valid = false;
         }
 
+        bool v6_valid = false;
         Ip6Address ip6;
         if (port.__isset.ip6_address) {
             ip6 = Ip6Address::from_string(port.ip6_address, ec);
             if (ec.value() != 0) {
                 CFG_TRACE(IntfInfo,
                           "IPv6 address is not correct, " + port.ip6_address);
-                v6_correct = false;
+                v6_valid = false;
+            } else {
+                v6_valid = true;
             }
         }
 
-        if (!v4_correct && !v6_correct) {
+        if ((v4_valid == false) && (v6_valid == false)) {
             return false;
         }
-        
+
         CfgIntTable *ctable = static_cast<CfgIntTable *>
             (agent_->db()->FindTable("db.cfg_int.0"));
         assert(ctable);
