@@ -58,6 +58,10 @@ class VRouterInstanceManagerTest(unittest.TestCase):
             vmi_obj.uuid = 'fake-vmi-uuid'
             return
 
+        def iip_create(iip_obj):
+            iip_obj.uuid = 'fake-iip-uuid'
+            return
+
         def vm_read(vm_id):
             class SI(object):
                 def __init__(self, name, fq_name):
@@ -89,6 +93,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
+        self.mocked_vnc.instance_ip_create = iip_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
