@@ -40,7 +40,7 @@ class ForwardingModeSetup(object):
                 vni_record['fq_name'][2] == vn_name):
                 vni_obj = self._vnc_lib.virtual_network_read(
                                     id = vni_record['uuid'])
-                vni_obj_properties = vni_obj.get_virtual_network_properties()
+                vni_obj_properties = vni_obj.get_virtual_network_properties() or VirtualNetworkType()
                 if (vxlan_id is not None):
                     vni_obj_properties.set_vxlan_network_identifier(int(vxlan_id))
                 if (forwarding_mode is not None):
@@ -104,7 +104,7 @@ class ForwardingModeSetup(object):
         parser.add_argument(
             "--project_fq_name", help="Fully qualified name of the Project", required=True)
         parser.add_argument(
-            "--vxlan_id", help="VxLan ID", required=True)
+            "--vxlan_id", help="VxLan ID")
         parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
             "--forwarding_mode", help="l2_l3 or l2 only", required=True)
