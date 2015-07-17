@@ -153,8 +153,11 @@ protected:
 
     void DeleteRoute(const Peer *peer, const std::string &vrf_name,
                      MacAddress &remote_vm_mac, const IpAddress &ip_addr) {
+        const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
         EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
-                                        ip_addr, 0);
+                                        ip_addr, 0,
+                                        ((bgp_peer == NULL) ? NULL :
+                                         (new ControllerVmRoute(bgp_peer))));
         client->WaitForIdle();
         while (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) == true) {
             client->WaitForIdle();
@@ -688,7 +691,7 @@ TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
     EvpnAgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
-                                     local_vm_mac_, local_vm_ip4_, 0);
+                                     local_vm_mac_, local_vm_ip4_, 0, NULL);
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
