@@ -259,26 +259,30 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     IFMapMsgLink("domain", "project", "user1", "vnc");
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_x", "vm_x:veth0");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
-                 "vm_x:veth0", "blue");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_w", "vm_w:veth0");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
-                 "vm_w:veth0", "red");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_y", "vm_y:veth0");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
-                 "vm_y:veth0", "blue");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_z", "vm_z:veth0");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
-                 "vm_z:veth0", "red");
+    // c1 in blue.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c1", "vm_c1:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c1:veth0", "blue");
+    // c2 in red.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c2", "vm_c2:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c2:veth0", "red");
+    // c3 in blue.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c3", "vm_c3:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c3:veth0", "blue");
+    // c4 in red.
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
+                 "vm_c4", "vm_c4:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
+                 "vm_c4:veth0", "red");
 
-    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
-    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_w");
-    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_y");
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
     task_util::WaitForIdle();
 
     IFMapNode *blue = TableLookup("virtual-network", "blue");
@@ -286,6 +290,7 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     IFMapNodeState *state = exporter_->NodeStateLookup(blue);
     ASSERT_TRUE(state != NULL);
 
+    // c1 and c3 should get 'blue'.
     IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(update != NULL);
     TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
@@ -294,9 +299,9 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
 
-    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.2", "vm_w");
-    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.3", "vm_y");
-    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_z");
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4");
     task_util::WaitForIdle();
 
     // Check that only c3 will receive a delete for blue.
@@ -339,9 +344,9 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     ProcessQueue();
 
     IFMapMsgUnlink("virtual-machine-interface", "virtual-network",
-                   "vm_z:veth0", "red");
+                   "vm_c4:veth0", "red");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
-                 "vm_z:veth0", "blue");
+                 "vm_c4:veth0", "blue");
     task_util::WaitForIdle();
 
     state = exporter_->NodeStateLookup(blue);

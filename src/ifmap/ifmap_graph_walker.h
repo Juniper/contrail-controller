@@ -13,6 +13,7 @@ class DBGraphEdge;
 class DBGraphVertex;
 class IFMapExporter;
 class IFMapNode;
+class IFMapNodeState;
 class TaskTrigger;
 struct IFMapTypenameFilter;
 struct IFMapTypenameWhiteList;
@@ -40,7 +41,7 @@ private:
     void ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode, const BitSet &bset);
     void JoinVertex(DBGraphVertex *vertex, const BitSet &bset);
     void RecomputeInterest(DBGraphVertex *vertex, int bit);
-    void CleanupInterest(DBGraphVertex *vertex);
+    void CleanupInterest(IFMapNode *node, IFMapNodeState *state);
     void AddNodesToWhitelist();
     void AddLinksToWhitelist();
     bool LinkDeleteWalk();

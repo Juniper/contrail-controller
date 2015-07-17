@@ -105,7 +105,8 @@ public:
     > MemberHook;
     typedef boost::intrusive::slist<IFMapUpdate, MemberHook> UpdateList;
 
-    IFMapState();
+    IFMapState(IFMapNode *node);
+    IFMapState(IFMapLink *link);
     virtual ~IFMapState();
 
     const BitSet &interest() const { return interest_; }
@@ -135,20 +136,23 @@ public:
     const crc32type &crc() const { return crc_; }
     void SetCrc(crc32type &crc) { crc_ = crc; }
     virtual bool CanDelete() = 0;
+    const IFMapObjectPtr &data() const { return data_; }
+    IFMapNode *GetIFMapNode() const;
+    IFMapLink *GetIFMapLink() const;
+    bool IsNode() const { return data_.IsNode(); }
+    bool IsLink() const { return data_.IsLink(); }
 
 protected:
     static const uint32_t kInvalidSig = -1;
     uint32_t sig_;
+    IFMapObjectPtr data_;
 
 private:
-
     // The set of clients known to be interested in this update.
     BitSet interest_;
     // The set of clients to which this update has been advertised.
     BitSet advertised_;
-
     UpdateList update_list_;
-
     crc32type crc_;
 };
 
@@ -157,7 +161,7 @@ public:
     typedef DependencyList<IFMapLink, IFMapNodeState>::iterator iterator;
     typedef DependencyList<IFMapLink, IFMapNodeState>::const_iterator
             const_iterator;
-    IFMapNodeState();
+    explicit IFMapNodeState(IFMapNode *node);
 
     void SetValid() { IFMapState::SetValid(); }
     void SetValid(const IFMapNode *node) { sig_ = 0; }
