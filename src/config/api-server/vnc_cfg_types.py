@@ -505,6 +505,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
         db_conn.update_subnet_uuid(obj_dict)
 
+        (ok, result) = cls.addr_mgmt.net_check_subnet(obj_dict)
+        if not ok:
+            return (ok, (409, result))
+
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
             return (False, (400, error))
@@ -546,7 +550,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not read_ok:
             return (False, (500, read_result))
 
-        (ok, result) = cls.addr_mgmt.net_check_subnet(read_result, obj_dict)
+        (ok, result) = cls.addr_mgmt.net_check_subnet(obj_dict)
         if not ok:
             return (ok, (409, result))
 
