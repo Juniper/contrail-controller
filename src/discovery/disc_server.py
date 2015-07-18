@@ -409,8 +409,9 @@ class DiscoveryServer():
         else:
             bottle.abort(400, e)
 
-        sig = end_point or publisher_id(
-                bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
+        remote = bottle.request.headers.get('X-Remote-Addr',
+            bottle.request.environ['REMOTE_ADDR'])
+        sig = end_point or publisher_id(remote, json.dumps(json_req))
 
         # Rx {'name': u'ifmap-server', 'info': {u'ip_addr': u'10.84.7.1',
         # u'port': u'8443'}}
@@ -426,7 +427,6 @@ class DiscoveryServer():
                 'ts_use': 0,
                 'ts_created': int(time.time()),
                 'prov_state': 'new',
-                'remote': bottle.request.environ.get('REMOTE_ADDR'),
                 'sequence': str(int(time.time())) + socket.gethostname(),
             }
         elif 'sequence' not in entry or self.service_expired(entry):
@@ -436,6 +436,7 @@ class DiscoveryServer():
         entry['info'] = info
         entry['admin_state'] = 'up'
         entry['heartbeat'] = int(time.time())
+        entry['remote'] = remote
 
         # insert entry if new or timed out
         self._db_conn.update_service(service_type, sig, entry)
@@ -523,6 +524,8 @@ class DiscoveryServer():
         client_id = json_req['client']
         count = reqcnt = int(json_req['instances'])
         client_type = json_req.get('client-type', '')
+        remote = bottle.request.headers.get('X-Remote-Addr',
+            bottle.request.environ['REMOTE_ADDR'])
 
         assigned_sid = set()
         r = []
@@ -533,11 +536,12 @@ class DiscoveryServer():
         if not cl_entry:
             cl_entry = {
                 'instances': count,
-                'remote': bottle.request.environ.get('REMOTE_ADDR'),
+                'remote': remote,
                 'client_type': client_type,
             }
             self.create_sub_data(client_id, service_type)
-            self._db_conn.insert_client_data(service_type, client_id, cl_entry)
+        cl_entry['remote'] = remote
+        self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
         if sdata:

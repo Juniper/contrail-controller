@@ -57,6 +57,7 @@ class Subscribe(object):
         self.service_type = service_type
         self._headers = {
             'Content-type': 'application/json',
+            'X-Remote-Addr': self.dc._myip
         }
 
         self.info = []
@@ -188,12 +189,22 @@ class DiscoveryClient(object):
         self._myid = socket.gethostname() + ':' + client_type
         self._pub_id = pub_id or socket.gethostname()
         self._client_type = client_type
-        self._headers = {
-            'Content-type': 'application/json',
-        }
         self.sig = None
         self.task = None
-	self._sandesh = None
+
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((server_ip, server_port))
+            self._myip = s.getsockname()[0]
+            s.close()
+        except Exception as e:
+            self._myip = socket.gethostname()
+
+        self._headers = {
+            'Content-type': 'application/json',
+            'X-Remote-Addr': self._myip
+        }
+        self._sandesh = None
 
         # queue to publish information (sig => service data)
         self.pub_q = {}
