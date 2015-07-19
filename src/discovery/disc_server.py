@@ -396,26 +396,38 @@ class DiscoveryServer():
         self._debug['msg_pubs'] += 1
         ctype = bottle.request.headers['content-type']
         json_req = {}
-        if ctype == 'application/json':
-            data = bottle.request.json
-            for service_type, info in data.items():
-                json_req['name'] = service_type
-                json_req['info'] = info
-        elif ctype == 'application/xml':
-            data = xmltodict.parse(bottle.request.body.read())
-            for service_type, info in data.items():
-                json_req['name'] = service_type
-                json_req['info'] = dict(info)
-        else:
-            bottle.abort(400, e)
+        try:
+            if ctype == 'application/json':
+                data = bottle.request.json
+            elif ctype == 'application/xml':
+                data = xmltodict.parse(bottle.request.body.read())
+        except Exception as e:
+            self.syslog('Unable to parse publish request')
+            self.syslog(bottle.request.body.buf)
+            bottle.abort(400, 'Unable to parse publish request')
+
+        # new format - publish tag to envelop entire content
+        if 'publish' in data:
+            data = data['publish']
+        for key, value in data.items():
+            json_req[key] = value
+
+        # old format didn't include explicit tag for service type
+        service_type = data.get('service-type', data.keys()[0])
+
+        # convert ordered dict to normal dict
+        try:
+            json_req[service_type] = data[service_type]
+        except (ValueError, KeyError, TypeError) as e:
+            bottle.abort(400, "Unknown service type")
+
+        info = json_req[service_type]
+        admin_state = json_req.get('admin-state', 'up')
+        if admin_state not in ['up', 'down']:
+            bottle.abort(400, "Invalid admin state")
 
         sig = end_point or publisher_id(
                 bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
-
-        # Rx {'name': u'ifmap-server', 'info': {u'ip_addr': u'10.84.7.1',
-        # u'port': u'8443'}}
-        info = json_req['info']
-        service_type = json_req['name']
 
         entry = self._db_conn.lookup_service(service_type, service_id=sig)
         if not entry:
@@ -434,7 +446,7 @@ class DiscoveryServer():
             entry['sequence'] = str(int(time.time())) + socket.gethostname()
 
         entry['info'] = info
-        entry['admin_state'] = 'up'
+        entry['admin_state'] = admin_state
         entry['heartbeat'] = int(time.time())
 
         # insert entry if new or timed out
