@@ -1,4 +1,4 @@
-gevent
+gevent==1.1a2
 # kazoo <-- putting deps on zope.interface >= 3.8.0
 pycassa
 python-novaclient
