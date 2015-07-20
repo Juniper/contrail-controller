@@ -1612,7 +1612,7 @@ class ServiceChain(DBBaseST):
                         ip_addr = interface.get_any_instance_ip_address()
                         if ip_addr is None:
                             self.log_error("No ip address found for interface "
-                                           + if_obj.name)
+                                           + interface_name)
                             return False
                     vmi_info = {'vmi': interface, 'address': ip_addr}
                     vm_info[interface.service_interface_type] = vmi_info
