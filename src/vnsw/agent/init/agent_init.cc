@@ -350,7 +350,7 @@ static bool FlushTable(AgentDBTable *table, DBTableWalker *walker) {
 
 void AgentInit::DeleteDBEntriesBase() {
     DBTableWalker walker;
-    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_INIT_TASKNAME);
+    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&DeleteRoutesInternal, this));
 
@@ -483,7 +483,7 @@ static bool KSyncShutdownInternal(AgentInit *init) {
 }
 
 void AgentInit::Shutdown() {
-    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_INIT_TASKNAME);
+    int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&IoShutdownInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&FlushFlowsInternal, this));

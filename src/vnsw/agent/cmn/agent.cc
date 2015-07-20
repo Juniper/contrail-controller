@@ -457,14 +457,14 @@ Agent::~Agent() {
     agent_signal_->Terminate();
     agent_signal_.reset();
 
-    delete event_mgr_;
-    event_mgr_ = NULL;
-
     ShutdownLifetimeManager();
 
     delete db_;
     db_ = NULL;
     singleton_ = NULL;
+
+    delete event_mgr_;
+    event_mgr_ = NULL;
 }
 
 AgentConfig *Agent::cfg() const {

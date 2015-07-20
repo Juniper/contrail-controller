@@ -16,9 +16,6 @@
 using namespace boost::asio;
 using boost::asio::ip::udp;
 
-void DhcpProto::Shutdown() {
-}
-
 DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
                      bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::DHCP, io),
@@ -58,6 +55,9 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
 }
 
 DhcpProto::~DhcpProto() {
+}
+
+void DhcpProto::Shutdown() {
     if (dhcp_relay_mode_) {
         boost::system::error_code ec;
         dhcp_server_socket_.shutdown(udp::socket::shutdown_both, ec);
