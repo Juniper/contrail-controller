@@ -1,2 +1,3 @@
+gevent==1.0.2
 requests
 cfgm_common
