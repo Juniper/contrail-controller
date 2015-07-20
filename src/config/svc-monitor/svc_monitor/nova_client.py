@@ -25,8 +25,10 @@ class ServiceMonitorNovaClient(object):
             endpoint_type='internalURL')
         return self._nova[proj_name]
 
-    def _novaclient_exec(self, resource, oper, proj_name, **kwargs):
-        n_client = self._novaclient_get(proj_name)
+    def _novaclient_exec(self, resource, oper, proj_name,
+                         reauthenticate, **kwargs):
+        n_client = self._novaclient_get(proj_name,
+                                        reauthenticate=reauthenticate)
         try:
             resource_obj = getattr(n_client, resource)
             oper_func = getattr(resource_obj, oper)
@@ -44,6 +46,8 @@ class ServiceMonitorNovaClient(object):
                 "Error: Multiple %s %s=%s found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
             return None
+        except nc_exc.Unauthorized:
+            raise
         except Exception as e:
             self.logger.log("Error: nova error %s" % str(e))
             return None
@@ -51,11 +55,11 @@ class ServiceMonitorNovaClient(object):
     def oper(self, resource, oper, proj_name, **kwargs):
         try:
             return self._novaclient_exec(resource, oper,
-                proj_name, **kwargs)
+                proj_name, False, **kwargs)
         except nc_exc.Unauthorized:
             try:
                 return self._novaclient_exec(resource, oper,
-                    proj_name, **kwargs)
+                    proj_name, True, **kwargs)
             except nc_exc.Unauthorized:
                 self.logger.log(
                     "Error: %s %s=%s not authorized in project %s"
