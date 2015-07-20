@@ -44,6 +44,7 @@ generated_rule = env.Command(generated_files,
 setup_sources = [
            'setup.py',
            '.testr.conf',
+           '.coveragerc',
            'run_tests.sh',
            'tools',
            'tests',
@@ -112,11 +113,16 @@ if buildspace_link:
 else:
     top_dir = Dir('.')
 
+cov_cmd = env.Command('coveragetest.log', sdist_gen,
+                      'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
+
 test_cmd = env.Command('test.log', sdist_gen,
            'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz']
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('test', test_cmd)
 env.Alias('controller/src/api-lib:test', test_cmd)
+env.Alias('controller/src/api-lib:coverage', cov_cmd)
