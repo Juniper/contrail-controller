@@ -281,7 +281,8 @@ HttpClient::HttpClient(EventManager *evm) :
   curl_timer_(TimerManager::CreateTimer(*evm->io_service(), "http client",
               TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
   id_(0), work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
-              boost::bind(&HttpClient::DequeueEvent, this, _1)) { 
+              boost::bind(&HttpClient::DequeueEvent, this, _1)),
+  shutdown_(false) {
     gi_ = (struct _GlobalInfo *)malloc(sizeof(struct _GlobalInfo));
     memset(gi_, 0, sizeof(struct _GlobalInfo));
 }
@@ -298,6 +299,7 @@ void HttpClient::ShutdownInternal() {
     TimerManager::DeleteTimer(curl_timer_);
     SessionShutdown();
     
+    shutdown_ = true;
     assert(!map_.size());
 }
 
