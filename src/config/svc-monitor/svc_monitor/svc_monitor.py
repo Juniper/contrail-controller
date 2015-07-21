@@ -744,6 +744,7 @@ class SvcMonitor(object):
     def _delete_interface_route_table(self, irt_uuid):
         try:
             self._vnc_lib.interface_route_table_delete(id=irt_uuid)
+            InterfaceRouteTableSM.delete(irt_uuid)
         except (NoIdError, RefsExistError):
             return
 
@@ -751,6 +752,7 @@ class SvcMonitor(object):
         try:
             self.logger.log_info("Deleting vn %s" % (vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
+            VirtualNetworkSM.delete(vn_uuid)
         except (NoIdError, RefsExistError):
             pass
 
