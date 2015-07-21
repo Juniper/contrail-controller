@@ -104,7 +104,7 @@ void LoadbalancerHaproxy::GenerateFrontend(
          << "bind " << vip.address << ":" << vip.protocol_port;
     if (vip.protocol ==  LB_HAPROXY_TERMINATION_PROTO) {
         *out << " ssl crt " <<
-            agent_->params()->si_haproxy_ssl_cert_path();
+            agent_->params()->si_haproxy_ssl_cert_path() << " no-sslv3 no-tlsv10";
     }
     *out << endl;
 
