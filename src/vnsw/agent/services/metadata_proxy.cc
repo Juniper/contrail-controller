@@ -112,10 +112,19 @@ void MetadataProxy::CloseSessions() {
 
 void
 MetadataProxy::Shutdown() {
-    http_server_->Shutdown();
-    http_server_ = NULL;
-    http_client_->Shutdown();
-    http_client_ = NULL;
+    if (http_server_) {
+        http_server_->Shutdown();
+        TcpServerManager::DeleteServer(http_server_);
+        http_server_ = NULL;
+    }
+    if (http_client_) {
+        uint32_t count = 0;
+        http_client_->Shutdown();
+        while (!http_client_->IsShutdown() && count++ < 10000)
+            usleep(1000);
+        TcpServerManager::DeleteServer(http_client_);
+        http_client_ = NULL;
+    }
 }
 
 void 

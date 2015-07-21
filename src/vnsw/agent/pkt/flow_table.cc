@@ -1753,9 +1753,6 @@ void FlowTable::InitDone() {
          agent_->params()->max_vm_flows()) / 100;
 }
 
-void FlowTable::Shutdown() {
-}
-
 void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     // Add/Delete SG: Later
     // Change VN:
@@ -3458,6 +3455,9 @@ FlowTable::FlowTable(Agent *agent) :
 }
 
 FlowTable::~FlowTable() {
+}
+
+void FlowTable::Shutdown() {
     agent_->acl_table()->Unregister(acl_listener_id_);
     agent_->interface_table()->Unregister(intf_listener_id_);
     agent_->vn_table()->Unregister(vn_listener_id_);

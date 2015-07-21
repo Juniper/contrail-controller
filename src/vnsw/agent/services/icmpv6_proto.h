@@ -39,7 +39,7 @@ public:
         uint32_t icmpv6_drop_;
     };
 
-    void Shutdown() {}
+    void Shutdown();
     Icmpv6Proto(Agent *agent, boost::asio::io_service &io);
     virtual ~Icmpv6Proto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
