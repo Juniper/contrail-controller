@@ -895,11 +895,24 @@ void AgentSandesh::MakeSandeshPageReq(PageReqData *req, DBTable *table,
 
     // Prev-Page link
     if (first > 0) {
-        int prev_page_first = first - page_size - 1;
+        int prev_page_first;
+        if (page_size <  AgentSandesh::kEntriesPerPage) {
+            prev_page_first = first - AgentSandesh::kEntriesPerPage;
+        } else {
+            prev_page_first = first - page_size;
+        }
+
         if (prev_page_first < 0)
             prev_page_first = 0;
 
-        int prev_page_last = prev_page_first + page_size;
+        int prev_page_last;
+
+        if (page_size <  AgentSandesh::kEntriesPerPage) {
+            prev_page_last = prev_page_first + AgentSandesh::kEntriesPerPage;
+        } else {
+            prev_page_last = prev_page_first + page_size;
+        }
+
         if (prev_page_last >= first)
             prev_page_last = first - 1;
         string s;
@@ -909,7 +922,12 @@ void AgentSandesh::MakeSandeshPageReq(PageReqData *req, DBTable *table,
 
     // First-Page link
     string s;
-    EncodeOne(&s, table, 0, (page_size - 1), &filter);
+    if ((len - AgentSandesh::kEntriesPerPage) >= 0) {
+        EncodeOne(&s, table, 0, (AgentSandesh::kEntriesPerPage - 1), &filter);
+    } else {
+        EncodeOne(&s, table, 0, (page_size - 1), &filter);
+    }
+
     req->set_first_page(s);
 
     // All-Page link
@@ -933,6 +951,7 @@ void AgentSandesh::DoSandeshInternal(AgentSandeshPtr sandesh, int first,
     int page_size = ComputePageSize(first, last);
     first = ComputeFirst(first, len);
     last = ComputeLast(first, last, len);
+    //int page_size = ComputePageSize(first, last);
 
     SetResp();
     DBTableWalker *walker = table->database()->GetWalker();
