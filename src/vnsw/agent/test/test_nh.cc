@@ -1012,11 +1012,6 @@ TEST_F(CfgTest, EcmpNH_7) {
         {"vnet3", 3, "1.1.1.1", "00:00:00:02:02:03", 1, 3}
     };
 
-    boost::system::error_code ec;
-    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
-                                      "xmpp channel");
-    client->WaitForIdle();
-
     CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
     //First VM added, route points to composite NH

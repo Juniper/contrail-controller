@@ -2163,8 +2163,7 @@ TEST_F(RouteTest, verify_channel_delete_results_in_path_delete) {
     AgentXmppChannel *ch = peer->GetBgpXmppPeer();
     XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>
         (ch->GetXmppChannel());
-    delete ch; 
-    delete xmpp_channel;
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(ch, xmps::NOT_READY);
     client->WaitForIdle();
 
     client->Reset();
@@ -2174,6 +2173,8 @@ TEST_F(RouteTest, verify_channel_delete_results_in_path_delete) {
     DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
     DeleteBgpPeer(NULL);
+    delete ch;
+    delete xmpp_channel;
     client->WaitForIdle();
 }
 

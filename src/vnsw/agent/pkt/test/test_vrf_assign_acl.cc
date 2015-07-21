@@ -380,6 +380,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
 
     TunnelRouteAdd("10.1.1.2", "2.1.1.1", "default-project:vn1:vn1",
                    16, "default-project:vn2");
+    client->WaitForIdle();
 
     TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
@@ -459,7 +460,11 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     CreateFlow(flow, 1);
 
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn1");
+    DelLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn1",
+            "access-control-list", "Acl");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     agent_->fabric_inet4_unicast_table()->DeleteReq(
@@ -576,9 +581,13 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp2) {
     CreateFlow(flow, 1);
 
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn1");
+    DelLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
+    DelLink("virtual-network", "default-project:vn1",
+            "access-control-list", "Acl");
     DeleteVmportEnv(input, 1, true);
     DelVrf("vrf9");
     client->WaitForIdle();
@@ -671,7 +680,11 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
     CreateFlow(flow, 1);
 
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn1");
+    DelLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn1",
+            "access-control-list", "Acl");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     DeleteVmportEnv(input, 1, true);
