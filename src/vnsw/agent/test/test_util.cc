@@ -1240,7 +1240,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, Ip4Address::from_string(server, ec),
-                              TunnelType::AllType(), label, "",
+                              TunnelType::AllType(), label, vn,
                               SecurityGroupList(), PathPreference());
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
