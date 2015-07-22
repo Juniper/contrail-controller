@@ -203,7 +203,7 @@ TEST_F(TestKSyncRoute, remote_evpn_route_1) {
     ksync->Sync(rt);
     EXPECT_TRUE(ksync->flood_dhcp()); // flood DHCP set for MAC without VMI
 
-    vrf1_evpn_table_->DeleteReq(NULL, "vrf1", mac, addr, ethernet_tag);
+    vrf1_evpn_table_->DeleteReq(NULL, "vrf1", mac, addr, ethernet_tag, NULL);
     client->WaitForIdle();
 }
 
