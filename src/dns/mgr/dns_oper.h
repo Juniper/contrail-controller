@@ -172,6 +172,11 @@ struct VirtualDnsConfig : public DnsConfig {
     std::string GetDomainName() const { return rec_.domain_name; }
     std::string GetOldDomainName() const { return old_rec_.domain_name; }
     std::string GetRecordOrder() const { return rec_.record_order; }
+    bool IsExternalVisible() const { return rec_.external_visible; }
+    bool IsReverseResolutionEnabled() const { return rec_.reverse_resolution; }
+    bool HasReverseResolutionChanged() const {
+        return rec_.reverse_resolution != old_rec_.reverse_resolution;
+    }
     bool DynamicUpdatesEnabled() const;
     int GetTtl() const { return rec_.default_ttl_seconds; }
 

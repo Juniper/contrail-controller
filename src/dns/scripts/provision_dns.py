@@ -51,7 +51,8 @@ class DnsProvisioner(object):
         return True
     #end is_valid_ipv4_address
 
-    def add_virtual_dns(self, name, domain_name, dns_domain, dyn_updates, rec_order, ttl, next_vdns, fip_record):
+    def add_virtual_dns(self, name, domain_name, dns_domain, dyn_updates, rec_order,
+                        ttl, next_vdns, fip_record, external_visible, reverse_resolution):
         vnc_lib = self._vnc_lib
         domain_name_list = []
         domain_name_list.append(domain_name)
@@ -70,7 +71,9 @@ class DnsProvisioner(object):
                 return
 
         vdns_str = ':'.join([domain_name, name])
-        vdns_data = VirtualDnsType(dns_domain, dyn_updates, rec_order, int(ttl), next_vdns, fip_record)
+        vdns_data = VirtualDnsType(dns_domain, dyn_updates, rec_order, int(ttl),
+                                   next_vdns, fip_record, external_visible,
+                                   reverse_resolution)
         dns_obj = VirtualDns(name, domain_obj, 
                              virtual_DNS_data = vdns_data)
         vnc_lib.virtual_DNS_create(dns_obj)
