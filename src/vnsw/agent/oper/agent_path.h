@@ -197,8 +197,8 @@ public:
     const Ip4Address *NexthopIp(Agent *agent) const;
 
     //Flood DHCP
-    bool flood_dhcp() const {return flood_dhcp_;}
-    void set_flood_dhcp(bool flood_dhcp) const {flood_dhcp_ = flood_dhcp;}
+    //bool flood_dhcp() const {return flood_dhcp_;}
+    //void set_flood_dhcp(bool flood_dhcp) const {flood_dhcp_ = flood_dhcp;}
     MacAddress arp_mac() const {return arp_mac_;}
     void set_arp_mac(const MacAddress &mac) {
         arp_mac_ = mac;
@@ -211,6 +211,9 @@ public:
     bool arp_valid() const { return arp_valid_;}
     void set_arp_valid(bool valid) { arp_valid_ = valid;}
     bool CopyArpData();
+
+    bool bridging() const {return bridging_;}
+    void set_bridging(bool bridging) {bridging_ = bridging;}
 
 private:
     const Peer *peer_;
@@ -268,13 +271,14 @@ private:
     //allowed address pair
     IpAddress subnet_gw_ip_;
     // should vrouter flood the DHCP request coming from this source route
-    mutable bool flood_dhcp_;
+    //mutable bool flood_dhcp_;
     //Mac address of ARP NH, used to notify change
     //to routes dependent on mac change, or ageout of ARP
     MacAddress arp_mac_;
     //Interface on which ARP would be resolved
     InterfaceConstRef arp_interface_;
     bool arp_valid_;
+    bool bridging_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -506,9 +510,10 @@ class MulticastRoute : public AgentRouteData {
 public:
     MulticastRoute(const string &vn_name, uint32_t label, int vxlan_id,
                    uint32_t tunnel_type, DBRequest &nh_req,
-                   COMPOSITETYPE comp_nh_type):
-    AgentRouteData(true), vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id), 
-    tunnel_type_(tunnel_type), comp_nh_type_(comp_nh_type) {
+                   COMPOSITETYPE comp_nh_type, bool bridging):
+    AgentRouteData(true), vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id),
+    tunnel_type_(tunnel_type), comp_nh_type_(comp_nh_type),
+    bridging_(bridging) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
@@ -517,6 +522,7 @@ public:
     virtual std::string ToString() const {return "multicast";}
     uint32_t vxlan_id() const {return vxlan_id_;}
     COMPOSITETYPE comp_nh_type() const {return comp_nh_type_;}
+    bool bridging() const {return bridging_;}
     static bool CopyPathParameters(Agent *agent,
                                    AgentPath *path,
                                    const std::string &dest_vn_name,
@@ -524,7 +530,8 @@ public:
                                    uint32_t vxlan_id,
                                    uint32_t label,
                                    uint32_t tunnel_type,
-                                   NextHop *nh);
+                                   NextHop *nh,
+                                   bool bridging);
 
 private:
     string vn_name_;
@@ -533,6 +540,7 @@ private:
     uint32_t tunnel_type_;
     DBRequest composite_nh_req_;
     COMPOSITETYPE comp_nh_type_;
+    bool bridging_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
 
@@ -671,12 +679,13 @@ public:
     void set_vm_interface(const VmInterface *vm_interface) {
         vm_interface_ = vm_interface;
     }
-    bool flood_dhcp() const {return flood_dhcp_;}
+    virtual bool flood_dhcp() const {return flood_dhcp_;}
     void set_flood_dhcp(bool flood_dhcp) {flood_dhcp_ = flood_dhcp;}
 
 private:
     //Key parameters for comparision
     InterfaceConstRef vm_interface_;
+    // should vrouter flood the DHCP request coming from this source route
     bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(MacVmBindingPath);
 };

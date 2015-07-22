@@ -5,6 +5,8 @@
 #ifndef vnsw_bridge_route_hpp
 #define vnsw_bridge_route_hpp
 
+class MacVmBindingPath;
+
 //////////////////////////////////////////////////////////////////
 //  BRIDGE
 /////////////////////////////////////////////////////////////////
@@ -48,7 +50,8 @@ public:
                                         uint32_t tunnel_type,
                                         Composite::Type type,
                                         ComponentNHKeyList
-                                        &component_nh_key_list);
+                                        &component_nh_key_list,
+                                        bool bridging);
     static void AddBridgeReceiveRoute(const Peer *peer,
                                       const std::string &vrf_name,
                                       const MacAddress &mac,
@@ -125,7 +128,7 @@ public:
                                         bool force_delete);
 
     const MacAddress &mac() const {return mac_;}
-    const AgentPath *FindMacVmBindingPath() const;
+    const MacVmBindingPath *FindMacVmBindingPath() const;
     const AgentPath *FindOvsPath() const;
 
 private:

@@ -209,7 +209,9 @@ void DelVm(const char *name);
 void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
+void AddL2L3Vn(const char *name, int id);
 void AddL2Vn(const char *name, int id);
+void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
 void DelVn(const char *name);
 void AddPort(const char *name, int id, const char *attr = NULL);
@@ -263,6 +265,8 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
 void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                        const char *vn = NULL, const char *vrf = NULL,
                        bool with_v4_ip = true);
+void CreateL3VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
@@ -367,6 +371,7 @@ void AddEncapList(Agent *agent, const char *encap1, const char *encap2,
 void DelEncapList();
 void DelEncapList(Agent *agent);
 void VxLanNetworkIdentifierMode(bool config);
+void GlobalForwardingMode(std::string mode);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
                            int count);

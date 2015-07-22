@@ -36,7 +36,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
-    flood_dhcp_(false), arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
+    arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -834,7 +834,8 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path,
                                              vxlan_id_,
                                              label_,
                                              tunnel_type_,
-                                             nh);
+                                             nh,
+                                             bridging_);
     return ret;
 }
 
@@ -845,7 +846,8 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
                                         uint32_t vxlan_id,
                                         uint32_t label,
                                         uint32_t tunnel_type,
-                                        NextHop *nh) {
+                                        NextHop *nh,
+                                        bool bridging) {
     path->set_dest_vn_name(vn_name);
     path->set_unresolved(unresolved);
     path->set_vxlan_id(vxlan_id);
@@ -864,6 +866,9 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
         path->set_tunnel_type(new_tunnel_type);
     }
 
+    if (path->bridging() != bridging) {
+        path->set_bridging(bridging);
+    }
     path->ChangeNH(agent, nh);
 
     return true;

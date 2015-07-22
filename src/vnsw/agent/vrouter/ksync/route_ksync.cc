@@ -306,6 +306,8 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         if (rt->FindLocalVmPortPath()) {
             // Local port without MAC stitching should only be a transition
             // case. In the meanwhile, flood ARP so that VM can respond
+            // Note: In case VN is in L3 forwarding mode flags will be reset.
+            // This is done below when VN entry is extracted.
             proxy_arp_ = false;
             flood = true;
         } else {
@@ -318,8 +320,11 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
 
     // If the route crosses a VN, we want packet to be routed. So, override
     // the flags set above and set only Proxy flag
+    // When L2 forwarding mode is disabled, reset the proxy arp to true and flood
+    // of arp to false.
     VnEntry *vn= rt->vrf()->vn();
-    if (vn == NULL || (path->dest_vn_name() != vn->GetName())) {
+    if (vn == NULL || (path->dest_vn_name() != vn->GetName()) ||
+        (vn->bridging() == false)) {
         proxy_arp = true;
         flood = false;
     }
@@ -434,8 +439,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
             static_cast<const BridgeRouteEntry *>(route);
 
         //First search for v4
-        const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>
-            (l2_rt->FindMacVmBindingPath());
+        const MacVmBindingPath *dhcp_path = l2_rt->FindMacVmBindingPath();
         bool flood_dhcp = true; // Flood DHCP if MacVmBindingPath is not present
         if (dhcp_path)
             flood_dhcp = dhcp_path->flood_dhcp();
@@ -860,6 +864,11 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
         return false;
 
     if (rt->addr().is_v6() && rt->plen() != 128)
+        return false;
+
+    //Check if VN is enabled for bridging, if not then skip mac binding.
+    VnEntry *vn= rt->vrf()->vn();
+    if (vn == NULL || (vn->bridging() == false))
         return false;
 
     const NextHop *nh = rt->GetActiveNextHop();
