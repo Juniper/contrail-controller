@@ -16,7 +16,18 @@ class OvsdbClientSession;
 class ConnectionStateTable;
 class OvsdbClient {
 public:
-    OvsdbClient(OvsPeerManager *manager, int keepalive_interval);
+    static const uint32_t OVSDBKeepAliveTimer = 10000; // in millisecond
+
+    // minimum value of keep alive interval
+    static const int OVSDBMinKeepAliveTimer = 2000; // in millisecond
+
+    static const uint32_t OVSDBHaStaleRouteTimer = 300000; // in millisecond
+
+    // minimum value of keep alive interval
+    static const int OVSDBMinHaStaleRouteTimer = 60000; // in millisecond
+
+    OvsdbClient(OvsPeerManager *manager, int keepalive_interval,
+                int ha_stale_route_interval);
     virtual ~OvsdbClient();
     virtual void RegisterClients() = 0;
     virtual const std::string protocol() = 0;
@@ -38,6 +49,7 @@ public:
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     int keepalive_interval() const;
+    int ha_stale_route_interval() const;
     void Init();
     static OvsdbClient* Allocate(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
@@ -48,6 +60,7 @@ private:
     boost::scoped_ptr<ConnectionStateTable> connection_table_;
     KSyncObjectManager *ksync_obj_manager_;
     int keepalive_interval_;
+    int ha_stale_route_interval_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClient);
 };
 };

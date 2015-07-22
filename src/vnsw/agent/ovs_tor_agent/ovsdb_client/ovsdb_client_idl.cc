@@ -211,17 +211,9 @@ void OvsdbClientIdl::OnEstablish() {
     session_->SendJsonRpc(monitor_request);
 
     int keepalive_intv = session_->keepalive_interval();
-    if (keepalive_intv < 0) {
-        // timer not configured, use default timer
-        keepalive_intv = OVSDBKeepAliveTimer;
-    } else if (keepalive_intv == 0) {
+    if (keepalive_intv == 0) {
         // timer configured not to run, return from here.
         return;
-    }
-
-    if (keepalive_intv < OVSDBMinKeepAliveTimer) {
-        // keepalive interval is not supposed to be less than min value.
-        keepalive_intv = OVSDBMinKeepAliveTimer;
     }
 
     // Start the Keep Alives
@@ -388,6 +380,10 @@ VnOvsdbObject *OvsdbClientIdl::vn_ovsdb() {
 
 bool OvsdbClientIdl::IsKeepAliveTimerActive() {
     return !keepalive_timer_->cancelled();
+}
+
+bool OvsdbClientIdl::IsMonitorInProcess() {
+    return (monitor_request_id_ != NULL);
 }
 
 bool OvsdbClientIdl::KeepAliveTimerCb() {

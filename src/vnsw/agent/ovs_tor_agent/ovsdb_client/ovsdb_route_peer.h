@@ -34,10 +34,16 @@ class OvsPeer : public Peer {
     void DeleteOvsPeerMulticastRoute(const VrfEntry *vrf, uint32_t vxlan_id);
     const IpAddress &peer_ip() const {return peer_ip_;}
 
+    void set_ha_stale_export(bool ha_stale_export) {
+        ha_stale_export_ = ha_stale_export;
+    }
+    bool ha_stale_export() const { return ha_stale_export_; }
+
  private:
     IpAddress peer_ip_;
     uint64_t gen_id_;
     OvsPeerManager *peer_manager_;
+    bool ha_stale_export_;
     DISALLOW_COPY_AND_ASSIGN(OvsPeer);
 };
 

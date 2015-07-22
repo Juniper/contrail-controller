@@ -752,6 +752,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     PathPreference::Preference preference = PathPreference::LOW;
     if (item->entry.local_preference == PathPreference::HIGH) {
         preference = PathPreference::HIGH;
+    } else if (item->entry.local_preference == PathPreference::HA_STALE) {
+        preference = PathPreference::HA_STALE;
     }
     PathPreference path_preference(item->entry.sequence_number, preference,
                                    false, false);
