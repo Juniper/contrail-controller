@@ -83,6 +83,7 @@ public:
     void LinkLocalRouteUpdate(const std::vector<Ip4Address> &addr_list);
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
+    const std::string &forwarding_mode() const {return forwarding_mode_;}
 
     uint64_t PendingFabricDnsRequests() const;
 private:
@@ -104,6 +105,7 @@ private:
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
     boost::scoped_ptr<AgentRouteEncap> agent_route_encap_update_walker_;
+    std::string forwarding_mode_;
 };
 
 #endif // vnsw_agent_global_router_h_

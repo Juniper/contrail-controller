@@ -323,7 +323,7 @@ public:
     // Handle change in config VRF for the interface
     void VmInterfaceVrfSync(IFMapNode *node);
     // Handle change in VxLan Identifier mode from global-config
-    void UpdateVxLanNetworkIdentifierMode();
+    void GlobalVrouterConfigChanged();
 
     // Helper functions
     VrfEntry *FindVrfRef(const std::string &name) const;

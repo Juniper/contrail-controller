@@ -40,11 +40,14 @@ struct OlistTunnelEntry {
 };
 
 struct MulticastDBState : DBState {
-    MulticastDBState(const std::string &vrf_name, const uint32_t vxlan_id) :
-        vrf_name_(vrf_name), vxlan_id_(vxlan_id) { }
+    MulticastDBState(const std::string &vrf_name, const uint32_t vxlan_id,
+                     bool forwarding_mode) :
+        vrf_name_(vrf_name), vxlan_id_(vxlan_id),
+        forwarding_mode_(forwarding_mode) { }
 
     std::string vrf_name_;
     uint32_t vxlan_id_;
+    bool forwarding_mode_;
 };
 
 typedef std::vector<OlistTunnelEntry> TunnelOlist;
@@ -195,10 +198,9 @@ public:
                                   bool fabric,
                                   uint32_t ethernet_tag);
     void HandleIpam(const VnEntry *vn);
-    void HandleFamilyConfig(const VnEntry *vn);
     void HandleVxLanChange(const VnEntry *vn);
-    void HandleTsnSubscription(DBTablePartBase *partition,
-                               DBEntryBase *e);
+    void HandleVnParametersChange(DBTablePartBase *partition,
+                                  DBEntryBase *e);
     //For test routines to clear all routes and mpls label
     void Shutdown();
     //Multicast obj list addition deletion
