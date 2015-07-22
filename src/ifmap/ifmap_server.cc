@@ -426,6 +426,8 @@ void IFMapServer::FillClientMap(IFMapServerShowClientMap *out_map) {
         IFMapClient *client = iter->second;
         IFMapServerClientMapShowEntry entry;
         entry.set_client_name(client->identifier());
+        entry.set_tracker_entries(
+            exporter_->ClientConfigTrackerSize(client->index()));
         out_map->clients.push_back(entry);
     }
 }
