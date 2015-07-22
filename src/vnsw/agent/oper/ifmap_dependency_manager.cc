@@ -2,7 +2,18 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <cmn/agent_cmn.h>
+#include <vnc_cfg_types.h> 
+#include <agent_types.h>
+
+#include "oper/oper_db.h"
 #include "oper/ifmap_dependency_manager.h"
+#include "oper/vn.h"
+#include "oper/sg.h"
+#include "oper/interface_common.h"
+#include "oper/vrf.h"
+#include "oper/physical_device.h"
+#include "filter/acl.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
@@ -20,6 +31,9 @@
 
 using namespace boost::assign;
 using namespace std;
+typedef IFMapDependencyTracker::ReactionMap ReactionMap;
+typedef IFMapDependencyTracker::NodeEventPolicy NodeEventPolicy;
+typedef IFMapDependencyTracker::PropagateList PropagateList;
 
 void intrusive_ptr_add_ref(IFMapNodeState *state) {
     ++state->refcount_;
@@ -51,20 +65,29 @@ IFMapDependencyManager::~IFMapDependencyManager() {
     // TODO: Unregister from all tables.
 }
 
-void IFMapDependencyManager::Initialize() {
-    typedef IFMapDependencyTracker::PropagateList PropagateList;
-    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
-
+void IFMapDependencyManager::Initialize(Agent *agent) {
     static const char *ifmap_types[] = {
+        "access-control-list",
+        "floating-ip",
+        "floating-ip-pool",
         "instance-ip",
         "loadbalancer-healthmonitor",
         "loadbalancer-member",
         "loadbalancer-pool",
+        "logical-interface",
+        "network-ipam",
+        "physical-interface",
+        "physical-router",
+        "routing-instance",
+        "security-group",
         "service-instance",
         "service-template",
+        "subnet",
         "virtual-ip",
         "virtual-machine",
         "virtual-machine-interface",
+        "virtual-machine-interface-routing-instance",
+        "virtual-network",
         "virtual-network-network-ipam",
     };
 
@@ -153,6 +176,8 @@ void IFMapDependencyManager::Initialize() {
     ReactionMap react_lb_healthmon = map_list_of<string, PropagateList>
             ("self", list_of("loadbalancer-pool-loadbalancer-healthmonitor"));
     policy->insert(make_pair("loadbalancer-healthmonitor", react_lb_healthmon));
+
+    InitializeDependencyRules(agent);
 }
 
 void IFMapDependencyManager::RegisterReactionMap
@@ -191,9 +216,7 @@ bool IFMapDependencyManager::ProcessChangeList() {
         if (loc == event_map_.end()) {
             continue;
         }
-        if (state->object()) {
-            loc->second(state->object());
-        }
+        loc->second(state->node(), state->object());
     }
     change_list_.clear();
     return true;
@@ -207,6 +230,11 @@ void IFMapDependencyManager::NodeObserver(
     trigger_->Set();
 }
 
+void IFMapDependencyManager::PropogateNodeChange(IFMapNode *node) {
+    tracker_->NodeEvent(node, false);
+    trigger_->Set();
+}
+                                          
 void IFMapDependencyManager::LinkObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
     IFMapLink *link = static_cast<IFMapLink *>(db_entry);
@@ -220,9 +248,11 @@ void IFMapDependencyManager::LinkObserver(
 void IFMapDependencyManager::ChangeListAdd(IFMapNode *node) {
     IFMapNodeState *state = IFMapNodeGet(node);
     if (state == NULL) {
-        return;
+        if (node->IsDeleted() == false)
+            change_list_.push_back(SetState(node));
+    } else {
+        change_list_.push_back(IFMapNodePtr(state));
     }
-    change_list_.push_back(IFMapNodePtr(state));
 }
 
 IFMapNodeState *
@@ -285,6 +315,20 @@ IFMapDependencyManager::SetState(IFMapNode *node) {
     return IFMapNodePtr(state);
 }
 
+DBEntry *IFMapDependencyManager::GetObject(IFMapNode *node) {
+    IFMapTable *table = node->table();
+    TableMap::const_iterator loc = table_map_.find(table->name());
+    if (loc == table_map_.end())
+        return NULL;
+
+    IFMapNodeState *state =
+        static_cast<IFMapNodeState *>(node->GetState(table, loc->second));
+    if (state == NULL)
+        return NULL;
+
+    return state->object();
+}
+
 /*
  * Register a notification callback.
  */
@@ -298,4 +342,335 @@ void IFMapDependencyManager::Register(
  */
 void IFMapDependencyManager::Unregister(const string &type) {
     event_map_.erase(type);
+}
+
+IFMapDependencyManager::Path MakePath
+(const char *link1,        const char *node1,        bool interest1,
+ const char *link2 = NULL, const char *node2 = NULL, bool interest2 = false,
+ const char *link3 = NULL, const char *node3 = NULL, bool interest3 = false,
+ const char *link4 = NULL, const char *node4 = NULL, bool interest4 = false,
+ const char *link5 = NULL, const char *node5 = NULL, bool interest5 = false,
+ const char *link6 = NULL, const char *node6 = NULL, bool interest6 = false) {
+    if (link2) assert(node2);
+    if (link3) assert(node3);
+    if (link4) assert(node4);
+    if (link5) assert(node5);
+    if (link6) assert(node6);
+
+    IFMapDependencyManager::Path path;
+    path.push_back(IFMapDependencyManager::Link(link1, node1, interest1));
+    if (link2)
+        path.push_back(IFMapDependencyManager::Link(link2, node2, interest2));
+    if (link3)
+        path.push_back(IFMapDependencyManager::Link(link3, node3, interest3));
+    if (link4)
+        path.push_back(IFMapDependencyManager::Link(link4, node4, interest4));
+    if (link5)
+        path.push_back(IFMapDependencyManager::Link(link5, node5, interest5));
+    if (link6)
+        path.push_back(IFMapDependencyManager::Link(link6, node6, interest6));
+    return path;
+}
+
+static NodeEventPolicy::iterator LocateNodeEventPolicy(NodeEventPolicy *policy,
+                                                       const string &node) {
+    NodeEventPolicy::iterator it = policy->find(node);
+    if (it != policy->end()) {
+        return it;
+    }
+    ReactionMap react = map_list_of<string, PropagateList>
+        ("self", PropagateList());
+    policy->insert(make_pair(node, react));
+    return policy->find(node);
+}
+
+static ReactionMap::iterator LocateReactionMap(ReactionMap *react,
+                                               const string &event) {
+    ReactionMap::iterator it = react->find(event);
+    if (it != react->end()) {
+        return it;
+    }
+    react->insert(make_pair(event, PropagateList()));
+    return react->find(event);
+}
+
+////////////////////////////////////////////////////////////////////////
+// The IFMap dependency tracker accepts rules in the form or "Reactor Map"
+// Reactor map is not natural way of defining references between IFMap nodes
+// in agent.
+//
+// When agent builds data for an oper-db entry, the IFNodeToReq API will keep
+// the IFMapNode for oper-db entry as starting node and traverses the graph
+// to build all realvent data for the entry. So, it is more natural in agent
+// to specify relation between nodes in a way IFMapNodeToReq traverses the
+// graph
+//
+// The routine AddDependencyPath takes the graph path between two vertices
+// and then creates "Reactor Map" for them.
+//
+// The API takes IFMapNode for object being built as "node" and then a graph
+// path to reach another IFMapNode of interest.
+//
+// Example: VMI refers to RI with following path to support floating-ip
+//     VMI <----> FIP <----> FIP-POOL <----> VN <----> RI
+//
+//     node is specified as "virtual-machine-interface"
+//     path is specified as,
+//          <string(link-metadata), string(vertex), bool(vertex-attr-interest)>
+//
+//          vertex specifies name of the adjacent node in the path
+//          link-metadata specifies metadata of the link connecting the vertex
+//          vertex-attr-interest
+//               If "node" is interested in any attribute of vertex, this value
+//               is set to TRUE else its set to FALSE
+//               When value is set to TRUE, it will generate an event of type
+//               "self" in the reactor-map
+//
+//          The path from virtual-machine-interface to "routing-instance" above
+//          is given as below,
+//
+//          <"virtual-machine-interface-floating-ip", "floating-ip", true>
+//          <"floating-ip-floating-ip-pool", "floating-ip-pool", false>
+//          <"floating-ip-pool-virtual-network", "virtual-network", true>
+//          <"virtual-network-routing-instance", "routing-instance", true>
+//
+// AddDependencyPath will "APPEND" following Reactor rules,
+//      node(virtual-machine-interface)
+//             event(virtual-machine-floating-ip) => Rectors(self)
+//
+//      node(routing-instance)
+//             event(self) => Reactors(virtual-network-routing-instance)
+//
+//      node(virtual-network)
+//             event(virtual-network-routing-instance) => Reactors(floating-ip-pool-virtual-network)
+//
+//      node(floating-ip-pool)
+//             event(self) => Reactors(virtual-machine-interface-virtual-network)
+//             event(floating-ip-pool-virtual-network) => Reactors(floating-ip-floating-ip-pool)
+//
+//      node(floating-ip)
+//             event(self) => Reactors(virtual-machine-interface-floating-ip)
+//             event(floating-ip-floating-ip-pool) => Reactors(virtual-machine-interface-floating-ip)
+//
+////////////////////////////////////////////////////////////////////////
+void IFMapDependencyManager::AddDependencyPath(const std::string &node,
+                                               Path path) {
+    NodeEventPolicy *policy = tracker_->policy_map();
+    assert(policy);
+
+    NodeEventPolicy::iterator node_it;
+    node_it = LocateNodeEventPolicy(policy, node);
+    ReactionMap::iterator react_it = LocateReactionMap(&node_it->second,
+                                                       path[0].edge_);
+    LOG(DEBUG, "Updating dependency tacker rules for " << node);
+    react_it->second.insert("self");
+    LOG(DEBUG, "Adding ReactorMap " << node_it->first << " : " <<
+                react_it->first << " -> " << "self");
+
+    for (size_t i = 0; i < path.size(); i++) {
+        node_it = LocateNodeEventPolicy(policy, path[i].vertex_);
+        if (path[i].vertex_interest_) {
+            react_it = LocateReactionMap(&node_it->second, "self");
+            react_it->second.insert(path[i].edge_);
+            LOG(DEBUG, "Adding ReactorMap " << node_it->first << " : " <<
+                react_it->first << " -> " << path[i].edge_);
+        }
+
+        if (i < (path.size() - 1)) {
+            react_it = LocateReactionMap(&node_it->second, path[i+1].edge_);
+            react_it->second.insert(path[i].edge_);
+            LOG(DEBUG, "Adding ReactorMap " << node_it->first << " : " <<
+                react_it->first << " -> " << path[i].edge_);
+        } else {
+            react_it = LocateReactionMap(&node_it->second, path[i].edge_);
+            react_it->second.insert("nil");
+            LOG(DEBUG, "Adding ReactorMap " << node_it->first << " : " <<
+                react_it->first << " -> " << "nil");
+        }
+    }
+
+    return;
+}
+
+static void RegisterConfigHandler(IFMapDependencyManager *dep,
+                                  const char *name, AgentOperDBTable *table) {
+    if (table)
+        dep->Register(name, boost::bind(&AgentOperDBTable::ConfigEventHandler,
+                                        table, _1, _2));
+}
+
+void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
+    ////////////////////////////////////////////////////////////////////////
+    // VN <----> RI
+    //    <----> ACL
+    //    <----> VN-IPAM <----> IPAM
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-routing-instance",
+                               "routing-instance", true));
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-access-control-list",
+                               "access-control-list", true));
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-network-ipam",
+                               "virtual-network-network-ipam", true,
+                               "virtual-network-network-ipam",
+                               "network-ipam", false));
+    RegisterConfigHandler(this, "virtual-network",
+                          agent ? agent->vn_table() : NULL);
+
+    ////////////////////////////////////////////////////////////////////////
+    // RI <----> VN
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("routing-instance",
+                      MakePath("virtual-network-routing-instance",
+                               "virtual-network", true));
+    RegisterConfigHandler(this, "routing-instance",
+                          agent ? agent->vrf_table() : NULL);
+
+    ////////////////////////////////////////////////////////////////////////
+    // SG <----> ACL
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("security-group",
+                      MakePath("security-group-access-control-list",
+                               "access-control-list", true));
+    RegisterConfigHandler(this, "security-group",
+                         agent ? agent->sg_table() : NULL);
+
+    ////////////////////////////////////////////////////////////////////////
+    // VMI <----> VN
+    //     <----> VM
+    //     <----> VMI-RI <----> RI
+    //     <----> SG
+    //     //<----> FIP <----> FIP-POOL <----> VN <----> RI
+    //     <----> FIP <----> FIP-POOL <----> VN
+    //     <----> Instance-IP
+    //     <----> interface-route-table
+    //     <----> subnet
+    //     //<----> vn <----> VN-IPAM <----> IPAM
+    //     <----> LI <----> physical-interface <----> physical-router
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-virtual-network",
+                               "virtual-network", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-virtual-machine",
+                               "virtual-machine", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-sub-interface",
+                               "virtual-machine-interface", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-routing-instance",
+                               "virtual-machine-interface-routing-instance",
+                               true,
+                               "virtual-machine-interface-routing-instance",
+                               "routing-instance", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-security-group",
+                               "security-group", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("floating-ip-virtual-machine-interface",
+                               "floating-ip", true,
+                               "floating-ip-pool-floating-ip",
+                               "floating-ip-pool", false,
+                               "floating-ip-pool-virtual-network",
+                               "virtual-network", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("instance-ip-virtual-machine-interface",
+                               "instance-ip", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-route-table",
+                               "interface-route-table", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("subnet-virtual-machine-interface",
+                               "subnet", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("logical-interface-virtual-machine-interface",
+                               "logical-interface", false,
+                               "physical-interface-logical-interface",
+                               "physical-interface", false,
+                               "physical-router-physical-interface",
+                               "physical-router", true));
+    RegisterConfigHandler(this, "virtual-machine-interface",
+                          agent ? agent->interface_table() : NULL);
+    ////////////////////////////////////////////////////////////////////////
+    // physical-interface <----> physical-router
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("physical-interface",
+                      MakePath("physical-router-physical-interface",
+                               "physical-router", true));
+    RegisterConfigHandler(this, "physical-interface",
+                          agent ? agent->interface_table() : NULL);
+
+    ////////////////////////////////////////////////////////////////////////
+    // logical-interface <----> physical-interface <----> physical-router
+    //                   <----> virtual-machine-interface <---> virtual-network
+    //
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("logical-interface",
+                      MakePath("physical-interface-logical-interface",
+                               "physical-interface", true,
+                               "physical-interface-physical-router",
+                               "physical-router", true));
+    AddDependencyPath("logical-interface",
+                      MakePath("logical-interface-virtual-machine-interface",
+                               "virtual-machine-interface", true));
+    AddDependencyPath("logical-interface",
+                      MakePath("physical-router-logical-interface",
+                               "physical-router", true));
+    RegisterConfigHandler(this, "logical-interface",
+                          agent ? agent->interface_table() : NULL);
+
+    ////////////////////////////////////////////////////////////////////////
+    // physical-router <----> physical-interface
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("physical-router",
+                      MakePath("physical-router-physical-interface",
+                               "physical-interface", true));
+    RegisterConfigHandler(this, "physical-router",
+                          agent ? agent->physical_device_table() : NULL);
+}
+
+void IFMapNodePolicyReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    IFMapNodePolicyResp *resp = new IFMapNodePolicyResp();
+
+    IFMapDependencyTracker::NodeEventPolicy *policy_list =
+        agent->oper_db()->dependency_manager()->tracker()->policy_map();
+    NodeEventPolicy::iterator it1 = policy_list->begin();
+    std::vector<IFMapNodePolicy> resp_policy_list;
+    while (it1 != policy_list->end()) {
+        if (it1->first.find(get_node()) == string::npos) {
+            it1++;
+            continue;
+        }
+
+        ReactionMap::iterator it2 = it1->second.begin();
+        vector<IFMapReactEvent> resp_event_list;
+        while(it2 != it1->second.end()) {
+            IFMapReactEvent resp_event;
+            vector<string> resp_reactor_list;
+            PropagateList::iterator it3 = it2->second.begin();
+            while (it3 != it2->second.end()) {
+                resp_reactor_list.push_back((*it3));
+                it3++;
+            }
+            resp_event.set_event(it2->first);
+            resp_event.set_reactors(resp_reactor_list);
+            resp_event_list.push_back(resp_event);
+            it2++;
+        }
+
+        IFMapNodePolicy policy;
+        policy.set_node(it1->first);
+        policy.set_events(resp_event_list);
+        resp_policy_list.push_back(policy);
+        it1++;
+    }
+
+    resp->set_policies(resp_policy_list);
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+    return;
 }

@@ -333,7 +333,6 @@ bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
 
     req.key.reset(BuildKey(node, u));
     if (node->IsDeleted()) {
-        agent()->config_manager()->DelLogicalInterfaceNode(node);
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
     }
