@@ -381,6 +381,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="default-ttl-seconds" type="xsd:integer"/>
         <xsd:element name="next-virtual-DNS"    type="xsd:string"/>
         <xsd:element name="floating-ip-record"  type="FloatingIpDnsNotation"/>
+        <xsd:element name="external-visible"    type="xsd:boolean" default="false"/>
+        <xsd:element name="reverse-resolution"  type="xsd:boolean" default="false"/>
     </xsd:all>
 </xsd:complexType>
 
