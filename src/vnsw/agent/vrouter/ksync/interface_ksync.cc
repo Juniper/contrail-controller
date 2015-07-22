@@ -41,6 +41,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                                          const InterfaceKSyncEntry *entry,
                                          uint32_t index) :
     KSyncNetlinkDBEntry(index), analyzer_name_(entry->analyzer_name_),
+    dhcp_enable_(entry->dhcp_enable_),
     fd_(kInvalidIndex),
     flow_key_nh_id_(entry->flow_key_nh_id_),
     has_service_vlan_(entry->has_service_vlan_),
@@ -78,6 +79,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                                          const Interface *intf) :
     KSyncNetlinkDBEntry(kInvalidIndex),
     analyzer_name_(),
+    dhcp_enable_(true),
     fd_(-1),
     flow_key_nh_id_(0),
     has_service_vlan_(false),
@@ -204,6 +206,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (vmi_type_ != vm_port->vmi_type()) {
             vmi_type_ = vm_port->vmi_type();
+            ret = true;
+        }
+
+        if (dhcp_enable_ != vm_port->dhcp_enabled()) {
+            dhcp_enable_ = vm_port->dhcp_enabled();
             ret = true;
         }
 
@@ -479,6 +486,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     case Interface::VM_INTERFACE: {
         if (vmi_device_type_ == VmInterface::TOR)
             return 0;            
+        if (dhcp_enable_) {
+            flags |= VIF_FLAG_DHCP_ENABLED;
+        }
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }

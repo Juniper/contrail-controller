@@ -148,7 +148,7 @@ void BridgeAgentRouteTable::AddOvsPeerMulticastRouteInternal(const Peer *peer,
                                      vxlan_id));
     req.data.reset(new MulticastRoute(vn_name, 0, vxlan_id,
                                       TunnelType::VxlanType(),
-                                      nh_req, Composite::L2COMP));
+                                      nh_req, Composite::L2COMP, true));
     if (enqueue) {
         BridgeTableEnqueue(agent(), &req);
     } else {
@@ -257,7 +257,8 @@ void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
                                                     uint32_t tunnel_type,
                                                     COMPOSITETYPE type,
                                                     ComponentNHKeyList
-                                                    &component_nh_key_list) {
+                                                    &component_nh_key_list,
+                                                    bool bridging) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
@@ -277,7 +278,7 @@ void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
     } else {
         req.data.reset(new MulticastRoute(vn_name, label,
                                           vxlan_id, tunnel_type,
-                                          nh_req, type));
+                                          nh_req, type, bridging));
     }
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
@@ -295,7 +296,7 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     //Only ethernet tag is required, rest are dummy.
     req.data.reset(new MulticastRoute("", 0, ethernet_tag,
                                       TunnelType::AllType(),
-                                      nh_req, type));
+                                      nh_req, type, true));
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
@@ -305,8 +306,7 @@ const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
     if (l2_rt == NULL)
         return NULL;
 
-    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>
-        (l2_rt->FindMacVmBindingPath());
+    const MacVmBindingPath *dhcp_path = l2_rt->FindMacVmBindingPath();
     if (dhcp_path == NULL)
         return NULL;
     return dhcp_path->vm_interface();
@@ -500,9 +500,9 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
     }
 }
 
-const AgentPath *BridgeRouteEntry::FindMacVmBindingPath() const {
+const MacVmBindingPath *BridgeRouteEntry::FindMacVmBindingPath() const {
     Agent *agent = (static_cast<AgentRouteTable *> (get_table()))->agent();
-    return FindPath(agent->mac_vm_binding_peer());
+    return dynamic_cast<MacVmBindingPath*>(FindPath(agent->mac_vm_binding_peer()));
 }
 
 const AgentPath *BridgeRouteEntry::FindOvsPath() const {
@@ -753,7 +753,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                              vxlan_id,
                                              label,
                                              tunnel_bmap,
-                                             nh);
+                                             nh,
+                                             false);
     //Bake all MPLS label
     if (fabric_peer_path) {
         //Add new label

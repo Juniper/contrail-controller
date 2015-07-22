@@ -353,7 +353,8 @@ ControllerMulticastRoute::ControllerMulticastRoute(const string &vn_name,
                                                    COMPOSITETYPE comp_nh_type,
                                                    uint64_t sequence_number,
                                                    const AgentXmppChannel *channel) :
-    MulticastRoute(vn_name, label, vxlan_id, tunnel_type, nh_req, comp_nh_type),
+    MulticastRoute(vn_name, label, vxlan_id, tunnel_type, nh_req, comp_nh_type,
+                   true),
     sequence_number_(sequence_number), channel_(channel) { }
 
 bool ControllerMulticastRoute::IsPeerValid() const {

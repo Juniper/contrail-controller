@@ -379,7 +379,8 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->event_manager()->io_service()))),
-      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
+      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())),
+      forwarding_mode_("l2_l3") {
 }
 
 GlobalVrouter::~GlobalVrouter() {
@@ -397,6 +398,7 @@ void GlobalVrouter::CreateDBClients() {
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
+    bool resync_vm_interface = false;
     bool encap_changed = false;
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
@@ -406,13 +408,20 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
+
+        //Take the forwarding mode if its set, else fallback to l2_l3.
+        std::string new_forwarding_mode = cfg->forwarding_mode();
+        if (new_forwarding_mode.length() == 0)
+            new_forwarding_mode = "l2_l3";
+        if (new_forwarding_mode != forwarding_mode_) {
+            forwarding_mode_ = new_forwarding_mode;
+            resync_vm_interface = true;
+        }
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
         encap_changed = true;
     }
-
-    bool resync_vm_interface = false;
 
     if (cfg_vxlan_network_identifier_mode !=                             
         oper_->agent()->vxlan_network_identifier_mode()) {
@@ -432,7 +441,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     }
 
     if (resync_vm_interface) {
-        oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
+        oper_->agent()->vn_table()->GlobalVrouterConfigChanged();
     }
 }
 

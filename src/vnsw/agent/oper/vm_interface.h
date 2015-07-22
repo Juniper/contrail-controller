@@ -509,6 +509,7 @@ public:
                                 const MacAddress &mac) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
+    bool IsActive() const;
 
 private:
     friend struct VmInterfaceConfigData;
@@ -516,8 +517,8 @@ private:
     friend struct VmInterfaceIpAddressData;
     friend struct VmInterfaceOsOperStateData;
     friend struct VmInterfaceMirrorData;
+    friend struct VmInterfaceGlobalVrouterData;
 
-    bool IsActive() const;
     bool IsIpv4Active() const;
     bool IsL3Active() const;
     bool PolicyEnabled() const;
@@ -555,11 +556,10 @@ private:
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy,
                      VrfEntry *old_vrf, const Ip4Address &old_addr,
                      int old_ethernet_tag, bool old_need_linklocal_ip,
-                     bool sg_changed, bool old_ipv6_active,
-                     const Ip6Address &old_v6_addr, bool ecmp_changed,
-                     bool local_pref_changed, const Ip4Address &old_subnet,
-                     const uint8_t old_subnet_plen, bool old_dhcp_enable,
-                     bool old_layer3_forwarding);
+                     bool old_ipv6_active, const Ip6Address &old_v6_addr,
+                     const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
+                     bool old_dhcp_enable, bool old_layer3_forwarding,
+                     bool force_update);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
@@ -740,7 +740,8 @@ struct VmInterfaceData : public InterfaceData {
         INSTANCE_MSG,
         MIRROR,
         IP_ADDR,
-        OS_OPER_STATE
+        OS_OPER_STATE,
+        GLOBAL_VROUTER
     };
 
     VmInterfaceData(Agent *agent, IFMapNode *node, Type type,
@@ -759,8 +760,7 @@ struct VmInterfaceData : public InterfaceData {
         return true;
     }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
-                          bool *sg_changed, bool *ecmp_changed,
-                          bool *local_pref_changed) const = 0;
+                          bool *force_update) const = 0;
 
     Type type_;
 };
@@ -772,8 +772,7 @@ struct VmInterfaceIpAddressData : public VmInterfaceData {
                                      Interface::TRANSPORT_INVALID) { }
     virtual ~VmInterfaceIpAddressData() { }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
-                          bool *sg_changed, bool *ecmp_changed,
-                          bool *local_pref_changed) const;
+                          bool *force_update) const;
 };
 
 // Structure used when type=OS_OPER_STATE Used to update interface os oper-state
@@ -784,8 +783,7 @@ struct VmInterfaceOsOperStateData : public VmInterfaceData {
                         Interface::TRANSPORT_INVALID) { }
     virtual ~VmInterfaceOsOperStateData() { }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
-                          bool *sg_changed, bool *ecmp_changed,
-                          bool *local_pref_changed) const;
+                          bool *force_update) const;
 };
 
 // Structure used when type=MIRROR. Used to update IP-Address of VM-Interface
@@ -797,8 +795,7 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
     }
     virtual ~VmInterfaceMirrorData() { }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
-                          bool *sg_changed, bool *ecmp_changed,
-                          bool *local_pref_changed) const;
+                          bool *force_update) const;
 
     bool mirror_enable_;
     std::string analyzer_name_;
@@ -813,8 +810,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     virtual bool OnDelete(const InterfaceTable *table,
                           VmInterface *entry) const;
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
-                          bool *sg_changed, bool *ecmp_changed,
-                          bool *local_pref_changed) const;
+                          bool *force_update) const;
 
     Ip4Address addr_;
     Ip6Address ip6_addr_;
@@ -880,8 +876,7 @@ struct VmInterfaceNovaData : public VmInterfaceData {
     virtual bool OnDelete(const InterfaceTable *table,
                           VmInterface *entry) const;
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
-                          bool *sg_changed, bool *ecmp_changed,
-                          bool *local_pref_changed) const;
+                          bool *force_update) const;
 
     Ip4Address ipv4_addr_;
     Ip6Address ipv6_addr_;
@@ -894,6 +889,24 @@ struct VmInterfaceNovaData : public VmInterfaceData {
     uint16_t rx_vlan_id_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
+};
+
+struct VmInterfaceGlobalVrouterData : public VmInterfaceData {
+    VmInterfaceGlobalVrouterData(bool bridging,
+                                 bool layer3_forwarding,
+                                 int vxlan_id) :
+        VmInterfaceData(NULL, NULL, GLOBAL_VROUTER, Interface::TRANSPORT_INVALID),
+        bridging_(bridging),
+        layer3_forwarding_(layer3_forwarding),
+        vxlan_id_(vxlan_id) {
+    }
+    virtual ~VmInterfaceGlobalVrouterData() { }
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *force_update) const;
+
+    bool bridging_;
+    bool layer3_forwarding_;
+    int vxlan_id_;
 };
 
 #endif // vnsw_agent_vm_interface_hpp
