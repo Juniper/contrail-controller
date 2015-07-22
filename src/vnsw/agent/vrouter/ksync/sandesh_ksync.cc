@@ -150,3 +150,10 @@ void KSyncSandeshContext::VrouterOpsMsgHandler(vrouter_ops *r) {
     agent->set_vrouter_build_info(r->get_vo_build_info());
     return;
 }
+
+/* There is a new sandesh request, used by vrctl tool to control the DPDK
+ * vRouter in a way similar to what syctl does for the kernel vRouter. Since
+ * the Agent links against the sandesh generated vr_types.o, which calls
+ * vr_ctl_req::Process(), it needs some implementation of the function. */
+void vr_ctl_req::Process(SandeshContext *context) {
+}
