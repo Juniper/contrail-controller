@@ -26,7 +26,7 @@ sources = [
     'opencontrail_vrouter_netns/network_manage.py',
     'opencontrail_vrouter_netns/vrouter_control.py',
     'opencontrail_vrouter_netns/monitor.py',
-    'opencontrail_vrouter_netns/docker.py',
+    'opencontrail_vrouter_netns/lxc_docker.py',
     'opencontrail_vrouter_netns/linux/__init__.py',
     'opencontrail_vrouter_netns/linux/ip_lib.py',
     'opencontrail_vrouter_netns/linux/utils.py',
