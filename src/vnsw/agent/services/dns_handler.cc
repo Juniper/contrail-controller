@@ -707,7 +707,6 @@ DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
             }
         }
         UpdateOffsets(*it, name_update_required);
-        UpdateGWAddress(*it);
         resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, *it, dns_resp_size_);
         dns_->ans_rrcount++;
     }
