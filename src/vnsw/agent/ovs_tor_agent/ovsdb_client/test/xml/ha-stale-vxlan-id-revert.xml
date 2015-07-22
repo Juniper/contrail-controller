@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<test_suite name="ha-stale-vxlan-id-change">
+<test name="test1">
+    <virtual-network uuid="1" name="vn-1" vxlan-id="2" network-id="100" />
+
+    <validate name="validate-1">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" />
+    </validate>
+
+</test>
+</test_suite>

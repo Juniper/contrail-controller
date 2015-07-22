@@ -16,10 +16,11 @@ using OVSDB::OvsdbClientTcpSessionReader;
 using OVSDB::ConnectionStateTable;
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-        IpAddress tsn_ip, int keepalive_interval, OvsPeerManager *manager) :
-    TcpServer(agent->event_manager()),
-    OvsdbClient(manager, keepalive_interval), agent_(agent), session_(NULL),
-    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
+        IpAddress tsn_ip, int keepalive_interval, int ha_stale_route_interval,
+        OvsPeerManager *manager) : TcpServer(agent->event_manager()),
+    OvsdbClient(manager, keepalive_interval, ha_stale_route_interval),
+    agent_(agent), session_(NULL), server_ep_(tor_ip, tor_port),
+    tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {

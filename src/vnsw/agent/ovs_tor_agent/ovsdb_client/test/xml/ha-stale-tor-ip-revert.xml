@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<test_suite name="ha-stale-revert-tor-ip">
+<test name="test1">
+    <physical-router uuid="1" name="test-router" dataplane-ip="111.111.111.111"/>
+</test>
+</test_suite>

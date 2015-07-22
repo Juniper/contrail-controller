@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<test_suite name="ha-stale-del-tor-route">
+<test name="test1">
+    <fdb name="abc" uuid="1" mac="00:00:00:00:01:01" vn="vn-1" vrf="vrf1" vxlan_id="100" del="1"/>
+
+</test>
+</test_suite>

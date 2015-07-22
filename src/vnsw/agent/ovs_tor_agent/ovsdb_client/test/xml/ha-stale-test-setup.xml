@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<test_suite name="ha-stale-test-setup">
+<test name="test1">
+    <virtual-network uuid="1" name="vn-1"/>
+    <remote-physical-interface uuid="1" name="ge-0/0/0" device="test-router"/>
+    <logical-interface uuid="1" name="l-ge-0/0/0" vlan="100"/>
+    <virtual-machine uuid="1" name="vm1"/>
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"/>
+    <vrf uuid="1" name="vrf1" />
+    <vmi nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn-1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+    <physical-router uuid="1" name="test-router" dataplane-ip="111.111.111.111"/>
+    <validate name="router.1">
+        <physical-router name="test-router" uuid="1" present="1" />
+    </validate>
+
+    <link name="link-1" uuid="1" left="virtual-network" left-name="vn-1"
+          right="routing-instance" right-name="vrf1"/>
+
+    <validate name="validate-2">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
+         present="no" />
+    </validate>
+
+    <link name="link-4" uuid="1" left="physical-router" left-name="test-router"
+          right="physical-interface" right-name="dummy:test-router:ge-0/0/0"/>
+    <link name="link-3" uuid="1" left="physical-interface" left-name="dummy:test-router:ge-0/0/0"
+          right="logical-interface" right-name="l-ge-0/0/0"/>
+    <validate name="validate-3">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
+         present="no" />
+    </validate>
+
+    <link name="link-4" uuid="1" left="logical-interface" left-name="l-ge-0/0/0"
+          right="virtual-machine-interface" right-name="tap1"/>
+    <validate name="validate-4">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
+    </validate>
+
+    <virtual-network uuid="1" name="vn-1" vxlan-id="2" network-id="100" />
+
+    <validate name="validate-4-1">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" />
+    </validate>
+
+    <validate name="validate-logical-switch-1">
+        <ovs-logical-switch name="ls-1" uuid="1" device="1" vn="1" vxlan-id="100" />
+    </validate>
+
+    <fdb name="abc" uuid="1" mac="00:11:22:33:44:55" vn="vn-1" vrf="vrf1" vxlan_id="100" tunnel-dest="8.8.8.8" />
+
+    <validate name="validate-fdb-1">
+        <fdb name="abc" uuid="1" vn="vn-1" vrf="vrf1" mac="00:11:22:33:44:55"/>
+    </validate>
+
+    <validate name="validate-uc-remote-1">
+        <ovs-uc-remote name="uc-1" uuid="1" vn-uuid="1" mac="00:11:22:33:44:55"/>
+    </validate>
+</test>
+</test_suite>

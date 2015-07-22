@@ -5,6 +5,7 @@
 #ifndef SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_CONNECTION_STATE_H_
 #define SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_CONNECTION_STATE_H_
 
+#include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
 #include <base/connection_info.h>
 #include <db/db.h>
@@ -18,13 +19,15 @@
 #include "ovsdb_client_idl.h"
 
 namespace OVSDB {
+class HaStaleDevVnTable;
 class ConnectionStateEntry;
+typedef boost::intrusive_ptr<ConnectionStateEntry> ConnectionStateEntryPtr;
 
 // Table to maintain Connection State for Physical Switches/Devices
 class ConnectionStateTable {
 public:
     typedef std::map<std::string, ConnectionStateEntry *> EntryMap;
-    explicit ConnectionStateTable(Agent *agent);
+    ConnectionStateTable(Agent *agent,  OvsPeerManager *manager);
     virtual ~ConnectionStateTable();
 
     // Adding first IDL to ConnectionState Entry marks session Up
@@ -36,6 +39,8 @@ public:
                                  OvsdbClientIdl *idl);
 
 private:
+    friend void intrusive_ptr_release(ConnectionStateEntry *p);
+
     void PhysicalDeviceNotify(DBTablePartBase *part, DBEntryBase *e);
 
     // API to update connection info state
@@ -45,6 +50,7 @@ private:
     DBTableBase *table_;
     DBTableBase::ListenerId id_;
     EntryMap entry_map_;
+    OvsPeerManager *manager_;
     DISALLOW_COPY_AND_ASSIGN(ConnectionStateTable);
 };
 
@@ -53,14 +59,23 @@ private:
 class ConnectionStateEntry : public DBState {
 public:
     typedef std::set<OvsdbClientIdl *> IdlList;
-    explicit ConnectionStateEntry(const std::string &device_name);
+    ConnectionStateEntry(ConnectionStateTable *table,
+                         const std::string &device_name);
     virtual ~ConnectionStateEntry();
+
+    bool IsConnectionActive();
 
 private:
     friend class ConnectionStateTable;
+    friend void intrusive_ptr_add_ref(ConnectionStateEntry *p);
+    friend void intrusive_ptr_release(ConnectionStateEntry *p);
+
+    ConnectionStateTable *table_;
     std::string device_name_;
     PhysicalDevice *device_entry_;
     IdlList idl_list_;
+    HaStaleDevVnTable *replicator_table_;
+    tbb::atomic<int> refcount_;
     DISALLOW_COPY_AND_ASSIGN(ConnectionStateEntry);
 };
 

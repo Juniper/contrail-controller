@@ -129,7 +129,8 @@ OvsdbClientTcpSessionTest::~OvsdbClientTcpSessionTest() {
 OvsdbClientTcpTest::OvsdbClientTcpTest(Agent *agent, IpAddress tor_ip,
                                        int tor_port, IpAddress tsn_ip,
                                        int keepalive, OvsPeerManager *manager)
-    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, manager) {
+    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, -1, manager),
+    enable_connect_(true) {
 }
 
 OvsdbClientTcpTest::~OvsdbClientTcpTest() {
@@ -141,6 +142,21 @@ TcpSession *OvsdbClientTcpTest::AllocSession(Socket *socket) {
     session->set_observer(boost::bind(&OvsdbClientTcp::OnSessionEvent,
                                       this, _1, _2));
     return session;
+}
+
+void OvsdbClientTcpTest::Connect(TcpSession *session, Endpoint remote) {
+    if (enable_connect_) {
+        OvsdbClientTcp::Connect(session, remote);
+    }
+}
+
+void OvsdbClientTcpTest::set_enable_connect(bool enable) {
+    if (enable_connect_ != enable) {
+        enable_connect_ = enable;
+        if (enable_connect_) {
+            Connect(session_, server_ep_);
+        }
+    }
 }
 
 TestOvsAgentInit::TestOvsAgentInit() : TestAgentInit() {

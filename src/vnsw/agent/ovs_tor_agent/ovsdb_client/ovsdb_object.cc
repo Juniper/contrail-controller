@@ -77,9 +77,8 @@ OvsdbDBObject::~OvsdbDBObject() {
 }
 
 void OvsdbDBObject::OvsdbRegisterDBTable(DBTable *tbl) {
-    assert(client_idl_.get() != NULL);
     RegisterDb(tbl);
-    DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
+    DBTableWalker *walker = GetAgentPtr()->db()->GetWalker();
     // Start a walker to get the entries which were already present,
     // when we register to the DB Table
     walkid_ = walker->WalkTable(tbl, NULL,
@@ -128,8 +127,16 @@ void OvsdbDBObject::DBWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
+Agent *OvsdbDBObject::GetAgentPtr() {
+    return client_idl_->agent();
+}
+
 void OvsdbDBObject::DeleteTable(void) {
-    client_idl_->ksync_obj_manager()->Delete(this);
+    if (client_idl_ != NULL) {
+        client_idl_->ksync_obj_manager()->Delete(this);
+    } else {
+        KSyncObjectManager::GetInstance()->Delete(this);
+    }
     // trigger DeleteTableDone for derived class to take action on
     // delete table callback
     DeleteTableDone();
@@ -138,7 +145,7 @@ void OvsdbDBObject::DeleteTable(void) {
 void OvsdbDBObject::EmptyTable(void) {
     if (delete_scheduled()) {
         if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-            DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
+            DBTableWalker *walker = GetAgentPtr()->db()->GetWalker();
             walker->WalkCancel(walkid_);
             walkid_ = DBTableWalker::kInvalidWalkerId;
         }
@@ -159,7 +166,7 @@ KSyncDBObject::DBFilterResp OvsdbDBObject::DBEntryFilter(
     // for delete schedule in KSyncObjectManager Queue and in
     // the mean while we get a notification, where we should not
     // process it further.
-    if (client_idl_->deleted()) {
+    if (client_idl_ != NULL && client_idl_->deleted()) {
         return DBFilterIgnore;
     }
 

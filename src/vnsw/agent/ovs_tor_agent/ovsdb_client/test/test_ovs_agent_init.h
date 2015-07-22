@@ -42,6 +42,13 @@ public:
     virtual ~OvsdbClientTcpTest();
 
     virtual TcpSession *AllocSession(Socket *socket);
+
+    virtual void Connect(TcpSession *session, Endpoint remote);
+
+    void set_enable_connect(bool enable);
+
+private:
+    bool enable_connect_;
 };
 };
 

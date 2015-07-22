@@ -34,10 +34,16 @@ class OvsPeer : public Peer {
     void DeleteOvsPeerMulticastRoute(const VrfEntry *vrf, uint32_t vxlan_id);
     const IpAddress &peer_ip() const {return peer_ip_;}
 
+    void set_route_reflector(bool route_reflector) {
+        route_reflector_ = route_reflector;
+    }
+    bool route_reflector() const { return route_reflector_; }
+
  private:
     IpAddress peer_ip_;
     uint64_t gen_id_;
     OvsPeerManager *peer_manager_;
+    bool route_reflector_;
     DISALLOW_COPY_AND_ASSIGN(OvsPeer);
 };
 
