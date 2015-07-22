@@ -20,6 +20,8 @@ public:
         UNICAST_REMOTE_TABLE,
         UNICAST_LOCAL_TABLE,
         MULTICAST_LOCAL_TABLE,
+        HA_STALE_DEV_VN_TABLE,
+        HA_STALE_L2_ROUTE_TABLE,
         TABLE_MAX,
     };
 
@@ -51,6 +53,8 @@ private:
     virtual SandeshResponse *Alloc() = 0;
     virtual KSyncObject *GetObject(OvsdbClientSession *session) = 0;
     virtual TableType GetTableType() = 0;
+
+    virtual bool NoSessionObject() { return false; }
 
     void EncodeSendPageReq(uint32_t display_count, uint32_t table_size);
 
@@ -215,6 +219,56 @@ private:
 
     std::string ls_name_;
     DISALLOW_COPY_AND_ASSIGN(MulticastMacLocalSandeshTask);
+};
+
+class HaStaleDevVnSandeshTask : public OvsdbSandeshTask {
+public:
+    HaStaleDevVnSandeshTask(std::string resp_ctx,
+                            AgentSandeshArguments &args);
+    HaStaleDevVnSandeshTask(std::string resp_ctx, const std::string &dev_name,
+                            const std::string &vn_uuid);
+
+    virtual ~HaStaleDevVnSandeshTask();
+
+    virtual bool NoSessionObject() { return true; }
+
+private:
+    void EncodeArgs(AgentSandeshArguments &args);
+    FilterResp Filter(KSyncEntry *entry);
+    void UpdateResp(KSyncEntry *kentry, SandeshResponse *resp);
+    SandeshResponse *Alloc();
+    KSyncObject *GetObject(OvsdbClientSession *session);
+    TableType GetTableType() { return HA_STALE_DEV_VN_TABLE;}
+
+    std::string dev_name_;
+    std::string vn_uuid_;
+    DISALLOW_COPY_AND_ASSIGN(HaStaleDevVnSandeshTask);
+};
+
+class HaStaleL2RouteSandeshTask : public OvsdbSandeshTask {
+public:
+    HaStaleL2RouteSandeshTask(std::string resp_ctx,
+                              AgentSandeshArguments &args);
+    HaStaleL2RouteSandeshTask(std::string resp_ctx, const std::string &dev_name,
+                              const std::string &vn_uuid,
+                              const std::string &mac);
+
+    virtual ~HaStaleL2RouteSandeshTask();
+
+    virtual bool NoSessionObject() { return true; }
+
+private:
+    void EncodeArgs(AgentSandeshArguments &args);
+    FilterResp Filter(KSyncEntry *entry);
+    void UpdateResp(KSyncEntry *kentry, SandeshResponse *resp);
+    SandeshResponse *Alloc();
+    KSyncObject *GetObject(OvsdbClientSession *session);
+    TableType GetTableType() { return HA_STALE_L2_ROUTE_TABLE;}
+
+    std::string dev_name_;
+    std::string vn_uuid_;
+    std::string mac_;
+    DISALLOW_COPY_AND_ASSIGN(HaStaleL2RouteSandeshTask);
 };
 
 };

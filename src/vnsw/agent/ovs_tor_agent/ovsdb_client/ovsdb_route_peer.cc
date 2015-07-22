@@ -13,7 +13,7 @@
 OvsPeer::OvsPeer(const IpAddress &peer_ip, uint64_t gen_id,
                  OvsPeerManager *peer_manager) :
     Peer(Peer::OVS_PEER, "OVS-" + peer_ip.to_string(), true), peer_ip_(peer_ip),
-    gen_id_(gen_id), peer_manager_(peer_manager) {
+    gen_id_(gen_id), peer_manager_(peer_manager), ha_stale_export_(false) {
     stringstream str;
     str << "Allocating OVS Peer " << this << " Gen-Id " << gen_id;
     OVSDB_TRACE(Trace, str.str());
@@ -59,7 +59,8 @@ bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
     OvsdbRouteData *data = new OvsdbRouteData(this, vxlan_id,
                                               tor_ip, agent->router_id(),
                                               agent->fabric_vrf_name(),
-                                              dest_vn, sg_list);
+                                              dest_vn, sg_list,
+                                              ha_stale_export_);
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
     if (async) {

@@ -10,6 +10,7 @@
 #include <test/test_pkt0_interface.h>
 #include <test/test_agent_init.h>
 #include <ovs_tor_agent/ovsdb_client/ovsdb_client_tcp.h>
+#include "test-xml/test_xml.h"
 
 class Agent;
 class AgentParam;
@@ -17,6 +18,7 @@ class TestClient;
 class OvsPeerManager;
 
 void LoadAndRun(const std::string &file_name);
+bool LoadXml(AgentUtXmlTest &test);
 
 TestClient *OvsTestInit(const char *init_file, bool ovs_init);
 
@@ -42,6 +44,13 @@ public:
     virtual ~OvsdbClientTcpTest();
 
     virtual TcpSession *AllocSession(Socket *socket);
+
+    virtual void Connect(TcpSession *session, Endpoint remote);
+
+    void set_enable_connect(bool enable);
+
+private:
+    bool enable_connect_;
 };
 };
 
