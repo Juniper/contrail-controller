@@ -27,7 +27,9 @@ struct SandeshOvsdbClient {
     2: string server;
     3: u16 port;
     4: string tor_service_node;
-    5: list<SandeshOvsdbClientSession> sessions;
+    5: i32 keepalive_interval;
+    6: i32 ha_stale_route_interval;
+    7: list<SandeshOvsdbClientSession> sessions;
 }
 
 response sandesh OvsdbClientResp {

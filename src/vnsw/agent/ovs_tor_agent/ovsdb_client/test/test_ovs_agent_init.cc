@@ -21,7 +21,6 @@
 #include "test/test_init.h"
 #include <test/test_agent_init.h>
 #include "test_ovs_agent_init.h"
-#include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
 #include "test_xml_physical_device.h"
 #include "test_xml_ovsdb.h"
@@ -129,7 +128,8 @@ OvsdbClientTcpSessionTest::~OvsdbClientTcpSessionTest() {
 OvsdbClientTcpTest::OvsdbClientTcpTest(Agent *agent, IpAddress tor_ip,
                                        int tor_port, IpAddress tsn_ip,
                                        int keepalive, OvsPeerManager *manager)
-    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, manager) {
+    : OvsdbClientTcp(agent, tor_ip, tor_port, tsn_ip, keepalive, -1, manager),
+    enable_connect_(true) {
 }
 
 OvsdbClientTcpTest::~OvsdbClientTcpTest() {
@@ -141,6 +141,21 @@ TcpSession *OvsdbClientTcpTest::AllocSession(Socket *socket) {
     session->set_observer(boost::bind(&OvsdbClientTcp::OnSessionEvent,
                                       this, _1, _2));
     return session;
+}
+
+void OvsdbClientTcpTest::Connect(TcpSession *session, Endpoint remote) {
+    if (enable_connect_) {
+        OvsdbClientTcp::Connect(session, remote);
+    }
+}
+
+void OvsdbClientTcpTest::set_enable_connect(bool enable) {
+    if (enable_connect_ != enable) {
+        enable_connect_ = enable;
+        if (enable_connect_) {
+            Connect(session_, server_ep_);
+        }
+    }
 }
 
 TestOvsAgentInit::TestOvsAgentInit() : TestAgentInit() {
@@ -213,6 +228,20 @@ void LoadAndRun(const std::string &file_name) {
         cout << str << endl;
         test.Run();
     }
+}
+
+bool LoadXml(AgentUtXmlTest &test) {
+    AgentUtXmlOperInit(&test);
+    AgentUtXmlPhysicalDeviceInit(&test);
+    AgentUtXmlOvsdbInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        return true;
+    }
+    return false;
 }
 
 TestClient *OvsTestInit(const char *init_file, bool ovs_init) {

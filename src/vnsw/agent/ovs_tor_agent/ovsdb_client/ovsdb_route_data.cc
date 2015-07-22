@@ -20,10 +20,11 @@ OvsdbRouteData::OvsdbRouteData(const Peer *peer, uint32_t vxlan_id,
                                const Ip4Address &router_id,
                                const std::string &tor_vrf,
                                const std::string &dest_vn_name,
-                               const SecurityGroupList &sg_list) :
+                               const SecurityGroupList &sg_list,
+                               bool route_reflector) :
     AgentRouteData(false), peer_(peer), vxlan_id_(vxlan_id), tor_ip_(tor_ip),
     tor_vrf_(tor_vrf), router_id_(router_id), dest_vn_name_(dest_vn_name),
-    sg_list_(sg_list) {
+    sg_list_(sg_list), route_reflector_(route_reflector) {
 }
 
 OvsdbRouteData::OvsdbRouteData(const Peer *peer) :
@@ -55,6 +56,16 @@ bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
     if (path->sg_list() != sg_list_) {
         path->set_sg_list(sg_list_);
         ret = true;
+    }
+
+    // if it is a route reflector check for path preference to be HA_STALE
+    if (route_reflector_) {
+        PathPreference path_preference(0, PathPreference::HA_STALE,
+                                       false, false);
+        if (path->path_preference() != path_preference) {
+            path->set_path_preference(path_preference);
+            ret = true;
+        }
     }
 
     // Create Tunnel-NH first

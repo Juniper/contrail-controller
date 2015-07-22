@@ -104,7 +104,7 @@ public:
 
     OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
             IpAddress tsn_ip, int keepalive_interval,
-            OvsPeerManager *manager);
+            int ha_stale_route_interval, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);
@@ -129,11 +129,11 @@ public:
 
 protected:
     Agent *agent_;
+    TcpSession *session_;
+    boost::asio::ip::tcp::endpoint server_ep_;
 
 private:
     friend class OvsdbClientTcpSession;
-    TcpSession *session_;
-    boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
     bool shutdown_;
     SessionEventCb connect_complete_cb_;

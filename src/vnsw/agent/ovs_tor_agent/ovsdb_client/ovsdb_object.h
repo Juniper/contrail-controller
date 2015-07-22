@@ -63,6 +63,8 @@ public:
     bool DBWalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
     void DBWalkDone(DBTableBase *partition);
 
+    virtual Agent *GetAgentPtr();
+
     // Trigger delete of object table
     void DeleteTable(void);
 

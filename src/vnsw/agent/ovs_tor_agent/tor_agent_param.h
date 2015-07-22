@@ -18,7 +18,7 @@ class TorAgentParam : public AgentParam  {
     };
 
     struct TorInfo {
-        TorInfo() : keepalive_interval_(-1) {}
+        TorInfo() : keepalive_interval_(-1), ha_stale_route_interval_(-1) {}
         std::string type_;
         Ip4Address ip_;
         Ip4Address tsn_ip_;
@@ -33,6 +33,9 @@ class TorAgentParam : public AgentParam  {
         // keepalive interval in milli seconds, -1 for unconfigured
         // 0 for no keep alive
         int keepalive_interval_;
+        // interval in milliseconds to keep unicast local routes as HA
+        // stale routes on connection close, -1 for unconfigured
+        int ha_stale_route_interval_;
     };
 
     explicit TorAgentParam(Agent *agent);
@@ -50,6 +53,9 @@ class TorAgentParam : public AgentParam  {
     std::string ssl_privkey() const { return tor_info_.ssl_privkey_; }
     std::string ssl_cacert() const { return tor_info_.ssl_cacert_; }
     int keepalive_interval() const { return tor_info_.keepalive_interval_; }
+    int ha_stale_route_interval() const {
+        return tor_info_.ha_stale_route_interval_;
+    }
 
  private:
     virtual void InitFromConfig();

@@ -15,16 +15,18 @@
 using OVSDB::OvsdbClient;
 using OVSDB::ConnectionStateTable;
 
-OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval) :
+OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval,
+                         int ha_stale_route_interval) :
     peer_manager_(manager), ksync_obj_manager_(KSyncObjectManager::Init()),
-    keepalive_interval_(keepalive_interval) {
+    keepalive_interval_(keepalive_interval),
+    ha_stale_route_interval_(ha_stale_route_interval) {
 }
 
 OvsdbClient::~OvsdbClient() {
 }
 
 void OvsdbClient::RegisterConnectionTable(Agent *agent) {
-    connection_table_.reset(new ConnectionStateTable(agent));
+    connection_table_.reset(new ConnectionStateTable(agent, peer_manager_));
 }
 
 ConnectionStateTable *OvsdbClient::connection_table() {
@@ -36,7 +38,30 @@ KSyncObjectManager *OvsdbClient::ksync_obj_manager() {
 }
 
 int OvsdbClient::keepalive_interval() const {
+    if (keepalive_interval_ < 0) {
+        // unconfigured return default
+        return OVSDBKeepAliveTimer;
+    }
+
+    if (keepalive_interval_ != 0 &&
+        keepalive_interval_ < OVSDBMinKeepAliveTimer) {
+        return OVSDBMinKeepAliveTimer;
+    }
+
     return keepalive_interval_;
+}
+
+int OvsdbClient::ha_stale_route_interval() const {
+    if (ha_stale_route_interval_ < 0) {
+        // unconfigured return default
+        return OVSDBHaStaleRouteTimer;
+    }
+
+    if (ha_stale_route_interval_ < OVSDBMinHaStaleRouteTimer) {
+        return OVSDBMinHaStaleRouteTimer;
+    }
+
+    return ha_stale_route_interval_;
 }
 
 void OvsdbClient::Init() {
@@ -48,7 +73,8 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
     if (params->tor_protocol() == "tcp") {
         return (new OvsdbClientTcp(agent, IpAddress(params->tor_ip()),
                                    params->tor_port(), params->tsn_ip(),
-                                   params->keepalive_interval(), manager));
+                                   params->keepalive_interval(),
+                                   params->ha_stale_route_interval(), manager));
     } else if (params->tor_protocol() == "pssl") {
         return (new OvsdbClientSsl(agent, params, manager));
     }
@@ -74,6 +100,8 @@ public:
         client_data.set_server(client->server());
         client_data.set_port(client->port());
         client_data.set_tor_service_node(client->tsn_ip().to_string());
+        client_data.set_keepalive_interval(client->keepalive_interval());
+        client_data.set_ha_stale_route_interval(client->ha_stale_route_interval());
         client->AddSessionInfo(client_data);
         resp_->set_client(client_data);
         SendResponse();

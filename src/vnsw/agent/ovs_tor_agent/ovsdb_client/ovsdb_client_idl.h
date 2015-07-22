@@ -69,11 +69,6 @@ public:
         OvsdbSessionEchoWait     // Echo Req sent waiting for reply
     };
 
-    static const uint32_t OVSDBKeepAliveTimer = 10000; // in millisecond
-
-    // minimum value of keep alive interval
-    static const int OVSDBMinKeepAliveTimer = 2000; // in millisecond
-
     static const std::size_t OVSDBMaxInFlightPendingTxn = 100;
 
     enum Op {
@@ -164,6 +159,7 @@ public:
 
     // Used by Test case
     bool IsKeepAliveTimerActive();
+    bool IsMonitorInProcess();
 
     bool KeepAliveTimerCb();
     void TriggerDeletion();
