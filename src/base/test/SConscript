@@ -52,6 +52,9 @@ env.Alias('src/base:timer_test', timer_test)
 patricia_test = env.UnitTest('patricia_test', ['patricia_test.cc'])
 env.Alias('src/base:patricia_test', patricia_test)
 
+boost_US_test = env.UnitTest('boost_US_test', ['boost_unordered_set_test.cc'])
+env.Alias('src/base:boost_US_test', boost_US_test)
+
 conn_info_test_gen_files = env.SandeshGenOnlyCpp('connection_info_test.sandesh')
 conn_info_test_gen_srcs = env.ExtractCpp(conn_info_test_gen_files)
 conn_info_test = env.UnitTest('conn_info_test',
@@ -95,6 +98,7 @@ test_suite = [
     label_block_test,
     subset_test,
     patricia_test,
+    boost_US_test,
     task_annotations_test,
     factory_test,
     trace_test,
