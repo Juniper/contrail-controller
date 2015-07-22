@@ -98,6 +98,7 @@ public:
     NodeEventPolicy *policy_map() { return &policy_; }
 
     void NodeEvent(IFMapNode *node);
+    void NodeEvent(IFMapNode *node, bool add_node_event);
     bool LinkEvent(const std::string metadata,
         IFMapNode *left, IFMapNode *right);
     void PropagateChanges();

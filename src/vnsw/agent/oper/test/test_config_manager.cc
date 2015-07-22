@@ -59,7 +59,7 @@ void MakePortInfo(struct PortInfo *info, uint32_t id) {
     sprintf(info->name, "vnet-%d", id);
     info->intf_id = id;
     sprintf(info->addr, "1.1.1.%d", id);
-    sprintf(info->mac, "00:00:00:00:00:%d", id);
+    sprintf(info->mac, "00:00:00:00:00:%02x", id);
     info->vn_id = id;
     info->vm_id = id;
 }
@@ -89,10 +89,17 @@ bool ConfigManagerTest::AddInterface(uint32_t max_count) {
         client->WaitForIdle();
     }
 
+    int inactive_count = 0;
     for (count = 1; count <= max_count; count++) {
         WAIT_FOR(1000, 1000, (VmPortActive(count) == true));
+        if (VmPortActive(count) == false) {
+            inactive_count++;
+            cout << "Interface " << count << " inactive"
+                << " Entry " << VmPortGet(count) << endl;
+        }
     }
 
+    EXPECT_EQ(inactive_count, 0);
     for (count = 1; count <= max_count; count++) {
         char name[32];
         sprintf(name, "li-%d", count);
