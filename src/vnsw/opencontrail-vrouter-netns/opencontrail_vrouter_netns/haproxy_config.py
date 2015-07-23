@@ -56,7 +56,9 @@ def _set_global_config(config, sock_path):
         'ssl-default-bind-ciphers ECDH+AESGCM:' \
         'DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:' \
         'DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:' \
-        'RSA+3DES:!aNULL:!MD5:!DSS'
+        'RSA+3DES:!aNULL:!MD5:!DSS',
+        'ulimit-n 200000',
+        'maxconn 65000'
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
     return ("\n\t".join(conf))
@@ -68,8 +70,8 @@ def _set_defaults(config):
         'retries 3',
         'option redispatch',
         'timeout connect 5000',
-        'timeout client 50000',
-        'timeout server 50000',
+        'timeout client 300000',
+        'timeout server 300000',
     ]
     return ("\n\t".join(conf))
 
