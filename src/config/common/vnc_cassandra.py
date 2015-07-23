@@ -43,7 +43,7 @@ class VncCassandraClient(object):
     # end get_db_info
 
     def __init__(self, server_list, db_prefix, keyspaces, logger,
-                 generate_url=None, reset_config=[]):
+                 generate_url=None, reset_config=[], credential=None):
         self._re_match_parent = re.compile('parent:')
         self._re_match_prop = re.compile('prop:')
         self._re_match_ref = re.compile('ref:')
@@ -71,6 +71,7 @@ class VncCassandraClient(object):
         self._num_dbnodes = len(self._server_list)
         self._conn_state = ConnectionStatus.INIT
         self._logger = logger
+        self._credential = credential
 
         # if no generate_url is specified, use a dummy function that always
         # returns an empty string
@@ -145,7 +146,7 @@ class VncCassandraClient(object):
         while not connected:
             try:
                 cass_server = self._server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
+                sys_mgr = SystemManager(cass_server, credentials=self._credential)
                 connected = True
             except Exception:
                 # TODO do only for
@@ -203,7 +204,7 @@ class VncCassandraClient(object):
             pool = pycassa.ConnectionPool(
                 ks, self._server_list, max_overflow=-1, use_threadlocal=True,
                 prefill=True, pool_size=20, pool_timeout=120,
-                max_retries=-1, timeout=5)
+                max_retries=-1, timeout=5, credentials=self._credential)
 
             rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
             wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM

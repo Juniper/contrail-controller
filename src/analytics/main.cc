@@ -336,7 +336,8 @@ int main(int argc, char *argv[])
             options.ipfix_port(),
             options.partitions(),
             options.dup(),
-            ttl_map);
+            ttl_map, options.cassandra_user(),
+            options.cassandra_password());
 
 #if 0
     // initialize python/c++ API

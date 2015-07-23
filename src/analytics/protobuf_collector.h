@@ -17,7 +17,9 @@ class ProtobufCollector {
  public:
     ProtobufCollector(EventManager *evm, uint16_t udp_server_port,
         const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports, const DbHandler::TtlMap&);
+        const std::vector<int> &cassandra_ports, const DbHandler::TtlMap&,
+        const std::string& cassandra_user,
+        const std::string& cassandra_password);
     virtual ~ProtobufCollector();
     bool Initialize();
     void Shutdown();

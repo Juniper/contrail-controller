@@ -19,7 +19,9 @@ public:
     const std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
     }
-    const std::string config_file() const { return config_file_; };
+    const std::vector<std::string> config_file() const {
+        return config_file_;
+    }
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
     const std::string redis_server() const { return redis_server_; }
@@ -43,6 +45,8 @@ public:
     const std::string syslog_facility() const { return syslog_facility_; }
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
     const bool test_mode() const { return test_mode_; }
+    const std::string cassandra_user() const { return cassandra_user_; }
+    const std::string cassandra_password() const { return cassandra_password_; }
 
 private:
 
@@ -62,7 +66,7 @@ private:
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
 
-    std::string config_file_;
+    std::vector<std::string> config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
     std::string redis_server_;
@@ -90,4 +94,6 @@ private:
     std::vector<std::string> collector_server_list_;
 
     boost::program_options::options_description config_file_options_;
+    std::string cassandra_user_;
+    std::string cassandra_password_;
 };

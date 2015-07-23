@@ -24,7 +24,8 @@ class CdbIf : public GenDb::GenDbIf {
 public:
     CdbIf(DbErrorHandler, const std::vector<std::string>&,
         const std::vector<int>&, int ttl, std::string name,
-        bool only_sync);
+        bool only_sync, const std::string& cassandra_user,
+        const std::string& cassandra_password);
     CdbIf();
     ~CdbIf();
     // Init/Uninit
@@ -251,6 +252,8 @@ private:
     std::string tablespace_;
     boost::scoped_ptr<CdbIfQueue> cdbq_;
     std::string name_;
+    std::string cassandra_user_;
+    std::string cassandra_password_;
     mutable tbb::mutex cdbq_mutex_;
     InitTask *init_task_;
     CleanupTask *cleanup_task_;

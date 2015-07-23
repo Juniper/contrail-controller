@@ -72,7 +72,9 @@ public:
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
               std::vector<std::string> cassandra_ips,
-              std::vector<int> cassandra_ports, const DbHandler::TtlMap& ttl_map);
+              std::vector<int> cassandra_ports, const DbHandler::TtlMap& ttl_map,
+              const std::string& cassandra_user,
+              const std::string& cassandra_password);
     virtual ~Collector();
     virtual void Shutdown();
     virtual void SessionShutdown();
@@ -118,6 +120,8 @@ public:
 
     std::vector<std::string> cassandra_ips() { return cassandra_ips_; }
     std::vector<int> cassandra_ports() { return cassandra_ports_; }
+    std::string cassandra_user() { return cassandra_user_; }
+    std::string cassandra_password() { return cassandra_password_; }
     const DbHandler::TtlMap& analytics_ttl_map() { return ttl_map_; }
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
@@ -169,6 +173,8 @@ private:
     std::vector<int> cassandra_ports_;
     DbHandler::TtlMap ttl_map_;
     int db_task_id_;
+    std::string cassandra_user_;
+    std::string cassandra_password_;
 
     // SandeshGenerator map
     typedef boost::ptr_map<SandeshGenerator::GeneratorId, SandeshGenerator> GeneratorMap;

@@ -189,7 +189,13 @@ using namespace GenDb;
         std::ostringstream ostr;                                           \
         ostr << msg << ": TApplicationException: " << tx.what();           \
         CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
-    } catch (TTransportException &tx) {                                    \
+    } catch (AuthenticationException &tx) {                                \
+        stats_.IncrementErrors(err_type);                                  \
+        UpdateCfStats(cf_op, msg);                                         \
+        std::ostringstream ostr;                                           \
+        ostr << msg << ": Authentication Exception: " << tx.what();        \
+        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+    }  catch (TTransportException &tx) {                                   \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         if ((invoke_hdlr)) {                                               \
@@ -620,7 +626,8 @@ private:
 CdbIf::CdbIf(DbErrorHandler errhandler,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports, int ttl,
-        std::string name, bool only_sync) :
+        std::string name, bool only_sync, const std::string& cassandra_user,
+        const std::string& cassandra_password) :
     socket_(new TSocketPool(cassandra_ips, cassandra_ports)),
     transport_(new TFramedTransport(socket_)),
     protocol_(new TBinaryProtocol(transport_)),
@@ -633,7 +640,9 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
     only_sync_(only_sync),
     task_instance_(-1),
     prev_task_instance_(-1),
-    task_instance_initialized_(false) {
+    task_instance_initialized_(false),
+    cassandra_user_(cassandra_user),
+    cassandra_password_(cassandra_password) {
 
     // reduce connection timeout
     boost::shared_ptr<TSocket> tsocket = 
@@ -682,9 +691,26 @@ bool CdbIf::Db_Init(const std::string& task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());
+
     CDBIF_BEGIN_TRY {
         transport_->open();
     } CDBIF_END_TRY_RETURN_FALSE(errstr)
+
+    //Connect with passwd
+    if (!cassandra_user_.empty() && !cassandra_password_.empty()) {
+        std::map<std::string, std::string> creds;
+        creds.insert(std::pair<std::string,
+                         std::string>("username",cassandra_user_));
+        creds.insert(std::pair<std::string,
+                         std::string>("password",cassandra_password_));
+        AuthenticationRequest authRequest;
+        authRequest.__set_credentials(creds);
+        ostr << "Authentication failed";
+        std::string errstr1(ostr.str());
+        CDBIF_BEGIN_TRY {
+            client_->login(authRequest);
+        } CDBIF_END_TRY_RETURN_FALSE(errstr1)
+    }
     if (only_sync_) {
         return true;
     }

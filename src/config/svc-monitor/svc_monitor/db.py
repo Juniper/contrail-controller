@@ -32,11 +32,18 @@ class ServiceMonitorDB(VncCassandraClient):
             ]
         }
 
+        cred = None
+        if args.cassandra_user is not None and \
+           args.cassandra_password is not None:
+            cred={'username':args.cassandra_user,
+                  'password':args.cassandra_password}
+
         super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
                                                None,
                                                self._keyspaces,
                                                self._logger.log,
-                                               reset_config=reset_config)
+                                               reset_config=reset_config,
+                                               credential=cred)
 
         self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
         self._lb_cf = self._cf_dict[self._LB_CF]

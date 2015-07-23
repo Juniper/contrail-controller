@@ -204,7 +204,9 @@ public:
     static GenDbIf *GenDbIfImpl(DbErrorHandler hdlr, 
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        int analytics_ttl, std::string name, bool only_sync);
+        int analytics_ttl, std::string name, bool only_sync,
+        const std::string& cassandra_user,
+        const std::string& cassandra_password);
 };
 
 } // namespace GenDb
