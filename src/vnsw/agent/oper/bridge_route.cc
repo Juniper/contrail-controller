@@ -103,7 +103,7 @@ void BridgeAgentRouteTable::AddBridgeReceiveRouteReq(const Peer *peer,
                                                      const string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, vxlan_id));
-    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0));
+    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference()));
     Enqueue(&req);
 }
 
@@ -114,7 +114,7 @@ void BridgeAgentRouteTable::AddBridgeReceiveRoute(const Peer *peer,
                                                   const string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, vxlan_id));
-    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0));
+    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference()));
     Process(req);
 }
 

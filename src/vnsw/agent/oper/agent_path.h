@@ -27,11 +27,12 @@ public:
         HIGH = 200
     };
     PathPreference(): sequence_(0), preference_(LOW),
-        wait_for_traffic_(true), ecmp_(false), static_preference_(false) {}
+        wait_for_traffic_(true), ecmp_(false), static_preference_(false),
+        dependent_ip_(Ip4Address(0)) {}
     PathPreference(uint32_t sequence, Preference preference,
         bool wait_for_traffic, bool ecmp): sequence_(sequence),
         preference_(preference), wait_for_traffic_(wait_for_traffic),
-        ecmp_(ecmp), static_preference_(false) {}
+        ecmp_(ecmp), static_preference_(false), dependent_ip_(Ip4Address(0)) {}
     uint32_t sequence() const { return sequence_;}
     Preference preference() const { return preference_;}
     bool wait_for_traffic() const {
@@ -41,8 +42,23 @@ public:
         return ecmp_;
     }
 
+    bool is_ecmp() const {
+        if (ecmp_ == true || (preference_ == HIGH && sequence_ == 0)) {
+            return true;
+        }
+        return false;
+    }
+
     bool static_preference() const {
         return static_preference_;
+    }
+
+    const IpAddress& dependent_ip() const {
+        return dependent_ip_;
+    }
+
+    std::string vrf() const {
+        return vrf_;
     }
 
     void set_sequence(uint32_t sequence) {
@@ -60,6 +76,14 @@ public:
 
     void set_static_preference(bool static_pref) {
         static_preference_ = static_pref;
+    }
+
+    void set_dependent_ip(const IpAddress &ip) {
+        dependent_ip_ = ip;
+    }
+
+    void set_vrf(const std::string &vrf) {
+        vrf_ = vrf;
     }
 
     bool operator!=(const PathPreference &rhs) const {
@@ -83,7 +107,7 @@ public:
     //ecmp flag and static preference are updated from
     //configuration, if static preference flag is set,
     //then preference also would be picked from configuration
-    bool ConfigChanged(PathPreference &rhs) const {
+    bool ConfigChanged(const PathPreference &rhs) const {
         bool ret = false;
         if (ecmp_ != rhs.ecmp_) {
             ret = true;
@@ -91,9 +115,19 @@ public:
             ret = true;
         } else if (static_preference_ && preference_ != rhs.preference_) {
             ret = true;
+        } else if (dependent_ip_ != rhs.dependent_ip_) {
+            ret = true;
         }
         return ret;
     }
+
+    bool IsDependentRt(void) const {
+        if (dependent_ip_ != Ip4Address(0)) {
+            return true;
+        }
+        return false;
+    }
+
 
 private:
     uint32_t sequence_;
@@ -101,6 +135,8 @@ private:
     bool wait_for_traffic_;
     bool ecmp_;
     bool static_preference_;
+    IpAddress dependent_ip_;
+    std::string vrf_;
 };
 
 //Route data to change preference and sequence number of path
@@ -460,9 +496,9 @@ private:
 class L2ReceiveRoute : public AgentRouteData {
 public:
     L2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id,
-                   uint32_t mpls_label) :
+                   uint32_t mpls_label, const PathPreference &pref) :
         AgentRouteData(false), dest_vn_name_(dest_vn_name),
-        vxlan_id_(vxlan_id), mpls_label_(mpls_label) {
+        vxlan_id_(vxlan_id), mpls_label_(mpls_label), path_preference_(pref) {
     }
     virtual ~L2ReceiveRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
@@ -474,6 +510,7 @@ private:
     std::string dest_vn_name_;
     uint32_t vxlan_id_;
     uint32_t mpls_label_;
+    const PathPreference path_preference_;
     DISALLOW_COPY_AND_ASSIGN(L2ReceiveRoute);
 };
 

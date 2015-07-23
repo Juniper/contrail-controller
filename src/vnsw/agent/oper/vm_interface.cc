@@ -1235,12 +1235,14 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            old_v6_addr, old_ethernet_tag,
                            old_layer3_forwarding, policy_change,
                            ip_addr_, ip6_addr_,
-                           MacAddress::FromString(vm_mac_));
+                           MacAddress::FromString(vm_mac_),
+                           Ip4Address(0));
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, Ip4Address(),
                            Ip6Address(), old_ethernet_tag,
                            old_layer3_forwarding, policy_change,
                            Ip4Address(), Ip6Address(),
-                           MacAddress::FromString(vm_mac_));
+                           MacAddress::FromString(vm_mac_),
+                           Ip4Address(0));
     UpdateFloatingIp(force_update, policy_change, true);
     UpdateAllowedAddressPair(force_update, policy_change, true, old_l2_active,
                              old_layer3_forwarding);
@@ -2382,7 +2384,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
             old_addr != ip_addr_ || vm_ip_gw_addr_ != ip) {
             vm_ip_gw_addr_ = ip;
             AddRoute(vrf_->GetName(), ip_addr_, 32, vn_->GetName(),
-                     policy_enabled_, ecmp_, vm_ip_gw_addr_);
+                     policy_enabled_, ecmp_, vm_ip_gw_addr_, Ip4Address(0));
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
@@ -2425,7 +2427,7 @@ void VmInterface::UpdateIpv6InterfaceRoute(bool old_ipv6_active, bool force_upda
             CopySgIdList(&sg_id_list);
 
             PathPreference path_preference;
-            SetPathPreference(&path_preference, false);
+            SetPathPreference(&path_preference, false, Ip4Address(0));
             //TODO: change subnet_gw_ip to Ip6Address
             InetUnicastAgentRouteTable::AddLocalVmRoute
                 (peer_.get(), vrf_->GetName(), ip6_addr_, 128, GetUuid(),
@@ -2510,7 +2512,7 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
     table->VmPortToMetaDataIp(id(), vrf_->vrf_id(), &mdata_addr_);
 
     PathPreference path_preference;
-    SetPathPreference(&path_preference, false);
+    SetPathPreference(&path_preference, false, Ip4Address(0));
 
     InetUnicastAgentRouteTable::AddLocalVmRoute
         (agent->link_local_peer(), agent->fabric_vrf_name(), mdata_addr_,
@@ -2841,7 +2843,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                          bool policy_changed,
                                          const Ip4Address &new_ip_addr,
                                          const Ip6Address &new_ip6_addr,
-                                         const MacAddress &mac) const {
+                                         const MacAddress &mac,
+                                         const IpAddress &dependent_ip) const {
     if (l2_active_ == false)
         return;
 
@@ -2879,7 +2882,7 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
     CopySgIdList(&sg_id_list);
 
     PathPreference path_preference;
-    SetPathPreference(&path_preference, false);
+    SetPathPreference(&path_preference, false, dependent_ip);
 
     if (policy_changed == true) {
         //Resync the nexthop
@@ -2943,26 +2946,30 @@ void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
 }
 
 // Set path-preference information for the route
-void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp) const {
+void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
+                                    const IpAddress &dependent_ip) const {
     pref->set_ecmp(ecmp);
     if (local_preference_ != INVALID) {
         pref->set_static_preference(true);
     }
-    if (ecmp || local_preference_ == HIGH) {
+    if (local_preference_ == HIGH) {
         pref->set_preference(PathPreference::HIGH);
     }
+    pref->set_dependent_ip(dependent_ip);
+    pref->set_vrf(vrf()->GetName());
 }
 
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
 void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            uint32_t plen, const std::string &dest_vn,
-                           bool policy, bool ecmp, const IpAddress &gw_ip) {
+                           bool policy, bool ecmp, const IpAddress &gw_ip,
+                           const IpAddress &dependent_rt) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
     PathPreference path_preference;
-    SetPathPreference(&path_preference, ecmp);
+    SetPathPreference(&path_preference, ecmp, dependent_rt);
 
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
@@ -3103,14 +3110,16 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
 
     if (floating_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(), 32,
-                        vn_->GetName(), true, interface->ecmp(), Ip4Address(0));
+                        vn_->GetName(), true, interface->ecmp(), Ip4Address(0),
+                        interface->ip_addr());
         if (table->update_floatingip_cb().empty() == false) {
             table->update_floatingip_cb()(interface, vn_.get(),
                                           floating_ip_.to_v4(), false);
         }
     } else if (floating_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
-                            vn_->GetName(), true, false, Ip6Address());
+                            vn_->GetName(), true, false, Ip6Address(),
+                            interface->ip_addr());
         //TODO:: callback for DNS handling
     }
 
@@ -3146,7 +3155,7 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
     interface->CopySgIdList(&sg_id_list);
 
     PathPreference path_preference;
-    interface->SetPathPreference(&path_preference, false);
+    interface->SetPathPreference(&path_preference, false, interface->ip_addr());
 
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
@@ -3155,7 +3164,8 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
     evpn_table->AddReceiveRoute(interface->peer_.get(), vrf_->GetName(),
                                 interface->l2_label(),
                                 MacAddress::FromString(interface->vm_mac()),
-                                floating_ip_, ethernet_tag_, vn_->GetName());
+                                floating_ip_, ethernet_tag_, vn_->GetName(),
+                                path_preference);
     l2_installed_ = true;
 }
 
@@ -3292,7 +3302,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
                                 interface->policy_enabled(),
-                                ecmp, IpAddress());
+                                ecmp, IpAddress(), interface->ip_addr());
         }
     }
 
@@ -3398,10 +3408,16 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
     }
 
     if (l2_entry_installed_ == false || force_update || policy_change) {
+        Ip4Address dependent_rt = Ip4Address(0);
+        if (ecmp_ == true) {
+            dependent_rt = interface->ip_addr();
+        }
+
         interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
                                interface->vrf(), addr_, Ip6Address(),
                                ethernet_tag_, old_layer3_forwarding,
-                               policy_change, addr_, Ip6Address(), mac_);
+                               policy_change, addr_, Ip6Address(), mac_,
+                               dependent_rt);
         ethernet_tag_ = interface->ethernet_tag();
         //If layer3 forwarding is disabled
         //  * IP + mac allowed address pair should not be published
@@ -3452,9 +3468,13 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update || gw_ip_ != ip) {
         gw_ip_ = ip;
+        Ip4Address dependent_rt = Ip4Address(0);
+        if (ecmp_ == true) {
+            dependent_rt = interface->ip_addr();
+        }
         interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                             interface->policy_enabled(),
-                            ecmp_, gw_ip_);
+                            ecmp_, gw_ip_, dependent_rt);
     }
     installed_ = true;
 }
@@ -3670,11 +3690,9 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
 
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
+
     PathPreference path_preference;
-    path_preference.set_ecmp(ecmp());
-    if (ecmp()) {
-        path_preference.set_preference(PathPreference::HIGH);
-    }
+    SetPathPreference(&path_preference, ecmp(), ip_addr());
 
     // With IRB model, add L2 Receive route for SMAC and DMAC to ensure
     // packets from service vm go thru routing
@@ -4141,4 +4159,3 @@ bool VmInterface::CopyIp6Address(const Ip6Address &addr) {
 
     return ret;
 }
-

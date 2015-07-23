@@ -30,11 +30,13 @@ public:
     void AddReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
                             uint32_t label, const MacAddress &mac,
                             const IpAddress &ip_addr, uint32_t ethernet_tag,
-                            const std::string &vn_name);
+                            const std::string &vn_name,
+                            const PathPreference &pref);
     void AddReceiveRoute(const Peer *peer, const std::string &vrf_name,
                          uint32_t label, const MacAddress &mac,
                          const IpAddress &ip_addr, uint32_t ethernet_tag,
-                         const std::string &vn_name);
+                         const std::string &vn_name,
+                         const PathPreference &pref);
     void AddLocalVmRouteReq(const Peer *peer,
                             const std::string &vrf_name,
                             const MacAddress &mac,
@@ -104,7 +106,9 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     virtual const std::string GetAddressString() const {
-        return mac_.ToString();
+        ostringstream str;
+        str << mac_.ToString();
+        return str.str();
     }
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
