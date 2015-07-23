@@ -828,6 +828,7 @@ class LogicalRouterSM(DBBaseSM):
         self.service_instance = None
         self.virtual_network = None
         self.virtual_machine_interfaces = set()
+        self.last_virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
 
