@@ -1,0 +1,9 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+2: Édouard Thuleau <edouard.thuleau@cloudwatt.com>
+Approved+1: Prakash Bailkeri <prakashmb@juniper.net>
+Code-Review+2: Prakash Bailkeri <prakashmb@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Thu, 23 Jul 2015 02:45:59 -0700
+Reviewed-on: https://review.opencontrail.org/9991
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
