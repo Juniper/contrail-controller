@@ -36,6 +36,7 @@ import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
+from cfgm_common import imid
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -705,6 +706,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 raise Exception("Faking Rabbit publish failure")
 
             def err_rabbitq_conn(*args, **kwargs):
+                gevent.sleep(0.1)
                 raise Exception("Faking RabbitMQ connection failure")
 
             api_server._db_conn._msgbus._producer.publish = err_rabbitq_pub
@@ -765,6 +767,174 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         api_server._db_conn._ifmap_db._mapclient.call_async_result = err_call_async_result
         test_obj = self._create_test_object()
         self.assertTill(self.ifmap_has_ident, obj=test_obj)
+
+    def test_reconnect_to_rabbit(self):
+        exceptions = [(FakeKombu.Connection.ConnectionException(), 'conn'),
+                      (FakeKombu.Connection.ChannelException(), 'chan'),
+                      (Exception(), 'generic')]
+
+        # fake problem on publish to rabbit
+        # restore, ensure retry and successful publish
+        for exc_obj, exc_type in exceptions:
+            obj = VirtualNetwork('%s-pub-%s' %(self.id(), exc_type))
+            obj.uuid = str(uuid.uuid4())
+            publish_captured = [False]
+            def err_on_publish(orig_method, *args, **kwargs):
+                msg = args[0]
+                if msg['oper'] == 'CREATE' and msg['uuid'] == obj.uuid:
+                    publish_captured[0] = True
+                    raise exc_obj
+                return orig_method(*args, **kwargs)
+
+            rabbit_producer = self._api_server._db_conn._msgbus._producer
+            with test_common.patch(rabbit_producer,
+                'publish', err_on_publish):
+                self._vnc_lib.virtual_network_create(obj)
+                self.assertTill(lambda: publish_captured[0] == True)
+            # unpatch err publish
+
+            self.assertTill(self.ifmap_has_ident, obj=obj)
+        # end exception types on publish
+
+        # fake problem on consume from rabbit
+        # restore, ensure retry and successful consume
+        for exc_obj, exc_type in exceptions:
+            obj = VirtualNetwork('%s-sub-%s' %(self.id(), exc_type))
+            obj.uuid = str(uuid.uuid4())
+            consume_captured = [False]
+            consume_test_payload = [None]
+            rabbit_consumer = self._api_server._db_conn._msgbus._consumer
+            def err_on_consume(orig_method, *args, **kwargs):
+                msg = orig_method()
+                payload = msg.payload
+                if payload['oper'] == 'UPDATE' and payload['uuid'] == obj.uuid:
+                    if (consume_test_payload[0] == payload):
+                        return msg
+                    consume_captured[0] = True
+                    consume_test_payload[0] = payload
+                    rabbit_consumer.queues.put(payload, None)
+                    raise exc_obj
+                return msg
+
+            with test_common.patch(rabbit_consumer.queues,
+                'get', err_on_consume):
+                # create the object to insert 'get' handler,
+                # update oper will test the error handling
+                self._vnc_lib.virtual_network_create(obj)
+                obj.display_name = 'test_update'
+                self._vnc_lib.virtual_network_update(obj)
+                self.assertTill(lambda: consume_captured[0] == True)
+            # unpatch err consume
+
+            def ifmap_has_ident_update():
+                ifmap_id = imid.get_ifmap_id_from_fq_name(obj.get_type(),
+                    obj.get_fq_name())
+                node = FakeIfmapClient._graph.get(ifmap_id)
+                if not node:
+                    return False
+                meta = node.get('links', {}).get('contrail:display-name',
+                    {}).get('meta')
+                if not meta:
+                    return False
+                if not 'test_update' in etree.tostring(meta):
+                    return False
+
+                return True
+
+            self.assertTill(ifmap_has_ident_update)
+        # end exception types on consume
+
+        # fake problem on consume and publish at same time
+        # restore, ensure retry and successful publish + consume
+        obj = VirtualNetwork('%s-pub-sub' %(self.id()))
+        obj.uuid = str(uuid.uuid4())
+
+        msgbus = self._api_server._db_conn._msgbus
+        pub_greenlet = msgbus._publisher_greenlet
+        sub_greenlet = msgbus._connection_monitor_greenlet
+        setattr(pub_greenlet, 'unittest', {'name': 'producer'})
+        setattr(sub_greenlet, 'unittest', {'name': 'consumer'})
+
+        consume_captured = [False]
+        consume_test_payload = [None]
+        publish_connect_done = [False]
+        publish_captured = [False]
+        def err_on_consume(orig_method, *args, **kwargs):
+            msg = orig_method()
+            payload = msg.payload
+            if payload['oper'] == 'UPDATE' and payload['uuid'] == obj.uuid:
+                if (consume_test_payload[0] == payload):
+                    return msg
+                consume_captured[0] = True
+                consume_test_payload[0] = payload
+                rabbit_consumer = self._api_server._db_conn._msgbus._consumer
+                rabbit_consumer.queues.put(payload, None)
+                raise exc_obj
+            return msg
+
+        def block_on_connect(orig_method, *args, **kwargs):
+            # block consumer till publisher does update,
+            # fake consumer connect exceptions till publisher connects fine
+            utvars = getattr(gevent.getcurrent(), 'unittest', None)
+            if utvars and utvars['name'] == 'producer':
+                publish_connect_done[0] = True
+                return orig_method(*args, **kwargs)
+
+            while not publish_captured[0]:
+                gevent.sleep(0.1)
+
+            while not publish_connect_done[0]:
+                gevent.sleep(0.1)
+                raise Exception('Faking connection fail')
+
+            return orig_method(*args, **kwargs)
+
+        rabbit_consumer = self._api_server._db_conn._msgbus._consumer
+        rabbit_conn = self._api_server._db_conn._msgbus._conn
+        with test_common.patch(rabbit_consumer.queues,
+                               'get', err_on_consume):
+            with test_common.patch(rabbit_conn,
+                               'connect', block_on_connect):
+                # create the object to insert 'get' handler,
+                # update oper will test the error handling
+                self._vnc_lib.virtual_network_create(obj)
+                obj.display_name = 'test_update_1'
+                self._vnc_lib.virtual_network_update(obj)
+                self.assertTill(lambda: consume_captured[0] == True)
+
+                def err_on_publish(orig_method, *args, **kwargs):
+                    msg = args[0]
+                    if msg['oper'] == 'UPDATE' and msg['uuid'] == obj.uuid:
+                        publish_captured[0] = True
+                        raise exc_obj
+                    return orig_method(*args, **kwargs)
+                rabbit_producer = self._api_server._db_conn._msgbus._producer
+                with test_common.patch(rabbit_producer,
+                    'publish', err_on_publish):
+                    obj.display_name = 'test_update_2'
+                    self._vnc_lib.virtual_network_update(obj)
+                    self.assertTill(lambda: publish_captured[0] == True)
+                # unpatch err publish
+            # unpatch connect
+        # unpatch err consume
+
+        def ifmap_has_update_2():
+            ifmap_id = imid.get_ifmap_id_from_fq_name(obj.get_type(),
+                obj.get_fq_name())
+            node = FakeIfmapClient._graph.get(ifmap_id)
+            if not node:
+                return False
+            meta = node.get('links', {}).get('contrail:display-name',
+                {}).get('meta')
+            if meta is None:
+                return False
+            if not 'test_update_2' in etree.tostring(meta):
+                return False
+
+            return True
+
+        self.assertTill(ifmap_has_update_2)
+    # end test_reconnect_to_rabbit
  
     def test_handle_trap_on_exception(self):
         api_server = test_common.vnc_cfg_api_server.server
