@@ -182,9 +182,7 @@ request sandesh ShowRouteReq {
 }
 
 struct ShowRouteTableSummary {
-    1: string routing_table_name (link="ShowRouteReq");
-    2: bool deleted;
-    13: string deleted_at;
+    1: string name (link="ShowRouteReq");
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -197,10 +195,14 @@ struct ShowRouteTableSummary {
     12: u64 markers;
     14: u64 listeners;
     15: u64 walkers;
+    2: bool deleted;
+    13: string deleted_at;
 }
 
 response sandesh ShowRouteSummaryResp {
     1: list<ShowRouteTableSummary> tables;
+    2: optional string next_batch (link="ShowRouteSummaryReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowRouteSummaryReq {

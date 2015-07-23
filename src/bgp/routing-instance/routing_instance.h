@@ -50,9 +50,8 @@ public:
                     const BgpInstanceConfig *config);
     virtual ~RoutingInstance();
 
-    const RouteTableList &GetTables() const {
-        return vrf_tables_;
-    }
+    RouteTableList &GetTables() { return vrf_tables_; }
+    const RouteTableList &GetTables() const { return vrf_tables_; }
 
     void ProcessConfig();
     void UpdateConfig(const BgpInstanceConfig *config);

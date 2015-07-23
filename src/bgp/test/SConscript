@@ -220,6 +220,11 @@ bgp_sg_test = env.UnitTest('bgp_sg_test',
                            ['bgp_sg_test.cc'])
 env.Alias('src/bgp:bgp_sg_test', bgp_sg_test)
 
+bgp_show_route_summary_test = env.UnitTest('bgp_show_route_summary_test',
+    ['bgp_show_route_summary_test.cc'])
+env.Alias('src/bgp:bgp_show_route_summary_test',
+    bgp_show_route_summary_test)
+
 bgp_show_routing_instance_test = env.UnitTest('bgp_show_routing_instance_test',
     ['bgp_show_routing_instance_test.cc'])
 env.Alias('src/bgp:bgp_show_routing_instance_test',

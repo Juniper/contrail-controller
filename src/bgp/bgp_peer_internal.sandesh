@@ -30,6 +30,10 @@ response sandesh ShowRouteVrfResp {
     1: bgp_peer.ShowRoute route;
 }
 
+request sandesh ShowRouteSummaryReqIterate {
+    1: string iterate_info;
+}
+
 request sandesh ShowRoutingInstanceReqIterate {
     1: string iterate_info;
 }
