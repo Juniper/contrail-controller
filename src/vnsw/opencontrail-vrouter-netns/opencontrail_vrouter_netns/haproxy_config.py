@@ -51,7 +51,9 @@ def _set_global_config(config, sock_path):
         'user nobody',
         'group nogroup',
         'log /dev/log local0',
-        'log /dev/log local1 notice'
+        'log /dev/log local1 notice',
+        'ulimit-n 200000',
+        'maxconn 65000'
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
     return ("\n\t".join(conf))
@@ -63,8 +65,8 @@ def _set_defaults(config):
         'retries 3',
         'option redispatch',
         'timeout connect 5000',
-        'timeout client 50000',
-        'timeout server 50000',
+        'timeout client 300000',
+        'timeout server 300000',
     ]
     return ("\n\t".join(conf))
 
