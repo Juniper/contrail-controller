@@ -240,6 +240,7 @@ class SvcMonitor(object):
         for si_id in dependency_tracker.resources.get('service_instance', []):
             si = ServiceInstanceSM.get(si_id)
             if si:
+                si.state = 'launch'
                 self._create_service_instance(si)
             else:
                 for vm_id in dependency_tracker.resources.get(
@@ -364,15 +365,15 @@ class SvcMonitor(object):
                     si.proj_name, id=vm_id)
                 if not nova_vm:
                     continue
+                if not nova_vm.name.split('__')[-1].isdigit():
+                    continue
 
                 si_obj = ServiceInstance()
                 si_obj.name = si.name
                 si_obj.fq_name = si.fq_name
+                index = int(nova_vm.name.split('__')[-1]) - 1
                 instance_name = self.vm_manager._get_instance_name(
-                    si_obj, vm.index)
-                if vm.name == instance_name:
-                    continue
-                nova_vm.update(name=instance_name)
+                    si_obj, index)
                 vm_obj = VirtualMachine()
                 vm_obj.uuid = vm_id
                 vm_obj.fq_name = [vm_id]
