@@ -104,6 +104,9 @@ public:
     }
 
     PeerRibMembershipManager *membership_mgr() { return membership_mgr_.get(); }
+    const PeerRibMembershipManager *membership_mgr() const {
+        return membership_mgr_.get();
+    }
     AsPathDB *aspath_db() { return aspath_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
     BgpOListDB *olist_db() { return olist_db_.get(); }

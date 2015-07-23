@@ -18,7 +18,6 @@
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_session_manager.h"
@@ -262,7 +261,7 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
         start_routing_instance = exact_routing_instance;
     }
 
-    RoutingInstanceMgr::NameIterator i =
+    RoutingInstanceMgr::name_iterator i =
         rim->name_lower_bound(start_routing_instance);
     uint32_t count = 0;
     while (i != rim->name_end()) {
@@ -631,7 +630,7 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
     vector<ShowRouteTableSummary> table_list;
-    for (RoutingInstanceMgr::NameIterator i = rim->name_begin();
+    for (RoutingInstanceMgr::name_iterator i = rim->name_begin();
          i != rim->name_end(); ++i) {
         for (RoutingInstance::RouteTableList::const_iterator j =
              i->second->GetTables().begin();
@@ -939,183 +938,6 @@ void ClearBgpNeighborReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-class ShowRoutingInstanceHandler {
-public:
-    static void FillRoutingTableStats(ShowRoutingInstanceTable &rit,
-                                      BgpTable *table) {
-        rit.set_name(table->name());
-        rit.set_walk_requests(table->walk_request_count());
-        rit.set_walk_completes(table->walk_complete_count());
-        rit.set_walk_cancels(table->walk_cancel_count());
-        size_t markers = 0;
-        rit.set_pending_updates(table->GetPendingRiboutsCount(&markers));
-        rit.set_markers(markers);
-        rit.set_listeners(table->GetListenerCount());
-        rit.set_walkers(table->walker_count());
-        rit.prefixes = table->Size();
-        rit.primary_paths = table->GetPrimaryPathCount();
-        rit.secondary_paths = table->GetSecondaryPathCount();
-        rit.infeasible_paths = table->GetInfeasiblePathCount();
-        rit.paths = rit.primary_paths + rit.secondary_paths;
-    }
-
-    static void FillRoutingInstanceInfo(const RequestPipeline::StageData *sd,
-            vector<ShowRoutingInstance> &ri_list,
-            RoutingInstance *ri, PeerRibMembershipManager *pmm) {
-        const RoutingInstance::RouteTableList &tables = ri->GetTables();
-        RoutingInstance::RouteTableList::const_iterator it = tables.begin();
-        ShowRoutingInstance inst;
-        vector<ShowRoutingInstanceTable> rit_list;
-        for (; it != tables.end(); it++) {
-            ShowRoutingInstanceTable table;
-            pmm->FillRoutingInstanceInfo(&table, it->second);
-            FillRoutingTableStats(table, it->second);
-            rit_list.push_back(table);
-        }
-        if (rit_list.size()) {
-            inst.set_name(ri->name());
-            inst.set_virtual_network(ri->virtual_network());
-            inst.set_vn_index(ri->virtual_network_index());
-            inst.set_vxlan_id(ri->vxlan_id());
-            inst.set_deleted(ri->deleted());
-            inst.set_deleted_at(
-                UTCUsecToString(ri->deleter()->delete_time_stamp_usecs()));
-            std::vector<std::string> import_rt;
-            BOOST_FOREACH(RouteTarget rt, ri->GetImportList()) {
-                import_rt.push_back(rt.ToString());
-            }
-            inst.set_import_target(import_rt);
-
-            std::vector<std::string> export_rt;
-            BOOST_FOREACH(RouteTarget rt, ri->GetExportList()) {
-                export_rt.push_back(rt.ToString());
-            }
-            inst.set_export_target(export_rt);
-            inst.set_tables(rit_list);
-            ri_list.push_back(inst);
-        }
-    }
-
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-        const ShowRoutingInstanceReq *req =
-            static_cast<const ShowRoutingInstanceReq *>(ps.snhRequest_.get());
-        BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(
-                                                 req->client_context());
-        RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-        PeerRibMembershipManager *pmm = bsc->bgp_server->membership_mgr();
-        vector<ShowRoutingInstance> ri_list;
-        const RequestPipeline::StageData *sd = ps.GetStageData(0);
-        if (req->get_name() != "") {
-            RoutingInstance *ri = rim->GetRoutingInstance(req->get_name());
-            if (ri)
-                FillRoutingInstanceInfo(sd, ri_list, ri, pmm);
-        } else {
-            RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
-            for (;it != rim->end(); it++) {
-                FillRoutingInstanceInfo(sd, ri_list, &(*it), pmm);
-            }
-        }
-
-        ShowRoutingInstanceResp *resp = new ShowRoutingInstanceResp;
-        resp->set_instances(ri_list);
-        resp->set_context(req->context());
-        resp->Response();
-        return true;
-    }
-};
-
-void ShowRoutingInstanceReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-
-    // Request pipeline has 2 stages:
-    // First stage to collect routing instance stats
-    // Second stage to collect peer info and fill stats from stage 1 and
-    // respond to the request
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-
-    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = ShowRoutingInstanceHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_ = list_of(s1);
-    RequestPipeline rp(ps);
-}
-
-class ShowRoutingInstanceSummaryHandler {
-public:
-    static void FillRoutingInstanceInfo(
-        vector<ShowRoutingInstance> *ri_list, const RoutingInstance &ri);
-    static bool CallbackS1(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps,
-        int stage, int instNum, RequestPipeline::InstData *data);
-};
-
-void ShowRoutingInstanceSummaryHandler::FillRoutingInstanceInfo(
-    vector<ShowRoutingInstance> *ri_list, const RoutingInstance &ri) {
-    ShowRoutingInstance inst;
-    inst.set_name(ri.name());
-    inst.set_virtual_network(ri.virtual_network());
-    inst.set_vn_index(ri.virtual_network_index());
-    inst.set_vxlan_id(ri.vxlan_id());
-    inst.set_deleted(ri.deleted());
-    inst.set_deleted_at(
-        UTCUsecToString(ri.deleter()->delete_time_stamp_usecs()));
-    vector<string> import_rt;
-    BOOST_FOREACH(RouteTarget rt, ri.GetImportList()) {
-        import_rt.push_back(rt.ToString());
-    }
-    inst.set_import_target(import_rt);
-    vector<string> export_rt;
-    BOOST_FOREACH(RouteTarget rt, ri.GetExportList()) {
-        export_rt.push_back(rt.ToString());
-    }
-    inst.set_export_target(export_rt);
-    ri_list->push_back(inst);
-}
-
-bool ShowRoutingInstanceSummaryHandler::CallbackS1(const Sandesh *sr,
-    const RequestPipeline::PipeSpec ps, int stage, int instNum,
-    RequestPipeline::InstData *data) {
-    const ShowRoutingInstanceSummaryReq *req =
-        static_cast<const ShowRoutingInstanceSummaryReq *>(ps.snhRequest_.get());
-    const string &search_string = req->get_search_string();
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(req->client_context());
-    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    vector<ShowRoutingInstance> ri_list;
-    for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
-        it != rim->end(); ++it) {
-        const RoutingInstance &ri = *it;
-        if (!search_string.empty() &&
-            (it->name().find(search_string) == string::npos) &&
-            (search_string != "deleted" || !ri.deleted())) {
-            continue;
-        }
-        FillRoutingInstanceInfo(&ri_list, ri);
-    }
-
-    ShowRoutingInstanceSummaryResp *resp = new ShowRoutingInstanceSummaryResp;
-    resp->set_instances(ri_list);
-    resp->set_context(req->context());
-    resp->Response();
-    return true;
-}
-
-void ShowRoutingInstanceSummaryReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-
-    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = ShowRoutingInstanceSummaryHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_ = list_of(s1);
-    RequestPipeline rp(ps);
-}
-
 class ShowMulticastManagerHandler {
 public:
     struct MulticastManagerDataKey {
@@ -1157,7 +979,7 @@ public:
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-        for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
+        for (RoutingInstanceMgr::name_iterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
             if (ri->IsDefaultRoutingInstance())
@@ -1207,7 +1029,7 @@ public:
         RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
         vector<ShowMulticastManager> mgr_list;
         const RequestPipeline::StageData *sd = ps.GetStageData(0);
-        for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
+        for (RoutingInstanceMgr::name_iterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
             if (ri->IsDefaultRoutingInstance())
@@ -1739,9 +1561,11 @@ void ShowBgpServerReq::HandleRequest() const {
 }
 
 BgpSandeshContext::BgpSandeshContext()
-        : bgp_server(NULL),
-          xmpp_peer_manager(NULL),
-          test_mode_(false) {
+    : bgp_server(NULL),
+      xmpp_peer_manager(NULL),
+      test_mode_(false),
+      page_limit_(0),
+      iter_limit_(0) {
 }
 
 void BgpSandeshContext::SetNeighborShowExtensions(
