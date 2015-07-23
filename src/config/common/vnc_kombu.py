@@ -64,45 +64,46 @@ class VncKombuClientBase(object):
             # the connection and releases the lock, so the other one can 
             # just wait on the lock, till it gets released
             self._conn_lock.wait()
-            return
+            if self._conn_state == ConnectionStatus.UP:
+                return
 
-        self._conn_lock.acquire()
+        with self._conn_lock:
+            msg = "RabbitMQ connection down"
+            self._logger(msg, level=SandeshLevel.SYS_ERR)
+            self._update_sandesh_status(ConnectionStatus.DOWN)
+            self._conn_state = ConnectionStatus.DOWN
 
-        msg = "RabbitMQ connection down"
-        self._logger(msg, level=SandeshLevel.SYS_ERR)
-        self._update_sandesh_status(ConnectionStatus.DOWN)
-        self._conn_state = ConnectionStatus.DOWN
+            self._conn.close()
 
-        self._conn.close()
+            self._conn.ensure_connection()
+            self._conn.connect()
 
-        self._conn.ensure_connection()
-        self._conn.connect()
+            self._update_sandesh_status(ConnectionStatus.UP)
+            self._conn_state = ConnectionStatus.UP
+            msg = 'RabbitMQ connection ESTABLISHED %s' % repr(self._conn)
+            self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
-        self._update_sandesh_status(ConnectionStatus.UP)
-        self._conn_state = ConnectionStatus.UP
-        msg = 'RabbitMQ connection ESTABLISHED %s' % repr(self._conn)
-        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+            self._channel = self._conn.channel()
+            if delete_old_q:
+                # delete the old queue in first-connect context
+                # as db-resync would have caught up with history.
+                try:
+                    bound_q = self._update_queue_obj(self._channel)
+                    bound_q.delete()
+                except Exception as e:
+                    msg = 'Unable to delete the old ampq queue: %s' %(str(e))
+                    self._logger(msg, level=SandeshLevel.SYS_ERR)
 
-        self._channel = self._conn.channel()
-        if delete_old_q:
-            # delete the old queue in first-connect context
-            # as db-resync would have caught up with history.
-            try:
-                bound_q = self._update_queue_obj(self._channel)
-                bound_q.delete()
-            except Exception as e:
-                msg = 'Unable to delete the old ampq queue: %s' %(str(e))
-                self._logger(msg, level=SandeshLevel.SYS_ERR)
-
-        self._consumer = kombu.Consumer(self._channel,
-                                       queues=self._update_queue_obj,
-                                       callbacks=[self._subscribe])
-        self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
-
-        self._conn_lock.release()
+            self._consumer = kombu.Consumer(self._channel,
+                                           queues=self._update_queue_obj,
+                                           callbacks=[self._subscribe])
+            self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
     # end _reconnect
 
-    def _connection_watch(self):
+    def _connection_watch(self, connected):
+        if not connected:
+            self._reconnect()
+
         self.prepare_to_consume()
         while True:
             try:
@@ -112,10 +113,27 @@ class VncKombuClientBase(object):
                 self._reconnect()
     # end _connection_watch
 
-    def _publisher(self):
-        message = None
+    def _connection_watch_forever(self):
+        connected = True
         while True:
             try:
+                self._connection_watch(connected)
+            except Exception as e:
+                msg = 'Error in rabbitmq drainer greenlet: %s' %(str(e))
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+                # avoid 'reconnect()' here as that itself might cause exception
+                connected = False
+    # end _connection_watch_forever
+
+    def _publisher(self):
+        message = None
+        connected = True
+        while True:
+            try:
+                if not connected:
+                    self._reconnect()
+                    connected = True
+
                 if not message:
                     # earlier was sent fine, dequeue one more
                     message = self._publish_queue.get()
@@ -128,8 +146,10 @@ class VncKombuClientBase(object):
                     except self._conn.connection_errors + self._conn.channel_errors as e:
                         self._reconnect()
             except Exception as e:
-                log_str = "Unknown exception in _publisher greenlet" + str(e)
+                log_str = "Error in rabbitmq publisher greenlet: %s" %(str(e))
                 self._logger(log_str, level=SandeshLevel.SYS_ERR)
+                # avoid 'reconnect()' here as that itself might cause exception
+                connected = False
     # end _publisher
 
     def _subscribe(self, body, message):
@@ -143,7 +163,7 @@ class VncKombuClientBase(object):
         self._reconnect(delete_old_q=True)
 
         self._publisher_greenlet = gevent.spawn(self._publisher)
-        self._connection_monitor_greenlet = gevent.spawn(self._connection_watch)
+        self._connection_monitor_greenlet = gevent.spawn(self._connection_watch_forever)
 
     def shutdown(self):
         self._publisher_greenlet.kill()
