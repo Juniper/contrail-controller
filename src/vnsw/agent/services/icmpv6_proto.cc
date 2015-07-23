@@ -30,6 +30,9 @@ Icmpv6Proto::Icmpv6Proto(Agent *agent, boost::asio::io_service &io) :
 }
 
 Icmpv6Proto::~Icmpv6Proto() {
+}
+
+void Icmpv6Proto::Shutdown() {
     agent_->vn_table()->Unregister(vn_table_listener_id_);
     agent_->vrf_table()->Unregister(vrf_table_listener_id_);
     agent_->interface_table()->Unregister(interface_listener_id_);

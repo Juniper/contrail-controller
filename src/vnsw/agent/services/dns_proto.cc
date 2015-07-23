@@ -15,9 +15,6 @@
 #include "oper/vn.h"
 #include "oper/route_common.h"
 
-void DnsProto::Shutdown() {
-}
-
 void DnsProto::IoShutdown() {
     BindResolver::Shutdown();
 
@@ -72,6 +69,9 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
 }
 
 DnsProto::~DnsProto() {
+}
+
+void DnsProto::Shutdown() {
     agent_->interface_table()->Unregister(lid_);
     agent_->vn_table()->Unregister(Vnlid_);
     if (agent_->tsn_enabled()) {
