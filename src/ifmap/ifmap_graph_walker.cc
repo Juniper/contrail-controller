@@ -199,13 +199,8 @@ void IFMapGraphWalker::ResetLinkDeleteClients(const BitSet &bset) {
     link_delete_clients_.Reset(bset);
 }
 
-void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
+void IFMapGraphWalker::CleanupInterest(IFMapNode *node, IFMapNodeState *state) {
     // interest = interest - rm_mask_ + nmask
-    IFMapNode *node = static_cast<IFMapNode *>(vertex);
-    IFMapNodeState *state = exporter_->NodeStateLookup(node);
-    if (state == NULL) {
-        return;
-    }
 
     if (!state->interest().empty() && !state->nmask().empty()) {
         IFMAP_DEBUG(CleanupInterest, node->ToString(),
@@ -232,13 +227,31 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
 }
 
 // Cleanup all graph nodes that have a bit set in the remove mask (rm_mask_) but
-// were not visited by the walker because there were not reachable after the
+// were not visited by the walker because they were not reachable after the
 // link delete.
 void IFMapGraphWalker::LinkDeleteWalkBatchEnd() {
-    for (DBGraph::vertex_iterator iter = graph_->vertex_list_begin();
-         iter != graph_->vertex_list_end(); ++iter) {
-        DBGraphVertex *vertex = iter.operator->();
-        CleanupInterest(vertex);
+    IFMapState *state = NULL;
+    IFMapNode *node = NULL;
+    IFMapExporter::Cs_citer iter, end_iter;
+
+    for (size_t i = rm_mask_.find_first(); i != BitSet::npos;
+            i = rm_mask_.find_next(i)) {
+        iter = exporter_->ClientConfigTrackerBegin(i);
+        end_iter = exporter_->ClientConfigTrackerEnd(i);
+        while (iter != end_iter) {
+            state = *iter;
+            // Get the iterator to the next element before calling
+            // CleanupInterest() since the state might be removed from the
+            // client's config-tracker, thereby invalidating the iterator.
+            ++iter;
+            if (state->IsNode()) {
+                node = state->GetIFMapNode();
+                assert(node);
+                IFMapNodeState *nstate = exporter_->NodeStateLookup(node);
+                assert(state == nstate);
+                CleanupInterest(node, nstate);
+            }
+        }
     }
     rm_mask_.clear();
 }
