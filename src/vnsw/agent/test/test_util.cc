@@ -3226,7 +3226,8 @@ void DeleteBgpPeer(Peer *peer) {
     AgentXmppChannel *channel = NULL;
     if (bgp_peer) {
         channel = bgp_peer->GetBgpXmppPeer();
-        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::NOT_READY);
+        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
+                                                            xmps::NOT_READY);
     }
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
