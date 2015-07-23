@@ -682,6 +682,9 @@ class FakeKombu(object):
     # end class Queue
 
     class Connection(object):
+        class ConnectionException(Exception): pass
+        class ChannelException(Exception): pass
+
         def __init__(self, *args, **kwargs):
             pass
         # end __init__
@@ -712,11 +715,11 @@ class FakeKombu(object):
 
         @property
         def connection_errors(self):
-            return (Exception,)
+            return (self.ConnectionException, )
 
         @property
         def channel_errors(self):
-            return (Exception, )
+            return (self.ChannelException, )
     # end class Connection
 
     class Consumer(object):
@@ -727,8 +730,8 @@ class FakeKombu(object):
 
         def consume(self):
             while True:
+                msg = self.queues.get()
                 try:
-                    msg = self.queues.get()
                     for c in self.callbacks:
                         c(msg.payload, msg)
                 except Exception:
