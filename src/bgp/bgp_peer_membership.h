@@ -231,13 +231,14 @@ public:
     void Enqueue(IPeerRibEvent *event) { event_queue_->Enqueue(event); }
 
     BgpServer *server() { return server_; }
-    void FillRoutingInstanceInfo(ShowRoutingInstanceTable *inst,
-                                 const BgpTable * table) const;
+    void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit,
+        const BgpTable *table) const;
 
     void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp *resp);
     IPeerRib *IPeerRibFind(IPeer *ipeer, BgpTable *table);
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
     void FillRegisteredTable(const IPeer *peer, std::vector<std::string> *list);
+    size_t GetMembershipCount() const { return peer_rib_set_.size(); }
 
 private:
     friend class BgpServerUnitTest;

@@ -787,19 +787,18 @@ void PeerRibMembershipManager::UnregisterPeerCompleteCallback(
     event->request.notify_completion_fn(event->ipeer, NULL);
 }
 
-void PeerRibMembershipManager::FillRoutingInstanceInfo(
-            ShowRoutingInstanceTable *inst,
-            const BgpTable *table) const {
-    RibPeerMap::const_iterator it;
+void PeerRibMembershipManager::FillRoutingInstanceTableInfo(
+    ShowRoutingInstanceTable *srit, const BgpTable *table) const {
     std::vector<std::string> peers;
-    for (it = rib_peer_map_.find(table); it != rib_peer_map_.end(); it++) {
-        if (it->first != table) break;
+    for (RibPeerMap::const_iterator it = rib_peer_map_.find(table);
+         it != rib_peer_map_.end(); ++it) {
+        if (it->first != table)
+            break;
         peers.push_back(it->second->ToString());
     }
 
-    inst->set_name(table->name());
-    inst->set_deleted(table->IsDeleted());
-    if (peers.size()) inst->set_peers(peers);
+    if (peers.size())
+        srit->set_peers(peers);
 }
 
 //

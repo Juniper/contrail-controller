@@ -194,53 +194,6 @@ protected:
         return cfg;
     }
 
-    static void ValidateRoutingInstanceResponse(Sandesh *sandesh,
-            vector<size_t> &result) {
-        ShowRoutingInstanceResp *resp =
-                dynamic_cast<ShowRoutingInstanceResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((ShowRoutingInstanceResp *)NULL, resp);
-
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_instances().size());
-
-        cout << "*******************************************************"<<endl;
-        for (size_t i = 0; i < resp->get_instances().size(); i++) {
-            TASK_UTIL_EXPECT_EQ(result[i], resp->get_instances()[i].tables.size());
-            cout << resp->get_instances()[i].name << endl;
-            for (size_t j = 0; j < resp->get_instances()[i].tables.size();
-                    j++) {
-                 cout << "\t" <<
-                     resp->get_instances()[i].tables[j].name << endl;
-                 size_t k = 0;
-                 for (; k < resp->get_instances()[i].tables[j].peers.size();
-                         k++) {
-                     cout << "\t\t" <<
-                         resp->get_instances()[i].tables[j].peers[k] << endl;
-                 }
-            }
-        }
-        cout << "*******************************************************"<<endl;
-        cout << endl;
-        validate_done_ = true;
-    }
-
-    static void ValidateRoutingInstanceSummaryResponse(Sandesh *sandesh,
-            vector<string> &result) {
-        ShowRoutingInstanceSummaryResp *resp =
-                dynamic_cast<ShowRoutingInstanceSummaryResp *>(sandesh);
-        TASK_UTIL_EXPECT_TRUE(resp != NULL);
-
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_instances().size());
-
-        cout << "*******************************************************"<<endl;
-        for (size_t i = 0; i < resp->get_instances().size(); ++i) {
-            TASK_UTIL_EXPECT_EQ(result[i], resp->get_instances()[i].get_name());
-            cout << resp->get_instances()[i].log() << endl;
-        }
-        cout << "*******************************************************"<<endl;
-        cout << endl;
-        validate_done_ = true;
-    }
-
     static void ValidateNeighborResponse(Sandesh *sandesh,
                                          vector<size_t> &result) {
         BgpNeighborListResp *resp =
@@ -468,100 +421,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
     RegisterSandeshShowXmppExtensions(&sandesh_context);
     sandesh_context.bgp_server = a_.get();
     sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
-
-    // show instance
-    cout << "ValidateRoutingInstanceResponse:" << endl;
     Sandesh::set_client_context(&sandesh_context);
-    std::vector<size_t> result = list_of(6)(4)(4); // inet, ermvpn, enet, inet6
-    Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
-                                   _1, result));
-    ShowRoutingInstanceReq *req = new ShowRoutingInstanceReq;
-    validate_done_ = false;
-    req->HandleRequest();
-    req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show specific instance
-    cout << "ValidateRoutingInstanceResponse for __default__:" << endl;
-    Sandesh::set_client_context(&sandesh_context);
-    result = list_of(6);
-    Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
-                                   _1, result));
-    req = new ShowRoutingInstanceReq;
-    req->set_name(BgpConfigManager::kMasterInstance);
-    validate_done_ = false;
-    req->HandleRequest();
-    req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show non-existent instance
-    cout << "ValidateRoutingInstanceResponse for xyz:" << endl;
-    Sandesh::set_client_context(&sandesh_context);
-    result.clear();
-    Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
-                                   _1, result));
-    req = new ShowRoutingInstanceReq;
-    req->set_name("xyz");
-    validate_done_ = false;
-    req->HandleRequest();
-    req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show instance summary
-    cout << "ValidateRoutingInstanceSummaryResponse:" << endl;
-    Sandesh::set_client_context(&sandesh_context);
-    vector<string> sresult =
-        list_of(BgpConfigManager::kMasterInstance)("blue")("red");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
-    ShowRoutingInstanceSummaryReq *sreq = new ShowRoutingInstanceSummaryReq;
-    validate_done_ = false;
-    sreq->HandleRequest();
-    sreq->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show instance summary matching ""
-    cout << "ValidateRoutingInstanceSummaryResponse matching empty string:" << endl;
-    Sandesh::set_client_context(&sandesh_context);
-    sresult = list_of(BgpConfigManager::kMasterInstance)("blue")("red");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
-    sreq = new ShowRoutingInstanceSummaryReq;
-    sreq->set_search_string("");
-    validate_done_ = false;
-    sreq->HandleRequest();
-    sreq->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show instance summary matching "blue"
-    cout << "ValidateRoutingInstanceSummaryResponse matching blue:" << endl;
-    Sandesh::set_client_context(&sandesh_context);
-    sresult = list_of("blue");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
-    sreq = new ShowRoutingInstanceSummaryReq;
-    sreq->set_search_string("blue");
-    validate_done_ = false;
-    sreq->HandleRequest();
-    sreq->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show instance summary matching "u"
-    cout << "ValidateRoutingInstanceSummaryResponse matching u:" << endl;
-    Sandesh::set_client_context(&sandesh_context);
-    sresult = list_of(BgpConfigManager::kMasterInstance)("blue");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateRoutingInstanceSummaryResponse, _1, sresult));
-    sreq = new ShowRoutingInstanceSummaryReq;
-    sreq->set_search_string("u");
-    validate_done_ = false;
-    sreq->HandleRequest();
-    sreq->Release();
-    WAIT_EQ(true, validate_done_);
 
     // show neighbor
     cout << "ValidateNeighborResponse:" << endl;
-    result = list_of(2)(9); // inet, ermvpn, enet, inet6
+    std::vector<size_t> result = list_of(2)(9); // inet, ermvpn, enet, inet6
     Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
                                    _1, result));
     BgpNeighborReq *nbr_req = new BgpNeighborReq;

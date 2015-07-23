@@ -117,7 +117,7 @@ public:
     void reset_notify_count() { notify_count_ = 0; }
 
     bool HasWalkers() const { return walker_count_ != 0; }
-    uint64_t walker_count() { return walker_count_; }
+    uint64_t walker_count() const { return walker_count_; }
     void incr_walker_count() { walker_count_++; }
     uint64_t decr_walker_count() { return --walker_count_; }
 

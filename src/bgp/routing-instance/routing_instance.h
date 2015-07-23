@@ -160,7 +160,8 @@ class RoutingInstanceMgr {
 public:
     typedef IndexMap<std::string, RoutingInstance,
             RoutingInstanceSet> RoutingInstanceList;
-    typedef RoutingInstanceList::iterator NameIterator;
+    typedef RoutingInstanceList::iterator name_iterator;
+    typedef RoutingInstanceList::const_iterator const_name_iterator;
     typedef std::multimap<RouteTarget, RoutingInstance *> InstanceTargetMap;
     typedef std::multimap<int, RoutingInstance *> VnIndexMap;
 
@@ -213,11 +214,17 @@ public:
                                        RoutingInstanceSet::npos);
     }
 
-    NameIterator name_begin() { return instances_.begin(); }
-    NameIterator name_end() { return instances_.end(); }
-    NameIterator name_lower_bound(const std::string &name) {
+    name_iterator name_begin() { return instances_.begin(); }
+    name_iterator name_end() { return instances_.end(); }
+    name_iterator name_lower_bound(const std::string &name) {
         return instances_.lower_bound(name);
     }
+    const_name_iterator name_cbegin() { return instances_.cbegin(); }
+    const_name_iterator name_cend() { return instances_.cend(); }
+    const_name_iterator name_clower_bound(const std::string &name) {
+        return instances_.lower_bound(name);
+    }
+
     RoutingInstance *GetRoutingInstance(const std::string &name) {
         return instances_.Find(name);
     }
