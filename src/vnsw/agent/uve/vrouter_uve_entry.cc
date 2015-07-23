@@ -23,7 +23,9 @@
 using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
-    : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_() {
+    : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_(),
+      prev_flow_setup_rate_export_time_(0), prev_flow_created_(0),
+      prev_flow_aged_(0) {
     start_time_ = UTCTimestampUsec();
 }
 
@@ -32,6 +34,8 @@ VrouterUveEntry::~VrouterUveEntry() {
 
 bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
+    uint64_t max_add_rate = 0, min_add_rate = 0;
+    uint64_t max_del_rate = 0, min_del_rate = 0;
     bool change = false;
     VrouterStatsAgent stats;
 
@@ -99,7 +103,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     }
 
     if (prev_stats_.get_total_flows() !=
-            agent_->stats()->flow_created() || first) {
+        agent_->stats()->flow_created() || first) {
         stats.set_total_flows(agent_->stats()->flow_created());
         prev_stats_.set_total_flows(agent_->stats()->
                                     flow_created());
@@ -215,6 +219,40 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (first) {
         stats.set_uptime(start_time_);
     }
+    uint64_t cur_time = UTCTimestampUsec();
+    uint32_t add_rate = 0, del_rate = 0;
+    if (prev_flow_setup_rate_export_time_) {
+        uint64_t diff_time = cur_time - prev_flow_setup_rate_export_time_;
+        uint64_t created_flows = agent_->stats()->flow_created() -
+            prev_flow_created_;
+        uint64_t aged_flows = agent_->stats()->flow_aged() - prev_flow_aged_;
+        uint64_t diff_secs = diff_time / 1000000;
+        if (diff_secs) {
+            add_rate = created_flows/diff_secs;
+            del_rate = aged_flows/diff_secs;
+        }
+    }
+    //Flow setup/delete rate are always sent
+    stats.set_flows_added_per_second(add_rate);
+    if (add_rate != 0) {
+        max_add_rate = agent_->stats()->max_flow_adds_per_second();
+        min_add_rate = agent_->stats()->min_flow_adds_per_second();
+    }
+    stats.set_flows_deleted_per_second(del_rate);
+    if (del_rate != 0) {
+        max_del_rate = agent_->stats()->max_flow_deletes_per_second();
+        min_del_rate = agent_->stats()->min_flow_deletes_per_second();
+    }
+    stats.set_max_flows_added_per_second(max_add_rate);
+    stats.set_min_flows_added_per_second(min_add_rate);
+    stats.set_max_flows_deleted_per_second(max_del_rate);
+    stats.set_min_flows_deleted_per_second(min_del_rate);
+    change = true;
+    prev_flow_setup_rate_export_time_ = cur_time;
+    prev_flow_created_ = agent_->stats()->flow_created();
+    prev_flow_aged_ = agent_->stats()->flow_aged();
+    agent_->stats()->ResetFlowAddMinMaxStats(cur_time);
+    agent_->stats()->ResetFlowDelMinMaxStats(cur_time);
 
     if (change) {
         DispatchVrouterStatsMsg(stats);
