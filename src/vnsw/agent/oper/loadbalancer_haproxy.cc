@@ -64,6 +64,8 @@ void LoadbalancerHaproxy::GenerateGlobal(
     *out << string(4, ' ') << "group nogroup" << endl;
     *out << string(4, ' ') << "stats socket " << filename
                            << ".sock mode 0666 level user" << endl;
+    *out << string(4, ' ') << "ulimit-n 200000" << end;
+    *out << string(4, ' ') << "maxconn 65000" << endl;
     *out << endl;
 }
 
@@ -75,8 +77,8 @@ void LoadbalancerHaproxy::GenerateDefaults(
     *out << string(4, ' ') << "retries 3" << endl;
     *out << string(4, ' ') << "option redispatch" << endl;
     *out << string(4, ' ') << "timeout connect 5000" << endl;
-    *out << string(4, ' ') << "timeout client 50000" << endl;
-    *out << string(4, ' ') << "timeout server 50000" << endl;
+    *out << string(4, ' ') << "timeout client 300000" << endl;
+    *out << string(4, ' ') << "timeout server 300000" << endl;
     *out << endl;
 }
 
