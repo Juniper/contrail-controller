@@ -54,13 +54,17 @@ struct TypeDefinition {
 //
 typedef ::testing::Types <
     TypeDefinition<
+        ShowRoutingInstanceReq,
+        ShowRoutingInstanceReqIterate,
+        ShowRoutingInstanceResp >,
+    TypeDefinition<
         ShowRoutingInstanceSummaryReq,
         ShowRoutingInstanceSummaryReqIterate,
         ShowRoutingInstanceSummaryResp >,
     TypeDefinition<
-        ShowRoutingInstanceReq,
-        ShowRoutingInstanceReqIterate,
-        ShowRoutingInstanceResp > > TypeDefinitionList;
+        ShowBgpInstanceConfigReq,
+        ShowBgpInstanceConfigReqIterate,
+        ShowBgpInstanceConfigResp > > TypeDefinitionList;
 
 //
 // Fixture class template - will be instantiated further below for each entry
@@ -87,6 +91,9 @@ protected:
         : thread_(&evm_), xmpp_server_(NULL), validate_done_(false) {
     }
 
+    bool RequestIsConfig() const { return false; }
+    bool RequestIsDetail() const { return false; }
+
     virtual void SetUp() {
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         bgp_schema_ParserInit(parser);
@@ -107,21 +114,12 @@ protected:
         Configure();
         task_util::WaitForIdle();
 
-        agent1_.reset(new test::NetworkAgentMock(&evm_, "agent1",
-            xmpp_server_->GetPort(), "127.0.0.1", "127.0.0.11"));
-        TASK_UTIL_EXPECT_TRUE(agent1_->IsEstablished());
-        agent2_.reset(new test::NetworkAgentMock(&evm_, "agent2",
-            xmpp_server_->GetPort(), "127.0.0.1", "127.0.0.12"));
-        TASK_UTIL_EXPECT_TRUE(agent2_->IsEstablished());
-
+        CreateAgents();
         SubscribeAgents();
     }
 
     virtual void TearDown() {
-        agent1_->SessionDown();
-        TASK_UTIL_EXPECT_FALSE(agent1_->IsEstablished());
-        agent2_->SessionDown();
-        TASK_UTIL_EXPECT_FALSE(agent2_->IsEstablished());
+        ShutdownAgents();
 
         xmpp_server_->Shutdown();
         task_util::WaitForIdle();
@@ -132,8 +130,7 @@ protected:
         TcpServerManager::DeleteServer(xmpp_server_);
         xmpp_server_ = NULL;
 
-        agent1_->Delete();
-        agent2_->Delete();
+        DeleteAgents();
 
         IFMapCleanUp();
         task_util::WaitForIdle();
@@ -189,7 +186,20 @@ protected:
         }
     }
 
+    void CreateAgents() {
+        if (!RequestIsDetail())
+            return;
+        agent1_.reset(new test::NetworkAgentMock(&evm_, "agent1",
+            xmpp_server_->GetPort(), "127.0.0.1", "127.0.0.11"));
+        TASK_UTIL_EXPECT_TRUE(agent1_->IsEstablished());
+        agent2_.reset(new test::NetworkAgentMock(&evm_, "agent2",
+            xmpp_server_->GetPort(), "127.0.0.1", "127.0.0.12"));
+        TASK_UTIL_EXPECT_TRUE(agent2_->IsEstablished());
+    }
+
     void SubscribeAgents() {
+        if (!RequestIsDetail())
+            return;
         for (int idx = 900; idx < 912; ++idx) {
             string vn_name = string("vn") + integerToString(idx);
             agent1_->Subscribe(vn_name, idx);
@@ -200,7 +210,25 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void ShutdownAgents() {
+        if (!RequestIsDetail())
+            return;
+        agent1_->SessionDown();
+        TASK_UTIL_EXPECT_FALSE(agent1_->IsEstablished());
+        agent2_->SessionDown();
+        TASK_UTIL_EXPECT_FALSE(agent2_->IsEstablished());
+    }
+
+    void DeleteAgents() {
+        if (!RequestIsDetail())
+            return;
+        agent1_->Delete();
+        agent2_->Delete();
+    }
+
     void PauseInstanceDeletion() {
+        if (RequestIsConfig())
+            return;
         RoutingInstanceMgr *rim = server_->routing_instance_mgr();
         for (RoutingInstanceMgr::name_iterator it = rim->name_begin();
              it != rim->name_end(); ++it) {
@@ -210,6 +238,8 @@ protected:
     }
 
     void ResumeInstanceDeletion() {
+        if (RequestIsConfig())
+            return;
         RoutingInstanceMgr *rim = server_->routing_instance_mgr();
         for (RoutingInstanceMgr::name_iterator it = rim->name_begin();
              it != rim->name_end(); ++it) {
@@ -228,6 +258,22 @@ protected:
     boost::scoped_ptr<test::NetworkAgentMock> agent1_;
     boost::scoped_ptr<test::NetworkAgentMock> agent2_;
 };
+
+// Specialization to identify ShowBgpInstanceConfigReq.
+template<>
+bool BgpShowRoutingInstanceTest<TypeDefinition<ShowBgpInstanceConfigReq,
+    ShowBgpInstanceConfigReqIterate,
+    ShowBgpInstanceConfigResp> >::RequestIsConfig() const {
+    return true;
+}
+
+// Specialization to identify ShowRoutingInstanceReq.
+template<>
+bool BgpShowRoutingInstanceTest<TypeDefinition<ShowRoutingInstanceReq,
+    ShowRoutingInstanceReqIterate,
+    ShowRoutingInstanceResp> >::RequestIsDetail() const {
+    return true;
+}
 
 //
 // Instantiate fixture class template for each entry in TypeDefinitionList.
@@ -575,7 +621,7 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch6) {
 //
 // Next instance = empty
 // Page limit = 64 (default)
-// Iteration limit = 5
+// Iteration limit = 1024 (default)
 // Search string = "xyz"
 // Should return empty list.
 //
@@ -599,12 +645,14 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch7) {
 //
 // Next instance = empty
 // Page limit = 64 (default)
-// Iteration limit = 5
+// Iteration limit = 1024 (default)
 // Search string = "deleted"
 // Should return empty list.
 //
 TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch8) {
     typedef typename TypeParam::ReqT ReqT;
+    if (this->RequestIsConfig())
+        return;
 
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> instance_names;
@@ -623,12 +671,14 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch8) {
 //
 // Next instance = empty
 // Page limit = 64 (default)
-// Iteration limit = 5
+// Iteration limit = 1024 (default)
 // Search string = "deleted"
-// Should return all even instances (they are marked deleted)
+// Should return all instances (they are marked deleted)
 //
 TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch9) {
     typedef typename TypeParam::ReqT ReqT;
+    if (this->RequestIsConfig())
+        return;
 
     this->PauseInstanceDeletion();
     this->server_->Shutdown(false);
