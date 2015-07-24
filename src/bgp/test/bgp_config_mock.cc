@@ -21,9 +21,11 @@ class BgpMockConfigManager : public BgpConfigManager {
         return localname_;
     }
 
-    virtual InstanceMapRange InstanceMapItems() const {
-        return make_pair(instance_map_.begin(), instance_map_.end());
+    virtual InstanceMapRange InstanceMapItems(
+        const std::string &name = std::string()) const {
+        return make_pair(instance_map_.lower_bound(name), instance_map_.end());
     }
+
     virtual NeighborMapRange NeighborMapItems(
         const std::string &instance_name) const {
         return make_pair(neighbor_map_.begin(), neighbor_map_.end());
