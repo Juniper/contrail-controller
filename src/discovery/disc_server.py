@@ -73,6 +73,7 @@ class DiscoveryServer():
             'db_upd_hb': 0,
             'throttle_subs':0,
             '503': 0,
+            'count_lb': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -124,6 +125,9 @@ class DiscoveryServer():
         # show a specific service type
         bottle.route('/services/<service_type>', 'GET', self.show_all_services)
 
+        # api to perform on-demand load-balance across available publishers
+        bottle.route('/load-balance/<service_type>', 'GET', self.api_lb_service)
+
         # update service
         bottle.route('/service/<id>', 'PUT', self.service_http_put)
 
@@ -162,7 +166,7 @@ class DiscoveryServer():
                 'action',
                 self._base_url , '/stats', 'show discovery service stats'))
 
-        # cleanup 
+        # cleanup
         bottle.route('/cleanup', 'GET', self.cleanup_http_get)
         self._homepage_links.append(LinkObject('action',
             self._base_url , '/cleanup', 'Purge inactive publishers'))
@@ -385,7 +389,7 @@ class DiscoveryServer():
             self.syslog('Unable to parse heartbeat')
             self.syslog(bottle.request.body.buf)
             bottle.abort(400, 'Unable to parse heartbeat')
-            
+           
         status = self.heartbeat(data['cookie'])
         return status
 
@@ -394,18 +398,18 @@ class DiscoveryServer():
         self._debug['msg_pubs'] += 1
         ctype = bottle.request.headers['content-type']
         json_req = {}
-        if ctype == 'application/json':
+        if 'application/json' in ctype:
             data = bottle.request.json
             for service_type, info in data.items():
                 json_req['name'] = service_type
                 json_req['info'] = info
-        elif ctype == 'application/xml':
+        elif 'application/xml' in ctype:
             data = xmltodict.parse(bottle.request.body.read())
             for service_type, info in data.items():
                 json_req['name'] = service_type
                 json_req['info'] = dict(info)
         else:
-            bottle.abort(400, e)
+            bottle.abort(415, 'Content-Type must be JSON or XML')
 
         sig = end_point or publisher_id(
                 bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
@@ -460,7 +464,7 @@ class DiscoveryServer():
         master_list = []
         working_list = []
         previous_use_count = list[0]['in_use']
-        list.append({'in_use': -1}) 
+        list.append({'in_use': -1})
         for item in list:
             if item['in_use'] != previous_use_count:
                 random.shuffle(working_list)
@@ -563,10 +567,11 @@ class DiscoveryServer():
 
         if subs:
             plist = dict((entry['service_id'],entry) for entry in pubs_active)
-            for service_id, result in subs:
+            for service_id, expired in subs:
+                # expired True if service was marked for deletion by LB command
                 # previously published service is gone
                 entry = plist.get(service_id, None)
-                if entry is None:
+                if entry is None or expired:
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
                     continue
                 result = entry['info']
@@ -612,6 +617,49 @@ class DiscoveryServer():
             response = xmltodict.unparse({'response': response})
         return response
     # end api_subscribe
+
+    # on-demand API to load-balance existing subscribers across all currently available
+    # publishers. Needed if publisher gets added or taken down
+    def api_lb_service(self, service_type):
+        if service_type is None:
+            bottle.abort(405, "Missing service")
+
+        pubs = self._db_conn.lookup_service(service_type)
+        if pubs is None:
+            bottle.abort(405, 'Unknown service')
+        pubs_active = [item for item in pubs if not self.service_expired(item)]
+
+        # only load balance if over 5% deviation from average to avoid churn
+        avg_per_pub = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
+        lb_list = {item['service_id']:(item['in_use']-int(avg_per_pub)) for item in pubs_active if item['in_use'] > int(1.05*avg_per_pub)}
+        if len(lb_list) == 0:
+            return
+
+        clients = self._db_conn.get_all_clients(service_type=service_type)
+        if clients is None:
+            return
+
+        self.syslog('Initial load-balance server-list: %s, avg-per-pub %d, clients %d' \
+            % (lb_list, avg_per_pub, len(clients)))
+
+        """
+        Walk through all subscribers and mark one publisher per subscriber down
+        for deletion later. We could have deleted subscription right here.
+        However the discovery server view of subscribers will not match with actual
+        subscribers till respective TTL expire. Note that we only mark down ONE
+        publisher per subscriber to avoid much churn at the subscriber end.
+            self._db_conn.delete_subscription(service_type, client_id, service_id)
+        """
+        clients_lb_done = []
+        for client in clients:
+            (service_type, client_id, service_id, mtime, ttl) = client
+            if client_id not in clients_lb_done and service_id in lb_list and lb_list[service_id] > 0:
+                self._db_conn.mark_delete_subscription(service_type, client_id, service_id)
+                clients_lb_done.append(client_id)
+                lb_list[service_id] -= 1
+                self._debug['count_lb'] += 1
+        return {}
+    # end api_lb_service
 
     def api_query(self):
         self._debug['msg_query'] += 1
@@ -691,7 +739,7 @@ class DiscoveryServer():
             rsp += '        <td>' + link + '</td>\n'
             rsp += '        <td>' + pub['prov_state'] + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
-            link = do_html_url("/clients/%s/%s" % (service_type, service_id), 
+            link = do_html_url("/clients/%s/%s" % (service_type, service_id),
                 str(pub['in_use']))
             rsp += '        <td>' + link + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
@@ -792,7 +840,7 @@ class DiscoveryServer():
             if self.service_expired(entry):
                 self._db_conn.delete_service(entry)
         return self.show_all_services()
-    #end 
+    #end
 
     @db_error_handler
     def show_all_clients(self, service_type=None, service_id=None):
@@ -811,7 +859,7 @@ class DiscoveryServer():
         rsp += '    </tr>\n'
 
         # lookup subscribers of the service
-        clients = self._db_conn.get_all_clients(service_type=service_type, 
+        clients = self._db_conn.get_all_clients(service_type=service_type,
             service_id=service_id)
 
         if not clients:
@@ -1067,7 +1115,9 @@ def parse_args(args_str):
     return args
 # end parse_args
 
+server = None
 def run_discovery_server(args):
+    global server
     server = DiscoveryServer(args)
     pipe_start_app = server.get_pipe_start_app()
 
