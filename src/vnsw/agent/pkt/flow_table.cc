@@ -1509,8 +1509,13 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.flow_source_plen_map = info->flow_dest_plen_map;
     data_.flow_dest_plen_map = info->flow_source_plen_map;
-    data_.dest_vrf = info->nat_dest_vrf;
     data_.vrf = info->dest_vrf;
+
+    if (!info->nat_done) {
+        data_.dest_vrf = info->flow_source_vrf;
+    } else {
+       data_.dest_vrf = info->nat_dest_vrf;
+    }
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
     } else {
