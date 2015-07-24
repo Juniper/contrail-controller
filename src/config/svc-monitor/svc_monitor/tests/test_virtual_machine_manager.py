@@ -36,6 +36,10 @@ class FakeNovaServer(object):
         self.name = None
         return
 
+class AnyStringWith(str):
+    def __eq__(self, other):
+        return self in other
+
 class VirtualMachineManagerTest(unittest.TestCase):
     def setUp(self):
         def get_vn_id(obj_type, fq_name):
@@ -72,10 +76,12 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.mocked_db = mock.MagicMock()
 
         self.mocked_args = mock.MagicMock()
-        self.mocked_args.availability_zone = None
+        self.mocked_args.availability_zone = 'default-availability-zone'
+
+        self.log_mock = mock.MagicMock()
 
         self.vm_manager = VirtualMachineManager(
-            db=self.mocked_db, logger=mock.MagicMock(),
+            db=self.mocked_db, logger=self.log_mock,
             vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
             nova_client=self.nova_mock, args=self.mocked_args)
 
@@ -107,11 +113,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         vm.proj_fq_name = ['fake-domain', 'fake-project']
         return vm
 
-    def test_virtual_machine_create(self):
-        self.create_test_project('fake-domain:fake-project')
-        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
-        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
-
+    def create_test_st_obj(self):
         st_obj = {}
         st_obj['fq_name'] = ['fake-domain', 'fake-template']
         st_obj['uuid'] = 'fake-st-uuid'
@@ -126,10 +128,13 @@ class VirtualMachineManagerTest(unittest.TestCase):
                                       {'service_interface_type': 'left', 'shared_ip': False},
                                       {'service_interface_type': 'right', 'shared_ip': False}]
         st_obj['service_template_properties'] = st_props
+        st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
+        return st
 
+    def create_test_si_obj(self, name='fake-instance'):
         si_obj = {}
-        si_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-instance']
-        si_obj['uuid'] = 'fake-si-uuid'
+        si_obj['fq_name'] = ['fake-domain', 'fake-project', name]
+        si_obj['uuid'] = name
         si_obj['id_perms'] = 'fake-id-perms'
         si_props = {}
         si_props['scale_out'] = {'max_instances': 2}
@@ -137,9 +142,15 @@ class VirtualMachineManagerTest(unittest.TestCase):
                                       {'virtual_network': 'fake-domain:fake-project:left-vn'},
                                       {'virtual_network': 'fake-domain:fake-project:right-vn'}]
         si_obj['service_instance_properties'] = si_props
-
-        st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
         si = ServiceInstanceSM.locate('fake-si-uuid', si_obj)
+        return si
+
+    def test_virtual_machine_create(self):
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        st = self.create_test_st_obj()
+        si = self.create_test_si_obj()
 
         def nova_oper(resource, oper, proj_name, **kwargs):
             if resource == 'servers' and oper == 'create':
@@ -152,7 +163,108 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.vm_manager.create_service(st, si)
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
+        self.assertTrue(si.availability_zone, 'default-availability-zone') 
 
     def test_virtual_machine_delete(self):
         vm = self.create_test_virtual_machine('fake-vm-uuid')
         self.vm_manager.delete_service(vm)
+
+    def test_missing_image_in_template(self):
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        st = self.create_test_st_obj()
+        si = self.create_test_si_obj()
+
+        st.params['image_name'] = None
+        self.vm_manager.create_service(st, si)
+        self.log_mock.log_error.assert_called_with("Image not present in %s" % ((':').join(st.fq_name)))
+
+    def test_missing_flavor_in_template(self):
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        st = self.create_test_st_obj()
+        si = self.create_test_si_obj()
+
+        def nova_oper(resource, oper, proj_name, **kwargs):
+            if resource == 'flavors' and oper == 'find':
+                return None
+            else:
+                return mock.MagicMock()
+        self.nova_mock.oper = nova_oper
+
+        st.params['flavor'] = None
+        self.vm_manager.create_service(st, si)
+        self.log_mock.log_error.assert_called_with(AnyStringWith("Flavor not found"))
+
+    def test_availability_zone_setting(self):
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        st = self.create_test_st_obj()
+        si = self.create_test_si_obj()
+
+        def nova_oper(resource, oper, proj_name, **kwargs):
+            if resource == 'servers' and oper == 'create':
+                nova_vm = FakeNovaServer('fake-vm-uuid', kwargs['name'])
+                return nova_vm
+            else:
+                return mock.MagicMock()
+        self.nova_mock.oper = nova_oper
+
+        st.params['availability_zone_enable'] = True
+        si.params['availability_zone'] = 'test-availability-zone'
+        self.vm_manager.create_service(st, si)
+        self.assertTrue(si.availability_zone, 'test-availability-zone') 
+
+    def test_network_config_validation(self):
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        st = self.create_test_st_obj()
+        si = self.create_test_si_obj()
+
+        st.params['interface_type'] = []
+        self.vm_manager.create_service(st, si)
+        self.log_mock.log_notice.assert_called_with("Interface list empty for ST %s SI %s" %
+            ((':').join(st.fq_name), (':').join(si.fq_name)))
+
+    def test_virtual_machine_exists(self):
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        st = self.create_test_st_obj()
+        si = self.create_test_si_obj()
+
+        def nova_oper(resource, oper, proj_name, **kwargs):
+            if resource == 'servers' and oper == 'create':
+                nova_vm = FakeNovaServer(kwargs['name'], kwargs['name'])
+                return nova_vm
+            else:
+                return mock.MagicMock()
+        self.nova_mock.oper = nova_oper
+
+        def vm_create(vm_obj):
+            vm_obj.uuid = (':').join(vm_obj.fq_name)
+            vm = {}
+            vm['uuid'] = vm_obj.uuid
+            vm['fq_name'] = vm_obj.fq_name
+            vm['display_name'] = vm_obj.display_name
+            VirtualMachineSM.locate(vm_obj.uuid, vm)
+            si = ServiceInstanceSM.get(vm_obj.get_service_instance_refs()[0]['uuid'])
+            if si:
+                si.virtual_machines.add(vm_obj.uuid)
+                vm_db = VirtualMachineSM.locate(vm_obj.uuid)
+                vm_db.index = int(vm_obj.display_name.split('__')[-2]) - 1
+            return
+        self.mocked_vnc.virtual_machine_create = vm_create
+
+        self.vm_manager.create_service(st, si)
+        self.log_mock.log_info.assert_any_call(AnyStringWith('Launching VM :'))
+        self.log_mock.log_info.assert_any_call(AnyStringWith('Created VM :'))
+        self.log_mock.log_info.assert_any_call(AnyStringWith(si.name))
+        self.log_mock.reset_mock()
+
+        self.vm_manager.create_service(st, si)
+        self.assertTrue(self.log_mock.log_info.call_count, 1)
