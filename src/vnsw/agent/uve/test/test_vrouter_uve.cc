@@ -1035,8 +1035,8 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
 
     //Verify flow add rate
     const VrouterStatsAgent stats = vr->last_sent_stats();
-    EXPECT_EQ(4U, stats.get_flows_added_per_second());
-    EXPECT_EQ(0U, stats.get_flows_deleted_per_second());
+    EXPECT_EQ(4U, stats.get_flow_rate().get_added_flows());
+    EXPECT_EQ(0U, stats.get_flow_rate().get_deleted_flows());
 
     //Update prev_time to current_time - 1 sec
     t = UTCTimestampUsec() - 1000000;
@@ -1062,8 +1062,8 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
 
     //Verify flow add rate
     const VrouterStatsAgent stats2 = vr->last_sent_stats();
-    EXPECT_EQ(2U, stats2.get_flows_added_per_second());
-    EXPECT_EQ(0U, stats2.get_flows_deleted_per_second());
+    EXPECT_EQ(2U, stats2.get_flow_rate().get_added_flows());
+    EXPECT_EQ(0U, stats2.get_flow_rate().get_deleted_flows());
 
     //Update prev_time to current_time - 1 sec
     t = UTCTimestampUsec() - 1000000;
@@ -1078,8 +1078,8 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
 
     //Verify flow add and delete rate
     const VrouterStatsAgent stats3 = vr->last_sent_stats();
-    EXPECT_EQ(0U, stats3.get_flows_added_per_second());
-    EXPECT_EQ(2U, stats3.get_flows_deleted_per_second());
+    EXPECT_EQ(0U, stats3.get_flow_rate().get_added_flows());
+    EXPECT_EQ(2U, stats3.get_flow_rate().get_deleted_flows());
 
     FlowTearDown();
     vr->clear_count();
