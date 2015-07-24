@@ -51,7 +51,12 @@ def _set_global_config(config, sock_path):
         'user nobody',
         'group nogroup',
         'log /dev/log local0',
-        'log /dev/log local1 notice'
+        'log /dev/log local1 notice',
+        'tune.ssl.default-dh-param 2048',
+        'ssl-default-bind-ciphers ECDH+AESGCM:' \
+        'DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:' \
+        'DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:' \
+        'RSA+3DES:!aNULL:!MD5:!DSS'
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
     return ("\n\t".join(conf))
