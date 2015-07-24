@@ -290,6 +290,17 @@ TEST_F(InstanceServiceTest, AddPortWrongIP) {
     TASK_UTIL_EXPECT_EQ(0, cfg_table_->Size());
 }
 
+// Wrong IP address : send IPv6 address
+TEST_F(InstanceServiceTest, AddPortWrongIPIsv6) {
+    Port port;
+    InitPortInfo(port, 2, 2, 2, PortTypes::NovaVMPort);
+    port.ip_address = "30:32::03";
+    AddPort(port);
+    client->WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, cfg_table_->Size());
+}
+
 // Null uuids, ports do get created
 TEST_F(InstanceServiceTest, NullUUIDTest) {
     Port port;
