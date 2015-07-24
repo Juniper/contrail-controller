@@ -479,7 +479,7 @@ class VncApiServer(object):
             is_latest = result
             if is_latest:
                 # send Not-Modified, caches use this for read optimization
-                response.status = 304
+                bottle.response.status = 304
                 return
         #end if etag
 
