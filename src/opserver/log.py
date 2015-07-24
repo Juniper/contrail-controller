@@ -120,6 +120,7 @@ class LogQuerier(object):
          help="Display list of message type", action="store_true")
         parser.add_argument("--output-file", "-o", help="redirect output to file")
         parser.add_argument("--json", help="Dump output as json", action="store_true")
+        parser.add_argument("--all", action="store_true", help=argparse.SUPPRESS)
         self._args = parser.parse_args()
         return 0
     # end parse_args
