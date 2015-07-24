@@ -162,9 +162,9 @@ const string &BgpYamlConfigManager::localname() const {
 }
 
 BgpConfigManager::InstanceMapRange
-BgpYamlConfigManager::InstanceMapItems() const {
+BgpYamlConfigManager::InstanceMapItems(const string &start_name) const {
     const BgpConfigManager::InstanceMap &map = data_->GetInstanceMap();
-    return make_pair(map.begin(), map.end());
+    return make_pair(map.lower_bound(start_name), map.end());
 }
 
 BgpConfigManager::NeighborMapRange BgpYamlConfigManager::NeighborMapItems(
