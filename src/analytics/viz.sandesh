@@ -1246,6 +1246,28 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'if_stats.in_bw_usage', 'datatype' : 'int', 'index' : false },
           { 'name' : 'if_stats.out_bw_usage', 'datatype' : 'int', 'index' : false }
         ]
+    },
+    {
+      'display_name' : 'Vrouter Flow Setup Statistics',
+      'stat_type' : 'VrouterStatsAgent'
+      'stat_attr' : 'flow_add_rate',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'flow_add_rate.avg_flows_per_second', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'flow_add_rate.max_flows_per_second', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'flow_add_rate.min_flows_per_second', 'datatype' : 'int', 'index' : false }
+        ]
+    },
+    {
+      'display_name' : 'Vrouter Flow Teardown Statistics',
+      'stat_type' : 'VrouterStatsAgent'
+      'stat_attr' : 'flow_delete_rate',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'flow_delete_rate.avg_flows_per_second', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'flow_delete_rate.max_flows_per_second', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'flow_delete_rate.min_flows_per_second', 'datatype' : 'int', 'index' : false }
+        ]
     }
 ]
 
