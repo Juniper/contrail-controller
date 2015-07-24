@@ -68,6 +68,7 @@ class Subscribe(object):
             'service': service_type,
             'instances': count,
             'client-type': dc._client_type,
+            'remote-addr': dc._myip,
             'client': dc._myid
         }
         self.post_body = json.dumps(data)
@@ -193,7 +194,15 @@ class DiscoveryClient(object):
         }
         self.sig = None
         self.task = None
-	self._sandesh = None
+        self._sandesh = None
+
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((server_ip, server_port))
+            self._myip = s.getsockname()[0]
+            s.close()
+        except Exception as e:
+            self._myip = socket.gethostname()
 
         # queue to publish information (sig => service data)
         self.pub_q = {}
@@ -233,7 +242,11 @@ class DiscoveryClient(object):
 
     def _publish_int(self, service, data):
         self.syslog('Publish service "%s", data "%s"' % (service, data))
-        payload = {service: data}
+        payload = {
+            service        : data,
+            'service-type' : service,
+            'remote-addr'  : self._myip
+        }
         conn_state_updated = False
         while True:
             try:
