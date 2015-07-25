@@ -27,12 +27,14 @@ class LoadbalancerAgentTest(unittest.TestCase):
         self._args, remaining_argv = conf_parser.parse_known_args()
         self._args.config_sections = config
 
-        def sas_read_side_effect(uuids):
-            return (True, [{
+        def sas_read_side_effect(obj_type, uuids):
+            if obj_type == 'service_appliance_set':
+                return (True, [{
                    'fq_name': ['default-global-system-config', 'opencontrail'],
                    'service_appliance_driver': 'svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver'
                    }])
-        self.cassandra._cassandra_service_appliance_set_read = mock.Mock(
+            return (False, None)
+        self.cassandra.read = mock.Mock(
             side_effect=sas_read_side_effect)
         DBBase.init(self.svc, None, self.cassandra)
         self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc, self.vnc_lib,
