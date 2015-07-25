@@ -8,7 +8,7 @@ from cfgm_common import exceptions as vnc_exc
 from cfgm_common import svc_info
 from config_db import VirtualNetworkSM, LogicalRouterSM, \
     VirtualMachineInterfaceSM, ServiceInstanceSM, ServiceTemplateSM, \
-    ProjectSM
+    ProjectSM, DBBaseSM
 
 
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
@@ -86,8 +86,7 @@ class SNATAgent(Agent):
              for uuid in vmi_uuids]
 
     def _virtual_network_read(self, net_uuid):
-        (ok, result) = self._cassandra._cassandra_virtual_network_read(
-            [net_uuid])
+        (ok, result) = DBBaseSM()._cassandra.read('virtual-network', net_uuid)
         if not ok:
             return
         return VirtualNetwork.from_dict(**result[0])
@@ -140,8 +139,7 @@ class SNATAgent(Agent):
         except NoIdError:
             return
 
-        (ok, result) = self._cassandra._cassandra_route_table_read(
-            [rt_uuid])
+        (ok, result) = DBBaseSM()._cassandra.read('route-table', rt_uuid)
         if not ok:
             return
 
