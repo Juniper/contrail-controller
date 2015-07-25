@@ -416,7 +416,11 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in lb_pool_list:
-                lb_pool = LoadbalancerPoolSM.locate(uuid)
+                try:
+                    lb_pool = LoadbalancerPoolSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for lb pool %s" % uuid)
+                    continue
                 if lb_pool.virtual_machine_interface:
                     vmi_set.add(lb_pool.virtual_machine_interface)
 
@@ -425,14 +429,22 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in lb_pool_member_list:
-                lb_pool_member = LoadbalancerMemberSM.locate(uuid)
+                try:
+                    lb_pool_member = LoadbalancerMemberSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for lb member %s" % uuid)
+                    continue
 
         ok, lb_vip_list = self._cassandra._cassandra_virtual_ip_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in lb_vip_list:
-                virtual_ip = VirtualIpSM.locate(uuid)
+                try:
+                    virtual_ip = VirtualIpSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for lb vip %s" % uuid)
+                    continue
                 if virtual_ip.virtual_machine_interface:
                     vmi_set.add(virtual_ip.virtual_machine_interface)
 
@@ -441,28 +453,44 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in lb_hm_list:
-                lb_hm = HealthMonitorSM.locate(uuid)
+                try:
+                    lb_hm = HealthMonitorSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for lb healthmonitor %s" % uuid)
+                    continue
 
         ok, si_list = self._cassandra._cassandra_service_instance_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in si_list:
-                si = ServiceInstanceSM.locate(uuid)
+                try:
+                    si = ServiceInstanceSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for service instance %s" % uuid)
+                    continue
 
         ok, st_list = self._cassandra._cassandra_service_template_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in st_list:
-                st = ServiceTemplateSM.locate(uuid)
+                try:
+                    st = ServiceTemplateSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for service template %s" % uuid)
+                    continue
 
         ok, vn_list = self._cassandra._cassandra_virtual_network_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in vn_list:
-                vn = VirtualNetworkSM.locate(uuid)
+                try:
+                    vn = VirtualNetworkSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for virtual network %s" % uuid)
+                    continue
                 vmi_set |= vn.virtual_machine_interfaces
 
         ok, ifd_list = self._cassandra._cassandra_physical_interface_list()
@@ -470,7 +498,11 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in ifd_list:
-                ifd = PhysicalInterfaceSM.locate(uuid)
+                try:
+                    ifd = PhysicalInterfaceSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for physical interface %s" % uuid)
+                    continue
 
 
         ok, ifl_list = self._cassandra._cassandra_logical_interface_list()
@@ -478,7 +510,11 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in ifl_list:
-                ifl = LogicalInterfaceSM.locate(uuid)
+                try:
+                    ifl = LogicalInterfaceSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for logical interface %s" % uuid)
+                    continue
                 if ifl.virtual_machine_interface:
                     vmi_set.add(ifl.virtual_machine_interface)
 
@@ -487,21 +523,33 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in pr_list:
-                pr = PhysicalRouterSM.locate(uuid)
+                try:
+                    pr = PhysicalRouterSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for physical router %s" % uuid)
+                    continue
 
         ok, vr_list = self._cassandra._cassandra_virtual_router_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in vr_list:
-                vr = VirtualRouterSM.locate(uuid)
+                try:
+                    vr = VirtualRouterSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for virtual router %s" % uuid)
+                    continue
 
         ok, vmi_list = self._cassandra._cassandra_virtual_machine_interface_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in vmi_list:
-                vmi = VirtualMachineInterfaceSM.locate(uuid)
+                try:
+                    vmi = VirtualMachineInterfaceSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for virtual machine interface %s" % uuid)
+                    continue
                 if vmi.instance_ip:
                     iip_set.add(vmi.instance_ip)
 
@@ -510,63 +558,99 @@ class SvcMonitor(object):
             pass
         else:
             for fq_name, uuid in irt_list:
-                irt = InterfaceRouteTableSM.locate(uuid)
+                try:
+                    irt = InterfaceRouteTableSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for interface route table %s" % uuid)
+                    continue
 
         ok, project_list = self._cassandra._cassandra_project_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in project_list:
-                prj = ProjectSM.locate(uuid)
+                try:
+                    prj = ProjectSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for project %s" % uuid)
+                    continue
 
         ok, sas_list = self._cassandra._cassandra_service_appliance_set_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in sas_list:
-                sas = ServiceApplianceSetSM.locate(uuid)
+                try:
+                    sas = ServiceApplianceSetSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for service appliance set %s" % uuid)
+                    continue
 
         ok, sa_list = self._cassandra._cassandra_service_appliance_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in sa_list:
-                sa = ServiceApplianceSM.locate(uuid)
+                try:
+                    sa = ServiceApplianceSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for service appliance %s" % uuid)
+                    continue
 
         ok, domain_list = self._cassandra._cassandra_domain_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in domain_list:
-                DomainSM.locate(uuid)
+                try:
+                    DomainSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for domain %s" % uuid)
+                    continue
 
         ok, iip_list = self._cassandra._cassandra_instance_ip_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in iip_list:
-                InstanceIpSM.locate(uuid)
+                try:
+                    InstanceIpSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for instance ip %s" % uuid)
+                    continue
 
         ok, fip_list = self._cassandra._cassandra_floating_ip_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in fip_list:
-                FloatingIpSM.locate(uuid)
+                try:
+                    FloatingIpSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for floating ip %s" % uuid)
+                    continue
 
         ok, sg_list = self._cassandra._cassandra_security_group_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in sg_list:
-                SecurityGroupSM.locate(uuid)
+                try:
+                    SecurityGroupSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for security group %s" % uuid)
+                    continue
 
         ok, vm_list = self._cassandra._cassandra_virtual_machine_list()
         if not ok:
             pass
         else:
             for fq_name, uuid in vm_list:
-                vm = VirtualMachineSM.locate(uuid)
+                try:
+                    vm = VirtualMachineSM.locate(uuid)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for virtual machine %s" % uuid)
+                    continue
                 if vm.service_instance:
                     continue
                 for vmi_id in vm.virtual_machine_interfaces:
