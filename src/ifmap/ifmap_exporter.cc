@@ -145,7 +145,7 @@ IFMapNodeState *IFMapExporter::NodeStateLocate(IFMapNode *node){
     IFMapNodeState *state = static_cast<IFMapNodeState *>(
         node->GetState(node->table(), tinfo->id()));
     if (state == NULL) {
-        state = new IFMapNodeState();
+        state = new IFMapNodeState(node);
         node->SetState(node->table(), tinfo->id(), state);
     }
     return state;
@@ -364,7 +364,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
 
     if (IsFeasible(node)) {
         if (state == NULL) {
-            state = new IFMapNodeState();
+            state = new IFMapNodeState(node);
             entry->SetState(table, tinfo->id(), state);
         }
         state->SetValid(node);
@@ -680,6 +680,20 @@ size_t IFMapExporter::ClientConfigTrackerSize(int index) {
     ConfigSet *set = client_config_tracker_.at(index);
     assert(set);
     return set->size();
+}
+
+IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerBegin(int index)
+        const {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    return set->begin();
+}
+
+IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerEnd(int index)
+        const {
+    ConfigSet *set = client_config_tracker_.at(index);
+    assert(set);
+    return set->end();
 }
 
 void IFMapExporter::StateInterestSet(IFMapState *state,
