@@ -180,8 +180,27 @@ std::string GetHostIp(boost::asio::io_service *io_service,
     boost::asio::ip::tcp::resolver resolver(*io_service);
     boost::asio::ip::tcp::resolver::query query(hostname, "");
 
+    std::string result;
+
     iter = resolver.resolve(query, error);
-    return iter != end ? iter->endpoint().address().to_string() : "";
+    if (error) {
+        return result;
+    }
+
+    for (; iter != end; ++iter) {
+        const boost::asio::ip::address &addr = iter->endpoint().address();
+        if (addr.is_v6()) {
+            boost::asio::ip::address_v6 addr6 = addr.to_v6();
+            if (addr6.is_link_local()) {
+                continue;
+            }
+        }
+        result = addr.to_string();
+        if (addr.is_v4()) {
+            return result;
+        }
+    }
+    return result;
 }
 
 //
