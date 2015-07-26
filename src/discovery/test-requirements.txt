@@ -1,0 +1,15 @@
+ipdb
+python-subunit
+testrepository
+flexmock
+coverage
+webtest
+pyaml
+distribute>=0.7.3
+lxml
+kombu
+kazoo
+vnc_api
+cfgm_common
+python-novaclient
+discoveryclient
