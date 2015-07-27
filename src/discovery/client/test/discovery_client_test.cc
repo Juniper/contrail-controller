@@ -27,10 +27,12 @@ namespace ip = boost::asio::ip;
 class DiscoveryServiceClientMock: public DiscoveryServiceClient {
 public:
     DiscoveryServiceClientMock(EventManager *evm, boost::asio::ip::tcp::endpoint ep,
-                               std::string client_name) :
-        DiscoveryServiceClient(evm, ep, client_name) , 
+                               std::string client_name,
+                               bool send_parent_heartbeat = true) :
+        DiscoveryServiceClient(evm, ep, client_name),
         xmpp_instances_(0), ifmap_instances_(0),
-        xmpp_cb_count_(0), ifmap_cb_count_(0) {
+        xmpp_cb_count_(0), ifmap_cb_count_(0), xmpp_reeval_pub_(0),
+        send_parent_heartbeat_(send_parent_heartbeat) {
     }
 
     void AsyncSubscribeXmppHandler(std::vector<DSResponse> dr) {
@@ -46,6 +48,32 @@ public:
     }
 
     void AsyncCollectorHandler(std::vector<DSResponse> dr) {
+    }
+
+    bool XmppServicePublishReEvalHandler(std::string &msg) {
+        static bool publish_reeval = true;
+        xmpp_reeval_pub_++;
+        if (publish_reeval) {
+            publish_reeval = false;
+            msg = "Service is Up";
+            return true;
+        } else {
+            msg = "Service is Down";
+            publish_reeval = true;
+            return false;
+        }
+    }
+
+    bool XmppServicePublishReEvalHandlerUp(std::string &msg) {
+        static bool publish_reeval = true;
+        xmpp_reeval_pub_++;
+        if ((xmpp_reeval_pub_ == 1) || (xmpp_reeval_pub_ > 3)) {
+            msg = "Service is Up";
+            return true; //up
+        } else {
+            msg = "Service is Down";
+            return false; //down
+        }
     }
 
     void BuildServiceResponseMessage(std::string serviceNameTag, uint num_instances,
@@ -154,16 +182,31 @@ public:
         msg = ss.str(); 
     }
 
+    void SendHeartBeat(std::string serviceName, std::string msg) {
+        if (send_parent_heartbeat_) {
+            DiscoveryServiceClient::SendHeartBeat(serviceName, msg);
+            return;
+        }
+        // call heart-beat response
+        std::string msg3;
+        BuildHeartBeatResponseMessage(serviceName, msg3);
+        boost::system::error_code ec;
+        HeartBeatResponseHandler(msg3, ec, serviceName, NULL);
+    }
+
     int XmppInstances() { return xmpp_instances_; }
     int IfMapInstances() { return ifmap_instances_; }
     int XmppCbCount() { return xmpp_cb_count_; }
     int IfMapCbCount() { return ifmap_cb_count_; }
+    int XmppServiceReEvalPublishCount() { return xmpp_reeval_pub_; }
 
 private:
     uint8_t xmpp_instances_;
     uint8_t ifmap_instances_;
     uint8_t xmpp_cb_count_;
     uint8_t ifmap_cb_count_;
+    uint8_t xmpp_reeval_pub_;
+    bool send_parent_heartbeat_;
 };
 
 class DiscoveryServiceClientTest : public ::testing::Test {
@@ -372,6 +415,75 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_client) {
     delete dsc_pubsub;
     task_util::WaitForIdle(); 
 
+}
+
+TEST_F(DiscoveryServiceClientTest, DSS_ReEvaluateCb_Real) {
+
+    //Publish DS client
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("10.84.24.3"));
+    dss_ep.port(5998);
+    DiscoveryServiceClientMock *dsc_pubsub =
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
+    dsc_pubsub->Init();
+
+    //Publish xmpp-server service
+    std::string msg;
+    dsc_pubsub->BuildPublishMessage("xmpp-server-test", msg);
+    dsc_pubsub->Publish("xmpp-server-test", msg,
+        boost::bind(&DiscoveryServiceClientMock::XmppServicePublishReEvalHandlerUp,
+        dsc_pubsub, _1));
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_pubsub->IsPublishServiceRegisteredUp("xmpp-server-test"));
+
+    TASK_UTIL_EXPECT_EQ(1, dsc_pubsub->XmppServiceReEvalPublishCount());
+    //Confirm published service is UP
+    TASK_UTIL_EXPECT_TRUE(
+        dsc_pubsub->IsPublishServiceRegisteredUp("xmpp-server-test"));
+    task_util::WaitForIdle();
+    //subscribe to service
+    dsc_pubsub->Subscribe("xmpp-server-test", 1,
+        boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler,
+                    dsc_pubsub, _1));
+    TASK_UTIL_EXPECT_EQ(1, dsc_pubsub->XmppCbCount());
+    TASK_UTIL_EXPECT_EQ(1, dsc_pubsub->XmppInstances());
+
+
+    TASK_UTIL_EXPECT_EQ(2, dsc_pubsub->XmppServiceReEvalPublishCount());
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_pubsub->IsPublishServiceRegisteredUp("xmpp-server-test"));
+    task_util::WaitForIdle();
+    //subscribe to service
+    dsc_pubsub->Subscribe("xmpp-server-test", 1,
+        boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler,
+                    dsc_pubsub, _1));
+
+    TASK_UTIL_EXPECT_EQ(3, dsc_pubsub->XmppServiceReEvalPublishCount());
+    //Confirm published service is UP
+    TASK_UTIL_EXPECT_TRUE(
+        dsc_pubsub->IsPublishServiceRegisteredUp("xmpp-server-test"));
+    task_util::WaitForIdle();
+    //subscribe to service
+    dsc_pubsub->Subscribe("xmpp-server-test", 1,
+        boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler,
+                    dsc_pubsub, _1));
+    TASK_UTIL_EXPECT_EQ(2, dsc_pubsub->XmppCbCount());
+    TASK_UTIL_EXPECT_EQ(1, dsc_pubsub->XmppInstances());
+
+
+    // check for ttl expiry and subscribe refresh
+    while (true) {
+        sleep(10);
+    }
+
+    task_util::WaitForIdle();
+    dsc_pubsub->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle();
+    delete dsc_pubsub;
+    task_util::WaitForIdle();
 }
 #endif
 
@@ -817,6 +929,62 @@ TEST_F(DiscoveryServiceClientTest, ParseDiscoveryConfig) {
 
     EvmShutdown();
 }
+
+TEST_F(DiscoveryServiceClientTest, ReEvaluatePublishTest) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5997);
+    DiscoveryServiceClientMock *dsc_publish =
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test", false));
+    dsc_publish->SetHeartBeatInterval(0);
+    dsc_publish->Init();
+
+    //publish a service
+    std::string service = "xmpp-server-publish-reeval-test";
+    std::string msg;
+    dsc_publish->BuildPublishMessage(service, msg);
+    dsc_publish->Publish(service, msg,
+      boost::bind(&DiscoveryServiceClientMock::XmppServicePublishReEvalHandler,
+                  dsc_publish, _1));
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+
+    // send publisher cookie response
+    std::string msg2;
+    dsc_publish->BuildPublishResponseMessage(service, msg2);
+    boost::system::error_code ec;
+    dsc_publish->PublishResponseHandler(msg2, ec, service, NULL);
+
+    TASK_UTIL_EXPECT_EQ(1, dsc_publish->XmppServiceReEvalPublishCount());
+    //Confirm published service is UP
+    TASK_UTIL_EXPECT_TRUE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+
+    TASK_UTIL_EXPECT_EQ(2, dsc_publish->XmppServiceReEvalPublishCount());
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+
+    TASK_UTIL_EXPECT_EQ(3, dsc_publish->XmppServiceReEvalPublishCount());
+    //Confirm published service is UP
+    TASK_UTIL_EXPECT_TRUE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+
+    EvmShutdown();
+
+    //withdraw publish service
+    dsc_publish->WithdrawPublish(service);
+    task_util::WaitForIdle();
+
+    dsc_publish->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle();
+    delete dsc_publish;
+    task_util::WaitForIdle();
+    task_util::WaitForIdle();
+}
+
 
 }
 
