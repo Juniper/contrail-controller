@@ -10,11 +10,12 @@ enum ConnectionType {
     XMPP,
     COLLECTOR,
     DATABASE,
-    REDIS,
+    REDIS_QUERY,
     ZOOKEEPER,
     DISCOVERY,
     APISERVER,
     TOR,
+    REDIS_UVE,
 }
 
 const map<ConnectionType, string> ConnectionTypeNames = {
@@ -23,11 +24,12 @@ const map<ConnectionType, string> ConnectionTypeNames = {
     ConnectionType.XMPP : "XMPP",
     ConnectionType.COLLECTOR : "Collector",
     ConnectionType.DATABASE : "Database",
-    ConnectionType.REDIS : "Redis",
+    ConnectionType.REDIS_QUERY : "Redis-Query",
     ConnectionType.ZOOKEEPER : "Zookeeper",
     ConnectionType.DISCOVERY : "Discovery",
     ConnectionType.APISERVER : "ApiServer",
-    ConnectionType.TOR : "ToR"
+    ConnectionType.TOR : "ToR",
+    ConnectionType.REDIS_UVE: "Redis-UVE",
 }
 
 enum ConnectionStatus {
