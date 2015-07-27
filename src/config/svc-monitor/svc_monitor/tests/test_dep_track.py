@@ -15,7 +15,10 @@ from cfgm_common.dependency_tracker import DependencyTracker
 #        v              v
 #      Purple  <-->   White
 
-class RedSM(DBBase):
+class DBBaseTM(DBBase):
+    obj_type = __name__
+
+class RedSM(DBBaseTM):
     _dict = {}
     obj_type = 'red'
     def __init__(self, uuid, obj_dict=None):
@@ -41,7 +44,7 @@ class RedSM(DBBase):
     # end delete
 # end RedSM
 
-class GreenSM(DBBase):
+class GreenSM(DBBaseTM):
     _dict = {}
     obj_type = 'green'
     def __init__(self, uuid, obj_dict=None):
@@ -71,7 +74,7 @@ class GreenSM(DBBase):
     # end delete
 # end GreenSM
 
-class BlueSM(DBBase):
+class BlueSM(DBBaseTM):
     _dict = {}
     obj_type = 'blue'
     def __init__(self, uuid, obj_dict=None):
@@ -102,7 +105,7 @@ class BlueSM(DBBase):
     # end delete
 # end BlueSM
 
-class PurpleSM(DBBase):
+class PurpleSM(DBBaseTM):
     _dict = {}
     obj_type = 'purple'
     def __init__(self, uuid, obj_dict=None):
@@ -130,7 +133,7 @@ class PurpleSM(DBBase):
     # end delete
 # end PurpleSM
 
-class WhiteSM(DBBase):
+class WhiteSM(DBBaseTM):
     _dict = {}
     obj_type = 'white'
     def __init__(self, uuid, obj_dict=None):
