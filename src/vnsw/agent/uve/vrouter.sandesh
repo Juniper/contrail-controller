@@ -167,6 +167,15 @@ struct AgentIfBandwidth {
     3: byte out_bandwidth_usage;
 }
 
+struct VrouterFlowRate {
+    1: u32 added_flows;
+    2: u32 max_flow_adds_per_second;
+    3: u32 min_flow_adds_per_second;
+    4: u32 deleted_flows;
+    5: u32 max_flow_deletes_per_second;
+    6: u32 min_flow_deletes_per_second;
+}
+
 struct VrouterStatsAgent {  // Agent stats
     1: string name (key="ObjectVRouter")
     2: optional bool                deleted
@@ -225,12 +234,7 @@ struct VrouterStatsAgent {  // Agent stats
     42: optional AgentDropStats drop_stats;
     43: optional byte total_in_bandwidth_utilization;
     44: optional byte total_out_bandwidth_utilization;
-    45: optional u32 flows_added_per_second (tags="")
-    46: optional u32 max_flows_added_per_second (tags="")
-    47: optional u32 min_flows_added_per_second (tags="")
-    48: optional u32 flows_deleted_per_second (tags="")
-    49: optional u32 max_flows_deleted_per_second (tags="")
-    50: optional u32 min_flows_deleted_per_second (tags="")
+    45: optional VrouterFlowRate flow_rate (tags="")
 }
 
 uve sandesh VrouterStats {
