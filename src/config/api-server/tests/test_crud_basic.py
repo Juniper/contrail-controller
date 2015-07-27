@@ -1154,6 +1154,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             # locate created object, should only be one, expect exact fields
             obj_dict = [d for d in read_vn_dicts if d['uuid'] == obj.uuid]
             self.assertThat(len(obj_dict), Equals(1))
+            self.assertEqual(obj_dict[0]['fq_name'], obj.get_fq_name())
             self.assertThat(set(['fq_name', 'uuid', 'href']),
                             Equals(set(obj_dict[0].keys())))
 

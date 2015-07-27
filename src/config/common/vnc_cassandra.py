@@ -579,20 +579,18 @@ class VncCassandraClient(object):
                     return (True, children_fq_names_uuids)
 
             def filter_rows_backref_anchor():
-                # flatten to [('<fqnstr>:<uuid>', (<val>,<ts>), *]
+                # flatten to [('backref:<obj-type>:<uuid>', (<val>,<ts>), *]
                 all_cols = [cols for obj_key in obj_rows.keys()
                                  for cols in obj_rows[obj_key].items()]
                 all_backref_infos = {}
                 for col_name, col_val_ts in all_cols:
                     # give chance for zk heartbeat/ping
                     gevent.sleep(0)
-                    col_name_arr = col_name.split(':')
-                    fq_name = col_name_arr[:-1]
-                    obj_uuid = col_name_arr[-1]
-                    if obj_uuids and obj_uuid not in obj_uuids:
+                    backref_uuid = col_name.split(':')[2]
+                    if obj_uuids and backref_uuid not in obj_uuids:
                         continue
-                    all_backref_infos[obj_uuid] = \
-                        {'uuid': obj_uuid, 'fq_name': fq_name, 'tstamp': col_val_ts[1]}
+                    all_backref_infos[backref_uuid] = \
+                        {'uuid': backref_uuid, 'tstamp': col_val_ts[1]}
 
                 filter_cols = ['prop:%s' %(fname) for fname, _ in filter_fields]
                 if filter_cols:
@@ -601,8 +599,7 @@ class VncCassandraClient(object):
                 else: # no filter specified
                     filt_backref_infos = all_backref_infos
 
-                return [(br_info['fq_name'], br_info['uuid'])
-                        for br_info in filt_backref_infos.values()]
+                return get_fq_name_uuid_list(r['uuid'] for r in filt_backref_infos.values())
             # end filter_rows_backref_anchor
 
             if count:
