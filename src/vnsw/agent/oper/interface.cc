@@ -786,6 +786,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             entry.set_vrf_name(rt.vrf_);
             entry.set_ip_addr(rt.addr_.to_string());
             entry.set_prefix(rt.plen_);
+            if (rt.mac_ !=  MacAddress::ZeroMac()) {
+                entry.set_mac_addr(rt.mac_.ToString());
+            }
             aap_it++;
             aap_list.push_back(entry);
         }

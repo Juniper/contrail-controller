@@ -349,7 +349,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                          active_path->NexthopIp(table->agent()),
                          route->dest_vn_name(), state->label_,
                          TunnelType::GetTunnelBmap(state->tunnel_type_),
-                         &sg);
+                         &sg, PathPreference());
                 } else {
                     state->fabric_multicast_exported_ =
                         AgentXmppChannel::ControllerSendEvpnRouteDelete(bgp_xmpp_peer,

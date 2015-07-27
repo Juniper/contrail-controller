@@ -40,6 +40,8 @@ using namespace boost::assign;
 
 #define NULL_VRF ""
 #define ZERO_IP "0.0.0.0"
+#define ZERO_MAC "00:00:00:00:00:00"
+MacAddress zero_mac;
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -82,6 +84,26 @@ public:
         client->WaitForIdle();
     }
 
+    void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
+                const std::string &mac) {
+        std::ostringstream buf;
+        buf << "<virtual-machine-interface-allowed-address-pairs>";
+        buf << "<allowed-address-pair>";
+        buf << "<ip>";
+        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
+        buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
+        buf << "</ip>";
+        buf << "<mac>" << mac << "</mac>";
+        buf << "<flag>" << "act-stby" << "</flag>";
+        buf << "</allowed-address-pair>";
+        buf << "</virtual-machine-interface-allowed-address-pairs>";
+        char cbuf[10000];
+        strcpy(cbuf, buf.str().c_str());
+        AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+        client->WaitForIdle();
+    }
+
     void AddStaticPreference(std::string intf_name, int intf_id,
                              uint32_t value) {
         std::ostringstream buf;
@@ -89,6 +111,20 @@ public:
         buf << "<local-preference>";
         buf << value;
         buf << "</local-preference>";
+        buf << "</virtual-machine-interface-properties>";
+        char cbuf[10000];
+        strcpy(cbuf, buf.str().c_str());
+        AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+        client->WaitForIdle();
+    }
+
+    void AddVlan(std::string intf_name, int intf_id, uint32_t vlan) {
+        std::ostringstream buf;
+        buf << "<virtual-machine-interface-properties>";
+        buf << "<sub-interface-vlan-tag>";
+        buf << vlan;
+        buf << "</sub-interface-vlan-tag>";
         buf << "</virtual-machine-interface-properties>";
         char cbuf[10000];
         strcpy(cbuf, buf.str().c_str());
@@ -188,6 +224,91 @@ TEST_F(TestAap, SubnetGw) {
     client->WaitForIdle();
 }
 
+//Check if subnet gateway for allowed address pait route gets set properly
+TEST_F(TestAap, EvpnRoute) {
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    AddAap("intf1", 1, ip, mac.ToString());
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+
+    AddAap("intf1", 1, Ip4Address(0), zero_mac.ToString());
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
+}
+
+//Check if subnet gateway for allowed address pait route gets set properly
+TEST_F(TestAap, EvpnRoute_1) {
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    AddAap("intf1", 1, ip, mac.ToString());
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+
+    //Make VN as layer2 only
+    AddL2Vn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, Ip4Address(0), 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+    AddAap("intf1", 1, Ip4Address(0), zero_mac.ToString());
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
+}
+
+#if 0
+TEST_F(TestAap, EvpnRoute_3) {
+    struct PortInfo input[] = {
+        {"vnetOnIntf1", 2, "2.1.1.1", "00:00:00:02:01:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    AddVlan("vnetOnIntf1", 2, 1);
+    AddLink("virtual-machine-interface", "intf1",
+            "virtual-machine-interface", "vnetOnIntf1");
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("2.1.1.1");
+    MacAddress mac("00:00:00:02:01:01");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 1));
+
+    //Enqueue traffic seen on vlan tag 0, and ensure path
+    //preference doesnt get increased since vmi is sitting on
+    //vlan tag 1
+    EvpnRouteEntry *rt = EvpnRouteGet("vrf1", mac, ip, 0);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+
+     Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           mac);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+     Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           mac);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
+#endif
 //Just add a local path, verify that sequence no gets initialized to 0
 TEST_F(TestAap, StateMachine_1) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
@@ -239,6 +360,8 @@ TEST_F(TestAap, StateMachine_3) {
     VmInterface *vm_intf = VmInterfaceGet(1);
     InetUnicastRouteEntry *rt =
         RouteGet("vrf1", ip, 32);
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1",
+            MacAddress::FromString(vm_intf->vm_mac()), ip, 0);
     const AgentPath *path = rt->FindPath(vm_intf->peer());
     EXPECT_TRUE(path->path_preference().sequence() == 0);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
@@ -246,9 +369,16 @@ TEST_F(TestAap, StateMachine_3) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 2);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    path = evpn_rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
     EXPECT_TRUE(path->path_preference().ecmp() == false);
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
@@ -280,7 +410,8 @@ TEST_F(TestAap, StateMachine_4) {
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
    Agent::GetInstance()->oper_db()->route_preference_module()->
-       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          MacAddress::FromString(vm_intf->vm_mac()));
    client->WaitForIdle();
    EXPECT_TRUE(path->path_preference().sequence() == 1);
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
@@ -306,7 +437,8 @@ TEST_F(TestAap, StateMachine_5) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 0);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
@@ -378,7 +510,8 @@ TEST_F(TestAap, StateMachine_7) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 1);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
@@ -387,7 +520,8 @@ TEST_F(TestAap, StateMachine_7) {
 
     //Send a dummy update, and verify nothing changes
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 1);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
@@ -437,7 +571,8 @@ TEST_F(TestAap, StateMachine_8) {
 
     //Fake traffic on intf1 for 24.1.1.1
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 0);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
@@ -471,7 +606,8 @@ TEST_F(TestAap, StateMachine_9) {
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
    Agent::GetInstance()->oper_db()->route_preference_module()->
-       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          MacAddress::FromString(vm_intf->vm_mac()));
    client->WaitForIdle();
    EXPECT_TRUE(path->path_preference().sequence() == 1);
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);

@@ -309,18 +309,27 @@ static void BuildAllowedAddressPairRouteList(VirtualMachineInterface *cfg,
         boost::system::error_code ec;
         int plen = it->ip.ip_prefix_len;
         Ip4Address ip = Ip4Address::from_string(it->ip.ip_prefix, ec);
+        if (ec.value() != 0) {
+            continue;
+        }
+
+        MacAddress mac = MacAddress::FromString(it->mac, &ec);
+        if (ec.value() != 0) {
+            mac.Zero();
+        }
+
+        if (ip.is_unspecified() && mac == MacAddress::kZeroMac) {
+            continue;
+        }
 
         bool ecmp = false;
         if (it->address_mode == "active-active") {
             ecmp = true;
         }
-        if (ec.value() == 0) {
-            VmInterface::AllowedAddressPair entry(data->vrf_name_, ip, plen,
-                                                  ecmp);
-            data->allowed_address_pair_list_.list_.insert(entry);
-        } else {
-            LOG(DEBUG, "Error decoding Static Route IP address " << ip);
-        }
+
+        VmInterface::AllowedAddressPair entry(data->vrf_name_, ip, plen,
+                                              ecmp, mac);
+        data->allowed_address_pair_list_.list_.insert(entry);
     }
 }
 
@@ -1141,7 +1150,8 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
         UpdateMetadataRoute(old_ipv4_active, old_vrf);
         UpdateFloatingIp(force_update, policy_change, false);
         UpdateServiceVlan(force_update, policy_change);
-        UpdateAllowedAddressPair(force_update, policy_change);
+        UpdateAllowedAddressPair(force_update, policy_change, false,
+                                 false, false);
         UpdateVrfAssignRule();
         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
                            old_vrf, old_subnet, old_subnet_plen);
@@ -1169,7 +1179,7 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteFloatingIp(false, 0);
     DeleteServiceVlan();
     DeleteStaticRoute();
-    DeleteAllowedAddressPair();
+    DeleteAllowedAddressPair(false);
     DeleteL3TunnelId();
     DeleteVrfAssignRule();
     DeleteL3NextHop(old_ipv4_active, old_ipv6_active);
@@ -1214,12 +1224,16 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
                            old_v6_addr, old_ethernet_tag,
                            old_layer3_forwarding, policy_change,
-                           ip_addr_, ip6_addr_);
+                           ip_addr_, ip6_addr_,
+                           MacAddress::FromString(vm_mac_));
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, Ip4Address(),
                            Ip6Address(), old_ethernet_tag,
                            old_layer3_forwarding, policy_change,
-                           Ip4Address(), Ip6Address());
+                           Ip4Address(), Ip6Address(),
+                           MacAddress::FromString(vm_mac_));
     UpdateFloatingIp(force_update, policy_change, true);
+    UpdateAllowedAddressPair(force_update, policy_change, true, old_l2_active,
+                             old_layer3_forwarding);
     //If the interface is Gateway we need to add a receive route,
     //such the packet gets routed. Bridging on gateway
     //interface is not supported
@@ -1240,12 +1254,15 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
                            bool old_layer3_forwarding) {
     DeleteL2TunnelId();
     DeleteL2InterfaceRoute(old_l2_active, old_vrf, Ip4Address(0),
-                           Ip6Address(), old_ethernet_tag);
+                           Ip6Address(), old_ethernet_tag,
+                           MacAddress::FromString(vm_mac_));
     DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr,
-                           old_v6_addr, old_ethernet_tag);
+                           old_v6_addr, old_ethernet_tag,
+                           MacAddress::FromString(vm_mac_));
     DeleteFloatingIp(true, old_ethernet_tag);
     DeleteL2NextHop(old_l2_active);
     DeleteL2ReceiveRoute(old_vrf, old_l2_active);
+    DeleteAllowedAddressPair(true);
 }
 
 const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
@@ -2579,27 +2596,42 @@ void VmInterface::DeleteStaticRoute() {
     }
 }
 
-void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change) {
+void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change,
+                                           bool l2, bool old_layer2_forwarding,
+                                           bool old_layer3_forwarding) {
     AllowedAddressPairSet::iterator it =
        allowed_address_pair_list_.list_.begin();
     while (it != allowed_address_pair_list_.list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
         if (prev->del_pending_) {
+            prev->L2DeActivate(this);
             prev->DeActivate(this);
             allowed_address_pair_list_.list_.erase(prev);
         } else {
-            prev->Activate(this, force_update, policy_change);
+            if (l2) {
+                prev->L2Activate(this, force_update, policy_change,
+                                 old_layer2_forwarding, old_layer3_forwarding);
+            } else {
+                prev->Activate(this, force_update, policy_change);
+            }
         }
     }
 }
 
-void VmInterface::DeleteAllowedAddressPair() {
+void VmInterface::DeleteAllowedAddressPair(bool l2) {
     AllowedAddressPairSet::iterator it =
         allowed_address_pair_list_.list_.begin();
     while (it != allowed_address_pair_list_.list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
-        prev->DeActivate(this);
+        if (l2) {
+            prev->L2DeActivate(this);
+        } else {
+            prev->DeActivate(this);
+        }
+
         if (prev->del_pending_) {
+            prev->L2DeActivate(this);
+            prev->DeActivate(this);
             allowed_address_pair_list_.list_.erase(prev);
         }
     }
@@ -2778,7 +2810,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                          bool old_layer3_forwarding,
                                          bool policy_changed,
                                          const Ip4Address &new_ip_addr,
-                                         const Ip6Address &new_ip6_addr) const {
+                                         const Ip6Address &new_ip6_addr,
+                                         const MacAddress &mac) const {
     if (l2_active_ == false)
         return;
 
@@ -2793,18 +2826,18 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
     //Encap change will result in force update of l2 routes.
     if (force_update) {
         DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr,
-                               old_v6_addr, old_ethernet_tag);
+                               old_v6_addr, old_ethernet_tag, mac);
     } else {
         if (new_ip_addr != old_v4_addr) {
             force_update = true;
             DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr, Ip6Address(),
-                                   old_ethernet_tag);
+                                   old_ethernet_tag, mac);
         }
 
         if (new_ip6_addr != old_v6_addr) {
             force_update = true;
             DeleteL2InterfaceRoute(true, old_vrf, Ip4Address(), old_v6_addr,
-                                   old_ethernet_tag);
+                                   old_ethernet_tag, mac);
         }
     }
 
@@ -2821,10 +2854,10 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
     if (policy_changed == true) {
         //Resync the nexthop
         table->ResyncVmRoute(peer_.get(), vrf_->GetName(),
-                             MacAddress::FromString(vm_mac_), new_ip_addr,
+                             mac, new_ip_addr,
                              ethernet_tag_, NULL);
         table->ResyncVmRoute(peer_.get(), vrf_->GetName(),
-                             MacAddress::FromString(vm_mac_), new_ip6_addr,
+                             mac, new_ip6_addr,
                              ethernet_tag_, NULL);
     }
 
@@ -2833,14 +2866,14 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
 
     if (new_ip_addr.is_unspecified() || layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
-                MacAddress::FromString(vm_mac_), this, new_ip_addr,
+                mac, this, new_ip_addr,
                 l2_label_, vn_->GetName(), sg_id_list,
                 path_preference, ethernet_tag_);
     }
 
     if (new_ip6_addr.is_unspecified() || layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
-                MacAddress::FromString(vm_mac_), this, new_ip6_addr,
+                mac, this, new_ip6_addr,
                 l2_label_, vn_->GetName(), sg_id_list,
                 path_preference, ethernet_tag_);
     }
@@ -2849,7 +2882,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
 void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
                                          const Ip4Address &old_v4_addr,
                                          const Ip6Address &old_v6_addr,
-                                         int old_ethernet_tag) const {
+                                         int old_ethernet_tag,
+                                         const MacAddress &mac) const {
     if (old_l2_active == false)
         return;
 
@@ -2858,11 +2892,11 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
 
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (old_vrf->GetEvpnRouteTable());
-    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
-                           MacAddress::FromString(vm_mac_), this, old_v4_addr,
+    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), mac,
+                           this, old_v4_addr,
                            old_ethernet_tag);
-    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
-                           MacAddress::FromString(vm_mac_), this, old_v6_addr,
+    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), mac,
+                           this, old_v6_addr,
                            old_ethernet_tag);
 }
 
@@ -3258,19 +3292,24 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 //Allowed addresss pair route
 ///////////////////////////////////////////////////////////////////////////////
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
-    ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), gw_ip_(0) {
+    ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), mac_(),
+    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL), gw_ip_(0) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(
     const AllowedAddressPair &rhs) : ListEntry(rhs.installed_,
     rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
-    ecmp_(rhs.ecmp_), gw_ip_(rhs.gw_ip_) {
+    ecmp_(rhs.ecmp_), mac_(rhs.mac_),
+    l2_entry_installed_(rhs.l2_entry_installed_), ethernet_tag_(rhs.ethernet_tag_),
+    vrf_ref_(rhs.vrf_ref_), gw_ip_(rhs.gw_ip_) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
                                                     const Ip4Address &addr,
-                                                    uint32_t plen, bool ecmp) :
-    ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp) {
+                                                    uint32_t plen, bool ecmp,
+                                                    const MacAddress &mac) :
+    ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
+    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL) {
 }
 
 VmInterface::AllowedAddressPair::~AllowedAddressPair() {
@@ -3292,7 +3331,73 @@ bool VmInterface::AllowedAddressPair::IsLess(const AllowedAddressPair *rhs) cons
     if (addr_ != rhs->addr_)
         return addr_ < rhs->addr_;
 
-    return plen_ < rhs->plen_;
+    if (plen_ < rhs->plen_) {
+        return plen_ < rhs->plen_;
+    }
+
+    return mac_ < rhs->mac_;
+}
+
+void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
+                                                 bool force_update,
+                                                 bool policy_change,
+                                                 bool old_layer2_forwarding,
+                                                 bool old_layer3_forwarding) const {
+    if (mac_ == MacAddress::kZeroMac) {
+        return;
+    }
+
+    if (l2_entry_installed_ && force_update == false &&
+        policy_change == false && ethernet_tag_ == interface->ethernet_tag() &&
+        old_layer3_forwarding == interface->layer3_forwarding()) {
+        return;
+    }
+
+    if (vrf_ != interface->vrf()->GetName()) {
+        vrf_ = interface->vrf()->GetName();
+    }
+
+    vrf_ref_ = interface->vrf();
+    if (old_layer3_forwarding != interface->layer3_forwarding() ||
+        l2_entry_installed_ == false) {
+        force_update = true;
+    }
+
+    if (ethernet_tag_ == interface->ethernet_tag()) {
+        force_update = true;
+    }
+
+    if (l2_entry_installed_ == false || force_update || policy_change) {
+        interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
+                               interface->vrf(), addr_, Ip6Address(),
+                               ethernet_tag_, old_layer3_forwarding,
+                               policy_change, addr_, Ip6Address(), mac_);
+        ethernet_tag_ = interface->ethernet_tag();
+        //If layer3 forwarding is disabled
+        //  * IP + mac allowed address pair should not be published
+        //  * Only mac allowed address pair should be published
+        //Logic for same is present in UpdateL2InterfaceRoute
+        if (interface->layer3_forwarding() || addr_.is_unspecified() == true) {
+            l2_entry_installed_ = true;
+        } else {
+            l2_entry_installed_ = false;
+        }
+    }
+}
+
+void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const{
+    if (mac_ == MacAddress::kZeroMac) {
+        return;
+    }
+
+    if (l2_entry_installed_ == false) {
+        return;
+    }
+
+    interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), addr_,
+                                      Ip6Address(), ethernet_tag_, mac_);
+    l2_entry_installed_ = false;
+    vrf_ref_ = NULL;
 }
 
 void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
@@ -3321,7 +3426,6 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                             interface->policy_enabled(),
                             ecmp_, gw_ip_);
     }
-
     installed_ = true;
 }
 

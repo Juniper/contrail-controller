@@ -631,7 +631,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface_2) {
     client->WaitForIdle();
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(vm_ip, 32, VmPortGet(1)->id(), 1);
+        EnqueueTrafficSeen(vm_ip, 32, VmPortGet(1)->id(), 1, MacAddress());
     client->WaitForIdle();
     agent->GetArpProto()->ClearStats();
     client->WaitForIdle();

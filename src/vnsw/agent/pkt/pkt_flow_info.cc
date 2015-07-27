@@ -1272,7 +1272,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
             if (rt && rt->WaitForTraffic()) {
                 flow_table->agent()->oper_db()->route_preference_module()->
                     EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
-                                       pkt->vrf);
+                                       pkt->vrf, pkt->smac);
             }
         }
     } else if (pkt->family == Address::INET6) {

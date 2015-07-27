@@ -163,7 +163,8 @@ bool ArpHandler::HandlePacket() {
                 //Enqueue a request to trigger state machine
                 agent()->oper_db()->route_preference_module()->
                     EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
-                                       vrf->vrf_id());
+                                       vrf->vrf_id(),
+                                       MacAddress(arp_->arp_sha));
                 if(entry) {
                     entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 }
@@ -191,7 +192,8 @@ bool ArpHandler::HandlePacket() {
                 //Enqueue a request to trigger state machine
                 agent()->oper_db()->route_preference_module()->
                     EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
-                                       vrf->vrf_id());
+                                       vrf->vrf_id(),
+                                       MacAddress(arp_->arp_sha));
                 return true;
             } else if (entry) {
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));

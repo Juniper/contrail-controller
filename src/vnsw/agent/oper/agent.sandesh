@@ -24,6 +24,7 @@ struct StaticRouteSandesh {
    1: string vrf_name (link="VrfListReq"); // VRF name
    2: string ip_addr;
    3: i32    prefix;
+   4: optional string mac_addr;
 }
 
 struct VmIntfSgUuid {

@@ -1326,13 +1326,15 @@ TEST_F(RouteTest, PathPreference) {
 
     //Enqueue traffic seen from vnet4 interface
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vnet4->id(), vnet4->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vnet4->id(), vnet4->vrf()->vrf_id(),
+                           MacAddress());
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActivePath()->peer() == vnet4->peer());
 
     //Enqueue traffic seen from vnet3 interface
     Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vnet3->id(), vnet3->vrf()->vrf_id());
+        EnqueueTrafficSeen(ip, 32, vnet3->id(), vnet3->vrf()->vrf_id(),
+                           MacAddress());
     client->WaitForIdle();
     //Check that path from vnet3 is preferred path
     EXPECT_TRUE(rt->GetActivePath()->peer() == vnet3->peer());

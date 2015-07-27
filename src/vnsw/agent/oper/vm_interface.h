@@ -208,7 +208,7 @@ public:
         AllowedAddressPair();
         AllowedAddressPair(const AllowedAddressPair &rhs);
         AllowedAddressPair(const std::string &vrf, const Ip4Address &addr,
-                           uint32_t plen, bool ecmp);
+                           uint32_t plen, bool ecmp, const MacAddress &mac);
         virtual ~AllowedAddressPair();
 
         bool operator() (const AllowedAddressPair &lhs,
@@ -217,11 +217,19 @@ public:
         void Activate(VmInterface *interface, bool force_update,
                       bool policy_change) const;
         void DeActivate(VmInterface *interface) const;
+        void L2Activate(VmInterface *interface, bool force_update,
+                        bool policy_change, bool old_layer2_forwarding,
+                        bool old_layer3_forwarding) const;
+        void L2DeActivate(VmInterface *interface) const;
 
         mutable std::string vrf_;
         Ip4Address  addr_;
         uint32_t    plen_;
         bool        ecmp_;
+        MacAddress  mac_;
+        mutable bool        l2_entry_installed_;
+        mutable uint32_t    ethernet_tag_;
+        mutable VrfEntryRef vrf_ref_;
         mutable Ip4Address  gw_ip_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
@@ -492,7 +500,8 @@ public:
                                 bool old_layer3_forwarding,
                                 bool policy_change,
                                 const Ip4Address &new_addr,
-                                const Ip6Address &new_v6_addr) const;
+                                const Ip6Address &new_v6_addr,
+                                const MacAddress &mac) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
 
@@ -609,8 +618,10 @@ private:
     void DeleteServiceVlan();
     void UpdateStaticRoute(bool force_update, bool policy_change);
     void DeleteStaticRoute();
-    void UpdateAllowedAddressPair(bool force_update, bool policy_change);
-    void DeleteAllowedAddressPair();
+    void UpdateAllowedAddressPair(bool force_update, bool policy_change,
+                                  bool l2, bool old_l2_forwarding,
+                                  bool old_l3_forwarding);
+    void DeleteAllowedAddressPair(bool l2);
     void UpdateSecurityGroup();
     void DeleteSecurityGroup();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
@@ -618,7 +629,8 @@ private:
     void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
                                 const Ip4Address &old_v4_addr,
                                 const Ip6Address &old_v6_addr,
-                                int old_ethernet_tag) const;
+                                int old_ethernet_tag,
+                                const MacAddress &mac) const;
 
     void DeleteL2Route(const std::string &vrf_name,
                        const MacAddress &mac);
