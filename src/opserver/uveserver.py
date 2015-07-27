@@ -21,6 +21,8 @@ from gevent.coros import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.connection_info import ConnectionState
 from sandesh.viz.constants import UVE_MAP
+from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
+     ConnectionStatus
 import traceback
 
 class UVEServer(object):
@@ -29,14 +31,8 @@ class UVEServer(object):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_map = {}
         self._logger = logger
-        self._sem = BoundedSemaphore(1)
         self._redis = None
         self._redis_password = redis_password
-        if self._local_redis_uve:
-            self._redis = redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1],
-                                            password=self._redis_password,
-                                            db=1)
         self._uve_reverse_map = {}
         for h,m in UVE_MAP.iteritems():
             self._uve_reverse_map[m] = h
@@ -51,14 +47,24 @@ class UVEServer(object):
         # if some redis instances are gone, remove them from our map
         for test_elem in self._redis_uve_map.keys():
             if test_elem not in newlist:
+                r_ip = test_elem[0]
+                r_port = test_elem[1]
                 del self._redis_uve_map[test_elem]
-
+                ConnectionState.delete(ConnectionType.REDIS_UVE,\
+                    r_ip+":"+str(r_port)) 
+        
         # new redis instances need to be inserted into the map
         for test_elem in newlist:
             if test_elem not in self._redis_uve_map:
                 r_ip = test_elem[0]
                 r_port = test_elem[1]
                 self._redis_uve_map[test_elem] = None
+                ConnectionState.update(ConnectionType.REDIS_UVE,\
+                    r_ip+":"+str(r_port), ConnectionStatus.INIT)
+        # Exercise redis connections to update health
+        if len(newlist):
+            self.get_uve_list("ObjectCollectorInfo")
+
     # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
@@ -103,34 +109,40 @@ class UVEServer(object):
         return nstate
 
     def run(self):
-        lck = False
+	ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
+            name = 'LOCAL', status = ConnectionStatus.INIT)
         while True:
+            if self._redis:
+                redish = self._redis
+            else: 
+
+                redish =  redis.StrictRedis(self._local_redis_uve[0],
+                                            self._local_redis_uve[1],
+                                            password=self._redis_password,
+                                            db=1)
             try:
-                key, value = self._redis.brpop("DELETED")
-                self._sem.acquire()
-                lck = True
-                self._logger.debug("%s del received for " % value)
-                # value is of the format: 
-                # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
-                self._redis.delete(value)
-            except redis.exceptions.ResponseError:
-                #send redis connection down msg. Coule be bcos of authentication
-                ConnectionState.update(conn_type = ConnectionType.REDIS,
-                    name = 'UVE', status = ConnectionStatus.DOWN,
-                    message = 'UVE result : Connection Error',
-                    server_addrs = ['%s:%d' % (self._local_redis_uve[0],
-                    self._local_redis_uve[1])])
-                sys.exit()
-            except redis.exceptions.ConnectionError:
-                if lck:
-                    self._sem.release()
-                    lck = False
+                if not self._redis:
+                    value = ""
+                    redish.ping()
+                else:
+                    k, value = redish.brpop("DELETED")
+                    self._logger.debug("%s del received for " % value)
+                    # value is of the format: 
+                    # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
+                    redish.delete(value)
+            except:
+                if self._redis:
+                    #send redis connection down msg. Coule be bcos of authentication
+                    ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
+                        name = 'LOCAL', status = ConnectionStatus.DOWN)
+                    self._redis = None
                 gevent.sleep(5)
             else:
-                if lck:
-                    self._sem.release()
-                    lck = False
-                self._logger.debug("Deleted %s %s" % (key,value))
+                self._logger.debug("Deleted %s" % value)
+                if not self._redis:
+                    self._redis = redish
+                    ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
+                        name = 'LOCAL', status = ConnectionStatus.UP)
 
     @staticmethod
     def _is_agg_item(attr):
@@ -156,12 +168,7 @@ class UVEServer(object):
         try:
             r_ip = r_inst[0]
             r_port = r_inst[1]
-            if not self._redis_uve_map[r_inst]:
-                self._redis_uve_map[r_inst] = redis.StrictRedis(
-                        host=r_ip, port=r_port,
-                        password=self._redis_password, db=1)
-
-            redish = self._redis_uve_map[r_inst]
+            redish = self._redis_inst_get(r_inst)
             gen_uves = {}
             for elems in redish.smembers("PART2KEY:" + str(part)): 
                 info = elems.split(":", 5)
@@ -176,10 +183,39 @@ class UVEServer(object):
         except Exception as e:
             self._logger.error("get_part failed %s for : %s:%d tb %s" \
                                % (str(e), r_ip, r_port, traceback.format_exc()))
-            self._redis_uve_map[r_inst] = None
+            self._redis_inst_down(r_inst)
+        else:
+            self._redis_inst_up(r_inst, redish)
         return r_ip + ":" + str(r_port) , gen_uves
 
+    def _redis_inst_get(self, r_inst):
+        r_ip = r_inst[0]
+        r_port = r_inst[1]
+	if not self._redis_uve_map[r_inst]:
+	    return redis.StrictRedis(
+		    host=r_ip, port=r_port,
+		    password=self._redis_password, db=1)
+	else:
+	    return self._redis_uve_map[r_inst]
+
+    def _redis_inst_up(self, r_inst, redish):
+	if not self._redis_uve_map[r_inst]:
+            r_ip = r_inst[0]
+            r_port = r_inst[1]
+	    self._redis_uve_map[r_inst] = redish
+	    ConnectionState.update(ConnectionType.REDIS_UVE,
+		r_ip + ":" + str(r_port), ConnectionStatus.UP)
+
+    def _redis_inst_down(self, r_inst):
+	if self._redis_uve_map[r_inst]:
+            r_ip = r_inst[0]
+            r_port = r_inst[1]
+	    self._redis_uve_map[r_inst] = None
+	    ConnectionState.update(ConnectionType.REDIS_UVE,
+		r_ip + ":" + str(r_port), ConnectionStatus.DOWN)
+ 
     def get_uve(self, key, flat, filters=None, is_alarm=False, base_url=None):
+
         filters = filters or {}
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
@@ -192,14 +228,7 @@ class UVEServer(object):
        
         for r_inst in self._redis_uve_map.keys():
             try:
-                r_ip = r_inst[0]
-                r_port = r_inst[1]
-                if not self._redis_uve_map[r_inst]:
-                    self._redis_uve_map[r_inst] = redis.StrictRedis(
-                            host=r_ip, port=r_port,
-                            password=self._redis_password, db=1)
-
-                redish = self._redis_uve_map[r_inst]
+                redish = self._redis_inst_get(r_inst)
                 qmap = {}
 
                 ppe = redish.pipeline()
@@ -295,11 +324,12 @@ class UVEServer(object):
                 pa = ParallelAggregator(state, self._uve_reverse_map)
                 rsp = pa.aggregate(key, flat, base_url)
             except Exception as e:
-                self._logger.error("redis-uve failed %s for : %s:%d tb %s" \
-                                   % (str(e), r_ip, r_port, traceback.format_exc()))
-                self._redis_uve_map[r_inst] = None
+                self._logger.error("redis-uve failed %s for : %s tb %s" \
+                               % (str(e), str(r_inst), traceback.format_exc()))
+                self._redis_inst_down(r_inst)
                 failures = True
             else:
+                self._redis_inst_up(r_inst, redish)
                 self._logger.debug("Computed %s as %s" % (key,str(rsp)))
 
         return failures, rsp
@@ -341,14 +371,7 @@ class UVEServer(object):
 
         for r_inst in self._redis_uve_map.keys():
             try:
-                r_ip = r_inst[0]
-                r_port = r_inst[1]
-                if not self._redis_uve_map[r_inst]:
-                    self._redis_uve_map[r_inst] = redis.StrictRedis(
-                            host=r_ip, port=r_port,
-                            password=self._redis_password, db=1)
-
-                redish = self._redis_uve_map[r_inst]
+                redish = self._redis_inst_get(r_inst)
 
                 # For UVE queries, we wanna read both UVE and Alarm table
                 entries = redish.smembers('ALARM_TABLE:' + table)
@@ -392,9 +415,11 @@ class UVEServer(object):
                                 continue
                     uve_list.add(uve_key)
             except Exception as e:
-                self._logger.error("get_uve_list failed %s for : %s:%d tb %s" \
-                                   % (str(e), r_ip, r_port, traceback.format_exc()))
-                self._redis_uve_map[r_inst] = None
+                self._logger.error("get_uve_list failed %s for : %s tb %s" \
+                               % (str(e), str(r_inst), traceback.format_exc()))
+                self._redis_inst_down(r_inst)
+            else:
+                self._redis_inst_up(r_inst, redish)
         return uve_list
     # end get_uve_list
 

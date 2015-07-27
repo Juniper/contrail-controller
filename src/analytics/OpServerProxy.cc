@@ -231,7 +231,7 @@ class OpServerProxy::OpServerImpl {
                    tbb::mutex::scoped_lock lock(rac_mutex_);
                    redis_uve_.RedisStatusUpdate(RAC_UP);
                 }
-                ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
                 "To", ConnectionStatus::UP, to_ops_conn_->Endpoint(),
                 std::string());
                 evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUpPostProcess, this));
@@ -248,7 +248,7 @@ class OpServerProxy::OpServerImpl {
             //Handle the AUTH callback
             redisReply reply = *reinterpret_cast<redisReply*>(r);
             if (reply.type != REDIS_REPLY_ERROR) {
-                ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
                 "From", ConnectionStatus::UP, from_ops_conn_->Endpoint(),
                 std::string());
                 evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUpPostProcess, this));
@@ -323,7 +323,7 @@ class OpServerProxy::OpServerImpl {
             redis_up_ = false;
 
             // Update connection info
-            ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+            ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
                 "To", ConnectionStatus::DOWN, to_ops_conn_->Endpoint(),
                 std::string());
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::RAC_ConnectProcess,
@@ -333,7 +333,7 @@ class OpServerProxy::OpServerImpl {
         void FromOpsConnDown() {
             LOG(DEBUG, "FromOpsConnDown.. DOWN.. Reconnect..");
             // Update connection info
-            ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+            ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
                 "From", ConnectionStatus::DOWN, from_ops_conn_->Endpoint(),
                 std::string());
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::RAC_ConnectProcess,
@@ -488,7 +488,7 @@ class OpServerProxy::OpServerImpl {
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnDown, this)));
             // Update connection 
-            ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+            ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
                 "To", ConnectionStatus::INIT, to_ops_conn_->Endpoint(),
                 std::string());
             to_ops_conn_.get()->RAC_Connect();
@@ -497,7 +497,7 @@ class OpServerProxy::OpServerImpl {
                 boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUp, this),
                 boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnDown, this)));
             // Update connection info
-            ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+            ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
                 "From", ConnectionStatus::INIT, from_ops_conn_->Endpoint(),
                 std::string());
             from_ops_conn_.get()->RAC_Connect();
