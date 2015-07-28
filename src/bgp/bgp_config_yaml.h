@@ -27,7 +27,8 @@ public:
     virtual void Terminate();
     virtual const std::string &localname() const;
 
-    virtual InstanceMapRange InstanceMapItems() const;
+    virtual InstanceMapRange InstanceMapItems(
+        const std::string &start_name = std::string()) const;
     virtual NeighborMapRange NeighborMapItems(
         const std::string &instance_name) const;
 
