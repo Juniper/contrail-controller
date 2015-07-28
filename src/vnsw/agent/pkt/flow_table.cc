@@ -1959,6 +1959,31 @@ RouteFlowInfo *FlowTable::FindRouteFlowInfo(RouteFlowInfo *key) {
     return route_flow_tree_.LPMFind(key);
 }
 
+void FlowTable::DeleteTcpFlow(FlowEntry *flow) {
+    flow->data().vrouter_evicted_flow_ = true;
+    Delete(flow->key(), true);
+}
+
+void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
+        flow_index_tree_.insert(std::pair<uint32_t,FlowEntry*>(flow_handle,
+                                                               flow));
+    }
+}
+
+void FlowTable::DeleteByIndex(uint32_t flow_handle) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
+        flow_index_tree_.erase(flow_handle);
+    }
+}
+
+FlowEntry* FlowTable::FindByIndex(uint32_t flow_handle) {
+    FlowIndexTree::iterator it = flow_index_tree_.find(flow_handle);
+    if (it != flow_index_tree_.end()) {
+        return it->second;
+    }
+    return NULL;
+}
 ////////////////////////////////////////////////////////////////////////////
 // RouteFlowKey methods
 ////////////////////////////////////////////////////////////////////////////
@@ -2700,6 +2725,8 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe)
     DeleteVmFlowInfo(fe);
     // Remove from RouteFlowTree
     DeleteRouteFlowInfo(fe);
+
+    DeleteByIndex(fe->flow_handle_);
 }
 
 void FlowTable::DeleteVnFlowInfo(FlowEntry *fe)
@@ -2857,6 +2884,8 @@ void FlowTable::AddFlowInfo(FlowEntry *fe)
     AddVmFlowInfo(fe);
     // Add RouteFlowTree;
     AddRouteFlowInfo(fe);
+
+    AddIndexFlowInfo(fe, fe->flow_handle_);
 }
 
 void FlowTable::AddAclFlowInfo (FlowEntry *fe) 
@@ -3161,6 +3190,20 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe) {
         AddInetRouteFlowInfo(fe);
         AddL2RouteFlowInfo(fe);
     }
+}
+
+void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
+    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
+        return;
+    }
+
+    FlowEntry *flow = FindByIndex(flow_handle);
+    if (flow && flow != fe) {
+        DeleteTcpFlow(flow);
+    }
+
+    InsertByIndex(flow_handle, fe);
+    fe->set_flow_handle(flow_handle, this);
 }
 
 void FlowTable::ResyncAFlow(FlowEntry *fe) {
