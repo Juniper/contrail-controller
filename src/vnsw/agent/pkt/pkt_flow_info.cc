@@ -738,7 +738,12 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (VrfTranslate(pkt, in, out) == false) {
+    if (VrfTranslate(pkt, in, out, fip_it->floating_ip_, true) == false) {
+        return;
+    }
+    if (out->rt_ == NULL || in->rt_ == NULL) {
+        //If After VRF translation, ingress route or
+        //egress route is NULL, mark the flow as short flow
         return;
     }
 
@@ -781,7 +786,8 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 }
 
 bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
-                               PktControlInfo *out) {
+                               PktControlInfo *out, const IpAddress &src_ip,
+                               bool nat_flow) {
     const Interface *intf = NULL;
     if (ingress) {
         intf = in->intf_;
@@ -796,7 +802,12 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //If interface has a VRF assign rule, choose the acl and match the
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
-    const AclDBEntry *acl = vm_intf->vrf_assign_acl();
+    const AclDBEntry *acl = NULL;
+    if (nat_flow == false) {
+        acl = vm_intf->vrf_assign_acl();
+    }
+    //In case of floating IP translation, dont apply
+    //interface VRF assign rule
     if (acl == NULL) {
         if (ingress && in->vn_) {
             //Check if the network ACL is present
@@ -812,7 +823,7 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
 
     PacketHeader hdr;
     hdr.vrf = pkt->vrf;
-    hdr.src_ip = pkt->ip_saddr;
+    hdr.src_ip = src_ip;
     hdr.dst_ip = pkt->ip_daddr;
     hdr.protocol = pkt->ip_proto;
     if (hdr.protocol == IPPROTO_UDP || hdr.protocol == IPPROTO_TCP) {
@@ -852,7 +863,7 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         }
         out->vrf_ = vrf;
         UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, flow_dest_plen_map);
-        UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, flow_source_plen_map);
+        UpdateRoute(&in->rt_, vrf, hdr.src_ip, flow_source_plen_map);
     }
 
     return true;
@@ -879,7 +890,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     //exact same route with different nexthop, hence if both ingress
     //route and egress route are present in native vrf, acl match condition
     //can be applied
-    if (VrfTranslate(pkt, in, out) == false) {
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, false) == false) {
         return;
     }
 
@@ -961,7 +972,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     //Apply vrf translate ACL to get ingress route
-    if (VrfTranslate(pkt, in, out) == false) {
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, false) == false) {
         return;
     }
 

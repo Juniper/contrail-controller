@@ -380,6 +380,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
 
     TunnelRouteAdd("10.1.1.2", "2.1.1.1", "default-project:vn1:vn1",
                    16, "default-project:vn2");
+    client->WaitForIdle();
 
     TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
@@ -455,11 +456,13 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
+    DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 }
-
-TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
+//Verify flow becomes short flow, when
+//vrf assigned ACL doesnt have the routes
+TEST_F(TestVrfAssignAclFlow, FloatingIp1) {
     struct PortInfo input[] = {
         {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},
     };
@@ -475,12 +478,14 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
                            false, PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
+    AddVrf("vrf9");
+    client->WaitForIdle();
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
-    //route lookup happens in internal VRF, in this case VRF doesnt exist
-    //and hence flow should be short flow
+    //route lookup happens in internal VRF
+    //(assume default-project:vn3 in test case)
     AddVrfAssignNetworkAcl("Acl", 10, "default-project:vn1",
                            "default-project:vn2", "pass",
-                           "default-project:vn3:xyz");
+                           "vrf9");
     AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     client->WaitForIdle();
 
@@ -506,9 +511,69 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
 
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
+    DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     DeleteVmportEnv(input, 1, true);
+    DelVrf("vrf9");
+    client->WaitForIdle();
+}
+
+//Verify Interface VRF assign rule doesnt get applied for
+//floating IP traslation
+TEST_F(TestVrfAssignAclFlow, FloatingIp2) {
+    struct PortInfo input[] = {
+        {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    AddVrf("vrf9");
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn1", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    AddAddressVrfAssignAcl("intf7", 7, "4.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "vrf9", "true");
+    client->WaitForIdle();
+
+    //Configure Floating-IP for intf7 in default-project:vn1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
+    AddLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+     TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "4.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "vrf4", VmPortGet(7)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn1"),
+            new VerifyAction(1 << TrafficAction::PASS,
+                             1 << TrafficAction::PASS),
+            new VerifyNat("2.1.1.1", "1.1.1.100", IPPROTO_TCP, 20, 10)
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn1");
+    DelLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    DelLink("virtual-network", "default-project:vn1",
+            "access-control-list", "Acl");
+    DeleteVmportEnv(input, 1, true);
+    DelVrf("vrf9");
     client->WaitForIdle();
 }
 
