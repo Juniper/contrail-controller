@@ -343,8 +343,10 @@ static const uint8_t tu8_(128);
 static const uint16_t tu16_(65535);
 static const double tdouble_(1.0);
 
-TEST_F(DbPerfTest, DISABLED_VariantVector) {
-    for (int i = 0; i < 100000; i++) {
+TEST_F(DbPerfTest, VariantVector) {
+    //int loop_count = 100000;
+    int loop_count = 1;
+    for (int i = 0; i < loop_count; i++) {
         std::vector<DbTestVarVariant> columns;
         columns.push_back(tstring_);
         columns.push_back(tu64_);
@@ -356,8 +358,10 @@ TEST_F(DbPerfTest, DISABLED_VariantVector) {
     }
 }
 
-TEST_F(DbPerfTest, DISABLED_StructVector) {
-    for (int i = 0; i < 100000; i++) {
+TEST_F(DbPerfTest, StructVector) {
+    //int loop_count = 100000;
+    int loop_count = 1;
+    for (int i = 0; i < loop_count; i++) {
         std::vector<DbTestVarStruct> columns;
         columns.push_back(DbTestVarStruct(tstring_));
         columns.push_back(DbTestVarStruct(tu64_));
@@ -369,8 +373,10 @@ TEST_F(DbPerfTest, DISABLED_StructVector) {
     }
 }
 
-TEST_F(DbPerfTest, DISABLED_VariantEncode) {
-    for (int i = 0; i < 100000; i++) {
+TEST_F(DbPerfTest, VariantEncode) {
+    //int loop_count = 100000;
+    int loop_count = 1;
+    for (int i = 0; i < loop_count; i++) {
         std::vector<DbTestVarVariant> columns;
         columns.push_back(tstring_);
         columns.push_back(tu64_);
@@ -414,8 +420,10 @@ TEST_F(DbPerfTest, DISABLED_VariantEncode) {
     }
 }
 
-TEST_F(DbPerfTest, DISABLED_VariantVisitorEncode) {
-    for (int i = 0; i < 100000; i++) {
+TEST_F(DbPerfTest, VariantVisitorEncode) {
+    //int loop_count = 100000;
+    int loop_count = 1;
+    for (int i = 0; i < loop_count; i++) {
         std::vector<DbTestVarVariant> columns;
         columns.push_back(tstring_);
         columns.push_back(tu64_);
@@ -432,8 +440,10 @@ TEST_F(DbPerfTest, DISABLED_VariantVisitorEncode) {
     }
 }
 
-TEST_F(DbPerfTest, DISABLED_StructSafeEncode) {
-    for (int i = 0; i < 100000; i++) {
+TEST_F(DbPerfTest, StructSafeEncode) {
+    //int loop_count = 100000;
+    int loop_count = 1;
+    for (int i = 0; i < loop_count; i++) {
         std::vector<DbTestVarStruct> columns;
         columns.push_back(DbTestVarStruct(tstring_));
         columns.push_back(DbTestVarStruct(tu64_));
@@ -478,8 +488,10 @@ TEST_F(DbPerfTest, DISABLED_StructSafeEncode) {
     }
 }
 
-TEST_F(DbPerfTest, DISABLED_StructEncode) {
-    for (int i = 0; i < 100000; i++) {
+TEST_F(DbPerfTest, StructEncode) {
+    //int loop_count = 100000;
+    int loop_count = 1;
+    for (int i = 0; i < loop_count; i++) {
         std::vector<DbTestVarStruct> columns;
         columns.push_back(DbTestVarStruct(tstring_));
         columns.push_back(DbTestVarStruct(tu64_));
