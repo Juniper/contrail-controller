@@ -156,13 +156,16 @@ struct PathPreferenceVrfState: public DBState {
 
 struct PathPreferenceRouteListener : public DBState {
     PathPreferenceRouteListener(Agent *agent, AgentRouteTable *table);
+    virtual void Delete();
+
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void Init();
-    void Delete();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *e);
     void Walkdone(DBTableBase *partition, PathPreferenceRouteListener *state);
     DBTableBase::ListenerId id() const { return id_;}
     void ManagedDelete();
+    void set_deleted() {deleted_ = true;}
+    bool deleted() const {return deleted_;}
 private:
     Agent *agent_;
     AgentRouteTable *rt_table_;
