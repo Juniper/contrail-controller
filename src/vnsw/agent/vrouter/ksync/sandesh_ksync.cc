@@ -114,16 +114,19 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                         r->get_fr_index() << ">");
                 }
             }
-            entry->set_flow_handle(r->get_fr_index(),
-                    flow_ksync_->ksync()->agent()->pkt()->flow_table());
+
+            bool update_rev_flow = false;
+            if ((int)entry->flow_handle() != r->get_fr_index()) {
+                update_rev_flow = true;
+            }
+            flow_ksync_->ksync()->agent()->pkt()->flow_table()->
+                AddIndexFlowInfo(entry, r->get_fr_index());
+
+            FlowEntry *rev_flow = entry->reverse_flow_entry();
             //Tie forward flow and reverse flow
-            if (entry->is_flags_set(FlowEntry::NatFlow) ||
-                entry->is_flags_set(FlowEntry::EcmpFlow)) {
-                 FlowEntry *rev_flow = entry->reverse_flow_entry();
-                 if (rev_flow) {
-                     rev_flow->UpdateKSync(
-                           flow_ksync_->ksync()->agent()->pkt()->flow_table());
-                 }
+            if (rev_flow && update_rev_flow) {
+                rev_flow->UpdateKSync(
+                        flow_ksync_->ksync()->agent()->pkt()->flow_table());
             }
         }
     } else {
