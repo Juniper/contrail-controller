@@ -2058,34 +2058,25 @@ void BgpStressTest::AddBgpPeers(int npeers) {
     }
 }
 
+// Delete BGP Peer configuration by deleting bgp-peering links from ifmap dbs.
 void BgpStressTest::DeleteBgpPeer(int peer_id, bool verify_state) {
     assert(peer_id);
 
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
-
-    ostringstream out;
-    out << "<delete>";
     string peer_name = peers_[peer_id]->peer()->ToString();
 
-    out << GetRouterConfig(0, peer_id, true);
-    out << GetRouterConfig(peer_id, 0, true);
-    out << "</delete>";
+    ifmap_test_util::IFMapMsgUnlink(server_->config_db(), "bgp-router",
+        "default-domain:default-project:ip-fabric:__default__:" +
+            GetRouterName(0), "bgp-router",
+        "default-domain:default-project:ip-fabric:__default__:" +
+            GetRouterName(peer_id), "bgp-peering");
 
-    as_t as = server_->autonomous_system();
-    as_t local_as = server_->local_autonomous_system();
-    uint32_t bgp_identifier = server_->bgp_identifier();
-
-    BGP_DEBUG_UT("Applying config" << out.str());
-    server_->Configure(out.str());
-    peer_servers_[peer_id]->Configure(out.str());
-    usleep(10000);
-
-    //
-    // Restore server's AS and bgp identifier
-    //
-    server_->set_autonomous_system(as);
-    server_->set_local_autonomous_system(local_as);
-    server_->set_bgp_identifier(bgp_identifier);
+    ifmap_test_util::IFMapMsgUnlink(
+        peer_servers_[peer_id]->config_db(), "bgp-router",
+        "default-domain:default-project:ip-fabric:__default__:" +
+            GetRouterName(peer_id), "bgp-router",
+        "default-domain:default-project:ip-fabric:__default__:" +
+            GetRouterName(0), "bgp-peering");
     WaitForIdle();
     peer_servers_[peer_id]->Shutdown();
 
