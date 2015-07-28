@@ -83,6 +83,8 @@ public:
 
     struct ovsdb_idl_row *ovs_entry() {return ovs_entry_;}
 
+    OvsdbDBObject *table() { return table_;}
+
     KSyncObject* GetObject();
     void Ack(bool success);
 

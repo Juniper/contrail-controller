@@ -23,6 +23,7 @@ class EvpnPeer;
 class PathPreference {
 public:
     enum Preference {
+        HA_STALE = 1,
         LOW = 100,
         HIGH = 200
     };
