@@ -50,6 +50,10 @@ request sandesh ShowMulticastManagerDetailReq {
     1: string name;
 }
 
+request sandesh ShowBgpInstanceConfigReqIterate {
+    1: string iterate_info;
+}
+
 response sandesh ShowBgpPeeringConfigResp {
     1: list<bgp_peer.ShowBgpPeeringConfig> peerings;
 }

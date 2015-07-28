@@ -317,6 +317,8 @@ struct ShowBgpInstanceConfig {
 
 response sandesh ShowBgpInstanceConfigResp {
     1: list<ShowBgpInstanceConfig> instances;
+    2: optional string next_batch (link="ShowBgpInstanceConfigReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowBgpInstanceConfigReq {

@@ -383,7 +383,8 @@ public:
     virtual void Terminate() = 0;
     virtual const std::string &localname() const = 0;
 
-    virtual InstanceMapRange InstanceMapItems() const = 0;
+    virtual InstanceMapRange InstanceMapItems(
+        const std::string &start_instance = std::string()) const = 0;
     virtual NeighborMapRange NeighborMapItems(
         const std::string &instance_name) const = 0;
 
