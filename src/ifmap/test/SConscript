@@ -33,7 +33,8 @@ if sys.platform != 'darwin':
 env.Library('ifmap_test_util',
             ['ifmap_test_util.cc'])
 env.Library('ifmap_test_util_server',
-            ['ifmap_client_mock.cc', 'ifmap_test_util_server.cc'])
+            ['ifmap_client_mock.cc', 'ifmap_test_util_server.cc',
+             'ifmap_xmpp_client_mock.cc'])
 env.Library('ifmap_test_util_agent',
             ['ifmap_test_util_agent.cc'])
 

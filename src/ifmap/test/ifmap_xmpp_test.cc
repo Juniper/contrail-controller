@@ -2,21 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "ifmap/ifmap_exporter.h"
-
-#include "base/util.h"
 #include "base/logging.h"
-#include "base/bitset.h"
-#include "base/task.h"
 #include "base/timer_impl.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
-#include "io/test/event_manager_test.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "io/event_manager.h"
 #include "ifmap/ifmap_client.h"
+#include "ifmap/ifmap_exporter.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
@@ -24,332 +17,41 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_server_table.h"
 #include "ifmap/ifmap_update.h"
-#include "ifmap/ifmap_update_queue.h"
 #include "ifmap/ifmap_update_sender.h"
 #include "ifmap/ifmap_util.h"
 #include "ifmap/ifmap_uuid_mapper.h"
 #include "ifmap/ifmap_xmpp.h"
+#include "ifmap/test/ifmap_xmpp_client_mock.h"
 #include "schema/vnc_cfg_types.h"
 #include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
-
-#include <pugixml/pugixml.hpp>
-#include "xml/xml_pugi.h"
-
-#include "xmpp/xmpp_state_machine.h"
-#include "xmpp/xmpp_channel.h"
-#include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_server.h"
 #include "xmpp/xmpp_client.h"
-#include "xmpp/xmpp_config.h"
-#include "xmpp/xmpp_proto.h"
-#include "xml/xml_pugi.cc"
-
 #include "testing/gunit.h"
-#include "xmpp/test/xmpp_test_util.h"
 
+#include <stdlib.h>
 #include <iostream>
 #include <fstream>
-using namespace boost::asio;
+
 using namespace std;
-
-#define SRV_ADDR                "127.0.0.1"
-#define CLI_ADDR                "phys-host-1"
-#define XMPP_CONTROL_SERV       "bgp.contrail.com"
-#define XMPP_CONTROL_SERV_CFG   "bgp.contrail.com/config"
-#define DEFAULT_OUTPUT_FILE     "/tmp/output.txt"
-#define HOST_VMI_NAME           "aad4c946-9390-4a53-8bbd-09d346f5ba6c:323b7882-9bcf-4dc9-9460-48ea68b60ea2"
-#define HOST_VM_NAME            "aad4c946-9390-4a53-8bbd-09d346f5ba6c"
-#define HOST_VM_NAME1           "aad4c946-9390-4a53-8bbd-09d346f5ba6d"
-
-class XmppVnswMockPeer : public XmppClient {
-public:
-    typedef set<string> ObjectSet;
-
-    explicit XmppVnswMockPeer(EventManager *evm, int port, const string &name,
-                 string laddr = string(), string filepath = string())
-        : XmppClient(evm), count_(0), os_(&fb_), name_(name) {
-        if (laddr.size()) {
-            laddr_ = laddr;
-        } else {
-            laddr_ = string("127.0.0.1");
-        }
-        XmppChannelConfig *channel_config = 
-            CreateXmppChannelCfg(SRV_ADDR, laddr_.c_str(), port,
-                                 XMPP_CONTROL_SERV, name_);
-        XmppConfigData *config = new XmppConfigData();
-        config->AddXmppChannelConfig(channel_config);
-        ConfigUpdate(config);
-        if (filepath.size()) {
-            fb_.open(filepath.c_str(), ios::out);
-        } else {
-            fb_.open(DEFAULT_OUTPUT_FILE, ios::out);
-        }
-    }
-
-    ~XmppVnswMockPeer() {
-        fb_.close();
-    }
-
-    void RegisterWithXmpp() {
-        XmppChannel *channel = FindChannel(XMPP_CONTROL_SERV);
-        assert(channel);
-        channel->RegisterReceive(xmps::CONFIG, 
-                                 boost::bind(&XmppVnswMockPeer::ReceiveUpdate,
-                                             this, _1));
-    }
-
-    void UnRegisterWithXmpp() {
-        XmppChannel *channel = FindChannel(XMPP_CONTROL_SERV);
-        assert(channel);
-        channel->UnRegisterReceive(xmps::CONFIG);
-    }
-
-    bool IsEstablished() {
-        XmppConnection *cconnection = FindConnection(XMPP_CONTROL_SERV);
-        if (cconnection == NULL) {
-            return false;
-        }
-        return (cconnection->GetStateMcState() == xmsm::ESTABLISHED); 
-    }
-
-    static XmppChannelConfig *CreateXmppChannelCfg(
-            const char *saddr, const char *laddr, int sport,
-            const string &to, const string &from) {
-        XmppChannelConfig *cfg = new XmppChannelConfig(true);
-
-        cfg->endpoint.address(ip::address::from_string(saddr));
-        cfg->endpoint.port(sport);
-        cfg->local_endpoint.address(ip::address::from_string(laddr));
-        cfg->ToAddr = to;
-        cfg->FromAddr = from;
-        return cfg;
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-        ++count_;
-
-        ASSERT_TRUE(msg->type == XmppStanza::IQ_STANZA);
-        XmlBase *impl = msg->dom.get();
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
-
-        // Append the received message into the buffer
-        stringstream ss;
-        pugi->PrintDocFormatted(ss);
-        recv_buffer_ += ss.str();
-    }
-
-    void SendDocument(const pugi::xml_document &xdoc) {
-        ostringstream oss;
-        xdoc.save(oss);
-        string msg = oss.str();
-
-        XmppChannel *channel = FindChannel(XMPP_CONTROL_SERV);
-        assert(channel);
-        if (channel->GetPeerState() == xmps::READY) {
-            channel->Send(reinterpret_cast<const uint8_t *>(msg.data()),
-                          msg.length(), xmps::CONFIG, NULL);
-        }
-    }
-
-    pugi::xml_node PubSubHeader(pugi::xml_document *xdoc) {
-        pugi::xml_node iq = xdoc->append_child("iq");
-        iq.append_attribute("type") = "set";
-        iq.append_attribute("from") = name_.c_str();
-        iq.append_attribute("to") = XMPP_CONTROL_SERV_CFG;
-        pugi::xml_node pubsub = iq.append_child("pubsub");
-        pubsub.append_attribute("xmlns") = XmppInit::kPubSubNS;
-        return pubsub;
-    }
-
-    void SendConfigSubscribe() {
-        pugi::xml_document xdoc;
-        pugi::xml_node pubsub = PubSubHeader(&xdoc);
-        pugi::xml_node subscribe = pubsub.append_child("subscribe");
-        string iqnode = std::string("virtual-router:") + std::string(name_);
-        subscribe.append_attribute("node") = iqnode.c_str();
-        SendDocument(xdoc);
-    }
-
-    uint64_t Count() const { return count_; }
-
-    void SendVmConfigSubscribe(string vm_name) {
-        pugi::xml_document xdoc;
-        pugi::xml_node pubsub = PubSubHeader(&xdoc);
-        pugi::xml_node subscribe = pubsub.append_child("subscribe");
-        string iqnode = std::string("virtual-machine:") + std::string(vm_name);
-        subscribe.append_attribute("node") = iqnode.c_str();
-        SendDocument(xdoc);
-    }
-
-    void SendVmConfigUnsubscribe(string vm_name) {
-        pugi::xml_document xdoc;
-        pugi::xml_node pubsub = PubSubHeader(&xdoc);
-        pugi::xml_node subscribe = pubsub.append_child("unsubscribe");
-        string iqnode = std::string("virtual-machine:") + std::string(vm_name);
-        subscribe.append_attribute("node") = iqnode.c_str();
-        SendDocument(xdoc);
-    }
-
-    void ResetCount() { count_ = 0; }
-
-    bool HasMessages() const {
-        return count_ > 0;
-    }
-
-    bool Has2Messages() const {
-        return count_ == 2;
-    }
-
-    bool HasNMessages(uint64_t n) const {
-        return count_ == n;
-    }
-
-    string& name() { return name_; }
-
-    void ProcessNodeTag(pugi::xml_node xnode, ObjectSet *oset) {
-        string ntype;
-
-        // EG: <node type="virtual-router">
-        //        <name>a1s27</name>
-
-        // Search for the 'type' attribute of the 'node' tag
-        for (pugi::xml_attribute attr = xnode.first_attribute(); attr;
-             attr = attr.next_attribute()) {
-            string attr_name = attr.name();
-            if (attr_name.compare("type") == 0) {
-                ntype = attr.value();
-                break;
-            }
-        }
-        assert(ntype.size() != 0);
-
-        // Find the child with the 'name' tag. Get the child of that child.
-        // The value of this grand-child is the name of 'xnode'
-        for (pugi::xml_node child = xnode.first_child(); child;
-             child = child.next_sibling()) {
-            string child_name = child.name();
-            if (child_name.compare("name") == 0) {
-                pugi::xml_node gchild = child.first_child();
-                // Concatenate type and value to form unique string
-                oset->insert(ntype.append(gchild.value()));
-                break;
-            }
-        }
-    }
-
-    void ProcessLinkTag(pugi::xml_node xnode) {
-        return;
-    }
-
-    // This logic works since we have SetObjectsPerMessage as 1. Otherwise, we
-    // will need another loop after accessing 'config'.
-    void XmlDocWalk(pugi::xml_node xnode, ObjectSet *oset) {
-        string node_name = xnode.name();
-        assert(node_name.compare("iq") == 0);
-
-        pugi::xml_node cnode = xnode.first_child();
-        node_name = cnode.name();
-        assert(node_name.compare("config") == 0);
-
-        cnode = cnode.first_child();
-        node_name = cnode.name();
-        assert((node_name.compare("update") == 0) ||
-               (node_name.compare("delete") == 0));
-
-        cnode = cnode.first_child();
-        node_name = cnode.name();
-        if (node_name.compare("node") == 0) {
-            ProcessNodeTag(cnode, oset);
-        } else if (node_name.compare("link") == 0) {
-            ProcessLinkTag(cnode);
-        } else {
-            assert(0);
-        }
-    }
-
-    void OutputRecvBufferToFile() {
-        os_ << recv_buffer_;
-    }
-
-    // Compare the contents of the received buffer with master_file_path
-    bool OutputFileCompare(string master_file_path) {
-        pugi::xml_document doc1, doc2;
-        ObjectSet set1, set2;
-
-        // Save the received contents in the user's file. This file is just for
-        // reference.
-        os_ << recv_buffer_;
-
-        // Decode the contents of the received buffer into set1
-        pugi::xml_parse_result result =
-            doc1.load_buffer(recv_buffer_.c_str(), recv_buffer_.size());
-        if (result) {
-            for (pugi::xml_node child = doc1.first_child(); child;
-                child = child.next_sibling()) {
-                XmlDocWalk(child, &set1);
-            }
-        } else {
-            LOG(DEBUG, "Error loading received buffer. Buffer size is "
-                << recv_buffer_.size());
-            return false;
-        }
-        cout << "Set size is " << set1.size() << endl;
-        PrintSet(set1);
-
-        // Decode the contents of the master file into set2
-        result = doc2.load_file(master_file_path.c_str());
-        if (result) {
-            for (pugi::xml_node child = doc2.first_child(); child;
-                child = child.next_sibling()) {
-                XmlDocWalk(child, &set2);
-            }
-        } else {
-            LOG(DEBUG, "Error loading " << master_file_path);
-            return false;
-        }
-
-        // == compares size and contents. Note, sets are sorted.
-        if (set1 == set2) {
-            return true;
-        } else {
-            LOG(DEBUG, "Error: File compare mismatch. set1 is " 
-                << set1.size() << " set2 is " << set2.size() << endl);
-            return false;
-        }
-    }
-
-    void PrintSet(ObjectSet &oset) {
-        int i = 0;
-        cout << "Set size is " << oset.size() << endl;
-        for (ObjectSet::iterator it = oset.begin(); it != oset.end(); ++it) {
-            cout << i++ << ") " << *it << endl;
-        }
-    }
-
-private:
-    uint64_t count_;
-    ostream os_;
-    filebuf fb_;
-    string name_;
-    string laddr_;
-    string recv_buffer_;
-};
 
 class XmppIfmapTest : public ::testing::Test {
 protected:
+    static const string kDefaultClientName;
+    static const string kDefaultXmppServerAddress;
+    static const string kDefaultXmppServerName;
+    static const string kDefaultXmppServerConfigName;
+
     XmppIfmapTest()
          : ifmap_server_(&db_, &graph_, evm_.io_service()),
-           exporter_(ifmap_server_.exporter()),
-           parser_(NULL),
-           xmpp_server_(NULL),
-           vm_uuid_mapper_(NULL) {
+           exporter_(ifmap_server_.exporter()), parser_(NULL),
+           xmpp_server_(NULL), vm_uuid_mapper_(NULL) {
     }
 
     virtual void SetUp() {
         IFMap_Initialize();
 
-        xmpp_server_ = new XmppServer(&evm_, XMPP_CONTROL_SERV);
+        xmpp_server_ = new XmppServer(&evm_, kDefaultXmppServerName);
         thread_.reset(new ServerThread(&evm_));
         xmpp_server_->Initialize(0, false);
 
@@ -591,7 +293,17 @@ protected:
     IFMapVmUuidMapper *vm_uuid_mapper_;
 };
 
+const string XmppIfmapTest::kDefaultClientName = "phys-host-1";
+const string XmppIfmapTest::kDefaultXmppServerAddress = "127.0.0.1";
+const string XmppIfmapTest::kDefaultXmppServerName = "bgp.contrail.com";
+const string XmppIfmapTest::kDefaultXmppServerConfigName =
+    "bgp.contrail.com/config";
+
 namespace {
+
+static string GetUserName() {
+    return string(getenv("LOGNAME"));
+}
 
 static XmppChannel* GetXmppChannel(XmppServer *server,
                                    const string &client_name) {
@@ -626,6 +338,7 @@ bool IsIFMapClientUnregistered(IFMapServer *ifmap_server,
 }
 
 TEST_F(XmppIfmapTest, Connection) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -636,10 +349,11 @@ TEST_F(XmppIfmapTest, Connection) {
     task_util::WaitForIdle();
 
     // create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/connection.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_connection.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -657,7 +371,7 @@ TEST_F(XmppIfmapTest, Connection) {
     // subscribe to config
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->Has2Messages());
     TASK_UTIL_EXPECT_EQ(2, vnsw_client->Count());
     cout << "Rx msgs " << vnsw_client->Count() << endl;
@@ -693,6 +407,7 @@ TEST_F(XmppIfmapTest, Connection) {
 
 // Create 2 client connections back2back with the same client name
 TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -703,10 +418,11 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     task_util::WaitForIdle();
 
     // create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/graph_cleanup_1.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_graph_cleanup_1.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -723,7 +439,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     // subscribe to config
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->Has2Messages());
     TASK_UTIL_EXPECT_NE(0, vnsw_client->Count());
 
@@ -764,9 +480,10 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     /////////////////////////////////////////////////////////
  
     // create the mock client
+    filename = "/tmp/" + GetUserName() + "_graph_cleanup_2.output";
     vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/graph_cleanup_2.output"));
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -783,7 +500,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     // subscribe to config
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->Has2Messages());
     TASK_UTIL_EXPECT_NE(0, vnsw_client->Count());
 
@@ -822,6 +539,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
 }
 
 TEST_F(XmppIfmapTest, DeleteProperty) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file and give it to the parser
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -830,10 +548,11 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
     task_util::WaitForIdle();
 
     // create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/delete_property.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_delete_property.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -850,7 +569,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
     //subscribe to config
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->Has2Messages());
     TASK_UTIL_EXPECT_EQ(2, vnsw_client->Count());
 
@@ -895,6 +614,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
 }
 
 TEST_F(XmppIfmapTest, VrVmSubUnsub) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Give the read file to the parser
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -903,10 +623,11 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/vr_vm_sub_unsub.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_vr_vm_sub_unsub.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -916,7 +637,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
                           == true);
 
     // Verify ifmap_server client is not created until config subscribe
-    TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(CLI_ADDR) == NULL);
+    TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(kDefaultClientName) == NULL);
     // No config messages sent until config subscribe
     TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
 
@@ -928,9 +649,9 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     EXPECT_TRUE(client != NULL);
 
     // The link between VR-VM should not exist
-    IFMapNode *vr = TableLookup("virtual-router", CLI_ADDR);
+    IFMapNode *vr = TableLookup("virtual-router", kDefaultClientName);
     EXPECT_TRUE(vr != NULL);
-    IFMapNode *vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
     IFMapLink *link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -938,7 +659,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     // After sending subscribe, client should get all the nodes.
     // The link should not exist before the subscribe and should exist after.
     size_t num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
@@ -963,7 +684,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     // After sending unsubscribe, client should get a delete for the vr-vm
     // link. The link should not have XMPP as origin anymore.
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 3));
     cout << "Rx msgs " << vnsw_client->Count() << endl;
@@ -1007,6 +728,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
 }
 
 TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -1015,10 +737,11 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-            string("127.0.0.1"), string("/tmp/vr_vm_sub_unsub_twice.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_vr_vm_sub_unsub_twice.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -1038,13 +761,13 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
 
     // Verify ifmap_server client creation
-    IFMapClient *client = ifmap_server_.FindClient(CLI_ADDR);
+    IFMapClient *client = ifmap_server_.FindClient(kDefaultClientName);
     EXPECT_TRUE(client != NULL);
 
     // The link between VR-VM should not exist
-    IFMapNode *vr = TableLookup("virtual-router", CLI_ADDR);
+    IFMapNode *vr = TableLookup("virtual-router", kDefaultClientName);
     EXPECT_TRUE(vr != NULL);
-    IFMapNode *vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
     IFMapLink *link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -1052,7 +775,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     // After sending subscribe, client should get an add for the vr-vm link.
     // The link should not exist before the subscribe and should exist after.
     size_t num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
@@ -1076,7 +799,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     // After sending unsubscribe, client should get a delete for the vr-vm
     // link. The link should not exist in the ctrl-node db anymore.
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 3));
     cout << "Rx msgs " << vnsw_client->Count() << endl;
@@ -1093,7 +816,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
 
     // Send a subscribe-unsubscribe again.
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     // We should download everything since Unsubscribe above would have reset
@@ -1116,7 +839,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     CheckNodeBits(vm, cli_index, true, true);
 
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     usleep(1000);
     // Should get a delete for the link
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 3));
@@ -1162,6 +885,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
 
 // 3 consecutive subscribe requests with no unsubscribe in between
 TEST_F(XmppIfmapTest, VrVmSubThrice) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -1170,10 +894,11 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/vr_vm_sub_thrice.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_vr_vm_sub_thrice.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -1193,13 +918,13 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
 
     // Verify ifmap_server client creation
-    IFMapClient *client = ifmap_server_.FindClient(CLI_ADDR);
+    IFMapClient *client = ifmap_server_.FindClient(kDefaultClientName);
     EXPECT_TRUE(client != NULL);
 
     // The link between VR-VM should not exist
-    IFMapNode *vr = TableLookup("virtual-router", CLI_ADDR);
+    IFMapNode *vr = TableLookup("virtual-router", kDefaultClientName);
     EXPECT_TRUE(vr != NULL);
-    IFMapNode *vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
     IFMapLink *link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -1207,7 +932,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     // After sending subscribe, client should get an add for the vr-vm link.
     // The link should not exist before the subscribe and should exist after.
     size_t num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
@@ -1232,7 +957,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
 
     // 2nd spurious subscribe
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     task_util::WaitForIdle();
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 1);
@@ -1249,7 +974,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
 
     // 3rd spurious subscribe
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 2);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
@@ -1265,7 +990,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
 
     // Unsubscribe
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     usleep(1000);
     // Should get a delete for the link
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 3));
@@ -1311,6 +1036,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
 
 // 1 subscribe followed by 3 consecutive unsubscribe requests
 TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -1319,10 +1045,11 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/vr_vm_unsub_thrice.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_vr_vm_unsub_thrice.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -1342,13 +1069,13 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
 
     // Verify ifmap_server client creation
-    IFMapClient *client = ifmap_server_.FindClient(CLI_ADDR);
+    IFMapClient *client = ifmap_server_.FindClient(kDefaultClientName);
     EXPECT_TRUE(client != NULL);
 
     // The link between VR-VM should not exist
-    IFMapNode *vr = TableLookup("virtual-router", CLI_ADDR);
+    IFMapNode *vr = TableLookup("virtual-router", kDefaultClientName);
     EXPECT_TRUE(vr != NULL);
-    IFMapNode *vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
     IFMapLink *link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -1356,7 +1083,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     // After sending subscribe, client should get an add for the vr-vm link.
     // The link should not exist before the subscribe and should exist after.
     size_t num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
@@ -1379,7 +1106,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
 
     // Unsubscribe
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     usleep(1000);
     // Should get a delete for the link
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 3));
@@ -1398,7 +1125,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
 
     // 2nd spurious unsubscribe
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs));
     link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -1412,7 +1139,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
 
     // 3rd spurious unsubscribe
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs));
     link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -1454,6 +1181,8 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
 
 // subscribe followed by connection close - no unsubscribe
 TEST_F(XmppIfmapTest, VrVmSubConnClose) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
+    string unknown_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5baaa";
 
     // Give the read file to the parser
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
@@ -1462,10 +1191,11 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-               string("127.0.0.1"), string("/tmp/vr_vm_sub_conn_close.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_vr_vm_sub_conn_close.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -1485,13 +1215,13 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
 
     // Verify ifmap_server client creation
-    IFMapClient *client = ifmap_server_.FindClient(CLI_ADDR);
+    IFMapClient *client = ifmap_server_.FindClient(kDefaultClientName);
     EXPECT_TRUE(client != NULL);
 
     // The link between VR-VM should not exist
-    IFMapNode *vr = TableLookup("virtual-router", CLI_ADDR);
+    IFMapNode *vr = TableLookup("virtual-router", kDefaultClientName);
     EXPECT_TRUE(vr != NULL);
-    IFMapNode *vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
     IFMapLink *link = LinkLookup(vr, vm);
     EXPECT_TRUE(link == NULL);
@@ -1499,7 +1229,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     // After sending subscribe, client should get an add for the vr-vm link.
     // The link should not exist before the subscribe and should exist after.
     size_t num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
@@ -1522,8 +1252,8 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
 
     vnsw_client->OutputRecvBufferToFile();
 
-    // HOST_VM_NAME1 does not exist in config.
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME1);
+    // unknown_vm_name does not exist in config.
+    vnsw_client->SendVmConfigSubscribe(unknown_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 1);
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
@@ -1560,16 +1290,18 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
 }
 
 TEST_F(XmppIfmapTest, RegBeforeConfig) {
+    string host_vm_name = "aad4c946-9390-4a53-8bbd-09d346f5ba6c";
 
     // Read the ifmap data from file
     string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/reg_before_config.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_reg_before_config.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -1588,22 +1320,22 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
 
     // The nodes should not exist since the config has not been read yet
-    IFMapNode *vr = TableLookup("virtual-router", CLI_ADDR);
+    IFMapNode *vr = TableLookup("virtual-router", kDefaultClientName);
     EXPECT_TRUE(vr == NULL);
-    IFMapNode *vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm == NULL);
 
     // The parser has not been given the data yet and so nothing to download
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
     EXPECT_EQ(vnsw_client->Count(), 0);
 
     // The nodes should not exist since the config has not been read yet
-    EXPECT_TRUE(TableLookup("virtual-router", CLI_ADDR) == NULL);
-    EXPECT_TRUE(TableLookup("virtual-machine", HOST_VM_NAME) == NULL);
+    EXPECT_TRUE(TableLookup("virtual-router", kDefaultClientName) == NULL);
+    EXPECT_TRUE(TableLookup("virtual-machine", host_vm_name) == NULL);
 
     // Verify ifmap_server client creation
-    IFMapClient *client = ifmap_server_.FindClient(CLI_ADDR);
+    IFMapClient *client = ifmap_server_.FindClient(kDefaultClientName);
     EXPECT_TRUE(client != NULL);
     size_t cli_index = static_cast<size_t>(client->index());
 
@@ -1613,10 +1345,11 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
 
-    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", CLI_ADDR) != NULL);
-    vr = TableLookup("virtual-router", CLI_ADDR);
-    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", HOST_VM_NAME) != NULL);
-    vm = TableLookup("virtual-machine", HOST_VM_NAME);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", kDefaultClientName)
+                          != NULL);
+    vr = TableLookup("virtual-router", kDefaultClientName);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", host_vm_name) != NULL);
+    vm = TableLookup("virtual-machine", host_vm_name);
     TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm) != NULL);
     IFMapLink *link = LinkLookup(vr, vm);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
@@ -1634,7 +1367,7 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     CheckNodeBits(vm, cli_index, true, true);
 
     num_msgs = vnsw_client->Count();
-    vnsw_client->SendVmConfigUnsubscribe(HOST_VM_NAME);
+    vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 3));
     cout << "Rx msgs " << vnsw_client->Count() << endl;
@@ -1691,9 +1424,10 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/cli1_vn1_vm3_add.output"));
+    string filename("/tmp/" + GetUserName() + "_cli1_vn1_vm3_add.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -1774,10 +1508,10 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"),
-                string("/tmp/cli1_vn2_np1_add.output"));
+    string filename("/tmp/" + GetUserName() + "_cli1_vn2_np1_add.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -1855,9 +1589,10 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/cli1_vn2_np2_add.output"));
+    string filename("/tmp/" + GetUserName() + "_cli1_vn2_np2_add.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -1935,19 +1670,19 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
     // Establish client a1s27
     string cli_name1 =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_cli1 =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), cli_name1,
-                string("127.0.0.1"),
-                string("/tmp/cli2_vn2_np2_add_a1s27.output"));
+    string filename1("/tmp/" + GetUserName() + "_cli2_vn2_np2_add_s27.output");
+    IFMapXmppClientMock *vnsw_cli1 =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), cli_name1,
+                                filename1);
     TASK_UTIL_EXPECT_EQ(true, vnsw_cli1->IsEstablished());
 
     // Establish client a1s28
     string cli_name2 =
         string("default-global-system-config:a1s28.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_cli2 =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), cli_name2,
-                string("127.0.0.2"),
-                string("/tmp/cli2_vn2_np2_add_a1s28.output"));
+    string filename2("/tmp/" + GetUserName() + "_cli2_vn2_np2_add_s28.output");
+    IFMapXmppClientMock *vnsw_cli2 =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), cli_name2,
+                                filename2);
     TASK_UTIL_EXPECT_EQ(true, vnsw_cli2->IsEstablished());
 
     vnsw_cli1->RegisterWithXmpp();
@@ -2057,19 +1792,19 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
     // Establish client a1s27
     string cli_name1 =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_cli1 =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), cli_name1,
-                string("127.0.0.1"),
-                string("/tmp/cli2_vn2_vm2_add_a1s27.output"));
+    string filename1("/tmp/" + GetUserName() + "_cli2_vn2_vm2_add_s27.output");
+    IFMapXmppClientMock *vnsw_cli1 =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), cli_name1,
+                                filename1);
     TASK_UTIL_EXPECT_EQ(true, vnsw_cli1->IsEstablished());
 
     // Establish client a1s28
     string cli_name2 =
         string("default-global-system-config:a1s28.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_cli2 =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), cli_name2,
-                string("127.0.0.2"),
-                string("/tmp/cli2_vn2_vm2_add_a1s28.output"));
+    string filename2("/tmp/" + GetUserName() + "_cli2_vn2_vm2_add_s28.output");
+    IFMapXmppClientMock *vnsw_cli2 =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), cli_name2,
+                                filename2);
     TASK_UTIL_EXPECT_EQ(true, vnsw_cli2->IsEstablished());
 
     vnsw_cli1->RegisterWithXmpp();
@@ -2179,19 +1914,21 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
     // Establish client a1s27
     string cli_name1 =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_cli1 =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), cli_name1,
-                string("127.0.0.1"),
-                string("/tmp/cli2_vn3_vm6_np2_add_a1s27.output"));
+    string filename1("/tmp/" + GetUserName() +
+                     "_cli2_vn3_vm6_np2_add_s27.output");
+    IFMapXmppClientMock *vnsw_cli1 =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), cli_name1,
+                                filename1);
     TASK_UTIL_EXPECT_EQ(true, vnsw_cli1->IsEstablished());
 
     // Establish client a1s28
     string cli_name2 =
         string("default-global-system-config:a1s28.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_cli2 =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), cli_name2,
-                string("127.0.0.2"),
-                string("/tmp/cli2_vn3_vm6_np2_add_a1s28.output"));
+    string filename2("/tmp/" + GetUserName() +
+                     "_cli2_vn3_vm6_np2_add_s28.output");
+    IFMapXmppClientMock *vnsw_cli2 =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), cli_name2,
+                                filename2);
     TASK_UTIL_EXPECT_EQ(true, vnsw_cli2->IsEstablished());
 
     vnsw_cli1->RegisterWithXmpp();
@@ -2318,9 +2055,10 @@ TEST_F(XmppIfmapTest, CfgSubUnsub) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/CfgRegUnreg.output"));
+    string filename("/tmp/" + GetUserName() + "_cfg_reg_unreg.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -2474,9 +2212,11 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-            string("127.0.0.1"), string("/tmp/CfgAdd_Reg_CfgDel_Unreg.output"));
+    string filename("/tmp/" + GetUserName() +
+                    "_cfgadd_reg_cfgdel_unreg.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -2644,9 +2384,11 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-            string("127.0.0.1"), string("/tmp/Reg_CfgAdd_CfgDel_Unreg.output"));
+    string filename("/tmp/" + GetUserName() +
+                    "_reg_cfgadd_cfgdel_unreg.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -2834,9 +2576,11 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-            string("127.0.0.1"), string("/tmp/Reg_CfgAdd_Unreg_CfgDel.output"));
+    string filename("/tmp/" + GetUserName() +
+                    "_reg_cfgadd_unreg_cfgdel.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -3014,9 +2758,10 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-            string("127.0.0.1"), string("/tmp/Reg_CfgAdd_Unreg_Close.output"));
+    string filename("/tmp/" + GetUserName() + "_reg_cfgadd_unreg_close.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -3207,9 +2952,11 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-        string("127.0.0.1"), string("/tmp/CheckIFMapObjectSeqInList.output"));
+    string filename("/tmp/" + GetUserName() +
+                    "_check_ifmap_object_seq_in_list.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -3451,9 +3198,10 @@ TEST_F(XmppIfmapTest, ReadyNotready) {
     // create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/ReadyNotready.output"));
+    string filename("/tmp/" + GetUserName() + "_ready_not_ready.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -3498,9 +3246,10 @@ TEST_F(XmppIfmapTest, Bug788) {
     // Create the mock client
     string client_name =
         string("default-global-system-config:a1s27.contrail.juniper.net");
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/Bug788.output"));
+    string filename("/tmp/" + GetUserName() + "_bug788.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
     vnsw_client->RegisterWithXmpp();
 
@@ -3625,10 +3374,11 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/connection.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() + "_spurious_vr_sub.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -3697,10 +3447,12 @@ TEST_F(XmppIfmapTest, VmSubUnsubWithNoVrSub) {
     task_util::WaitForIdle();
 
     // Create the mock client
-    string client_name(CLI_ADDR);
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/connection.output"));
+    string client_name(kDefaultClientName);
+    string filename("/tmp/" + GetUserName() +
+                    "_vm_subunsub_with_novrsub.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -3776,9 +3528,10 @@ TEST_F(XmppIfmapTest, ConfigVrsubVrUnsub) {
     TASK_UTIL_EXPECT_TRUE(link != NULL);
 
     // Create the mock client
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/ConfigVrsubVrUnsub.output"));
+    string filename("/tmp/" + GetUserName() + "_config_vrsub_vrunsub.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -3824,9 +3577,10 @@ TEST_F(XmppIfmapTest, VrsubConfigVrunsub) {
     string gsc_str("gsc1");
 
     // Create the mock client
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/VrsubConfigVrunsub.output"));
+    string filename("/tmp/" + GetUserName() + "_vrsub_config_vrunsub.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -3909,9 +3663,10 @@ TEST_F(XmppIfmapTest, ConfignopropVrsub) {
     TASK_UTIL_EXPECT_TRUE(link != NULL);
 
     // Create the mock client
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-           string("127.0.0.1"), string("/tmp/ConfignopropVrsub.output"));
+    string filename("/tmp/" + GetUserName() + "_config_noprop_vrsub.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -3966,9 +3721,10 @@ TEST_F(XmppIfmapTest, VrsubConfignoprop) {
     string gsc_str("gsc1");
 
     // Create the mock client
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/VrsubConfignoprop.output"));
+    string filename("/tmp/" + GetUserName() + "_vrsub_config_noprop.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
@@ -4038,9 +3794,10 @@ TEST_F(XmppIfmapTest, NodePropertyChanges) {
     string client_name("vr1");
 
     // Create the mock client
-    XmppVnswMockPeer *vnsw_client =
-        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
-                string("127.0.0.1"), string("/tmp/NodePropChanges.output"));
+    string filename("/tmp/" + GetUserName() + "_node_prop_changes.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
 
     vnsw_client->RegisterWithXmpp();
