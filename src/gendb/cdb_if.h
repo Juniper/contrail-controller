@@ -54,9 +54,6 @@ public:
         const std::string& cfname,
         const std::vector<GenDb::DbDataValueVec>& key,
         GenDb::ColumnNameRange *crange_ptr = NULL);
-    bool Db_GetRangeSlices(GenDb::ColList& col_list,
-        const std::string& cfname, const GenDb::ColumnNameRange& crange,
-        const GenDb::DbDataValueVec& key);
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;
@@ -167,12 +164,6 @@ private:
                               org::apache::cassandra::CfDef *newcfdef);
     // Read
     static const int kMaxQueryRows = 5000;
-    // API to get range of column data for a range of rows 
-    // Number of columns returned is less than or equal to count field
-    // in crange
-    bool Db_GetRangeSlicesInternal(GenDb::ColList& col_list,
-        const GenDb::NewCf *cf, const GenDb::ColumnNameRange& crange,
-        const GenDb::DbDataValueVec& key);
 
     // Statistics
     struct CdbIfStats {

@@ -121,7 +121,14 @@ def run_coverage(env, target, source):
     import os
     lcov_run = 'lcov --ignore-errors gcov,source --base-directory ' + Dir('#').abspath +\
         ' --directory ' + Dir(env['TOP']).abspath +\
-        ' -c -o ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
+        ' -c -o ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test_intermediate.info'
+    os.system(lcov_run)
+    lcov_run = 'lcov -e ' + Dir(env['TOP']).abspath +\
+        '/opserver/test/analytics_test_intermediate.info ' +\
+        Dir('#').abspath + '/controller/src/analytics/* ' +\
+        Dir('#').abspath + '/controller/src/query_engine/* ' +\
+        Dir('#').abspath + '/controller/src/gendb/* ' +\
+        ' -o ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
     os.system(lcov_run)
  
     genhtml_cmd = 'genhtml -o ' + Dir(env['TOP']).abspath + '/opserver/test/test_coverage' +\
