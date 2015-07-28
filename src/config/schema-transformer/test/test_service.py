@@ -128,6 +128,14 @@ class TestPolicy(test_case.STTestCase):
         return sc
 
     @retries(5, hook=retry_exc_handler)
+    def wait_to_get_link(self, ident_name, link_fq_name):
+        self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']), Contains(link_fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def wait_to_remove_link(self, ident_name, link_fq_name):
+        self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']), Not(Contains(link_fq_name)))
+
+    @retries(5, hook=retry_exc_handler)
     def check_acl_match_dst_cidr(self, fq_name, ip_prefix, ip_len):
         acl = self._vnc_lib.access_control_list_read(fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
@@ -691,5 +699,74 @@ class TestPolicy(test_case.STTestCase):
 	self._vnc_lib.bgp_router_delete(id=router3.uuid)
 	self._vnc_lib.bgp_router_delete(id=router4.uuid)
         gevent.sleep(1)
+
+    @retries(10, hook=retry_exc_handler)
+    def check_vrf_assign_table(self, vmi_fq_name, floating_ip, is_present = True):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        if is_present:
+            self.assertEqual(vmi.get_vrf_assign_table().vrf_assign_rule[1].match_condition.src_address.subnet.ip_prefix, floating_ip)
+        else:
+            try:
+                self.assertEqual(vmi.get_vrf_assign_table().vrf_assign_rule[1].match_condition.src_address.subnet.ip_prefix, floating_ip)
+                raise Exception('floating is still present: ' + floating_ip)
+            except:
+                pass
+
+    def test_fip(self):
+
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], 'in-network')
+
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
+
+        vmi_fq_name = 'default-domain:default-project:default-domain__default-project__test.test_service.TestPolicy.test_fips1__1__left__1'
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name.split(':'))
+
+        vn3_name = 'vn-public'
+        vn3_obj = VirtualNetwork(vn3_name)
+        vn3_obj.set_router_external(True)
+        ipam3_obj = NetworkIpam('ipam3')
+        self._vnc_lib.network_ipam_create(ipam3_obj)
+        vn3_obj.add_network_ipam(ipam3_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+        vn3_uuid = self._vnc_lib.virtual_network_create(vn3_obj)
+        fip_pool_name = 'vn_public_fip_pool'
+        fip_pool = FloatingIpPool(fip_pool_name, vn3_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool)
+        fip_obj = FloatingIp("fip1", fip_pool)
+        default_project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        fip_obj.set_project(default_project)
+        fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        fip_obj.set_virtual_machine_interface(vmi)
+        self._vnc_lib.floating_ip_update(fip_obj)
+
+        fip_obj = self._vnc_lib.floating_ip_read(fip_obj.get_fq_name())
+
+        for obj in [fip_obj]:
+            ident_name = self.get_obj_imid(obj)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        self.wait_to_get_link(ident_name, vmi_fq_name)
+
+        fip = fip_obj.get_floating_ip_address()
+        self.check_vrf_assign_table(vmi.get_fq_name(), fip, True)
+
+        fip_fq_name = fip_obj.get_fq_name()
+        self._vnc_lib.floating_ip_delete(fip_fq_name)
+        self.wait_to_remove_link(self.get_obj_imid(vmi), fip_fq_name)
+        self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
 
 # end class TestRouteTable
