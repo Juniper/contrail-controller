@@ -2,16 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/bgp_show_handler.h"
+
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <sandesh/sandesh.h>
-#include <sandesh/request_pipeline.h>
 
 #include "base/time_util.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -19,79 +18,10 @@
 using std::string;
 using std::vector;
 
-static char kIterSeparator[] = "||";
-
-//
-// Class template to handle the following combinations:
-
-// ShowRoutingInstanceReq + ShowRoutingInstanceReqIterate
-// ShowRoutingInstanceSummaryReq + ShowRoutingInstanceSummaryReqIterate
-//
-// Supports pagination of output as specified by page limit.
-//
-// Also supports an iteration limit, which is the maximum number of entries
-// examined in one run. This is useful when the search string is non-empty
-// and there are a large number of entries in table.  We don't want to look
-// at potentially all entries in one shot in cases where most of them don't
-// match the search string.
-//
-// Data is used to store partial pages of results as well as other context
-// that needs to be maintained between successive runs of the callbacks in
-// cases where we don't manage to fill a page of results in one run.
-//
-// Note that the infrastructure automatically reschedules and invokes the
-// callback function again if it returns false.
-//
-template <typename ReqT, typename ReqIterateT, typename RespT>
-class ShowRoutingInstanceCommonHandler {
-public:
-    static const uint32_t kPageLimit = 64;
-    static const uint32_t kIterLimit = 1024;
-
-    struct Data : public RequestPipeline::InstData {
-        Data() : initialized(false) {
-        }
-
-        bool initialized;
-        string search_string;
-        string next_instance;
-        string next_batch;
-        vector<ShowRoutingInstance> sri_list;
-    };
-
-    static RequestPipeline::InstData *CreateData(int stage) {
-        return (new Data);
-    }
-
-    static void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit,
-        const BgpSandeshContext *bsc, const BgpTable *table);
-    static void FillRoutingInstanceInfo(ShowRoutingInstance *sri_list,
-        const BgpSandeshContext *bsc, const RoutingInstance *rtinstance,
-        bool summary);
-
-    static void ConvertReqToData(const ReqT *req, Data *data);
-    static bool ConvertReqIterateToData(const ReqIterateT *req_iterate,
-        Data *data);
-    static void SaveContextToData(const string &next_instance, bool done,
-        Data *data);
-
-    static bool CallbackCommon(const BgpSandeshContext *bsc, bool summary,
-        Data *data);
-    static bool Callback(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps,
-        int stage, int instNum, RequestPipeline::InstData *data, bool summary);
-    static bool CallbackIterate(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps,
-        int stage, int instNum, RequestPipeline::InstData *data, bool summary);
-};
-
 //
 // Fill in information for a table.
 //
-template <typename ReqT, typename ReqIterateT, typename RespT>
-void ShowRoutingInstanceCommonHandler<
-    ReqT, ReqIterateT, RespT>::FillRoutingInstanceTableInfo(
-    ShowRoutingInstanceTable *srit,
+static void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit,
     const BgpSandeshContext *bsc, const BgpTable *table) {
     srit->set_name(table->name());
     srit->set_deleted(table->IsDeleted());
@@ -113,11 +43,9 @@ void ShowRoutingInstanceCommonHandler<
 //
 // Fill in information for an instance.
 //
-template <typename ReqT, typename ReqIterateT, typename RespT>
-void ShowRoutingInstanceCommonHandler<
-    ReqT, ReqIterateT, RespT>::FillRoutingInstanceInfo(
-    ShowRoutingInstance *sri, const BgpSandeshContext *bsc,
-    const RoutingInstance *rtinstance, bool summary) {
+static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
+    const BgpSandeshContext *bsc, const RoutingInstance *rtinstance,
+    bool summary) {
     sri->set_name(rtinstance->name());
     sri->set_virtual_network(rtinstance->virtual_network());
     sri->set_vn_index(rtinstance->virtual_network_index());
@@ -152,87 +80,28 @@ void ShowRoutingInstanceCommonHandler<
 }
 
 //
-// Initialize Data from ReqT.
+// Fill in information for list of instances.
 //
-template <typename ReqT, typename ReqIterateT, typename RespT>
-void ShowRoutingInstanceCommonHandler<
-    ReqT, ReqIterateT, RespT>::ConvertReqToData(
-    const ReqT *req, Data *data) {
-    if (data->initialized)
-        return;
-    data->initialized = true;
-    data->search_string = req->get_search_string();
-}
-
+// Allows regular and summary introspect to share code.
 //
-// Initialize Data from ReqInterateT.
-//
-// Return false if there's a problem parsing the iterate_info string.
-//
-template <typename ReqT, typename ReqIterateT, typename RespT>
-bool ShowRoutingInstanceCommonHandler<
-    ReqT, ReqIterateT, RespT>::ConvertReqIterateToData(
-    const ReqIterateT *req_iterate, Data *data) {
-    if (data->initialized)
-        return true;
-    data->initialized = true;
-
-    // Format of iterate_info:
-    // NextRI||search_string
-    string iterate_info = req_iterate->get_iterate_info();
-    size_t sep_size = strlen(kIterSeparator);
-
-    size_t pos1 = iterate_info.find(kIterSeparator);
-    if (pos1 == string::npos)
-        return false;
-
-    data->next_instance = iterate_info.substr(0, pos1);
-    data->search_string = iterate_info.substr(pos1 + sep_size);
-    return true;
-}
-
-//
-// Save context into Data.
-// The next_instance field gets used in the subsequent invocation of callback
-// routine when the callback routine returns false.
-// The next_batch string is used if the page is filled (i.e. done is true).
-//
-template <typename ReqT, typename ReqIterateT, typename RespT>
-void ShowRoutingInstanceCommonHandler<
-    ReqT, ReqIterateT, RespT>::SaveContextToData(
-    const string &next_instance, bool done, Data *data) {
-    data->next_instance = next_instance;
-    if (done)
-        data->next_batch = next_instance + kIterSeparator + data->search_string;
-}
-
-//
-// Common routine for regular and iterate requests.
-// Assumes that Data has been initialized properly by caller.
-// Examine specified maximum instances starting at next_instance.
-//
-// Return true if we're examined all instances or reached the page limit.
-//
-template <typename ReqT, typename ReqIterateT, typename RespT>
-bool ShowRoutingInstanceCommonHandler<ReqT, ReqIterateT, RespT>::CallbackCommon(
-    const BgpSandeshContext *bsc, bool summary, Data *data) {
-    uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
-    uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
+static bool FillRoutingInstanceInfoList(const BgpSandeshContext *bsc,
+    bool summary, uint32_t page_limit, uint32_t iter_limit,
+    const string &start_instance, const string &search_string,
+    vector<ShowRoutingInstance> *sri_list, string *next_instance) {
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-
     RoutingInstanceMgr::const_name_iterator it =
-        rim->name_clower_bound(data->next_instance);
+        rim->name_clower_bound(start_instance);
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         const RoutingInstance *rtinstance = it->second;
-        if (!data->search_string.empty() &&
-            (rtinstance->name().find(data->search_string) == string::npos) &&
-            (data->search_string != "deleted" || !rtinstance->deleted())) {
+        if (!search_string.empty() &&
+            (rtinstance->name().find(search_string) == string::npos) &&
+            (search_string != "deleted" || !rtinstance->deleted())) {
             continue;
         }
         ShowRoutingInstance sri;
         FillRoutingInstanceInfo(&sri, bsc, rtinstance, summary);
-        data->sri_list.push_back(sri);
-        if (data->sri_list.size() >= page_limit)
+        sri_list->push_back(sri);
+        if (sri_list->size() >= page_limit)
             break;
         if (iter_count >= iter_limit)
             break;
@@ -244,87 +113,69 @@ bool ShowRoutingInstanceCommonHandler<ReqT, ReqIterateT, RespT>::CallbackCommon(
 
     // Return true if we've reached the page limit, false if we've reached the
     // iteration limit.
-    bool done = data->sri_list.size() >= page_limit;
-    SaveContextToData(it->second->name(), done, data);
+    bool done = sri_list->size() >= page_limit;
+    *next_instance = it->second->name();
     return done;
 }
 
 //
-// Callback for ReqT. This gets called for initial request and subsequently in
-// cases where the iteration count is reached.
+// Specialization of BgpShowHandler<>::CallbackCommon for regular introspect.
 //
-// Return false if the iteration count is reached before page gets filled.
-// Return true if the page gets filled or we've examined all instances.
-//
-template <typename ReqT, typename ReqIterateT, typename RespT>
-bool ShowRoutingInstanceCommonHandler<ReqT, ReqIterateT, RespT>::Callback(
-    const Sandesh *sr, const RequestPipeline::PipeSpec ps,
-    int stage, int instNum, RequestPipeline::InstData *data, bool summary) {
-    Data *mydata = static_cast<Data *>(data);
-    const ReqT *req = static_cast<const ReqT *>(ps.snhRequest_.get());
-    const BgpSandeshContext *bsc =
-        static_cast<const BgpSandeshContext *>(req->client_context());
-
-    // Parse request and save state in Data.
-    ConvertReqToData(req, mydata);
-
-    // Return false and reschedule ourselves if we've reached the limit of
-    // the number of instances examined.
-    if (!CallbackCommon(bsc, summary, mydata))
-        return false;
-
-    // All done - ship the response.
-    RespT *resp = new RespT;
-    resp->set_context(req->context());
-    if (!mydata->sri_list.empty())
-        resp->set_instances(mydata->sri_list);
-    if (!mydata->next_batch.empty())
-        resp->set_next_batch(mydata->next_batch);
-    resp->Response();
-    return true;
+template <>
+bool BgpShowHandler<ShowRoutingInstanceReq, ShowRoutingInstanceReqIterate,
+    ShowRoutingInstanceResp, ShowRoutingInstance>::CallbackCommon(
+    const BgpSandeshContext *bsc, Data *data) {
+    uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
+    uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
+    string next_instance;
+    bool done = FillRoutingInstanceInfoList(bsc, false, page_limit, iter_limit,
+        data->next_entry, data->search_string, &data->show_list,
+        &next_instance);
+    if (!next_instance.empty())
+        SaveContextToData(next_instance, done, data);
+    return done;
 }
 
 //
-// Callback for ReqIterate. This is called for initial request and subsequently
-// in cases where the iteration count is reached. Parse the iterate_info string
-// to figure out the next instance to examine.
+// Specialization of BgpShowHandler<>::FillShowList for regular introspect.
 //
-// Return false if the iteration limit is reached before page gets filled.
-// Return true if the page gets filled or we've examined all instances.
+template <>
+void BgpShowHandler<ShowRoutingInstanceReq, ShowRoutingInstanceReqIterate,
+    ShowRoutingInstanceResp, ShowRoutingInstance>::FillShowList(
+    ShowRoutingInstanceResp *resp,
+    const vector<ShowRoutingInstance> &show_list) {
+    resp->set_instances(show_list);
+}
+
 //
-template <typename ReqT, typename ReqIterateT, typename RespT>
-bool ShowRoutingInstanceCommonHandler<
-    ReqT, ReqIterateT, RespT>::CallbackIterate(const Sandesh *sr,
-    const RequestPipeline::PipeSpec ps, int stage, int instNum,
-    RequestPipeline::InstData *data, bool summary) {
-    Data *mydata = static_cast<Data *>(data);
-    const ReqIterateT *req_iterate =
-        static_cast<const ReqIterateT *>(ps.snhRequest_.get());
-    const BgpSandeshContext *bsc =
-        static_cast<const BgpSandeshContext *>(req_iterate->client_context());
+// Specialization of BgpShowHandler<>::CallbackCommon for summary introspect.
+//
+template <>
+bool BgpShowHandler<ShowRoutingInstanceSummaryReq,
+    ShowRoutingInstanceSummaryReqIterate,
+    ShowRoutingInstanceSummaryResp, ShowRoutingInstance>::CallbackCommon(
+    const BgpSandeshContext *bsc, Data *data) {
+    uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
+    uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
+    string next_instance;
+    bool done = FillRoutingInstanceInfoList(bsc, true, page_limit, iter_limit,
+        data->next_entry, data->search_string, &data->show_list,
+        &next_instance);
+    if (!next_instance.empty())
+        SaveContextToData(next_instance, done, data);
+    return done;
+}
 
-    // Parse request and save state in Data.
-    if (!ConvertReqIterateToData(req_iterate, mydata)) {
-        RespT *resp = new RespT;
-        resp->set_context(req_iterate->context());
-        resp->Response();
-        return true;
-    }
-
-    // Return false and reschedule ourselves if we've reached the limit of
-    // the number of instances examined.
-    if (!CallbackCommon(bsc, summary, mydata))
-        return false;
-
-    // All done - ship the response.
-    RespT *resp = new RespT;
-    resp->set_context(req_iterate->context());
-    if (!mydata->sri_list.empty())
-        resp->set_instances(mydata->sri_list);
-    if (!mydata->next_batch.empty())
-        resp->set_next_batch(mydata->next_batch);
-    resp->Response();
-    return true;
+//
+// Specialization of BgpShowHandler<>::FillShowList for summary introspect.
+//
+template <>
+void BgpShowHandler<ShowRoutingInstanceSummaryReq,
+    ShowRoutingInstanceSummaryReqIterate,
+    ShowRoutingInstanceSummaryResp, ShowRoutingInstance>::FillShowList(
+    ShowRoutingInstanceSummaryResp *resp,
+    const vector<ShowRoutingInstance> &show_list) {
+    resp->set_instances(show_list);
 }
 
 //
@@ -336,15 +187,16 @@ void ShowRoutingInstanceReq::HandleRequest() const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
     s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = boost::bind(&ShowRoutingInstanceCommonHandler<
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
         ShowRoutingInstanceReq,
         ShowRoutingInstanceReqIterate,
-        ShowRoutingInstanceResp>::Callback,
-        _1, _2, _3, _4, _5, false);
-    s1.allocFn_ = ShowRoutingInstanceCommonHandler<
+        ShowRoutingInstanceResp,
+        ShowRoutingInstance>::Callback, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
         ShowRoutingInstanceReq,
         ShowRoutingInstanceReqIterate,
-        ShowRoutingInstanceResp>::CreateData;
+        ShowRoutingInstanceResp,
+        ShowRoutingInstance>::CreateData;
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
@@ -359,15 +211,16 @@ void ShowRoutingInstanceReqIterate::HandleRequest() const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
     s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = boost::bind(&ShowRoutingInstanceCommonHandler<
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
         ShowRoutingInstanceReq,
         ShowRoutingInstanceReqIterate,
-        ShowRoutingInstanceResp>::CallbackIterate,
-        _1, _2, _3, _4, _5, false);
-    s1.allocFn_ = ShowRoutingInstanceCommonHandler<
+        ShowRoutingInstanceResp,
+        ShowRoutingInstance>::CallbackIterate, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
         ShowRoutingInstanceReq,
         ShowRoutingInstanceReqIterate,
-        ShowRoutingInstanceResp>::CreateData;
+        ShowRoutingInstanceResp,
+        ShowRoutingInstance>::CreateData;
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
@@ -382,15 +235,16 @@ void ShowRoutingInstanceSummaryReq::HandleRequest() const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
     s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = boost::bind(&ShowRoutingInstanceCommonHandler<
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
         ShowRoutingInstanceSummaryReq,
         ShowRoutingInstanceSummaryReqIterate,
-        ShowRoutingInstanceSummaryResp>::Callback,
-        _1, _2, _3, _4, _5, true);
-    s1.allocFn_ = ShowRoutingInstanceCommonHandler<
+        ShowRoutingInstanceSummaryResp,
+        ShowRoutingInstance>::Callback, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
         ShowRoutingInstanceSummaryReq,
         ShowRoutingInstanceSummaryReqIterate,
-        ShowRoutingInstanceSummaryResp>::CreateData;
+        ShowRoutingInstanceSummaryResp,
+        ShowRoutingInstance>::CreateData;
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
@@ -405,15 +259,16 @@ void ShowRoutingInstanceSummaryReqIterate::HandleRequest() const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
     s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = boost::bind(&ShowRoutingInstanceCommonHandler<
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
         ShowRoutingInstanceSummaryReq,
         ShowRoutingInstanceSummaryReqIterate,
-        ShowRoutingInstanceSummaryResp>::CallbackIterate,
-        _1, _2, _3, _4, _5, true);
-    s1.allocFn_ = ShowRoutingInstanceCommonHandler<
+        ShowRoutingInstanceSummaryResp,
+        ShowRoutingInstance>::CallbackIterate, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
         ShowRoutingInstanceSummaryReq,
         ShowRoutingInstanceSummaryReqIterate,
-        ShowRoutingInstanceSummaryResp>::CreateData;
+        ShowRoutingInstanceSummaryResp,
+        ShowRoutingInstance>::CreateData;
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
