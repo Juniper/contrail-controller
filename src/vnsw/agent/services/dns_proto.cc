@@ -604,12 +604,49 @@ bool DnsProto::IsDnsQueryInProgress(uint16_t xid) {
     return dns_query_map_.find(xid) != dns_query_map_.end();
 }
 
+bool DnsProto::IsDnsHandlerInUse(DnsHandler *handler) {
+    for (DnsBindQueryMap::iterator it = dns_query_map_.begin();
+         it != dns_query_map_.end(); it++) {
+        if (it->second == handler) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void DnsProto::DelDnsQueryHandler(DnsHandler *handler) {
+    for (DnsBindQueryMap::iterator it = dns_query_map_.begin();
+         it != dns_query_map_.end();) {
+        if (it->second == handler) {
+            dns_query_map_.erase(it++);
+            continue;
+        }
+        ++it;
+    }
+}
+
 DnsHandler *DnsProto::GetDnsQueryHandler(uint16_t xid) {
     DnsBindQueryMap::iterator it = dns_query_map_.find(xid);
     if (it != dns_query_map_.end())
         return it->second;
     return NULL;
 }
+
+void DnsProto::AddDnsQueryIndex(uint16_t xid, int16_t srv_idx) {
+    dns_query_index_map_.insert(DnsBindQueryIndexPair(xid, srv_idx));
+}
+
+void DnsProto::DelDnsQueryIndex(uint16_t xid) {
+    dns_query_index_map_.erase(xid);
+}
+
+int16_t DnsProto::GetDnsQueryServerIndex(uint16_t xid) {
+    DnsBindQueryIndexMap::iterator it = dns_query_index_map_.find(xid);
+    if (it != dns_query_index_map_.end())
+        return it->second;
+    return -1;
+}
+
 
 void DnsProto::AddVmRequest(DnsHandler::QueryKey *key) {
     curr_vm_requests_.insert(*key);
