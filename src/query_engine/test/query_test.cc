@@ -100,16 +100,6 @@ bool CdbIfMock::Db_GetStringIndexRange(std::string index_field, std::vector<GenD
     return true;
 }
 
-bool CdbIfMock::Db_GetRangeSlices(std::vector<GenDb::Column>& result, const GenDb::Cf& cf, const GenDb::ColumnRange& sr, const GenDb::RowKeyRange& kr)
-{
-    if (cf.cfname_ == g_viz_constants.MESSAGE_TABLE_SOURCE) return Db_GetStringIndexRange(g_viz_constants.SOURCE, result, cf, sr, kr);
-    if (cf.cfname_ == g_viz_constants.MESSAGE_TABLE_MODULE_ID) return Db_GetStringIndexRange(g_viz_constants.MODULE, result, cf, sr, kr);
-    if (cf.cfname_ == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) return Db_GetStringIndexRange(g_viz_constants.MESSAGE_TYPE, result, cf, sr, kr);
-    if (cf.cfname_ == g_viz_constants.MESSAGE_TABLE_CATEGORY) return Db_GetStringIndexRange(g_viz_constants.CATEGORY, result, cf, sr, kr);
-
-    return true;
-}
-
 bool CdbIfMock::Db_GetMultiRow(std::map<std::string, 
         std::vector<GenDb::ColElement> >& ret,
         const std::string& cfname, const std::vector<std::string>& keys)

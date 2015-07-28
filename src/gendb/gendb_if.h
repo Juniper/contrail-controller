@@ -185,9 +185,6 @@ public:
     virtual bool Db_GetMultiRow(ColListVec& ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key,
         GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
-    virtual bool Db_GetRangeSlices(ColList& col_list,
-        const std::string& cfname, const ColumnNameRange& crange,
-        const DbDataValueVec& key) = 0;
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const = 0;

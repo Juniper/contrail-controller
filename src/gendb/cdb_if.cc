@@ -280,7 +280,7 @@ GenDb::DbDataValue DbDecodeStringComposite(const char *input,
 
 // UUID
 std::string DbEncodeUUIDComposite(const GenDb::DbDataValue &value) {
-    boost::uuids::uuid u;
+    boost::uuids::uuid u(boost::uuids::nil_uuid());
     try {
         u = boost::get<boost::uuids::uuid>(value);
     } catch (boost::bad_get &ex) {
@@ -419,7 +419,7 @@ GenDb::DbDataValue DbDecodeStringNonComposite(const std::string &input) {
 
 // UUID
 std::string DbEncodeUUIDNonComposite(const GenDb::DbDataValue &value) {
-    boost::uuids::uuid u;
+    boost::uuids::uuid u(boost::uuids::nil_uuid());
     try {
         u = boost::get<boost::uuids::uuid>(value);
     } catch (boost::bad_get &ex) {
@@ -1575,100 +1575,6 @@ bool CdbIf::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
             ret.push_back(col_list);
         }
     } // while loop
-    return true;
-}
-
-bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
-    const std::string& cfname, const GenDb::ColumnNameRange& crange,
-    const GenDb::DbDataValueVec& rowkey) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
-        stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN_FAMILY);
-        UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND"); 
-    }
-    bool result = 
-        Db_GetRangeSlicesInternal(col_list, cf, crange, rowkey);
-    bool col_limit_reached = (col_list.columns_.size() == crange.count);
-    GenDb::ColumnNameRange crange_new = crange;
-    if (col_limit_reached && (col_list.columns_.size()>0)) {
-        // copy last entry of result returned as column start for next qry
-        crange_new.start_ = *(col_list.columns_.back()).name;
-    }
-    // extract rest of the result
-    while (col_limit_reached && result) {
-        GenDb::ColList next_col_list;
-        result = 
-            Db_GetRangeSlicesInternal(next_col_list, cf, crange_new, rowkey);
-        col_limit_reached = 
-            (next_col_list.columns_.size() == crange.count);
-        // copy last entry of result returned as column start for next qry
-        if (col_limit_reached && (next_col_list.columns_.size()>0)) {
-            crange_new.start_ = *(next_col_list.columns_.back()).name;
-        }
-        // copy result after the first entry
-        NewColVec::iterator it = next_col_list.columns_.begin();
-        if (it != next_col_list.columns_.end()) it++;
-        col_list.columns_.transfer(col_list.columns_.end(), it,
-            next_col_list.columns_.end(), next_col_list.columns_);
-    }
-    return result;
-}
-
-bool CdbIf::Db_GetRangeSlicesInternal(GenDb::ColList& col_list,
-    const GenDb::NewCf *cf, const GenDb::ColumnNameRange& crange,
-    const GenDb::DbDataValueVec& rowkey) {
-    const std::string &cfname(cf->cfname_);
-
-    cassandra::ColumnParent cparent;
-    cparent.column_family.assign(cfname);
-    cparent.super_column.assign("");
-    // Key
-    std::string key_string;
-    if (!ConstructDbDataValueKey(key_string, cf, rowkey)) {
-        UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": Key encode FAILED");
-    }
-    cassandra::KeyRange krange;
-    krange.__set_start_key(key_string);
-    krange.__set_end_key(key_string);
-    krange.__set_count(1);
-    // Column Range
-    std::string start_string;
-    if (!ConstructDbDataValueColumnName(start_string, cf, crange.start_)) {
-        UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname <<
-            ": Column Name Range Start encode FAILED");
-    }
-    std::string finish_string;
-    if (!ConstructDbDataValueColumnName(finish_string, cf, crange.finish_)) {
-        UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname <<
-            ": Column Name Range Finish encode FAILED");
-    }
-    cassandra::SlicePredicate slicep;
-    cassandra::SliceRange slicer;
-    slicer.__set_start(start_string);
-    slicer.__set_finish(finish_string);
-    slicer.__set_count(crange.count);
-    slicep.__set_slice_range(slicer);
-
-    std::vector<cassandra::KeySlice> result;
-    CDBIF_BEGIN_TRY {
-        client_->get_range_slices(result, cparent, slicep, krange, ConsistencyLevel::ONE);
-    } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
-        CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN,
-        CdbIfStats::CDBIF_STATS_CF_OP_READ_FAIL)
-    // Convert result 
-    CDBIF_EXPECT_TRUE_ELSE_RETURN_FALSE(result.size() <= 1);
-    if (result.size() == 1) {
-        cassandra::KeySlice& ks = result[0];
-        if (!ColListFromColumnOrSuper(col_list, ks.columns, cfname)) {
-            CDBIF_LOG_ERR(cfname << ": Column decode FAILED");
-        }
-    }
     return true;
 }
 
