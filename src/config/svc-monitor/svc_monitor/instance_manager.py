@@ -105,6 +105,7 @@ class InstanceManager(object):
             except RefsExistError:
                 iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
 
+        InstanceIpSM.locate(iip_obj.uuid)
         return iip_obj
 
     def _set_static_routes(self, nic, si):
@@ -129,6 +130,7 @@ class InstanceManager(object):
             self._vnc_lib.interface_route_table_create(rt_obj)
         except RefsExistError:
             self._vnc_lib.interface_route_table_update(rt_obj)
+        InterfaceRouteTableSM.locate(rt_obj.uuid)
         return rt_obj
 
     def update_static_routes(self, si):
@@ -151,6 +153,7 @@ class InstanceManager(object):
         except RefsExistError:
             self._vnc_lib.virtual_machine_update(vm_obj)
 
+        VirtualMachineSM.locate(vm_obj.uuid)
         self.logger.log_info("Info: VM %s updated SI %s" %
             (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
@@ -271,19 +274,21 @@ class InstanceManager(object):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_id)
+                    id=vmi_id, fields = ['instance_ip_back_refs'])
             except NoIdError:
                 continue
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
                 try:
                     self._vnc_lib.instance_ip_delete(id=iip['uuid'])
+                    InstanceIpSM.delete(iip['uuid'])
                 except NoIdError:
                     pass
 
             if port_delete:
                 try:
                     self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
+                    VirtualMachineInterfaceSM.delete(vmi_id)
                 except (NoIdError, RefsExistError):
                     pass
 
@@ -407,6 +412,7 @@ class InstanceManager(object):
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
+        VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
         # instance ip
         if 'iip-id' in nic:
             iip = InstanceIpSM.get(nic['iip-id'])
@@ -516,6 +522,7 @@ class VRouterHostedManager(InstanceManager):
                 (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        VirtualMachineSM.delete(vm.uuid)
 
     def check_service(self, si):
         service_up = True
