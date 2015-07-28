@@ -11,7 +11,7 @@
 #include <oper/vm.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
-#include <cfg/cfg_listener.h>
+#include <oper/config_manager.h>
 
 using namespace std;
 using namespace autogen;
@@ -88,7 +88,7 @@ std::auto_ptr<DBEntry> VmTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vm));
 }
 
-DBEntry *VmTable::Add(const DBRequest *req) {
+DBEntry *VmTable::OperDBAdd(const DBRequest *req) {
     VmKey *key = static_cast<VmKey *>(req->key.get());
     VmData *data = static_cast<VmData *>(req->data.get());
     VmEntry *vm = new VmEntry(key->uuid_);
@@ -98,13 +98,13 @@ DBEntry *VmTable::Add(const DBRequest *req) {
 }
 
 // Do DIFF walk for Interface and SG List.
-bool VmTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool VmTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
     vm->SendObjectLog(AgentLogEvent::CHANGE);
     return false;
 }
 
-bool VmTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VmTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
     vm->SendObjectLog(AgentLogEvent::DELETE);
     return true;
@@ -123,24 +123,33 @@ bool VmTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
-    uuid id;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, id) == false)
-        return false;
+bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &id){
 
     string virtual_router_type = "none";
 
-    VmKey *key = new VmKey(id);
-    VmData *data = NULL;
-    if (node->IsDeleted()) {
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
+        req.key.reset(new VmKey(id));
         req.oper = DBRequest::DB_ENTRY_DELETE;
-    } else {
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        VmData::SGUuidList sg_list(0);
-        data = new VmData(node->name(), sg_list);
+        return true;
     }
-    req.key.reset(key);
-    req.data.reset(data);
+
+    agent()->config_manager()->AddVmNode(node);
+    return false;
+}
+
+bool VmTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &id){
+    if (node->IsDeleted()) {
+        return false;
+    }
+
+    string virtual_router_type = "none";
+
+    req.key.reset(new VmKey(id));
+    VmData::SGUuidList sg_list(0);
+    req.data.reset(new VmData(agent(), node, node->name(), sg_list));
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     return true;
 }
 

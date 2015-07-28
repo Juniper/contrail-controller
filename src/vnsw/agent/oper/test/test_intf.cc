@@ -74,6 +74,11 @@ void DoInterfaceSandesh(std::string name) {
     client->WaitForIdle();
 }
 
+bool GetNhPolicy(const string &vrf, Ip4Address addr, int plen) {
+   const NextHop *nh = RouteGet(vrf, addr, plen)->GetActiveNextHop();
+   return nh->PolicyEnabled();
+}
+
 class IntfTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -1219,7 +1224,8 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
     client->WaitForIdle();
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
@@ -1277,7 +1283,8 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_2) {
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
     client->WaitForIdle();
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
@@ -1320,9 +1327,11 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_2) {
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
-    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface",
+            "vnet1");
     client->WaitForIdle();
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip1");
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
@@ -1448,6 +1457,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     DelLink("virtual-machine-interface-routing-instance", input[0].name,
             "routing-instance", "vrf1");
     client->WaitForIdle();
+    WAIT_FOR(100, 1000, (FindNH(&unicast_nh_key) == false));
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
@@ -2028,14 +2038,11 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    AddAcl("Acl", 1, "vn1", "vn1", "pass");
    AddLink("virtual-network", "vn1", "access-control-list", "Acl");
    client->WaitForIdle();
-   nh = RouteGet("vrf1", static_route[0].addr_,
-                 static_route[0].plen_)->GetActiveNextHop();
-   EXPECT_TRUE(nh->PolicyEnabled());
+   WAIT_FOR(100, 1000, (GetNhPolicy("vrf1", static_route[0].addr_,
+                                    static_route[0].plen_) == true));
 
-   nh = RouteGet("vrf1", static_route[1].addr_,
-                 static_route[1].plen_)->GetActiveNextHop();
-   EXPECT_TRUE(nh->PolicyEnabled());
-
+   WAIT_FOR(100, 1000, (GetNhPolicy("vrf1", static_route[1].addr_,
+                                    static_route[1].plen_) == true));
    DelLink("virtual-network", "vn1", "access-control-list", "Acl");
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -2218,9 +2225,11 @@ TEST_F(IntfTest, AdminState_1) {
     VrfAdd(input[0].vn_id);
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
-    AddLink("virtual-network", "vn1", "virtual-machine-interface", input[0].name);
+    AddLink("virtual-network", "vn1", "virtual-machine-interface",
+            input[0].name);
     client->WaitForIdle();
-    AddLink("virtual-machine", "vm1", "virtual-machine-interface", input[0].name);
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface",
+            input[0].name);
     client->WaitForIdle();
     AddVmPortVrf(input[0].name, "", 0);
     client->WaitForIdle();
@@ -2564,7 +2573,7 @@ TEST_F(IntfTest, GwSubnetChange) {
 
     AddSubnetType("subnet", 1, "9.1.1.0", 24);
     client->WaitForIdle();
-    EXPECT_FALSE(RouteFind("vrf1", "8.1.1.0", 24));
+    WAIT_FOR(100, 1000, (RouteFind("vrf1", "8.1.1.0", 24) == false));
     addr = Ip4Address::from_string("9.1.1.0");
     rt = RouteGet("vrf1", addr, 24);
     vrf = VrfGet("vrf1", false);
@@ -2668,9 +2677,9 @@ TEST_F(IntfTest, Layer2Mode_1) {
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortInactive(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    WAIT_FOR(100, 1000, (VmPortInactive(1)));
+    WAIT_FOR(100, 1000, (1U == Agent::GetInstance()->vm_table()->Size()));
+    WAIT_FOR(100, 1000, (1U == Agent::GetInstance()->vm_table()->Size()));
 
     client->Reset();
     VnAddReq(1, "vn1", 0, "vrf2");
@@ -2765,7 +2774,7 @@ TEST_F(IntfTest, Layer2Mode_2) {
     EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == false);
     evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
-    EXPECT_FALSE(RouteFind("vrf1", "8.1.1.1", 32));
+    WAIT_FOR(100, 1000, (RouteFind("vrf1", "8.1.1.1", 32) == false));
 
     //Verify L3 route gets added
     //and policy get enabled
@@ -2833,7 +2842,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
                            vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
     evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
-    EXPECT_TRUE(evpn_rt == NULL);
+    WAIT_FOR(100, 1000, (evpn_rt == NULL));
     EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
 
     //Verify L3 route gets added
@@ -2857,6 +2866,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
                 == NULL));
     client->Reset();
 }
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

@@ -105,7 +105,6 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Services",
         "Agent::StatsCollector",
         "sandesh::RecvQueue",
-        "io::ReaderTask",
         "Agent::Uve",
         "Agent::KSync",
         "Agent::PktFlowResponder",
@@ -271,10 +270,6 @@ DiscoveryAgentClient *Agent::discovery_client() const {
     return cfg_->discovery_client();
 }
 
-CfgListener *Agent::cfg_listener() const { 
-    return cfg_->cfg_listener();
-}
-
 void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
     cn_mcast_builder_ =  peer;
 }
@@ -411,7 +406,7 @@ Agent::Agent() :
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0),
     discovery_client_name_(),
     label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
-    pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
+    pkt_interface_name_("pkt0"), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
     dhcpv6_proto_(NULL), icmpv6_proto_(NULL), flow_proto_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),

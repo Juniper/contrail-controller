@@ -158,8 +158,8 @@ public:
 
         EXPECT_TRUE(VmPortActive(fip_input1, 0));
         EXPECT_TRUE(VmPortActive(fip_input1, 1));
-        EXPECT_TRUE(VmPortPolicyEnable(fip_input1, 0));
-        EXPECT_TRUE(VmPortPolicyEnable(fip_input1, 1));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(fip_input1, 0)));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(fip_input1, 1)));
         EXPECT_TRUE(VmPortActive(fip_input2, 0));
 
         flowa = VmInterfaceGet(fip_input1[0].intf_id);
@@ -792,7 +792,8 @@ TEST_F(UveVmUveTest, FipUninstalledRemove) {
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
     client->WaitForIdle();
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip1");
     client->WaitForIdle();
     WAIT_FOR(1000, 500, ((VmPortFloatingIpCount(1, 1) == true)));
 
@@ -876,8 +877,10 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     util_.VrfAdd(input[0].vn_id);
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
-    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
-    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-network", "vn1", "virtual-machine-interface",
+            "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface",
+            "vnet1");
     client->WaitForIdle();
     AddVmPortVrf("vnet1", "", 0);
     client->WaitForIdle();
@@ -903,7 +906,8 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     //Disassociate VMI from VM
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     util_.VmAdd(2);
-    AddLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm2", "virtual-machine-interface",
+            "vnet1");
     client->WaitForIdle(3);
 
     util_.EnqueueSendVmUveTask();

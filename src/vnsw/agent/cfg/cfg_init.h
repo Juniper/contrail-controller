@@ -83,7 +83,6 @@ public:
 
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
-    CfgListener *cfg_listener() const { return cfg_listener_.get(); }
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
     DBGraph *cfg_graph() const { return cfg_graph_.get(); }
     MirrorCfgTable *cfg_mirror_table() const { return cfg_mirror_table_.get(); }
@@ -108,7 +107,6 @@ public:
 private:
     Agent *agent_;
     std::auto_ptr<CfgFilter> cfg_filter_;
-    std::auto_ptr<CfgListener> cfg_listener_;
     std::auto_ptr<IFMapAgentParser> cfg_parser_; 
     std::auto_ptr<DBGraph> cfg_graph_;
     std::auto_ptr<InterfaceCfgClient> cfg_interface_client_;

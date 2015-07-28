@@ -15,9 +15,9 @@
 #include "ifmap/ifmap_table.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/vnc_cfg_types.h"
+#include "schema/bgp_schema_types.h"
 #include "testing/gunit.h"
 
-#include "cfg/cfg_listener.h"
 #include "oper/ifmap_dependency_manager.h"
 #include "oper/loadbalancer_properties.h"
 
@@ -27,8 +27,7 @@ using boost::uuids::uuid;
 class LoadbalancerTest : public ::testing::Test {
   protected:
     LoadbalancerTest()
-            : config_listener_(&database_),
-              manager_(new IFMapDependencyManager(&database_, &graph_)) {
+            : manager_(new IFMapDependencyManager(&database_, &graph_)) {
     }
 
     virtual void SetUp() {
@@ -40,16 +39,13 @@ class LoadbalancerTest : public ::testing::Test {
 
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
+        bgp_schema_Agent_ModuleInit(&database_, &graph_);
 
-        config_listener_.Register("loadbalancer-pool",
-                                  loadbalancer_table_,
-                                  ::autogen::LoadbalancerPool::ID_PERMS);
-        manager_->Initialize();
+        manager_->Initialize(NULL);
     }
 
     virtual void TearDown() {
         loadbalancer_table_->Clear();
-        config_listener_.Shutdown();
         manager_->Terminate();
 
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
@@ -109,7 +105,6 @@ class LoadbalancerTest : public ::testing::Test {
   protected:
     DB database_;
     DBGraph graph_;
-    CfgListener config_listener_;
     std::auto_ptr<IFMapDependencyManager> manager_;
     LoadbalancerTable *loadbalancer_table_;
 };

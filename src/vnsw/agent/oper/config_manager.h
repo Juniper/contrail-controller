@@ -24,8 +24,12 @@
  * for virtual-network should be invoked before VMInterface. The changelist
  * should take of all dependencies.
  *
- * To simplify current design, the changelist is implemented only to objects
- * virtual-machine-interface, logical-interfaces and physical-device-vn
+ * The changelist is implemented to objects
+ * security-group
+ * virtual-machine-interface
+ * logical-interfaces
+ * physical-device-vn
+ * physical-router
  *****************************************************************************/
 
 #include <cmn/agent_cmn.h>
@@ -33,78 +37,72 @@
 #include <operdb_init.h>
 #include <ifmap_dependency_manager.h>
 
+class ConfigManagerNodeList;
+class ConfigManagerDeviceVnList;
+
 class ConfigManager {
 public:
     // Number of changelist entries to pick in one run
-    const static uint32_t kIterationCount = 32;
-    // Set of changed IFMapNodes
-    struct Node {
-        Node(IFMapDependencyManager::IFMapNodePtr state);
-        ~Node();
-        IFMapDependencyManager::IFMapNodePtr state_;
-    };
-
-    struct NodeCmp {
-        bool operator() (const Node &lhs, const Node &rhs) {
-            return lhs.state_.get() < rhs.state_.get();
-        }
-    };
-    typedef std::set<Node, NodeCmp> NodeList;
-    typedef NodeList::iterator NodeListIterator;
-
-    // Set of changed PhysicalDeviceVn entries
-    struct PhysicalDeviceVnEntry {
-        PhysicalDeviceVnEntry(const boost::uuids::uuid &dev,
-                              const boost::uuids::uuid &vn);
-        boost::uuids::uuid dev_;
-        boost::uuids::uuid vn_;
-    };
-
-    struct PhysicalDeviceVnEntryCmp {
-        bool operator() (const PhysicalDeviceVnEntry &lhs,
-                         const PhysicalDeviceVnEntry &rhs) {
-            if (lhs.dev_ != rhs.dev_)
-                return lhs.dev_ < rhs.dev_;
-
-            return lhs.vn_ < rhs.vn_;
-        }
-    };
-
-    typedef std::set<PhysicalDeviceVnEntry, PhysicalDeviceVnEntryCmp>
-        PhysicalDeviceVnList;
-    typedef PhysicalDeviceVnList::iterator PhysicalDeviceVnIterator;
+    const static uint32_t kIterationCount = 64;
+    const static uint32_t kMinTimeout = 1;
+    const static uint32_t kMaxTimeout = 10;
 
     ConfigManager(Agent *agent);
     virtual ~ConfigManager();
 
-    bool Run();
+    void Init();
+    int Run();
+    bool TriggerRun();
+    bool TimerRun();
+    void Start();
+
+    uint32_t Size() const;
+    uint32_t ProcessCount() const;
+    uint32_t timeout() const { return timeout_; }
+    std::string ProfileInfo() const;
 
     void AddVmiNode(IFMapNode *node);
     void DelVmiNode(IFMapNode *node);
-    uint32_t VmiNodeCount();
+    uint32_t VmiNodeCount() const;
 
     void AddLogicalInterfaceNode(IFMapNode *node);
-    void DelLogicalInterfaceNode(IFMapNode *node);
-    uint32_t LogicalInterfaceNodeCount();
+    void AddPhysicalInterfaceNode(IFMapNode *node);
+    void AddSgNode(IFMapNode *node);
+    void AddVnNode(IFMapNode *node);
+    void AddVrfNode(IFMapNode *node);
+    void AddVmNode(IFMapNode *node);
+    uint32_t LogicalInterfaceNodeCount() const;
 
     void AddPhysicalDeviceNode(IFMapNode *node);
-    void DelPhysicalDeviceNode(IFMapNode *node);
-    uint32_t PhysicalDeviceNodeCount();
-
     void AddPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
     void DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
-    uint32_t PhysicalDeviceVnCount();
-
+    uint32_t PhysicalDeviceVnCount() const;
+    bool CanUseNode(IFMapNode *node);
+    bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
+    bool SkipNode(IFMapNode *node);
+    bool SkipNode(IFMapNode *node, IFMapAgentTable *table);
+    IFMapNode * FindAdjacentIFMapNode(IFMapNode *node,
+                                      const char *type);
+    void NodeResync(IFMapNode *node);
 private:
     Agent *agent_;
     std::auto_ptr<TaskTrigger> trigger_;
-    NodeList vmi_list_;
-    NodeList logical_interface_list_;
-    NodeList physical_device_list_;
-    PhysicalDeviceVnList physical_device_vn_list_;
+    Timer *timer_;
+    uint32_t timeout_;
 
+    std::auto_ptr<ConfigManagerNodeList> vmi_list_;
+    std::auto_ptr<ConfigManagerNodeList> physical_interface_list_;
+    std::auto_ptr<ConfigManagerNodeList> logical_interface_list_;
+    std::auto_ptr<ConfigManagerNodeList> device_list_;
+    std::auto_ptr<ConfigManagerNodeList> sg_list_;
+    std::auto_ptr<ConfigManagerNodeList> vn_list_;
+    std::auto_ptr<ConfigManagerNodeList> vrf_list_;
+    std::auto_ptr<ConfigManagerNodeList> vm_list_;
+    std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
+
+    uint64_t process_config_count_[kMaxTimeout + 1];
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);
 };
 

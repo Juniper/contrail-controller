@@ -227,8 +227,10 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
     AddPhysicalDevice("prouter1", 1);
     AddPhysicalInterface("pi1", 1, "pid1");
     AddLogicalInterface("li1", 1, "lid1");
-    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
-    AddLink("physical-interface", "pi1", "logical-interface", "li1");
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1",
+            "physical-router-physical-interface");
+    AddLink("physical-interface", "pi1", "logical-interface", "li1",
+            "physical-interface-logical-interfce");
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) != NULL));
     WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") != NULL));
@@ -361,7 +363,8 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_4) {
     //Add physical-device and logical-interface and add their association
     AddPhysicalDevice("prouter1", 1);
     AddLogicalInterface("li1", 1, "lid1");
-    AddLink("physical-router", "prouter1", "logical-interface", "li1");
+    AddLink("physical-router", "prouter1", "logical-interface", "li1",
+            "physical-router-logical-interface");
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) != NULL));
     WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") != NULL));

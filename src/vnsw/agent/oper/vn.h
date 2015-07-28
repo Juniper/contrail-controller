@@ -83,13 +83,14 @@ struct VnData : public AgentOperDBData {
     typedef std::map<std::string, VnIpamLinkData> VnIpamDataMap;
     typedef std::pair<std::string, VnIpamLinkData> VnIpamDataPair;
 
-    VnData(const Agent *agent, const string &name, const uuid &acl_id,
-           const string &vrf_name, const uuid &mirror_acl_id, const uuid &mc_acl_id,
+    VnData(const Agent *agent, IFMapNode *node, const string &name,
+           const uuid &acl_id, const string &vrf_name,
+           const uuid &mirror_acl_id, const uuid &mc_acl_id,
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool bridging,
            bool layer3_forwarding, bool admin_state, bool enable_rpf,
            bool flood_unknown_unicast) :
-        AgentOperDBData(agent, NULL), name_(name), vrf_name_(vrf_name),
+        AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
         vxlan_id_(vxlan_id), vnid_(vnid), bridging_(bridging),
@@ -211,16 +212,19 @@ public:
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBResync(DBEntry *entry, const DBRequest *req); 
 
-    void ResyncVmInterface(IFMapNode *node);
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                             const std::string &peer_type, IFMapNode *peer,
-                             DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
+    virtual bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
+
+    int ComputeCfgVxlanId(IFMapNode *node);
+    void CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3, bool *rpf,
+                            bool *flood_unknown_unicast);
+
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
-    void RegisterDBClients(IFMapDependencyManager *dep);
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
@@ -234,8 +238,6 @@ public:
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VnEntryWalkDone(DBTableBase *partition);
     bool RebakeVxlan(VnEntry *vn, bool op_del);
-
-    static void IpamVnSync(IFMapNode *node);
 
 private:
     static VnTable *vn_table_;
@@ -269,12 +271,14 @@ public:
     typedef std::pair<std::string, autogen::VirtualDnsType> VdnsDomainConfigPair;
     typedef boost::function<void(IFMapNode *)> Callback;
     
-    DomainConfig() {}
+    DomainConfig(Agent *);
+    void Init();
+    void Terminate();
     virtual ~DomainConfig();
     void RegisterIpamCb(Callback cb);
     void RegisterVdnsCb(Callback cb);
-    void IpamSync(IFMapNode *node);
-    void VDnsSync(IFMapNode *node);
+    void IpamSync(DBTablePartBase *partition, DBEntryBase *dbe);
+    void VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe);
 
     bool GetIpam(const std::string &name, autogen::IpamType *ipam);
     bool GetVDns(const std::string &vdns, autogen::VirtualDnsType *vdns_type);
@@ -289,6 +293,9 @@ private:
     VdnsDomainConfigMap vdns_config_;
     std::vector<Callback> ipam_callback_;
     std::vector<Callback> vdns_callback_;
+    Agent *agent_;
+    DBTableBase::ListenerId network_ipam_listener_id_;
+    DBTableBase::ListenerId vdns_listener_id_;
 
     DISALLOW_COPY_AND_ASSIGN(DomainConfig);
 };

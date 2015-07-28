@@ -13,6 +13,7 @@
 #include "db/db_table.h"
 #include "ifmap/ifmap_dependency_tracker.h"
 
+class Agent;
 class DB;
 class DBGraph;
 class IFMapDependencyTracker;
@@ -33,7 +34,8 @@ class IFMapDependencyManager;
 class IFMapNodeState : public DBState {
   public:
     IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
-            : manager_(manager), node_(node), object_(NULL), refcount_(0) {
+            : manager_(manager), node_(node), object_(NULL),
+            uuid_(boost::uuids::nil_uuid()),refcount_(0) {
     }
 
     IFMapNode *node() { return node_; }
@@ -42,9 +44,15 @@ class IFMapNodeState : public DBState {
         object_ = object;
     }
 
+    void set_uuid(boost::uuids::uuid &u) {
+        uuid_ = u;
+    }
+
     void clear_object() {
         object_ = NULL;
     }
+
+    boost::uuids::uuid uuid() { return uuid_; }
 
   private:
     friend void intrusive_ptr_add_ref(IFMapNodeState *state);
@@ -53,6 +61,7 @@ class IFMapNodeState : public DBState {
     IFMapDependencyManager *manager_;
     IFMapNode *node_;
     DBEntry *object_;
+    boost::uuids::uuid uuid_;
     int refcount_;
 };
 
@@ -60,7 +69,18 @@ class IFMapNodeState : public DBState {
 class IFMapDependencyManager {
 public:
     typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodePtr;
-    typedef boost::function<void(DBEntry *)> ChangeEventHandler;
+    typedef boost::function<void(IFMapNode *, DBEntry *)> ChangeEventHandler;
+
+    struct Link {
+        Link(const std::string &edge, const std::string &vertex, bool interest):
+            edge_(edge), vertex_(vertex), vertex_interest_(interest) {
+        }
+        std::string edge_;
+        std::string vertex_;
+        bool vertex_interest_;
+    };
+    typedef std::vector<Link> Path;
+
     IFMapDependencyManager(DB *database, DBGraph *graph);
     virtual ~IFMapDependencyManager();
 
@@ -68,13 +88,15 @@ public:
      * Initialize must be called after the ifmap tables are registered
      * via <schema>_Agent_ModuleInit.
      */
-    void Initialize();
+    void Initialize(Agent *agent);
 
     /*
      * Unregister from all tables.
      */
     void Terminate();
 
+    void AddDependencyPath(const std::string &node, Path path);
+    void InitializeDependencyRules(Agent *agent);
     /*
      * Register reactor-map for an IFMap node
      */
@@ -90,6 +112,12 @@ public:
      */
     IFMapNodePtr SetState(IFMapNode *node);
     IFMapNodeState *IFMapNodeGet(IFMapNode *node);
+
+    /*
+     * Get DBEntry object set for an IFMapNode
+     */
+    DBEntry *GetObject(IFMapNode *node);
+
     /*
      * Register a notification callback.
      */
@@ -100,6 +128,8 @@ public:
      */
     void Unregister(const std::string &type);
 
+    IFMapDependencyTracker *tracker() const { return tracker_.get(); }
+    void PropogateNodeChange(IFMapNode *node);
 
 private:
     /*

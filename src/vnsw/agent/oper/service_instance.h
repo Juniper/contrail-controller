@@ -104,10 +104,6 @@ public:
         return AgentRefCount<ServiceInstance>::GetRefCount();
     }
 
-    /*
-     * Walk the IFMap graph and calculate the properties for this node.
-     */
-    void CalculateProperties(DBGraph *graph, Properties *properties);
 
     void set_node(IFMapNode *node) { node_ = node; }
 
@@ -156,11 +152,18 @@ class ServiceInstanceTable : public AgentDBTable {
     virtual bool OnChange(DBEntry *entry, const DBRequest *request);
 
     /*
+     * Walk the IFMap graph and calculate the properties for this node.
+     */
+    void CalculateProperties(DBGraph *graph, IFMapNode *node,
+            ServiceInstance::Properties *properties);
+
+    /*
      * IFNodeToReq
      *
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id);
 
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
@@ -174,7 +177,7 @@ class ServiceInstanceTable : public AgentDBTable {
      * configuration. The dependency tracking policy is configured in
      * the dependency manager directly.
      */
-    void ChangeEventHandler(DBEntry *entry);
+    void ChangeEventHandler(IFMapNode *node, DBEntry *entry);
 
     DBGraph *graph_;
     IFMapDependencyManager *dependency_manager_;

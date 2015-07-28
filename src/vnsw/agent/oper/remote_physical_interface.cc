@@ -8,12 +8,12 @@
 
 #include <ifmap/ifmap_node.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/interface_common.h>
 #include <oper/physical_device.h>
 #include <oper/nexthop.h>
+#include <oper/config_manager.h>
 
 #include <vector>
 #include <string>
@@ -140,7 +140,7 @@ static RemotePhysicalInterfaceData *BuildData
     boost::uuids::uuid dev_uuid = nil_uuid();
     // Find link with physical-router adjacency
     IFMapNode *adj_node = NULL;
-    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode(agent, node,
+    adj_node = agent->config_manager()->FindAdjacentIFMapNode(node,
                                                             "physical-router");
     if (adj_node) {
         autogen::PhysicalRouter *router =
@@ -155,19 +155,21 @@ static RemotePhysicalInterfaceData *BuildData
 }
 
 bool InterfaceTable::RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node,
-                                                  DBRequest &req) {
+                                                  DBRequest &req,
+                                                  boost::uuids::uuid &u) {
     autogen::PhysicalInterface *port =
         static_cast <autogen::PhysicalInterface *>(node->GetObject());
     assert(port);
 
     req.key.reset(BuildKey(node));
-    if (node->IsDeleted()) {
+    if (req.oper == DBRequest::DB_ENTRY_DELETE || node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
     }
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.data.reset(BuildData(agent(), node, port));
+    pi_ifnode_to_req_++;
     return true;
 }
 

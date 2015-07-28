@@ -24,7 +24,7 @@
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
-#include <cfg/cfg_listener.h>
+#include <oper/config_manager.h>
 
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
@@ -147,9 +147,12 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
 
 
     IFMapNode *vn_node = agent_cfg_->cfg_vn_table()->FindNode(entry->data.apply_vn);
-    if (vn_node && agent_cfg_->cfg_listener()->CanUseNode(vn_node)) {
+    if (vn_node && agent_cfg_->agent()->config_manager()->CanUseNode(vn_node)) {
         DBRequest req;
-        assert(agent_cfg_->agent()->vn_table()->IFNodeToReq(vn_node, req) == false);
+        boost::uuids::uuid id;
+        agent_cfg_->agent()->vn_table()->IFNodeToUuid(vn_node, id);
+        assert(agent_cfg_->agent()->vn_table()->IFNodeToReq(vn_node,
+                    req, id) == false);
     }
     return NULL;
 }
@@ -245,7 +248,7 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
     // Enqueue ACL request
     DBRequest req;
     AclKey *key = new AclKey(uuid);
-    AclData *data = new AclData(acl_spec);
+    AclData *data = new AclData(agent_cfg_->agent(), NULL, acl_spec);
     data->ace_add = true;
     LOG(DEBUG, "Ace add: " << data->ace_add << ", Ace spec id:" 
         << ace_spec.id);
@@ -275,7 +278,8 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
         DBRequest areq;
         areq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         AclKey *akey = new AclKey(va_it->second.id);
-        AclData *adata = new AclData(entry->ace_info.id);
+        AclData *adata = new AclData(agent_cfg_->agent(),
+                                     NULL, entry->ace_info.id);
         areq.key.reset(akey);
         areq.data.reset(adata);
         agent_cfg_->agent()->acl_table()->Enqueue(&areq);
@@ -299,9 +303,12 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
     vn_acl_map_.erase(va_it);
 
     IFMapNode *vn_node = agent_cfg_->cfg_vn_table()->FindNode(entry->data.apply_vn);
-    if (vn_node && agent_cfg_->cfg_listener()->CanUseNode(vn_node)) {
+    if (vn_node && agent_cfg_->agent()->config_manager()->CanUseNode(vn_node)) {
         DBRequest req;
-        assert(agent_cfg_->agent()->vn_table()->IFNodeToReq(vn_node, req) == false);
+        boost::uuids::uuid id;
+        agent_cfg_->agent()->vn_table()->IFNodeToUuid(vn_node, id);
+        assert(agent_cfg_->agent()->vn_table()->IFNodeToReq(vn_node,
+                    req, id) == false);
     }
 
     // delete entry from mv map

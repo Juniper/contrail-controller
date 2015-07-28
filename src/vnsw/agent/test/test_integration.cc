@@ -156,7 +156,7 @@ vector<pair<xml_node, GroupEntry *> >       d_nodes;
 NodeTree                                    c_node_tree;
 vector<GroupEntry *>                        c_group_list;
 GroupEntry                                  g_group;
-bool                                        dump_config = false;
+bool                                        dump_config = true;
 bool                                        dump_config_file = false;
 
 class PugiPredicate {
@@ -214,11 +214,21 @@ xml_node FormLink (xml_node &input, xml_node &output) {
     xml_document xdoc;
     xml_node config = xdoc.append_child("config");
     xml_node node = output.append_child("link");
+    string left;
+    string right;
 
     for (xml_node child = input.first_child(); child; child = child.next_sibling()) {
         node.append_copy(FormNode(child, config, true));
+        if (left.empty())
+            left = child.name();
+        else if (right.empty())
+            right = child.name();
     }
 
+    xml_node n1 = node.append_child("metadata");
+    string mdata = GetMetadata(left.c_str(), right.c_str(), NULL);
+    n1.append_attribute("type").set_value(mdata.c_str());
+    node.append_copy(n1);
     return node;
 }
 

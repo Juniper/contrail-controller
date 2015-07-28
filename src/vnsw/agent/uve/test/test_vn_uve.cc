@@ -85,8 +85,8 @@ public:
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
-        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-        EXPECT_TRUE(VmPortPolicyEnable(input, 1));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 0)));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 1)));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -749,7 +749,8 @@ TEST_F(UveVnUveTest, FipCount) {
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
     client->WaitForIdle();
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip1");
     client->WaitForIdle();
     WAIT_FOR(1000, 500, ((VmPortFloatingIpCount(1, 1) == true)));
 
@@ -763,7 +764,8 @@ TEST_F(UveVnUveTest, FipCount) {
     //Add one more floating IP
     AddFloatingIp("fip2", 2, "71.1.1.101");
     AddLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
-    AddLink("virtual-machine-interface", "vnet2", "floating-ip", "fip2");
+    AddLink("virtual-machine-interface", "vnet2", "floating-ip",
+            "fip2");
     client->WaitForIdle(3);
 
     //Trigger VN UVE send

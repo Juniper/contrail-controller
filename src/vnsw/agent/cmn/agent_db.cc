@@ -5,9 +5,15 @@
 #include "agent_cmn.h"
 #include "agent_db.h"
 #include <cfg/cfg_init.h>
+#include <oper/vm.h>
 
 void AgentDBEntry::SetRefState() const {
     AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
+#if 0
+    VmTable *vmt = static_cast<VmTable *>(table);
+    if(vmt == Agent::GetInstance()->vm_table())
+        assert(0);
+#endif
     // Force calling SetState on a const object. 
     // Ideally, SetState should be 'const method' and StateMap mutable
     AgentDBEntry *entry = (AgentDBEntry *)this;
@@ -94,6 +100,7 @@ void AgentDBTablePartition::Remove(DBEntryBase *entry) {
 }
 
 bool AgentDBTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id) {
+    id = boost::uuids::nil_uuid();
     return false;
 }
 

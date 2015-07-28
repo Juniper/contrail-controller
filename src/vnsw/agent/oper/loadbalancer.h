@@ -42,10 +42,6 @@ public:
         return AgentRefCount<Loadbalancer>::GetRefCount();
     }
 
-    /*
-     * Walk the IFMap graph and calculate the properties for this node.
-     */
-    void CalculateProperties(DBGraph *graph, Properties *properties);
 
     void set_node(IFMapNode *node) { node_ = node; }
 
@@ -81,6 +77,12 @@ public:
     void Initialize(DBGraph *graph, IFMapDependencyManager *dependency_manager);
 
     /*
+     * Walk the IFMap graph and calculate the properties for this node.
+     */
+    void CalculateProperties(DBGraph *graph, IFMapNode *node,
+            LoadbalancerProperties *properties);
+
+    /*
      * Add/Delete methods establish the mapping between the IFMapNode
      * and the Loadbalancer DBEntry with the dependency manager.
      */
@@ -93,12 +95,16 @@ public:
      *
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    IFMapDependencyManager *dependency_manager() {
+        return dependency_manager_;
+    }
 
 private:
     /*
@@ -107,7 +113,7 @@ private:
      * configuration. The dependency tracking policy is configured in
      * the dependency manager directly.
      */
-    void ChangeEventHandler(DBEntry *entry);
+    void ChangeEventHandler(IFMapNode *node, DBEntry *entry);
 
     DBGraph *graph_;
     IFMapDependencyManager *dependency_manager_;

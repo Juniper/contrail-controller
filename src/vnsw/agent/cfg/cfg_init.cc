@@ -16,7 +16,6 @@
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_filter.h>
 #include <cfg/cfg_mirror.h>
-#include <cfg/cfg_listener.h>
 #include <cfg/discovery_agent.h>
 
 #include <oper/vn.h>
@@ -31,6 +30,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/service_instance.h>
 #include <oper/loadbalancer.h>
+#include <oper/physical_device.h>
 
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -47,8 +47,7 @@ void IFMapAgentSandeshInit(DB *db);
 SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 100));
 
 AgentConfig::AgentConfig(Agent *agent)
-        : agent_(agent),
-          cfg_listener_(new CfgListener(agent->db())) {
+        : agent_(agent) {
     cfg_filter_ = std::auto_ptr<CfgFilter>(new CfgFilter(this));
 
     cfg_graph_ = std::auto_ptr<DBGraph>(new DBGraph());
@@ -67,7 +66,6 @@ AgentConfig::AgentConfig(Agent *agent)
 
 AgentConfig::~AgentConfig() { 
     cfg_filter_.reset();
-    cfg_listener_.reset();
     cfg_parser_.reset();
     cfg_graph_.reset();
     cfg_interface_client_.reset();
@@ -101,71 +99,9 @@ void AgentConfig::CreateDBTables(DB *db) {
 
 void AgentConfig::Register(const char *node_name, AgentDBTable *table,
                            int need_property_id) {
-    cfg_listener_->Register(node_name, table, need_property_id);
 }
 
 void AgentConfig::RegisterDBClients(DB *db) {
-    cfg_listener_->Register("virtual-network", agent_->vn_table(),
-                            VirtualNetwork::ID_PERMS);
-    cfg_listener_->Register("security-group", agent_->sg_table(),
-                            SecurityGroup::ID_PERMS);
-    cfg_listener_->Register("virtual-machine", agent_->vm_table(),
-                            VirtualMachine::ID_PERMS);
-    cfg_listener_->Register("virtual-machine-interface",
-                            agent_->interface_table(),
-                            VirtualMachineInterface::ID_PERMS);
-    cfg_listener_->Register("access-control-list", agent_->acl_table(),
-                            AccessControlList::ID_PERMS);
-    cfg_listener_->Register("service-instance",
-                            agent_->service_instance_table(),
-                            ::autogen::ServiceInstance::ID_PERMS);
-
-    cfg_listener_->Register("loadbalancer-pool",
-                            agent_->loadbalancer_table(),
-                            ::autogen::LoadbalancerPool::ID_PERMS);
-
-    cfg_listener_->Register("routing-instance", agent_->vrf_table(), -1);
-    cfg_listener_->Register("virtual-network-network-ipam", 
-                            boost::bind(&VnTable::IpamVnSync, _1), -1);
-    cfg_listener_->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
-                            agent_->domain_config_table(), _1), -1);
-    cfg_listener_->Register("virtual-DNS", boost::bind(&DomainConfig::VDnsSync, 
-                            agent_->domain_config_table(), _1), -1);
-    cfg_listener_->Register
-        ("virtual-machine-interface-routing-instance", 
-         boost::bind(&InterfaceTable::VmInterfaceVrfSync,
-                     agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("instance-ip", boost::bind(&VmInterface::InstanceIpSync,
-                                    agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("floating-ip", boost::bind(&VmInterface::FloatingIpVnSync,
-                                    agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("floating-ip-pool", boost::bind(&VmInterface::FloatingIpPoolSync,
-                                         agent_->interface_table(), _1), -1);
-
-    cfg_listener_->Register
-        ("global-vrouter-config",
-         boost::bind(&GlobalVrouter::GlobalVrouterConfig,
-                     agent_->oper_db()->global_vrouter(), _1), -1);
-
-    cfg_listener_->Register
-        ("subnet", boost::bind(&VmInterface::SubnetSync,
-                               agent_->interface_table(), _1), -1);
-
-    // Register for IFMapLinks
-    cfg_listener_->LinkRegister
-        ("virtual-network", agent_->vn_table());
-    cfg_listener_->LinkRegister
-        ("routing-instance", agent_->vrf_table());
-    cfg_listener_->LinkRegister
-        ("security-group", agent_->sg_table());
-    cfg_listener_->LinkRegister
-        ("access-control-list", agent_->acl_table());
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "virtual-machine-interface")));
@@ -258,7 +194,6 @@ void AgentConfig::RegisterDBClients(DB *db) {
 
 void AgentConfig::Init() {
     cfg_filter_->Init();
-    cfg_listener_->Init();
     cfg_mirror_table_->Init();
     cfg_intf_mirror_table_->Init();
 }
@@ -272,7 +207,6 @@ void AgentConfig::InitDone() {
 }
 
 void AgentConfig::Shutdown() {
-    cfg_listener_->Shutdown();
     cfg_filter_->Shutdown();
 
     cfg_interface_client_->Shutdown();

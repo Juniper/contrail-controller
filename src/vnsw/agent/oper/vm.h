@@ -6,29 +6,31 @@
 #define vnsw_agent_vm_hpp
 
 #include <cmn/agent_cmn.h>
+#include <oper/oper_db.h>
 #include <agent_types.h>
 
 using namespace boost::uuids;
 using namespace std;
 
-struct VmKey : public AgentKey {
-    VmKey(uuid id) : AgentKey(), uuid_(id) {} ;
+struct VmKey : public AgentOperDBKey {
+    VmKey(uuid id) : AgentOperDBKey(), uuid_(id) {} ;
     virtual ~VmKey() { }
 
     uuid uuid_;
 };
 
-struct VmData : public AgentData {
+struct VmData : public AgentOperDBData {
     typedef vector<uuid> SGUuidList;
-    VmData(const std::string &name, const SGUuidList &sg_list) :
-        AgentData(), name_(name), sg_list_(sg_list) { }
+    VmData(Agent *agent, IFMapNode *node, const std::string &name,
+           const SGUuidList &sg_list) :
+        AgentOperDBData(agent, node), name_(name), sg_list_(sg_list) { }
     virtual ~VmData() { }
 
     std::string name_;
     SGUuidList sg_list_;
 };
 
-class VmEntry : AgentRefCount<VmEntry>, public AgentDBEntry {
+class VmEntry : AgentRefCount<VmEntry>, public AgentOperDBEntry {
 public:
     static const int kVectorIncreaseSize = 16;
     VmEntry(uuid id) : 
@@ -57,20 +59,23 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VmEntry);
 };
 
-class VmTable : public AgentDBTable {
+class VmTable : public AgentOperDBTable {
 public:
-    VmTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
+    VmTable(DB *db, const std::string &name) : AgentOperDBTable(db, name) { }
     virtual ~VmTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;}
     virtual size_t Hash(const DBRequestKey *key) const {return 0;}
 
-    virtual DBEntry *Add(const DBRequest *req);
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual bool Delete(DBEntry *entry, const DBRequest *req);
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual DBEntry *OperDBAdd(const DBRequest *req);
+    virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 
