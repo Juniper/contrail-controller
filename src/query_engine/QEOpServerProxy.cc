@@ -858,7 +858,7 @@ public:
     void ConnDown(uint8_t cnum) {
         QE_LOG_NOQID(DEBUG, "ConnDown.. DOWN.. Reconnect.." << cnum);
         connState_[cnum] = false;
-        ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+        ConnectionState::GetInstance()->Update(ConnectionType::REDIS_QUERY,
                 "Query", ConnectionStatus::DOWN, conns_[cnum]->Endpoint(),
                 std::string());
         qosp_->evm_->io_service()->post(boost::bind(&RedisAsyncConnection::RAC_Connect,
@@ -869,7 +869,7 @@ public:
         QE_LOG_NOQID(DEBUG,"In ConnectCallbackProcess..");
         redisReply reply = *reinterpret_cast<redisReply*>(r);
         if (reply.type != REDIS_REPLY_ERROR) {
-             ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+             ConnectionState::GetInstance()->Update(ConnectionType::REDIS_QUERY,
                 "Query", ConnectionStatus::UP, conns_[cnum]->Endpoint(),
                 std::string());
              qosp_->evm_->io_service()->post(
