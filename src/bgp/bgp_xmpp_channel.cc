@@ -725,6 +725,10 @@ IPeer *BgpXmppChannel::Peer() {
     return peer_.get();
 }
 
+const IPeer *BgpXmppChannel::Peer() const {
+    return peer_.get();
+}
+
 boost::asio::ip::tcp::endpoint BgpXmppChannel::endpoint() const {
     return channel_->connection()->endpoint();
 }
@@ -1809,9 +1813,9 @@ void BgpXmppChannel::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     membership_response_worker_.Enqueue(table->name());
 }
 
-void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
+void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) const {
     vector<BgpNeighborRoutingInstance> instance_list;
-    BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
+    BOOST_FOREACH(const SubscribedRoutingInstanceList::value_type &entry,
         routing_instances_) {
         BgpNeighborRoutingInstance instance;
         instance.set_name(entry.first->name());
@@ -1824,7 +1828,7 @@ void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
         instance.set_import_targets(import_targets);
         instance_list.push_back(instance);
     }
-    BOOST_FOREACH(VrfMembershipRequestMap::value_type &entry,
+    BOOST_FOREACH(const VrfMembershipRequestMap::value_type &entry,
         vrf_membership_request_map_) {
         BgpNeighborRoutingInstance instance;
         instance.set_name(entry.first);
@@ -1835,7 +1839,7 @@ void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
     resp->set_routing_instances(instance_list);
 }
 
-void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
+void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) const {
     vector<BgpNeighborRoutingTable> old_table_list = resp->get_routing_tables();
     set<string> old_table_set;
     vector<BgpNeighborRoutingTable> new_table_list;
@@ -1848,7 +1852,7 @@ void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
         }
     }
 
-    BOOST_FOREACH(RoutingTableMembershipRequestMap::value_type &entry,
+    BOOST_FOREACH(const RoutingTableMembershipRequestMap::value_type &entry,
         routingtable_membership_request_map_) {
         BgpNeighborRoutingTable table;
         table.set_name(entry.first);
@@ -2230,13 +2234,13 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
 
 BgpXmppChannelManager::~BgpXmppChannelManager() {
     assert(channel_map_.empty());
+    assert(channel_name_map_.empty());
     assert(closing_count_ == 0);
     if (xmpp_server_) {
         xmpp_server_->UnRegisterConnectionEvent(xmps::BGP);
     }
 
     queue_.Shutdown();
-    channel_map_.clear();
     bgp_server_->UnregisterASNUpdateCallback(asn_listener_id_);
     bgp_server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
 }
@@ -2245,6 +2249,9 @@ bool BgpXmppChannelManager::IsReadyForDeletion() {
     return bgp_server_->IsReadyForDeletion();
 }
 
+void BgpXmppChannelManager::SetQueueDisable(bool disabled) {
+    queue_.set_disable(disabled);
+}
 
 void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
     as_t old_local_asn) {
@@ -2292,8 +2299,9 @@ BgpXmppChannel *BgpXmppChannelManager::FindChannel(
     return it->second;
 }
 
-void BgpXmppChannelManager::RemoveChannel(XmppChannel *ch) {
-    channel_map_.erase(ch);
+void BgpXmppChannelManager::RemoveChannel(XmppChannel *channel) {
+    channel_map_.erase(channel);
+    channel_name_map_.erase(channel->ToString());
 }
 
 BgpXmppChannel *BgpXmppChannelManager::CreateChannel(XmppChannel *channel) {
@@ -2311,6 +2319,8 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
         if (it == channel_map_.end()) {
             bgp_xmpp_channel = CreateChannel(channel);
             channel_map_.insert(make_pair(channel, bgp_xmpp_channel));
+            channel_name_map_.insert(
+                make_pair(channel->ToString(), bgp_xmpp_channel));
             BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
                          Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_SYSLOG,
                          BGP_PEER_DIR_IN,
@@ -2361,7 +2371,7 @@ void BgpXmppChannel::Close() {
 //
 // Return connection's remote tcp endpoint if available
 //
-boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() {
+boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() const {
     const XmppSession *session = GetSession();
     if (session) {
         return session->remote_endpoint();
@@ -2372,7 +2382,7 @@ boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() {
 //
 // Return connection's local tcp endpoint if available
 //
-boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() {
+boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() const {
     const XmppSession *session = GetSession();
     if (session) {
         return session->local_endpoint();

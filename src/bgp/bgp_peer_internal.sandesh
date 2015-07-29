@@ -4,6 +4,14 @@
 
 include "bgp/bgp_peer.sandesh"
 
+request sandesh BgpNeighborReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowBgpNeighborSummaryReqIterate {
+    1: string iterate_info;
+}
+
 request sandesh ShowNeighborStatisticsReq {
     1: string bgp_or_xmpp; // BGP or XMPP
     2: string up_or_down;  // "UP" for Established, "DOWN" for not-Established

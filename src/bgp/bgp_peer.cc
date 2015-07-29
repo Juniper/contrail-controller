@@ -1713,7 +1713,7 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
     resp.set_tx_socket_stats(peer_socket_stats);
 }
 
-void BgpPeer::FillNeighborInfo(BgpSandeshContext *bsc,
+void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
         vector<BgpNeighborResp> *nbr_list, bool summary) const {
     BgpNeighborResp nbr;
     nbr.set_peer(peer_basename_);

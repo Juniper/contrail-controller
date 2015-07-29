@@ -194,49 +194,6 @@ protected:
         return cfg;
     }
 
-    static void ValidateNeighborResponse(Sandesh *sandesh,
-                                         vector<size_t> &result) {
-        BgpNeighborListResp *resp =
-                dynamic_cast<BgpNeighborListResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((BgpNeighborListResp *)NULL, resp);
-
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_neighbors().size());
-
-        cout << "*******************************************************"<<endl;
-        for (size_t i = 0; i < resp->get_neighbors().size(); i++) {
-            TASK_UTIL_EXPECT_EQ(result[i],
-                      resp->get_neighbors()[i].routing_tables.size());
-            cout << resp->get_neighbors()[i].peer << " "
-                 << resp->get_neighbors()[i].encoding << endl;
-            size_t j = 0;
-            for (; j < resp->get_neighbors()[i].routing_tables.size(); j++) {
-                 cout << "\t" <<
-                     resp->get_neighbors()[i].routing_tables[j].name << endl;
-            }
-        }
-        cout << "*******************************************************"<<endl;
-        cout << endl;
-        validate_done_ = true;
-    }
-
-    static void ValidateNeighborSummaryResponse(Sandesh *sandesh,
-                                                const vector<string> &result) {
-        ShowBgpNeighborSummaryResp *resp =
-                dynamic_cast<ShowBgpNeighborSummaryResp *>(sandesh);
-        TASK_UTIL_EXPECT_TRUE(resp != NULL);
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_neighbors().size());
-
-        cout << "*******************************************************"<<endl;
-        for (size_t i = 0; i < resp->get_neighbors().size(); i++) {
-            cout << resp->get_neighbors()[i].log() << endl;
-            TASK_UTIL_EXPECT_EQ(result[i],
-                    resp->get_neighbors()[i].peer_address);
-        }
-        cout << "*******************************************************"<<endl;
-        cout << endl;
-        validate_done_ = true;
-    }
-
     static void ValidateShowRouteResponse(Sandesh *sandesh, vector<size_t> &result) {
         ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowRouteResp *)NULL, resp);
@@ -423,115 +380,9 @@ TEST_F(BgpXmppUnitTest, Connection) {
     sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
     Sandesh::set_client_context(&sandesh_context);
 
-    // show neighbor
-    cout << "ValidateNeighborResponse:" << endl;
-    std::vector<size_t> result = list_of(2)(9); // inet, ermvpn, enet, inet6
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
-                                   _1, result));
-    BgpNeighborReq *nbr_req = new BgpNeighborReq;
-    validate_done_ = false;
-    nbr_req->HandleRequest();
-    nbr_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor for specific instance
-    cout << "ValidateNeighborResponse:" << endl;
-    result = list_of(2)(9);
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
-                                   _1, result));
-    nbr_req = new BgpNeighborReq;
-    nbr_req->set_domain(BgpConfigManager::kMasterInstance);
-    validate_done_ = false;
-    nbr_req->HandleRequest();
-    nbr_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor for non-existent instance shows only xmpp neighbors
-    cout << "ValidateNeighborResponse:" << endl;
-    result = list_of(9);
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
-                                   _1, result));
-    nbr_req = new BgpNeighborReq;
-    nbr_req->set_domain("xyz");
-    validate_done_ = false;
-    nbr_req->HandleRequest();
-    nbr_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor for given name
-    cout << "ValidateNeighborResponse for agent@vnsw.contrailsystems.com:" << endl;
-    result = list_of(9);
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
-                                   _1, result));
-    nbr_req = new BgpNeighborReq;
-    nbr_req->set_neighbor("agent@vnsw.contrailsystems.com");
-    validate_done_ = false;
-    nbr_req->HandleRequest();
-    nbr_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor for given name
-    cout << "ValidateNeighborResponse for 127.0.0.1:" << endl;
-    result = list_of(9);
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
-                                   _1, result));
-    nbr_req = new BgpNeighborReq;
-    nbr_req->set_neighbor("agent@vnsw.contrailsystems.com");
-    validate_done_ = false;
-    nbr_req->HandleRequest();
-    nbr_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor for given address
-    cout << "ValidateNeighborResponse for 127.0.0.2:" << endl;
-    result = list_of(2);
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
-                                   _1, result));
-    nbr_req = new BgpNeighborReq;
-    nbr_req->set_neighbor("127.0.0.2");
-    validate_done_ = false;
-    nbr_req->HandleRequest();
-    nbr_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor summary
-    cout << "ValidateNeighborSummaryResponse:" << endl;
-    vector<string> s_result = list_of("127.0.0.2")("127.0.0.1");
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborSummaryResponse,
-                                   _1, s_result));
-    ShowBgpNeighborSummaryReq *nbr_s_req = new ShowBgpNeighborSummaryReq;
-    validate_done_ = false;
-    nbr_s_req->HandleRequest();
-    nbr_s_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor summary with good search string
-    cout << "ValidateNeighborSummaryResponse:" << endl;
-    s_result = list_of("127.0.0.1");
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborSummaryResponse,
-                                   _1, s_result));
-    nbr_s_req = new ShowBgpNeighborSummaryReq;
-    validate_done_ = false;
-    nbr_s_req->set_search_string("0.0.1");
-    nbr_s_req->HandleRequest();
-    nbr_s_req->Release();
-    WAIT_EQ(true, validate_done_);
-
-    // show neighbor summary with bad search string
-    cout << "ValidateNeighborSummaryResponse:" << endl;
-    s_result.clear();
-    Sandesh::set_response_callback(boost::bind(ValidateNeighborSummaryResponse,
-                                   _1, s_result));
-    nbr_s_req = new ShowBgpNeighborSummaryReq;
-    validate_done_ = false;
-    nbr_s_req->set_search_string("127.0.0.7");
-    nbr_s_req->HandleRequest();
-    nbr_s_req->Release();
-    WAIT_EQ(true, validate_done_);
-
     // show route
     cout << "ValidateShowRouteResponse:" << endl;
-    result = list_of(1)(1)(1)(1);
+    std::vector<size_t> result = list_of(1)(1)(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     ShowRouteReq *show_req = new ShowRouteReq;
