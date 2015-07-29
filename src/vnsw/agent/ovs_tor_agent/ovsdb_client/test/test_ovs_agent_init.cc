@@ -67,8 +67,7 @@ static void start_ovsdb_server() {
     atexit(stop_ovsdb_server);
     server_inited = true;
     db_file_name =
-        "build/debug/vnsw/agent/ovs_tor_agent/ovsdb_client/test/vtep_" +
-        boost::lexical_cast<std::string>(getpid()) + "_" +
+        "build/vtep_" + boost::lexical_cast<std::string>(getpid()) + "_" +
         boost::lexical_cast<std::string>(UTCTimestampUsec()) + ".db";
     lock_file_name = db_file_name;
     size_t pos = lock_file_name.find("vtep_");
