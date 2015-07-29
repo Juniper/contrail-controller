@@ -95,6 +95,10 @@ private:
     void StartPendingTimer();
     void CancelPendingTimer();
     bool PendingTimerExpiry();
+    void NotifyAllDnsRecords(const VirtualDnsConfig *config,
+                             DnsConfig::DnsConfigEvent ev);
+    void NotifyReverseDnsRecords(const VirtualDnsConfig *config,
+                                 DnsConfig::DnsConfigEvent ev);
     inline uint16_t GetTransId();
     inline bool CheckName(std::string rec_name, std::string name);
 
