@@ -9,6 +9,7 @@
 
 class AgentStats {
 public:
+    static const uint64_t kInvalidFlowCount = 0xFFFFFFFFFFFFFFFF;
     AgentStats(Agent *agent)
         : agent_(agent), xmpp_reconnect_(), xmpp_in_msgs_(), xmpp_out_msgs_(),
         sandesh_reconnects_(0U), sandesh_in_msgs_(0U), sandesh_out_msgs_(0U),
@@ -17,6 +18,11 @@ public:
         pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
         flow_created_(0U), flow_aged_(0U), flow_active_(0U),
         flow_drop_due_to_max_limit_(0), flow_drop_due_to_linklocal_limit_(0),
+        prev_flow_created_(0U), prev_flow_aged_(0U),
+        max_flow_adds_per_second_(kInvalidFlowCount),
+        min_flow_adds_per_second_(kInvalidFlowCount),
+        max_flow_deletes_per_second_(kInvalidFlowCount),
+        min_flow_deletes_per_second_(kInvalidFlowCount),
         ipc_in_msgs_(0U), ipc_out_msgs_(0U), in_tpkts_(0U), in_bytes_(0U),
         out_tpkts_(0U), out_bytes_(0U) {
         assert(singleton_ == NULL);
@@ -104,7 +110,27 @@ public:
 
     void incr_out_bytes(uint64_t count) {out_bytes_ += count;}
     uint64_t out_bytes() const {return out_bytes_;}
+
+    uint64_t max_flow_adds_per_second() const {
+        return max_flow_adds_per_second_;
+    }
+    uint64_t min_flow_adds_per_second() const {
+        return min_flow_adds_per_second_;
+    }
+    uint64_t max_flow_deletes_per_second() const {
+        return max_flow_deletes_per_second_;
+    }
+    uint64_t min_flow_deletes_per_second() const {
+        return min_flow_deletes_per_second_;
+    }
+    void UpdateFlowAddMinMaxStats(uint64_t time);
+    void UpdateFlowDelMinMaxStats(uint64_t time);
+    void ResetFlowAddMinMaxStats(uint64_t time);
+    void ResetFlowDelMinMaxStats(uint64_t time);
 private:
+    void UpdateAddMinMaxStats(uint64_t count, uint64_t time);
+    void UpdateDelMinMaxStats(uint64_t count, uint64_t time);
+
     Agent *agent_;
     uint32_t xmpp_reconnect_[MAX_XMPP_SERVERS];
     uint64_t xmpp_in_msgs_[MAX_XMPP_SERVERS];
@@ -132,6 +158,14 @@ private:
     uint64_t flow_active_;
     uint64_t flow_drop_due_to_max_limit_;
     uint64_t flow_drop_due_to_linklocal_limit_;
+    uint64_t prev_flow_created_;
+    uint64_t prev_flow_aged_;
+    uint64_t max_flow_adds_per_second_;
+    uint64_t min_flow_adds_per_second_;
+    uint64_t max_flow_deletes_per_second_;
+    uint64_t min_flow_deletes_per_second_;
+    uint64_t prev_flow_add_time_;
+    uint64_t prev_flow_delete_time_;
 
     // Kernel IPC
     uint64_t ipc_in_msgs_;

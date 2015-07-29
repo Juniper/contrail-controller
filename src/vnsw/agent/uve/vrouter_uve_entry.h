@@ -22,6 +22,9 @@ public:
 protected:
     uint8_t bandwidth_count_;
     L4PortBitmap port_bitmap_;
+    uint64_t prev_flow_setup_rate_export_time_;
+    uint64_t prev_flow_created_;
+    uint64_t prev_flow_aged_;
 private:
     void InitPrevStats() const;
     void FetchDropStats(AgentDropStats &ds) const;

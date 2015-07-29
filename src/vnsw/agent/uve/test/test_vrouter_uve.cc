@@ -994,6 +994,97 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     agent_->set_tsn_enabled(false);
 }
 
+TEST_F(UveVrouterUveTest, FlowSetupRate) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (agent_->uve()->vrouter_uve_entry());
+    vr->clear_count();
+    vr->set_prev_flow_created(agent_->stats()->flow_created());
+    vr->set_prev_flow_aged(agent_->stats()->flow_aged());
+
+    FlowSetUp();
+    TestFlow flow[] = {
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 100, 200,
+                       "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a UDP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_UDP, 100, 200,
+                       "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    //Update prev_time to current_time - 1 sec
+    uint64_t t = UTCTimestampUsec() - 1000000;
+    vr->set_prev_flow_setup_rate_export_time(t);
+
+    //Create Flows
+    EXPECT_EQ(0, agent_->pkt()->flow_table()->Size());
+    CreateFlow(flow, 2);
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
+
+    //Trigger framing and send of UVE message
+    vr->SendVrouterMsg();
+
+    //Verify flow add rate
+    const VrouterStatsAgent stats = vr->last_sent_stats();
+    EXPECT_EQ(4U, stats.get_flow_rate().get_added_flows());
+    EXPECT_EQ(0U, stats.get_flow_rate().get_deleted_flows());
+
+    //Update prev_time to current_time - 1 sec
+    t = UTCTimestampUsec() - 1000000;
+    vr->set_prev_flow_setup_rate_export_time(t);
+
+    //Create two more flows
+    TestFlow flow2[] = {
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 2000,
+                       "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+    };
+
+    CreateFlow(flow2, 1);
+    EXPECT_EQ(6U, agent_->pkt()->flow_table()->Size());
+
+    //Trigger framing and send of UVE message
+    vr->SendVrouterMsg();
+
+    //Verify flow add rate
+    const VrouterStatsAgent stats2 = vr->last_sent_stats();
+    EXPECT_EQ(2U, stats2.get_flow_rate().get_added_flows());
+    EXPECT_EQ(0U, stats2.get_flow_rate().get_deleted_flows());
+
+    //Update prev_time to current_time - 1 sec
+    t = UTCTimestampUsec() - 1000000;
+    vr->set_prev_flow_setup_rate_export_time(t);
+
+    //Delete flows and verify delete rate
+    DeleteFlow(flow2, 1);
+    WAIT_FOR(1000, 1000, ((agent_->pkt()->flow_table()->Size() == 4U)));
+
+    //Trigger framing and send of UVE message
+    vr->SendVrouterMsg();
+
+    //Verify flow add and delete rate
+    const VrouterStatsAgent stats3 = vr->last_sent_stats();
+    EXPECT_EQ(0U, stats3.get_flow_rate().get_added_flows());
+    EXPECT_EQ(2U, stats3.get_flow_rate().get_deleted_flows());
+
+    FlowTearDown();
+    vr->clear_count();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini",
