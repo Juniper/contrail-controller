@@ -216,6 +216,12 @@ TcpSession *XmppServer::CreateSession() {
         XMPP_WARNING(ServerBindFailure, err.message());
     }
 
+    XmppSession *xmpps = static_cast<XmppSession *>(session);
+    err = xmpps->EnableSocketKeepalive();
+    if (err) {
+        XMPP_WARNING(ServerKeepAliveFailure, err.message());
+    }
+
     return session;
 }
 
