@@ -173,6 +173,7 @@ private:
     static const int kSessionKeepaliveIdleTime = 30; // in seconds
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
+    static const int kSessionTcpUserTimeout = 45000; // in milliseconds
 
     enum ResponseState {
         NONE = 0,
