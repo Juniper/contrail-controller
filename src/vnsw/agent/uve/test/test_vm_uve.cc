@@ -951,7 +951,7 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
 }
 
 //Verfiy Source IP overriden for NAT flows in flow-log messages exported by agent
-TEST_F(UveVmUveTest, SIP_override) {
+TEST_F(UveVmUveTest, DISABLED_SIP_override) {
     FlowSetUp();
     TestFlow flow[] = {
         {

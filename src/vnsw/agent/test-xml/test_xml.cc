@@ -302,10 +302,10 @@ static bool CheckConfigNode(const string &node_name, const xml_node &node,
     return true;
 }
 
-AgentUtXmlTestCase:: AgentUtXmlTestCase(const std::string &name,
-                                        const xml_node &node,
-                                        AgentUtXmlTest *test)
-    : name_(name), xml_node_(node), test_(test) {
+AgentUtXmlTestCase::AgentUtXmlTestCase(const std::string &name,
+                                       const xml_node &node,
+                                       AgentUtXmlTest *test)
+    : name_(name), xml_node_(node), test_(test), verbose_(false) {
     cout << "Creating test-case <" << name_ << ">" << endl;
 }
 

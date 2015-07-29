@@ -79,9 +79,8 @@ using boost::system::error_code;
     data.set_fip_vm_interface_idx(fe->stats().fip_vm_port_id);              \
     SetAclInfo(data, fe);                                                   \
     data.set_nh(fe->key().nh);                                              \
-    if (fe->data().nh_state_.get() != NULL &&                               \
-                             (fe->data().nh_state_.get())->nh() != NULL) {  \
-        data.set_rpf_nh((fe->data().nh_state_.get())->nh()->id());          \
+    if (fe->data().nh.get() != NULL) {                                      \
+        data.set_rpf_nh(fe->data().nh.get()->id());                         \
     }                                                                       \
     data.set_peer_vrouter(fe->peer_vrouter());                            \
     data.set_tunnel_type(fe->tunnel_type().ToString());                     \

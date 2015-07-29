@@ -870,7 +870,7 @@ TEST_F(EcmpTest, EcmpTest_13) {
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->nh() == rt->GetActiveNextHop());
 
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("default-project:vn10:vn10", "0.0.0.0", 0);
@@ -953,7 +953,7 @@ TEST_F(EcmpTest, EcmpTest_14) {
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->nh() == rt->GetActiveNextHop());
 
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("default-project:vn10:vn10", "0.0.0.0", 0);
@@ -1022,7 +1022,7 @@ TEST_F(EcmpTest, EcmpTest_15) {
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("vrf9", gw_rt, 0);
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->nh() == rt->GetActiveNextHop());
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -2194,7 +2194,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
         EXPECT_TRUE(entry->data().source_vn == "vn10");
         EXPECT_TRUE(entry->data().dest_vn == "vn11");
-        EXPECT_TRUE(entry->data().nh_state_->nh()->GetType() == NextHop::VLAN);
+        EXPECT_TRUE(entry->nh()->GetType() == NextHop::VLAN);
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(entry->data().component_nh_idx ==
