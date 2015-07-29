@@ -22,6 +22,7 @@ using namespace std;
 using boost::iequals;
 
 const int BgpIfmapConfigManager::kConfigTaskInstanceId = 0;
+int BgpIfmapConfigManager::config_task_id_ = -1;
 
 static BgpNeighborConfig::AddressFamilyList default_addr_family_list;
 

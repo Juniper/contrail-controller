@@ -358,7 +358,7 @@ private:
 
     bool ConfigHandler();
 
-    int config_task_id_;
+    static int config_task_id_;
     static const int kConfigTaskInstanceId;
 
     DB *db_;
