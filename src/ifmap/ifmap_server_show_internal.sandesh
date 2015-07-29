@@ -10,3 +10,7 @@ request sandesh IFMapLinkTableShowReqIterate {
     1: string link_info;
 }
 
+request sandesh IFMapPerClientNodesShowReqIterate {
+    1: string node_info;
+}
+

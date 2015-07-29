@@ -148,6 +148,8 @@ request sandesh IFMapPerClientNodesShowReq {
 
 response sandesh IFMapPerClientNodesShowResp {
     1: list<IFMapPerClientNodesShowInfo> node_db;
+    2: optional string next_batch (link="IFMapPerClientNodesShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing all the links that should have gone to a client **/
