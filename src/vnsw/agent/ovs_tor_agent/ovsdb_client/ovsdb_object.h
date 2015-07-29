@@ -55,6 +55,9 @@ public:
     // API to register db table, if not already registered.
     virtual void OvsdbRegisterDBTable(DBTable *tbl);
 
+    // API to trigger db table walk to resync the entries.
+    void OvsdbStartResyncWalk();
+
     void NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
     void NotifyDeleteOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
 
@@ -62,6 +65,8 @@ public:
     virtual OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row) = 0;
     bool DBWalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
     void DBWalkDone(DBTableBase *partition);
+
+    virtual Agent *agent() const;
 
     // Trigger delete of object table
     void DeleteTable(void);

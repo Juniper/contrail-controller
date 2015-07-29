@@ -21,7 +21,8 @@ using OVSDB::ConnectionStateTable;
 OvsdbClientSsl::OvsdbClientSsl(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) :
     SslServer(agent->event_manager(), boost::asio::ssl::context::tlsv1_server),
-    OvsdbClient(manager, params->keepalive_interval()), agent_(agent),
+    OvsdbClient(manager, params->keepalive_interval(),
+                params->ha_stale_route_interval()), agent_(agent),
     ssl_server_port_(params->tor_port()), tsn_ip_(params->tsn_ip()),
     shutdown_(false) {
     // Get SSL context from base class and update

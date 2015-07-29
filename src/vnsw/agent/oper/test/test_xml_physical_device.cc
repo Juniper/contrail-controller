@@ -101,7 +101,12 @@ bool AgentUtXmlPhysicalDevice::ToXml(xml_node *parent) {
     } else {
         AddXmlNodeWithValue(&n, "display-name", name());
     }
-    AddXmlNodeWithValue(&n, "physical-router-dataplane-ip", "111.111.111.111");
+    string device_ip;
+    if (GetStringAttribute(node(), "dataplane-ip", &device_ip)) {
+        AddXmlNodeWithValue(&n, "physical-router-dataplane-ip", device_ip);
+    } else {
+        AddXmlNodeWithValue(&n, "physical-router-dataplane-ip", "111.111.111.111");
+    }
     AddIdPerms(&n);
     return true;
 }
