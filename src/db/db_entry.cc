@@ -34,10 +34,10 @@ void DBEntryBase::SetState(DBTableBase *tbl_base, ListenerId listener,
     }
 }
 
-DBState *DBEntryBase::GetState(DBTableBase *tbl_base, ListenerId listener) {
+DBState *DBEntryBase::GetState(DBTableBase *tbl_base, ListenerId listener) const {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
     tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
-    StateMap::iterator loc = state_.find(listener);
+    StateMap::const_iterator loc = state_.find(listener);
     if (loc != state_.end()) {
         return loc->second;
     }

@@ -34,7 +34,7 @@ public:
 
     void SetState(DBTableBase *tbl_base, ListenerId listener, DBState *state);
     void ClearState(DBTableBase *tbl_base, ListenerId listener);
-    DBState *GetState(DBTableBase *tbl_base, ListenerId listener);
+    DBState *GetState(DBTableBase *tbl_base, ListenerId listener) const;
     const DBState *GetState(const DBTableBase *tbl_base,
                             ListenerId listener) const;
     bool is_state_empty(DBTablePartBase *tpart);
