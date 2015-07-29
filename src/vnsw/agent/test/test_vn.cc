@@ -68,6 +68,7 @@ class CfgTest : public ::testing::Test {
 };
 
 #if 0
+Fails in IFMapDependencyTracker::PropagateEdge (IFMapDependencyTracker) issue
 TEST_F(CfgTest, VnBasic_1) {
     char buff[4096];
     int len = 0;
@@ -159,6 +160,7 @@ TEST_F(CfgTest, VnBasic_1) {
     VnAddReq(1, "vntest");
     VnDelReq(1);
 }
+#endif
 
 TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     char buff[4096];
@@ -191,10 +193,6 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
 
     client->WaitForIdle();
 
-    //vn = VnGet(1);
-    //EXPECT_TRUE(vn->GetVrf() == NULL);
-    //EXPECT_TRUE(vn->GetAcl() == NULL);
-
     DelXmlHdr(buff, len);
     DelNodeString(buff, len, "routing-instance", "vrf6");
     DelNodeString(buff, len, "virtual-network", "vn1");
@@ -207,7 +205,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_FALSE(VnFind(1));
     EXPECT_FALSE(VnFind(2));
     EXPECT_FALSE(AclFind(1));
-
+    WAIT_FOR(1000, 1000, (VrfFind("vrf6") == false));
 }
 
 TEST_F(CfgTest, VrfChangeVxlanTest) {
@@ -412,7 +410,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
 
     //Move to l2 mode
     ModifyForwardingModeVn("vn1", 1, "l2");
-    client->WaitForIdle();
+    client->WaitForIdle(5);
     l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
     l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
     uc_rt = RouteGet(vrf_name, vm_ip, 32);
@@ -474,10 +472,10 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     CreateL2VmportEnv(input, 1);
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     EXPECT_TRUE(VmPortL2Active(input, 0));
     AddIPAM("vn1", ipam_info, 1);
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     VnEntry *vn = VnGet(1);
     EXPECT_TRUE(vn->GetVxLanId() == 1);
 
@@ -729,68 +727,6 @@ TEST_F(CfgTest, change_in_gatewaywith_no_vrf) {
     WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
 
-TEST_F(CfgTest, l2_mode_configured_via_ipam_0_gw) {
-    client->Reset();
-    struct PortInfo input[] = {
-        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
-    };
-
-    IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "0.0.0.0", true},
-    };
-
-    CreateVmportEnv(input, 1, 0);
-    client->WaitForIdle();
-
-    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
-
-    AddIPAM("vn1", ipam_info, 1);
-    client->WaitForIdle();
-
-    VnEntry *vn = VnGet(1);;
-    EXPECT_FALSE(vn->layer3_forwarding());
-    EXPECT_TRUE(vn->bridging());
-
-    //Restore and cleanup
-    client->Reset();
-    DelIPAM("vn1");
-    client->WaitForIdle();
-    DeleteVmportEnv(input, 1, 1, 0);
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
-}
-
-TEST_F(CfgTest, l2_mode_configured_via_ipam_linklocal_gw) {
-    client->Reset();
-    struct PortInfo input[] = {
-        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
-    };
-
-    IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "169.254.0.1", true},
-    };
-
-    CreateVmportEnv(input, 1, 0);
-    client->WaitForIdle();
-
-    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
-
-    AddIPAM("vn1", ipam_info, 1);
-    client->WaitForIdle();
-
-    VnEntry *vn = VnGet(1);;
-    EXPECT_FALSE(vn->layer3_forwarding());
-    EXPECT_TRUE(vn->bridging());
-
-    //Restore and cleanup
-    client->Reset();
-    DelIPAM("vn1");
-    client->WaitForIdle();
-    DeleteVmportEnv(input, 1, 1, 0);
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
-}
-
 TEST_F(CfgTest, l2_mode_configured_via_ipam_non_linklocal_gw) {
     client->Reset();
     struct PortInfo input[] = {
@@ -837,8 +773,9 @@ TEST_F(CfgTest, RpfEnableDisable) {
 
     DelVn("vn10");
     client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VnGet(10) == NULL));
 }
-#endif
+
 TEST_F(CfgTest, UnknownBroadcastEnableDisable_1) {
     AddVn("vn10", 10, true);
     AddVrf("vrf10");
@@ -848,8 +785,8 @@ TEST_F(CfgTest, UnknownBroadcastEnableDisable_1) {
     VnEntry *vn = VnGet(10);
     EXPECT_TRUE(vn->flood_unknown_unicast() == false);
 
-    NextHopKey *key = new VrfNHKey("vrf10", false, true);
-    const VrfNH *vrf_nh = static_cast<const VrfNH *>(GetNH(key));
+    VrfNHKey key("vrf10", false, true);
+    const VrfNH *vrf_nh = static_cast<const VrfNH *>(GetNH(&key));
     EXPECT_TRUE(vrf_nh->flood_unknown_unicast() == false);
 
     EnableUnknownBroadcast("vn10", 10);
@@ -860,10 +797,13 @@ TEST_F(CfgTest, UnknownBroadcastEnableDisable_1) {
     EXPECT_FALSE(vn->flood_unknown_unicast());
     EXPECT_TRUE(vrf_nh->flood_unknown_unicast() == false);
 
-    DelVn("vn10");
     DelLink("virtual-network", "vn10", "routing-instance", "vrf10");
-    DelVrf("vrf10");
     client->WaitForIdle();
+    DelVrf("vrf10");
+    DelVn("vn10");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VnGet(10) == NULL));
+    WAIT_FOR(1000, 1000, (VrfFind("vrf10") == false));
 }
 
 TEST_F(CfgTest, UnknownBroadcastEnableDisable_2) {
