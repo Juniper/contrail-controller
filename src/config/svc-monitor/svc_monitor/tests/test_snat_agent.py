@@ -2,6 +2,7 @@ import copy
 import json
 import mock
 import unittest
+import uuid
 
 from cfgm_common.vnc_db import DBBase
 from svc_monitor import config_db
@@ -61,7 +62,7 @@ class VirtualNetworkMatcher(object):
 
     def __eq__(self, net_obj):
         user_visible = net_obj.get_id_perms().get_user_visible()
-        return (net_obj.get_fq_name_str() == self._name and
+        return (net_obj.get_fq_name_str().startswith(self._name) and
                 user_visible == self._user_visible)
 
 
@@ -79,9 +80,9 @@ class ServiceInstanceMatcher(object):
         right = si_props.get_interface_list()[0].get_virtual_network()
         left = si_props.get_interface_list()[1].get_virtual_network()
 
-        return (si_obj.fq_name[-1] == self._name and
+        return (si_obj.fq_name[-1].startswith(self._name) and
                 mode == self._mode and
-                left == self._left and
+                left.startswith(self._left) and
                 right == self._right)
 
 
@@ -92,8 +93,8 @@ class LogicalRouterMatcher(object):
 
     def __eq__(self, rtr_obj):
         if self._si_name:
-            return (rtr_obj.get_service_instance_refs()[0]['to'][-1] ==
-                    self._si_name)
+            return rtr_obj.get_service_instance_refs()[0]['to'][-1].startswith(
+                self._si_name)
         else:
             return not rtr_obj.get_service_instance_refs()
 
@@ -112,7 +113,7 @@ class SnatAgentTest(unittest.TestCase):
 
         self.snat_agent = snat_agent.SNATAgent(self.svc, self.vnc_lib,
                                                self.cassandra, None)
-        DBBase.init(self, None, self.cassandra)
+        DBBase.init(self, self.logger, self.cassandra)
 
         # register the project
         proj_fq_name = ['default-domain', 'demo']
@@ -162,9 +163,10 @@ class SnatAgentTest(unittest.TestCase):
                                             'private1-name'],
                                 'uuid': 'private1-uuid'}])
             elif 'snat-vn-uuid' in uuids:
-                return (True, [{'fq_name': ['default-domain',
-                                            'demo',
-                                            'snat-si-left_si_' + ROUTER_1['uuid']],
+                return (True, [{'fq_name':
+                                ['default-domain',
+                                 'demo',
+                                 'snat-si-left_si_' + ROUTER_1['uuid']],
                                 'uuid': 'snat-vn-uuid'}])
             return (False, None)
 
@@ -187,7 +189,8 @@ class SnatAgentTest(unittest.TestCase):
 
             raise NoIdError("xxx")
 
-        self.cassandra.fq_name_to_uuid = mock.Mock(side_effect=no_id_side_effect)
+        self.cassandra.fq_name_to_uuid = mock.Mock(
+            side_effect=no_id_side_effect)
 
         self.vnc_lib.route_table_create = mock.Mock()
         self.vnc_lib.virtual_network_update = mock.Mock()
@@ -201,7 +204,7 @@ class SnatAgentTest(unittest.TestCase):
             ['private1-uuid'])
 
         # check that the snat service network is created
-        left = ('default-domain:demo:snat-si-left_si_' +
+        left = ('default-domain:demo:snat-si-left_snat_' +
                 ROUTER_1['uuid'])
         self.vnc_lib.virtual_network_create.assert_called_with(
             VirtualNetworkMatcher(left, False))
@@ -218,12 +221,12 @@ class SnatAgentTest(unittest.TestCase):
         # check that the SI is correctly set with the right interfaces
         right = ':'.join(ROUTER_1['virtual_network_refs'][0]['to'])
         self.vnc_lib.service_instance_create.assert_called_with(
-            ServiceInstanceMatcher('si_' + ROUTER_1['uuid'],
+            ServiceInstanceMatcher('snat_' + ROUTER_1['uuid'],
                                    left, right, 'active-standby'))
 
         # check that the SI created is set to the logical router
         self.vnc_lib.logical_router_update.assert_called_with(
-            LogicalRouterMatcher('si_' + ROUTER_1['uuid']))
+            LogicalRouterMatcher('snat_' + ROUTER_1['uuid']))
 
     def _test_snat_delete(self, router_dict):
         self.test_gateway_set()
@@ -258,7 +261,7 @@ class SnatAgentTest(unittest.TestCase):
         self.snat_agent.update_snat_instance(router)
 
         self.vnc_lib.service_instance_read.assert_called_with(
-            fq_name=router_dict['service_instance_refs'][0]['to'])
+            id='si-uuid')
 
         # check that the route table is removed from the networks
         self.vnc_lib.virtual_network_update.assert_called_with(
@@ -317,7 +320,7 @@ class SnatAgentTest(unittest.TestCase):
         self.snat_agent.update_snat_instance(router)
 
         self.vnc_lib.service_instance_read.assert_called_with(
-            fq_name=router_dict['service_instance_refs'][0]['to'])
+            id='si-uuid')
 
         # check that the route table is deleted
         self.vnc_lib.route_table_delete.assert_called_with(id=rt_obj.uuid)
