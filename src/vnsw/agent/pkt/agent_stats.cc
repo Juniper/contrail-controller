@@ -99,3 +99,85 @@ void AgentStatsReq::HandleRequest() const {
     sandesh->set_more(false);
     sandesh->Response();
 }
+
+void AgentStats::UpdateAddMinMaxStats(uint64_t count, uint64_t time) {
+    if ((max_flow_adds_per_second_ == kInvalidFlowCount) ||
+        (count > max_flow_adds_per_second_)) {
+        max_flow_adds_per_second_ = count;
+    }
+    if ((min_flow_adds_per_second_ == kInvalidFlowCount) ||
+        (count < min_flow_adds_per_second_)) {
+        min_flow_adds_per_second_ = count;
+    }
+    prev_flow_add_time_ = time;
+}
+
+void AgentStats::UpdateFlowAddMinMaxStats(uint64_t time) {
+    uint64_t diff_micro_secs = time - prev_flow_add_time_;
+    uint64_t diff_secs = 0;
+    uint64_t count = 0;
+    if (diff_micro_secs) {
+        diff_secs = diff_micro_secs/1000000;
+    }
+    if (!diff_secs) {
+        return;
+    }
+    if (diff_secs > 1) {
+        count = (flow_created_ - 1) - prev_flow_created_;
+        if (count) {
+            UpdateAddMinMaxStats(count, time);
+            prev_flow_created_ = flow_created_ - 1;
+            return;
+        }
+    }
+    count = flow_created_ - prev_flow_created_;
+    UpdateAddMinMaxStats(count, time);
+    prev_flow_created_ = flow_created_;
+}
+
+void AgentStats::UpdateDelMinMaxStats(uint64_t count, uint64_t time) {
+    if ((max_flow_deletes_per_second_ == kInvalidFlowCount) ||
+        (count > max_flow_deletes_per_second_)) {
+        max_flow_deletes_per_second_ = count;
+    }
+    if ((min_flow_deletes_per_second_ == kInvalidFlowCount) ||
+        (count < min_flow_deletes_per_second_)) {
+        min_flow_deletes_per_second_ = count;
+    }
+    prev_flow_delete_time_ = time;
+}
+
+void AgentStats::UpdateFlowDelMinMaxStats(uint64_t time) {
+    uint64_t diff_micro_secs = time - prev_flow_delete_time_;
+    uint64_t diff_secs = 0;
+    uint64_t count = 0;
+    if (diff_micro_secs) {
+        diff_secs = diff_micro_secs/1000000;
+    }
+    if (!diff_secs) {
+        return;
+    }
+    if (diff_secs > 1) {
+        count = (flow_aged_ - 1) - prev_flow_aged_;
+        if (count) {
+            prev_flow_aged_ = flow_aged_ - 1;
+            UpdateDelMinMaxStats(count, time);
+            return;
+        }
+    }
+    count = flow_aged_ - prev_flow_aged_;
+    UpdateDelMinMaxStats(count, time);
+    prev_flow_aged_ = flow_aged_;
+}
+
+void AgentStats::ResetFlowAddMinMaxStats(uint64_t time) {
+    max_flow_adds_per_second_ = kInvalidFlowCount;
+    min_flow_adds_per_second_ = kInvalidFlowCount;
+    prev_flow_add_time_ = time;
+}
+
+void AgentStats::ResetFlowDelMinMaxStats(uint64_t time) {
+    max_flow_deletes_per_second_ = kInvalidFlowCount;
+    min_flow_deletes_per_second_ = kInvalidFlowCount;
+    prev_flow_delete_time_ = time;
+}
