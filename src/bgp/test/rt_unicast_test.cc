@@ -464,7 +464,7 @@ class MultihomedAgentTest : public RtUnicastTest {
         return ((agent->RouteCount() != (int) target) ? false : true);
     }
 
-    bool TestXmppUpdateCount(int count) {
+    bool TestXmppUpdateCount(uint64_t count) {
         for (size_t i = 0; i < control_nodes_.size(); i++) {
             BgpXmppChannelManager *xmanager =
                     control_nodes_[i]->xmpp_channel_manager();
@@ -489,7 +489,7 @@ class MultihomedAgentTest : public RtUnicastTest {
         EXPECT_TRUE(TestAgentRouteCount(agent, count));
     }
 
-    void WaitForXmppUpdate(int count) {
+    void WaitForXmppUpdate(uint64_t count) {
         task_util::WaitForCondition(
             &evm_,
             boost::bind(&MultihomedAgentTest::TestXmppUpdateCount, this, count),
