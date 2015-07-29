@@ -780,6 +780,16 @@ void IFMapChannel::SetArcSocketOptions() {
                         ec.message());
     }
 #endif
+
+#ifdef TCP_USER_TIMEOUT
+    boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_USER_TIMEOUT>
+        user_timeout_option(kSessionTcpUserTimeout);
+    arc_socket_->next_layer().set_option(user_timeout_option, ec);
+    if (ec) {
+        IFMAP_PEER_WARN(IFMapServerConnection, "Error setting user timeout",
+                        ec.message());
+    }
+#endif
 }
 
 // The connection to the peer 'host_' has timed-out. Create a new entry for
