@@ -45,6 +45,8 @@ sources = [
     'svc_monitor/tests/test_dep_track.py',
     'svc_monitor/tests/test_snat.py',
     'svc_monitor/tests/test_snat_agent.py',
+    'svc_monitor/tests/test_loadbalancer_agent.py',
+    'svc_monitor/tests/fake_lb_driver.py',
     'svc_monitor/tests/scheduler/__init__.py',
     'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
 ]
