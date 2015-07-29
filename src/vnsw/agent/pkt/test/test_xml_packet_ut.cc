@@ -28,6 +28,20 @@ static void GetArgs(char *test_file, int argc, char *argv[]) {
 }
 
 class TestPkt : public ::testing::Test {
+public:
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+        interface_count_ = agent_->interface_table()->Size();
+    }
+
+    virtual void TearDown() {
+        EXPECT_EQ(agent_->pkt()->flow_table()->Size(), 0);
+        EXPECT_EQ(agent_->vn_table()->Size(), 0);
+        EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
+    }
+
+    Agent *agent_;
+    uint32_t interface_count_;
 };
 
 TEST_F(TestPkt, parse_1) {
