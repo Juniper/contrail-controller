@@ -591,7 +591,8 @@ bool Agent::isVmwareVcenterMode() const {
 
 void Agent::ConcurrencyCheck() {
     if (test_mode_) {
-       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME);
+       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
+                         "Flow::Management", "Agent::FlowHandler");
     }
 }
 

@@ -1324,6 +1324,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         flow = flow_entry;
         Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
     }
+    tbb::mutex::scoped_lock flow_mutex(flow->mutex());
 
     if (pkt->family == Address::INET) {
         Ip4Address v4_src = pkt->ip_saddr.to_v4();
@@ -1393,6 +1394,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                      r_sport, r_dport);
         rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
+    tbb::mutex::scoped_lock mutex_rflow(rflow->mutex());
 
     // If the flows are already present, we want to retain the Forward and
     // Reverse flow characteristics for flow.

@@ -77,5 +77,13 @@
     <virtual-machine delete="1" uuid="2" name="vm2"/>
     <vmi-vrf delete="1" uuid="1" name="tap1-vm1" />
     <vrf delete="1" uuid="1" name="vrf1" />
+    <validate name="validate-4">
+        <virtual-network uuid="1" name="vn1" present="no"/>
+        <virtual-machine uuid="1" name="vm1" present="no"/>
+        <virtual-machine uuid="2" name="vm2" present="no"/>
+        <virtual-machine-interface uuid="1" name="tap1" present="no" />
+        <vrf uuid="1" name="vrf1"  present="no"/>
+    </validate>
+
 </test>
 </test_suite>
