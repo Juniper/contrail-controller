@@ -62,6 +62,7 @@ public:
     static std::string GetVrfFromTableName(const std::string table);
 
     BgpTable *GetTable(Address::Family fmly);
+    const BgpTable *GetTable(Address::Family fmly) const;
 
     void AddTable(BgpTable *tbl);
 
@@ -112,6 +113,7 @@ public:
 
     StaticRouteMgr *static_route_mgr() { return static_route_mgr_.get(); }
     PeerManager *peer_manager() { return peer_manager_.get(); }
+    const PeerManager *peer_manager() const { return peer_manager_.get(); }
 
 private:
     class DeleteActor;
@@ -224,6 +226,7 @@ public:
         return instances_.lower_bound(name);
     }
 
+    const RoutingInstance *GetDefaultRoutingInstance() const;
     RoutingInstance *GetRoutingInstance(const std::string &name) {
         return instances_.Find(name);
     }
