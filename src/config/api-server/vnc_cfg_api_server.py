@@ -2225,7 +2225,7 @@ class VncApiServer(object):
         except NoIdError:
             bottle.abort(404, 'Virtual Network ' + id + ' not found!')
 
-        # expected format {"subnet" : "2.1.1.0/24", "count" : 4}
+        # expected format {"subnet_list" : "2.1.1.0/24", "count" : 4}
         req_dict = bottle.request.json
         count = req_dict['count'] if 'count' in req_dict else 1
         subnet = req_dict['subnet'] if 'subnet' in req_dict else None
@@ -2269,7 +2269,7 @@ class VncApiServer(object):
         except NoIdError:
             bottle.abort(404, 'Virtual Network ' + id + ' not found!')
 
-        # expected format {"subnet" : ["2.1.1.0/24", "1.1.1.0/24"]
+        # expected format {"subnet_list" : ["2.1.1.0/24", "1.1.1.0/24"]
         req_dict = bottle.request.json
         try:
             (ok, result) = self._db_conn.dbe_read('virtual-network', {'uuid': id})
