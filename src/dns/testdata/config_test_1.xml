@@ -6,6 +6,8 @@
         <record-order>random</record-order>
         <default-ttl-seconds>60</default-ttl-seconds>
         <next-virtual-DNS>juniper.net</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
     </virtual-DNS>
 
     <network-ipam name='ipam1'>
@@ -70,6 +72,8 @@
         <record-order>random</record-order>
         <default-ttl-seconds>60</default-ttl-seconds>
         <next-virtual-DNS>example.com</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
     </virtual-DNS>
 
     <network-ipam name='ipam2'>

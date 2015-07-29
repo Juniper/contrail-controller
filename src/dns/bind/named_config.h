@@ -109,7 +109,8 @@ protected:
     void WriteLoggingConfig();
     void WriteViewConfig(const VirtualDnsConfig *updated_vdns);
     void WriteDefaultView(ZoneViewMap &zone_view_map);
-    void WriteZone(const std::string &vdns, const std::string &name, bool is_master);
+    void WriteZone(const std::string &vdns, const std::string &name,
+                   bool is_master);
     void AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns);
     void RemoveZoneFile(const VirtualDnsConfig *vdns, std::string &zone);
     std::string GetZoneNSName(const std::string domain_name);
@@ -117,6 +118,8 @@ protected:
     void CreateZoneFile(std::string &zone_name, 
                         const VirtualDnsConfig *vdns, bool ns);
     void MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zones);
+    void MakeReverseZoneList(const VirtualDnsConfig *vdns_config,
+                             ZoneList &zones);
     void GetDefaultForwarders();
 
     std::ofstream file_;

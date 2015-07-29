@@ -160,12 +160,13 @@ void DnsManager::DnsView(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
             config->MarkNotified();
         }
         ncfg->ChangeView(config);
+        bool reverse_resolution = config->IsReverseResolutionEnabled();
         if (dns_domain != config->GetOldDomainName()) {
-            for (VirtualDnsConfig::VDnsRec::const_iterator it =
-                 config->virtual_dns_records_.begin();
-                 it != config->virtual_dns_records_.end(); ++it) {
-                DnsRecord(*it, ev);
-            }
+            NotifyAllDnsRecords(config, ev);
+        } else if (reverse_resolution &&
+                   config->HasReverseResolutionChanged()) {
+            // reverse resolution is enabled now, add the reverse records
+            NotifyReverseDnsRecords(config, ev);
         }
     } else {
         ncfg->DelView(config);
@@ -178,11 +179,13 @@ void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
     if (!bind_status_.IsUp())
         return;
 
+    bool reverse_resolution = vdns->IsReverseResolutionEnabled();
     std::string dns_domain = vdns->GetDomainName();
-    if (dns_domain.empty()) {
+    if (dns_domain.empty() || !reverse_resolution) {
         DNS_BIND_TRACE(DnsBindTrace, "Ptr Zone <" << vdns->GetName() <<
-                       "> doesnt have domain; ignoring event : " <<
-                       DnsConfig::ToEventString(ev));
+                       "> ; ignoring event: " << DnsConfig::ToEventString(ev) <<
+                       " Domain: " << dns_domain << " Reverse Resolution: " <<
+                       (reverse_resolution ? "enabled" : "disabled"));
         return;
     }
 
@@ -242,6 +245,12 @@ bool DnsManager::SendRecordUpdate(BindUtil::Operation op,
 
     std::string zone;
     if (item.type == DNS_PTR_RECORD) {
+        if (!vdns.reverse_resolution) {
+            DNS_BIND_TRACE(DnsBindTrace, "Virtual DNS Record <" <<
+                           config->GetName() << "> PTR name " << item.name <<
+                           " not added - reverse resolution is not enabled");
+            return false;
+        }
         uint32_t addr;
         if (BindUtil::IsIPv4(item.name, addr)) {
             BindUtil::GetReverseZone(addr, 32, item.name);
@@ -334,12 +343,7 @@ void DnsManager::UpdateAll() {
         VirtualDnsConfig *vdns = it->second;
         if (!vdns->IsNotified())
             continue;
-        for (VirtualDnsConfig::VDnsRec::iterator vit =
-             vdns->virtual_dns_records_.begin();
-             vit != vdns->virtual_dns_records_.end(); ++vit) {
-            if ((*vit)->IsValid())
-                DnsRecord(*vit, DnsConfig::CFG_ADD);
-        }
+        NotifyAllDnsRecords(vdns, DnsConfig::CFG_ADD);
     }
 }
 
@@ -475,6 +479,29 @@ bool DnsManager::PendingTimerExpiry() {
     // TODO: change timer to be per record & resend only on individual timeout
     ResendAllRecords();
     return true;
+}
+
+void DnsManager::NotifyAllDnsRecords(const VirtualDnsConfig *config,
+                                     DnsConfig::DnsConfigEvent ev) {
+    for (VirtualDnsConfig::VDnsRec::const_iterator it =
+         config->virtual_dns_records_.begin();
+         it != config->virtual_dns_records_.end(); ++it) {
+        if ((*it)->IsValid())
+            DnsRecord(*it, ev);
+    }
+}
+
+void DnsManager::NotifyReverseDnsRecords(const VirtualDnsConfig *config,
+                                         DnsConfig::DnsConfigEvent ev) {
+    for (VirtualDnsConfig::VDnsRec::const_iterator it =
+         config->virtual_dns_records_.begin();
+         it != config->virtual_dns_records_.end(); ++it) {
+        if ((*it)->IsValid()) {
+            DnsItem item = (*it)->GetRecord();
+            if (item.type == DNS_PTR_RECORD)
+                DnsRecord(*it, ev);
+        }
+    }
 }
 
 inline uint16_t DnsManager::GetTransId() {
