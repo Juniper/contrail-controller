@@ -77,12 +77,16 @@ protected:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
         init_ = static_cast<TestOvsAgentInit *>(client->agent_init());
+        tcp_server_ =
+            static_cast<OvsdbClientTcpTest *>(init_->ovsdb_client());
         peer_manager_ = init_->ovs_peer_manager();
         WAIT_FOR(100, 10000,
                  (tcp_session_ = static_cast<OvsdbClientTcpSession *>
-                  (init_->ovsdb_client()->NextSession(NULL))) != NULL);
+                  (tcp_server_->NextSession(NULL))) != NULL);
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -91,6 +95,7 @@ protected:
     Agent *agent_;
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
+    OvsdbClientTcpTest *tcp_server_;
     OvsdbClientTcpSession *tcp_session_;
 };
 
@@ -246,6 +251,19 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
 }
 
 TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
+    // Take reference to idl so that session object itself is not deleted.
+    OvsdbClientIdlPtr tcp_idl = tcp_session_->client_idl();
+    // disable reconnect to Ovsdb Server
+    tcp_server_->set_enable_connect(false);
+    tcp_session_->TriggerClose();
+    client->WaitForIdle();
+
+    // validate refcount to be 2 one from session and one locally held
+    // to validate session closure, when we release refcount
+    WAIT_FOR(1000, 1000, (2 == tcp_idl->refcount()));
+    tcp_idl = NULL;
+
+    client->WaitForIdle();
     IpAddress server = Ip4Address::from_string("1.1.1.1");
     OvsPeer *peer = peer_manager_->Allocate(server);
     EXPECT_TRUE(peer->export_to_controller());
@@ -303,6 +321,10 @@ TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
     VnDelReq(1);
     WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) == NULL));
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
+
+    // enable reconnect to Ovsdb Server
+    tcp_server_->set_enable_connect(true);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
