@@ -714,6 +714,13 @@ bool AgentUtXmlInstanceIp::ReadXml() {
 
     GetStringAttribute(node(), "ip", &ip_);
     GetStringAttribute(node(), "vmi", &vmi_);
+    std::string str;
+    if (GetStringAttribute(node(), "ecmp", &str) == true) {
+        ecmp_ = true;
+    } else {
+        ecmp_ = false;
+    }
+
     return true;
 }
 
@@ -722,6 +729,9 @@ bool AgentUtXmlInstanceIp::ToXml(xml_node *parent) {
     AddXmlNodeWithValue(&n, "name", name());
     if (op_delete() == false) {
         AddXmlNodeWithValue(&n, "instance-ip-address", ip_);
+        if (ecmp_ == true) {
+            AddXmlNodeWithValue(&n, "instance-ip-mode", "active-active");
+        }
         AddIdPerms(&n);
     }
 

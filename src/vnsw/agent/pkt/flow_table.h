@@ -279,6 +279,7 @@ class FlowEntry {
         SHORT_FLOW_LIMIT,
         SHORT_LINKLOCAL_SRC_NAT,
         SHORT_FAILED_VROUTER_INSTALL,
+        SHORT_INVALID_L2_FLOW,
         SHORT_MAX
     };
 
