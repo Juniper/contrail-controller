@@ -1,4 +1,5 @@
 import copy
+import uuid
 
 from vnc_api.vnc_api import *
 
@@ -168,12 +169,13 @@ class SNATAgent(Agent):
             return
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
-        si_fq_name = project_obj.fq_name + [si_name]
-        try:
-            si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-        except vnc_exc.NoIdError:
-            si_obj = None
+        si_obj = None
+        si_uuid = router_obj.service_instance
+        if si_uuid:
+            try:
+                si_obj = self._vnc_lib.service_instance_read(id=si_uuid)
+            except vnc_exc.NoIdError:
+                pass
 
         # Get route table for default route it it exists
         rt_obj = self._get_route_table(router_obj, project_obj)
@@ -181,6 +183,7 @@ class SNATAgent(Agent):
         # Set the service instance
         si_created = False
         if not si_obj:
+            si_name = 'snat_' + router_obj.uuid + '_' + str(uuid.uuid4())
             si_obj = ServiceInstance(si_name, parent_obj=project_obj)
             si_created = True
         si_prop_obj = ServiceInstanceType(
@@ -243,13 +246,13 @@ class SNATAgent(Agent):
             return
 
         # Get the service instance if it exists
-        si_name = 'si_' + router_obj.uuid
-        si_fq_name = project_obj.get_fq_name() + [si_name]
-        try:
-            si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            si_uuid = si_obj.uuid
-        except vnc_exc.NoIdError:
-            si_obj = None
+        si_obj = None
+        si_uuid = router_obj.service_instance
+        if si_uuid:
+            try:
+                si_obj = self._vnc_lib.service_instance_read(id=si_uuid)
+            except NoIdError:
+                pass
 
         # Get route table for default route it it exists
         rt_obj = self._get_route_table(router_obj, project_obj)
