@@ -286,15 +286,30 @@ static void InetTestCleanup(Agent *agent, const Ip4Address &addr,
                           const Ip4Address &gw, uint8_t plen) {
     InetUnicastAgentRouteTable *table = agent->fabric_inet4_unicast_table();
 
+    table->DeleteReq(agent->local_peer(), agent->fabric_vrf_name(),
+                     Ip4Address::from_string("0.0.0.0"), 0, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000,
+             (RouteGet(agent->fabric_vrf_name(),
+                       Ip4Address::from_string("0.0.0.0"), 0) == NULL));
+
     table->DeleteReq(agent->local_peer(), agent->fabric_vrf_name(), addr, 32,
                      NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000,
+             (RouteGet(agent->fabric_vrf_name(), addr, 32) == NULL));
+
     table->DeleteReq(agent->local_peer(), agent->fabric_vrf_name(),
                      gw, 32, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000,
+             (RouteGet(agent->fabric_vrf_name(), gw, 32) == NULL));
+
     table->DeleteReq(agent->local_peer(), agent->fabric_vrf_name(),
                      addr, plen, NULL);
+    client->WaitForIdle();
     WAIT_FOR(1000, 1000,
              (RouteGet(agent->fabric_vrf_name(), addr, plen) == NULL));
-    client->WaitForIdle();
 }
 
 static void RestoreInetConfig(Agent *agent) {
@@ -311,24 +326,33 @@ static void DelInetConfig(Agent *agent) {
     InetUnicastAgentRouteTable *table = agent->fabric_inet4_unicast_table();
     table->DeleteReq(agent->local_peer(), agent->fabric_vrf_name(),
                      Ip4Address(0), 0, NULL);
+    client->WaitForIdle();
+}
+
+static const InetUnicastRouteEntry *RouteValidate(Agent *agent,
+                                                  const Ip4Address &ip,
+                                                  uint8_t plen) {
+    const InetUnicastRouteEntry *rt = NULL;
+    WAIT_FOR(1000, 1000,
+             ((rt = RouteGet(agent->fabric_vrf_name(), ip, plen)) != NULL));
+    return rt;
 }
 
 static bool RouteValidate(Agent *agent, const Ip4Address &ip, uint8_t plen,
                           NextHop::Type nh_type) {
-    const InetUnicastRouteEntry *rt = NULL;
-    const NextHop *nh = NULL;
-
-    WAIT_FOR(1000, 1000,
-             ((rt = RouteGet(agent->fabric_vrf_name(), ip, plen)) != NULL));
-    if (rt == NULL)
+    const InetUnicastRouteEntry *rt;
+    if ((rt = RouteValidate(agent, ip, plen)) == NULL)
         return false;
 
-    nh = rt->GetActiveNextHop();
+    const NextHop *nh = rt->GetActiveNextHop();
     return (nh->GetType() == nh_type);
 }
 
 TEST_F(InetInterfaceTest, physical_eth_encap_1) {
     DelInetConfig(agent_);
+    WAIT_FOR(1000, 1000,
+             (RouteGet(agent_->fabric_vrf_name(),
+                       Ip4Address::from_string("0.0.0.0"), 0) == NULL));
 
     Ip4Address ip = Ip4Address::from_string("10.10.10.10");
     Ip4Address gw = Ip4Address::from_string("10.10.10.1");
@@ -350,6 +374,7 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
 
     EXPECT_TRUE(RouteValidate(agent_, ip, 32, NextHop::RECEIVE));
     EXPECT_TRUE(RouteValidate(agent_, net, plen, NextHop::RESOLVE));
+    EXPECT_TRUE((RouteValidate(agent_, gw, 32) != NULL));
 
     // Cleanup config by the test
     InetTestCleanup(agent_, ip, gw, plen);

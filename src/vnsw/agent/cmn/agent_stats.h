@@ -7,6 +7,8 @@
 #ifndef vnsw_agent_stats_hpp
 #define vnsw_agent_stats_hpp
 
+#include <stdint.h>
+
 class AgentStats {
 public:
     static const uint64_t kInvalidFlowCount = 0xFFFFFFFFFFFFFFFF;

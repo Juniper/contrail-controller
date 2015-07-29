@@ -67,6 +67,7 @@ vnswoperdb = env.Library('vnswoperdb',
                           'vn.cc',
                           'vrf.cc',
                           'vrf_assign.cc',
+                          'vrouter.cc',
                           'vxlan.cc'
                          ])
 subdirs = ['test']

@@ -40,12 +40,17 @@ public:
         uint64_t bytes_;
         uint64_t packets_;
         uint32_t fip_;
-        uint32_t fip_vm_port_id_;
+        VmInterfaceKey fip_vmi_;
         bool is_local_flow_;
         bool is_ingress_flow_;
         bool is_reverse_flow_;
         std::string vn_;
         FloatingIp *rev_fip_;
+        FipInfo() : bytes_(0), packets_(0), fip_(0),
+            fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""),
+            is_local_flow_(false), is_ingress_flow_(false),
+            is_reverse_flow_(false), rev_fip_(NULL) {
+        }
     };
     struct FloatingIp {
         FloatingIp(const IpAddress &ip, const std::string &vn)

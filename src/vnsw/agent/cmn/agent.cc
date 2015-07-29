@@ -101,6 +101,7 @@ void Agent::SetAgentTaskPolicy() {
     initialized = true;
 
     const char *db_exclude_list[] = {
+        "Agent::FlowTable",
         "Agent::FlowHandler",
         "Agent::Services",
         "Agent::StatsCollector",
@@ -113,6 +114,12 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
 
+    const char *flow_table_exclude_list[] = {
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne("Agent::FlowTable", flow_table_exclude_list,
+                     sizeof(flow_table_exclude_list) / sizeof(char *));
+
     const char *flow_exclude_list[] = {
         "Agent::StatsCollector",
         "io::ReaderTask",
@@ -124,6 +131,7 @@ void Agent::SetAgentTaskPolicy() {
 
     const char *sandesh_exclude_list[] = {
         "db::DBTable",
+        "Agent::FlowTable",
         "Agent::FlowHandler",
         "Agent::Services",
         "Agent::StatsCollector",
@@ -135,6 +143,7 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(sandesh_exclude_list) / sizeof(char *));
 
     const char *xmpp_config_exclude_list[] = {
+        "Agent::FlowTable",
         "Agent::FlowHandler",
         "Agent::Services",
         "Agent::StatsCollector",
@@ -167,6 +176,7 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(walk_cancel_exclude_list) / sizeof(char *));
 
     const char *ksync_exclude_list[] = {
+        "Agent::FlowTable",
         "Agent::FlowHandler",
         "Agent::StatsCollector",
         "db::DBTable",
@@ -437,7 +447,7 @@ Agent::Agent() :
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     vgw_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
-    ksync_sync_mode_(true), mgmt_ip_(""),
+    ksync_sync_mode_(false), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     vhost_interface_(NULL),
     connection_state_(NULL), debug_(false), test_mode_(false),
@@ -609,7 +619,9 @@ bool Agent::isVmwareVcenterMode() const {
 
 void Agent::ConcurrencyCheck() {
     if (test_mode_) {
-       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME);
+       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
+                         "Flow::Management", "Agent::FlowHandler",
+                         "Agent::FlowTable");
     }
 }
 

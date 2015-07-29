@@ -607,6 +607,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                                  type="VxlanNetworkIdentifierModeType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('vxlan-network-identifier-mode', 'global-vrouter-config') -->
+<xsd:element name="flow-export-rate" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('flow-export-rate', 'global-vrouter-config') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>

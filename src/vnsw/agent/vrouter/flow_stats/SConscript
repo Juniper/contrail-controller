@@ -14,5 +14,6 @@ FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
 libflowstats = env.Library('flowstats',
                           FlowStatsSandeshGenObjs +
                          [
+                          'flow_export_info.cc',
                           'flow_stats_collector.cc'
                          ])

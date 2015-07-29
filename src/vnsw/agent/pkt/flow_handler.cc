@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 #include <net/address.h>
+#include <net/address_util.h>
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"
@@ -30,7 +31,7 @@ bool FlowHandler::Run() {
         ipc = std::auto_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
         pkt_info_->ipc = NULL;
         FlowEntry *fe = ipc->fe_ptr.get();
-        assert(fe->set_pending_recompute(false));
+        //assert(fe->set_pending_recompute(false));
         if (fe->deleted() || fe->is_flags_set(FlowEntry::ShortFlow)) {
             return true;
         }
@@ -54,6 +55,30 @@ bool FlowHandler::Run() {
         pkt_info_->vrf = fe->data().vrf;
         pkt_info_->l3_forwarding = fe->l3_flow();
         info.l3_flow = fe->l3_flow();
+    } else {
+        if (pkt_info_->ip == NULL && pkt_info_->ip6 == NULL) {
+            if (pkt_info_->family == Address::INET) {
+                FLOW_TRACE(DetailErr, pkt_info_->agent_hdr.cmd_param,
+                           pkt_info_->agent_hdr.ifindex,
+                           pkt_info_->agent_hdr.vrf,
+                           pkt_info_->ip_saddr.to_v4().to_ulong(),
+                           pkt_info_->ip_daddr.to_v4().to_ulong(),
+                           "Flow : Non-IP packet. Dropping",
+                           pkt_info_->l3_forwarding, 0, 0, 0, 0);
+            } else if (pkt_info_->family == Address::INET6) {
+                uint64_t sip[2], dip[2];
+                Ip6AddressToU64Array(pkt_info_->ip_saddr.to_v6(), sip, 2);
+                Ip6AddressToU64Array(pkt_info_->ip_daddr.to_v6(), dip, 2);
+                FLOW_TRACE(DetailErr, pkt_info_->agent_hdr.cmd_param,
+                           pkt_info_->agent_hdr.ifindex,
+                           pkt_info_->agent_hdr.vrf, -1, -1,
+                           "Flow : Non-IP packet. Dropping",
+                           pkt_info_->l3_forwarding,
+                           sip[0], sip[1], dip[0], dip[1]);
+            } else {
+                assert(0);
+            }
+        }
     }
 
     if (info.Process(pkt_info_.get(), &in, &out) == false) {

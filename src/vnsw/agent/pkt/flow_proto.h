@@ -15,18 +15,17 @@
 
 class FlowProto : public Proto {
 public:
+    static const std::string kFlowTaskName;
+    static const int kIterations = 128;
     FlowProto(Agent *agent, boost::asio::io_service &io) :
-        Proto(agent, "Agent::FlowHandler", PktHandler::FLOW, io) {
+        Proto(agent, kFlowHandlerTask.c_str(), PktHandler::FLOW, io,
+              kIterations) {
         agent->SetFlowProto(this);
+        set_trace(false);
     }
     virtual ~FlowProto() {}
     void Init() {}
     void Shutdown() {}
-
-    FlowHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
-                                   boost::asio::io_service &io) {
-        return new FlowHandler(agent(), info, io);
-    }
 
     bool Validate(PktInfo *msg) {
         if (msg->l3_forwarding && msg->ip == NULL && msg->ip6 == NULL &&
@@ -40,8 +39,9 @@ public:
         return true;
     }
 
-    bool RemovePktBuff() {
-        return true;
+    FlowHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                   boost::asio::io_service &io) {
+        return new FlowHandler(agent(), info, io);
     }
 };
 

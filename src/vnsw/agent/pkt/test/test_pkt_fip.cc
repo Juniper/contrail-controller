@@ -1471,16 +1471,6 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
 
-    RouteFlowKey rt_key(VrfGet("vrf1")->vrf_id(), addr, 32);
-    RouteFlowInfo *rt_info = agent_->pkt()->flow_table()->RouteFlowInfoFind(rt_key);
-    EXPECT_TRUE(rt_info != NULL);
-    if (rt_info != NULL) {
-        EXPECT_TRUE(rt_info->key.vrf == rt_key.vrf);
-        EXPECT_TRUE(rt_info->key.family == rt_key.family);
-        EXPECT_TRUE(rt_info->key.ip == rt_key.ip);
-        EXPECT_TRUE(rt_info->key.plen == rt_key.plen);
-    }
-
     // After flow recompute verify it to be in same vrf.
     EXPECT_TRUE(old_vrf_id == fe->data().vrf);
 

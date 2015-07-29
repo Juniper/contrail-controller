@@ -38,7 +38,6 @@ struct SandeshFlowData {
     14: string uuid;
     15: string nat;
     16: i32 flow_handle;
-    17: i32 interface_idx;
     18: string setup_time;
     19: i32 refcount;
     20: string implicit_deny;

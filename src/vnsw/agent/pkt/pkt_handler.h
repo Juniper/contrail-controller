@@ -43,8 +43,10 @@
 
 #define ICMP_UNREACH_HDR_LEN 8
 
+struct PktInfo;
 struct agent_hdr;
 class PacketBuffer;
+class Proto;
 
 struct InterTaskMsg {
     InterTaskMsg(uint16_t command): cmd(command) {}
@@ -110,6 +112,7 @@ struct AgentHdr {
         TRAP_TOR_CONTROL_PKT = AGENT_TRAP_TOR_CONTROL_PKT,
         TRAP_ZERO_TTL = AGENT_TRAP_ZERO_TTL,
         TRAP_ICMP_ERROR = AGENT_TRAP_ICMP_ERROR,
+        TRAP_HOLD_ACTION = AGENT_TRAP_FLOW_ACTION_HOLD,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -161,66 +164,6 @@ struct TunnelInfo {
     uint32_t            ip_daddr;
 };
 
-// Info from the parsed packet
-struct PktInfo {
-    uint8_t             *pkt;
-    uint16_t            len;
-    uint16_t            max_pkt_len;
-
-    uint8_t             *data;
-    InterTaskMsg        *ipc;
-
-    Address::Family     family;
-    PktType::Type       type;
-    AgentHdr            agent_hdr;
-    uint16_t            ether_type;
-    // Fields extracted for processing in agent
-    uint32_t            vrf;
-    MacAddress          smac;
-    MacAddress          dmac;
-    IpAddress           ip_saddr;
-    IpAddress           ip_daddr;
-    uint8_t             ip_proto;
-    uint32_t            sport;
-    uint32_t            dport;
-
-    bool                tcp_ack;
-    TunnelInfo          tunnel;
-    // Forwarding mode for packet - l3/l2
-    mutable bool        l3_forwarding;
-    bool                l3_label;
-
-    // Pointer to different headers in user packet
-    struct ether_header *eth;
-    struct ether_arp    *arp;
-    struct ip           *ip;
-    struct ip6_hdr      *ip6;
-    union {
-        struct tcphdr   *tcp;
-        struct udphdr   *udp;
-        struct icmp     *icmp;
-        struct icmp6_hdr *icmp6;
-    } transp;
-
-    PktInfo(Agent *agent, uint32_t buff_len, uint32_t module, uint32_t mdata);
-    PktInfo(const PacketBufferPtr &buff);
-    PktInfo(InterTaskMsg *msg);
-    virtual ~PktInfo();
-
-    const AgentHdr &GetAgentHdr() const;
-    void UpdateHeaderPtr();
-    std::size_t hash() const;
-
-    PacketBuffer *packet_buffer() const { return packet_buffer_.get(); }
-    PacketBufferPtr packet_buffer_ptr() const { return packet_buffer_; }
-    void AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
-                           uint32_t mdata);
-    void set_len(uint32_t len);
-
-private:
-    PacketBufferPtr     packet_buffer_;
-};
-
 // Receive packets from the pkt0 (tap) interface, parse and send the packet to
 // appropriate protocol task. Also, protocol tasks can send packets to pkt0
 // or to other tasks.
@@ -265,6 +208,7 @@ public:
     virtual ~PktHandler();
 
     void Register(PktModuleName type, RcvQueueFunc cb);
+    void Register(PktModuleName type, Proto *proto);
 
     void Send(const AgentHdr &hdr, const PacketBufferPtr &buff);
 
@@ -291,10 +235,14 @@ public:
     uint32_t PktTraceSize(PktModuleName mod) const {
         return pkt_trace_.at(mod).pkt_trace_size();
     }
+    void AddPktTrace(PktModuleName module, PktTrace::Direction dir,
+                     const PktInfo *pkt);
 
     uint32_t EncapHeaderLen() const;
     Agent *agent() const { return agent_; }
     PktModule *pkt_module() const { return pkt_module_; }
+    void Enqueue(PktModuleName module, boost::shared_ptr<PktInfo> pkt_info);
+    bool IsFlowPacket(PktInfo *pkt_info);
 
 private:
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
@@ -318,8 +266,7 @@ private:
                             PktType::Type &pkt_type, uint8_t *pkt);
     bool IsDiagPacket(PktInfo *pkt_info);
 
-    // handlers for each module type
-    boost::array<RcvQueueFunc, MAX_MODULES> enqueue_cb_;
+    boost::array<Proto *, MAX_MODULES> proto_list_;
 
     PktStats stats_;
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
@@ -329,6 +276,69 @@ private:
     PktModule *pkt_module_;
 
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
+};
+
+// Info from the parsed packet
+struct PktInfo {
+    PktHandler::PktModuleName module;
+    uint8_t             *pkt;
+    uint16_t            len;
+    uint16_t            max_pkt_len;
+
+    uint8_t             *data;
+    InterTaskMsg        *ipc;
+
+    Address::Family     family;
+    PktType::Type       type;
+    AgentHdr            agent_hdr;
+    uint16_t            ether_type;
+    // Fields extracted for processing in agent
+    uint32_t            vrf;
+    MacAddress          smac;
+    MacAddress          dmac;
+    IpAddress           ip_saddr;
+    IpAddress           ip_daddr;
+    uint8_t             ip_proto;
+    uint32_t            sport;
+    uint32_t            dport;
+
+    bool                tcp_ack;
+    TunnelInfo          tunnel;
+    // Forwarding mode for packet - l3/l2
+    mutable bool        l3_forwarding;
+    bool                l3_label;
+
+    // Pointer to different headers in user packet
+    struct ether_header *eth;
+    struct ether_arp    *arp;
+    struct ip           *ip;
+    struct ip6_hdr      *ip6;
+    union {
+        struct tcphdr   *tcp;
+        struct udphdr   *udp;
+        struct icmp     *icmp;
+        struct icmp6_hdr *icmp6;
+    } transp;
+
+    PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName module,
+            uint32_t mdata);
+    PktInfo(const PacketBufferPtr &buff);
+    PktInfo(PktHandler::PktModuleName module, InterTaskMsg *msg);
+    virtual ~PktInfo();
+
+    const AgentHdr &GetAgentHdr() const;
+    void UpdateHeaderPtr();
+    std::size_t hash() const;
+
+    PacketBuffer *packet_buffer() const { return packet_buffer_.get(); }
+    PacketBufferPtr packet_buffer_ptr() const { return packet_buffer_; }
+    void AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
+                           uint32_t mdata);
+    void set_len(uint32_t len);
+    void reset_packet_buffer();
+
+private:
+    PacketBufferPtr     packet_buffer_;
 };
 
 #endif

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <testing/gunit.h>
+#include <pkt/flow_mgmt.h>
 #include <test/test_cmn_util.h>
 #include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
@@ -28,6 +29,21 @@ static void GetArgs(char *test_file, int argc, char *argv[]) {
 }
 
 class TestPkt : public ::testing::Test {
+public:
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+        interface_count_ = agent_->interface_table()->Size();
+    }
+
+    virtual void TearDown() {
+        EXPECT_EQ(agent_->pkt()->flow_table()->Size(), 0);
+        EXPECT_EQ(agent_->vn_table()->Size(), 0);
+        EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
+        agent_->flow_stats_collector()->set_flow_export_count(0);
+    }
+
+    Agent *agent_;
+    uint32_t interface_count_;
 };
 
 TEST_F(TestPkt, parse_1) {
@@ -96,7 +112,7 @@ TEST_F(TestPkt, rpf_flow) {
 }
 
 
-TEST_F(TestPkt, unknown_unicast_flood) {
+TEST_F(TestPkt, DISABLED_unknown_unicast_flood) {
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/unknown-unicast-flood.xml");
     AgentUtXmlOperInit(&test);
     if (test.Load() == true) {
@@ -167,6 +183,32 @@ TEST_F(TestPkt, flow_tsn_mode_1) {
     DelIPAM("vn1");
     DelVn("vn1");
     client->WaitForIdle();
+}
+
+TEST_F(TestPkt, flow_export_1) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-export.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
+TEST_F(TestPkt, flow_threshold_1) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-threshold.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
 }
 
 int main(int argc, char *argv[]) {
