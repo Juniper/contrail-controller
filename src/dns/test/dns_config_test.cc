@@ -188,6 +188,8 @@ TEST_F(DnsConfigManagerTest, Config) {
         <record-order>fixed</record-order>\
         <default-ttl-seconds>120</default-ttl-seconds>\
         <next-virtual-DNS>juniper.com</next-virtual-DNS>\
+        <external-visible>true</external-visible>\
+        <reverse-resolution>true</reverse-resolution>\
     </virtual-DNS>\
 </config>\
 ";
