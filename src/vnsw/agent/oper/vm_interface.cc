@@ -2023,6 +2023,9 @@ bool VmInterface::IsActive()  const {
     if (os_index_ == kInvalidIndex)
         return false;
 
+    if (os_oper_state_ == false)
+        return false;
+
     return mac_set_;
 }
 
@@ -2039,9 +2042,6 @@ bool VmInterface::IsIpv4Active() const {
         return false;
     }
 
-    if (os_oper_state_ == false)
-        return false;
-
     return IsActive();
 }
 
@@ -2050,20 +2050,6 @@ bool VmInterface::IsIpv6Active() const {
         return false;
     }
 
-    if (os_oper_state_ == false)
-        return false;
-
-    return IsActive();
-}
-
-bool VmInterface::IsL3Active() const {
-    if (!layer3_forwarding() || (ip6_addr_.is_unspecified())) {
-        return false;
-    }
-
-    if (os_oper_state_ == false)
-        return false;
-
     return IsActive();
 }
 
@@ -2071,9 +2057,6 @@ bool VmInterface::IsL2Active() const {
     if (!bridging()) {
         return false;
     }
-
-    if (os_oper_state_ == false)
-        return false;
 
     return IsActive();
 }
