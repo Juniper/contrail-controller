@@ -914,6 +914,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
         (u->prouter_uve_table());
     PhysicalDeviceTable *table = agent_->physical_device_table();
+    pr->ClearCount();
 
     agent_->set_tsn_enabled(true);
     const VrouterAgent &uve = vr->last_sent_vrouter();
