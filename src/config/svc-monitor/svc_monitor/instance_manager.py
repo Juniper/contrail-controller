@@ -224,9 +224,9 @@ class InstanceManager(object):
 
         st_if_list = st.params.get('interface_type', [])
         si_if_list = si.params.get('interface_list', [])
-        if not (len(st_if_list) or len(si_if_list)):
+        if not len(st_if_list) or not len(si_if_list):
             self.logger.log_notice("Interface list empty for ST %s SI %s" %
-                (st.fq_name, si.fq_name))
+                ((':').join(st.fq_name), (':').join(si.fq_name)))
             return False
 
         si.vn_info = []
