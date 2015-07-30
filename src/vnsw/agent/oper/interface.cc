@@ -674,10 +674,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     else
         data.set_vrf_name("--ERROR--");
 
-    if (ipv4_active_) {
+    if (IsUveActive()) {
         data.set_active("Active");
     } else {
         data.set_active("Inactive");
+    }
+
+    if (ipv4_active_) {
+        data.set_ipv4_active("Active");
+    } else {
+        data.set_ipv4_active("Inactive");
     }
 
     if (ipv6_active_) {
@@ -749,9 +755,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_flood_unknown_unicast(vintf->flood_unknown_unicast());
 
-        if ((ipv4_active_ == false) ||
-            (l2_active_ == false)) {
-            string common_reason = "";
+        string common_reason = "";
+        if (IsUveActive() == false) {
 
             if (!vintf->admin_state()) {
                 common_reason += "admin-down ";
@@ -776,28 +781,51 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                     common_reason += "os-state-down ";
                 }
             }
+            string total_reason = common_reason;
+            if (!ipv4_active_) {
+                total_reason += "ipv4_inactive ";
+            }
+            if (!ipv6_active_) {
+                total_reason += "ipv6_inactive ";
+            }
+            if (!l2_active_) {
+                total_reason += "l2_inactive ";
+            }
+            string reason = "Inactive < " + total_reason + " >";
+            data.set_active(reason);
+        }
+        if (!ipv4_active_ || !ipv6_active_) {
+            string v4_v6_common_reason = common_reason;
+            if (vintf->layer3_forwarding() == false) {
+                v4_v6_common_reason += "l3-disabled ";
+            }
 
             if (!ipv4_active_) {
-                if (vintf->layer3_forwarding() == false) {
-                    common_reason += "l3-disabled";
-                }
-
-                string reason = "L3 Inactive < " + common_reason;
+                string reason = "Ipv4 Inactive < " + v4_v6_common_reason;
                 if (vintf->ip_addr().to_ulong() == 0) {
-                    reason += "no-ip-addr ";
+                    reason += "no-ipv4-addr ";
                 }
                 reason += " >";
-                data.set_active(reason);
+                data.set_ipv4_active(reason);
             }
+            if (!ipv6_active_) {
+                string reason = "Ipv6 Inactive < " + v4_v6_common_reason;
+                if (vintf->ip6_addr().is_unspecified()) {
+                    reason += "no-ipv6-addr ";
+                }
+                reason += " >";
+                data.set_ip6_active(reason);
+            }
+        }
 
-            if (!l2_active_) {
-                if (vintf->bridging() == false) {
-                    common_reason += "l2-disabled";
-                }
-                string reason = "L2 Inactive < " + common_reason;
-                reason += " >";
-                data.set_l2_active(reason);
+        if (!l2_active_) {
+            string l2_reason = common_reason;
+            if (vintf->bridging() == false) {
+                l2_reason += "l2-disabled ";
             }
+            string reason = "L2 Inactive < " + l2_reason;
+            reason += " >";
+            data.set_l2_active(reason);
         }
         
         std::vector<FloatingIpSandeshList> fip_list;
@@ -1039,6 +1067,13 @@ bool Interface::ip_active(Address::Family family) const {
         return ipv6_active_;
     else
         assert(0);
+    return false;
+}
+
+bool Interface::IsUveActive() const {
+    if (ipv4_active() || ipv6_active() || l2_active()) {
+        return true;
+    }
     return false;
 }
 

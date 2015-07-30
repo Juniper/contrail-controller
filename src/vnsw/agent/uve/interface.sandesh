@@ -51,6 +51,7 @@ struct UveVMInterfaceAgent {
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
    18: optional VmInterfaceStats if_stats (tags="vm_name,virtual_network,vm_uuid")
    19: string vm_uuid;
+   20: optional bool ip4_active;
 }
 
 uve sandesh UveVMInterfaceAgentTrace {
