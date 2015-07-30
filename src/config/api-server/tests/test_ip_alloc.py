@@ -307,6 +307,77 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
+    def test_bulk_ip_alloc_free(self):
+        # Create Domain
+        domain = Domain('v4-domain')
+        self._vnc_lib.domain_create(domain)
+        print 'Created domain '
+
+        # Create Project
+        project = Project('v4-proj', domain)
+        self._vnc_lib.project_create(project)
+        print 'Created Project'
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        print 'Created network ipam'
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['v4-domain', 'v4-proj',
+                                                        'default-network-ipam'])
+        print 'Read network ipam'
+
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+
+        # Create VN
+        vn = VirtualNetwork('v4-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        print 'Created Virtual Network object', vn.uuid
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # request to allocate 10 ip address using bulk allocation api
+        data = {"subnet" : "11.1.1.0/24", "count" : 10}
+        url = '/virtual-network/%s/ip-alloc' %(vn.uuid)
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+        ret_data = json.loads(rv_json)
+        ret_ip_addr = ret_data['ip_addr']
+        expected_ip_addr = ['11.1.1.252', '11.1.1.251', '11.1.1.250',
+                            '11.1.1.249', '11.1.1.248', '11.1.1.247',
+                            '11.1.1.246', '11.1.1.245', '11.1.1.244',
+                            '11.1.1.243']
+
+        self.assertEqual(len(expected_ip_addr), len(ret_ip_addr))
+        for idx in range(len(expected_ip_addr)):
+            self.assertEqual(expected_ip_addr[idx], ret_ip_addr[idx])
+        
+        print 'Verified bulk ip address allocation'
+
+        #free allocated ip addresses from vn
+        data = {"subnet" : "11.1.1.0/24",
+                "ip_addr" : ['11.1.1.252', '11.1.1.251', '11.1.1.250',
+                             '11.1.1.249', '11.1.1.248', '11.1.1.247',
+                             '11.1.1.246', '11.1.1.245', '11.1.1.244',
+                             '11.1.1.243']}
+        url = '/virtual-network/%s/ip-free' %(vn.uuid)
+        self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+
+        # Find out number of allocated ips from given VN/subnet
+        # We should not get any ip allocated from this subnet
+        data = {"subnet_list" : ["11.1.1.0/24"]}
+        url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+        ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
+        self.assertEqual(ret_ip_count, 0)
+        print 'Verified bulk ip free'
+
+        # cleanup
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+    #end
+
     def test_v4_ip_allocation_exhaust(self):
         # Create Domain
         domain = Domain('v4-domain')
