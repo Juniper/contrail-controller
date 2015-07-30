@@ -65,7 +65,6 @@ public:
     }
 
     bool XmppServicePublishReEvalHandlerUp(std::string &msg) {
-        static bool publish_reeval = true;
         xmpp_reeval_pub_++;
         if ((xmpp_reeval_pub_ == 1) || (xmpp_reeval_pub_ > 3)) {
             msg = "Service is Up";
