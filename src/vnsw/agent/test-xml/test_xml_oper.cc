@@ -1363,7 +1363,8 @@ bool AgentUtXmlL2Route::Run() {
     if (op_delete()) {
         rt_table->DeleteReq(bgp_peer_, vrf_,
                             MacAddress::FromString(mac_),
-                            Ip4Address::from_string(ip_), vxlan_id_);
+                            Ip4Address::from_string(ip_), vxlan_id_,
+                            (new ControllerVmRoute(bgp_peer_)));
     } else {
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,
@@ -1512,7 +1513,8 @@ bool AgentUtXmlL3Route::Run() {
         bmap |= (1 << TunnelType::VXLAN);
     if (op_delete()) {
         rt_table->DeleteReq(bgp_peer_, vrf_,
-                            Ip4Address::from_string(src_ip_), plen_, NULL);
+                            Ip4Address::from_string(src_ip_), plen_,
+                            (new ControllerVmRoute(bgp_peer_)));
     } else {
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,

@@ -65,6 +65,7 @@ public:
     virtual bool export_to_controller() const {return export_to_controller_;}
     virtual const Ip4Address *NexthopIp(Agent *agent,
                                         const AgentPath *path) const;
+    virtual bool NeedValidityCheck() const {return false;}
 
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
@@ -84,6 +85,7 @@ public:
             AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id,
             Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
+    virtual bool NeedValidityCheck() const {return true;}
 
     bool Compare(const Peer *rhs) const {
         const BgpPeer *bgp = static_cast<const BgpPeer *>(rhs);

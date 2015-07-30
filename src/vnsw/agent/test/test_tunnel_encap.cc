@@ -160,7 +160,7 @@ public:
         client->WaitForIdle();
         EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
                                          vrf_name_, remote_vm_mac_,
-                                         remote_vm_ip_, 0);
+                                         remote_vm_ip_, 0, NULL);
         client->WaitForIdle();
         agent->fabric_inet4_unicast_table()->
             DeleteReq(agent->local_peer(), vrf_name_,

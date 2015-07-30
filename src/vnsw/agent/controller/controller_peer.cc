@@ -237,7 +237,8 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
                     rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
-                                        ip_addr, ethernet_tag);
+                                        ip_addr, ethernet_tag,
+                                        new ControllerVmRoute(bgp_peer_id()));
                 }
             }
         }
@@ -530,7 +531,8 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
                             return;
                         }
                         rt_table->DeleteReq(bgp_peer_id(), vrf_name,
-                                            prefix_addr, prefix_len, NULL);
+                                            prefix_addr, prefix_len,
+                                            new ControllerVmRoute(bgp_peer_id()));
                     }
                 }
             }

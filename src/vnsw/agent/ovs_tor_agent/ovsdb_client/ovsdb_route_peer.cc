@@ -91,7 +91,7 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
     if (async) {
-        table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
+        table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id, NULL);
     } else {
         table->Delete(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
     }
