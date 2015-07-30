@@ -773,14 +773,14 @@ class ServiceApplianceSM(DBBase):
         if obj.service_appliance_set:
             parent = ServiceApplianceSetSM.get(obj.service_appliance_set)
         if parent:
-            parent.service_instances.discard(obj.uuid)
+            parent.service_appliances.discard(obj.uuid)
         del cls._dict[uuid]
     # end delete
 # end ServiceApplianceSM
 
 class ServiceApplianceSetSM(DBBase):
     _dict = {}
-    obj_type = 'service_appliance'
+    obj_type = 'service_appliance_set'
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
