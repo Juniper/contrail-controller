@@ -32,6 +32,7 @@ OBJECT_TYPE_LIST = [table_info.log_query_name for table_info in \
     VizConstants._OBJECT_TABLES.values()]
 OBJECT_TABLE_MAP = dict((table_info.log_query_name, table_name) for \
    (table_name, table_info) in VizConstants._OBJECT_TABLES.items())
+output_file_handle = None
 
 class LogQuerier(object):
 
@@ -95,8 +96,6 @@ class LogQuerier(object):
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")
         parser.add_argument(
-            "--all", action="store_true", help="Show all logs")
-        parser.add_argument(
             "--raw", action="store_true", help="Show raw XML messages")
 
         parser.add_argument(
@@ -115,19 +114,22 @@ class LogQuerier(object):
             help="IP address of syslog server", default='localhost')
         parser.add_argument("--syslog-port", help="Port to send syslog to",
             type=int, default=514)
-        parser.add_argument("--f", help="Tail logs from now", action="store_true")
+        parser.add_argument("--tail","-f", help="Tail logs from now", action="store_true")
         parser.add_argument("--keywords", help="comma seperated list of keywords")
         parser.add_argument("--message-types", \
          help="Display list of message type", action="store_true")
+        parser.add_argument("--output-file", "-o", help="redirect output to file")
+        parser.add_argument("--json", help="Dump output as json", action="store_true")
+        parser.add_argument("--all", action="store_true", help=argparse.SUPPRESS)
         self._args = parser.parse_args()
         return 0
     # end parse_args
 
     # Public functions
     def query(self):
-        if self._args.f and (self._args.send_syslog or self._args.reverse or
+        if self._args.tail and (self._args.send_syslog or self._args.reverse or
                self._args.start_time or self._args.end_time):
-            invalid_combination = " --f"
+            invalid_combination = " --tail"
             if self._args.send_syslog:
                  invalid_combination += ", --send-syslog"
             if self._args.reverse:
@@ -138,6 +140,21 @@ class LogQuerier(object):
                  invalid_combination += ", --end-time"
             print "Combination of options" + invalid_combination + " are not valid."
             return -1
+        global output_file_handle
+        if self._args.output_file is not None:
+            if output_file_handle is None:
+               #Open the file for writing
+               try:
+                   if self._args.tail:
+                      output_file_handle = open(self._args.output_file, "a")
+                   else:
+                      output_file_handle = open(self._args.output_file, "w")
+               except Exception as e:
+                   print e
+                   print "Exception occured when creating/opening file %s" % \
+                         self._args.output_file
+                   return -1
+
         start_time, end_time = self._start_time, self._end_time
         if self._args.message_types is True:
             command_str = ("contrail-stats --table FieldNames.fields" +
@@ -253,17 +270,18 @@ class LogQuerier(object):
 
             if self._args.object_values is False:
                 if self._args.object_select_field is not None:
-                    if ((self._args.object_select_field !=
-                         VizConstants.OBJECT_LOG) and
-                        (self._args.object_select_field !=
-                         VizConstants.SYSTEM_LOG)):
-                        print 'Invalid object-select-field. '\
+                    obj_sel_field = self._args.object_select_field
+                    if not isinstance(self._args.object_select_field, list):
+                         obj_sel_field = [self._args.object_select_field]
+                    if VizConstants.OBJECT_LOG or VizConstants.SYSTEM_LOG \
+                       in obj_sel_field:
+                         self._args.object_select_field = obj_sel_field
+                    else:
+                         print 'Invalid object-select-field. '\
                             'Valid values are "%s" or "%s"' \
                             % (VizConstants.OBJECT_LOG,
                                VizConstants.SYSTEM_LOG)
-                        return -1
-                    obj_sel_field = [self._args.object_select_field]
-                    self._args.object_select_field = obj_sel_field
+                         return -1
                 else:
                     self._args.object_select_field = obj_sel_field = [
                         VizConstants.OBJECT_LOG, VizConstants.SYSTEM_LOG]
@@ -321,21 +339,6 @@ class LogQuerier(object):
         else:
             # Message Table Query
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
-            # Message Table contains both systemlog and objectlog.
-            # Add a filter to return only systemlogs
-            if not self._args.all:
-                sandesh_type_filter = OpServerUtils.Match(
-                    name=VizConstants.SANDESH_TYPE,
-                    value=str(
-                        SandeshType.SYSTEM),
-                    op=OpServerUtils.MatchOp.EQUAL)
-                or_filter.append(sandesh_type_filter.__dict__)
-                sandesh_type_filter = OpServerUtils.Match(
-                    name=VizConstants.SANDESH_TYPE,
-                    value=str(
-                        SandeshType.SYSLOG),
-                    op=OpServerUtils.MatchOp.EQUAL)
-                or_filter.append(sandesh_type_filter.__dict__)
 
             if len(where_msg):
                 where = [where_msg]
@@ -413,6 +416,21 @@ class LogQuerier(object):
     # end query
 
     def _output(self, log_str, sandesh_level):
+        if self._args.json:
+             if isinstance(log_str,dict):
+                 #convert to json and dump
+                 log_str=json.dumps(log_str)
+        if self._args.output_file is not None:
+            #Append to a file specified
+            try:
+                output_file_handle.write(log_str)
+                output_file_handle.write("\n")
+                return
+            except Exception as e:
+                print e
+                print "Exception occured when writing file %s" % \
+                      self._args.output_file
+                return -1
         if self._args.send_syslog:
             syslog_level = SandeshLogger._SANDESH_LEVEL_TO_LOGGER_LEVEL[
                 sandesh_level]
@@ -504,16 +522,19 @@ class LogQuerier(object):
                             data_str = messages_dict[VizConstants.DATA]
                 else:
                     data_str = 'Data not present'
-                if self._args.trace is not None:
-                    trace_str = '{0} {1}:{2} {3}'.format(
-                        message_ts, message_type, seq_num, data_str)
-                    self._output(trace_str, sandesh_level)
+                if self._args.json:
+                    self._output(messages_dict, sandesh_level)
                 else:
-                    log_str = \
-                        '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
-                        message_ts, source, node_type, module, instance_id,
-                        category, level, message_type, seq_num, data_str)
-                    self._output(log_str, sandesh_level)
+                    if self._args.trace is not None:
+                        trace_str = '{0} {1}:{2} {3}'.format(
+                            message_ts, message_type, seq_num, data_str)
+                        self._output(trace_str, sandesh_level)
+                    else:
+                        log_str = \
+                            '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
+                            message_ts, source, node_type, module, instance_id,
+                            category, level, message_type, seq_num, data_str)
+                        self._output(log_str, sandesh_level)
             else:
                 if self._args.object_values is True:
                     if OpServerUtils.OBJECT_ID in messages_dict:
@@ -540,7 +561,10 @@ class LogQuerier(object):
                             obj_str = '{0} {1} [{2}:{3}:{4}] : {5}: {6}'.format(
                                 message_ts, source, node_type, module,
                                 instance_id, message_type, data_str)
-                            self._output(obj_str, sandesh_level)
+                            if self._args.json:
+                                self._output(messages_dict[obj_sel_field], sandesh_level)
+                            else:
+                                self._output(obj_str, sandesh_level)
     # end display
 
 # end class LogQuerier
