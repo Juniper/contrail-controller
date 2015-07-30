@@ -344,6 +344,31 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     client->WaitForIdle();
 }
 
+TEST_F(VrfTest, DelReqonDeletedVrfRouteTable) {
+    client->Reset();
+    VrfAddReq("vrf1");
+    EXPECT_TRUE(client->VrfNotifyWait(1));
+    client->WaitForIdle();
+
+    // take reference of vrf entry
+    VrfEntryRef vrf_ref = VrfGet("vrf1");
+
+    VrfDelReq("vrf1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, vrf_ref->IsDeleted());
+
+    // once vrf is deleted enqueue a del request for route
+    MacAddress mac("00:00:00:01:00:01");
+    Ip4Address zero_ip;
+    EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
+                                   std::string("vrf1"),
+                                   mac, zero_ip, 0, NULL);
+    client->WaitForIdle();
+
+    // release the VRF reference
+    vrf_ref = NULL;
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, true, false);

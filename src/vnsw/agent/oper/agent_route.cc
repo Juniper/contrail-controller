@@ -299,6 +299,15 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     // Find the right DBTable from VRF and invoke Input from right table
     AgentRouteTable *route_table = vrf->GetRouteTable(key->GetRouteTableType());
     if (route_table != this) {
+        if (route_table == NULL) {
+            // route table for the VRF is already deleted
+            // vrf should be in deleted state
+            assert(vrf->IsDeleted());
+            LOG(DEBUG, "Route Table " << key->GetRouteTableType() <<
+                " for VRF <" << key->vrf_name() <<
+                "> not found. Ignore route Request");
+            return;
+        }
         DBTablePartition *p = static_cast<DBTablePartition *>
             (route_table->GetTablePartition(key));
         route_table->Input(p, client, req);
