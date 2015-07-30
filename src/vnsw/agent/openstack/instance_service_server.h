@@ -120,12 +120,21 @@ public:
 						     const std::string& label);
 
     virtual CreateVrf_shared_future_t CreateVrf(const std::string& vrf_name);
+    uuid ConvertToUuid(const tuuid &tid);
 
+    int version() const { return version_; }
 protected:
     boost::asio::io_service& io_service_;
-    
+
 private:
-    uuid ConvertToUuid(const tuuid &tid);
+    friend class InstanceServiceTest;
+    InterfaceConfigStaleCleaner *interface_stale_cleaner() const {
+        return interface_stale_cleaner_.get();
+    }
+    ConfigStaleCleaner *vgw_stale_cleaner() const {
+        return vgw_stale_cleaner_.get();
+    }
+
     uuid MakeUuid(int id);
 
     Agent *agent_;

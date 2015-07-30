@@ -113,6 +113,10 @@ public:
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
     void CreateTableLabel();
+
+    bool AllRouteTableDeleted() const;
+    bool RouteTableDeleted(uint8_t table_type) const;
+    void SetRouteTableDeleted(uint8_t table_type);
 private:
     friend class VrfTable;
     class DeleteActor;
@@ -126,6 +130,7 @@ private:
     Timer *delete_timeout_timer_;
     uint32_t table_label_;
     uint32_t vxlan_id_;
+    uint32_t rt_table_delete_bmap_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

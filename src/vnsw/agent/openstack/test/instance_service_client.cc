@@ -101,12 +101,12 @@ void connected(boost::shared_ptr<InstanceServiceAsyncClient> client) {
 
 int main(int argc, char* argv[])
 {
-    if (argc != 3) {
-        std::cout << argv[0] << ": <vmport-mac1> <vmport-mac2>" << std::endl;
-        return 1;
+    strcpy(macs[0], "00:00:00:00:00:01");
+    strcpy(macs[1], "00:00:00:00:00:02");
+    if (argc >= 3) {
+        strcpy(macs[0], argv[1]);
+        strcpy(macs[1], argv[2]);
     }
-    strcpy(macs[0], argv[1]);
-    strcpy(macs[1], argv[2]);
 
     try
     {
