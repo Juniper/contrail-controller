@@ -2104,6 +2104,73 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     return false;
 }
 
+void AddVmPort(const char *vmi, int intf_id, const char *ip, const char *mac,
+               const char *vrf, const char *vn, int vn_uuid, const char *vm,
+               int vm_uuid, const char *instance_ip, int instance_uuid) {
+    struct PortInfo input[] = {
+        {"", 0, "", "", 0, 0 }
+    };
+
+    strcpy(input[0].name, vmi);
+    input[0].intf_id = intf_id;
+    strcpy(input[0].addr, ip);
+    strcpy(input[0].mac, mac);
+    input[0].vn_id = vn_uuid;
+    input[0].vm_id = vm_uuid;
+
+    AddVn(vn, vn_uuid);
+    AddVrf(vrf);
+    AddVm(vm, vm_uuid);
+    AddPort(vmi, intf_id);
+    AddVmPortVrf(vmi, "", 0);
+    IntfCfgAdd(input, 0);
+    AddInstanceIp(instance_ip, instance_uuid, ip);
+    AddLink("virtual-machine-interface", vmi, "virtual-network", vn);
+    AddLink("virtual-network", vn, "routing-instance", vrf);
+    AddLink("virtual-machine", vm, "virtual-machine-interface", vmi);
+    AddLink("virtual-machine-interface-routing-instance", vmi,
+            "routing-instance", vrf);
+    AddLink("virtual-machine-interface-routing-instance", vmi,
+            "virtual-machine-interface", vmi);
+    AddLink("virtual-machine-interface", vmi, "instance-ip", instance_ip);
+    client->WaitForIdle();
+}
+
+void DelVmPort(const char *vmi, int intf_id, const char *ip, const char *mac,
+               const char *vrf, const char *vn, int vn_uuid, const char *vm,
+               int vm_uuid, const char *instance_ip, int instance_uuid) {
+    struct PortInfo input[] = {
+        {"", 0, "", "", 0, 0 }
+    };
+
+    strcpy(input[0].name, vmi);
+    input[0].intf_id = intf_id;
+    strcpy(input[0].addr, ip);
+    strcpy(input[0].mac, mac);
+    input[0].vn_id = vn_uuid;
+    input[0].vm_id = vm_uuid;
+
+    DelLink("virtual-machine-interface", vmi, "virtual-network", vm);
+    DelLink("virtual-network", vn, "routing-instance", vrf);
+    DelLink("virtual-machine", vm, "virtual-machine-interface", vmi);
+    DelLink("virtual-machine-interface-routing-instance", vmi,
+            "routing-instance", vrf);
+    DelLink("virtual-machine-interface-routing-instance", vmi,
+            "virtual-machine-interface", vmi);
+    DelLink("virtual-machine-interface", vmi,
+            "instance-ip", instance_ip);
+    DelVn(vn);
+    DelVrf(vrf);
+    DelVm(vm);
+    DelPort(vmi);
+    DelVmPortVrf(vmi);
+    DelInstanceIp(instance_ip);
+    IntfCfgDel(input, 0);
+    DelNode("virtual-machine-interface", vmi);
+    DelNode("virtual-machine-interface-routing-instance", vmi);
+    client->WaitForIdle();
+}
+
 void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
                         const char *vn, const char *vrf) {
     char vn_name[80];
