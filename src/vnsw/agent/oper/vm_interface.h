@@ -508,6 +508,8 @@ public:
                                 const Ip6Address &new_v6_addr,
                                 const MacAddress &mac) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
+    //Interface Active status as required by UVE code
+    bool IsUveActive() const;
     void UpdateVxLan();
     Agent *agent() const {
         return (static_cast<InterfaceTable *>(get_table()))->agent();
@@ -522,7 +524,6 @@ private:
 
     bool IsActive() const;
     bool IsIpv4Active() const;
-    bool IsL3Active() const;
     bool PolicyEnabled() const;
     void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
