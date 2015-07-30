@@ -110,6 +110,7 @@ public:
     const boost::uuids::uuid &GetUuid() const {return uuid_;}
     const std::string &name() const {return name_;}
     VrfEntry *vrf() const {return vrf_.get();}
+    bool active() const {return active_;}
     bool ipv4_active() const {return ipv4_active_;}
     bool ipv6_active() const {return ipv6_active_;}
     bool ip_active(Address::Family family) const;
@@ -129,6 +130,7 @@ public:
     void set_flow_key_nh(const NextHop *nh) { flow_key_nh_ = nh;}
     const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
     Interface::Transport transport() const { return transport_;}
+    bool IsUveActive() const;
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -139,6 +141,7 @@ protected:
     VrfEntryRef vrf_;
     uint32_t label_;
     uint32_t l2_label_;
+    bool active_;
     bool ipv4_active_;
     bool ipv6_active_;
     bool l2_active_;

@@ -234,7 +234,6 @@ void VnUveTableBase::InterfaceAddHandler(const VnEntry* vn,
                                          const Interface* intf,
                                          const string &vm_name,
                                          VnUveInterfaceState *state) {
-
     VnUveEntryBase *vn_uve_entry;
     vn_uve_entry = Add(vn);
 
@@ -261,48 +260,30 @@ void VnUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
 
     VnUveInterfaceState *state = static_cast<VnUveInterfaceState *>
                       (e->GetState(partition->parent(), intf_listener_id_));
-    if (e->IsDeleted() || ((vm_port->ipv4_active() == false) &&
-                           (vm_port->l2_active() == false))) {
+    if (e->IsDeleted() || (vm_port->vn() == NULL)) {
         if (state) {
-            if (e->IsDeleted() || ((state->ipv4_active_ == true) ||
-                                    (state->l2_active_ == true))) {
-                InterfaceDeleteHandler(state->vm_name_, state->vn_name_,
-                                       vm_port);
-                state->ipv4_active_ = false;
-                state->l2_active_ = false;
-            }
-            if (e->IsDeleted()) {
-                e->ClearState(partition->parent(), intf_listener_id_);
-                delete state;
-            }
+            InterfaceDeleteHandler(state->vm_name_, state->vn_name_,
+                                   vm_port);
+            e->ClearState(partition->parent(), intf_listener_id_);
+            delete state;
         }
     } else {
         const VnEntry *vn = vm_port->vn();
-        if (vn == NULL) {
-            return;
-        }
-
         const VmEntry *vm = vm_port->vm();
         std::string vm_name = vm? vm->GetCfgName() : agent_->NullString();
 
         if (!state) {
-            state = new VnUveInterfaceState(vm_name, vn->GetName(), false,
-                                            false);
+            state = new VnUveInterfaceState(vm_name, vn->GetName());
             e->SetState(partition->parent(), intf_listener_id_, state);
+            InterfaceAddHandler(vn, vm_port, vm_name, state);
         } else {
             /* Change in VN name is not supported now */
             assert(state->vn_name_.compare(vn->GetName()) == 0);
+            if (state->vm_name_.compare(vm_name) != 0) {
+                InterfaceAddHandler(vn, vm_port, vm_name, state);
+                state->vm_name_ = vm_name;
+            }
         }
-
-        if ((state->ipv4_active_ == vm_port->ipv4_active()) &&
-            (state->l2_active_ == vm_port->l2_active()) &&
-            (state->vm_name_.compare(vm_name) == 0)) {
-            return;
-        }
-        InterfaceAddHandler(vn, vm_port, vm_name, state);
-        state->ipv4_active_ = vm_port->ipv4_active();
-        state->l2_active_ = vm_port->l2_active();
-        state->vm_name_ = vm_name;
     }
     return;
 }
