@@ -1008,6 +1008,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-machine-interface',
           'instance-ip', 'virtual-machine-interface', ['ref']) -->
+<xsd:element name="instance-ip-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('instance-ip-physical-router',
+          'instance-ip', 'physical-router', ['ref']) -->
 
 <xsd:element name="subnet" type="ifmap:IdentityType"/>
 <xsd:element name="subnet-ip-prefix" type="SubnetType"/>
