@@ -186,6 +186,11 @@ public:
         return true;
     }
     virtual void Process(DBRequest &req);
+    virtual bool ProcessConfig(IFMapNode *node, DBRequest &req) {
+        assert(0);
+        return false;
+    }
+
     void set_agent(Agent *agent) { agent_ = agent; }
     Agent *agent() const { return agent_; }
 

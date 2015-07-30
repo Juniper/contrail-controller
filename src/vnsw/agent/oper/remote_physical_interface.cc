@@ -168,6 +168,7 @@ bool InterfaceTable::RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node,
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.data.reset(BuildData(agent(), node, port));
+    pi_ifnode_to_req_++;
     return true;
 }
 

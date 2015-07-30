@@ -26,6 +26,7 @@
 #include <controller/controller_vrf_export.h>
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
+#include <oper/config_manager.h>
 
 using namespace std;
 using namespace autogen;
@@ -347,7 +348,7 @@ VrfTable::~VrfTable() {
         delete vrf_delete_walker_;
 }
 
-DBEntry *VrfTable::Add(const DBRequest *req) {
+DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     VrfData *data = static_cast<VrfData *>(req->data.get());
     VrfEntry *vrf = new VrfEntry(key->name_, data->flags_);
@@ -365,7 +366,7 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     return vrf;
 }
 
-bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     VrfData *data = static_cast<VrfData *>(req->data.get());
@@ -385,7 +386,7 @@ bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     VrfData *data = static_cast<VrfData *>(req->data.get());
 
@@ -528,7 +529,7 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
 void VrfTable::CreateVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
     Enqueue(&req);
 }
 
@@ -536,28 +537,28 @@ void VrfTable::CreateVrfReq(const string &name,
                             const boost::uuids::uuid &vn_uuid, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags, vn_uuid));
+    req.data.reset(new VrfData(agent(), NULL, flags, vn_uuid));
     Enqueue(&req);
 }
 
 void VrfTable::CreateVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
     Process(req);
 }
 
 void VrfTable::DeleteVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
     Enqueue(&req);
 }
 
 void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
     Process(req);
 }
 
@@ -628,45 +629,32 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
         }
     }
 
-    return new VrfData(VrfData::ConfigVrf, vn_uuid);
-}
-
-bool VrfTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                           const string &peer_type, IFMapNode *peer,
-                           DBRequest &req) {
-    // If peer is VN, it means there is change in VRF to VN link. This can
-    // affect config for config modules. Invoke IFNodeToReq iteself. This
-    // should not affect scaling since we dont expect many changes for
-    // VN to VRF link
-    if (peer_type == "virtual-network") {
-        return IFNodeToReq(node, req);
-    }
-
-    // Another neighbour we are interested in
-    // virtual-machine-interface-routing-instance. Change to think link can 
-    // modify VRF for connected interface. There are two cases here,
-    // peer is NULL :
-    //    Means, virtual-machine-interface-routing-instance node is deleted.
-    //    It also means, VMI link is also deleted and it would have taken 
-    //    care of the necessary changes.
-    // peer is Non-NULL:
-    //    Propogate change till the connected VMI
-    if (peer && peer->table() == agent()->cfg()->cfg_vm_port_vrf_table()) {
-        if (agent()->cfg_listener()->SkipNode
-            (peer, agent()->cfg()->cfg_vm_port_vrf_table())) {
-            return false;
-        }
-
-        agent()->interface_table()->VmInterfaceVrfSync(peer);
-    }
-
-    return false;
+    return new VrfData(agent, node, VrfData::ConfigVrf, vn_uuid);
 }
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+    //Trigger add or delete only for non fabric VRF
+    if (node->IsDeleted()) {
+        req.key.reset(new VrfKey(node->name()));
+        if (IsStaticVrf(node->name())) {
+            //Fabric and link-local VRF will not be deleted,
+            //upon config delete
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        } else {
+            req.oper = DBRequest::DB_ENTRY_DELETE;
+        }
+        req.data.reset(new VrfData(agent(), node, VrfData::ConfigVrf,
+                                   nil_uuid()));
+        Enqueue(&req);
+        return false;
+    }
+
+    agent()->config_manager()->AddVrfNode(node);
+    return false;
+}
+
+bool VrfTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
     req.key.reset(new VrfKey(node->name()));
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    DBGraph *graph = table->GetGraph();
 
     //Trigger add or delete only for non fabric VRF
     if (node->IsDeleted()) {
@@ -677,7 +665,8 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
-        req.data.reset(new VrfData(VrfData::ConfigVrf, nil_uuid()));
+        req.data.reset(new VrfData(agent(), node, VrfData::ConfigVrf,
+                                   nil_uuid()));
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.data.reset(BuildData(agent(), node));
@@ -686,29 +675,6 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     //When VRF config delete comes, first enqueue VRF delete
     //so that when link evaluation happens, all point to deleted VRF
     Enqueue(&req);
-
-    if (node->IsDeleted()) {
-        return false;
-    }
-
-    // Resync any vmport dependent on this VRF
-    // While traversing the path
-    // virtual-machine-interface <-> virtual-machine-interface-routing-instance
-    // <-> routing-instance path, we may have skipped a routing-instance that
-    // failed SkipNode()
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent()->cfg_listener()->SkipNode
-            (adj_node, agent()->cfg()->cfg_vm_port_vrf_table())) {
-            continue;
-        }
-
-        agent()->interface_table()->VmInterfaceVrfSync(adj_node);
-    }
-
-    // Resync dependent Floating-IP
-    VmInterface::FloatingIpVrfSync(agent()->interface_table(), node);
     return false;
 }
 
