@@ -133,8 +133,10 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_floating_ips(uve_fip_list);
 
     s_intf->set_label(intf_->label());
-    s_intf->set_active(intf_->ipv4_active());
+    s_intf->set_ip4_active(intf_->ipv4_active());
     s_intf->set_l2_active(intf_->l2_active());
+    s_intf->set_active(intf_->IsUveActive());
+
     s_intf->set_uuid(to_string(intf_->GetUuid()));
     string gw;
     if (GetVmInterfaceGateway(intf_, gw)) {

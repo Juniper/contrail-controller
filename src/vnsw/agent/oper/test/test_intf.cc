@@ -332,6 +332,38 @@ TEST_F(IntfTest, basic_1) {
     client->Reset();
 }
 
+TEST_F(IntfTest, active_1) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(8));
+    EXPECT_TRUE(vmi != NULL);
+    EXPECT_TRUE(vmi->active());
+    client->Reset();
+
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet8");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (vmi->vn() == NULL));
+    EXPECT_FALSE(vmi->active());
+
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet8");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (vmi->vm() != NULL));
+    EXPECT_TRUE(vmi->active());
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
 TEST_F(IntfTest, index_reuse) {
     uint32_t    intf_idx;
 
@@ -2905,6 +2937,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
                 == NULL));
     client->Reset();
 }
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

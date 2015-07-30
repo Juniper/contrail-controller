@@ -22,15 +22,11 @@
 class VnUveTableBase {
 public:
     struct VnUveInterfaceState :public DBState {
-        VnUveInterfaceState(const std::string &vm, const std::string &vn,
-                            bool ipv4_active, bool l2_active)
-            : vm_name_(vm), vn_name_(vn), ipv4_active_(ipv4_active),
-              l2_active_(l2_active) {
-            }
+        VnUveInterfaceState(const std::string &vm, const std::string &vn)
+            : vm_name_(vm), vn_name_(vn) {
+        }
         std::string vm_name_;
         std::string vn_name_;
-        bool ipv4_active_;
-        bool l2_active_;
     };
 
     typedef boost::shared_ptr<VnUveEntryBase> VnUveEntryPtr;

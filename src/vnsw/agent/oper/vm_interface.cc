@@ -66,6 +66,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()) {
+    active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -95,6 +96,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vrf_assign_acl_(NULL), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()) {
+    active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -1046,6 +1048,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     bool ret = false;
 
     // Copy old values used to update config below
+    bool old_active = active_;
     bool old_ipv4_active = ipv4_active_;
     bool old_ipv6_active = ipv6_active_;
     bool old_l2_active = l2_active_;
@@ -1068,6 +1071,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
                              &local_pref_changed);
     }
 
+    active_ = IsActive();
     ipv4_active_ = IsIpv4Active();
     ipv6_active_ = IsIpv6Active();
     l2_active_ = IsL2Active();
@@ -1085,6 +1089,10 @@ bool VmInterface::Resync(const InterfaceTable *table,
     }
 
     if (l2_active_ != old_l2_active) {
+        ret = true;
+    }
+
+    if (active_ != old_active) {
         ret = true;
     }
 
@@ -1269,7 +1277,7 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
     //DHCP MAC IP binding
     ApplyMacVmBindingConfig(old_vrf, old_l2_active,  old_dhcp_enable);
     //Security Group update
-    if (IsActive())
+    if (active())
         UpdateSecurityGroup();
     else
         DeleteSecurityGroup();
@@ -1977,6 +1985,9 @@ bool VmInterface::IsActive()  const {
     if (os_index_ == kInvalidIndex)
         return false;
 
+    if (os_oper_state_ == false)
+        return false;
+
     return mac_set_;
 }
 
@@ -1993,9 +2004,6 @@ bool VmInterface::IsIpv4Active() const {
         return false;
     }
 
-    if (os_oper_state_ == false)
-        return false;
-
     return IsActive();
 }
 
@@ -2003,20 +2011,6 @@ bool VmInterface::IsIpv6Active() const {
     if (!layer3_forwarding() || (ip6_addr_.is_unspecified())) {
         return false;
     }
-
-    if (os_oper_state_ == false)
-        return false;
-
-    return IsActive();
-}
-
-bool VmInterface::IsL3Active() const {
-    if (!layer3_forwarding() || (ip6_addr_.is_unspecified())) {
-        return false;
-    }
-
-    if (os_oper_state_ == false)
-        return false;
 
     return IsActive();
 }
@@ -2026,14 +2020,11 @@ bool VmInterface::IsL2Active() const {
         return false;
     }
 
-    if (os_oper_state_ == false)
-        return false;
-
     return IsActive();
 }
 
 bool VmInterface::WaitForTraffic() const {
-    if (IsActive() == false) {
+    if (active() == false) {
         return false;
     }
 
