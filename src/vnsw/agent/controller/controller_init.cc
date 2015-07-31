@@ -309,8 +309,6 @@ void VNController::DeleteConnectionInfo(const std::string &addr, bool is_dns)
 
 void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
 
-    DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(idx), false);
-
     // Managed Delete of XmppClient object, which deletes the
     // dependent XmppClientConnection object and
     // scoped XmppChannel object
@@ -332,6 +330,7 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
     delete agent_->controller_ifmap_xmpp_init(idx);
     agent_->set_controller_ifmap_xmpp_init(NULL, idx);
 
+    DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(idx), false);
     agent_->reset_controller_ifmap_xmpp_server(idx);
 }
 
@@ -400,9 +399,7 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
                     agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), xs_idx);
                     break; 
 
-                } else if (agent_->controller_xmpp_channel(xs_idx) &&
-                    (agent_->controller_xmpp_channel(xs_idx)->GetXmppChannel()->
-                     GetPeerState() == xmps::NOT_READY)) {
+                } else if (agent_->controller_xmpp_channel(xs_idx)) {
 
                     if (AgentXmppServerExists(
                         agent_->controller_ifmap_xmpp_server(xs_idx), resp)) {
@@ -423,25 +420,6 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
                          dr.ep.address().to_string(),xs_idx);
                     agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), xs_idx);
                     break;
-                }
-            }
-        }
-    }
-
-    /* Remove stale Servers if DOWN */
-    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (agent_->controller_xmpp_channel(idx) != NULL) {
-
-            if (!AgentXmppServerExists(
-                agent_->controller_ifmap_xmpp_server(idx), resp)) {
-
-                if (agent_->controller_xmpp_channel(idx)->GetXmppChannel()->
-                    GetPeerState() == xmps::NOT_READY) {
-
-                    CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
-                        idx, agent_->controller_ifmap_xmpp_server(idx), "");
-                    DisConnectControllerIfmapServer(idx);
-                    agent_->reset_controller_ifmap_xmpp_server(idx);
                 }
             }
         }
@@ -468,8 +446,6 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
 
 void VNController::DisConnectDnsServer(uint8_t idx) {
 
-    DeleteConnectionInfo(agent_->dns_server(idx), true);
-
     // Managed Delete of XmppClient object, which deletes the 
     // dependent XmppClientConnection object and
     // scoped_ptr XmppChannel
@@ -486,6 +462,7 @@ void VNController::DisConnectDnsServer(uint8_t idx) {
     delete agent_->dns_xmpp_init(idx);
     agent_->set_dns_xmpp_init(NULL, idx);
 
+    DeleteConnectionInfo(agent_->dns_server(idx), true);
     agent_->reset_dns_server(idx);
 }
 
@@ -533,9 +510,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                     agent_->set_dns_server_port(dr.ep.port(), xs_idx);
                     break;
             
-                } else if (agent_->dns_xmpp_channel(xs_idx) &&
-                    (agent_->dns_xmpp_channel(xs_idx)->GetXmppChannel()->GetPeerState()
-                     == xmps::NOT_READY)) {
+                } else if (agent_->dns_xmpp_channel(xs_idx)) {
 
                     if (AgentXmppServerExists(
                         agent_->dns_server(xs_idx), resp)) {
@@ -559,25 +534,6 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
            }
         }
     } 
-
-    /* Remove stale Servers if DOWN*/
-    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (agent_->dns_xmpp_channel(idx) != NULL) {
-
-            if (!AgentXmppServerExists(
-                 agent_->dns_server(idx), resp)) {
-
-                if (agent_->dns_xmpp_channel(idx)->GetXmppChannel()->
-                    GetPeerState() == xmps::NOT_READY) {
-
-                     CONTROLLER_TRACE(DiscoveryConnection, "Cleanup Older Dns Xmpp",
-                         idx, agent_->dns_server(idx), "");
-                     DisConnectDnsServer(idx);
-                     agent_->reset_dns_server(idx);
-                }
-            }
-        }
-    }
 
     DnsXmppServerConnect();
 }
