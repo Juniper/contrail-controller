@@ -1090,6 +1090,10 @@ bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
 
     const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
     InetUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
+    if (!vrf->GetInet4UnicastRouteTable()) {
+        return false;
+    }
+
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&key));
