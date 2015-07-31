@@ -668,7 +668,7 @@ void KSyncUserSockIfContext::Process() {
         vr_interface_req if_info(*req_);
         sock->if_map[req_->get_vifr_idx()] = if_info;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::IfMsgHandler(vr_interface_req *req) {

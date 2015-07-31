@@ -118,6 +118,8 @@ void KSync::VRouterInterfaceSnapshot() {
         vr_interface_req req;
         req.set_h_op(sandesh_op::DUMP);
         req.set_vifr_idx(0);
+        // interface statistics are per-core now, so -1 is for all the cores
+        req.set_vifr_core(-1);
         req.set_vifr_marker(ctxt->context_marker());
         uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
         len = Encode(req, msg, KSYNC_DEFAULT_MSG_SIZE);

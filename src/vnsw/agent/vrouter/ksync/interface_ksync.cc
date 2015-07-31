@@ -478,7 +478,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     switch (type_) {
     case Interface::VM_INTERFACE: {
         if (vmi_device_type_ == VmInterface::TOR)
-            return 0;            
+            return 0;
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }

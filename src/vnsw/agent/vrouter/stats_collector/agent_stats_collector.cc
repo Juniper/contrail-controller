@@ -47,6 +47,8 @@ void AgentStatsCollector::SendInterfaceBulkGet() {
 
     encoder.set_h_op(sandesh_op::DUMP);
     encoder.set_vifr_context(0);
+    // interface statistics are per-core now, so -1 is for all the cores
+    encoder.set_vifr_core(-1);
     encoder.set_vifr_marker(intf_stats_sandesh_ctx_.get()->marker_id());
     SendRequest(encoder, InterfaceStatsType);
 }
@@ -66,6 +68,8 @@ void AgentStatsCollector::SendDropStatsBulkGet() {
 
     encoder.set_h_op(sandesh_op::GET);
     encoder.set_vds_rid(0);
+    // drop statistics are per-core now, so -1 is for all the cores
+    encoder.set_vds_core(-1);
     SendRequest(encoder, DropStatsType);
 }
 

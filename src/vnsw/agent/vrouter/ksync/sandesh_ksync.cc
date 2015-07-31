@@ -133,7 +133,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 }
 
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {
-    flow_ksync_->ksync()->interface_scanner()->KernelInterfaceData(r); 
+    flow_ksync_->ksync()->interface_scanner()->KernelInterfaceData(r);
     context_marker_ = r->get_vifr_idx();
 }
 

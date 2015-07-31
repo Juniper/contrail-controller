@@ -15,7 +15,9 @@ DropStatsKState::DropStatsKState(KDropStatsResp *obj,
                                  vr_drop_stats_req &req) 
     : KState(resp_ctx, obj) {
     req.set_h_op(sandesh_op::GET);
-    req.set_vds_rid(0);    
+    req.set_vds_rid(0);
+    // drop statistics are per-core now, so -1 is for all the cores
+    req.set_vds_core(-1);
 }
 
 void DropStatsKState::Handler() {

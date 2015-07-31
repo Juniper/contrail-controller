@@ -15,11 +15,13 @@ InterfaceKState::InterfaceKState(KInterfaceResp *obj, const std::string &ctx,
                                  KState(ctx, obj) {
     if (id >= 0) {
         req.set_h_op(sandesh_op::GET);
-        req.set_vifr_idx(id);    
+        req.set_vifr_idx(id);
     } else {
         InitDumpRequest(req);
         req.set_vifr_marker(-1);
     }
+    // interface statistics are per-core now, so -1 is for all the cores
+    req.set_vifr_core(-1);
 }
 
 void InterfaceKState::InitDumpRequest(vr_interface_req &req) const {
