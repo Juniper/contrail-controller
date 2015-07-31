@@ -427,6 +427,22 @@ void AgentParam::ParseHeadlessMode() {
     }
 }
 
+void AgentParam::parse_multi_port_binding(const std::string &s) {
+    istringstream iss(s);
+    vector<string> tokens;
+    copy(istream_iterator<string>(iss),
+                   istream_iterator<string>(),
+                   back_inserter(tokens));
+    for (vector<string>::iterator it=tokens.begin(); it != tokens.end(); it++) {
+        unsigned split_at = it->find("/");
+        if (split_at == string::npos)
+            continue;
+        int port = atoi(it->substr(0, split_at).c_str());
+        int fw_port = atoi(it->substr(split_at + 1).c_str());
+        this->si_lb_multi_port_binding_[port] = fw_port;
+    }
+}
+
 void AgentParam::ParseServiceInstance() {
     GetValueFromTree<string>(si_netns_command_,
                              "SERVICE-INSTANCE.netns_command");
@@ -436,6 +452,23 @@ void AgentParam::ParseServiceInstance() {
                           "SERVICE-INSTANCE.netns_timeout");
     GetValueFromTree<string>(si_haproxy_ssl_cert_path_,
                              "SERVICE-INSTANCE.haproxy_ssl_cert_path");
+    string tmp;
+    GetValueFromTree<string>(tmp,
+                             "SERVICE-INSTANCE.lb_multi_port_binding_list");
+    this->parse_multi_port_binding(tmp);
+}
+
+void AgentParam::ParseNexthopServer() {
+    GetValueFromTree<string>(nexthop_server_endpoint_,
+                             "NEXTHOP-SERVER.endpoint");
+    GetValueFromTree<bool>(nexthop_server_add_pid_,
+                           "NEXTHOP-SERVER.add_pid");
+    if (nexthop_server_add_pid_) {
+        std::stringstream ss;
+        ss << nexthop_server_endpoint_ << "." << getpid();
+        nexthop_server_endpoint_ = ss.str();
+    }
+>>>>>>> 77887f9... multiple ports binding on one vip / pool / member:src/vnsw/agent/init/agent_param.cc
 }
 
 void AgentParam::ParseCollectorArguments
@@ -557,6 +590,45 @@ void AgentParam::ParseServiceInstanceArguments
     GetOptValue<int>(var_map, si_netns_timeout_, "SERVICE-INSTANCE.netns_timeout");
     GetOptValue<string>(var_map, si_haproxy_ssl_cert_path_,
             "SERVICE-INSTANCE.haproxy_ssl_cert_path");
+    string tmp;
+    GetOptValue<string>(var_map, tmp,
+                        "SERVICE-INSTANCE.lb_multi_port_binding_list");
+    this->parse_multi_port_binding(tmp);
+}
+
+void AgentParam::ParseNexthopServerArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<string>(var_map, nexthop_server_endpoint_,
+                        "NEXTHOP-SERVER.endpoint");
+    GetOptValue<bool>(var_map, nexthop_server_add_pid_,
+                             "NEXTHOP-SERVER.add_pid");
+    if (nexthop_server_add_pid_) {
+        std::stringstream ss;
+        ss << nexthop_server_endpoint_ << "." << getpid();
+        nexthop_server_endpoint_ = ss.str();
+    }
+}
+
+void AgentParam::ParsePlatformArguments
+    (const boost::program_options::variables_map &var_map) {
+    boost::system::error_code ec;
+    if (var_map.count("DEFAULT.platform") &&
+        !var_map["DEFAULT.platform"].defaulted()) {
+        if (var_map["DEFAULT.platform"].as<string>() == "nic") {
+            platform_ = AgentParam::VROUTER_ON_NIC;
+        } else if (var_map["DEFAULT.platform"].as<string>() == "dpdk") {
+            platform_ = AgentParam::VROUTER_ON_HOST_DPDK;
+            if (var_map.count("DEFAULT.physical_interface_address")) {
+                physical_interface_pci_addr_ =
+                var_map["DEFAULT.physical_interface_address"].as<string>();
+                physical_interface_mac_addr_ =
+                var_map["DEFAULT.physical_interface_mac"].as<string>();
+            }
+        } else {
+            platform_ = AgentParam::VROUTER_ON_HOST;
+        }
+    }
+>>>>>>> 77887f9... multiple ports binding on one vip / pool / member:src/vnsw/agent/init/agent_param.cc
 }
 
 // Initialize hypervisor mode based on system information
@@ -823,6 +895,7 @@ AgentParam::AgentParam(Agent *agent) :
         flow_stats_interval_(FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), si_netns_command_(), si_netns_workers_(0),
+        si_lb_multi_port_binding_(),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_() {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
