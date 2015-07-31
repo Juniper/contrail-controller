@@ -520,6 +520,8 @@ void AgentParam::ParseServiceInstance() {
                           "SERVICE-INSTANCE.netns_timeout");
     GetValueFromTree<string>(si_haproxy_ssl_cert_path_,
                          "SERVICE-INSTANCE.haproxy_ssl_cert_path");
+    GetValueFromTree<bool>(si_haproxy_enable_tcp_multi_port_binding_,
+                           "SERVICE-INSTANCE.haproxy_enable_tcp_multi_port_binding");
 
 }
 
@@ -690,6 +692,8 @@ void AgentParam::ParseServiceInstanceArguments
     GetOptValue<int>(var_map, si_netns_timeout_, "SERVICE-INSTANCE.netns_timeout");
     GetOptValue<string>(var_map, si_haproxy_ssl_cert_path_,
                         "SERVICE-INSTANCE.haproxy_ssl_cert_path");
+    GetOptValue<bool>(var_map, si_haproxy_enable_tcp_multi_port_binding_,
+                      "SERVICE-INSTANCE.haproxy_enable_tcp_multi_port_binding");
 
 }
 
@@ -1020,6 +1024,8 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
     LOG(DEBUG, "Service instance HAProxy ssl: " << si_haproxy_ssl_cert_path_);
+    LOG(DEBUG, "Service instance HAProxy enable tcp-80 autopassthrough : "
+        << si_haproxy_enable_tcp_multi_port_binding_);
     if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -1106,6 +1112,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
+        si_haproxy_enable_tcp_multi_port_binding_(false),
         vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_(),
         nexthop_server_add_pid_(0),
         vrouter_on_nic_mode_(false),

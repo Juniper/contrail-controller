@@ -13,6 +13,8 @@
 
 #include "loadbalancer_properties.h"
 
+#define TCP_MULTI_PORT_SUFFIX "-tcp-multi-port-binding"
+
 using namespace std;
 using boost::assign::map_list_of;
 
@@ -121,6 +123,25 @@ void LoadbalancerHaproxy::GenerateFrontend(
              << "maxconn " << vip.connection_limit << endl;
     }
     *out << endl;
+
+    if (agent_->params()->si_haproxy_enable_tcp_multi_port_binding() &&
+        vip.protocol.compare("TCP") == 0 &&
+        (vip.protocol_port == LB_HAPROXY_SSL_PORT ||
+         vip.protocol_port == 8143)) {
+        /* Generate auto passthrough {443/80, 8143/8080} */
+        uint32_t port = (vip.protocol_port == LB_HAPROXY_SSL_PORT)?80:8080;
+        *out << "frontend " << props.vip_uuid() << TCP_MULTI_PORT_SUFFIX << endl;
+        *out << string(4, ' ') << "bind " << vip.address << ":" << port << endl;
+        *out << string(4, ' ') << "mode tcp" << endl;
+        *out << string(4, ' ')
+             << "default_backend " << pool_id << TCP_MULTI_PORT_SUFFIX << endl;
+
+        if (vip.connection_limit >= 0) {
+            *out << string(4, ' ')
+                 << "maxconn " << vip.connection_limit << endl;
+        }
+        *out << endl;
+    }
 }
 
 
@@ -198,6 +219,34 @@ void LoadbalancerHaproxy::GenerateBackend(
                  << max_retries;
         }
         *out << endl;
+    }
+
+
+    if (agent_->params()->si_haproxy_enable_tcp_multi_port_binding() &&
+        vip.protocol.compare("TCP") == 0 &&
+        (vip.protocol_port == LB_HAPROXY_SSL_PORT ||
+         vip.protocol_port == 8143)) {
+        /* Generate auto passthrough {443/80, 8143/8080} */
+        uint32_t port = (vip.protocol_port == LB_HAPROXY_SSL_PORT)?80:8080;
+        *out << endl;
+        *out << "backend " << pool_id << TCP_MULTI_PORT_SUFFIX << endl;
+        *out << string(4, ' ') << "mode tcp" << endl;
+        *out << string(4, ' ')
+             << "balance " << BalanceMap(pool.loadbalancer_method) << endl;
+        for (LoadbalancerProperties::MemberMap::const_iterator iter =
+                     props.members().begin();
+             iter != props.members().end(); ++iter) {
+            const autogen::LoadbalancerMemberType &member = iter->second;
+            *out << string(4, ' ')
+                 << "server " << iter->first << " " << member.address
+                 << ":" << port
+                 << " weight " << member.weight;
+            if (timeout) {
+                *out << " check inter " << timeout << " rise 1 fall "
+                     << max_retries;
+            }
+            *out << endl;
+        }
     }
 }
 

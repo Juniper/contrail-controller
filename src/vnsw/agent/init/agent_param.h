@@ -121,6 +121,10 @@ public:
         return si_haproxy_ssl_cert_path_;
     }
 
+    bool si_haproxy_enable_tcp_multi_port_binding() const {
+        return si_haproxy_enable_tcp_multi_port_binding_;
+    }
+
     std::string nexthop_server_endpoint() const {
         return nexthop_server_endpoint_;
     }
@@ -387,6 +391,7 @@ private:
     int si_netns_workers_;
     int si_netns_timeout_;
     std::string si_haproxy_ssl_cert_path_;
+    bool si_haproxy_enable_tcp_multi_port_binding_;
     VmwareMode vmware_mode_;
     // List of IP addresses on the compute node.
     AddressList compute_node_address_list_;
