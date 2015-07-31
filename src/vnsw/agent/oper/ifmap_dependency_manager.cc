@@ -12,6 +12,7 @@
 #include "oper/sg.h"
 #include "oper/interface_common.h"
 #include "oper/vrf.h"
+#include "oper/vm.h"
 #include "oper/physical_device.h"
 #include "filter/acl.h"
 
@@ -240,7 +241,25 @@ void IFMapDependencyManager::LinkObserver(
     IFMapLink *link = static_cast<IFMapLink *>(db_entry);
     IFMapNode *left = link->LeftNode(database_);
     IFMapNode *right = link->RightNode(database_);
-    if (tracker_->LinkEvent(link->metadata(), left, right)) {
+    bool set = false;
+    if (left) {
+        EventMap::iterator loc = event_map_.find(left->table()->Typename());
+        if (loc != event_map_.end()) {
+            ChangeListAdd(left);
+            set = true;
+        }
+    }
+
+    if (right) {
+        EventMap::iterator loc = event_map_.find(right->table()->Typename());
+        if (loc != event_map_.end()) {
+            ChangeListAdd(right);
+            set = true;
+        }
+    }
+
+    set |= tracker_->LinkEvent(link->metadata(), left, right);
+    if (set) {
         trigger_->Set();
     }
 }
@@ -291,11 +310,12 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
     if (old_entry)
         state->clear_object();
 
-    if (entry)
+    if (entry) {
         state->set_object(entry);
 
-    tracker_->NodeEvent(node);
-    trigger_->Set();
+        tracker_->NodeEvent(node);
+        trigger_->Set();
+    }
 }
 
 IFMapDependencyManager::IFMapNodePtr
@@ -500,6 +520,13 @@ static void RegisterConfigHandler(IFMapDependencyManager *dep,
 }
 
 void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
+
+    RegisterConfigHandler(this, "virtual-machine",
+                          agent ? agent->vm_table() : NULL);
+
+    RegisterConfigHandler(this, "access-control-list",
+                          agent ? agent->acl_table() : NULL);
+
     ////////////////////////////////////////////////////////////////////////
     // VN <----> RI
     //    <----> ACL
@@ -674,3 +701,5 @@ void IFMapNodePolicyReq::HandleRequest() const {
     resp->Response();
     return;
 }
+
+
