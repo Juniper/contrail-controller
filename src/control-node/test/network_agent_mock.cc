@@ -1305,9 +1305,12 @@ void NetworkAgentMock::InstanceMgr<T>::Clear() {
 
 template<typename T>
 const T *NetworkAgentMock::InstanceMgr<T>::Lookup(const std::string &network,
-        const std::string &prefix) const {
+        const std::string &prefix, bool take_lock) const {
     typename InstanceMgr<T>::InstanceMap::const_iterator loc;
-    tbb::mutex::scoped_lock lock(parent_->get_mutex());
+    tbb::mutex::scoped_lock lock;
+
+    if (take_lock)
+        lock.acquire(parent_->get_mutex());
 
     loc = instance_map_.find(network);
     if (loc == instance_map_.end()) {
@@ -1335,7 +1338,9 @@ template void NetworkAgentMock::InstanceMgr<T>::Remove(const std::string &networ
 template int NetworkAgentMock::InstanceMgr<T>::Count(const std::string &network) const; \
 template int NetworkAgentMock::InstanceMgr<T>::Count() const; \
 template void NetworkAgentMock::InstanceMgr<T>::Clear(); \
-template const T *NetworkAgentMock::InstanceMgr<T>::Lookup(const std::string &network, const std::string &prefix) const;
+template const T *NetworkAgentMock::InstanceMgr<T>::Lookup( \
+    const std::string &network, const std::string &prefix, \
+    const bool take_lock) const;
 
 // RouteEntry is the same type as Inet6RouteEntry, used for both inet and inet6
 INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::RouteEntry)
@@ -1350,6 +1355,18 @@ int NetworkAgentMock::RouteCount(const std::string &network) const {
 
 int NetworkAgentMock::RouteCount() const {
     return route_mgr_->Count();
+}
+
+// Return number of nexthops associated with a given route
+int NetworkAgentMock::RouteNextHopCount(const std::string &network,
+                                        const std::string &prefix) {
+    tbb::mutex::scoped_lock lock(get_mutex());
+
+    const RouteEntry *entry = route_mgr_->Lookup(network, prefix, false);
+    if (!entry)
+        return 0;
+
+    return entry->entry.next_hops.next_hop.size();
 }
 
 int NetworkAgentMock::Inet6RouteCount(const std::string &network) const {
