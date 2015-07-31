@@ -12,9 +12,11 @@
 #include "base/parse_object.h"
 
 using std::copy;
+using std::fill;
 using std::string;
 
 TunnelEncap::TunnelEncap(string encap) {
+    fill(data_.begin(), data_.end(), 0);
     TunnelEncapType::Encap id = TunnelEncapType::TunnelEncapFromString(encap);
     if (id == TunnelEncapType::UNSPEC) return;
     data_[0] = 0x03;
@@ -25,6 +27,7 @@ TunnelEncap::TunnelEncap(string encap) {
 }
 
 TunnelEncap::TunnelEncap(TunnelEncapType::Encap tunnel_encap) {
+    fill(data_.begin(), data_.end(), 0);
     data_[0] = 0x03;
     data_[1] = 0x0C;
     // Reserved
