@@ -57,24 +57,18 @@ class Query(object):
 
 class Collector(object):
     def __init__(self, analytics_fixture, redis_uve, 
-                 logger, ipfix_port = False, syslog_port = False,
-                 protobuf_port = False, kafka = None, is_dup=False):
+                 logger, ipfix_port = False, sflow_port = False,
+                 syslog_port = False, protobuf_port = False,
+                 kafka = None, is_dup=False):
         self.analytics_fixture = analytics_fixture
-        self.syslog_port = syslog_port
         if kafka is None:
             self.kafka_port = None
         else:
             self.kafka_port = kafka.port
         # If these ports are needed, "start" should allocate them
-        if self.syslog_port:
-            self.syslog_port = 0
-        else:
-            self.syslog_port = -1
-        self.ipfix_port = ipfix_port
-        if self.ipfix_port:
-            self.ipfix_port = 0
-        else:
-            self.ipfix_port = -1
+        self.syslog_port = 0 if syslog_port else -1
+        self.ipfix_port = 0 if ipfix_port else -1
+        self.sflow_port = 0 if sflow_port else -1
 
         self.protobuf_port = protobuf_port
         self.http_port = 0
@@ -109,6 +103,10 @@ class Collector(object):
         return self.ipfix_port
     # end get_ipfix_port
 
+    def get_sflow_port(self):
+        return self.sflow_port
+    # end get_sflow_port
+
     def get_generator_id(self):
         return self._generator_id
     # end get_generator_id
@@ -123,6 +121,8 @@ class Collector(object):
         subprocess.call(['rm', '-rf', self._log_file])
         if (self.ipfix_port == 0):
             self.ipfix_port = AnalyticsFixture.get_free_udp_port()
+        if self.sflow_port == 0:
+            self.sflow_port = AnalyticsFixture.get_free_udp_port()
         if (self.syslog_port == 0):
             self.syslog_port = AnalyticsFixture.get_free_port()
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
@@ -135,6 +135,7 @@ class Collector(object):
             '--DEFAULT.http_server_port', str(self.http_port),
             '--DEFAULT.syslog_port', str(self.syslog_port),
             '--DEFAULT.ipfix_port', str(self.ipfix_port),
+            '--DEFAULT.sflow_port', str(self.sflow_port),
             '--DEFAULT.log_level', 'SYS_DEBUG',
             '--DEFAULT.log_file', self._log_file]
         if self.redis_password:
@@ -492,14 +493,15 @@ class Kafka(object):
 class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, redis_port, cassandra_port,
-                 ipfix_port = False, syslog_port = False, protobuf_port = False,
-                 noqed=False, collector_ha_test=False, redis_password=None,
-                 kafka_zk=0):
+                 ipfix_port = False, sflow_port = False, syslog_port = False,
+                 protobuf_port = False, noqed=False, collector_ha_test=False,
+                 redis_password=None, kafka_zk=0):
 
         self.builddir = builddir
         self.redis_port = redis_port
         self.cassandra_port = cassandra_port
         self.ipfix_port = ipfix_port
+        self.sflow_port = sflow_port
         self.syslog_port = syslog_port
         self.protobuf_port = protobuf_port
         self.logger = logger
@@ -525,6 +527,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
                            ipfix_port = self.ipfix_port,
+                           sflow_port = self.sflow_port,
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port,
                            kafka = self.kafka)] 
