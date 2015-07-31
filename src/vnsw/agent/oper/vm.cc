@@ -12,7 +12,6 @@
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
 #include <oper/config_manager.h>
-#include <cfg/cfg_listener.h>
 
 using namespace std;
 using namespace autogen;
@@ -124,14 +123,10 @@ bool VmTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
-    uuid id;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, id) == false)
-        return false;
+bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &id) {
 
-    string virtual_router_type = "none";
-
-    if (node->IsDeleted()) {
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         req.key.reset(new VmKey(id));
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
@@ -141,16 +136,12 @@ bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
     return false;
 }
 
-bool VmTable::ProcessConfig(IFMapNode *node, DBRequest &req){
+bool VmTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &id) {
+
     if (node->IsDeleted()) {
         return false;
     }
-
-    uuid id;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, id) == false)
-        return false;
-
-    string virtual_router_type = "none";
 
     req.key.reset(new VmKey(id));
     VmData::SGUuidList sg_list(0);
