@@ -18,7 +18,7 @@ class NetNSInstanceAdapter : public InstanceManagerAdapter {
         bool update);
     InstanceTask* CreateStopTask(const ServiceInstance::Properties &props);
     bool isApplicable(const ServiceInstance::Properties &props);
-
+    void set_cmd(const std::string &netns_cmd) { netns_cmd_ = netns_cmd;}
  private:
     std::string netns_cmd_;
     std::string loadbalancer_config_path_;

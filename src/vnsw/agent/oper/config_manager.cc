@@ -80,7 +80,8 @@ public:
             IFMapNode *node = state->node();
 
             DBRequest req;
-            if (table_->ProcessConfig(node, req)) {
+            boost::uuids::uuid id = state->uuid();
+            if (table_->ProcessConfig(node, req, id)) {
                 table_->Enqueue(&req);
             }
             list_.erase(prev);
@@ -361,4 +362,58 @@ string ConfigManager::ProfileInfo() const {
         << " Enqueue " << setw(8) << logical_interface_list_->enqueue_count()
         << " Process" << setw(8) << logical_interface_list_->process_count() << endl;
     return str.str();
+}
+
+// When traversing graph, check if an IFMapNode can be used. Conditions are,
+// - The node is not in deleted state
+// - The node was notified earlier
+bool ConfigManager::CanUseNode(IFMapNode *node) {
+    if (node->IsDeleted()) {
+        return false;
+    }
+    return true;
+}
+
+// When traversing graph, check if an IFMapNode can be used. Conditions are,
+// - The node is not in deleted state
+// - The node was notified earlier
+// - The node is an entry in IFMapAgentTable specified
+bool ConfigManager::CanUseNode(IFMapNode *node, IFMapAgentTable *table) {
+    if (table != static_cast<IFMapAgentTable *>(node->table())) {
+        return false;
+    }
+
+    return CanUseNode(node);
+}
+
+bool ConfigManager::SkipNode(IFMapNode *node) {
+    return !CanUseNode(node);
+}
+
+bool ConfigManager::SkipNode(IFMapNode *node, IFMapAgentTable *table) {
+    return !CanUseNode(node, table);
+}
+
+
+IFMapNode *ConfigManager::FindAdjacentIFMapNode(IFMapNode *node,
+                                              const char *type) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (SkipNode(adj_node)) {
+            continue;
+        }
+        if (strcmp(adj_node->table()->Typename(), type) == 0) {
+            return adj_node;
+        }
+    }
+
+    return NULL;
+}
+
+void ConfigManager::NodeResync(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    dep->PropogateNodeAndLinkChange(node);
 }

@@ -34,7 +34,9 @@ class IFMapDependencyManager;
 class IFMapNodeState : public DBState {
   public:
     IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
-            : manager_(manager), node_(node), object_(NULL), refcount_(0) {
+            : manager_(manager), node_(node), object_(NULL),
+            uuid_(boost::uuids::nil_uuid()), refcount_(0),
+            notify_(true) {
     }
 
     IFMapNode *node() { return node_; }
@@ -42,6 +44,18 @@ class IFMapNodeState : public DBState {
     void set_object(DBEntry *object) {
         object_ = object;
     }
+
+    void set_uuid(const boost::uuids::uuid &u) {
+        uuid_ = u;
+    }
+
+    void set_notify(bool flag) {
+        notify_ = flag;
+    }
+
+    bool notify() { return notify_;};
+
+    boost::uuids::uuid uuid() { return uuid_; }
 
     void clear_object() {
         object_ = NULL;
@@ -54,7 +68,9 @@ class IFMapNodeState : public DBState {
     IFMapDependencyManager *manager_;
     IFMapNode *node_;
     DBEntry *object_;
+    boost::uuids::uuid uuid_;
     int refcount_;
+    bool notify_;
 };
 
 
@@ -103,6 +119,7 @@ public:
      * Add DBState to an IFMapNode
      */
     IFMapNodePtr SetState(IFMapNode *node);
+    void SetNotify(IFMapNode *node, bool notfiy_flag);
     IFMapNodeState *IFMapNodeGet(IFMapNode *node);
 
     /*
@@ -122,6 +139,7 @@ public:
 
     IFMapDependencyTracker *tracker() const { return tracker_.get(); }
     void PropogateNodeChange(IFMapNode *node);
+    void PropogateNodeAndLinkChange(IFMapNode *node);
 
 private:
     /*

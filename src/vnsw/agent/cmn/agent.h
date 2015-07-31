@@ -157,7 +157,6 @@ class AgentDnsXmppChannel;
 class DiscoveryServiceClient;
 class EventManager;
 class IFMapAgentStaleCleaner;
-class CfgListener;
 
 class ArpProto;
 class DhcpProto;
@@ -670,8 +669,6 @@ public:
     AgentConfig *cfg() const; 
     void set_cfg(AgentConfig *cfg);
 
-    CfgListener *cfg_listener() const;
-
     AgentStats *stats() const;
     void set_stats(AgentStats *stats);
 
@@ -975,7 +972,6 @@ private:
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;
     std::string pkt_interface_name_;
-    CfgListener *cfg_listener_;
 
     ArpProto *arp_proto_;
     DhcpProto *dhcp_proto_;
