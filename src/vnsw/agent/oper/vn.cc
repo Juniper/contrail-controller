@@ -16,7 +16,6 @@
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_mirror.h>
-#include <cfg/cfg_listener.h>
 
 #include <oper/route_common.h>
 #include <oper/interface_common.h>
@@ -313,6 +312,7 @@ std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vn));
 }
 
+extern IFMapNode *vn_test_node;
 DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
@@ -576,7 +576,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent()->cfg_listener()->SkipNode(adj_node)) {
+        if (agent()->config_manager()->SkipNode(adj_node)) {
             continue;
         }
 
@@ -664,15 +664,12 @@ bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
-    assert(cfg);
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
+bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &u) {
 
-    if (node->IsDeleted()) {
+    assert(boost::uuids::nil_uuid() != u);
+
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         req.key.reset(new VnKey(u));
         req.oper = DBRequest::DB_ENTRY_DELETE;
         Enqueue(&req);
@@ -683,17 +680,12 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
-bool VnTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+bool VnTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &u) {
+
     if (node->IsDeleted()) {
         return false;
     }
-
-    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
-    assert(cfg);
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new VnKey(u));
@@ -1082,6 +1074,32 @@ AgentSandeshPtr VnTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                               args->GetString("name")));
 }
 
+DomainConfig::DomainConfig(Agent *agent) : agent_(agent) {
+}
+
+DomainConfig::~DomainConfig() {
+}
+
+void DomainConfig::Init() {
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
+    assert(cfg_db);
+    network_ipam_listener_id_ = cfg_db->Register
+                (boost::bind(&DomainConfig::IpamSync, this, _1, _2));
+
+    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
+    assert(cfg_db);
+    vdns_listener_id_ =
+        cfg_db->Register(boost::bind(&DomainConfig::VDnsSync, this, _1, _2));
+}
+
+void DomainConfig::Terminate() {
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
+    cfg_db->Unregister(network_ipam_listener_id_);
+
+    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
+    cfg_db->Unregister(vdns_listener_id_);
+}
+
 void DomainConfig::RegisterIpamCb(Callback cb) {
     ipam_callback_.push_back(cb);
 }
@@ -1092,7 +1110,8 @@ void DomainConfig::RegisterVdnsCb(Callback cb) {
 
 // Callback is invoked only if there is change in IPAM properties.
 // In case of change in a link with IPAM, callback is not invoked.
-void DomainConfig::IpamSync(IFMapNode *node) {
+void DomainConfig::IpamSync(DBTablePartBase *partition, DBEntryBase *dbe) {
+    IFMapNode *node = static_cast <IFMapNode *> (dbe);
     autogen::NetworkIpam *network_ipam =
             static_cast <autogen::NetworkIpam *> (node->GetObject());
     assert(network_ipam);
@@ -1119,7 +1138,8 @@ void DomainConfig::IpamSync(IFMapNode *node) {
 
 }
 
-void DomainConfig::VDnsSync(IFMapNode *node) {
+void DomainConfig::VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe) {
+    IFMapNode *node = static_cast <IFMapNode *> (dbe);
     autogen::VirtualDns *virtual_dns =
             static_cast <autogen::VirtualDns *> (node->GetObject());
     assert(virtual_dns);
@@ -1186,7 +1206,4 @@ bool DomainConfig::GetVDns(const std::string &vdns,
         return false;
     *vdns_type = it->second;
     return true;
-}
-
-DomainConfig::~DomainConfig() {
 }

@@ -83,11 +83,13 @@ public:
     virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
 
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
-    bool ProcessConfig(IFMapNode *node, DBRequest &req);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static SgTable *GetInstance() {return sg_table_;};
