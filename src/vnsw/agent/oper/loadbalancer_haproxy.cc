@@ -13,6 +13,8 @@
 
 #include "loadbalancer_properties.h"
 
+#define TCP_MULTI_PORT_SUFFIX "-tcp-multi-port-binding"
+
 using namespace std;
 using boost::assign::map_list_of;
 
@@ -107,6 +109,24 @@ void LoadbalancerHaproxy::GenerateFrontend(
              << "maxconn " << vip.connection_limit << endl;
     }
     *out << endl;
+
+    AgentParam::LBMultiPortMap port_map = agent_->params()->si_lb_multi_port_binding();
+    if (vip.protocol.compare("TCP") == 0 &&
+        port_map.find(vip.protocol_port) != port_map.end()) {
+        uint32_t port = port_map.find(vip.protocol_port)->second;
+        *out << std::endl;
+        *out << "frontend " << props.vip_uuid() << TCP_MULTI_PORT_SUFFIX << endl;
+        *out << string(4, ' ') << "bind " << vip.address << ":" << port << endl;
+        *out << string(4, ' ') << "mode tcp" << endl;
+        *out << string(4, ' ')
+             << "default_backend " << pool_id << TCP_MULTI_PORT_SUFFIX << endl;
+
+        if (vip.connection_limit >= 0) {
+            *out << string(4, ' ')
+                 << "maxconn " << vip.connection_limit << endl;
+        }
+        *out << endl;
+    }
 }
 
 
@@ -176,6 +196,32 @@ void LoadbalancerHaproxy::GenerateBackend(
                  << max_retries;
         }
         *out << endl;
+    }
+
+
+    AgentParam::LBMultiPortMap port_map = agent_->params()->si_lb_multi_port_binding();
+    if (vip.protocol.compare("TCP") == 0 &&
+        port_map.find(vip.protocol_port) != port_map.end()) {
+        uint32_t port = port_map.find(vip.protocol_port)->second;
+        *out << endl;
+        *out << "backend " << pool_id << TCP_MULTI_PORT_SUFFIX << endl;
+        *out << string(4, ' ') << "mode tcp" << endl;
+        *out << string(4, ' ')
+             << "balance " << BalanceMap(pool.loadbalancer_method) << endl;
+        for (LoadbalancerProperties::MemberMap::const_iterator iter =
+                     props.members().begin();
+             iter != props.members().end(); ++iter) {
+            const autogen::LoadbalancerMemberType &member = iter->second;
+            *out << string(4, ' ')
+                 << "server " << iter->first << " " << member.address
+                 << ":" << port
+                 << " weight " << member.weight;
+            if (timeout) {
+                *out << " check inter " << timeout << " rise 1 fall "
+                     << max_retries;
+            }
+            *out << endl;
+        }
     }
 }
 
