@@ -175,7 +175,9 @@ TEST_F(VrfAssignTest, AddDelete) {
     //Build interface config data without service vlan
     //configuration
     DBRequest request1;
-    intf_table->VmiProcessConfig(node, request1);
+    boost::uuids::uuid u;
+    intf_table->IFNodeToUuid(node, u);
+    intf_table->VmiProcessConfig(node, request1, u);
 
     //Build interface config data with service vlan configuration
     AddVrf("service-vrf1", 12);
@@ -189,7 +191,7 @@ TEST_F(VrfAssignTest, AddDelete) {
     EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 2) != NULL);
 
     DBRequest request2;
-    intf_table->VmiProcessConfig(node, request2);
+    intf_table->VmiProcessConfig(node, request2, u);
 
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet1");
