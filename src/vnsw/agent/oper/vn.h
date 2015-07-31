@@ -212,9 +212,11 @@ public:
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBResync(DBEntry *entry, const DBRequest *req); 
 
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
-    virtual bool ProcessConfig(IFMapNode *node, DBRequest &req);
+    virtual bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
 
     int ComputeCfgVxlanId(IFMapNode *node);
     void CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3, bool *rpf,
@@ -269,13 +271,14 @@ public:
     typedef std::pair<std::string, autogen::VirtualDnsType> VdnsDomainConfigPair;
     typedef boost::function<void(IFMapNode *)> Callback;
     
-    DomainConfig() {}
+    DomainConfig(Agent *);
     virtual ~DomainConfig();
+    void Init();
+    void Terminate();
     void RegisterIpamCb(Callback cb);
     void RegisterVdnsCb(Callback cb);
-    void IpamSync(IFMapNode *node);
-    void VDnsSync(IFMapNode *node);
-
+    void IpamSync(DBTablePartBase *partition, DBEntryBase *dbe);
+    void VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe);
     bool GetIpam(const std::string &name, autogen::IpamType *ipam);
     bool GetVDns(const std::string &vdns, autogen::VirtualDnsType *vdns_type);
 
@@ -289,6 +292,10 @@ private:
     VdnsDomainConfigMap vdns_config_;
     std::vector<Callback> ipam_callback_;
     std::vector<Callback> vdns_callback_;
+    Agent *agent_;
+    DBTableBase::ListenerId network_ipam_listener_id_;
+    DBTableBase::ListenerId vdns_listener_id_;
+
 
     DISALLOW_COPY_AND_ASSIGN(DomainConfig);
 };

@@ -94,6 +94,7 @@ void AgentDBTablePartition::Remove(DBEntryBase *entry) {
 }
 
 bool AgentDBTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id) {
+    id = boost::uuids::nil_uuid();
     return false;
 }
 

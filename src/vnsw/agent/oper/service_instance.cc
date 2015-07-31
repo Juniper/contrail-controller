@@ -10,7 +10,6 @@
 #include "oper/ifmap_dependency_manager.h"
 #include "oper/operdb_init.h"
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <cmn/agent.h>
 #include <init/agent_param.h>
 #include <oper/agent_sandesh.h>
@@ -218,17 +217,20 @@ static void FindAndSetInterfaces(
         properties->interface_count++;
         if(vmi_props.service_interface_type == "left") {
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
-            properties->mac_addr_inside = vmi->mac_addresses().at(0);
+            if  (vmi->mac_addresses().size())
+                properties->mac_addr_inside = vmi->mac_addresses().at(0);
             properties->ip_addr_inside = FindInterfaceIp(graph, adj);
         }
         else if(vmi_props.service_interface_type == "right") {
             properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
-            properties->mac_addr_outside = vmi->mac_addresses().at(0);
+            if  (vmi->mac_addresses().size())
+                properties->mac_addr_outside = vmi->mac_addresses().at(0);
             properties->ip_addr_outside = FindInterfaceIp(graph, adj);
         }
         else if(vmi_props.service_interface_type == "management") {
             properties->vmi_management = IdPermsGetUuid(vmi->id_perms());
-            properties->mac_addr_management = vmi->mac_addresses().at(0);
+            if  (vmi->mac_addresses().size())
+                properties->mac_addr_management = vmi->mac_addresses().at(0);
             properties->ip_addr_management = FindInterfaceIp(graph, adj);
         }
 
@@ -616,37 +618,6 @@ bool ServiceInstance::IsUsable() const {
 }
 
 
-void ServiceInstance::CalculateProperties(
-    DBGraph *graph, Properties *properties) {
-    properties->Clear();
-
-    if (node_->IsDeleted()) {
-        return;
-    }
-
-    FindAndSetTypes(graph, node_, properties);
-
-    /*
-     * The vrouter agent is only interest in the properties of service
-     * instances that are implemented as a network-namespace.
-     */
-    if (properties->virtualization_type != NetworkNamespace && properties->virtualization_type != VRouterInstance) {
-        return;
-    }
-
-    IFMapNode *vm_node = FindAndSetVirtualMachine(graph, node_, properties);
-    if (vm_node == NULL) {
-        return;
-    }
-
-    autogen::ServiceInstance *svc_instance =
-                 static_cast<autogen::ServiceInstance *>(node_->GetObject());
-    FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
-
-    if (properties->service_type == LoadBalancer) {
-        FindAndSetLoadbalancer(graph, node_, properties);
-    }
-}
 
 void ServiceInstanceReq::HandleRequest() const {
     AgentSandeshPtr sand(new AgentServiceInstanceSandesh(context(),
@@ -680,11 +651,16 @@ DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
     svc_instance->SetKey(request->key.get());
     ServiceInstanceCreate *data =
             static_cast<ServiceInstanceCreate *>(request->data.get());
-    svc_instance->set_node(data->node());
     assert(dependency_manager_);
     svc_instance->SetIFMapNodeState
         (dependency_manager_->SetState(data->node()));
     dependency_manager_->SetObject(data->node(), svc_instance);
+
+    ServiceInstance::Properties properties;
+    properties.Clear();
+    assert(graph_);
+    CalculateProperties(graph_, svc_instance->ifmap_node(), &properties);
+    svc_instance->set_properties(properties);
 
     return svc_instance;
 }
@@ -692,8 +668,10 @@ DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
 bool ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance  = static_cast<ServiceInstance *>(entry);
     assert(dependency_manager_);
-    dependency_manager_->SetObject(svc_instance->node(), NULL);
-    svc_instance->SetIFMapNodeState(NULL);
+    if (svc_instance->ifmap_node()) {
+        dependency_manager_->SetObject(svc_instance->ifmap_node(), NULL);
+        svc_instance->SetIFMapNodeState(NULL);
+    }
     return true;
 }
 
@@ -707,12 +685,22 @@ bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {
         ServiceInstanceUpdate *data =
                 static_cast<ServiceInstanceUpdate *>(request->data.get());
         svc_instance->set_properties(data->properties());
-    } else if (dynamic_cast<ServiceInstanceCreate*>(request->data.get()) != NULL) {
-        ServiceInstance::Properties properties;
-        properties.Clear();
-        assert(graph_);
-        svc_instance->CalculateProperties(graph_, &properties);
-        svc_instance->set_properties(properties);
+    } else {
+        ServiceInstanceCreate *data = dynamic_cast<ServiceInstanceCreate*>(request->data.get());
+        if (data) {
+            assert(graph_); 
+            if (!svc_instance->ifmap_node()) {
+                ServiceInstance::Properties properties;
+                svc_instance->SetKey(request->key.get());
+                properties.Clear(); 
+                CalculateProperties(graph_, data->node(), &properties); 
+                assert(dependency_manager_);
+                svc_instance->set_properties(properties);
+                svc_instance->SetIFMapNodeState
+                            (dependency_manager_->SetState(data->node()));
+                dependency_manager_->SetObject(data->node(), svc_instance);
+            }
+        }
     }
     return true;
 }
@@ -728,19 +716,74 @@ void ServiceInstanceTable::Initialize(
         boost::bind(&ServiceInstanceTable::ChangeEventHandler, this, _1, _2));
 }
 
-bool ServiceInstanceTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
-    uuid id;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, id) == false)
-        return false;
+bool ServiceInstanceTable::IFNodeToReq(IFMapNode *node, DBRequest
+        &request, boost::uuids::uuid &id) {
+
+    assert(boost::uuids::nil_uuid() != id);
 
     request.key.reset(new ServiceInstanceKey(id));
-    if (!node->IsDeleted()) {
-        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        request.data.reset(new ServiceInstanceCreate(node));
-    } else {
+    if ((request.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         request.oper = DBRequest::DB_ENTRY_DELETE;
+        return true;
+    }
+
+    request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
+    ServiceInstance *svc_instance = static_cast<ServiceInstance *>
+                                                    (state->object());
+
+    if (!svc_instance || svc_instance->uuid() != id) {
+        request.data.reset(new ServiceInstanceCreate(node));
+        return true;
+    } else {
+        assert(graph_);
+        ServiceInstance::Properties properties;
+        CalculateProperties(graph_, node, &properties);
+
+        if (properties.CompareTo(svc_instance->properties()) == 0)
+            return false;
+
+        if (svc_instance->properties().Usable() != properties.Usable()) {
+            LOG(DEBUG, "service-instance properties change"
+                        << svc_instance->properties().DiffString(properties));
+        }
+        request.data.reset(new ServiceInstanceUpdate(properties));
     }
     return true;
+}
+
+void ServiceInstanceTable::CalculateProperties(
+    DBGraph *graph, IFMapNode *node, ServiceInstance::Properties *properties) {
+
+    properties->Clear();
+
+    if (node->IsDeleted()) {
+        return;
+    }
+
+    FindAndSetTypes(graph, node, properties);
+
+    /*
+     * The vrouter agent is only interest in the properties of service
+     * instances that are implemented as a network-namespace.
+     */
+    if ((properties->virtualization_type != ServiceInstance::NetworkNamespace) &&
+            (properties->virtualization_type != ServiceInstance::VRouterInstance)) {
+        return;
+    }
+
+    IFMapNode *vm_node = FindAndSetVirtualMachine(graph, node, properties);
+    if (vm_node == NULL) {
+        return;
+    }
+
+    autogen::ServiceInstance *svc_instance =
+                 static_cast<autogen::ServiceInstance *>(node->GetObject());
+    FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
+
+    if (properties->service_type == ServiceInstance::LoadBalancer) {
+        FindAndSetLoadbalancer(graph, node, properties);
+    }
 }
 
 bool ServiceInstanceTable::IFNodeToUuid(IFMapNode *node, uuid &idperms_uuid) {
@@ -751,33 +794,33 @@ bool ServiceInstanceTable::IFNodeToUuid(IFMapNode *node, uuid &idperms_uuid) {
     return true;
 }
 void ServiceInstanceTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
-    if (entry == NULL)
-        return;
 
-    ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
+    DBRequest req;
+    boost::uuids::uuid new_uuid;
+    IFNodeToUuid(node, new_uuid);
+    IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
+    boost::uuids::uuid old_uuid = state->uuid();
 
-    /*
-     * Do not enqueue an ADD_CHANGE operation after the DELETE generated
-     * by IFNodeToReq.
-     */
-    if (svc_instance->node()->IsDeleted()) {
-        return;
+    if (!node->IsDeleted()) {
+        if (entry) {
+            if ((old_uuid != new_uuid)) {
+                if (old_uuid != boost::uuids::nil_uuid()) {
+                    req.oper = DBRequest::DB_ENTRY_DELETE;
+                    if (IFNodeToReq(node, req, old_uuid) == true) {
+                        Enqueue(&req);
+                    }
+                }
+            }
+        }
+        state->set_uuid(new_uuid);
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    } else {
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        new_uuid = old_uuid;
     }
 
-    assert(graph_);
-    ServiceInstance::Properties properties;
-    svc_instance->CalculateProperties(graph_, &properties);
-
-    if (properties.CompareTo(svc_instance->properties()) != 0) {
-        if (svc_instance->properties().Usable() != properties.Usable()) {
-            LOG(DEBUG, "service-instance properties change"
-                << svc_instance->properties().DiffString(properties));
-        }
-        DBRequest request;
-        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        request.key = svc_instance->GetDBRequestKey();
-        request.data.reset(new ServiceInstanceUpdate(properties));
-        Enqueue(&request);
+    if (IFNodeToReq(node, req, new_uuid) == true) {
+        Enqueue(&req);
     }
 }
 
