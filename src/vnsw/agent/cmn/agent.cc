@@ -105,7 +105,6 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Services",
         "Agent::StatsCollector",
         "sandesh::RecvQueue",
-        "io::ReaderTask",
         "Agent::Uve",
         "Agent::KSync",
         "Agent::PktFlowResponder",

@@ -185,9 +185,9 @@ TEST_F(Ipv6Test, v6_subnet_gw_route) {
     InetUnicastRouteEntry *rt2 = RouteGetV6("vrf1", v6_subnet1, 120);
     InetUnicastRouteEntry *rt3 = RouteGetV6("vrf1", v6_subnet2, 96);
 
-    EXPECT_TRUE(rt1 != NULL);
-    EXPECT_TRUE(rt2 != NULL);
-    EXPECT_TRUE(rt3 != NULL);
+    WAIT_FOR(100, 1000, ((rt1 = RouteGet("vrf1", v4_subnet1, 24)) != NULL));
+    WAIT_FOR(100, 1000, ((rt2 = RouteGetV6("vrf1", v6_subnet1, 120)) != NULL));
+    WAIT_FOR(100, 1000, ((rt3 = RouteGetV6("vrf1", v6_subnet2, 96)) != NULL));
 
     //Verify subnet routes point to discard nexthops
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);

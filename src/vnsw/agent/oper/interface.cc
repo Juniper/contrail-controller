@@ -56,38 +56,6 @@ void InterfaceTable::Init(OperDB *oper) {
 }
 
 void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
-    typedef IFMapDependencyTracker::PropagateList PropagateList;
-    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
-
-    ReactionMap physical_port_react = map_list_of<std::string, PropagateList>
-        ("self",
-         list_of("self")
-                ("physical-router-physical-interface")
-                ("physical-interface-logical-interface"))
-        ("physical-interface-logical-interface",
-         list_of("physical-router-physical-interface"))
-        ("physical-router-physical-interface",
-         list_of("self")
-                ("physical-interface-logical-interface"));
-    dep->RegisterReactionMap("physical-interface", physical_port_react);
-    dep->Register("physical-interface",
-                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this, _1));
-    agent()->cfg()->Register("physical-interface", this,
-                             autogen::PhysicalInterface::ID_PERMS);
-
-    ReactionMap logical_port_react = map_list_of<std::string, PropagateList>
-        ("self", list_of("self") ("physical-interface-logical-interface"))
-        ("physical-interface-logical-interface",
-         list_of("self")
-                ("physical-router-physical-interface"))
-        ("logical-interface-virtual-machine-interface",
-         list_of("physical-interface-logical-interface") ("self"));
-    dep->RegisterReactionMap("logical-interface", logical_port_react);
-    dep->Register("logical-interface",
-                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this,
-                              _1));
-    agent()->cfg()->Register("logical-interface", this,
-                             autogen::LogicalInterface::ID_PERMS);
 }
 
 bool InterfaceTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -113,6 +81,22 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
         return VmiIFNodeToReq(node, req);
+    }
+
+    return false;
+}
+
+bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+    if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
+        return PhysicalInterfaceProcessConfig(node, req);
+    }
+
+    if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
+        return LogicalInterfaceProcessConfig(node, req);
+    }
+
+    if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
+        return VmiProcessConfig(node, req);
     }
 
     return false;

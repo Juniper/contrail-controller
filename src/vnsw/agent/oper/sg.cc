@@ -18,6 +18,7 @@
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <oper/config_manager.h>
 
 using namespace autogen;
 using namespace std;
@@ -51,7 +52,7 @@ std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(sg));
 }
 
-DBEntry *SgTable::Add(const DBRequest *req) {
+DBEntry *SgTable::OperDBAdd(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
     SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
@@ -61,7 +62,7 @@ DBEntry *SgTable::Add(const DBRequest *req) {
     return sg;
 }
 
-bool SgTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool SgTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
     SgEntry *sg = static_cast<SgEntry *>(entry);
     sg->SendObjectLog(AgentLogEvent::CHANGE);
@@ -74,13 +75,13 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     SgData *data = static_cast<SgData *>(req->data.get());
     
     AclKey key(data->egress_acl_id_);
-    AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
+    AclDBEntry *acl = static_cast<AclDBEntry *>(agent()->acl_table()->FindActiveEntry(&key));
     if (sg->egress_acl_ != acl) {
         sg->egress_acl_ = acl;
         ret = true;
     }
     key = AclKey(data->ingress_acl_id_);
-    acl = static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
+    acl = static_cast<AclDBEntry *>(agent()->acl_table()->FindActiveEntry(&key));
     if (sg->ingress_acl_ != acl) {
         sg->ingress_acl_ = acl;
         ret = true;
@@ -88,7 +89,7 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-bool SgTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool SgTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
     sg->SendObjectLog(AgentLogEvent::DELETE);
     return true;
@@ -116,94 +117,69 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
         return false;
 
-    SgKey *key = new SgKey(u);
-    SgData *data  = NULL;
-    
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
-    } else {
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        uint32_t sg_id;
-        stringToInteger(cfg->id(), sg_id);
-        if (sg_id == SgTable::kInvalidSgId) {
-            OPER_TRACE(Sg, "Ignore SG id 0", UuidToString(u));
-            return false;
-        }
-        uuid egress_acl_uuid = nil_uuid();
-        uuid ingress_acl_uuid = nil_uuid();
-        IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-        for (DBGraphVertex::adjacency_iterator iter =
-                node->begin(table->GetGraph()); 
-                iter != node->end(table->GetGraph()); ++iter) {
-            IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-            if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
-                continue;
-            }
-
-            if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_acl_table()) {
-                AccessControlList *acl_cfg = static_cast<AccessControlList *>
-                    (adj_node->GetObject());
-                assert(acl_cfg);
-                autogen::IdPermsType id_perms = acl_cfg->id_perms();
-                if (adj_node->name().find("egress-access-control-list") != std::string::npos) {
-                    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                               egress_acl_uuid);
-                }
-                if (adj_node->name().find("ingress-access-control-list") != std::string::npos) {
-                    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                               ingress_acl_uuid);
-                }
-            }
-        }
-        data = new SgData(sg_id, egress_acl_uuid, ingress_acl_uuid);
-    }
-    req.key.reset(key);
-    req.data.reset(data);
-    Agent::GetInstance()->sg_table()->Enqueue(&req);
-
-    if (node->IsDeleted()) {
+        req.key.reset(new SgKey(u));
+        agent()->sg_table()->Enqueue(&req);
         return false;
     }
 
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-                 node->begin(table->GetGraph()); 
-         iter != node->end(table->GetGraph()); ++iter) {
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->SkipNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table())) {
-            continue;
-        }
-        if (adj_node->GetObject() == NULL) {
-            continue;
-        }
-        if (Agent::GetInstance()->interface_table()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInstance()->interface_table()->Enqueue(&req);
-        }
-    }
+    agent()->config_manager()->AddSgNode(node);
     return false;
 }
 
-bool SgTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
-                          const std::string &peer_type, IFMapNode *peer,
-                          DBRequest &req) {
-    // Add/Delete of link other than VMInterface will most likely need re-eval
-    // of VN.
-    if (peer_type != "virtual-machine-interface") {
-        return IFNodeToReq(node, req);
-    }
+bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+    if (node->IsDeleted())
+        return false;
 
-    // If peer is VMI, invoke re-eval if peer node is present
-    if (peer && peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
-        DBRequest vmi_req;
-        if (agent()->interface_table()->IFNodeToReq(peer, vmi_req) == true) {
-             LOG(DEBUG, "SG change sync for Port " << peer->name());
-             agent()->interface_table()->Enqueue(&vmi_req);
-        }
+    SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
+    assert(cfg);
+
+    uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
+    SgKey *key = new SgKey(u);
+    SgData *data  = NULL;
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    uint32_t sg_id;
+    stringToInteger(cfg->id(), sg_id);
+    if (sg_id == SgTable::kInvalidSgId) {
+        OPER_TRACE(Sg, "Ignore SG id 0", UuidToString(u));
         return false;
     }
 
+    uuid egress_acl_uuid = nil_uuid();
+    uuid ingress_acl_uuid = nil_uuid();
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+         node->begin(table->GetGraph()); 
+         iter != node->end(table->GetGraph()); ++iter) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent()->cfg_listener()->SkipNode(adj_node)) {
+            continue;
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_acl_table()) {
+            AccessControlList *acl_cfg = static_cast<AccessControlList *>
+                (adj_node->GetObject());
+            assert(acl_cfg);
+            autogen::IdPermsType id_perms = acl_cfg->id_perms();
+            if (adj_node->name().find("egress-access-control-list") != std::string::npos) {
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           egress_acl_uuid);
+            }
+            if (adj_node->name().find("ingress-access-control-list") != std::string::npos) {
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           ingress_acl_uuid);
+            }
+        }
+    }
+    data = new SgData(agent(), node, sg_id, egress_acl_uuid, ingress_acl_uuid);
+    req.key.reset(key);
+    req.data.reset(data);
+    agent()->sg_table()->Enqueue(&req);
     return false;
 }
 
