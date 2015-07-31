@@ -1796,20 +1796,11 @@ void BgpStressTest::VerifyXmppRouteNextHops() {
             }
             for (int rt = 0; rt < n_routes_; ++rt) {
                 Ip4Prefix prefix = GetAgentRoute(agent_id, i, rt);
-                TASK_UTIL_EXPECT_NE(
-                    static_cast<test::NetworkAgentMock::RouteEntry *>(NULL),
-                    agent->route_mgr_->Lookup(instance_name,
-                                              prefix.ToString()));
-                const test::NetworkAgentMock::RouteEntry *entry;
-                entry = agent->route_mgr_->Lookup(instance_name,
-                                                  prefix.ToString());
-                if (!entry) continue;
 
                 // We expect more next-hops, one from the agent and the rest
                 // the bgp peers.
-                TASK_UTIL_EXPECT_EQ((size_t) (1 + n_peers_),
-                  agent->route_mgr_->Lookup(instance_name,
-                    prefix.ToString())->entry.next_hops.next_hop.size());
+                TASK_UTIL_EXPECT_EQ((1 + n_peers_),
+                    agent->RouteNextHopCount(instance_name, prefix.ToString()));
             }
         }
     }
