@@ -34,7 +34,8 @@ class IFMapDependencyManager;
 class IFMapNodeState : public DBState {
   public:
     IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
-            : manager_(manager), node_(node), object_(NULL), refcount_(0) {
+            : manager_(manager), node_(node), object_(NULL),
+            uuid_(boost::uuids::nil_uuid()), refcount_(0) {
     }
 
     IFMapNode *node() { return node_; }
@@ -42,6 +43,11 @@ class IFMapNodeState : public DBState {
     void set_object(DBEntry *object) {
         object_ = object;
     }
+
+    void set_uuid(const boost::uuids::uuid &u) {
+        uuid_ = u;
+    }
+    boost::uuids::uuid uuid() { return uuid_; }
 
     void clear_object() {
         object_ = NULL;
@@ -54,6 +60,7 @@ class IFMapNodeState : public DBState {
     IFMapDependencyManager *manager_;
     IFMapNode *node_;
     DBEntry *object_;
+    boost::uuids::uuid uuid_;
     int refcount_;
 };
 

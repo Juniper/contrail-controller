@@ -42,15 +42,6 @@ public:
         return AgentRefCount<Loadbalancer>::GetRefCount();
     }
 
-    /*
-     * Walk the IFMap graph and calculate the properties for this node.
-     */
-    void CalculateProperties(DBGraph *graph, Properties *properties);
-
-    void set_node(IFMapNode *node) { node_ = node; }
-
-    IFMapNode *node() { return node_; }
-
     void set_properties(const Properties &properties);
     const Properties *properties() const;
 
@@ -60,9 +51,16 @@ public:
         ifmap_node_state_ref_ = ref;
     }
 
+    IFMapNode *ifmap_node() {
+        if (!ifmap_node_state_ref_)
+            return NULL;
+        IFMapNodeState *state = ifmap_node_state_ref_.get();
+        return state->node();
+    }
+
+
 private:
     boost::uuids::uuid uuid_;
-    IFMapNode *node_;
     std::auto_ptr<Properties> properties_;
     IFMapDependencyManager::IFMapNodePtr ifmap_node_state_ref_;
     DISALLOW_COPY_AND_ASSIGN(Loadbalancer);
@@ -81,6 +79,12 @@ public:
     void Initialize(DBGraph *graph, IFMapDependencyManager *dependency_manager);
 
     /*
+     * Walk the IFMap graph and calculate the properties for this node.
+     */
+    void CalculateProperties(DBGraph *graph, IFMapNode *node,
+            LoadbalancerProperties *properties);
+
+    /*
      * Add/Delete methods establish the mapping between the IFMapNode
      * and the Loadbalancer DBEntry with the dependency manager.
      */
@@ -93,12 +97,16 @@ public:
      *
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    IFMapDependencyManager *dependency_manager() {
+        return dependency_manager_;
+    }
 
 private:
     /*
