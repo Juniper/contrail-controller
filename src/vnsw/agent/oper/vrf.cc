@@ -14,7 +14,6 @@
 
 #include <init/agent_init.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <route/route.h>
 #include <oper/route_common.h>
 #include <oper/vn.h>
@@ -67,6 +66,13 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags) :
 VrfEntry::~VrfEntry() {
     if (id_ != kInvalidIndex) {
         VrfTable *table = static_cast<VrfTable *>(get_table());
+
+        if (ifmap_node()) {
+            IFMapDependencyManager *dep = table->agent()->
+                               oper_db()->dependency_manager();
+            dep->SetNotify(ifmap_node(), true);
+        }
+
         table->FreeVrfId(id_);
         table->VrfReuse(GetName());
     }
@@ -427,6 +433,12 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vrf->deleter_->Delete();
     vrf->StartDeleteTimer();
     vrf->SendObjectLog(AgentLogEvent::DELETE_TRIGGER);
+
+
+    if (vrf->ifmap_node()) {
+        IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
+        dep->SetNotify(vrf->ifmap_node(), false);
+    }
     return true;
 }
 
@@ -441,7 +453,7 @@ void VrfTable::VrfReuse(const std::string  name) {
     }
 
     OPER_TRACE(Vrf, "Resyncing configuration for VRF: ", name);
-    agent()->cfg_listener()->NodeReSync(node);
+    agent()->config_manager()->NodeResync(node);
 }
 
 void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
@@ -632,9 +644,10 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     return new VrfData(agent, node, VrfData::ConfigVrf, vn_uuid);
 }
 
-bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
     //Trigger add or delete only for non fabric VRF
-    if (node->IsDeleted()) {
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         req.key.reset(new VrfKey(node->name()));
         if (IsStaticVrf(node->name())) {
             //Fabric and link-local VRF will not be deleted,
@@ -653,7 +666,8 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
-bool VrfTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+bool VrfTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
     req.key.reset(new VrfKey(node->name()));
 
     //Trigger add or delete only for non fabric VRF
