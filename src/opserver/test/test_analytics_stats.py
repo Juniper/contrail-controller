@@ -10,8 +10,8 @@
 # System tests for analytics
 #
 
+import os
 import sys
-builddir = sys.path[0] + '/../..'
 import threading
 threading._DummyThread._Thread__stop = lambda x: 42
 import signal
@@ -34,11 +34,12 @@ from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
 from utils.opserver_introspect_utils import VerificationOpsSrv
-from utils.util import retry
+from utils.util import retry, find_buildroot
 from collections import OrderedDict
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
+builddir = find_buildroot(os.getcwd())
 
 
 class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
@@ -56,7 +57,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         mockcassandra.start_cassandra(cls.cassandra_port)
         cls.redis_port = StatsTest.get_free_port()
         mockredis.start_redis(
-            cls.redis_port, builddir+'/testroot/bin/redis-server')
+            cls.redis_port, 'redis-server')
 
     @classmethod
     def tearDownClass(cls):

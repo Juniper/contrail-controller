@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu
+set -x
 
 function usage {
   echo "Usage: $0 [OPTION]..."
@@ -73,7 +74,7 @@ function process_options {
 }
 
 build_top=${build_top:-$(pwd)/../../../../build/debug}
-#tools_path=${tools_path:-$(pwd)/../common/tests/}
+tools_path=${tools_path:-$(pwd)/../common/tests/}
 root_path=${root_path:-$(pwd)}
 venv_path=${venv_path:-$(pwd)}
 venv_dir=${venv_name:-.venv}
@@ -85,7 +86,6 @@ no_site_packages=0
 installvenvopts=
 installvenvopts="${installvenvopts} --find-links ${build_top}/config/common/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/api-lib/dist/"
-installvenvopts="${installvenvopts} --find-links ${build_top}/config/api-server/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/discovery/client/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/tools/sandesh/library/python/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/sandesh/common/dist/"
@@ -97,7 +97,7 @@ no_pep8=0
 coverage=0
 debug=0
 update=0
-concurrency=0
+concurrency=1
 
 LANG=en_US.UTF-8
 LANGUAGE=en_US:en

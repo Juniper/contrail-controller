@@ -227,8 +227,7 @@ class AlarmGen(object):
         assert(self._instance == None)
         self._log_file = '/tmp/alarmgen.messages.' + str(os.getpid())
         subprocess.call(['rm', '-rf', self._log_file])
-        args = ['python', self.analytics_fixture.builddir + \
-                '/analytics_test/bin/contrail-alarm-gen',
+        args = ['contrail-alarm-gen',
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--log_level', 'SYS_DEBUG']
@@ -308,8 +307,7 @@ class OpServer(object):
         assert(self._instance == None)
         self._log_file = '/tmp/opserver.messages.' + str(self.listen_port)
         subprocess.call(['rm', '-rf', self._log_file])
-        args = ['python', self.analytics_fixture.builddir + \
-                '/analytics_test/bin/contrail-analytics-api',
+        args = ['contrail-analytics-api',
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port',
                 str(self.analytics_fixture.redis_uves[0].port),
@@ -470,7 +468,7 @@ class Redis(object):
             if self.port == -1:
                 self.port = AnalyticsFixture.get_free_port()
             ret = mockredis.start_redis(
-                self.port, self.builddir+'/testroot/bin/redis-server',
+                self.port, 'redis-server',
                 self.password)
             assert(ret)
         else:
