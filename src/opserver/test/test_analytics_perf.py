@@ -9,11 +9,10 @@
 #
 # Copyright (c) 2013, Contrail Systems, Inc. All rights reserved.
 #
-import sys
-builddir = sys.path[0] + '/../..'
 
-from gevent import monkey; monkey.patch_all()
 import os
+import sys
+from gevent import monkey; monkey.patch_all()
 import subprocess
 import shutil
 import glob
@@ -32,9 +31,11 @@ import pycassa
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
+from utils.util import find_buildroot
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
+builddir = find_buildroot(os.getcwd())
 
 class cd:
     """Context manager for changing the current working directory"""
@@ -68,7 +69,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         mockcassandra.stop_cassandra(cls.cassandra_port)
         pass
 
-    #@unittest.skip('Skipping test_00_startup performance test')
+    @unittest.skip('Skipping test_00_startup performance test')
     def test_00_startup(self):
         '''
         This test loads the pre existing data into cassandra and does

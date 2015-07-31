@@ -2,7 +2,33 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from setuptools import setup, find_packages
+import os
+import re
+from setuptools import setup, find_packages, Command
+
+
+class RunTestsCommand(Command):
+    description = "Test command to run testr in virtualenv"
+    user_options = [
+        ('coverage', 'c',
+         "Generate code coverage report"),
+        ]
+    boolean_options = ['coverage']
+    def initialize_options(self):
+        self.cwd = None
+        self.coverage = False
+    def finalize_options(self):
+        self.cwd = os.getcwd()
+    def run(self):
+        logfname = 'test.log'
+        args = '-V'
+        if self.coverage:
+            logfname = 'coveragetest.log'
+            args += ' -c'
+        os.system('./run_tests.sh %s' % args)
+        with open(logfname) as f:
+            if not re.search('\nOK', ''.join(f.readlines())):
+                os._exit(1)
 
 setup(
     name='opserver',
@@ -33,5 +59,8 @@ setup(
             'contrail-logs-api-audit = opserver.api_log:main',
             'contrail-db = opserver.db:main',
         ],
+    },
+    cmdclass={
+       'run_tests': RunTestsCommand,
     },
 )

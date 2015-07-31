@@ -69,3 +69,11 @@ def obj_to_dict(obj):
     else:
         return obj
 # end obj_to_dict
+
+def find_buildroot(path):
+    pe = path.split(os.path.sep)
+    i, ln = -1, len(pe)
+    while i > -ln and (pe[i-1], pe[i]) != ('build', 'debug'):
+        i -= 1
+    if i == -ln: return None
+    return os.path.sep.join(pe[:i+1])

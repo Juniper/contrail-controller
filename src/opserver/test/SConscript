@@ -14,15 +14,15 @@ env = OpEnv.Clone()
 # multiple runs will clash with each other
 # enable this manually when required for debugging performance
 local_sources = [
-                 'uveserver_test.py',
-                 'analytics_uvetest.py',
-                 'analytics_systest.py',
-                 'analytics_statstest.py',
-                 'analytics_db_test.py',
-                 'analytics_db_test_password.py',
-                 'analytics_uflow_test.py',
-                 'overlay_to_underlay_mapper_test.py',
-                 'alarm_test.py',
+                'test_uveserver.py',
+                'test_analytics_uve.py',
+                'test_analytics_sys.py',
+                'test_analytics_stats.py',
+                'test_analytics_db.py',
+                'test_overlay_to_underlay_mapper.py',
+                'test_alarm.py',
+                'test_analytics_db_password.py',
+                'test_analytics_uflow.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
