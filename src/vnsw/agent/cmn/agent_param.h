@@ -18,6 +18,7 @@ class AgentParam  {
 public:
     static const uint32_t AgentStatsInterval = (30 * 1000); // time in millisecs
     static const uint32_t FlowStatsInterval = (1000); // time in milliseconds
+    typedef std::map<int, int> LBMultiPortMap;
 
     // Hypervisor mode we are working on
     enum Mode {
@@ -84,6 +85,10 @@ public:
     const int si_netns_timeout() const {return si_netns_timeout_;}
     std::string si_haproxy_ssl_cert_path() const {
         return si_haproxy_ssl_cert_path_;
+    }
+
+    LBMultiPortMap si_lb_multi_port_binding() const {
+        return si_lb_multi_port_binding_;
     }
 
     const std::string &config_file() const { return config_file_; }
@@ -180,6 +185,7 @@ private:
     void ParseFlows();
     void ParseHeadlessMode();
     void ParseServiceInstance();
+    void parse_multi_port_binding(const std::string &s);
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -244,7 +250,7 @@ private:
     int si_netns_workers_;
     int si_netns_timeout_;
     std::string si_haproxy_ssl_cert_path_;
-
+    LBMultiPortMap si_lb_multi_port_binding_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

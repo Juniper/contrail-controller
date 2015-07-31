@@ -427,6 +427,22 @@ void AgentParam::ParseHeadlessMode() {
     }
 }
 
+void AgentParam::parse_multi_port_binding(const std::string &s) {
+    istringstream iss(s);
+    vector<string> tokens;
+    copy(istream_iterator<string>(iss),
+                   istream_iterator<string>(),
+                   back_inserter(tokens));
+    for (vector<string>::iterator it=tokens.begin(); it != tokens.end(); it++) {
+        unsigned split_at = it->find("/");
+        if (split_at == string::npos)
+            continue;
+        int port = atoi(it->substr(0, split_at).c_str());
+        int fw_port = atoi(it->substr(split_at + 1).c_str());
+        this->si_lb_multi_port_binding_[port] = fw_port;
+    }
+}
+
 void AgentParam::ParseServiceInstance() {
     GetValueFromTree<string>(si_netns_command_,
                              "SERVICE-INSTANCE.netns_command");
@@ -436,6 +452,10 @@ void AgentParam::ParseServiceInstance() {
                           "SERVICE-INSTANCE.netns_timeout");
     GetValueFromTree<string>(si_haproxy_ssl_cert_path_,
                              "SERVICE-INSTANCE.haproxy_ssl_cert_path");
+    string tmp;
+    GetValueFromTree<string>(tmp,
+                             "SERVICE-INSTANCE.lb_multi_port_binding_list");
+    this->parse_multi_port_binding(tmp);
 }
 
 void AgentParam::ParseCollectorArguments
@@ -557,6 +577,10 @@ void AgentParam::ParseServiceInstanceArguments
     GetOptValue<int>(var_map, si_netns_timeout_, "SERVICE-INSTANCE.netns_timeout");
     GetOptValue<string>(var_map, si_haproxy_ssl_cert_path_,
             "SERVICE-INSTANCE.haproxy_ssl_cert_path");
+    string tmp;
+    GetOptValue<string>(var_map, tmp,
+                        "SERVICE-INSTANCE.lb_multi_port_binding_list");
+    this->parse_multi_port_binding(tmp);
 }
 
 // Initialize hypervisor mode based on system information
@@ -823,7 +847,8 @@ AgentParam::AgentParam(Agent *agent) :
         flow_stats_interval_(FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), si_netns_command_(), si_netns_workers_(0),
-        si_netns_timeout_(0), si_haproxy_ssl_cert_path_() {
+        si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
+        si_lb_multi_port_binding_() {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 }
