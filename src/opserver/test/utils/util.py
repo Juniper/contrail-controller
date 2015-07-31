@@ -69,3 +69,20 @@ def obj_to_dict(obj):
     else:
         return obj
 # end obj_to_dict
+
+def find_buildroot(path):
+    pe = path.split(os.path.sep)
+    i, ln = -1, len(pe)
+    while i > -ln and (pe[i-1], pe[i]) != ('build', 'debug'):
+        i -= 1
+    if i == -ln:
+        return path + '/build/debug'
+    return os.path.sep.join(pe[:i+1])
+#end find_buildroot
+
+def redis_path():
+    rs = 'redis-server'
+    if os.system('which ' + rs) != 0:
+        rs = find_buildroot(os.getcwd()) + '/testroot/bin/redis-server'
+    return rs
+#end redis_path
