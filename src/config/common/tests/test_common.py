@@ -426,6 +426,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         FakeKombu.reset()
         FakeIfmapClient.reset()
         CassandraCFs.reset()
+        FakeExtensionManager.reset()
         #cov_handle.stop()
         #cov_handle.report(file=open('covreport.txt', 'w'))
     # end cleanUp
