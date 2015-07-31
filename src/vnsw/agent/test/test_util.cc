@@ -1146,6 +1146,10 @@ bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
         return false;
 
     InetUnicastRouteKey key(NULL, vrf_name, addr, plen);
+    if (!vrf->GetInet4UnicastRouteTable()) {
+        return false;
+    }
+
     InetUnicastRouteEntry* route =
         static_cast<InetUnicastRouteEntry *>
         (vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&key));

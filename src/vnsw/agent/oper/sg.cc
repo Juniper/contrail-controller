@@ -11,7 +11,6 @@
 
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <oper/sg.h>
 #include <filter/acl.h>
 
@@ -109,15 +108,14 @@ bool SgTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
     SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
     assert(cfg);
 
-    uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
+    assert(!u.is_nil());
 
-    if (node->IsDeleted()) {
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         req.key.reset(new SgKey(u));
         agent()->sg_table()->Enqueue(&req);
@@ -128,16 +126,14 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
-bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
+
     if (node->IsDeleted())
         return false;
 
     SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
     assert(cfg);
-
-    uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
 
     SgKey *key = new SgKey(u);
     SgData *data  = NULL;
@@ -157,7 +153,7 @@ bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
          node->begin(table->GetGraph()); 
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent()->cfg_listener()->SkipNode(adj_node)) {
+        if (agent()->config_manager()->SkipNode(adj_node)) {
             continue;
         }
 

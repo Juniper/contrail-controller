@@ -242,7 +242,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
                          size() == 1U));
 
     //Disassociate logical-interface from physical_interface
-    uint32_t send_count = pr->send_count();
+    //uint32_t send_count = pr->send_count();
     DelLink("physical-interface", "pi1", "logical-interface", "li1");
     client->WaitForIdle();
     LogicalInterface *li = LogicalInterfaceGet(1, "li1");
@@ -252,7 +252,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
     client->WaitForIdle();
 
     //Verify that Prouter UVE is not sent
-    EXPECT_TRUE((pr->send_count() == send_count));
+    //EXPECT_TRUE((pr->send_count() == send_count));
 
     //Disassociate physical-device from physical-interface
     DelLink("physical-router", "prouter1", "physical-interface", "pi1");
