@@ -131,8 +131,10 @@ class PhysicalDeviceTable : public AgentOperDBTable {
     virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBResync(DBEntry *entry, const DBRequest *req);
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    bool ProcessConfig(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
