@@ -178,8 +178,10 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfTable *GetInstance() {return vrf_table_;};
 
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    bool ProcessConfig(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
 
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);

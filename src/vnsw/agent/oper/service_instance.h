@@ -104,15 +104,6 @@ public:
         return AgentRefCount<ServiceInstance>::GetRefCount();
     }
 
-    /*
-     * Walk the IFMap graph and calculate the properties for this node.
-     */
-    void CalculateProperties(DBGraph *graph, Properties *properties);
-
-    void set_node(IFMapNode *node) { node_ = node; }
-
-    IFMapNode *node() { return node_; }
-
     void set_properties(const Properties &properties) {
         properties_ = properties;
     }
@@ -127,9 +118,14 @@ public:
         ifmap_node_state_ref_ = ref;
     }
 
+    IFMapNode *ifmap_node() {
+        if (!ifmap_node_state_ref_)
+            return NULL;
+        IFMapNodeState *state = ifmap_node_state_ref_.get();
+        return state->node();
+    }
 private:
     boost::uuids::uuid uuid_;
-    IFMapNode *node_;
     Properties properties_;
     IFMapDependencyManager::IFMapNodePtr ifmap_node_state_ref_;
 
@@ -156,11 +152,18 @@ class ServiceInstanceTable : public AgentDBTable {
     virtual bool OnChange(DBEntry *entry, const DBRequest *request);
 
     /*
+     * Walk the IFMap graph and calculate the properties for this node.
+     */
+    void CalculateProperties(DBGraph *graph, IFMapNode *node,
+            ServiceInstance::Properties *properties);
+
+    /*
      * IFNodeToReq
      *
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            boost::uuids::uuid &u);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id);
 
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,

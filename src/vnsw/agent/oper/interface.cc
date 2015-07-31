@@ -70,33 +70,35 @@ bool InterfaceTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return false;
 }
 
-bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &u) {
     if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
-        return PhysicalInterfaceIFNodeToReq(node, req);
+        return PhysicalInterfaceIFNodeToReq(node, req, u);
     }
 
     if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
-        return LogicalInterfaceIFNodeToReq(node, req);
+        return LogicalInterfaceIFNodeToReq(node, req, u);
     }
 
     if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
-        return VmiIFNodeToReq(node, req);
+        return VmiIFNodeToReq(node, req, u);
     }
 
     return false;
 }
 
-bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        boost::uuids::uuid &u) {
     if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
-        return PhysicalInterfaceProcessConfig(node, req);
+        return PhysicalInterfaceProcessConfig(node, req, u);
     }
 
     if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
-        return LogicalInterfaceProcessConfig(node, req);
+        return LogicalInterfaceProcessConfig(node, req, u);
     }
 
     if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
-        return VmiProcessConfig(node, req);
+        return VmiProcessConfig(node, req, u);
     }
 
     return false;

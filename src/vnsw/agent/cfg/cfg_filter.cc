@@ -20,7 +20,6 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_db.h>
 
-#include <cfg/cfg_listener.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_filter.h>
 

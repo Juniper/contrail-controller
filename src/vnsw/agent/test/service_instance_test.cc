@@ -2,12 +2,14 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "service_instance.h"
 
 #include <boost/uuid/random_generator.hpp>
 #include <pugixml/pugixml.hpp>
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
+#include <test/test_cmn_util.h>
 
 #include "base/test/task_test_util.h"
 #include "db/test/db_test_util.h"
@@ -53,62 +55,26 @@ static void UuidTypeSet(const uuid &uuid, autogen::UuidType *idpair) {
 
 class ServiceInstanceIntegrationTest : public ::testing::Test {
   protected:
-    ServiceInstanceIntegrationTest()
-            : agent_(new Agent),
-              agent_config_(new AgentConfig(agent_.get())) {
-        agent_->set_cfg(agent_config_.get());
-        oper_db_.reset(new OperDB(agent_.get()));
-        agent_->set_oper_db(oper_db_.get());
+    ServiceInstanceIntegrationTest() {
     }
 
     virtual void SetUp() {
-        DB *db = agent_->db();
-        agent_config_->CreateDBTables(db);
-        oper_db_->CreateDBTables(db);
-        agent_config_->RegisterDBClients(db);
-        oper_db_->RegisterDBClients();
-        agent_config_->Init();
-        oper_db_->Init();
-
-        MessageInit();
+        agent_ = Agent::GetInstance();
     }
 
     /*
      * TODO: Move code to OperDB::Shutdown.
      */
     void DBClear() {
-        agent_->interface_table()->Clear();
-        agent_->nexthop_table()->Clear();
-        agent_->vrf_table()->Clear();
-        agent_->vn_table()->Clear();
-        agent_->sg_table()->Clear();
-        agent_->vm_table()->Clear();
-        agent_->mpls_table()->Clear();
-        agent_->acl_table()->Clear();
-        agent_->mirror_table()->Clear();
-        agent_->vrf_assign_table()->Clear();
-        agent_->vxlan_table()->Clear();
-        agent_->service_instance_table()->Clear();
     }
 
     virtual void TearDown() {
+        IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(agent_->db(),
+                    agent_->cfg()->cfg_graph());
+        cl->StaleTimeout(1);
         task_util::WaitForIdle();
+        delete cl;
 
-        agent_->oper_db()->Shutdown();
-        DBClear();
-        agent_->cfg()->Shutdown();
-        task_util::WaitForIdle();
-
-        DB *database = agent_->db();
-        db_util::Clear(database);
-        task_util::WaitForIdle();
-
-        /**
-         * The factory create method for ifmap link table takes the
-         * graph as a boost::bind() argument; failure to cleanup the registry
-         * implies creating the table using a stale graph pointer.
-         */
-        DB::ClearFactoryRegistry();
     }
 
     void MessageInit() {
@@ -260,6 +226,7 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
         subnet.Clear();
         subnet.subnet.ip_prefix = ip_addr;
         subnet.subnet.ip_prefix_len = 24;
+        subnet.default_gateway = ip_addr;
         subnet_list.ipam_subnets.push_back(subnet);
         attr.SetData(&subnet_list);
 
@@ -341,7 +308,8 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
     uuid ConnectVirtualMachineInterface(const std::string &vm_name,
                                         const std::string &vmi_name,
                                         const std::string &vmi_mac_addr,
-                                        const std::string &vmi_ip_addr) {
+                                        const std::string &vmi_ip_addr,
+                                        bool is_left) {
         boost::uuids::random_generator gen;
         autogen::IdPermsType id;
         id.Clear();
@@ -355,6 +323,15 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
         mac_addresses.mac_address.push_back(vmi_mac_addr);
         vmi.SetProperty("virtual-machine-interface-mac-addresses",
                         &mac_addresses);
+
+        autogen::VirtualMachineInterfacePropertiesType properties;
+        if (is_left)
+            properties.service_interface_type = "left";
+        else
+            properties.service_interface_type = "right";
+
+        vmi.SetProperty("virtual-machine-interface-properties",
+                        &properties);
 
         pugi::xml_node update = config_.append_child("update");
         EncodeNode(&update, "virtual-machine-interface", vmi_name, &vmi);
@@ -394,9 +371,7 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
     }
 
   protected:
-    std::auto_ptr<Agent> agent_;
-    std::auto_ptr<AgentConfig> agent_config_;
-    std::auto_ptr<OperDB> oper_db_;
+    Agent *agent_;
     pugi::xml_document doc_;
     pugi::xml_node config_;
 };
@@ -405,6 +380,7 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
  * Verifies that we can flatten the graph into the operational structure
  * properties that contains the elements necessary to start the netns.
  */
+
 TEST_F(ServiceInstanceIntegrationTest, Config) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
@@ -415,9 +391,10 @@ TEST_F(ServiceInstanceIntegrationTest, Config) {
     const std::string mac_left = GetRandomMac();
     const std::string mac_right = GetRandomMac();
 
+    MessageInit();
     EncodeServiceInstance(svc_id, "test-1", true);
     IFMapAgentParser *parser = agent_->ifmap_parser();
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     ServiceInstanceTable *si_table = agent_->service_instance_table();
@@ -430,17 +407,17 @@ TEST_F(ServiceInstanceIntegrationTest, Config) {
 
     MessageInit();
     ConnectServiceTemplate("test-1", "tmpl-1", "source-nat");
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     MessageInit();
     uuid vm_id = ConnectVirtualMachine("test-1");
 
     uuid vmi1 = ConnectVirtualMachineInterface("test-1", "left", mac_left,
-                                               ip_left);
+                                               ip_left, true);
     uuid vmi2 = ConnectVirtualMachineInterface("test-1", "right", mac_right,
-                                               ip_right);
-    parser->ConfigParse(config_, 1);
+                                               ip_right, false);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     EXPECT_EQ(vm_id, svc_instance->properties().instance_id);
@@ -455,6 +432,35 @@ TEST_F(ServiceInstanceIntegrationTest, Config) {
 
     EXPECT_EQ(mac_left, svc_instance->properties().mac_addr_inside);
     EXPECT_EQ(mac_right, svc_instance->properties().mac_addr_outside);
+
+    pugi::xml_node msg = config_.append_child("delete");
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "service-template", "tmpl-1",
+               "service-instance-service-template");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine", "test-1",
+               "virtual-machine-service-instance");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine-interface", "left",
+               "virtual-machine-interface-virtual-machine");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine-interface", "right",
+               "virtual-machine-interface-virtual-machine");
+
+    EncodeNodeDelete(&msg, "service-instance", "test-1");
+    EncodeNodeDelete(&msg, "virtual-machine", "test-1");
+    EncodeNodeDelete(&msg, "virtual-machine-interface", "left");
+    EncodeNodeDelete(&msg, "virtual-machine-interface", "right");
+
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
 }
 
 /*
@@ -474,7 +480,9 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
     StrList vmi_outside_macs;
     StrList vmi_inside_ips;
     StrList vmi_outside_ips;
+    StrList names;
 
+    IFMapAgentParser *parser = agent_->ifmap_parser();
     for (int i = 0; i < kNumTestInstances; ++i) {
         boost::uuids::random_generator gen;
         uuid svc_id = gen();
@@ -483,6 +491,7 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
         MessageInit();
         std::stringstream name_gen;
         name_gen << "instance-" << i;
+        names.push_back(name_gen.str());
         EncodeServiceInstance(svc_id, name_gen.str(), true);
         ConnectServiceTemplate(name_gen.str(), "nat-netns-template",
                                "source-nat");
@@ -506,16 +515,15 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
         left_id.append(":left");
         vmi_inside_ids.push_back(
             ConnectVirtualMachineInterface(name_gen.str(), left_id, left_mac,
-                                           left_ip));
+                                           left_ip, true));
 
         std::string right_id = name_gen.str();
         right_id.append(":right");
         vmi_outside_ids.push_back(
             ConnectVirtualMachineInterface(name_gen.str(), right_id, right_mac,
-                                           right_ip));
+                                           right_ip, false));
 
-        IFMapAgentParser *parser = agent_->ifmap_parser();
-        parser->ConfigParse(config_, 1);
+        parser->ConfigParse(config_, 0);
     }
 
     task_util::WaitForIdle();
@@ -541,6 +549,38 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
         EXPECT_EQ(vmi_outside_ips.at(i),
                   svc_instance->properties().ip_addr_outside);
     }
+
+    pugi::xml_node msg = config_.append_child("delete");
+
+    for (int i = 0; i < kNumTestInstances; ++i) {
+        EncodeLink(&msg,
+               "service-instance", names.at(i),
+               "service-template", "nat-netns-template",
+               "service-instance-service-template");
+
+        EncodeLink(&msg,
+               "service-instance", names.at(i),
+               "virtual-machine", names.at(i),
+               "virtual-machine-service-instance");
+
+        EncodeLink(&msg,
+               "service-instance", names.at(i),
+               "virtual-machine-interface", names.at(i) + ":left",
+               "virtual-machine-interface-virtual-machine");
+
+        EncodeLink(&msg,
+               "service-instance", names.at(i),
+               "virtual-machine-interface", names.at(i) + "right",
+               "virtual-machine-interface-virtual-machine");
+
+        EncodeNodeDelete(&msg, "service-instance", names.at(i));
+        EncodeNodeDelete(&msg, "virtual-machine", names.at(i));
+        EncodeNodeDelete(&msg, "virtual-machine-interface", names.at(i));
+        EncodeNodeDelete(&msg, "virtual-machine-interface", names.at(i));
+    }
+
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
 }
 
 /*
@@ -550,9 +590,11 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
 TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
-    EncodeServiceInstance(svc_id, "test-3", true);
 
-    ConnectServiceTemplate("test-3", "tmpl-1", "source-nat");
+    MessageInit();
+    EncodeServiceInstance(svc_id, "test-1", true);
+
+    ConnectServiceTemplate("test-1", "tmpl-1", "source-nat");
 
     const std::string ip_left = GetRandomIp();
     const std::string ip_right = GetRandomIp();
@@ -560,14 +602,14 @@ TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
     const std::string mac_left = GetRandomMac();
     const std::string mac_right = GetRandomMac();
 
-    uuid vm_id = ConnectVirtualMachine("test-3");
-    uuid vmi1 = ConnectVirtualMachineInterface("test-3", "left", mac_left,
-                                               ip_left);
-    uuid vmi2 = ConnectVirtualMachineInterface("test-3", "right", mac_right,
-                                               ip_right);
+    uuid vm_id = ConnectVirtualMachine("test-1");
+    uuid vmi1 = ConnectVirtualMachineInterface("test-1", "left", mac_left,
+                                               ip_left, true);
+    uuid vmi2 = ConnectVirtualMachineInterface("test-1", "right", mac_right,
+                                               ip_right, false);
 
     IFMapAgentParser *parser = agent_->ifmap_parser();
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     ServiceInstanceTable *si_table = agent_->service_instance_table();
@@ -589,7 +631,7 @@ TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
                "virtual-machine-interface", "left",
                "virtual-network", "vnet-left",
                "virtual-machine-interface-virtual-network");
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     EXPECT_TRUE(svc_instance->properties().vmi_inside.is_nil());
@@ -601,15 +643,44 @@ TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
     MessageInit();
     msg = config_.append_child("delete");
     EncodeLink(&msg,
-               "virtual-machine", "test-3",
-               "service-instance", "test-3",
+               "virtual-machine", "test-1",
+               "service-instance", "test-1",
                "virtual-machine-service-instance");
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     EXPECT_TRUE(svc_instance->properties().instance_id.is_nil());
     EXPECT_TRUE(svc_instance->properties().vmi_inside.is_nil());
     EXPECT_TRUE(svc_instance->properties().vmi_outside.is_nil());
+
+    msg = config_.append_child("delete");
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "service-template", "tmpl-1",
+               "service-instance-service-template");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine", "test-1",
+               "virtual-machine-service-instance");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine-interface", "left",
+               "virtual-machine-interface-virtual-machine");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine-interface", "right",
+               "virtual-machine-interface-virtual-machine");
+
+    EncodeNodeDelete(&msg, "service-instance", "test-1");
+    EncodeNodeDelete(&msg, "virtual-machine", "test-1");
+    EncodeNodeDelete(&msg, "virtual-machine-interface", "left");
+    EncodeNodeDelete(&msg, "virtual-machine-interface", "right");
+
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
 }
 
 /*
@@ -618,9 +689,11 @@ TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
 TEST_F(ServiceInstanceIntegrationTest, Delete) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
-    EncodeServiceInstance(svc_id, "test-4", true);
 
-    ConnectServiceTemplate("test-4", "tmpl-1", "source-nat");
+    MessageInit();
+    EncodeServiceInstance(svc_id, "test-1", true);
+
+    ConnectServiceTemplate("test-1", "tmpl-1", "source-nat");
 
     const std::string ip_left = GetRandomIp();
     const std::string ip_right = GetRandomIp();
@@ -629,12 +702,14 @@ TEST_F(ServiceInstanceIntegrationTest, Delete) {
     const std::string mac_right = GetRandomMac();
 
 
-    uuid vm_id = ConnectVirtualMachine("test-4");
-    uuid vmi1 = ConnectVirtualMachineInterface("test-4", "left", mac_left, ip_left);
-    uuid vmi2 = ConnectVirtualMachineInterface("test-4", "right", mac_right, ip_right);
+    uuid vm_id = ConnectVirtualMachine("test-1");
+    uuid vmi1 = ConnectVirtualMachineInterface("test-1", "left",
+            mac_left, ip_left, true);
+    uuid vmi2 = ConnectVirtualMachineInterface("test-1", "right",
+            mac_right, ip_right, false);
 
     IFMapAgentParser *parser = agent_->ifmap_parser();
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     ServiceInstanceTable *si_table = agent_->service_instance_table();
@@ -649,25 +724,27 @@ TEST_F(ServiceInstanceIntegrationTest, Delete) {
 
     pugi::xml_node msg = config_.append_child("delete");
     EncodeLink(&msg,
-               "virtual-machine", "test-4",
-               "service-instance", "test-4",
+               "virtual-machine", "test-1",
+               "service-instance", "test-1",
                "virtual-machine-service-instance");
     EncodeLink(&msg,
-               "service-instance", "test-4",
+               "service-instance", "test-1",
                "service-template", "tmpl-1",
                "service-instance-service-template");
-    EncodeNodeDelete(&msg, "service-instance", "test-4");
-    parser->ConfigParse(config_, 1);
+    EncodeNodeDelete(&msg, "service-instance", "test-1");
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     DBEntry *entry = si_table->Find(&key, true);
     EXPECT_TRUE(entry == NULL);
 }
 
+
 TEST_F(ServiceInstanceIntegrationTest, Loadbalancer) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
 
+    MessageInit();
     const std::string ip_right = GetRandomIp();
     const std::string mac_right = GetRandomMac();
 
@@ -676,10 +753,10 @@ TEST_F(ServiceInstanceIntegrationTest, Loadbalancer) {
 
     ConnectVirtualMachine("loadbalancer-1");
     ConnectVirtualMachineInterface("loadbalancer-1", "right", mac_right,
-                                   ip_right);
+                                   ip_right, false);
     ConnectLoadbalancerPool("loadbalancer-1", "pool-1");
     IFMapAgentParser *parser = agent_->ifmap_parser();
-    parser->ConfigParse(config_, 1);
+    parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 
     ServiceInstanceTable *si_table = agent_->service_instance_table();
@@ -690,6 +767,127 @@ TEST_F(ServiceInstanceIntegrationTest, Loadbalancer) {
             static_cast<ServiceInstance *>(si_table->Find(&key, true));
     ASSERT_TRUE(svc_instance != NULL);
     EXPECT_TRUE(svc_instance->IsUsable());
+
+    pugi::xml_node msg = config_.append_child("delete");
+    EncodeLink(&msg,
+               "virtual-machine", "loadbalancer-1",
+               "service-instance", "loadbalancer-1",
+               "virtual-machine-service-instance");
+    EncodeLink(&msg,
+               "service-instance", "loadbalancer-1",
+               "service-template", "tmpl-1",
+               "service-instance-service-template");
+    EncodeLink(&msg,
+               "loadbalancer-pool", "pool-1",
+               "service-instance", "loadbalancer-1",
+               "loadbalancer-pool-service-instance");
+    EncodeNodeDelete(&msg, "service-instance", "loadbalancer-1");
+    EncodeNodeDelete(&msg, "virtual-machine", "loadbalancer-1");
+    EncodeNodeDelete(&msg, "loadbalancer-pool", "pool-1");
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
+
+}
+
+TEST_F(ServiceInstanceIntegrationTest, ConfigUuidChange) {
+    boost::uuids::random_generator gen;
+    uuid svc_id = gen();
+
+    const std::string ip_left = GetRandomIp();
+    const std::string ip_right = GetRandomIp();
+
+    const std::string mac_left = GetRandomMac();
+    const std::string mac_right = GetRandomMac();
+
+    MessageInit();
+    EncodeServiceInstance(svc_id, "test-1", true);
+    IFMapAgentParser *parser = agent_->ifmap_parser();
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
+
+    ServiceInstanceTable *si_table = agent_->service_instance_table();
+    EXPECT_EQ(1, si_table->Size());
+
+    ServiceInstanceKey key(svc_id);
+    ServiceInstance *svc_instance =
+            static_cast<ServiceInstance *>(si_table->Find(&key, true));
+    ASSERT_TRUE(svc_instance != NULL);
+
+    MessageInit();
+    ConnectServiceTemplate("test-1", "tmpl-1", "source-nat");
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
+
+    MessageInit();
+    uuid vm_id = ConnectVirtualMachine("test-1");
+
+    uuid vmi1 = ConnectVirtualMachineInterface("test-1", "left", mac_left,
+                                               ip_left, true);
+    uuid vmi2 = ConnectVirtualMachineInterface("test-1", "right", mac_right,
+                                               ip_right, false);
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(vm_id, svc_instance->properties().instance_id);
+    EXPECT_EQ(vmi1, svc_instance->properties().vmi_inside);
+    EXPECT_EQ(vmi2, svc_instance->properties().vmi_outside);
+
+    EXPECT_EQ(ip_left, svc_instance->properties().ip_addr_inside);
+    EXPECT_EQ(ip_right, svc_instance->properties().ip_addr_outside);
+
+    EXPECT_EQ(24, svc_instance->properties().ip_prefix_len_inside);
+    EXPECT_EQ(24, svc_instance->properties().ip_prefix_len_outside);
+
+    EXPECT_EQ(mac_left, svc_instance->properties().mac_addr_inside);
+    EXPECT_EQ(mac_right, svc_instance->properties().mac_addr_outside);
+
+
+    //Change the service instance uuid with same name
+    uuid new_svc_id = gen();
+    MessageInit();
+    EncodeServiceInstance(new_svc_id, "test-1", true);
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
+
+    //Make sure old uuid oper entry is deleted
+    svc_instance = static_cast<ServiceInstance *>(si_table->Find(&key, true));
+    ASSERT_TRUE(svc_instance == NULL);
+
+    //Make sre new uuid oper entry exists
+    ServiceInstanceKey new_key(new_svc_id);
+    svc_instance = static_cast<ServiceInstance *>(si_table->Find(&new_key, true));
+    ASSERT_TRUE(svc_instance != NULL);
+
+    //Start deleting
+    MessageInit();
+    pugi::xml_node msg = config_.append_child("delete");
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "service-template", "tmpl-1",
+               "service-instance-service-template");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine", "test-1",
+               "virtual-machine-service-instance");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine-interface", "left",
+               "virtual-machine-interface-virtual-machine");
+
+    EncodeLink(&msg,
+               "service-instance", "test-1",
+               "virtual-machine-interface", "right",
+               "virtual-machine-interface-virtual-machine");
+
+    EncodeNodeDelete(&msg, "service-instance", "test-1");
+    EncodeNodeDelete(&msg, "virtual-machine", "test-1");
+    EncodeNodeDelete(&msg, "virtual-machine-interface", "left");
+    EncodeNodeDelete(&msg, "virtual-machine-interface", "right");
+
+    parser->ConfigParse(config_, 0);
+    task_util::WaitForIdle();
 }
 
 static void SetUp() {
@@ -699,10 +897,16 @@ static void TearDown() {
 }
 
 int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    srand(time(NULL));
-    SetUp();
-    int result = RUN_ALL_TESTS();
-    TearDown();
-    return result;
+
+    GETUSERARGS();
+
+    client = TestInit(init_file, ksync_init, false, false, false);
+    usleep(100000);
+    client->WaitForIdle();
+
+    int ret = RUN_ALL_TESTS();
+    TestShutdown();
+    client->WaitForIdle();
+    delete client;
+    return ret;
 }
