@@ -10,20 +10,19 @@
 # UVE and Alarm tests
 #
 
+import os
 import sys
-builddir = sys.path[0] + '/../..'
 import threading
 threading._DummyThread._Thread__stop = lambda x: 42
 import signal
 import gevent
 from gevent import monkey
 monkey.patch_all()
-import os
 import unittest
 import testtools
 import fixtures
 import socket
-from utils.util import obj_to_dict
+from utils.util import obj_to_dict, find_buildroot, redis_path
 from utils.analytics_fixture import AnalyticsFixture
 from utils.generator_fixture import GeneratorFixture
 from mockredis import mockredis
@@ -37,6 +36,7 @@ from sandesh_common.vns.constants import ModuleNames
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
+builddir = find_buildroot(os.getcwd())
 
 
 class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
@@ -52,7 +52,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.redis_port = AnalyticsUveTest.get_free_port()
         mockredis.start_redis(
-            cls.redis_port, builddir+'/testroot/bin/redis-server')
+            cls.redis_port, redis_path())
         cls.zk_port = AnalyticsUveTest.get_free_port()
         mockzoo.start_zoo(cls.zk_port)
 
