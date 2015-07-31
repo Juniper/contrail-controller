@@ -109,7 +109,8 @@ public:
         AddFloatingIp("fip1", 1, vm1_fip);
         AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
         AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "default-project:vn4");
-        AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+        AddLink("virtual-machine-interface", "flow0", "floating-ip",
+                "fip1");
         client->WaitForIdle();
         EXPECT_TRUE(flow0->HasFloatingIp());
     }
@@ -362,7 +363,8 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     client->WaitForIdle();
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
-    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface",
+            "vnet1");
     client->WaitForIdle();
     AddVmPortVrf("vnet1", "", 0);
     client->WaitForIdle();

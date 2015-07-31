@@ -33,7 +33,6 @@
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
-#include <cfg/cfg_listener.h>
 #include "cfg/cfg_mirror.h"
 
 #include <oper/operdb_init.h>

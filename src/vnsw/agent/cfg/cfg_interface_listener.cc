@@ -13,7 +13,6 @@
 #include <cmn/agent_db.h>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_interface.h>
 
@@ -22,6 +21,7 @@
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
+#include <oper/config_manager.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -64,7 +64,8 @@ void InterfaceCfgClient::FetchInterfaceData(const uuid if_uuid) const {
     if (node != NULL) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        if (agent_cfg_->agent()->interface_table()->IFNodeToReq(node, req)) {
+        if (agent_cfg_->agent()->interface_table()->IFNodeToReq(node,
+                    req, const_cast<uuid&>(if_uuid))) {
             agent_cfg_->agent()->interface_table()->Enqueue(&req);
         }
     }
@@ -86,7 +87,7 @@ void InterfaceCfgClient::RouteTableNotify(DBTablePartBase *partition,
             continue;
         }
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
+        if (Agent::GetInstance()->config_manager()->SkipNode(adj_node)) {
             continue;
         }
 
@@ -94,7 +95,10 @@ void InterfaceCfgClient::RouteTableNotify(DBTablePartBase *partition,
             Agent::GetInstance()->cfg()->cfg_vm_interface_table()) {
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            if (agent_cfg_->agent()->interface_table()->IFNodeToReq(adj_node, req)) {
+            boost::uuids::uuid id;
+            agent_cfg_->agent()->interface_table()->IFNodeToUuid(adj_node, id);
+            if (agent_cfg_->agent()->interface_table()->IFNodeToReq(adj_node,
+                                                                     req, id)) {
                 agent_cfg_->agent()->interface_table()->Enqueue(&req);
             }
         }
