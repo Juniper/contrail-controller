@@ -34,8 +34,6 @@ from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
 from utils.opserver_introspect_utils import VerificationOpsSrv
-from utils.util import retry
-from collections import OrderedDict
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -224,56 +222,15 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_overflowsamples
 
-    #@unittest.skip('Get samples using StatsOracle')
-    def test_03_ipfix(self):
-        '''
-        This test starts redis,vizd,opserver and qed
-        It uses the test class' cassandra instance
-        Then it feeds IPFIX packets to the collector
-        and queries for them
-        '''
-        logging.info("*** test_03_ipfix ***")
-        if StatsTest._check_skip_test() is True:
-            return True
-        
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
-                             self.__class__.cassandra_port,
-                             ipfix_port = True))
-        assert vizd_obj.verify_on_setup()
-        assert vizd_obj.verify_collector_obj_count()
-        ipfix_port = vizd_obj.collectors[0].get_ipfix_port()
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        
-        UDP_IP = "127.0.0.1"
-        f1 = open(builddir + '/opserver/test/data/ipfix_t.data')
-        sock.sendto(f1.read(), (UDP_IP, ipfix_port))
-        f2 = open(builddir + '/opserver/test/data/ipfix_d.data')
-        sock.sendto(f2.read(), (UDP_IP, ipfix_port))
-        sock.close()
-
-        logging.info("Verifying IPFIX data sent to port %s" % str(ipfix_port))
-        uexp = {u'name': u'127.0.0.1',
-               u'flow.sport': 49152,
-               u'flow.sip': u'10.84.45.254',
-               u'flow.flowtype': u'IPFIX'}
-        vns = VerificationOpsSrv('127.0.0.1', vizd_obj.get_opserver_port())
-        assert(self.verify_ipfix(vns,uexp))
-
-        return True
-    # end test_03_ipfix
-
     #@unittest.skip('Get minmax values from inserted stats')
-    def test_04_min_max_query(self):
+    def test_03_min_max_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
         Then it inserts into the stat table rows 
         and queries MAX and MIN on them
         '''
-        logging.info("*** test_04_min_max_query ***")
+        logging.info("*** test_03_min_max_query ***")
         if StatsTest._check_skip_test() is True:
             return True
         vizd_obj = self.useFixture(
@@ -307,17 +264,17 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             [{u'MIN(st.d1)': 3.4}]);
 
         return True
-    # end test_04_overflowsamples
+    # end test_03_min_max_query
 
     #@unittest.skip('Get samples from objectlog stats')
-    def test_05_statprefix_obj(self):
+    def test_04_statprefix_obj(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
         Then it sends test object stats to the collector
         and checks if they can be accessed from QE, using prefix-suffix indexes
         '''
-        logging.info("*** test_05_statprefix_obj ***")
+        logging.info("*** test_04_statprefix_obj ***")
         if StatsTest._check_skip_test() is True:
             return True
 
@@ -352,17 +309,17 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
              { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
 
         return True
-    # end test_05_statprefix_obj 
+    # end test_04_statprefix_obj
 
     #@unittest.skip('Send stats with 2nd level of hierarchy')
-    def test_06_statprefix_double(self):
+    def test_05_statprefix_double(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
         Then it sends test 2nd-level stats to the collector
         and checks if they can be accessed from QE, using prefix-suffix indexes
         '''
-        logging.info("*** test_06_statprefix_double ***")
+        logging.info("*** test_05_statprefix_double ***")
         if StatsTest._check_skip_test() is True:
             return True
 
@@ -396,23 +353,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             [{ "dst.st.s1":"samp2", "dst.st.i1":1, "dst.l1":"lyyy"}]);
 
         return True
-    # end test_06_statprefix_double
-
-    @retry(delay=1, tries=5)
-    def verify_ipfix(self, vns, uexp):
-        logging.info("Trying to verify IPFIX...")
-        res = vns.post_query("StatTable.UFlowData.flow",
-            start_time="-5m", end_time="now",
-            select_fields=["name", "flow.flowtype", "flow.sip", "flow.sport"],
-            where_clause = 'name=*')
-        logging.info("Result: " + str(res))
-        if len(res)!=1:
-            return False
-        exp = OrderedDict(sorted(uexp.items(), key=lambda t: t[0]))
-        rs = OrderedDict(sorted(res[0].items(), key=lambda t: t[0]))
-        if exp != rs:
-            return False
-        return True
+    # end test_05_statprefix_double
 
     @staticmethod
     def get_free_port():
