@@ -10,8 +10,8 @@
 # System tests for analytics
 #
 
+import os
 import sys
-builddir = sys.path[0] + '/../..'
 import signal
 import gevent
 from gevent import monkey
@@ -26,9 +26,11 @@ from mockcassandra import mockcassandra
 from mockredis import mockredis
 import logging
 from pysandesh.util import UTCTimestampUsec
+from utils.util import find_buildroot
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
+builddir = find_buildroot(os.getcwd())
 
 
 class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
@@ -46,10 +48,10 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         mockcassandra.start_cassandra(cls.cassandra_port)
         cls.redis_port = AnalyticsDbTest.get_free_port()
         mockredis.start_redis(
-            cls.redis_port, builddir+'/testroot/bin/redis-server')
+            cls.redis_port, 'redis-server')
         cls.redis_password_port = AnalyticsDbTest.get_free_port()
         mockredis.start_redis(
-            cls.redis_password_port, builddir+'/testroot/bin/redis-server', password='contrail')
+            cls.redis_password_port, 'redis-server', password='contrail')
 
     @classmethod
     def tearDownClass(cls):

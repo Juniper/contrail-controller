@@ -10,6 +10,7 @@
 # Unit Tests for UVE Aggregation in Operational State Server
 #
 
+import logging
 import os
 import sys
 import copy
@@ -17,10 +18,13 @@ import unittest
 import pdb
 import json
 
-curfile = sys.path[0]
 from opserver.uveserver import UVEServer
 from opserver.uveserver import ParallelAggregator
 from opserver.opserver_util import OpServerUtils
+
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(message)s')
 
 class RedisMock(object):
     pass
@@ -196,7 +200,7 @@ class UVEServerTest(unittest.TestCase):
         del self._oss
 
     def test_simple(self):
-        print "*** Running test_simple ***"
+        logging.info("*** Running test_simple ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -207,10 +211,10 @@ class UVEServerTest(unittest.TestCase):
         )
         pa = ParallelAggregator(uvevn)
         res = pa.aggregate("abc-corp:vn-00", False)
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
     def test_default_agg(self):
-        print "*** Running test_default_agg ***"
+        logging.info("*** Running test_default_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -250,10 +254,10 @@ class UVEServerTest(unittest.TestCase):
             sorted(["10.10.10.10", "10.10.10.11"]),
             sorted([res['UVEVirtualNetwork']['total_acl_rules'][0][1],
                     res['UVEVirtualNetwork']['total_acl_rules'][1][1]]))
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
     def test_union_agg(self):
-        print "*** Running test_union_agg ***"
+        logging.info("*** Running test_union_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -268,7 +272,7 @@ class UVEServerTest(unittest.TestCase):
         pa = ParallelAggregator(uvevn2)
         res = pa.aggregate("abc-corp:vn-00", False)
 
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
         for elem in res['UVEVirtualNetwork']['connected_networks']['list']:
             if elem[0] != '@':
@@ -287,7 +291,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(cn, res['UVEVirtualNetwork']['connected_networks'])
 
     def test_href_agg(self):
-        print "*** Running test_href_agg ***"
+        logging.info("*** Running test_href_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -297,7 +301,7 @@ class UVEServerTest(unittest.TestCase):
         pa = ParallelAggregator(uvevn, {"ObjectIf":"if"})
         res = pa.aggregate("abc-corp:vn-00", True, "127.0.0.1:8081")
 
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
         uvetest = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -311,7 +315,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(cn, res['UVEVirtualNetwork']['ifs'])
 
     def test_sum_agg(self):
-        print "*** Running test_sum_agg ***"
+        logging.info("*** Running test_sum_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -331,7 +335,7 @@ class UVEServerTest(unittest.TestCase):
         pa = ParallelAggregator(uvevn2)
         res = pa.aggregate("abc-corp:vn-00", False)
 
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
         cnt1 = uvetest["abc-corp:vn-00"]['UVEVirtualNetwork'][
             'total_virtual_machines']["10.10.10.10"]
@@ -339,7 +343,7 @@ class UVEServerTest(unittest.TestCase):
             cnt1, res['UVEVirtualNetwork']['total_virtual_machines'])
 
     def test_counter_agg(self):
-        print "*** Running test_counter_agg ***"
+        logging.info("*** Running test_counter_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "previous",
@@ -358,7 +362,7 @@ class UVEServerTest(unittest.TestCase):
 
         pa = ParallelAggregator(uvevn3)
         res = pa.aggregate("abc-corp:vn-00", False)
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
         uvetest = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "sample",
@@ -370,7 +374,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(in_tpkts, res['UVEVirtualNetwork']['in_tpkts'])
 
     def test_append_agg(self):
-        print "*** Running test_append_agg ***"
+        logging.info("*** Running test_append_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "previous",
@@ -394,7 +398,7 @@ class UVEServerTest(unittest.TestCase):
 
         pa = ParallelAggregator(uvevn3)
         res = pa.aggregate("abc-corp:vn-00", False)
-        print json.dumps(res, indent=4, sort_keys=True)
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
 
         res['UVEVirtualNetwork']['in_stats']["list"]["VnStats"] = \
             sorted(res['UVEVirtualNetwork']['in_stats']["list"]["VnStats"])
