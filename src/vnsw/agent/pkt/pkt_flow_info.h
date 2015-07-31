@@ -54,6 +54,7 @@ public:
     }
 
     static bool ComputeDirection(const Interface *intf);
+    void CheckLinkLocal(const PktInfo *pkt);
     void LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
                                 PktControlInfo *out);
     void LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
