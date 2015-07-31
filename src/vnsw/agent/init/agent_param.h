@@ -20,6 +20,7 @@ public:
     static const uint32_t kFlowStatsInterval = (1000); // time in milliseconds
     static const uint32_t kVrouterStatsInterval = (30 * 1000); //time-millisecs
     typedef std::vector<Ip4Address> AddressList;
+    typedef std::map<int, int> LBMultiPortMap;
 
     // Agent mode we are running in
     enum AgentMode {
@@ -119,6 +120,10 @@ public:
     const int si_netns_timeout() const {return si_netns_timeout_;}
     std::string si_haproxy_ssl_cert_path() const {
         return si_haproxy_ssl_cert_path_;
+    }
+
+    LBMultiPortMap si_lb_multi_port_binding() const {
+        return si_lb_multi_port_binding_;
     }
 
     std::string nexthop_server_endpoint() const {
@@ -286,6 +291,7 @@ private:
     void ParseNexthopServer();
     void ParsePlatform();
     void set_agent_mode(const std::string &mode);
+    void parse_multi_port_binding(const std::string &s);
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -387,6 +393,7 @@ private:
     int si_netns_workers_;
     int si_netns_timeout_;
     std::string si_haproxy_ssl_cert_path_;
+    LBMultiPortMap si_lb_multi_port_binding_;
     VmwareMode vmware_mode_;
     // List of IP addresses on the compute node.
     AddressList compute_node_address_list_;
