@@ -79,6 +79,14 @@ public:
     void DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
     uint32_t PhysicalDeviceVnCount() const;
+    bool CanUseNode(IFMapNode *node);
+    bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
+    bool SkipNode(IFMapNode *node);
+    bool SkipNode(IFMapNode *node, IFMapAgentTable *table);
+    IFMapNode * FindAdjacentIFMapNode(IFMapNode *node,
+            const char *type);
+    void NodeResync(IFMapNode *node);
+    Agent *agent() { return agent_; }
 
 private:
     Agent *agent_;

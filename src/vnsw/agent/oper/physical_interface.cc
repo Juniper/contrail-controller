@@ -178,9 +178,12 @@ static PhysicalInterfaceKey *BuildKey(const std::string &name) {
 }
 
 bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
-                                                  DBRequest &req) {
+                                                  DBRequest &req,
+                                                  const boost::uuids::uuid &u) {
+
     // Enqueue request to config-manager if add/change
-    if (node->IsDeleted() == false) {
+    if ((req.oper != DBRequest::DB_ENTRY_DELETE) &&
+                            (node->IsDeleted() == false)) {
         agent()->config_manager()->AddPhysicalInterfaceNode(node);
         return false;
     }
@@ -198,7 +201,7 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
     }
 
     if (elements.size() == 3 && device != agent()->agent_name()) {
-        if (RemotePhysicalInterfaceIFNodeToReq(node, req)) {
+        if (RemotePhysicalInterfaceIFNodeToReq(node, req, u)) {
             Enqueue(&req);
         }
         return false;
@@ -210,7 +213,8 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
 }
 
 bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
-                                                    DBRequest &req) {
+        DBRequest &req, const boost::uuids::uuid &u) {
+
     if (node->IsDeleted()) {
         return false;
     }
@@ -229,7 +233,7 @@ bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
 
     // If physical-router does not match agent_name, treat as remote interface
     if (elements.size() == 3 && device != agent()->agent_name()) {
-        return RemotePhysicalInterfaceIFNodeToReq(node, req);
+        return RemotePhysicalInterfaceIFNodeToReq(node, req, u);
     }
 
     req.key.reset(BuildKey(node->name()));
@@ -237,7 +241,7 @@ bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
     boost::uuids::uuid dev_uuid = nil_uuid();
     // Find link with physical-router adjacency
     IFMapNode *adj_node = NULL;
-    adj_node = agent()->cfg_listener()->FindAdjacentIFMapNode(agent(), node,
+    adj_node = agent()->config_manager()->FindAdjacentIFMapNode(node,
                                                             "physical-router");
     if (adj_node) {
         autogen::PhysicalRouter *router =
