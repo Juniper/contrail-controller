@@ -35,6 +35,7 @@
 #include <oper/inet_unicast_route.h>
 #include <oper/physical_device_vn.h>
 
+#include <bgp_schema_types.h>
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
 #include <oper/sg.h>
@@ -212,15 +213,12 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
                     continue;
                 }
-                // Checking whether it is default vrf of not
-                size_t found = vn_node->name().find_last_of(':');
-                std::string vrf_name = "";
-                if (found != string::npos) {
-                    vrf_name = vn_node->name() + vn_node->name().substr(found);
-                }
-                if (vrf_node->name().compare(vrf_name) != 0) {
+                // Checking whether it is default vrf or not
+
+                RoutingInstance *ri = static_cast<RoutingInstance *>(vrf_node->GetObject());
+
+                if(!(ri->is_default()))
                     continue;
-                }
                 FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
                 assert(fip != NULL);
                 LOG(DEBUG, "Add FloatingIP <" << fip->address() << ":" <<
