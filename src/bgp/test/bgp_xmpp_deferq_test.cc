@@ -56,27 +56,7 @@ using namespace std;
 
 #define SUB_ADDR "agent@vnsw.contrailsystems.com" 
 
-class BgpXmppChannelMock : public BgpXmppChannel {
-public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
-        BgpXmppChannel(channel, server, manager), count_(0) {
-            bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
-                                          RibExportPolicy::XMPP, -1, 0);
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-        count_ ++;
-        BgpXmppChannel::ReceiveUpdate(msg);
-    }
-
-    size_t Count() const { return count_; }
-    void ResetCount() { count_ = 0; }
-    virtual ~BgpXmppChannelMock() { }
-
-private:
-    size_t count_;
-};
+class BgpXmppChannelMock;
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
@@ -90,10 +70,7 @@ public:
          BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
     }
 
-    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_ = new BgpXmppChannelMock(channel, bgp_server_, this);
-        return channel_;
-    }
+    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel);
 
     int Count() {
         return count;
@@ -102,6 +79,35 @@ public:
     BgpXmppChannelMock *channel_;
 };
 
+class BgpXmppChannelMock : public BgpXmppChannel {
+public:
+    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server,
+            BgpXmppChannelManager *manager) :
+        BgpXmppChannel(channel, server, manager), count_(0), manager_(manager) {
+            bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
+                                          RibExportPolicy::XMPP, -1, 0);
+    }
+
+    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+        count_ ++;
+        BgpXmppChannel::ReceiveUpdate(msg);
+    }
+
+    size_t Count() const { return count_; }
+    void ResetCount() { count_ = 0; }
+    virtual ~BgpXmppChannelMock() {
+        dynamic_cast<BgpXmppChannelManagerMock *>(manager_)->channel_ = NULL;
+    }
+
+private:
+    size_t count_;
+    BgpXmppChannelManager *manager_;
+};
+
+BgpXmppChannel *BgpXmppChannelManagerMock::CreateChannel(XmppChannel *channel) {
+    channel_ = new BgpXmppChannelMock(channel, bgp_server_, this);
+    return channel_;
+}
 
 static const char *config_template_with_instances = "\
 <config>\
@@ -1661,9 +1667,11 @@ TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTable3) {
 
     // Unsubscribe for the old incarnation.
     agent_a_->Unsubscribe("blue", -1, false);
-    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
-    TASK_UTIL_EXPECT_FALSE(
-        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Wait till the channel goes away but do not read inside the channel,
+    // which will get destroyed.
+    TASK_UTIL_EXPECT_EQ((BgpXmppChannelMock *) NULL,
+                        bgp_channel_manager_->channel_);
 }
 
 TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedBgpTable) {
