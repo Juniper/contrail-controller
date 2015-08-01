@@ -219,17 +219,6 @@ void InstanceManager::OnTaskTimeout(InstanceTaskQueue *task_queue) {
 }
 
 void InstanceManager::OnTaskTimeoutEventHandler(InstanceManagerChildEvent event) {
-
-    ServiceInstance *svc_instance = GetSvcInstance(event.task);
-    if (svc_instance && svc_instance->IsDeleted()) {
-        InstanceState *state = GetState(svc_instance);
-        if (state != NULL) {
-            ClearState(svc_instance);
-            delete state;
-        }
-        UnregisterSvcInstance(event.task);
-    }
-
     ScheduleNextTask(event.task_queue);
 }
 
@@ -272,11 +261,6 @@ void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
     InstanceState *state = GetState(svc_instance);
     if (state != NULL) {
        state->set_errors(event.errors);
-       if (svc_instance->IsDeleted()) {
-           ClearState(svc_instance);
-           delete state;
-           UnregisterSvcInstance(event.task);
-       }
     }
 }
 
