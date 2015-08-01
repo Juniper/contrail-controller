@@ -831,7 +831,7 @@ class VirtualNetworkST(DBBaseST):
         vn_analyzer = None
         ip_analyzer = None
         try:
-            si = self.read_vnc_obj(fq_name=analyzer_name,
+            si = DBBaseST().read_vnc_obj(fq_name=analyzer_name,
                                    obj_type='service_instance')
 
             vm_analyzer = getattr(si, 'virtual_machine_back_refs', None)
@@ -2942,7 +2942,22 @@ class SchemaTransformer(object):
                     self.current_network_set.add(sc.left_vn)
                 if VirtualNetworkST.get(sc.right_vn):
                     self.current_network_set.add(sc.right_vn)
-    # end add_virtual_machine_service_instance(self, idents, meta):
+        network_set = set()
+        for vmi_name in vm.interfaces:
+            vmi=VirtualMachineInterfaceST.get(vmi_name)
+            if vmi.virtual_network:
+                network_set.add(vmi.virtual_network)
+
+        for policy in NetworkPolicyST.values():
+            for rule in policy.rules:
+                if (rule.action_list is not None and
+                    rule.action_list.mirror_to is not None and
+                    rule.action_list.mirror_to.analyzer_name is not None):
+                    if rule.action_list.mirror_to.analyzer_name == si_name:
+                        self.current_network_set |= policy.networks_back_ref
+                        self.current_network_set |= network_set
+                        break
+    # end add_virtual_machine_service_instance
 
     def delete_virtual_machine_service_instance(self, idents, meta):
         vm_name = idents['virtual-machine']
