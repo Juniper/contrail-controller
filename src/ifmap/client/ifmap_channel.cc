@@ -121,7 +121,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
                 const std::string& passwd, const std::string& certstore)
     : manager_(manager), resolver_(*(manager->io_service())),
-      ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv23_client),
+      ctx_(*(manager->io_service()), boost::asio::ssl::context::tlsv12_client),
       io_strand_(*(manager->io_service())),
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
@@ -297,10 +297,6 @@ void IFMapChannel::DoSslHandshakeInMainThr(bool is_ssrc) {
     CHECK_CONCURRENCY_MAIN_THR();
     SslStream *socket =
         ((is_ssrc == true) ? ssrc_socket_.get() : arc_socket_.get());
-
-    // Calling openssl api directly because boost doesn't provide a way to set
-    // the cipher
-    SSL_set_cipher_list(socket->native_handle(), "RC4-SHA");
 
     // handshake as 'client'
     socket->async_handshake(boost::asio::ssl::stream_base::client,
