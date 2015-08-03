@@ -57,7 +57,6 @@ public:
 
     void AddClient(IFMapClient *client);
     void DeleteClient(IFMapClient *client);
-    void StaleNodesCleanup();
 
     DB *database() { return db_; }
     DBGraph *graph() { return graph_; }
@@ -74,6 +73,11 @@ public:
     }
     virtual uint64_t get_ifmap_channel_sequence_number() {
         return ifmap_manager_->GetChannelSequenceNumber();
+    }
+    void SetStartStaleCleanup(bool value) {
+        if (ifmap_manager_) {
+            ifmap_manager_->SetStartStaleCleanup(value);
+        }
     }
     void set_ifmap_channel_manager(IFMapChannelManager *manager) {
         ifmap_channel_manager_ = manager;
@@ -100,9 +104,13 @@ public:
     const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
     bool ClientNameToIndex(const std::string &id, int *index);
+    void StartStaleNodesCleanup();
+    void StopStaleNodesCleanup();
+    bool StaleNodesCleanupTimerRunning();
 
 private:
-    static const int kStaleCleanupTimeout = 60000; // milliseconds
+    static const int kStaleCleanupTimeout = 10000; // milliseconds
+
     friend class IFMapServerTest;
     friend class IFMapRestartTest;
     friend class ShowIFMapXmppClientInfo;

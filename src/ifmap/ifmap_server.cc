@@ -191,7 +191,7 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
                       boost::bind(&IFMapServer::ClientWorker, this, _1)),
           io_service_(io_service),
           stale_cleanup_timer_(TimerManager::CreateTimer(*(io_service_),
-                                         "Stale cleanup timer")),
+                               "Stale cleanup timer")),
           ifmap_manager_(NULL), ifmap_channel_manager_(NULL) {
 }
 
@@ -373,6 +373,7 @@ bool IFMapServer::ClientNameToIndex(const std::string &id, int *index) {
 }
 
 bool IFMapServer::StaleNodesProcTimeout() {
+    SetStartStaleCleanup(false);
     IFMapStaleCleaner *cleaner = new IFMapStaleCleaner(db_, graph_, this);
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -380,13 +381,25 @@ bool IFMapServer::StaleNodesProcTimeout() {
     return false;
 }
 
-void IFMapServer::StaleNodesCleanup() {
+// Should run in the context of "ifmap::StateMachine" task
+void IFMapServer::StartStaleNodesCleanup() {
     if (stale_cleanup_timer_->running()) {
         stale_cleanup_timer_->Cancel();
     }
     stale_cleanup_timer_->Start(kStaleCleanupTimeout,
-            boost::bind(&IFMapServer::StaleNodesProcTimeout, this),
-            NULL);
+        boost::bind(&IFMapServer::StaleNodesProcTimeout, this), NULL);
+}
+
+// Should run in the context of "ifmap::StateMachine" task
+bool IFMapServer::StaleNodesCleanupTimerRunning() {
+    return stale_cleanup_timer_->running();
+}
+
+// Should run in the context of "ifmap::StateMachine" task
+void IFMapServer::StopStaleNodesCleanup() {
+    if (stale_cleanup_timer_->running()) {
+        stale_cleanup_timer_->Cancel();
+    }
 }
 
 void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,

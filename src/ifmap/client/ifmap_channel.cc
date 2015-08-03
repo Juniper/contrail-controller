@@ -128,8 +128,12 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
       username_(user), password_(passwd), state_machine_(NULL),
       response_state_(NONE), sequence_number_(0), recv_msg_cnt_(0),
       sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN),
-      connection_status_change_at_(UTCTimestampUsec()) {
+      connection_status_change_at_(UTCTimestampUsec()),
+      end_of_rib_timer_(TimerManager::CreateTimer(*(manager->io_service()),
+                                                  "End of rib timer")) {
 
+    set_start_stale_cleanup(false);
+    set_end_of_rib_computed(false);
     boost::system::error_code ec;
     if (certstore.empty()) {
         ctx_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
@@ -234,6 +238,11 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
 
 void IFMapChannel::ReconnectPreparation() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+    // The stale cleanup timer could be running if connection was reset in the
+    // near past. Stop the timer since we dont want to clean our database in
+    // this case.
+    set_start_stale_cleanup(false);
+    manager_->ifmap_server()->StopStaleNodesCleanup();
     io_strand_.post(
         boost::bind(&IFMapChannel::ReconnectPreparationInMainThr, this));
 }
@@ -278,7 +287,7 @@ void IFMapChannel::DoConnectInMainThr(bool is_ssrc) {
     if (!is_ssrc) {
         if (ConnectionStatusIsDown()) {
             sequence_number_++;
-            manager_->ifmap_server()->StaleNodesCleanup();
+            set_start_stale_cleanup(true);
         }
         set_connection_status(UP);
         IFMAP_PEER_DEBUG(IFMapServerConnection,
@@ -597,6 +606,19 @@ int IFMapChannel::ReadPollResponse() {
                 "Incorrectly formatted Poll response. Quitting.", "");
             return -1;
         }
+        if (reply_str.find(string("searchResult")) != string::npos) {
+            if (start_stale_cleanup()) {
+                // If this is a reconnection, keep re-arming the stale cleanup
+                // timer as long as we keep receiving SearchResults.
+                manager_->ifmap_server()->StartStaleNodesCleanup();
+            } else {
+                // When the daemon is coming up, as long as we are receiving
+                // SearchResults, we have not received the entire db.
+                if (!end_of_rib_computed()) {
+                    StartEndOfRibTimer();
+                }
+            }
+        }
         string poll_string = reply_str.substr(pos);
         increment_recv_msg_cnt();
         bool success = true;
@@ -616,6 +638,23 @@ int IFMapChannel::ReadPollResponse() {
         return -1;
     }
     return 0;
+}
+
+bool IFMapChannel::EndOfRibProcTimeout() {
+    set_end_of_rib_computed(true);
+    return false;
+}
+
+void IFMapChannel::StartEndOfRibTimer() {
+    if (end_of_rib_timer_->running()) {
+        end_of_rib_timer_->Cancel();
+    }
+    end_of_rib_timer_->Start(kEndOfRibTimeout,
+        boost::bind(&IFMapChannel::EndOfRibProcTimeout, this), NULL);
+}
+
+bool IFMapChannel::EndOfRibTimerRunning() {
+    return end_of_rib_timer_->running();
 }
 
 // Will run in the context of the main task
@@ -868,6 +907,12 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
         channel->get_connection_status_and_time());
     server_conn_info.set_host(channel->get_host());
     server_conn_info.set_port(channel->get_port());
+    server_conn_info.set_end_of_rib_computed(channel->end_of_rib_computed());
+    server_conn_info.set_end_of_rib_timer_running(
+        channel->EndOfRibTimerRunning());
+    server_conn_info.set_start_stale_cleanup(channel->start_stale_cleanup());
+    server_conn_info.set_start_stale_cleanup_timer_running(
+        sctx->ifmap_server()->StaleNodesCleanupTimerRunning());
 
     server_stats.set_rx_msgs(channel->get_recv_msg_cnt());
     server_stats.set_tx_msgs(channel->get_sent_msg_cnt());
