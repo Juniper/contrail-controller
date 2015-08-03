@@ -5,6 +5,8 @@
 #ifndef vnsw_bridge_route_hpp
 #define vnsw_bridge_route_hpp
 
+class MacVmBindingPath;
+
 //////////////////////////////////////////////////////////////////
 //  BRIDGE
 /////////////////////////////////////////////////////////////////
@@ -138,7 +140,7 @@ public:
                                         bool force_delete);
 
     const MacAddress &mac() const {return mac_;}
-    const AgentPath *FindMacVmBindingPath() const;
+    const MacVmBindingPath *FindMacVmBindingPath() const;
     const AgentPath *FindOvsPath() const;
 
 private:

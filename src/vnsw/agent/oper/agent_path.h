@@ -197,9 +197,6 @@ public:
     // Get nexthop-ip address to be used for path
     const Ip4Address *NexthopIp(Agent *agent) const;
 
-    //Flood DHCP
-    bool flood_dhcp() const {return flood_dhcp_;}
-    void set_flood_dhcp(bool flood_dhcp) const {flood_dhcp_ = flood_dhcp;}
     MacAddress arp_mac() const {return arp_mac_;}
     void set_arp_mac(const MacAddress &mac) {
         arp_mac_ = mac;
@@ -268,8 +265,6 @@ private:
     //helping in deciding the priority during live migration and
     //allowed address pair
     IpAddress subnet_gw_ip_;
-    // should vrouter flood the DHCP request coming from this source route
-    mutable bool flood_dhcp_;
     //Mac address of ARP NH, used to notify change
     //to routes dependent on mac change, or ageout of ARP
     MacAddress arp_mac_;
@@ -672,12 +667,13 @@ public:
     void set_vm_interface(const VmInterface *vm_interface) {
         vm_interface_ = vm_interface;
     }
-    bool flood_dhcp() const {return flood_dhcp_;}
+    virtual bool flood_dhcp() const {return flood_dhcp_;}
     void set_flood_dhcp(bool flood_dhcp) {flood_dhcp_ = flood_dhcp;}
 
 private:
     //Key parameters for comparision
     InterfaceConstRef vm_interface_;
+    // should vrouter flood the DHCP request coming from this source route
     bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(MacVmBindingPath);
 };

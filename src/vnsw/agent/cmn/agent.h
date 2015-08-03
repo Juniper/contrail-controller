@@ -201,6 +201,13 @@ public:
     static const uint32_t kMaxOtherOpenFds = 64;
     // default timeout zero means, this timeout is not used
     static const uint32_t kDefaultFlowCacheTimeout = 0;
+    enum ForwardingMode {
+        NONE,
+        L2_L3,
+        L2,
+        L3
+    };
+
     enum VxLanNetworkIdentifierMode {
         AUTOMATIC,
         CONFIGURED
@@ -918,6 +925,7 @@ public:
     std::string vrouter_build_info() const {
         return vrouter_build_info_;
     }
+    Agent::ForwardingMode TranslateForwardingMode(const std::string &mode) const;
 
 private:
 

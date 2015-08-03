@@ -2754,7 +2754,7 @@ TEST_F(IntfTest, Layer2Mode_2) {
     client->WaitForIdle();
     EXPECT_TRUE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
-    EXPECT_TRUE(vm_intf->dhcp_enable_config() == false);
+    EXPECT_TRUE(vm_intf->dhcp_enable_config() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
