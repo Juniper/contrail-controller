@@ -270,9 +270,9 @@ TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
     client->WaitForIdle();
 
     BridgeRouteEntry *rt = L2RouteGet("vrf1", mac);
-    const AgentPath *path = rt->GetActivePath();
+    const AgentPath *path = rt->FindPath(peer);
     EXPECT_TRUE(path->tunnel_dest() == tor_ip);
-    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(*nh->GetDip() == tor_ip);
     EXPECT_TRUE(*nh->GetSip() == tsn_ip);
@@ -282,9 +282,9 @@ TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
     WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
 
     rt = L2RouteGet("vrf1", mac);
-    path = rt->GetActivePath();
+    path = rt->FindPath(peer);
     EXPECT_TRUE(path->tunnel_dest() == tor_ip);
-    nh = dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+    nh = dynamic_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(*nh->GetDip() == tor_ip);
     EXPECT_TRUE(*nh->GetSip() == tsn_ip);

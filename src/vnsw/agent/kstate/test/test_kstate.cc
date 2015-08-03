@@ -123,8 +123,9 @@ public:
                 //5 interface nexthops get created for each interface
                 //(l2 with policy, l2 without policy, l3 with policy, l3
                 // without policy and 1 multicast - mac as all f's)
-                //plus 4 Nexthops for each VRF (1 VRF NH and 2 Composite NHs)
-                WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 5) + 3) ==
+                //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs
+                //i.e. TOR CNH, EVPN CNH, Fabric CNH)
+                WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 5) + 4) ==
                                     (uint32_t)KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
@@ -259,8 +260,8 @@ TEST_F(KStateTest, NHDumpTest) {
     //5 interface nexthops get created for each interface
     //(l2 with policy, l2 without policy, l3 with policy, l3 without policy
     // and 1 multicast - mac as all f's )
-    //plus 4 Nexthops for each VRF (1 VRF NH and 2 Composite NHs)
-    TestNHKState::Init(-1, true, nh_count + (max_ports * 5) + 3);
+    //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs)
+    TestNHKState::Init(-1, true, nh_count + (max_ports * 5) + 4);
     client->WaitForIdle();
     client->KStateResponseWait(1);
 

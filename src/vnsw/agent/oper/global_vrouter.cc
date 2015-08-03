@@ -24,7 +24,7 @@
 #include <oper/route_common.h>
 
 #include <oper/agent_route_walker.h>
-#include <oper/agent_route_encap.h>
+#include <oper/agent_route_resync.h>
 #include <oper/global_vrouter.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
@@ -383,7 +383,8 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->event_manager()->io_service()))),
-      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
+      agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
+      forwarding_mode_(Agent::L2_L3) {
 }
 
 GlobalVrouter::~GlobalVrouter() {
@@ -401,22 +402,31 @@ void GlobalVrouter::CreateDBClients() {
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
-    bool encap_changed = false;
+    bool resync_vm_interface = false;
+    bool resync_route = false;
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        encap_changed = TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
+        resync_route =
+            TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
         if (cfg->vxlan_network_identifier_mode() == "configured") {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
+
+        //Take the forwarding mode if its set, else fallback to l2_l3.
+        Agent::ForwardingMode new_forwarding_mode =
+            oper_->agent()->TranslateForwardingMode(cfg->forwarding_mode());
+        if (new_forwarding_mode != forwarding_mode_) {
+            forwarding_mode_ = new_forwarding_mode;
+            resync_route = true;
+            resync_vm_interface = true;
+        }
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
-        encap_changed = true;
+        resync_route= true;
     }
-
-    bool resync_vm_interface = false;
 
     if (cfg_vxlan_network_identifier_mode !=                             
         oper_->agent()->vxlan_network_identifier_mode()) {
@@ -425,18 +435,19 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         resync_vm_interface = true;
     }
 
-    if (encap_changed) {
-        AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
+    //Rebakes
+    if (resync_route) {
+        AGENT_LOG(GlobalVrouterLog, "Rebake all routes");
         //Resync vm_interfaces to handle ethernet tag change if vxlan changed to
         //mpls or vice versa.
         //Update all routes irrespectively as this will handle change of
         //priority between MPLS-UDP to MPLS-GRE and vice versa.
-        agent_route_encap_update_walker_.get()->Update();
+        agent_route_resync_walker_.get()->Update();
         resync_vm_interface = true;
     }
 
     if (resync_vm_interface) {
-        oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
+        oper_->agent()->vn_table()->GlobalVrouterConfigChanged();
     }
 }
 
