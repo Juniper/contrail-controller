@@ -125,6 +125,48 @@ void MapDiff(const MapType &lhs, const MapType &rhs, Comparator comp,
     }
 }
 
+int CustomAttributesCompare(const std::vector<autogen::KeyValuePair> &lhs,
+                            const std::vector<autogen::KeyValuePair> &rhs) {
+    autogen::KeyValuePairs::const_iterator iter1 = lhs.begin();
+    autogen::KeyValuePairs::const_iterator iter2 = rhs.begin();
+    int ret = 0;
+
+    while (iter1 != lhs.end() && iter2 != rhs.end()) {
+        if ((ret = iter1->key.compare(iter2->key)) != 0) {
+            return ret;
+        }
+        if ((ret = iter1->value.compare(iter2->value)) != 0) {
+            return ret;
+        }
+        ++iter1;
+        ++iter2;
+    }
+
+    if (iter1 != lhs.end()) {
+        return 1;
+    }
+    if (iter2 != rhs.end()) {
+        return -1;
+    }
+    return 0;
+}
+
+void CustomAttributesDiff(const std::vector<autogen::KeyValuePair> &lhs,
+                          const std::vector<autogen::KeyValuePair> &rhs,
+                          std::stringstream *ss) {
+    autogen::KeyValuePairs::const_iterator iter1 = lhs.begin();
+    autogen::KeyValuePairs::const_iterator iter2 = rhs.begin();
+
+    while (iter1 != lhs.end()) {
+        *ss << " -" << iter1->key << ": " << iter1->value;
+        ++iter1;
+    }
+    while (iter2 != rhs.end()) {
+        *ss << " +" << iter2->key << ": " << iter2->value;
+        ++iter2;
+    }
+}
+
 #define COMPARE_PROPERTY(Xname) \
     do {                        \
         int res = compare(Xname, rhs.Xname);    \
@@ -152,8 +194,14 @@ int LoadbalancerProperties::CompareTo(const LoadbalancerProperties &rhs) const {
     }
 
     result = MapCompare(monitors_, rhs.monitors_, CompareMonitor);
+    if (result) {
+        return result;
+    }
+
+    result = CustomAttributesCompare(custom_attributes_, rhs.custom_attributes_);
     return result;
 }
+
 #undef COMPARE_PROPERTY
 
 #define DIFF_PROPERTY(Xss, Xname)\
@@ -187,6 +235,8 @@ std::string LoadbalancerProperties::DiffString(
     MapDiff(current->members_, members_, CompareMember, &ss);
     ss << " Monitors:";
     MapDiff(current->monitors_, monitors_, CompareMonitor, &ss);
+    ss << " Custom Attributes:";
+    CustomAttributesDiff(current->custom_attributes_, custom_attributes_, &ss);
 
     return ss.str();
 }

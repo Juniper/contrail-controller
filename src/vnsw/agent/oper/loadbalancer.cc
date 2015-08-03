@@ -90,7 +90,6 @@ static void PropertiesAddHealthmonitor(
                        healthmon->properties()));
 }
 
-
 bool Loadbalancer::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     LoadBalancerResp *resp = static_cast<LoadBalancerResp*> (sresp);
 
@@ -294,6 +293,7 @@ void LoadbalancerTable::CalculateProperties(DBGraph *graph, IFMapNode
     autogen::LoadbalancerPool *pool =
             static_cast<autogen::LoadbalancerPool *>(node->GetObject());
     properties->set_pool_properties(pool->properties());
+    properties->set_custom_attributes(pool->custom_attributes());
 
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
