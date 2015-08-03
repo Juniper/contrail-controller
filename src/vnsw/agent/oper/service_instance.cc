@@ -218,17 +218,23 @@ static void FindAndSetInterfaces(
         properties->interface_count++;
         if(vmi_props.service_interface_type == "left") {
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
-            properties->mac_addr_inside = vmi->mac_addresses().at(0);
+            if (vmi->mac_addresses().size()) {
+                properties->mac_addr_inside = vmi->mac_addresses().at(0);
+            }
             properties->ip_addr_inside = FindInterfaceIp(graph, adj);
         }
         else if(vmi_props.service_interface_type == "right") {
             properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
-            properties->mac_addr_outside = vmi->mac_addresses().at(0);
+            if (vmi->mac_addresses().size()) {
+                properties->mac_addr_outside = vmi->mac_addresses().at(0);
+            }
             properties->ip_addr_outside = FindInterfaceIp(graph, adj);
         }
         else if(vmi_props.service_interface_type == "management") {
             properties->vmi_management = IdPermsGetUuid(vmi->id_perms());
-            properties->mac_addr_management = vmi->mac_addresses().at(0);
+            if (vmi->mac_addresses().size()) {
+                properties->mac_addr_management = vmi->mac_addresses().at(0);
+            }
             properties->ip_addr_management = FindInterfaceIp(graph, adj);
         }
 
