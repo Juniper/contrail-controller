@@ -49,6 +49,10 @@ class InstanceManager(object):
     def check_service(self, si_obj, proj_name=None):
         pass
 
+    def mac_alloc(self, uuid):
+        return '02:%s:%s:%s:%s:%s' % (uuid[0:2], uuid[2:4],
+            uuid[4:6], uuid[6:8], uuid[9:11])
+
     def _get_default_security_group(self, vn_obj):
         sg_fq_name = vn_obj.get_fq_name()[:-1]
         sg_fq_name.append('default')
@@ -231,6 +235,11 @@ class InstanceManager(object):
             max_instances = si_props.get_scale_out().get_max_instances()
         else:
             max_instances = 1
+
+        # set mac address
+        mac_addrs_obj = MacAddressesType([self.mac_alloc(iip_obj.uuid)])
+        vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         # check if vmi already linked to iip
         iip_update = True
