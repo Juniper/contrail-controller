@@ -856,7 +856,10 @@ class DiscoveryServer():
 
         # only load balance if over 5% deviation from average to avoid churn
         avg_per_pub = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
-        lb_list = dict((item['service_id'],(item['in_use']-int(avg_per_pub))) for item in pubs_active if item['in_use'] > int(1.05*avg_per_pub))
+        lb_list = {}
+        for item in pubs_active:
+            if item['in_use'] > int(1.05*avg_per_pub):
+                lb_list[item['service_id']] = item['in_use'] - int(avg_per_pub)
         if len(lb_list) == 0:
             return
 
