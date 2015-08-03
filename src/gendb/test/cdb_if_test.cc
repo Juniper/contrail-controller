@@ -75,6 +75,7 @@ protected:
 TEST_F(CdbIfTest, EncodeDecodeString) {
     std::vector<std::string> strings = boost::assign::list_of
         ("Test String1")
+        ("")
         ("Test:Str :ing :2  ");
     for (size_t i = 0; i < strings.size(); i++) {
         std::string str(strings[i]);
@@ -111,6 +112,24 @@ TEST_F(CdbIfTest, EncodeDecodeString) {
         EXPECT_EQ(t_ncomposite_dec, t_composite_dec);
         EXPECT_EQ(ncomposite_dec, composite_dec);
     }
+    // Composite - negative test
+    uint32_t val = 100;
+    std::string composite_enc(DbEncodeStringComposite(val));
+    int offset;
+    DbDataValue composite_dec(
+            DbDecodeStringComposite(composite_enc.c_str(), offset));
+    EXPECT_EQ(offset, composite_enc.size());
+    std::string t_composite_dec;
+    t_composite_dec = boost::get<std::string>(composite_dec);
+    EXPECT_EQ(t_composite_dec, "");
+
+    // Non Composite - negative test
+    std::string ncomposite_enc(DbEncodeStringNonComposite(val));
+    DbDataValue ncomposite_dec(
+            DbDecodeStringNonComposite(ncomposite_enc.c_str()));
+    std::string t_ncomposite_dec;
+    t_ncomposite_dec = boost::get<std::string>(ncomposite_dec);
+    EXPECT_EQ(t_ncomposite_dec, "");
 }
 
 TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
@@ -157,6 +176,25 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
         EXPECT_EQ(t_ncomposite_dec, t_composite_dec);
         EXPECT_EQ(ncomposite_dec, composite_dec);
     }
+    std::string val;
+    std::string composite_enc(
+        DbEncodeDoubleComposite(val));
+    int offset;
+    DbDataValue composite_dec( 
+        DbDecodeDoubleComposite(
+            composite_enc.c_str(), offset));
+    EXPECT_EQ(offset, composite_enc.size());
+    double t_composite_dec;
+    t_composite_dec = boost::get<double>(composite_dec);
+    EXPECT_EQ(t_composite_dec, 0);
+    // Non Composite
+    std::string ncomposite_enc(
+        DbEncodeDoubleNonComposite(val));
+    DbDataValue ncomposite_dec(
+        DbDecodeDoubleNonComposite(ncomposite_enc));
+    double t_ncomposite_dec;
+    t_ncomposite_dec = boost::get<double>(ncomposite_dec);
+    EXPECT_EQ(t_ncomposite_dec, 0);
 }
 
 TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
@@ -202,6 +240,26 @@ TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
         EXPECT_EQ(t_ncomposite_dec, t_composite_dec);
         EXPECT_EQ(ncomposite_dec, composite_dec);
     }
+    // Composite
+    std::string val;
+    std::string composite_enc(
+        DbEncodeUUIDComposite(val));
+    int offset;
+    DbDataValue composite_dec( 
+        DbDecodeUUIDComposite(
+            composite_enc.c_str(), offset));
+    EXPECT_EQ(offset, composite_enc.size());
+    boost::uuids::uuid t_composite_dec;
+    t_composite_dec = boost::get<boost::uuids::uuid>(composite_dec);
+    EXPECT_EQ(t_composite_dec, boost::uuids::nil_uuid());
+    // Non Composite
+    std::string ncomposite_enc(
+        DbEncodeUUIDNonComposite(val));
+    DbDataValue ncomposite_dec(
+        DbDecodeUUIDNonComposite(ncomposite_enc));
+    boost::uuids::uuid t_ncomposite_dec;
+    t_ncomposite_dec = boost::get<boost::uuids::uuid>(ncomposite_dec);
+    EXPECT_EQ(t_ncomposite_dec, boost::uuids::nil_uuid());
 }
 
 template <typename NumberType>
@@ -249,6 +307,26 @@ void TestEncodeDecodeInteger() {
         EXPECT_EQ(t_ncomposite_dec, t_composite_dec);
         EXPECT_EQ(ncomposite_dec, composite_dec);
     }
+    // Composite
+    std::string val;
+    std::string composite_enc(
+        DbEncodeIntegerComposite<NumberType>(val));
+    int offset;
+    DbDataValue composite_dec( 
+        DbDecodeIntegerComposite<NumberType>(
+            composite_enc.c_str(), offset));
+    EXPECT_EQ(offset, composite_enc.size());
+    NumberType t_composite_dec;
+    t_composite_dec = boost::get<NumberType>(composite_dec);
+    EXPECT_EQ(t_composite_dec, std::numeric_limits<NumberType>::max());
+    // Non Composite
+    std::string ncomposite_enc(
+        DbEncodeIntegerNonComposite<NumberType>(val));
+    DbDataValue ncomposite_dec(
+        DbDecodeIntegerNonComposite<NumberType>(ncomposite_enc));
+    NumberType t_ncomposite_dec;
+    t_ncomposite_dec = boost::get<NumberType>(ncomposite_dec);
+    EXPECT_EQ(t_ncomposite_dec, std::numeric_limits<NumberType>::max());
 }
 
 TEST_F(CdbIfTest, EncodeDecodeU8) {

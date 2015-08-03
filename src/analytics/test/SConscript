@@ -27,7 +27,6 @@ env_noWerror_excep = env_noWerror.Clone()
 env_noWerror_excep.CppEnableExceptions()
 
 SandeshGenFiles  = env.SandeshGenCpp('viz_collector_test.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('vizd_test.sandesh')
 SandeshGenSrcs   = env.ExtractCpp(SandeshGenFiles)
 SandeshGenObjs   = env.Object(SandeshGenSrcs)
 
@@ -103,25 +102,6 @@ env.Alias('src/analytics:db_handler_test', db_handler_test)
 options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                              'options_test.cc'])
 env.Alias('src/analytics:options_test', options_test)
-
-#vizd_test_obj = env_noWerror_excep.Object('vizd_test.o', 'vizd_test.cc')
-#vizd_test = env.UnitTest('vizd_test',
-#        [
-#       SandeshGenObjs,
-#       env['ANALYTICS_SANDESH_GEN_OBJS'],
-#       '../viz_message.o',
-#       '../viz_collector.o',
-#       '../collector.o',
-#       '../ruleeng.o',
-#       '../db_handler.o',
-#       '../vizd_table_desc.o',
-#       '../OpServerProxy.o',
-#       '../generator.o',
-#       '../redis_connection.o',
-#       '../redis_processor_vizd.o',
-#       vizd_test_obj]
-#       )
-#env.Alias('src/analytics:vizd_test', vizd_test)
 
 protobufEnv = env.Clone()
 protobuf_test_gen_files = protobufEnv.ProtocGenCpp('test_message.proto')
