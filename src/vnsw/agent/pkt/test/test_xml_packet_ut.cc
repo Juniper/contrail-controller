@@ -115,6 +115,26 @@ TEST_F(TestPkt, unknown_unicast_flood) {
     client->agent()->flow_stats_collector()->set_delete_short_flow(false);
 }
 
+TEST_F(TestPkt, tcp) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/tcp_flow.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+    client->WaitForIdle();
+    client->agent()->flow_stats_collector()->set_delete_short_flow(true);
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+    WAIT_FOR(000, 1000, (0U == client->agent()->pkt()->flow_table()->Size()));
+    client->agent()->flow_stats_collector()->set_delete_short_flow(false);
+}
+
+
 TEST_F(TestPkt, flow_tsn_mode_1) {
     Agent *agent = Agent::GetInstance();
     //agent->set_tsn_enabled(true);
