@@ -489,8 +489,12 @@ class DBInterface(object):
         else:
             project_uuid = None
 
+        obj_uuids=None
+        if filters and 'id' in filters:
+            obj_uuids = filters['id']
         sg_objs = self._vnc_lib.security_groups_list(parent_id=project_uuid,
-                                                     detail=True)
+                                                     detail=True,
+                                                     obj_uuids=obj_uuids)
         return sg_objs
     #end _security_group_list_project
 
@@ -3728,29 +3732,27 @@ class DBInterface(object):
 
         all_sgs = []  # all sgs in all projects
         if context and not context['is_admin']:
-            project_sgs = self._security_group_list_project(str(uuid.UUID(context['tenant'])))
+            project_sgs = self._security_group_list_project(str(uuid.UUID(context['tenant'])), filters)
             all_sgs.append(project_sgs)
         else: # admin context
             if filters and 'tenant_id' in filters:
                 project_ids = self._validate_project_ids(context,
                                                          filters['tenant_id'])
                 for p_id in project_ids:
-                    project_sgs = self._security_group_list_project(p_id)
+                    project_sgs = self._security_group_list_project(p_id, filters)
                     all_sgs.append(project_sgs)
-            else:  # no filters
-                all_sgs.append(self._security_group_list_project(None))
+            else:  # no tenant_id filter
+                all_sgs.append(self._security_group_list_project(None, filters))
 
         # prune phase
         for project_sgs in all_sgs:
             for sg_obj in project_sgs:
-                if not self._filters_is_present(filters, 'id', sg_obj.uuid):
-                    continue
                 if not self._filters_is_present(filters, 'name',
                                                 sg_obj.get_display_name() or sg_obj.name):
                     continue
                 try:
                     sg_info = self._security_group_vnc_to_neutron(sg_obj)
-		except NoIdError:
+                except NoIdError:
                     continue
                 except Exception as e:
                     self.logger.error("Error in security_group_list: %s", str(e))
@@ -3856,23 +3858,20 @@ class DBInterface(object):
             project_ids = self._validate_project_ids(context,
                                                      filters['tenant_id'])
             for p_id in project_ids:
-                project_sgs = self._security_group_list_project(p_id)
+                project_sgs = self._security_group_list_project(p_id, filters)
                 all_sgs.append(project_sgs)
         else:  # no filters
             p_id = None
             if context and not context['is_admin']:
                 p_id = str(uuid.UUID(context['tenant']))
-            all_sgs.append(self._security_group_list_project(p_id))
+            all_sgs.append(self._security_group_list_project(p_id, filters))
 
         # prune phase
         for project_sgs in all_sgs:
             for sg_obj in project_sgs:
-                # TODO implement same for name specified in filter
-                if not self._filters_is_present(filters, 'id', sg_obj.uuid):
-                    continue
                 try:
                     sgr_info = self.security_group_rules_read(sg_obj.uuid, sg_obj)
-		except NoIdError:
+                except NoIdError:
                     continue
                 except Exception as e:
                     self.logger.error("Error in security_group_rule_list: %s",
