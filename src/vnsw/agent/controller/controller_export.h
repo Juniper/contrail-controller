@@ -20,6 +20,7 @@ public:
         virtual ~State() {};
 
         bool exported_;
+        bool ingress_replication_exported_; //Used by multicast
         bool fabric_multicast_exported_; //Used by multicast
         bool force_chg_;
         uint32_t label_;
@@ -37,9 +38,12 @@ public:
     RouteExport(AgentRouteTable *rt);
     ~RouteExport();
 
-    void Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
-                bool associate, Agent::RouteTableType type,
-                DBTablePartBase *partition, DBEntryBase *e);
+    void Notify(const Agent *agent,
+                AgentXmppChannel *bgp_xmpp_peer,
+                bool associate,
+                Agent::RouteTableType type,
+                DBTablePartBase *partition,
+                DBEntryBase *e);
     void ManagedDelete();
     DBTableBase::ListenerId GetListenerId() const {return id_;};
     void Unregister();
@@ -53,11 +57,19 @@ private:
     AgentRouteTable *rt_table_;
     bool marked_delete_;
     uint32_t state_added_;
-    void MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, bool associate, 
+    void MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
                 DBTablePartBase *partition, DBEntryBase *e);
     void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
                 DBTablePartBase *partition, DBEntryBase *e,
                 Agent::RouteTableType type);
+    void SubscribeFabricMulticast(const Agent *agent,
+                                  AgentXmppChannel *bgp_xmpp_peer,
+                                  AgentRoute *route,
+                                  RouteExport::State *state);
+    void SubscribeIngressReplication(Agent *agent,
+                                     AgentXmppChannel *bgp_xmpp_peer,
+                                     AgentRoute *route,
+                                     RouteExport::State *state);
     LifetimeRef<RouteExport> table_delete_ref_;
 };
 

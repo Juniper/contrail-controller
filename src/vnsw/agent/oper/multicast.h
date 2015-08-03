@@ -55,8 +55,8 @@ public:
                          const Ip4Address &grp_addr,
                          const std::string &vn_name) :
         vrf_name_(vrf_name), grp_address_(grp_addr), vn_name_(vn_name),
-        evpn_mpls_label_(0), vxlan_id_(0), bridging_(true),
-        peer_identifier_(0), deleted_(false) {
+        evpn_mpls_label_(0), vxlan_id_(0), peer_identifier_(0),
+        deleted_(false) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
@@ -65,8 +65,8 @@ public:
                          const Ip4Address &grp_addr,
                          const Ip4Address &src_addr) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), src_address_(src_addr),
-        evpn_mpls_label_(0), vxlan_id_(0), bridging_(true),
-        peer_identifier_(0), deleted_(false) {
+        evpn_mpls_label_(0), vxlan_id_(0), peer_identifier_(0),
+        deleted_(false) {
         local_olist_.clear();
     };     
     virtual ~MulticastGroupObject() { };
@@ -111,9 +111,7 @@ public:
     const std::string &GetVnName() { return vn_name_; };
     bool IsDeleted() { return deleted_; };
     void Deleted(bool val) { deleted_ = val; };
-    bool bridging() const {return bridging_;};
-    void SetBridging(bool enable) {bridging_ = enable;};
-    bool CanUnsubscribe() const {return (deleted_ || !bridging_);}
+    bool CanUnsubscribe() const {return (deleted_);}
     void set_vxlan_id(uint32_t vxlan_id) {vxlan_id_ = vxlan_id;}
     uint32_t vxlan_id() const {return vxlan_id_;}
     void set_peer_identifier(uint64_t peer_id) {peer_identifier_ = peer_id;}
@@ -128,7 +126,6 @@ private:
     Ip4Address src_address_;
     uint32_t evpn_mpls_label_;
     uint32_t vxlan_id_;
-    bool bridging_;
     uint64_t peer_identifier_;
     bool deleted_;
     std::list<boost::uuids::uuid> local_olist_; /* UUID of local i/f */
@@ -195,10 +192,9 @@ public:
                                   bool fabric,
                                   uint32_t ethernet_tag);
     void HandleIpam(const VnEntry *vn);
-    void HandleFamilyConfig(const VnEntry *vn);
     void HandleVxLanChange(const VnEntry *vn);
-    void HandleTsnSubscription(DBTablePartBase *partition,
-                               DBEntryBase *e);
+    void HandleVnParametersChange(DBTablePartBase *partition,
+                                  DBEntryBase *e);
     //For test routines to clear all routes and mpls label
     void Shutdown();
     //Multicast obj list addition deletion

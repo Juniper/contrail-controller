@@ -89,14 +89,15 @@ struct VnData : public AgentOperDBData {
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool bridging,
            bool layer3_forwarding, bool admin_state, bool enable_rpf,
-           bool flood_unknown_unicast) :
+           bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
         vxlan_id_(vxlan_id), vnid_(vnid), bridging_(bridging),
         layer3_forwarding_(layer3_forwarding), admin_state_(admin_state),
         enable_rpf_(enable_rpf),
-        flood_unknown_unicast_(flood_unknown_unicast) {
+        flood_unknown_unicast_(flood_unknown_unicast),
+        forwarding_mode_(forwarding_mode) {
     };
     virtual ~VnData() { }
 
@@ -114,6 +115,7 @@ struct VnData : public AgentOperDBData {
     bool admin_state_;
     bool enable_rpf_;
     bool flood_unknown_unicast_;
+    Agent::ForwardingMode forwarding_mode_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -156,8 +158,13 @@ public:
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
+    void set_bridging(bool bridging) {bridging_ = bridging;}
     bool bridging() const {return bridging_;};
     bool layer3_forwarding() const {return layer3_forwarding_;};
+    void set_layer3_forwarding(bool layer3_forwarding)
+    {layer3_forwarding_ = layer3_forwarding;}
+    Agent::ForwardingMode forwarding_mode() const {return forwarding_mode_;}
+
     bool admin_state() const {return admin_state_;}
     bool enable_rpf() const {return enable_rpf_;}
     bool flood_unknown_unicast() const {return flood_unknown_unicast_;}
@@ -192,6 +199,7 @@ private:
     bool enable_rpf_;
     bool flood_unknown_unicast_;
     uint32_t old_vxlan_id_;
+    Agent::ForwardingMode forwarding_mode_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -232,10 +240,13 @@ public:
     void DelVn(const uuid &vn_uuid);
     void ResyncVxlan(const boost::uuids::uuid &vn);
     VnEntry *Find(const uuid &vn_uuid);
-    void UpdateVxLanNetworkIdentifierMode();
+    void GlobalVrouterConfigChanged();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VnEntryWalkDone(DBTableBase *partition);
     bool RebakeVxlan(VnEntry *vn, bool op_del);
+    bool EvaluateForwardingMode(VnEntry *vn);
+    bool GetLayer3ForwardingConfig(Agent::ForwardingMode forwarding_mode) const;
+    bool GetBridgingConfig(Agent::ForwardingMode forwarding_mode) const;
 
 private:
     static VnTable *vn_table_;
