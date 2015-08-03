@@ -73,6 +73,7 @@
         <xsd:element name='protocol' type='LoadbalancerProtocolType'/>
         <xsd:element name='loadbalancer-method' type='LoadbalancerMethodType'/>
         <xsd:element name='subnet-id' type='UuidStringType'/>
+        <xsd:element name='custom-attr' type='KeyValuePairs'/>
     </xsd:sequence>
 </xsd:complexType>
 
