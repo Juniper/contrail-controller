@@ -123,6 +123,6 @@ test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz']
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
-env.Alias('test', test_cmd)
-env.Alias('controller/src/api-lib:test', test_cmd)
+env.Alias('flaky-test', test_cmd)
+env.Alias('controller/src/api-lib:flaky-test', test_cmd)
 env.Alias('controller/src/api-lib:coverage', cov_cmd)
