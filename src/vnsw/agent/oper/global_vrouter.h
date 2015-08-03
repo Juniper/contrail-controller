@@ -11,7 +11,7 @@ class OperDB;
 class VnEntry;
 class VrfEntry;
 class IFMapNode;
-class AgentRouteEncap;
+class AgentRouteResync;
 
 namespace autogen {
     struct LinklocalServiceEntryType;
@@ -84,6 +84,7 @@ public:
     void LinkLocalRouteUpdate(const std::vector<Ip4Address> &addr_list);
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
+    Agent::ForwardingMode forwarding_mode() const {return forwarding_mode_;}
 
     uint64_t PendingFabricDnsRequests() const;
 
@@ -105,7 +106,8 @@ private:
     LinkLocalServicesMap linklocal_services_map_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
-    boost::scoped_ptr<AgentRouteEncap> agent_route_encap_update_walker_;
+    boost::scoped_ptr<AgentRouteResync> agent_route_resync_walker_;
+    Agent::ForwardingMode forwarding_mode_;
 };
 
 #endif // vnsw_agent_global_router_h_

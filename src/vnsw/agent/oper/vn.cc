@@ -28,6 +28,7 @@
 #include <oper/oper_dhcp_options.h>
 #include <oper/physical_device_vn.h>
 #include <oper/config_manager.h>
+#include <oper/global_vrouter.h>
 #include <filter/acl.h>
 #include "net/address_util.h"
 
@@ -90,7 +91,7 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     AgentOperDBEntry(), agent_(agent), uuid_(id), vxlan_id_(0), vnid_(0),
     bridging_(true), layer3_forwarding_(true), admin_state_(true),
     table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false),
-    old_vxlan_id_(0) {
+    old_vxlan_id_(0), forwarding_mode_(Agent::L2_L3) {
 }
 
 VnEntry::~VnEntry() {
@@ -221,7 +222,51 @@ int VnEntry::ComputeEthernetTag() const {
 
 bool VnEntry::Resync() {
     VnTable *table = static_cast<VnTable *>(get_table());
-    return table->RebakeVxlan(this, false);
+    bool ret = false;
+
+    //Evaluate rebake of vxlan
+    ret |= table->RebakeVxlan(this, false);
+    //Evaluate forwarding mode change
+    ret |= table->EvaluateForwardingMode(this);
+
+    return ret;
+}
+
+bool VnTable::GetLayer3ForwardingConfig
+(Agent::ForwardingMode forwarding_mode) const {
+    if (forwarding_mode == Agent::L2) {
+        return false;
+    }
+    return true;
+}
+
+bool VnTable::GetBridgingConfig(Agent::ForwardingMode forwarding_mode) const {
+    if (forwarding_mode == Agent::L3) {
+        return false;
+    }
+    return true;
+}
+
+bool VnTable::EvaluateForwardingMode(VnEntry *vn) {
+    bool ret = false;
+    Agent::ForwardingMode forwarding_mode = vn->forwarding_mode();
+    //Evaluate only if VN does not have specific forwarding mode change.
+    if (forwarding_mode == Agent::NONE) {
+        Agent::ForwardingMode global_forwarding_mode =
+            agent()->oper_db()->global_vrouter()->forwarding_mode();
+        bool layer3_forwarding =
+            GetLayer3ForwardingConfig(global_forwarding_mode);
+        if (layer3_forwarding != vn->layer3_forwarding()) {
+            vn->set_layer3_forwarding(layer3_forwarding);
+            ret |= true;
+        }
+        bool bridging = GetBridgingConfig(global_forwarding_mode);
+        if (bridging != vn->bridging()) {
+            vn->set_bridging(bridging);
+            ret |= true;
+        }
+    }
+    return ret;
 }
 
 // Rebake handles
@@ -290,13 +335,12 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
 
 void VnTable::VnEntryWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
-    agent()->interface_table()->
-        UpdateVxLanNetworkIdentifierMode();
+    agent()->interface_table()->GlobalVrouterConfigChanged();
     agent()->physical_device_vn_table()->
         UpdateVxLanNetworkIdentifierMode();
 }
 
-void VnTable::UpdateVxLanNetworkIdentifierMode() {
+void VnTable::GlobalVrouterConfigChanged() {
     DBTableWalker *walker = agent()->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
@@ -439,6 +483,11 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (vn->forwarding_mode_ != data->forwarding_mode_) {
+        vn->forwarding_mode_ = data->forwarding_mode_;
+        ret = true;
+    }
+
     if (rebake_vxlan) {
         ret |= RebakeVxlan(vn, false);
     }
@@ -540,23 +589,39 @@ int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
 }
 
 void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
-                                 bool *rpf, bool *flood_unknown_unicast) {
-    *l2 = true;
-    *l3 = true;
+                                 bool *rpf, bool *flood_unknown_unicast,
+                                 Agent::ForwardingMode *forwarding_mode) {
     *rpf = true;
 
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     autogen::VirtualNetworkType properties = cfg->properties();
-    if (properties.forwarding_mode == "l2") {
-        *l3 = false;
-    }
 
     if (properties.rpf == "disable") {
         *rpf = false;
     }
 
     *flood_unknown_unicast = cfg->flood_unknown_unicast();
-}
+
+    //dervived forwarding mode is resultant of configured VN forwarding and global
+    //configure forwarding mode. It is then used to setup the VN forwarding
+    //mode.
+    //In derivation, global configured forwarding mode is consulted only if VN
+    //configured f/wing mode is not set.
+    *forwarding_mode =
+        agent()->TranslateForwardingMode(properties.forwarding_mode);
+    Agent::ForwardingMode derived_forwarding_mode = *forwarding_mode;
+    if (derived_forwarding_mode == Agent::NONE) {
+        //Use global configured forwarding mode.
+        derived_forwarding_mode = agent()->oper_db()->global_vrouter()->
+            forwarding_mode();
+    }
+
+    //Set the forwarding mode in VN based on calculation above.
+    //By default assume both bridging and layer3_forwarding is enabled.
+    //Flap the mode if configured forwarding mode is not "l2_l3" i.e. l2 or l3.
+    *l2 = GetBridgingConfig(derived_forwarding_mode);
+    *l3 = GetLayer3ForwardingConfig(derived_forwarding_mode);
+ }
 
 VnData *VnTable::BuildData(IFMapNode *node) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
@@ -646,14 +711,15 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool layer3_forwarding;
     bool enable_rpf;
     bool flood_unknown_unicast;
+    Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &bridging, &layer3_forwarding, &enable_rpf,
-                       &flood_unknown_unicast);
+                       &flood_unknown_unicast, &forwarding_mode);
     return new VnData(agent(), node, node->name(), acl_uuid, vrf_name,
                       mirror_acl_uuid, mirror_cfg_acl_uuid, vn_ipam,
                       vn_ipam_data, cfg->properties().vxlan_network_identifier,
                       GetCfgVnId(cfg), bridging, layer3_forwarding,
                       cfg->id_perms().enable, enable_rpf,
-                      flood_unknown_unicast);
+                      flood_unknown_unicast, forwarding_mode);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -714,7 +780,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               nil_uuid(), ipam, vn_ipam_data,
                               vn_id, vxlan_id, true, true,
                               admin_state, enable_rpf,
-                              flood_unknown_unicast);
+                              flood_unknown_unicast, Agent::NONE);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);

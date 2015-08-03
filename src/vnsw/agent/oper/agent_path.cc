@@ -36,7 +36,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
-    flood_dhcp_(false), arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
+    arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
 }
 
 AgentPath::~AgentPath() {

@@ -241,7 +241,6 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
-    EXPECT_TRUE(obj->bridging() == true);
     WAIT_FOR(1000, 100,
              (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
     BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
@@ -318,7 +317,6 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
-    EXPECT_TRUE(obj->bridging() == true);
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
     MplsReq *mpls_list_req = new MplsReq();
