@@ -479,15 +479,9 @@ class DBInterface(object):
     #end _ipam_list_project
 
     def _security_group_list_project(self, project_id):
+        project_uuid = None
         if project_id:
-            try:
-                project_uuid = str(uuid.UUID(project_id))
-                # Trigger a project read to ensure project sync
-                project_obj = self._project_read(proj_id=project_uuid)
-            except Exception:
-                raise
-        else:
-            project_uuid = None
+            project_uuid = str(uuid.UUID(project_id))
 
         sg_objs = self._vnc_lib.security_groups_list(parent_id=project_uuid,
                                                      detail=True)
