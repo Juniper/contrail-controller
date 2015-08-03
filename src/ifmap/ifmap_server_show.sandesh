@@ -251,6 +251,10 @@ struct IFMapPeerServerConnInfo {
     4: string connection_status;
     5: string host;
     6: string port;
+    7: bool end_of_rib_computed;
+    8: bool end_of_rib_timer_running;
+    9: bool start_stale_entries_cleanup;
+    10: bool stale_entries_cleanup_timer_running;
 }
 
 struct IFMapPeerTimedoutEntry {

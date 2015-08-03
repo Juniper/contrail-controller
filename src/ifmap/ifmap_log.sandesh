@@ -71,7 +71,7 @@ systemlog sandesh IFMapXmppUnknownMessage {
     4: string client_name (key="ObjectVRouter")
 }
 
-systemlog sandesh IFMapStaleCleanerInfo {
+systemlog sandesh IFMapStaleEntriesCleanerInfo {
     1: "SeqNum:"
     2: u64 sequence_number
     3: "NodesDeleted:"
@@ -82,6 +82,11 @@ systemlog sandesh IFMapStaleCleanerInfo {
     8: u32 links_deleted
     9: "ObjectsDeleted:"
     10: u32 objects_deleted
+}
+
+systemlog sandesh IFMapStaleEntriesCleanupTimerFired {
+    1: string str1
+    2: string str2
 }
 
 systemlog sandesh IFMapChannelUnregisterMessage {
@@ -264,7 +269,7 @@ trace sandesh IFMapXmppUnknownMessageTrace {
     4: string client_name (key="ObjectVRouter")
 }
 
-trace sandesh IFMapStaleCleanerInfoTrace {
+trace sandesh IFMapStaleEntriesCleanerInfoTrace {
     1: "SeqNum:"
     2: u64 sequence_number
     3: "NodesDeleted:"
@@ -275,6 +280,11 @@ trace sandesh IFMapStaleCleanerInfoTrace {
     8: u32 links_deleted
     9: "ObjectsDeleted:"
     10: u32 objects_deleted
+}
+
+trace sandesh IFMapStaleEntriesCleanupTimerFiredTrace {
+    1: string str1
+    2: string str2
 }
 
 trace sandesh IFMapChannelUnregisterMessageTrace {

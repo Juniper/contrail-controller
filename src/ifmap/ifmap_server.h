@@ -57,7 +57,6 @@ public:
 
     void AddClient(IFMapClient *client);
     void DeleteClient(IFMapClient *client);
-    void StaleNodesCleanup();
 
     DB *database() { return db_; }
     DBGraph *graph() { return graph_; }
@@ -75,6 +74,11 @@ public:
     virtual uint64_t get_ifmap_channel_sequence_number() {
         return ifmap_manager_->GetChannelSequenceNumber();
     }
+    void SetStartStaleEntriesCleanup(bool value) {
+        if (ifmap_manager_) {
+            ifmap_manager_->SetStartStaleEntriesCleanup(value);
+        }
+    }
     void set_ifmap_channel_manager(IFMapChannelManager *manager) {
         ifmap_channel_manager_ = manager;
     }
@@ -87,7 +91,7 @@ public:
     void ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
                             bool subscribe);
 
-    class IFMapStaleCleaner;
+    class IFMapStaleEntriesCleaner;
     class IFMapVmSubscribe;
 
     void ProcessVmRegAsPending(std::string vm_uuid, std::string vr_name,
@@ -100,9 +104,13 @@ public:
     const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
     bool ClientNameToIndex(const std::string &id, int *index);
+    void StartStaleEntriesCleanup();
+    void StopStaleEntriesCleanup();
+    bool StaleEntriesCleanupTimerRunning();
 
 private:
-    static const int kStaleCleanupTimeout = 60000; // milliseconds
+    static const int kStaleEntriesCleanupTimeout = 10000; // milliseconds
+
     friend class IFMapServerTest;
     friend class IFMapRestartTest;
     friend class ShowIFMapXmppClientInfo;
@@ -123,7 +131,7 @@ private:
     void CleanupUuidMapper(IFMapClient *client);
     void ClientExporterSetup(IFMapClient *client);
     void ClientExporterCleanup(IFMapClient *client);
-    bool StaleNodesProcTimeout();
+    bool StaleEntriesProcTimeout();
     const ClientMap &GetClientMap() const { return client_map_; }
     void SimulateDeleteClient(IFMapClient *client);
 
@@ -138,7 +146,7 @@ private:
     IndexMap index_map_;
     WorkQueue<QueueEntry> work_queue_;
     boost::asio::io_service *io_service_;
-    Timer *stale_cleanup_timer_;
+    Timer *stale_entries_cleanup_timer_;
     IFMapManager *ifmap_manager_;
     IFMapChannelManager *ifmap_channel_manager_;
 };
