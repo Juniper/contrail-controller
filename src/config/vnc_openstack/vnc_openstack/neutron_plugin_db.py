@@ -1611,8 +1611,12 @@ class DBInterface(object):
             proj_id = str(uuid.UUID(fip_q['tenant_id']))
             proj_obj = self._project_read(proj_id=proj_id)
             fip_obj.set_project(proj_obj)
-        else:  # READ/UPDATE/DELETE
-            fip_obj = self._vnc_lib.floating_ip_read(id=fip_q['id'])
+        else:  # UPDATE
+            try:
+                fip_obj = self._vnc_lib.floating_ip_read(id=fip_q['id'])
+            except NoIdError:
+                self._raise_contrail_exception('FloatingIPNotFound',
+                                               floatingip_id=fip_q['id'])
 
         port_id = fip_q.get('port_id')
         if port_id:
@@ -3244,7 +3248,11 @@ class DBInterface(object):
     #end floatingip_update
 
     def floatingip_delete(self, fip_id):
-        self._vnc_lib.floating_ip_delete(id=fip_id)
+        try:
+            self._vnc_lib.floating_ip_delete(id=fip_id)
+        except NoIdError:
+            self._raise_contrail_exception('FloatingIPNotFound',
+                                           floatingip_id=fip_id)
     #end floatingip_delete
 
     def floatingip_list(self, context, filters=None):
