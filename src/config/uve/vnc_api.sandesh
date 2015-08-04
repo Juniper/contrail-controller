@@ -50,3 +50,16 @@ struct ContrailConfig {
 uve sandesh ContrailConfigTrace {
     1: ContrailConfig data
 }
+
+objectlog sandesh VncApiStats {
+    1: string operation_type // (GET, PUT, POST, DELETE)
+    2: string user
+    3: string useragent
+    4: string remote_ip
+    5: string domain_name
+    6: string project_name
+    7: string object_type
+    8: u64 response_time_in_usec
+    9: string response_size
+    10: string response_code
+}

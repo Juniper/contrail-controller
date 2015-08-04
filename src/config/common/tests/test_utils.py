@@ -1031,3 +1031,20 @@ class FakeNetconfManager(object):
 netconf_managers = {}
 def fake_netconf_connect(host, *args, **kwargs):
     return netconf_managers.setdefault(host, FakeNetconfManager(args, kwargs))
+
+
+class FakeVncApiStats(object):
+    _all_logs = []
+    send = stub
+    def __init__(self, *args, **kwargs):
+        FakeVncApiStats._all_logs.append(kwargs)
+
+    @classmethod
+    def _print(cls):
+        for log in cls._all_logs:
+            x = copy.deepcopy(log.__dict__)
+            #body = x.pop('body')
+            #pprint(json.loads(body))
+            pprint(x)
+            print "\n"
+# class FakeVncApiStats
