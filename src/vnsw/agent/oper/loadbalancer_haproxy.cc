@@ -22,7 +22,7 @@ LoadbalancerHaproxy::LoadbalancerHaproxy(Agent *agent)
     protocol_map_ = map_list_of
             ("TCP", "tcp")
             ("HTTP", "http")
-            ("HTTPS", "tcp");
+            ("HTTPS", "http");
     balance_map_ = map_list_of
             ("ROUND_ROBIN", "roundrobin")
             ("LEAST_CONNECTIONS", "leastconn")
@@ -119,6 +119,11 @@ void LoadbalancerHaproxy::GenerateFrontend(
     if (vip.connection_limit >= 0) {
         *out << string(4, ' ')
              << "maxconn " << vip.connection_limit << endl;
+    }
+
+    if (vip.protocol == "HTTPS" || vip.protocol == "HTTP") {
+        *out << string(4, ' ')
+             << "option forwardfor" << endl;
     }
     *out << endl;
 }
