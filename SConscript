@@ -23,6 +23,7 @@ env.Alias('controller/test', [
     'controller/src/query_engine:test',
     'controller/src/schema:test',
     'controller/src/xmpp:test',
+    'controller/src/api-lib:test',
     'controller/src/config/api-server:test',
     'controller/src/config/schema-transformer:test',
 ])
