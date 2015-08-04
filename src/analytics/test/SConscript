@@ -95,7 +95,8 @@ db_handler_test = env.UnitTest('db_handler_test',
                               '../parser_util.o',
                               '../vizd_table_desc.o',
                               '../viz_message.o',
-                              ]
+                              ],
+                              platform_exclude=[('Ubuntu','14.04')])
                               )
 env.Alias('src/analytics:db_handler_test', db_handler_test)
 
@@ -133,3 +134,7 @@ flaky_test = env.TestSuite('analytics-flaky-test', flaky_test_suite)
 env.Alias('controller/src/analytics:flaky-test', flaky_test)
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:
