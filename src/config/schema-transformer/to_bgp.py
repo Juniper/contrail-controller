@@ -147,13 +147,64 @@ def _access_control_list_update(acl_obj, name, obj, entries):
 class DBBaseST(DBBase):
     obj_type = __name__
 
+class GlobalSystemConfigST(DBBaseST):
+    _dict = {}
+    obj_type = 'global_system_config'
+    _autonomous_system = 0
+    _ibgp_auto_mesh = None
+    def __init__(self, uuid, gsc):
+        self.update_autonomous_system(gsc.autonomous_system)
+        self.update_ibgp_auto_mesh(gsc.ibgp_auto_mesh)
+    # end __init__
+
+    @classmethod
+    def get_autonomous_system(cls):
+        return cls._autonomous_system
+    # end get_autonomous_system
+
+    @classmethod
+    def get_ibgp_auto_mesh(cls):
+        return cls._ibgp_auto_mesh
+    # end get_ibgp_auto_mesh
+
+    @classmethod
+    def update_autonomous_system(cls, new_asn):
+        # ifmap reports as string, obj read could return it as int
+        if int(new_asn) == cls._autonomous_system:
+            return
+        for vn in VirtualNetworkST.values():
+            vn.update_autonomous_system(cls._autonomous_system, new_asn)
+        cls._autonomous_system = int(new_asn)
+        for router in BgpRouterST.values():
+            router.update_global_asn(new_asn)
+        # end for router
+        for router in LogicalRouterST.values():
+            router.update_autonomous_system(new_asn)
+        # end for router
+    # end update_autonomous_system
+
+    @classmethod
+    def update_ibgp_auto_mesh(cls, value):
+        if value is None:
+            value = True
+        if cls._ibgp_auto_mesh == value:
+            return
+        cls._ibgp_auto_mesh = value
+        if not value:
+            return
+        for router in BgpRouterST.values():
+            router.update_peering()
+    # end update_ibgp_auto_mesh
+
+# end GlobalSystemConfigST
+
+
 # a struct to store attributes related to Virtual Networks needed by
 # schema transformer
 
 
 class VirtualNetworkST(DBBaseST):
     _dict = {}
-    _autonomous_system = 0
     obj_type = 'virtual_network'
 
     def __init__(self, name, obj=None, acl_dict=None, ri_dict=None):
@@ -226,6 +277,11 @@ class VirtualNetworkST(DBBaseST):
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
                 self.add_policy(policy.name)
+
+        for ipam_ref in self.obj.get_network_ipam_refs() or []:
+            subnet = ipam_ref['attr']
+            self.ipams[':'.join(ipam_ref['to'])] = subnet
+        self.update_ipams()
         self.uve_send()
     # end __init__
 
@@ -267,67 +323,44 @@ class VirtualNetworkST(DBBaseST):
         return analyzer_vn_set
     # end delete
 
-    @classmethod
-    def get_autonomous_system(cls):
-        if cls._autonomous_system == 0:
-            gsc = DBBaseST().read_vnc_obj(fq_name=['default-global-system-config'],
-                                    obj_type='global_system_config')
-            cls._autonomous_system = int(gsc.get_autonomous_system())
-        return cls._autonomous_system
-    # end get_autonomous_system
-
-    @classmethod
-    def update_autonomous_system(cls, new_asn):
-        # ifmap reports as string, obj read could return it as int
-        if int(new_asn) == cls._autonomous_system:
+    def update_autonomous_system(self, old_asn, new_asn):
+        if (self.obj.get_fq_name() in
+                [common.IP_FABRIC_VN_FQ_NAME,
+                 common.LINK_LOCAL_VN_FQ_NAME]):
+            # for ip-fabric and link-local VN, we don't need to update asn
             return
-        for vn in cls._dict.values():
-            if (vn.obj.get_fq_name() in
-                    [common.IP_FABRIC_VN_FQ_NAME,
-                     common.LINK_LOCAL_VN_FQ_NAME]):
-                # for ip-fabric and link-local VN, we don't need to update asn
+        ri = self.get_primary_routing_instance()
+        ri_fq_name = ri.get_fq_name_str()
+        rtgt_num = self._cassandra.get_route_target(ri_fq_name)
+        old_rtgt_name = "target:%d:%d" % (old_asn, rtgt_num)
+        new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
+        new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
+        old_rtgt_obj = RouteTarget(old_rtgt_name)
+        inst_tgt_data = InstanceTargetType()
+        ri.obj = ri.read_vnc_obj(fq_name=ri_fq_name)
+        ri.obj.del_route_target(old_rtgt_obj)
+        ri.obj.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
+        _vnc_lib.routing_instance_update(ri.obj)
+        for (prefix, nexthop) in self.route_table.items():
+            left_ri = self._get_routing_instance_from_route(nexthop)
+            if left_ri is None:
                 continue
-            ri = vn.get_primary_routing_instance()
-            ri_fq_name = ri.get_fq_name_str()
-            rtgt_num = self._cassandra.get_route_target(ri_fq_name)
-            old_rtgt_name = "target:%d:%d" % (cls._autonomous_system, rtgt_num)
-            new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
-            new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
-            old_rtgt_obj = RouteTarget(old_rtgt_name)
-            inst_tgt_data = InstanceTargetType()
-            ri.obj = ri.read_vnc_obj(fq_name=ri_fq_name)
-            ri.obj.del_route_target(old_rtgt_obj)
-            ri.obj.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
-            _vnc_lib.routing_instance_update(ri.obj)
-            for (prefix, nexthop) in vn.route_table.items():
-                left_ri = vn._get_routing_instance_from_route(nexthop)
-                if left_ri is None:
-                    continue
-                left_ri.update_route_target_list(
-                    set([new_rtgt_name]), set([old_rtgt_name]), "import")
-                static_route_entries = left_ri.obj.get_static_route_entries()
-                if static_route_entries is None:
-                    continue
-                for static_route in static_route_entries.get_route() or []:
-                    if old_rtgt_name in static_route.route_target:
-                        static_route.route_target.remove(old_rtgt_name)
-                        static_route.route_target.append(new_rtgt_name)
-                _vnc_lib.routing_instance_update(left_ri.obj)
-            try:
-                RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
-            except RefsExistError:
-                # if other routing instances are referring to this target,
-                # it will be deleted when those instances are deleted
-                pass
-        # end for vn
-
-        cls._autonomous_system = int(new_asn)
-        for router in BgpRouterST.values():
-            router.update_global_asn(new_asn)
-        # end for router
-        for router in LogicalRouterST.values():
-            router.update_autonomous_system(new_asn)
-        # end for router
+            left_ri.update_route_target_list(
+                set([new_rtgt_name]), set([old_rtgt_name]), "import")
+            static_route_entries = left_ri.obj.get_static_route_entries()
+            if static_route_entries is None:
+                continue
+            for static_route in static_route_entries.get_route() or []:
+                if old_rtgt_name in static_route.route_target:
+                    static_route.route_target.remove(old_rtgt_name)
+                    static_route.route_target.append(new_rtgt_name)
+            _vnc_lib.routing_instance_update(left_ri.obj)
+        try:
+            RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
+        except RefsExistError:
+            # if other routing instances are referring to this target,
+            # it will be deleted when those instances are deleted
+            pass
     # end update_autonomous_system
 
     def add_policy(self, policy_name, attrib=None):
@@ -439,7 +472,7 @@ class VirtualNetworkST(DBBaseST):
     # end free_service_chain_ip
 
     def get_route_target(self):
-        return "target:%s:%d" % (self.get_autonomous_system(),
+        return "target:%s:%d" % (GlobalSystemConfigST.get_autonomous_system(),
                                  self._route_target)
     # end get_route_target
 
@@ -483,7 +516,8 @@ class VirtualNetworkST(DBBaseST):
         old_rtgt = self._cassandra.get_route_target(rinst_fq_name_str)
         rtgt_num = self._cassandra.alloc_route_target(rinst_fq_name_str)
 
-        rt_key = "target:%s:%d" % (self.get_autonomous_system(), rtgt_num)
+        rt_key = "target:%s:%d" % (GlobalSystemConfigST.get_autonomous_system(),
+                                   rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key).obj
         if is_default:
             inst_tgt_data = InstanceTargetType()
@@ -543,7 +577,8 @@ class VirtualNetworkST(DBBaseST):
         self.rinst[rinst_name] = rinst
 
         if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
-            rt_key = "target:%s:%d" % (self.get_autonomous_system(), old_rtgt)
+            rt_key = "target:%s:%d" % (
+                GlobalSystemConfigST.get_autonomous_system(), old_rtgt)
             RouteTargetST.delete(rt_key)
         return rinst
     # end locate_routing_instance
@@ -1074,6 +1109,7 @@ class RouteTargetST(DBBaseST):
         del cls._dict[rt_key]
     # end delete
 # end RoutTargetST
+
 # a struct to store attributes related to Network Policy needed by schema
 # transformer
 
@@ -1082,21 +1118,31 @@ class NetworkPolicyST(DBBaseST):
     _dict = {}
     obj_type = 'network_policy'
 
-    def __init__(self, name):
+    def __init__(self, name, obj=None):
         self.name = name
-        self.obj = NetworkPolicy(name)
         self.networks_back_ref = set()
         self.internal = False
         self.rules = []
         self.analyzer_vn_set = set()
         self.policies = set()
+        if obj:
+            self.add_rules(obj.get_network_policy_entries())
+            for vn_ref in obj.get_virtual_network_back_refs() or []:
+                vn_name = ':'.join(vn_ref['to'])
+                self.networks_back_ref.add(vn_name)
+                vn = VirtualNetworkST.get(vn_name)
+                if vn is None:
+                    continue
+                vnp = VirtualNetworkPolicyType(**vn_ref['attr'])
+                vn.add_policy(name, vnp)
     # end __init__
 
     def add_rules(self, entries):
         network_set = self.networks_back_ref | self.analyzer_vn_set
         if entries is None:
             self.rules = []
-        self.rules = entries.policy_rule
+        else:
+            self.rules = entries.policy_rule
         self.policies = set()
         self.analyzer_vn_set = set()
         for prule in self.rules:
@@ -1112,7 +1158,7 @@ class NetworkPolicyST(DBBaseST):
         # end for prule
         
         network_set |= self.analyzer_vn_set
-        return network_set
+        return network_set & set(n in VirtualNetworkST)
     #end add_rules
 # end class NetworkPolicyST
 
@@ -1194,14 +1240,14 @@ class SecurityGroupST(DBBaseST):
                 if int(sg_id) > SGID_MIN_ALLOC:
                     self._cassandra.free_sg_id(sg_id - SGID_MIN_ALLOC)
                 else:
-                    if self.name == self._cassanda.get_sg_from_id(sg_id):
+                    if self.name == self._cassandra.get_sg_from_id(sg_id):
                         self._cassandra.free_sg_id(sg_id)
             self.obj.set_security_group_id(str(config_id))
         else:
             do_alloc = False
             if sg_id is not None:
                 if int(sg_id) < SGID_MIN_ALLOC:
-                    if self.name == self._cassanda.get_sg_from_id(int(sg_id)):
+                    if self.name == self._cassandra.get_sg_from_id(int(sg_id)):
                         self.obj.set_security_group_id(int(sg_id) + SGID_MIN_ALLOC)
                     else:
                         do_alloc = True
@@ -1914,7 +1960,6 @@ class AclRuleListST(object):
 
 class BgpRouterST(DBBaseST):
     _dict = {}
-    _ibgp_auto_mesh = None
     obj_type = 'bgp_router'
 
     def __init__(self, name, params):
@@ -1922,18 +1967,11 @@ class BgpRouterST(DBBaseST):
         self.vendor = (params.vendor or 'contrail').lower()
         self.asn = None
         self.identifier = params.identifier
-
-        if self._ibgp_auto_mesh is None:
-            gsc = self.read_vnc_obj(fq_name=['default-global-system-config'],
-                                    obj_type='global_system_config')
-            self._ibgp_auto_mesh = gsc.get_ibgp_auto_mesh()
-            if self._ibgp_auto_mesh is None:
-                self._ibgp_auto_mesh = True
     # end __init__
 
     def set_params(self, params):
         if self.vendor == 'contrail':
-            self.update_global_asn(VirtualNetworkST.get_autonomous_system())
+            self.update_global_asn(GlobalSystemConfigST.get_autonomous_system())
         else:
             self.update_autonomous_system(params.autonomous_system)
     # end set_params
@@ -1956,21 +1994,10 @@ class BgpRouterST(DBBaseST):
         self.update_peering()
     # end update_autonomous_system
 
-    @classmethod
-    def update_ibgp_auto_mesh(cls, value):
-        if cls._ibgp_auto_mesh == value:
-            return
-        cls._ibgp_auto_mesh = value
-        if not value:
-            return
-        for router in cls._dict.values():
-            router.update_peering()
-    # end update_ibgp_auto_mesh
-
     def update_peering(self):
-        if not self._ibgp_auto_mesh:
+        if not GlobalSystemConfigST.get_ibgp_auto_mesh():
             return
-        global_asn = int(VirtualNetworkST.get_autonomous_system())
+        global_asn = int(GlobalSystemConfigST.get_autonomous_system())
         if self.asn != global_asn:
             return
         try:
@@ -2023,6 +2050,20 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.uuid = self.obj.uuid
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
+        for ref in self.obj.get_virtual_network_refs() or []:
+            self.set_virtual_network(':'.join(ref['to']))
+        for ref in self.obj.get_floating_ip_back_refs() or []:
+            self.add_floating_ip(':'.join(ref['to']))
+        if self.obj.parent_type == 'virtual-machine':
+            self.set_virtual_machine(':'.join(self.obj.get_fq_name()[:-1]))
+        else:
+            for ref in (self.obj.get_virtual_machine_refs() or []):
+                self.set_virtual_machine(':'.join(ref['to']))
+        props = self.obj.get_virtual_machine_interface_properties()
+        if props:
+            self.set_service_interface_type(props.get_service_interface_type())
+            self.set_interface_mirror(props.get_interface_mirror())
+        self.rebake()
     # end __init__
 
     @classmethod
@@ -2088,6 +2129,10 @@ class VirtualMachineInterfaceST(DBBaseST):
         if self.virtual_machine == virtual_machine:
             return
         self.virtual_machine = virtual_machine
+        if virtual_machine:
+            vm = VirtualMachineST.get(virtual_machine)
+            if vm:
+                vm.add_interface(self.name)
         self._add_pbf_rules()
     # end set_virtual_machine
 
@@ -2429,7 +2474,7 @@ class LogicalRouterST(DBBaseST):
         if not rt_ref:
             rtgt_num = self._cassandra.alloc_route_target(name, True)
             rt_key = "target:%s:%d" % (
-                VirtualNetworkST.get_autonomous_system(), rtgt_num)
+                GlobalSystemConfigST.get_autonomous_system(), rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
             obj.set_route_target(rtgt_obj.obj)
             _vnc_lib.logical_router_update(obj)
@@ -2521,7 +2566,83 @@ class LogicalRouterST(DBBaseST):
                                                 rt_add=rt_add)
     # end set_route_target_list
 
-# end LogicaliRouterST
+# end LogicalRouterST
+
+
+class ServiceInstanceST(DBBaseST):
+    _dict = {}
+    obj_type = 'service_instance'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.virtual_machines = set()
+        self.obj = obj or self.read_vnc_obj(fq_name=name)
+    # end __init__
+
+    def add_properties(self, props):
+        if not props.auto_policy:
+            return self.delete_properties()
+        left_vn_str, right_vn_str = get_si_vns(self.obj, props)
+        if (not left_vn_str or not right_vn_str):
+            _sandesh._logger.error(
+                "%s: route table next hop service instance must "
+                "have left and right virtual networks", self.name)
+            return self.delete_properties()
+
+        policy_name = "_internal_" + self.name
+        policy = NetworkPolicyST.locate(policy_name)
+        addr1 = AddressType(virtual_network=left_vn_str)
+        addr2 = AddressType(virtual_network=right_vn_str)
+        action_list = ActionListType(apply_service=[self.name])
+
+        prule = PolicyRuleType(direction="<>", protocol="any",
+                               src_addresses=[addr1], dst_addresses=[addr2],
+                               src_ports=[PortType(0, -1)],
+                               dst_ports=[PortType(0, -1)],
+                               action_list=action_list)
+        pentry = PolicyEntriesType([prule])
+        policy.obj = NetworkPolicy(policy_name, network_policy_entries=pentry)
+        policy.network_back_ref = set([left_vn_str, right_vn_str])
+        policy.internal = True
+        policy.add_rules(pentry)
+        networks = set()
+        vn1 = VirtualNetworkST.get(left_vn_str)
+        if vn1:
+            vn1.add_policy(policy_name)
+            networks.add(left_vn_str)
+        vn2 = VirtualNetworkST.get(right_vn_str)
+        if vn2:
+            vn2.add_policy(policy_name)
+            networks.add(right_vn_str)
+        return networks
+    # add_properties
+
+    def delete_properties(self):
+        networks = set()
+        policy_name = '_internal_' + self.name
+        policy = NetworkPolicyST.get(policy_name)
+        if policy is None:
+            return networks
+        for vn_name in policy.network_back_ref:
+            vn = VirtualNetworkST.get(vn_name)
+            if vn is None:
+                continue
+            del vn.policies[policy_name]
+            networks.add(vn_name)
+        # end for vn_name
+        NetworkPolicyST.delete(policy_name)
+        return networks
+    # end delete_properties
+
+    @classmethod
+    def delete(cls, name):
+        si = cls.get(name)
+        if si is None:
+            return
+        si.delete_properties()
+        del cls._dict[name]
+    # end delete
+# end ServiceInstanceST
 
 
 class SchemaTransformer(object):
@@ -2591,6 +2712,8 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
+        for gsc in GlobalSystemConfigST.list_vnc_obj():
+            GlobalSystemConfigST.locate(gsc.uuid, gsc)
         for lr in LogicalRouterST.list_vnc_obj():
            LogicalRouterST.locate(lr.get_fq_name_str(), lr)
         vn_list = list(VirtualNetworkST.list_vnc_obj())
@@ -2654,6 +2777,12 @@ class SchemaTransformer(object):
         gevent.sleep(0.001)
         for sg in sg_list:
             SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
+
+        # update sg rules after all SG objects are initialized to avoid
+        # rewriting of ACLs multiple times
+        for sg in SecurityGroupST.values():
+            sg.update_policy_entries(sg.obj.get_security_group_entries())
+
         gevent.sleep(0.001)
         for rt in RouteTargetST.list_vnc_obj():
             rt_name = rt.get_fq_name_str()
@@ -2661,9 +2790,36 @@ class SchemaTransformer(object):
         for vn in vn_list:
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
                                     ri_dict)
+
+        for policy in NetworkPolicyST.list_vnc_obj():
+            NetworkPolicyST.locate(policy.get_fq_name_str(), policy)
         gevent.sleep(0.001)
         for vmi in VirtualMachineInterfaceST.list_vnc_obj():
             VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+
+        gevent.sleep(0.001)
+        for iip in InstanceIpST.list_vnc_obj():
+            InstanceIpST.locate(iip.get_fq_name_str(),
+                                iip.get_instance_ip_address())
+        gevent.sleep(0.001)
+        for fip in FloatingIpST.list_vnc_obj():
+            FloatingIpST.locate(fip.get_fq_name_str(),
+                                fip.get_floating_ip_address())
+
+        gevent.sleep(0.001)
+        for si in DBBaseST.list_vnc_obj(obj_type='service_instance'):
+            si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
+            if si_st is None:
+                continue
+            for ref in si.get_virtual_machine_back_refs() or []:
+                vm_name = ':'.join(ref['to'])
+                vm = VirtualMachineST.locate(vm_name, si.get_fq_name_str())
+                si_st.virtual_machines.add(vm_name)
+            props = si.get_service_instance_properties()
+            if not props.auto_policy:
+                continue
+            si_st.add_properties(props)
+
     # end reinit
 
     def cleanup(self):
@@ -2719,12 +2875,12 @@ class SchemaTransformer(object):
 
     def add_autonomous_system(self, idents, meta):
         asn = meta.text
-        VirtualNetworkST.update_autonomous_system(asn)
+        GlobalSystemConfigST.update_autonomous_system(asn)
     # end add_autonomous_system
 
     def add_ibgp_auto_mesh(self, idents, meta):
         value = meta.text
-        BgpRouterST.update_ibgp_auto_mesh(value.lower() == "true")
+        GlobalSystemConfigST.update_ibgp_auto_mesh(value.lower() == "true")
     # end add_ibgp_auto_mesh
 
     def add_project_virtual_network(self, idents, meta):
@@ -2785,7 +2941,6 @@ class SchemaTransformer(object):
 
         entries = PolicyEntriesType()
         entries.build(meta)
-        policy.obj.set_network_policy_entries(entries)
         self.current_network_set |= policy.add_rules(entries)
     # end add_network_policy_entries
 
@@ -2936,6 +3091,9 @@ class SchemaTransformer(object):
         vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
         vm = VirtualMachineST.locate(vm_name, si_name)
+        si = ServiceInstanceST.locate(si_name)
+        if si:
+            si.virtual_machines.add(vm_name)
         for sc in ServiceChain._dict.values():
             if si_name in sc.service_list:
                 if VirtualNetworkST.get(sc.left_vn) is not None:
@@ -2962,14 +3120,17 @@ class SchemaTransformer(object):
     def delete_virtual_machine_service_instance(self, idents, meta):
         vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
-        vm = VirtualMachineST.delete(si_name)
+        vm = VirtualMachineST.delete(vm_name)
+        si = ServiceInstanceST.get(si_name)
+        if si:
+            si.virtual_machines.remove(vm_name)
         for sc in ServiceChain._dict.values():
             if si_name in sc.service_list:
                 if VirtualNetworkST.get(sc.left_vn) is not None:
                     self.current_network_set.add(sc.left_vn)
                 if VirtualNetworkST.get(sc.right_vn):
                     self.current_network_set.add(sc.right_vn)
-    # end add_virtual_machine_service_instance(self, idents, meta):
+    # end delete_virtual_machine_service_instance
 
     def add_route_target_list(self, idents, meta):
         vn_name = idents['virtual-network']
@@ -3026,62 +3187,16 @@ class SchemaTransformer(object):
         if not si_props.auto_policy:
             self.delete_service_instance_properties(idents, meta)
             return
-        try:
-            si = DBBaseST().read_vnc_obj(fq_name=si_name,
-                                       obj_type='service_instance')
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading service "
-                                   "instance %s", si_name)
-            return
-        si_props = si.get_service_instance_properties()
-        left_vn_str, right_vn_str = get_si_vns(si, si_props)
-        if (not left_vn_str or not right_vn_str):
-            _sandesh._logger.error(
-                "%s: route table next hop service instance must "
-                "have left and right virtual networks", si_name)
-            self.delete_service_instance_properties(idents, meta)
-            return
-
-        policy_name = "_internal_" + si_name
-        policy = NetworkPolicyST.locate(policy_name)
-        addr1 = AddressType(virtual_network=left_vn_str)
-        addr2 = AddressType(virtual_network=right_vn_str)
-        action_list = ActionListType(apply_service=[si_name])
-
-        prule = PolicyRuleType(direction="<>", protocol="any",
-                               src_addresses=[addr1], dst_addresses=[addr2],
-                               src_ports=[PortType(0, -1)],
-                               dst_ports=[PortType(0, -1)],
-                               action_list=action_list)
-        pentry = PolicyEntriesType([prule])
-        policy.obj = NetworkPolicy(policy_name, network_policy_entries=pentry)
-        policy.network_back_ref = set([left_vn_str, right_vn_str])
-        policy.internal = True
-        policy.add_rules(pentry)
-        vn1 = VirtualNetworkST.get(left_vn_str)
-        if vn1:
-            vn1.add_policy(policy_name)
-            self.current_network_set.add(left_vn_str)
-        vn2 = VirtualNetworkST.get(right_vn_str)
-        if vn2:
-            vn2.add_policy(policy_name)
-            self.current_network_set.add(right_vn_str)
+        si = ServiceInstanceST.locate(si_name)
+        if si:
+            self.current_network_set |= si.add_properties(si_props)
     # end add_service_instance_properties
 
     def delete_service_instance_properties(self, idents, meta):
         si_name = idents['service-instance']
-        policy_name = '_internal_' + si_name
-        policy = NetworkPolicyST.get(policy_name)
-        if policy is None:
-            return
-        for vn_name in policy.network_back_ref:
-            vn = VirtualNetworkST.get(vn_name)
-            if vn is None:
-                continue
-            del vn.policies[policy_name]
-            self.current_network_set.add(vn_name)
-        # end for vn_name
-        NetworkPolicyST.delete(policy_name)
+        si = ServiceInstanceST.get(si_name)
+        if si:
+            self.current_network_set |= si.delete_properties()
     # end delete_service_instance_properties
 
     def add_virtual_network_route_table(self, idents, meta):
@@ -3314,10 +3429,7 @@ class SchemaTransformer(object):
             # to create a link from all VNs containing a policy with that
             # analyzer
             for policy in NetworkPolicyST.values():
-                policy_rule_entries = policy.obj.get_network_policy_entries()
-                if policy_rule_entries is None:
-                    continue
-                for prule in policy_rule_entries.policy_rule:
+                for prule in policy.rules:
                     if (prule.action_list is None or
                         prule.action_list.mirror_to is None or
                         prule.action_list.mirror_to.analyzer_name is None):
