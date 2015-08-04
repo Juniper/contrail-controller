@@ -20,8 +20,8 @@ ruleparser_test = env.UnitTest('ruleparser_test',
                                ['../../viz_message.o',
                                 ruleparser_test_obj,
                                 env['TOP'] + '/analytics/viz_request_skeleton.cpp',
-                               ]
-                              )
+                               ],
+				platform_exclude=[('Ubuntu','14.04')])
 
 env.Alias('src/analytics/ruleeng:ruleparser_test', ruleparser_test)
 
