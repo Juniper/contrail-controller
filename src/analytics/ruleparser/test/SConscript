@@ -20,12 +20,22 @@ ruleparser_test = env.UnitTest('ruleparser_test',
                                ['../../viz_message.o',
                                 ruleparser_test_obj,
                                 env['TOP'] + '/analytics/viz_request_skeleton.cpp',
-                               ]
-                              )
+                               ],
+			       platform_exclude=[('Ubuntu','14.04')])
 
 env.Alias('src/analytics/ruleeng:ruleparser_test', ruleparser_test)
 
+# We need this dummy because if ruleparser_test is not added to
+# TestSuite below due to platform exclusion, an error occurs because
+# TestSuite is empty. So remove ruleparser_dummy when ruleparser_test
+# is fixed.
+ruleparser_dummy = env.InstallAs('ruleparser_dummy', '/bin/true')
+
 test = env.TestSuite('ruleparser-test',
-        [ruleparser_test,])
+                     [ruleparser_test, ruleparser_dummy])
 
 env.Alias('controller/src/analytics/ruleparser:test', test)
+
+# Local Variables:
+# mode: python
+# End:
