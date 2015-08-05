@@ -88,6 +88,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr)
     : XmppConnectionManager(evm, ssl::context::tlsv1_server, false, false),
+      max_connections_(0),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
