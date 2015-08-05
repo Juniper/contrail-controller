@@ -201,6 +201,40 @@ class TestPolicy(test_case.STTestCase):
         return
 
     @retries(5, hook=retry_exc_handler)
+    def check_no_policies_for_sg(self, fq_name):
+        try:
+            sg_obj = self._vnc_lib.security_group_read(fq_name)
+            sg_entries = sg_obj.get_security_group_entries()
+            if sg_entries.__dict__['policy_rule']:
+                raise Exception('sg %s/%s found policies' % (str(fq_name)))
+        except NoIdError:
+            pass
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_not_match_sg(self, fq_name, acl_name, sg_id):
+        try:
+            sg_obj = self._vnc_lib.security_group_read(fq_name)
+            acls = sg_obj.get_access_control_lists()
+            acl = None
+            for acl_to in acls or []:
+                if (acl_to['to'][-1] != acl_name):
+                    continue
+                acl = self._vnc_lib.access_control_list_read(id=acl_to['uuid'])
+                if acl == None:
+                    return
+                for rule in acl.access_control_list_entries.acl_rule:
+                    if acl_name == 'egress-access-control-list':
+                        if rule.match_condition.dst_address.security_group == sg_id:
+                            raise Exception('sg %s/%s found in %s - for some rule' %
+                                           (str(fq_name), str(sg_id), acl_name))
+                    if acl_name == 'ingress-access-control-list':
+                        if rule.match_condition.src_address.security_group == sg_id:
+                            raise Exception('sg %s/%s found in %s - for some rule' %
+                                           (str(fq_name), str(sg_id), acl_name))
+        except NoIdError:
+            pass
+
+    @retries(5, hook=retry_exc_handler)
     def check_acl_not_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
         acl = None
         try:
@@ -1059,6 +1093,22 @@ class TestPolicy(test_case.STTestCase):
         sg_obj.set_security_group_entries(rules)
     #end _security_group_rule_append
 
+    def _security_group_rule_remove(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            raise Exception('SecurityGroupRuleNotExists %s' % sgr.rule_uuid)
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                sgr_copy = copy.copy(sgr)
+                sgr_copy.rule_uuid = sg_rule.rule_uuid
+                if sg_rule == sgr_copy:
+                    rules.delete_policy_rule(sg_rule)
+                    sg_obj.set_security_group_entries(rules)
+                    return
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+
+    #end _security_group_rule_append
+
     def security_group_create(self, sg_name, project_fq_name):
         project_obj = self._vnc_lib.project_read(project_fq_name)
         sg_obj = SecurityGroup(name=sg_name, parent_obj=project_obj)
@@ -1133,6 +1183,7 @@ class TestPolicy(test_case.STTestCase):
         rule1['port_min'] = 101
         rule1['port_max'] = 200
         self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_uuid()))
+        self._vnc_lib.security_group_update(sg2_obj)
         self.check_acl_match_sg(sg2_obj.get_fq_name(), 'egress-access-control-list', 
                                                         sg2_obj.get_security_group_id(), True)
         self.check_acl_match_sg(sg2_obj.get_fq_name(), 'ingress-access-control-list', 
@@ -1154,6 +1205,60 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.security_group_update(sg1_obj)
         self.check_security_group_id(sg1_obj.get_fq_name(), 100)
 
+    #end test_sg
+
+    def test_delete_sg(self):
+        #create sg and associate egress rule and check acls
+        sg1_obj = self.security_group_create('sg-1', [u'default-domain', u'default-project'])
+        self.wait_to_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = {}
+        rule1['ip_prefix'] = None
+        rule1['protocol'] = 'any'
+        rule1['ether_type'] = 'IPv4'
+        rule1['sg_id'] = sg1_obj.get_security_group_id()
+
+        rule1['direction'] = 'ingress'
+        rule1['port_min'] = 1
+        rule1['port_max'] = 100
+        rule_in_obj = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+        rule1['direction'] = 'egress'
+        rule1['port_min'] = 101
+        rule1['port_max'] = 200
+        rule_eg_obj = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+
+        self._security_group_rule_append(sg1_obj, rule_in_obj)
+        self._security_group_rule_append(sg1_obj, rule_eg_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self._security_group_rule_remove(sg1_obj, rule_in_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self._security_group_rule_append(sg1_obj, rule_in_obj)
+        self._security_group_rule_remove(sg1_obj, rule_eg_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self._security_group_rule_remove(sg1_obj, rule_in_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_no_policies_for_sg(sg1_obj.get_fq_name())
+
+        self._vnc_lib.security_group_delete(fq_name=sg1_obj.get_fq_name())
     #end test_sg
 
     def test_fip(self):
