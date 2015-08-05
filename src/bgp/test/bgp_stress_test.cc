@@ -583,14 +583,7 @@ void BgpStressTest::TearDown() {
     TcpServerManager::DeleteServer(xmpp_server_test_);
     xmpp_server_test_ = NULL;
 
-    BOOST_FOREACH(BgpServerTest *peer_server, peer_servers_) {
-        if (peer_server) {
-            peer_server->Shutdown();
-            WaitForIdle();
-            delete peer_server;
-        }
-    }
-    WaitForIdle();
+    DeleteBgpPeers(n_peers_);
     server_->Shutdown();
     WaitForIdle();
     Cleanup();
