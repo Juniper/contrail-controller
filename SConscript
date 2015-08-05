@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
-#
+# test commit to check centos 71 issue
 
 SConscript(dirs=['lib', 'src'])
 
