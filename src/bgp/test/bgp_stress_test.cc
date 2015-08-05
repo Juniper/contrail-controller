@@ -446,6 +446,12 @@ vector<int> BgpStressTestEvent::GetEventItems(int nitems, int inc) {
         }
     }
 
+    ostringstream out;
+    out << "EventIDs:";
+    BOOST_FOREACH(int event_id, event_ids_list) {
+        out << " " << event_id;
+    }
+    BGP_STRESS_TEST_LOG(out.str());
     return event_ids_list;
 }
 
@@ -1487,6 +1493,8 @@ void BgpStressTest::SubscribeRoutingInstance(vector<int> agent_ids,
                                              vector<int> instance_ids,
                                              bool check_agent_state) {
     BOOST_FOREACH(int instance_id, instance_ids) {
+        if (instance_id >= (int) instances_.size() || !instances_[instance_id])
+            continue;
         BOOST_FOREACH(int agent_id, agent_ids) {
             if (agent_id >= (int) xmpp_agents_.size() ||
                     !xmpp_agents_[agent_id])
@@ -1532,6 +1540,8 @@ void BgpStressTest::SubscribeAgents(int ninstances, int nagents) {
 void BgpStressTest::UnsubscribeRoutingInstance(vector<int> agent_ids,
                                                vector<int> instance_ids) {
     BOOST_FOREACH(int instance_id, instance_ids) {
+        if (instance_id >= (int) instances_.size() || !instances_[instance_id])
+            continue;
         BOOST_FOREACH(int agent_id, agent_ids) {
             if (agent_id >= (int) xmpp_agents_.size() ||
                     !xmpp_agents_[agent_id])
@@ -2159,20 +2169,14 @@ void BgpStressTest::ClearBgpPeers(int npeers) {
 }
 
 void BgpStressTest::AddRouteTarget(int instance_id, int target) {
+    if (instance_id >= (int) instances_.size() || !instances_[instance_id])
+        return;
     ifmap_test_util::IFMapMsgLink(server_->config_db(), "routing-instance",
                          GetInstanceName(instance_id),
                          "route-target",
                          "target:1:" + boost::lexical_cast<string>(target),
                          "instance-target");
-
-    //
-    // Adding route-target above automatically creates the instances as well
-    //
-    instances_[instance_id] = true;
-
-    //
     // Update vpn routes
-    //
     for (int i = 1; i <= n_peers_; ++i) {
         for (int j = 0; j < n_routes_; ++j) {
             AddBgpInetRoute(1, i, j, n_targets_); // Address::INETVPN
@@ -2184,6 +2188,8 @@ void BgpStressTest::AddRouteTarget(int instance_id, int target) {
 }
 
 void BgpStressTest::RemoveRouteTarget(int instance_id, int target) {
+    if (instance_id >= (int) instances_.size() || !instances_[instance_id])
+        return;
     ifmap_test_util::IFMapMsgUnlink(server_->config_db(), "routing-instance",
                          GetInstanceName(instance_id),
                          "route-target",
@@ -2638,13 +2644,6 @@ TEST_P(BgpStressTest, RandomEvents) {
             case BgpStressTestEvent::ADD_ROUTING_INSTANCE:
                 if (d_external_mode_) break;
                 if (!n_instances_) break;
-                if (!n_targets_) {
-                    target = ++n_targets_;
-                    for (i = 1; i <= n_instances_; ++i) {
-                        AddRouteTarget(i, target);
-                    }
-                }
-
                 AddRoutingInstance(
                         BgpStressTestEvent::GetEventItems(n_instances_, 1),
                         n_targets_);
@@ -2668,13 +2667,10 @@ TEST_P(BgpStressTest, RandomEvents) {
 
             case BgpStressTestEvent::DELETE_ROUTE_TARGET:
                 if (d_external_mode_) break;
-                if (!n_targets_) break;
+                if (n_targets_ == 1) break;
                 target = n_targets_--;
 
                 for (i = 1; i <= n_instances_; ++i) {
-                    if (!n_targets_) {
-                        DeleteRoutingInstance(i, 1);
-                    }
                     RemoveRouteTarget(i, target);
                 }
                 break;
@@ -2780,7 +2776,7 @@ static void process_command_line_args(int argc, const char **argv) {
         ("nroutes", value<int>()->default_value(d_routes_),
             "set number of routes")
         ("ntargets", value<int>()->default_value(d_targets_),
-            "set number of route targets")
+            "set number of route targets (minium 1)")
         ("nvms", value<int>()->default_value(d_vms_count_),
             "set number of VMs (for configuration download)")
         ("no-multicast", bool_switch(&d_no_mcast_routes_),
@@ -2958,6 +2954,10 @@ static void process_command_line_args(int argc, const char **argv) {
     }
     if (vm.count("ntargets")) {
         d_targets_ = vm["ntargets"].as<int>();
+
+        // We need at least 1 target.
+        if (!d_targets_)
+            d_targets_ = 1;
         cmd_line_arg_set = true;
     }
     bool nvms_set = false;
