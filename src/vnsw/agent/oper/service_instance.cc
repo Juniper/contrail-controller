@@ -626,11 +626,13 @@ void ServiceInstance::CalculateProperties(
     DBGraph *graph, Properties *properties) {
     properties->Clear();
 
-    if (node_->IsDeleted()) {
+    IFMapNode *node = ifmap_node();
+
+    if (node->IsDeleted()) {
         return;
     }
 
-    FindAndSetTypes(graph, node_, properties);
+    FindAndSetTypes(graph, node, properties);
 
     /*
      * The vrouter agent is only interest in the properties of service
@@ -640,17 +642,17 @@ void ServiceInstance::CalculateProperties(
         return;
     }
 
-    IFMapNode *vm_node = FindAndSetVirtualMachine(graph, node_, properties);
+    IFMapNode *vm_node = FindAndSetVirtualMachine(graph, node, properties);
     if (vm_node == NULL) {
         return;
     }
 
     autogen::ServiceInstance *svc_instance =
-                 static_cast<autogen::ServiceInstance *>(node_->GetObject());
+                 static_cast<autogen::ServiceInstance *>(node->GetObject());
     FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
 
     if (properties->service_type == LoadBalancer) {
-        FindAndSetLoadbalancer(graph, node_, properties);
+        FindAndSetLoadbalancer(graph, node, properties);
     }
 }
 
@@ -681,25 +683,46 @@ std::auto_ptr<DBEntry> ServiceInstanceTable::AllocEntry(
     return entry;
 }
 
-DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
-    ServiceInstance *svc_instance = new ServiceInstance();
-    svc_instance->SetKey(request->key.get());
+bool ServiceInstanceTable::HandleAddChange(ServiceInstance
+        *svc_instance, const DBRequest *request) {
+
+    if (!svc_instance || svc_instance->ifmap_node())
+        return false;
+
     ServiceInstanceCreate *data =
             static_cast<ServiceInstanceCreate *>(request->data.get());
-    svc_instance->set_node(data->node());
+    if (!data)
+        return false;
+
+    svc_instance->SetKey(request->key.get());
     assert(dependency_manager_);
     svc_instance->SetIFMapNodeState
         (dependency_manager_->SetState(data->node()));
     dependency_manager_->SetObject(data->node(), svc_instance);
 
+    ServiceInstance::Properties properties;
+    properties.Clear();
+    assert(graph_);
+    svc_instance->CalculateProperties(graph_, &properties);
+    svc_instance->set_properties(properties);
+    return true;
+}
+
+
+DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
+    ServiceInstance *svc_instance = new ServiceInstance();
+
+    assert(HandleAddChange(svc_instance, request));
     return svc_instance;
 }
 
 bool ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance  = static_cast<ServiceInstance *>(entry);
     assert(dependency_manager_);
-    dependency_manager_->SetObject(svc_instance->node(), NULL);
-    svc_instance->SetIFMapNodeState(NULL);
+    if (svc_instance->ifmap_node()) {
+        dependency_manager_->SetObject(svc_instance->ifmap_node(), NULL);
+        svc_instance->SetIFMapNodeState(NULL);
+    }
     return true;
 }
 
@@ -713,12 +736,8 @@ bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {
         ServiceInstanceUpdate *data =
                 static_cast<ServiceInstanceUpdate *>(request->data.get());
         svc_instance->set_properties(data->properties());
-    } else if (dynamic_cast<ServiceInstanceCreate*>(request->data.get()) != NULL) {
-        ServiceInstance::Properties properties;
-        properties.Clear();
-        assert(graph_);
-        svc_instance->CalculateProperties(graph_, &properties);
-        svc_instance->set_properties(properties);
+    } else {
+        HandleAddChange(svc_instance, request);
     }
     return true;
 }
@@ -763,7 +782,7 @@ void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
      * Do not enqueue an ADD_CHANGE operation after the DELETE generated
      * by IFNodeToReq.
      */
-    if (svc_instance->node()->IsDeleted()) {
+    if (svc_instance->ifmap_node()->IsDeleted()) {
         return;
     }
 
