@@ -36,6 +36,9 @@ def parse_args(args_str):
         'ifmap_server_port': "8443",
         'ifmap_queue_size': 10000,
         'ifmap_max_message_size': 1024*1024,
+        'cassandra_server_list': "127.0.0.1:9160",
+        'ifmap_username': "api-server",
+        'ifmap_password': "api-server",
         'collectors': None,
         'http_server_port': '8084',
         'log_local': True,
@@ -91,11 +94,14 @@ def parse_args(args_str):
     config = None
     if args.conf_file:
         config = ConfigParser.SafeConfigParser({'admin_token': None})
-        config.read(args.conf_file)
-        defaults.update(dict(config.items("DEFAULTS")))
-        if 'multi_tenancy' in config.options('DEFAULTS'):
-            defaults['multi_tenancy'] = config.getboolean(
-                'DEFAULTS', 'multi_tenancy')
+        if 'DEFAULTS' in config.sections():
+            defaults.update(dict(config.items("DEFAULTS")))
+            if 'multi_tenancy' in config.options('DEFAULTS'):
+                defaults['multi_tenancy'] = config.getboolean(
+                    'DEFAULTS', 'multi_tenancy')
+            if 'default_encoding' in config.options('DEFAULTS'):
+                default_encoding = config.get('DEFAULTS', 'default_encoding')
+                gen.resource_xsd.ExternalEncoding = default_encoding
         if 'SECURITY' in config.sections() and\
                 'use_certs' in config.options('SECURITY'):
             if config.getboolean('SECURITY', 'use_certs'):
@@ -109,9 +115,6 @@ def parse_args(args_str):
                         vnc_quota.QuotaHelper.default_quota[str(k)] = int(v)
                 except ValueError:
                     pass
-        if 'default_encoding' in config.options('DEFAULTS'):
-            default_encoding = config.get('DEFAULTS', 'default_encoding')
-            gen.resource_xsd.ExternalEncoding = default_encoding
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
 
