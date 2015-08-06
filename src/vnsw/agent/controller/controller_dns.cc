@@ -83,11 +83,12 @@ void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg,
 void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                  xmps::PeerState state) {
     std::auto_ptr<XmlBase> dummy_dom;
-    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
-                                                                      state,
-                                                                      peer->GetXmppServerIdx(),
-                                                                      dummy_dom,
-                                                                      false));
+    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(
+                                                   peer,
+                                                   xmps::DNS,
+                                                   state,
+                                                   dummy_dom,
+                                                   false));
     peer->agent()->controller()->Enqueue(data);
 }
 

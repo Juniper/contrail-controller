@@ -63,11 +63,12 @@ void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
         pugi->LoadXmlDoc(msg_pugi->doc());
-        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::CONFIG,
-                                                                          xmps::UNKNOWN,
-                                                                          xs_idx_,
-                                                                          impl,
-                                                                          true));
+        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(
+                                                       this,
+                                                       xmps::CONFIG,
+                                                       xmps::UNKNOWN,
+                                                       impl,
+                                                       true));
         agent_->controller()->Enqueue(data);
     }
 }

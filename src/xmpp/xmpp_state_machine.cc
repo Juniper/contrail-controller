@@ -274,6 +274,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
                 XmppStateMachine::kMaxAttempts) {
                 XmppConnection *connection = state_machine->connection();
                 if (connection) {
+                    state_machine->connect_attempts_clear();
                     state_machine->SendConnectionInfo(
                         "Connect failed after retries");
                     // Notify clients if any action to be taken

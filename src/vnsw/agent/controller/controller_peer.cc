@@ -77,6 +77,7 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    uint8_t xs_idx)
     : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
       xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0) {
+      deleted_ = false;
     bgp_peer_id_.reset();
 }
 
@@ -1060,11 +1061,12 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
         pugi->LoadXmlDoc(msg_pugi->doc());
-        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
-                                                                          xmps::UNKNOWN,
-                                                                          xs_idx_,
-                                                                          impl,
-                                                                          true));
+        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(
+                                                       this,
+                                                       xmps::BGP,
+                                                       xmps::UNKNOWN,
+                                                       impl,
+                                                       true));
         agent_->controller()->Enqueue(data);
     }
 }
@@ -1311,9 +1313,10 @@ void AgentXmppChannel::SetMulticastPeer(AgentXmppChannel *old_peer,
 void AgentXmppChannel::XmppClientChannelEvent(AgentXmppChannel *peer,
                                               xmps::PeerState state) {
     std::auto_ptr<XmlBase> dummy_dom;
-    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
+    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(
+                                                   peer,
+                                                   xmps::BGP,
                                                    state,
-                                                   peer->GetXmppServerIdx(),
                                                    dummy_dom,
                                                    false));
     peer->agent()->controller()->Enqueue(data);

@@ -144,6 +144,7 @@ public:
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
 
+    bool deleted_;
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
