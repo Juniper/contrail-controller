@@ -98,8 +98,11 @@ void KState::IfMsgHandler(vr_interface_req *r) {
         data.set_name(string(intf->name()));
     }
 
-    Ip4Address ipaddr(r->get_vifr_ip());
-    data.set_ip(ipaddr.to_string());
+    try {
+        Ip4Address ipaddr(r->get_vifr_ip());
+        data.set_ip(ipaddr.to_string());
+    } catch (...) {
+    }
 
     data.set_ibytes(r->get_vifr_ibytes());
     data.set_ipackets(r->get_vifr_ipackets());
