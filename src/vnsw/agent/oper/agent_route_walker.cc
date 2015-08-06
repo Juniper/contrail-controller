@@ -10,7 +10,6 @@
 #include <cmn/agent_db.h>
 
 #include <oper/agent_route_walker.h>
-#include <oper/agent_route_encap.h>
 #include <oper/vrf.h>
 #include <oper/agent_route.h>
 

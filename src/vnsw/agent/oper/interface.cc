@@ -304,26 +304,21 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
         return true;
 
     VmInterface *vm_intf = static_cast<VmInterface *>(entry);
-    //In case VN passed is null it is tunnel mode change,
-    //else its vxlan id change for a VN.
-    if (!vm_intf->l2_active())
+    const VnEntry *vn = vm_intf->vn();
+    if (!vm_intf->IsActive())
         return true;
 
-    if (vm_intf->bridging()) {
-        bool force_update = false;
-        if (vm_intf->vxlan_id() != vm_intf->vn()->GetVxLanId()) {
-            force_update = true;
-        }
-        vm_intf->UpdateL2(force_update);
-    }
-    return true;
+    VmInterfaceGlobalVrouterData data(vn->bridging(),
+                                      vn->layer3_forwarding(),
+                                      vn->GetVxLanId());
+    return vm_intf->Resync(this, &data);
 }
 
 void InterfaceTable::VmInterfaceWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
-void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
+void InterfaceTable::GlobalVrouterConfigChanged() {
     DBTableWalker *walker = agent_->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
