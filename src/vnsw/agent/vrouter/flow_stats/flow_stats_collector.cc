@@ -98,18 +98,15 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
                                       const vr_flow_entry *k_flow,
                                       uint64_t curr_time,
                                       const FlowEntry *flow) {
-
-    //If both forward and reverse flow are marked
-    //as TCP closed then immediately remote the flow
-    if (flow->key().protocol == IPPROTO_TCP) {
-        if (TcpFlowShouldBeAged(stats, k_flow, curr_time, flow)) {
-            return true;
-        }
-    }
-
     if (k_flow != NULL) {
+        //If both forward and reverse flow are marked
+        //as TCP closed then immediately remote the flow
+        if (flow->key().protocol == IPPROTO_TCP) {
+            if (TcpFlowShouldBeAged(stats, k_flow, curr_time, flow)) {
+                return true;
+            }
+        }
         uint64_t k_flow_bytes, bytes;
-
         k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                     k_flow->fe_stats.flow_bytes);
         bytes = 0x0000ffffffffffffULL & stats->bytes;
