@@ -14,3 +14,7 @@ request sandesh IFMapPerClientNodesShowReqIterate {
     1: string node_info;
 }
 
+request sandesh IFMapPerClientLinksShowReqIterate {
+    1: string link_info;
+}
+

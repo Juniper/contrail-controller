@@ -169,6 +169,8 @@ request sandesh IFMapPerClientLinksShowReq {
 
 response sandesh IFMapPerClientLinksShowResp {
     1: list<IFMapPerClientLinksShowInfo> link_db;
+    2: optional string next_batch (link="IFMapPerClientLinksShowReqIterate",
+                                   link_title="next_batch");
 }
 
 /** Definitions for showing a single IFMapNode/IFMapObject **/
