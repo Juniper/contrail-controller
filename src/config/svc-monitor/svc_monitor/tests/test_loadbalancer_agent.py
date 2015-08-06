@@ -56,7 +56,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         sas_obj['uuid'] = fq_name_str
         sas_obj['display_name'] = fq_name_str
         sas = config_db.ServiceApplianceSetSM.locate(sas_obj['uuid'], sas_obj)
-        sas.kvpairs = [{'key': 'key1', 'value': 'value1'}, 
+        sas.kvpairs = [{'key': 'key1', 'value': 'value1'},
                        {'key': 'key2', 'value': 'value2'},
                        {'key': 'key3', 'value': 'value3'}]
         sas.ha_mode = "standalone"
@@ -73,7 +73,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         sa_obj['service_appliance_ip_address'] = "1.1.1.1"
         sa_obj['service_appliance_user_credentials'] = {'username': "admin", 'password': "contrail123"}
         sa = config_db.ServiceApplianceSM.locate(sa_obj['uuid'], sa_obj)
-        sa.kvpairs = [{'key': 'key1', 'value': 'value1'}, 
+        sa.kvpairs = [{'key': 'key1', 'value': 'value1'},
                       {'key': 'key2', 'value': 'value2'},
                       {'key': 'key3', 'value': 'value3'}]
         return sa
@@ -87,7 +87,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         pool_obj['parent_uuid'] = 'parent_uuid'
         pool_obj['id_perms'] = {'enable': 'true', 'description': 'Test pool'}
         pool_obj['loadbalancer_pool_provider'] = 'test-lb-provider'
-        pool_obj['loadbalancer_pool_properties'] = {'protocol': 'HTTP', 
+        pool_obj['loadbalancer_pool_properties'] = {'protocol': 'HTTP',
                                                     'subnet_id': 'subnet-id',
                                                     'loadbalancer_method': 'ROUND_ROBIN',
                                                     'admin_state': 'true'}
@@ -107,7 +107,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         hm_obj['display_name'] = fq_name_str
         hm_obj['parent_uuid'] = 'parent_uuid'
         hm_obj['id_perms'] = {'enable': 'true', 'description': 'Test pool'}
-        hm_obj['loadbalancer_healthmonitor_properties'] = {'delay': '5', 
+        hm_obj['loadbalancer_healthmonitor_properties'] = {'delay': '5',
                                                     'expected_codes': '200',
                                                     'max_retries': '200',
                                                     'http_method': 'GET',
@@ -149,7 +149,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         pool_member_obj['display_name'] = member_name
         pool_member_obj['parent_uuid'] = pool_name
         pool_member_obj['id_perms'] = {'enable': 'true', 'description': 'Test pool member'}
-        pool_member_obj['loadbalancer_member_properties'] = {'protocol_port': '80', 
+        pool_member_obj['loadbalancer_member_properties'] = {'protocol_port': '80',
                                                     'address': member_address,
                                                     'weight': '1',
                                                     'status': 'up',
@@ -164,7 +164,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         vip_obj['display_name'] = vip
         vip_obj['parent_uuid'] = 'parent_uuid'
         vip_obj['id_perms'] = {'enable': 'true', 'description': 'Test pool'}
-        vip_obj['virtual_ip_properties'] = {'status': 'UP', 
+        vip_obj['virtual_ip_properties'] = {'status': 'UP',
                                             'protocol_port': '80',
                                             'subnet_id': 'subnet_id',
                                             'protocol': 'HTTP',
