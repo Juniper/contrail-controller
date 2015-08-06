@@ -4,7 +4,6 @@
 import sys
 import socket
 from pprint import pformat
-import coverage
 import fixtures
 import testtools
 from testtools import content, content_type
@@ -40,10 +39,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def setUp(self):
         super(TestCase, self).setUp()
-        global cov_handle
-        if not cov_handle:
-            cov_handle = coverage.coverage(source=['../../../../build/debug/api-lib/vnc_api'])
-        cov_handle.start()
         setup_flexmock()
 
         httpretty.enable()
@@ -59,8 +54,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def tearDown(self):
         httpretty.disable()
         httpretty.reset()
-        cov_handle.stop()
-        cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()
     # end tearDown
 # end TestCommon
