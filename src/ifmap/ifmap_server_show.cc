@@ -1207,34 +1207,20 @@ class ShowIFMapPerClientLinkTable {
 public:
     static const int kMaxElementsPerRound = 50;
 
-    struct ShowData : public RequestPipeline::InstData {
-        vector<IFMapPerClientLinksShowInfo> send_buffer;
-    };
-
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new ShowData);
-    }
-
-    struct TrackerData : public RequestPipeline::InstData {
-        // init as 1 indicates we need to init 'first' to begin() since there
-        // is no way to initialize an iterator here.
-        TrackerData() : init(1) { }
-        int init;
-        vector<IFMapPerClientLinksShowInfo>::const_iterator first;
-    };
-
-    static RequestPipeline::InstData *AllocTracker(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new TrackerData);
-    }
-
+    static bool HandleRequest(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data);
+    static bool HandleRequestIterate(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data);
+    static bool ConvertReqIterateToReq(
+        const IFMapPerClientLinksShowReqIterate *req_iterate,
+        IFMapPerClientLinksShowReq *req, string *last_node_name);
+    static bool SkipLink(IFMapLink *src, const string &search_string);
     static bool CopyNode(IFMapPerClientLinksShowInfo *dest, IFMapLink *src,
-                         IFMapServer *server, int client_index);
-    static bool BufferStage(const Sandesh *sr,
-                            const RequestPipeline::PipeSpec ps, int stage,
-                            int instNum, RequestPipeline::InstData *data);
-    static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
-                          int stage, int instNum,
-                          RequestPipeline::InstData *data);
+        IFMapServer *server, int client_index);
+    static void BufferTable(const IFMapPerClientLinksShowReq *request,
+        const string &last_link_name, IFMapPerClientLinksShowResp *response);
 };
 
 bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
@@ -1266,17 +1252,71 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
     }
 }
 
-bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
-        RequestPipeline::InstData *data) {
-    const IFMapPerClientLinksShowReq *request = 
-        static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
+bool ShowIFMapPerClientLinkTable::SkipLink(IFMapLink *src_link,
+                                           const string &search_string) {
+    if (search_string.empty()) {
+        return false;
+    }
+    IFMapNode *left = src_link->left();
+    IFMapNode *right = src_link->right();
+    // If we do not find the search string in the metadata or the names of
+    // either of the 2 ends, skip the src_link.
+    if ((src_link->metadata().find(search_string) == string::npos) &&
+        (!left || (left->ToString().find(search_string) == string::npos)) &&
+        (!right || (right->ToString().find(search_string) == string::npos))) {
+        return true;
+    }
+    return false;
+}
+
+// Format of node_info string:
+// client_index_or_name||search_string||last_node_name
+//      client_index_or_name: original input
+//      search_string: original input; can be empty
+//      last_node_name: name of last node that was printed in the previous round
+bool ShowIFMapPerClientLinkTable::ConvertReqIterateToReq(
+        const IFMapPerClientLinksShowReqIterate *req_iterate,
+        IFMapPerClientLinksShowReq *req, string *last_node_name) {
+    // First, set the context from the original request since we might return
+    // due to parsing errors.
+    req->set_context(req_iterate->context());
+
+    string node_info = req_iterate->get_link_info();
+    size_t sep_size = kShowIterSeparator.size();
+
+    // client_index_or_name
+    size_t pos1 = node_info.find(kShowIterSeparator);
+    if (pos1 == string::npos) {
+        return false;
+    }
+    string client_index_or_name = node_info.substr(0, pos1);
+
+    // search_string
+    size_t pos2 = node_info.find(kShowIterSeparator, (pos1 + sep_size));
+    if (pos2 == string::npos) {
+        return false;
+    }
+    string search_string = node_info.substr((pos1 + sep_size),
+                                            pos2 - (pos1 + sep_size));
+
+    // last_node_name
+    *last_node_name = node_info.substr(pos2 + sep_size);
+
+    // Fill up the fields of IFMapTableShowReq appropriately.
+    req->set_client_index_or_name(client_index_or_name);
+    req->set_search_string(search_string);
+    return true;
+}
+
+void ShowIFMapPerClientLinkTable::BufferTable(
+        const IFMapPerClientLinksShowReq *request, const string &last_link_name,
+        IFMapPerClientLinksShowResp *response) {
     IFMapSandeshContext *sctx = 
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     string client_index_or_name = request->get_client_index_or_name();
     if (client_index_or_name.empty()) {
-        return true;
+        return;
     }
 
     // The user gives us either a name or an index. If the input is not a
@@ -1286,112 +1326,115 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
     if (!stringToInteger(client_index_or_name, client_index)) {
         if (!sctx->ifmap_server()->ClientNameToIndex(client_index_or_name,
                                                      &client_index)) {
-            return true;
+            return;
         }
     }
 
-    string search_string = request->get_search_string();
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
         sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
+
     if (table) {
-        ShowData *show_data = static_cast<ShowData *>(data);
-        show_data->send_buffer.reserve(table->Size());
+        vector<IFMapPerClientLinksShowInfo> dest_buffer;
+        dest_buffer.reserve(kMaxElementsPerRound);
 
+        DBEntryBase *src = NULL;
         DBTablePartBase *partition = table->GetTablePartition(0);
-        DBEntryBase *src = partition->GetFirst();
-        while (src) {
+        if (last_link_name.length()) {
+            src = table->FindNextLink(last_link_name);
+        } else {
+            src = partition->GetFirst();
+        }
+        for (; src != NULL; src = partition->GetNext(src)) {
             IFMapLink *src_link = static_cast<IFMapLink *>(src);
-            src = partition->GetNext(src);
-
-            // If the search string is not part of any of the fields, skip it.
-            if (!search_string.empty() &&
-                (src_link->metadata().find(search_string) == string::npos) &&
-                (src_link->left()->ToString().find(search_string) ==
-                                                              string::npos) &&
-                (src_link->right()->ToString().find(search_string) ==
-                                                              string::npos)) {
+            if (SkipLink(src_link, request->get_search_string())) {
                 continue;
             }
             IFMapPerClientLinksShowInfo dest;
             bool send = CopyNode(&dest, src_link, sctx->ifmap_server(),
                                  client_index);
             if (send) {
-                show_data->send_buffer.push_back(dest);
+                dest_buffer.push_back(dest);
+                if (dest_buffer.size() == kMaxElementsPerRound) {
+                    string next_batch = request->get_client_index_or_name() +
+                        kShowIterSeparator + request->get_search_string() +
+                        kShowIterSeparator + src_link->link_name();
+                    response->set_next_batch(next_batch);
+                    break;
+                }
             }
         }
+        response->set_link_db(dest_buffer);
     } else {
         IFMAP_WARN(IFMapTblNotFound, "Cant show/find ", "link table");
     }
+}
 
+bool ShowIFMapPerClientLinkTable::HandleRequest(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data) {
+    const IFMapPerClientLinksShowReq *request = 
+        static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
+
+    string last_link_name;
+    IFMapPerClientLinksShowResp *response = new IFMapPerClientLinksShowResp();
+    BufferTable(request, last_link_name, response);
+
+    response->set_context(request->context());
+    response->set_more(false);
+    response->Response();
+
+    // Return 'true' so that we are not called again
     return true;
 }
 
-// Can be called multiple times i.e. approx total/kMaxElementsPerRound
-bool ShowIFMapPerClientLinkTable::SendStage(const Sandesh *sr,
+bool ShowIFMapPerClientLinkTable::HandleRequestIterate(const Sandesh *sr,
         const RequestPipeline::PipeSpec ps, int stage, int instNum,
         RequestPipeline::InstData *data) {
-    const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapPerClientLinkTable::ShowData &show_data = 
-        static_cast<const ShowIFMapPerClientLinkTable::ShowData &>
-            (prev_stage_data->at(0));
+    const IFMapPerClientLinksShowReqIterate *request_iterate = 
+        static_cast<const IFMapPerClientLinksShowReqIterate *>
+            (ps.snhRequest_.get());
 
-    // Data for this stage
-    TrackerData *tracker_data = static_cast<TrackerData *>(data);
-
-    vector<IFMapPerClientLinksShowInfo> dest_buffer;
-    vector<IFMapPerClientLinksShowInfo>::const_iterator first, last;
-    bool more = false;
-
-    if (tracker_data->init) {
-        first = show_data.send_buffer.begin();
-        tracker_data->init = 0;
-    } else {
-        first = tracker_data->first;
-    }
-    int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
-    last = first + send_num;
-    copy(first, last, back_inserter(dest_buffer));
-    // Decide if we want to be called again.
-    if ((rem_num - send_num) > 0) {
-        more = true;
-    } else {
-        more = false;
-    }
-    const IFMapPerClientLinksShowReq *request = 
-        static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
+    string last_link_name;
+    IFMapPerClientLinksShowReq *request = new IFMapPerClientLinksShowReq();
     IFMapPerClientLinksShowResp *response = new IFMapPerClientLinksShowResp();
-    response->set_link_db(dest_buffer);
-    response->set_context(request->context());
-    response->set_more(more);
-    response->Response();
-    tracker_data->first = first + send_num;
+    bool success = ConvertReqIterateToReq(request_iterate, request,
+                                          &last_link_name);
+    if (success) {
+        BufferTable(request, last_link_name, response);
+    }
 
-    // Return 'false' to be called again
-    return (!more);
+    response->set_context(request->context());
+    response->set_more(false);
+    response->Response();
+
+    request->Release();
+    // Return 'true' so that we are not called again
+    return true;
 }
 
 void IFMapPerClientLinksShowReq::HandleRequest() const {
-
-    RequestPipeline::StageSpec s0, s1;
+    RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    // 2 stages - first: gather/read, second: send
-
     s0.taskId_ = scheduler->GetTaskId("db::DBTable");
-    s0.allocFn_ = ShowIFMapPerClientLinkTable::AllocBuffer;
-    s0.cbFn_ = ShowIFMapPerClientLinkTable::BufferStage;
+    s0.cbFn_ = ShowIFMapPerClientLinkTable::HandleRequest;
     s0.instances_.push_back(0);
 
-    // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
-    s1.allocFn_ = ShowIFMapPerClientLinkTable::AllocTracker;
-    s1.cbFn_ = ShowIFMapPerClientLinkTable::SendStage;
-    s1.instances_.push_back(0);
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= list_of(s0);
+    RequestPipeline rp(ps);
+}
+
+void IFMapPerClientLinksShowReqIterate::HandleRequest() const {
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.cbFn_ = ShowIFMapPerClientLinkTable::HandleRequestIterate;
+    s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_= list_of(s0);
     RequestPipeline rp(ps);
 }
 
