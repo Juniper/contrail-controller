@@ -43,21 +43,23 @@ private:
 
 class ControllerXmppData : public ControllerWorkQueueData {
 public:
-    ControllerXmppData(xmps::PeerId peer_id, xmps::PeerState peer_state,
-                       uint8_t channel_id, std::auto_ptr<XmlBase> dom,
+    ControllerXmppData(void *peer,
+                       xmps::PeerId peer_id, xmps::PeerState peer_state,
+                       std::auto_ptr<XmlBase> dom,
                        bool config) :
-        ControllerWorkQueueData(),
-        peer_id_(peer_id), peer_state_(peer_state), channel_id_(channel_id),
+        ControllerWorkQueueData(), peer_(peer),
+        peer_id_(peer_id), peer_state_(peer_state),
         dom_(dom), config_(config) { }
     virtual ~ControllerXmppData() { }
 
+    void *peer() { return peer_; }
     xmps::PeerId peer_id() const {return peer_id_;}
     xmps::PeerState peer_state() const {return peer_state_;}
-    uint8_t channel_id() const {return channel_id_;}
     std::auto_ptr<XmlBase> dom() {return dom_;}
     bool config() const {return config_;}
 
 private:
+    void *peer_;
     xmps::PeerId peer_id_;
     xmps::PeerState peer_state_;
     uint8_t channel_id_;

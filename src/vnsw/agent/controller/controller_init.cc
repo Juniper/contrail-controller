@@ -243,10 +243,11 @@ void VNController::DeleteAgentXmppChannel(AgentXmppChannel *channel) {
 
     BgpPeer *bgp_peer = channel->bgp_peer_id();
     if (bgp_peer != NULL) {
-        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
-                                                            xmps::NOT_READY);
+        channel->deleted_ = true;
+    } else {
+        //delete channel safely as there are no peers associated
+        delete channel;
     }
-    delete channel;
 }
 
 //Trigger shutdown and cleanup of routes for the client
@@ -313,7 +314,6 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
     // dependent XmppClientConnection object and
     // scoped XmppChannel object
     XmppClient *xc = agent_->controller_ifmap_xmpp_client(idx);
-    xc->UnRegisterConnectionEvent(xmps::BGP);
     xc->Shutdown(); // ManagedDelete
     agent_->set_controller_ifmap_xmpp_client(NULL, idx);
 
@@ -597,6 +597,10 @@ bool VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
         if (peer == bgp_peer) {
             //Release BGP peer, ideally this should be the last reference being
             //released for peer.
+            AgentXmppChannel *xc = peer->GetBgpXmppPeer();
+            if (xc && xc->deleted_) {
+                delete xc;
+            }
             decommissioned_peer_list_.remove(*it);
             break;
         }
@@ -705,32 +709,25 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
 
 bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
     if (data->peer_id() == xmps::BGP) {
-        if (data->config()) {
-            AgentXmppChannel *peer =
-                agent_->controller_xmpp_channel(data->channel_id());
-            if (peer) {
+        AgentXmppChannel *peer = static_cast<AgentXmppChannel*>(data->peer());
+        if (peer) {
+            if (data->config()) {
                 peer->ReceiveBgpMessage(data->dom());
-            }
-        } else {
-            AgentXmppChannel *peer =
-                agent_->controller_xmpp_channel(data->channel_id());
-            if (peer) {
+            } else {
                 AgentXmppChannel::HandleAgentXmppClientChannelEvent(peer,
-                                                                    data->peer_state());
+                                                      data->peer_state());
             }
         }
     } else if (data->peer_id() == xmps::CONFIG) {
-        AgentIfMapXmppChannel *peer =
-            agent_->ifmap_xmpp_channel(data->channel_id());
+        AgentIfMapXmppChannel *peer = static_cast<AgentIfMapXmppChannel*>(data->peer());
         if (peer) {
             peer->ReceiveConfigMessage(data->dom());
         }
     } else if (data->peer_id() == xmps::DNS) {
-        AgentDnsXmppChannel *peer =
-            agent_->dns_xmpp_channel(data->channel_id());
+        AgentDnsXmppChannel *peer = static_cast<AgentDnsXmppChannel*>(data->peer());
         if (peer) {
             AgentDnsXmppChannel::HandleXmppClientChannelEvent(peer,
-                                                              data->peer_state());
+                                                     data->peer_state());
         }
     }
 

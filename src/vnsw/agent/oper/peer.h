@@ -97,6 +97,7 @@ public:
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
     AgentXmppChannel *GetBgpXmppPeer() { return bgp_xmpp_peer_; }    
     const AgentXmppChannel *GetBgpXmppPeerConst() const {return bgp_xmpp_peer_;}
+    void ResetBgpXmppPeer() {bgp_xmpp_peer_ = NULL;}
 
     // Table Walkers
     void DelPeerRoutes(DelPeerDone walk_done_cb);
