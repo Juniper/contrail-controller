@@ -207,13 +207,6 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
-    // Delete Port to VM link. Port is becomes inactive
-    client->Reset();
-    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
-    client->WaitForIdle();
-    EXPECT_TRUE(VnFind(1));
-    EXPECT_TRUE(VmPortInactive(input, 0));
-
     // Delete Port to VN link. Port is inactive
     client->Reset();
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
@@ -233,6 +226,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     // Delete config port entry. Port still present but inactive
     client->Reset();
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelNode("virtual-machine-interface", "vnet1");
     DelNode("virtual-machine", "vm1");
     DelNode("virtual-network", "vn1");
@@ -456,7 +450,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_3) {
             "routing-instance", "vrf1");
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
-    DelLink("instance-ip", "instance0", "virtual-machine-interface", "vnet1");
+    DelLink( "virtual-machine-interface", "vnet1", "instance-ip", "instance0");
     DelNode("virtual-machine-interface-routing-instance", "vnet1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortInactive(input, 0));
@@ -903,7 +897,6 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     client->Reset();
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
-    EXPECT_TRUE(client->AclNotifyWait(1));
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(VmPortPolicyDisable(input, 0));
     EXPECT_TRUE(VmPortPolicyDisable(input, 1));
@@ -1142,6 +1135,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     client->WaitForIdle();
     EXPECT_FALSE(VnFind(2));
     DelNode("virtual-machine", "vm1");
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelInstanceIp("instance0");
     client->WaitForIdle();
     EXPECT_FALSE(VmFind(1));
@@ -1202,15 +1197,6 @@ TEST_F(CfgTest, Basic_1) {
     PhysicalInterface *phy_intf = NULL;
 
     client->Reset();
-    PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                            eth_intf, vrf_name, PhysicalInterface::FABRIC,
-                            PhysicalInterface::ETHERNET, false, nil_uuid(),
-                            Ip4Address(0), Interface::TRANSPORT_ETHERNET);
-    client->WaitForIdle();
-    phy_intf = static_cast<PhysicalInterface *>
-        (agent_->interface_table()->FindActiveEntry(&key));
-    EXPECT_TRUE(phy_intf == NULL);
-
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, Agent::GetInstance()->fabric_vrf_name(),
                             PhysicalInterface::FABRIC,
@@ -1478,7 +1464,8 @@ TEST_F(CfgTest, SecurityGroup_1) {
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
-    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
     client->WaitForIdle();
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
@@ -1516,7 +1503,6 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     //Modify SGID
     AddSg("sg1", 1, 2);
     client->WaitForIdle();
-    key = new SgKey(MakeUuid(1));
     sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->sg_table()->
                                             FindActiveEntry(key));
 
@@ -1527,7 +1513,6 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     // in oper. Old sgid i.e. 2 shud be retained.
     AddSg("sg1", 1, 3);
     client->WaitForIdle();
-    key = new SgKey(MakeUuid(1));
     sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->sg_table()->
                                             FindActiveEntry(key));
 
@@ -1536,7 +1521,8 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
-    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
     client->WaitForIdle();
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
@@ -1544,6 +1530,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     DeleteVmportEnv(input, 1, true);
     DelNode("security-group", "sg1");
     client->WaitForIdle();
+    delete key;
     EXPECT_FALSE(VmPortFind(1));
 }
 
@@ -1585,7 +1572,8 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
-    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
     client->WaitForIdle();
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
