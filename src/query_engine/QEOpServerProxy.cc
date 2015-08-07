@@ -557,6 +557,13 @@ public:
                         selstr << " ";
                         poststr << " ";
                     }
+                    if (inp.overflow) {
+                        poststr.clear();
+                        poststr << "ERROR-ENOBUFS";
+                    } else if (!inp.ret_code) {
+                        poststr.clear();
+                        poststr << "ERROR-EIO";
+                    }
                     qs.set_chunk_where_time(wherestr.str());
                     qs.set_chunk_select_time(selstr.str());
                     qs.set_chunk_postproc_time(poststr.str());
@@ -574,7 +581,7 @@ public:
                     qs.set_where(inp.inp.where);
                     qs.set_select(inp.inp.select);
                     qs.set_post(inp.inp.post);
-                    qs.set_time_span(inp.inp.time_period);
+                    qs.set_time_span(static_cast<uint32_t>(inp.inp.time_period));
                     std::vector<QueryStats> vqs;
                     vqs.push_back(qs);
                     qpi.set_query_stats(vqs);
@@ -748,6 +755,15 @@ public:
 
         freeReplyObject(reply);
         redisFree(c);
+
+        if (pipes_.size() >= 32) {
+            QueryError(qid, EMFILE);
+            QE_LOG_NOQID(ERROR, "Cannot start Pipleline for " << qid <<
+                ". Too many queries : " << pipes_.size());
+            qo.set_error_string("Too many queries");
+            QUERY_OBJECT_SEND(qo);
+            return;
+        }
 
         QueryEngine::QueryParams qp(qid, terms, max_tasks_,
             UTCTimestampUsec());
