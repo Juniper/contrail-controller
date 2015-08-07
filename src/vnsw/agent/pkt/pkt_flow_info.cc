@@ -545,6 +545,22 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
     nat_dest_vrf = pkt->vrf;
 }
 
+void PktFlowInfo::CheckLinkLocal(const PktInfo *pkt) {
+    if (!l3_flow && pkt->ip_daddr.is_v4()) {
+        uint16_t nat_port;
+        Ip4Address nat_server;
+        std::string service_name;
+        Agent *agent = flow_table->agent();
+        if (agent->oper_db()->global_vrouter()->
+            FindLinkLocalService(pkt->ip_daddr.to_v4(), pkt->dport,
+                                 &service_name, &nat_server, &nat_port)) {
+            // it is link local service request, treat it as l3
+            l3_flow = true;
+            pkt->l3_forwarding = true;
+        }
+    }
+}
+
 // For link local services, we bind to a local port & use it as NAT source port.
 // The socket is closed when the flow entry is deleted.
 uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
@@ -1001,6 +1017,9 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     UpdateRoute(&in->rt_, in->vrf_, pkt->ip_saddr, pkt->smac,
                 flow_source_plen_map);
     in->vn_ = InterfaceToVn(in->intf_);
+
+    // Consider linklocal service requests as l3 always
+    CheckLinkLocal(pkt);
 
     // Compute Out-VRF and Route for dest-ip
     out->vrf_ = in->vrf_;
