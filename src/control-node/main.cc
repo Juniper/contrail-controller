@@ -84,6 +84,7 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_cfg->endpoint.port(options->xmpp_port());
     xmpp_cfg->FromAddr = XmppInit::kControlNodeJID;
     xmpp_cfg->auth_enabled = options->xmpp_auth_enabled();
+    xmpp_cfg->tcp_hold_time = options->tcp_hold_time();
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();
         xmpp_cfg->path_to_pvt_key = options->xmpp_server_key();

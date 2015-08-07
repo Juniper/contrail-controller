@@ -114,6 +114,7 @@ private:
     std::string server_addr_;
     bool log_uve_;
     bool auth_enabled_;
+    int tcp_hold_time_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);
