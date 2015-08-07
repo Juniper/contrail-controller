@@ -52,6 +52,7 @@ do {                                                                           \
 TableState::TableState(BgpTable *table, DBTableBase::ListenerId id)
     : id_(id), table_delete_ref_(this, table->deleter()) {
     assert(table->deleter() != NULL);
+    route_count_ = 0;
 }
 
 TableState::~TableState() {
@@ -163,9 +164,10 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *table) {
     RouteReplicatorTableState::iterator ts_it = table_state_.find(bgptable);
     assert(ts_it != table_state_.end());
     TableState *ts = ts_it->second;
-    if (ts->GetGroupList().empty()) {
-        unreg_table_list_.insert(bgptable);
+    if (!ts->GetGroupList().empty() || ts->route_count()) {
+        return;
     }
+    unreg_table_list_.insert(bgptable);
     unreg_trigger_->Set();
 }
 
@@ -289,7 +291,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
 }
 
 void 
-RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt, 
+RoutePathReplicator::DBStateSync(BgpTable *table, TableState *ts, BgpRoute *rt,
                                  DBTableBase::ListenerId id,
                                  RtReplicated *dbstate,
                                  RtReplicated::ReplicatedRtPathList &current) {
@@ -331,9 +333,32 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
         dbstate->GetMutableList()->erase(dbstate_it);
     }
     if (dbstate->GetList().empty()) {
+        uint32_t prev = ts->decrement_route_count();
         rt->ClearState(table, id);
         delete dbstate;
+        if (prev == 1) {
+            RetryUnregisterTableState(ts, table);
+        }
     }
+}
+
+//
+// Attempt to unregister the table listener after deleting all DBState or
+// replicated routes.
+// Check whether
+//    1. all RouteTargets are deleted from the list and
+//    2. No pending TableWalk requested by RoutePathReplicator on this table
+//
+void RoutePathReplicator::RetryUnregisterTableState(TableState *ts,
+      BgpTable *table) {
+    CHECK_CONCURRENCY("db::DBTable");
+    // Mutex to protect unreg_table_list_ and bulk_sync_
+    tbb::mutex::scoped_lock lock(mutex_);
+    if (!ts->GetGroupList().empty() ||
+        (bulk_sync_.find(table) != bulk_sync_.end()))
+        return;
+    unreg_table_list_.insert(table);
+    unreg_trigger_->Set();
 }
 
 //
@@ -415,13 +440,14 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         if (!dbstate) {
             return true;
         }
-        DBStateSync(table, rt, id, dbstate, replicated_path_list);
+        DBStateSync(table, ts, rt, id, dbstate, replicated_path_list);
         return true;
     }
 
     if (dbstate == NULL) {
         dbstate = new RtReplicated();
         rt->SetState(table, id, dbstate);
+        ts->increment_route_count();
     }
 
     // Get the export route target list from the routing instance
@@ -528,7 +554,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         }
     }
 
-    DBStateSync(table, rt, id, dbstate, replicated_path_list);
+    DBStateSync(table, ts, rt, id, dbstate, replicated_path_list);
     return true;
 }
 
