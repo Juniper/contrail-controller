@@ -152,6 +152,7 @@ protected:
     bool IsQueueEmpty(const string  &instance_name) {
         RoutingInstance *rtinstance = 
             ri_mgr_->GetRoutingInstance(instance_name);
+        if (rtinstance == NULL) return true;
         return rtinstance->static_route_mgr()->IsQueueEmpty();
     }
 
@@ -222,6 +223,18 @@ protected:
         table->Enqueue(&request);
     }
 
+    void DeleteRoutingInstance(const string &instance_name, const string &rt) {
+        ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", instance_name,
+            "virtual-network", instance_name, "virtual-network-routing-instance");
+        ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", instance_name,
+            "route-target", rt, "instance-target");
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "virtual-network",instance_name);
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "routing-instance", instance_name);
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "route-target", rt);
+    }
 
     BgpRoute *InetRouteLookup(const string &instance_name, 
                               const string &prefix) {
@@ -1671,6 +1684,68 @@ TEST_F(StaticRouteTest, SandeshTest) {
     // Delete nexthop route
     DeleteInetRoute(NULL, "nat", "192.168.1.1/32");
     task_util::WaitForIdle();
+}
+
+//
+// Delete the internal routing instance before deleting the routing instances
+// which import the static route.
+// To simulate the delay in static route processing disable the static route
+// Queue and enable it.
+// Expected: All the routing instances and bgp tables deleted cleanly
+//
+TEST_F(StaticRouteTest, DeleteNatInstance) {
+    vector<string> instance_names = list_of("blue")("nat");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+
+    set<string> encap = list_of("gre")("vxlan");
+    // Add Nexthop Route
+    AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5", encap);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("nat", "192.168.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat..");
+
+    // Stop the static route processing
+    DisableStaticRouteQ("nat");
+    // Delete nexthop route
+    DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+
+    // Delete the routing instance where static route originates
+    DeleteRoutingInstance("nat", "target:64496:2");
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance",
+                                        "nat", "static-route-entries");
+    task_util::WaitForIdle();
+
+    // Delete the routing instance that imports the static route
+    DeleteRoutingInstance("blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    // Re-enable the static route module. From this point on the static route
+    // get deleted as StaticRouteManager starts processing nexthop route delete
+    EnableStaticRouteQ("nat");
+    TASK_UTIL_EXPECT_TRUE(IsQueueEmpty("nat"));
+
+    VerifyTableNoExists("blue.inet.0");
+    VerifyTableNoExists("nat.inet.0");
 }
 
 class TestEnvironment : public ::testing::Environment {

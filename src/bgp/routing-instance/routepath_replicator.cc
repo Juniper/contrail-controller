@@ -52,6 +52,7 @@ do {                                                                           \
 TableState::TableState(BgpTable *table, DBTableBase::ListenerId id)
     : id_(id), table_delete_ref_(this, table->deleter()) {
     assert(table->deleter() != NULL);
+    route_count_ = 0;
 }
 
 TableState::~TableState() {
@@ -160,13 +161,8 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *table) {
     }
     delete bulk_sync_state;
     bulk_sync_.erase(loc);
-    RouteReplicatorTableState::iterator ts_it = table_state_.find(bgptable);
-    assert(ts_it != table_state_.end());
-    TableState *ts = ts_it->second;
-    if (ts->GetGroupList().empty()) {
-        unreg_table_list_.insert(bgptable);
-    }
-    unreg_trigger_->Set();
+
+    UnregisterTableState(bgptable);
 }
 
 void RoutePathReplicator::AddVpnTable(RtGroup *rtgroup) {
@@ -289,7 +285,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
 }
 
 void 
-RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt, 
+RoutePathReplicator::DBStateSync(BgpTable *table, TableState *ts, BgpRoute *rt,
                                  DBTableBase::ListenerId id,
                                  RtReplicated *dbstate,
                                  RtReplicated::ReplicatedRtPathList &current) {
@@ -331,9 +327,43 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
         dbstate->GetMutableList()->erase(dbstate_it);
     }
     if (dbstate->GetList().empty()) {
+        uint32_t prev = ts->decrement_route_count();
         rt->ClearState(table, id);
         delete dbstate;
+        if (prev)
+            UnregisterTableState(table);
     }
+}
+
+//
+// Enqueue BgpTable to unregister list if the TableState is empty.
+//
+// Skip if the BgpTable is still on the bulk sync list.  This can
+// happen if we're called from the bgp::Config Task and a previous
+// walk is still in progress.
+//
+void RoutePathReplicator::UnregisterTableState(BgpTable *table) {
+    CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
+    const TableState *ts = FindTableState(table);
+    if (!ts->GetGroupList().empty())
+        return;
+    if (ts->route_count())
+        return;
+    if (bulk_sync_.find(table) != bulk_sync_.end())
+        return;
+    unreg_table_list_.insert(table);
+    unreg_trigger_->Set();
+}
+
+
+TableState *RoutePathReplicator::FindTableState(BgpTable *table) {
+    RouteReplicatorTableState::iterator loc = table_state_.find(table);
+    return (loc != table_state_.end() ? loc->second : NULL);
+}
+
+const TableState *RoutePathReplicator::FindTableState(BgpTable *table) const {
+    RouteReplicatorTableState::const_iterator loc = table_state_.find(table);
+    return (loc != table_state_.end() ? loc->second : NULL);
 }
 
 //
@@ -415,13 +445,14 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         if (!dbstate) {
             return true;
         }
-        DBStateSync(table, rt, id, dbstate, replicated_path_list);
+        DBStateSync(table, ts, rt, id, dbstate, replicated_path_list);
         return true;
     }
 
     if (dbstate == NULL) {
         dbstate = new RtReplicated();
         rt->SetState(table, id, dbstate);
+        ts->increment_route_count();
     }
 
     // Get the export route target list from the routing instance
@@ -528,7 +559,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         }
     }
 
-    DBStateSync(table, rt, id, dbstate, replicated_path_list);
+    DBStateSync(table, ts, rt, id, dbstate, replicated_path_list);
     return true;
 }
 

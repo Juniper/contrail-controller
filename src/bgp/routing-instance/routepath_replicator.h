@@ -8,6 +8,7 @@
 #include <list>
 
 #include <boost/ptr_container/ptr_map.hpp>
+#include <tbb/atomic.h>
 #include <tbb/mutex.h>
 
 #include "bgp/bgp_table.h"
@@ -41,10 +42,23 @@ public:
         return id_;
     }
 
+    uint32_t route_count() const { return route_count_; }
+
+    uint32_t increment_route_count() const {
+        return route_count_.fetch_and_increment();
+    }
+
+    uint32_t decrement_route_count() const {
+        uint32_t prev = route_count_.fetch_and_decrement();
+        assert(prev);
+        return prev;
+    }
+
 private:
     DBTableBase::ListenerId id_;
     LifetimeRef<TableState> table_delete_ref_;
     GroupList list_;
+    mutable tbb::atomic<uint32_t> route_count_;
     DISALLOW_COPY_AND_ASSIGN(TableState);
 };
 
@@ -177,6 +191,10 @@ public:
 
     bool UnregisterTables();
 
+    void UnregisterTableState(BgpTable *table);
+    TableState *FindTableState(BgpTable *table);
+    const TableState *FindTableState(BgpTable *table) const;
+
 private:
     typedef std::map<BgpTable *, TableState *> RouteReplicatorTableState;
     typedef std::map<BgpTable *, BulkSyncState *> BulkSyncOrders;
@@ -188,8 +206,8 @@ private:
 
     void DeleteSecondaryPath(BgpTable  *table, BgpRoute *rt,
                              const RtReplicated::SecondaryRouteInfo &rtinfo);
-    void DBStateSync(BgpTable *table, BgpRoute *rt, DBTableBase::ListenerId id,
-                     RtReplicated *dbstate, 
+    void DBStateSync(BgpTable *table, TableState *ts, BgpRoute *rt, 
+                     DBTableBase::ListenerId id, RtReplicated *dbstate,
                      RtReplicated::ReplicatedRtPathList &current);
 
     // Mutex to protect unreg_table_list_, table_state_ and bulk_sync_ 

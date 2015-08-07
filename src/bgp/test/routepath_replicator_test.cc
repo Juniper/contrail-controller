@@ -134,8 +134,28 @@ protected:
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
+    void DeleteRoutingInstance(const string &instance_name, const string &rt_name) {
+        ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", instance_name,
+            "virtual-network", instance_name, "virtual-network-routing-instance");
+        ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", instance_name,
+            "route-target", rt_name, "instance-target");
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "virtual-network", instance_name);
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "routing-instance", instance_name);
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "route-target", rt_name);
+        task_util::WaitForIdle();
+    }
+
+    void VerifyTableNoExists(const string &table_name) {
+        TASK_UTIL_EXPECT_TRUE(
+            bgp_server_->database()->FindTable(table_name) == NULL);
+    }
+
     void AddInetRoute(IPeer *peer, const string &instance_name,
-                      const string &prefix, int localpref, string rd = "") {
+                      const string &prefix, int localpref, string rd = "",
+                      const vector<string> &rtarget_list = vector<string>()) {
         boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -150,6 +170,15 @@ protected:
         if (!rd.empty()) {
             attr_spec.push_back(&rd_spec);
         }
+        ExtCommunitySpec spec;
+        if (!rtarget_list.empty()) {
+            BOOST_FOREACH(string tgt, rtarget_list) {
+                RouteTarget rt(RouteTarget::FromString(tgt));
+                spec.communities.push_back(get_value(rt.GetExtCommunity().begin(), 8));
+            }
+            attr_spec.push_back(&spec);
+        }
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
         request.data.reset(new BgpTable::RequestData(attr, 0, 0));
         BgpTable *table = static_cast<BgpTable *>(
@@ -1898,6 +1927,37 @@ TEST_F(ReplicationTest, OriginVn4) {
     task_util::WaitForIdle();
     VERIFY_EQ(0, RouteCount("blue"));
     VERIFY_EQ(0, RouteCount("red"));
+}
+
+// Test a case where routing instance is deleted with replicated route
+// In this case the route is replicated due to rtarget of the route not due
+// to export_rt of the VRF. Simulate the static route scenario
+TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to blue table with the Rtarget that red imports.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1", list_of("target:64496:2"));
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("red", "target:64496:2");
+    task_util::WaitForIdle();
+
+    // Make sure that the blue inet table is gone.
+    VerifyTableNoExists("blue.inet.0");
+    VerifyTableNoExists("red.inet.0");
 }
 
 class TestEnvironment : public ::testing::Environment {
