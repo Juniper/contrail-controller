@@ -260,6 +260,7 @@ void Agent::CopyConfig(AgentParam *params) {
 
     dss_addr_ = params_->discovery_server();
     dss_xs_instances_ = params_->xmpp_instance_count();
+    tcp_hold_time_ = params_->tcp_hold_time();
 
     vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();

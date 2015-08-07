@@ -457,6 +457,10 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(xmpp_dns_server_cert_2_, "DEFAULT.xmpp_server_cert_2")) {
         xmpp_dns_server_cert_2_ = "/etc/contrail/ssl/certs/dns-cert.pem";
     }
+
+    if (!GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time")) {
+        tcp_hold_time_ = 30;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -661,6 +665,8 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<bool>(var_map, xmpp_dns_auth_enable_2_, "DEFAULT.xmpp_dns_auth_enable_2");
     GetOptValue<string>(var_map, xmpp_dns_server_cert_1_, "DEFAULT.xmpp_dns_server_cert_1");
     GetOptValue<string>(var_map, xmpp_dns_server_cert_2_, "DEFAULT.xmpp_dns_server_cert_2");
+
+    GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time");
 }
 
 
@@ -1033,6 +1039,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
+    LOG(DEBUG, "Tcp hold time               : " << tcp_hold_time_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1137,7 +1144,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         xmpp_server_cert_1_(""), xmpp_server_cert_2_(""),
         xmpp_dns_auth_enable_1_(false), xmpp_dns_auth_enable_2_(false),
         xmpp_dns_server_cert_1_(""), xmpp_dns_server_cert_2_(""),
-        simulate_evpn_tor_(false), si_netns_command_(),
+        tcp_hold_time_(30), simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_lb_ssl_cert_path_(),
         vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_(),
