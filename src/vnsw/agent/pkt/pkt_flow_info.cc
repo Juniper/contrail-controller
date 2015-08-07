@@ -66,9 +66,9 @@ void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
     if (*rt != NULL && (*rt)->GetTableType() != Agent::BRIDGE)
         ref_map[(*rt)->vrf_id()] = RouteToPrefixLen(*rt);
     if (l3_flow) {
-        *rt = flow_table->GetUcRoute(vrf, ip);
+        *rt = FlowEntry::GetUcRoute(vrf, ip);
     } else {
-        *rt = flow_table->GetL2Route(vrf, mac);
+        *rt = FlowEntry::GetL2Route(vrf, mac);
     }
     if (*rt == NULL)
         ref_map[vrf->vrf_id()] = 0;
@@ -140,8 +140,8 @@ static const NextHop* GetPolicyEnabledNH(const NextHop *nh) {
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
     nh_key->SetPolicy(true);
-    return static_cast<const NextHop *>(
-            Agent::GetInstance()->nexthop_table()->FindActiveEntry(key.get()));
+    NextHopTable *nh_table = static_cast<NextHopTable *>(nh->get_table());
+    return static_cast<const NextHop *>(nh_table->FindActiveEntry(key.get()));
 }
 
 static const NextHop* GetPolicyDisabledNH(const NextHop *nh) {
@@ -151,8 +151,8 @@ static const NextHop* GetPolicyDisabledNH(const NextHop *nh) {
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
     nh_key->SetPolicy(false);
-    return static_cast<const NextHop *>(
-            Agent::GetInstance()->nexthop_table()->FindActiveEntry(key.get()));
+    NextHopTable *nh_table = static_cast<NextHopTable *>(nh->get_table());
+    return static_cast<const NextHop *>(nh_table->FindActiveEntry(key.get()));
 }
 
 static bool IsVgwOrVmInterface(const Interface *intf) {
@@ -656,8 +656,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     nat_vrf = dest_vrf;
     nat_dest_vrf = vm_port->vrf_id();
 
-    out->rt_ = Agent::GetInstance()->pkt()->flow_table()->GetUcRoute(out->vrf_,
-            nat_server);
+    out->rt_ = FlowEntry::GetUcRoute(out->vrf_, nat_server);
     return;
 }
 
@@ -796,7 +795,6 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     VmInterface::FloatingIpSet::const_iterator fip_it = fip_list.end();
-    FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     const AgentRoute *rt = out->rt_;
     bool change = false;
     // Find Floating-IP matching destination-ip
@@ -805,7 +803,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
             continue;
         }
 
-        const AgentRoute *rt_match = ftable->GetUcRoute(it->vrf_.get(),
+        const AgentRoute *rt_match = FlowEntry::GetUcRoute(it->vrf_.get(),
                 pkt->ip_daddr);
         if (rt_match == NULL) {
             flow_dest_plen_map[it->vrf_.get()->vrf_id()] = 0;
@@ -1098,7 +1096,7 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
 
         // In case of VXLAN, the NH points to VrfNH. Need to do route lookup
         // on dmac to find the real nexthop
-        AgentRoute *rt = flow_table->GetL2Route(vrf, pkt->dmac);
+        AgentRoute *rt = FlowEntry::GetL2Route(vrf, pkt->dmac);
         if (rt != NULL) {
             return rt->GetActiveNextHop();
         }
@@ -1319,10 +1317,10 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                 pkt->sport, pkt->dport);
     FlowEntryPtr flow;
     if (pkt->type != PktType::MESSAGE) {
-        flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
+        flow = flow_table->Allocate(key);
     } else {
         flow = flow_entry;
-        Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
+        flow_table->DeleteFlowInfo(flow.get());
     }
     tbb::mutex::scoped_lock flow_mutex(flow->mutex());
 
@@ -1333,7 +1331,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
             if (l3_flow) {
                 rt = in->rt_;
             } else if (in->vrf_) {
-                rt = flow_table->GetUcRoute(in->vrf_, v4_src);
+                rt = FlowEntry::GetUcRoute(in->vrf_, v4_src);
             }
             if (rt && rt->WaitForTraffic()) {
                 flow_table->agent()->oper_db()->route_preference_module()->
@@ -1388,11 +1386,11 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done) {
         FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
-        rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
+        rflow = flow_table->Allocate(rkey);
     } else {
         FlowKey rkey(out->nh_, pkt->ip_daddr, pkt->ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
-        rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
+        rflow = flow_table->Allocate(rkey);
     }
     tbb::mutex::scoped_lock mutex_rflow(rflow->mutex());
 
@@ -1406,7 +1404,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     // flow has ReverseFlow reset, rflow has ReverseFlow reset
     //      Unexpected case. Continue with flow as forward flow
     // flow has ReverseFlow reset, rflow has ReverseFlow set
-    //      No change in forward/reverse flow. Continue with flow as forward-flow
+    //      No change in forward/reverse flow. Continue as forward-flow
     bool swap_flows = false;
     if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
         !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
@@ -1422,9 +1420,9 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
      * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
     if (swap_flows) {
-        Agent::GetInstance()->pkt()->flow_table()->Add(rflow.get(), flow.get());
+        flow_table->Add(rflow.get(), flow.get());
     } else {
-        Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
+        flow_table->Add(flow.get(), rflow.get());
     }
 }
 

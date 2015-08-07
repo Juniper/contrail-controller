@@ -21,6 +21,7 @@ sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 pkt_srcs = [
                 'agent_stats.cc',
+                'flow_entry.cc',
                 'flow_table.cc',
                 'flow_handler.cc',
                 'flow_mgmt.cc',

@@ -49,6 +49,7 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
 }
 
 void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
+    FlowTable *table = flow_ksync_->ksync()->agent()->pkt()->flow_table();
     assert(r->get_fr_op() == flow_op::FLOW_TABLE_GET || 
            r->get_fr_op() == flow_op::FLOW_SET);
 
@@ -66,8 +67,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                     r->get_fr_flow_proto(),
                     ntohs(r->get_fr_flow_sport()),
                     ntohs(r->get_fr_flow_dport()));
-        FlowEntry *entry = flow_ksync_->ksync()->agent()->pkt()->flow_table()->
-                           Find(key);
+        FlowEntry *entry = table->Find(key);
         in_addr src;
         in_addr dst;
         src.s_addr = r->get_fr_flow_sip();
@@ -115,15 +115,13 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                         r->get_fr_index() << ">");
                 }
             }
-            entry->set_flow_handle(r->get_fr_index(),
-                    flow_ksync_->ksync()->agent()->pkt()->flow_table());
+            entry->set_flow_handle(r->get_fr_index(), table);
             //Tie forward flow and reverse flow
             if (entry->is_flags_set(FlowEntry::NatFlow) ||
                 entry->is_flags_set(FlowEntry::EcmpFlow)) {
                  FlowEntry *rev_flow = entry->reverse_flow_entry();
                  if (rev_flow) {
-                     rev_flow->UpdateKSync(
-                           flow_ksync_->ksync()->agent()->pkt()->flow_table());
+                     table->UpdateKSync(rev_flow);
                  }
             }
         }
