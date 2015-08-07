@@ -42,6 +42,7 @@ public:
     const std::string xmpp_server_key() const { return xmpp_server_key_; }
     const bool test_mode() const { return test_mode_; }
     const bool collectors_configured() const { return collectors_configured_; }
+    const int tcp_hold_time() const { return tcp_hold_time_; }
 
 private:
 
@@ -90,6 +91,7 @@ private:
     std::string xmpp_server_key_;
     bool test_mode_;
     bool collectors_configured_;
+    int tcp_hold_time_;
 
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
