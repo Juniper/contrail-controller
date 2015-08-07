@@ -129,6 +129,7 @@ public:
     void set_flow_key_nh(const NextHop *nh) { flow_key_nh_ = nh;}
     const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
     Interface::Transport transport() const { return transport_;}
+    bool IsUveActive() const;
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
