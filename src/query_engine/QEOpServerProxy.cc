@@ -552,6 +552,13 @@ public:
                         selstr << " ";
                         poststr << " ";
                     }
+                    if (inp.overflow) {
+                        qs.set_error("ERROR-ENOBUFS");
+                    } else if (!inp.ret_code) {
+                        qs.set_error("ERROR-EIO");
+                    } else {
+                        qs.set_error("None");
+                    }
                     qs.set_chunk_where_time(wherestr.str());
                     qs.set_chunk_select_time(selstr.str());
                     qs.set_chunk_postproc_time(poststr.str());
@@ -569,9 +576,8 @@ public:
                     qs.set_where(inp.inp.where);
                     qs.set_select(inp.inp.select);
                     qs.set_post(inp.inp.post);
-                    qs.set_time_span(inp.inp.time_period);
+                    qs.set_time_span(static_cast<uint32_t>(inp.inp.time_period));
                     qs.set_enq_delay(enq_delay);
-                    qs.set_error("None");
                     QUERY_PERF_INFO_SEND(Sandesh::source(), // name
                                          inp.inp.table,     // table
                                          qs);
@@ -785,6 +791,17 @@ public:
         } else {
             QE_LOG_NOQID(INFO, "Chunks: " << chunk_size.size() <<
                 " Need Merge: " << need_merge);
+        }
+
+        if (pipes_.size() >= 32) {
+            QueryError(qid, EMFILE);
+            QE_LOG_NOQID(ERROR, "Cannot start Pipleline for " << qid <<
+                ". Too many queries : " << pipes_.size());
+            qs.set_error("EMFILE");
+            QUERY_PERF_INFO_SEND(Sandesh::source(), // name
+                                 table,             // table
+                                 qs);
+            return;
         }
 
         shared_ptr<Input> inp(new Input());

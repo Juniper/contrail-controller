@@ -148,7 +148,7 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
                         std::make_pair(flow_class_id, *tuple));
             } else {
                 if (!(iter->second == *tuple)) {
-                    QE_LOG(ERROR, "Hash collision for flowclass " << 
+                    QE_TRACE(DEBUG, "Hash collision for flowclass " << 
                            iter->second << "and flow class " << *tuple);
                 }
             }
