@@ -24,11 +24,10 @@
 class VrouterUveEntryBase {
 public:
     struct VrouterUveInterfaceState : public DBState {
-        VrouterUveInterfaceState(bool ipv4_active, bool l2_active) :
-            vmport_ipv4_active_(ipv4_active), vmport_l2_active_(l2_active) {}
+        VrouterUveInterfaceState(bool active) :
+            vmport_active_(active) {}
         ~VrouterUveInterfaceState() {}
-        bool vmport_ipv4_active_;
-        bool vmport_l2_active_;
+        bool vmport_active_;
     };
     struct VrouterPhysicalDeviceState : public DBState {
         VrouterPhysicalDeviceState() : master_(false) {}

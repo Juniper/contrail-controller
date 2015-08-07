@@ -225,13 +225,15 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    uint32_t send_count = vnut->send_count();
+
     util_.EnqueueSendVnUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (vnut->send_count() >= 3U));
 
-    //Verify UVE 
-    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    //Verify that no additional UVEs are sent on VMI deactivation
+    WAIT_FOR(1000, 500, (vnut->send_count() == send_count));
+    EXPECT_EQ(1U, uve1->get_virtualmachine_list().size());
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Delete VN
     util_.VnDelete(input[0].vn_id);
@@ -1013,11 +1015,11 @@ TEST_F(UveVnUveTest, LinkLocalVn_Xen) {
 
     util_.EnqueueSendVnUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (vnut->send_count() == 3U));
 
-    //Verify UVE
-    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size());
-    EXPECT_EQ(0U, uve1->get_interface_list().size());
+    //Verify that no additional UVEs are sent on VMI deactivation
+    WAIT_FOR(1000, 500, (vnut->send_count() == 2U));
+    EXPECT_EQ(1U, uve1->get_virtualmachine_list().size());
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Delete VN
     DelLink("virtual-network", agent->linklocal_vn_name().c_str(),

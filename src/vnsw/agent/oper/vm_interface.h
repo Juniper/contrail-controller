@@ -523,7 +523,6 @@ private:
     friend struct VmInterfaceGlobalVrouterData;
 
     bool IsIpv4Active() const;
-    bool IsL3Active() const;
     bool PolicyEnabled() const;
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
