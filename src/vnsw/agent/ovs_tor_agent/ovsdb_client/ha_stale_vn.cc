@@ -17,13 +17,23 @@ extern "C" {
 using namespace OVSDB;
 
 HaStaleVnEntry::HaStaleVnEntry(HaStaleVnTable *table,
-        const boost::uuids::uuid &uuid) : OvsdbDBEntry(table), uuid_(uuid) {
+        const boost::uuids::uuid &uuid) : OvsdbDBEntry(table), uuid_(uuid),
+        vn_name_(""), bridge_table_(NULL) {
+}
+
+HaStaleVnEntry::~HaStaleVnEntry() {
 }
 
 void HaStaleVnEntry::AddMsg(struct ovsdb_idl_txn *txn) {
+    HaStaleVnTable *table = static_cast<HaStaleVnTable *>(table_);
+    if (table->dev_vn_table_ != NULL) {
+        // trigger VnReEval for Any Change
+        table->dev_vn_table_->VnReEvalEnqueue(uuid_);
+    }
 }
 
 void HaStaleVnEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
+    AddMsg(txn);
 }
 
 void HaStaleVnEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
@@ -35,17 +45,16 @@ void HaStaleVnEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 
 bool HaStaleVnEntry::Sync(DBEntry *db_entry) {
     VnEntry *vn = static_cast<VnEntry *>(db_entry);
-    if (bridge_table_ != vn->GetVrf()->GetBridgeRouteTable()) {
-        // trigger VnReEval for Change in Vrf pointer
-        // avoid reeval while initial add
-        HaStaleVnTable *table = static_cast<HaStaleVnTable *>(table_);
-        if (bridge_table_ == NULL && table->dev_vn_table_ != NULL) {
-            table->dev_vn_table_->VnReEvalEnqueue(uuid_);
-        }
-        bridge_table_ = vn->GetVrf()->GetBridgeRouteTable();
-        return true;
+    bool change = false;
+    if (vn_name_ != vn->GetName()) {
+        vn_name_ = vn->GetName();
+        change = true;
     }
-    return false;
+    if (bridge_table_ != vn->GetVrf()->GetBridgeRouteTable()) {
+        bridge_table_ = vn->GetVrf()->GetBridgeRouteTable();
+        change = true;
+    }
+    return change;
 }
 
 bool HaStaleVnEntry::IsLess(const KSyncEntry &entry) const {
@@ -55,6 +64,10 @@ bool HaStaleVnEntry::IsLess(const KSyncEntry &entry) const {
 
 KSyncEntry *HaStaleVnEntry::UnresolvedReference() {
     return NULL;
+}
+
+const std::string &HaStaleVnEntry::vn_name() const {
+    return vn_name_;
 }
 
 AgentRouteTable *HaStaleVnEntry::bridge_table() const {

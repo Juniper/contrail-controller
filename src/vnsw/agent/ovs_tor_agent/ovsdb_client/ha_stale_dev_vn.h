@@ -81,6 +81,8 @@ private:
     HaStaleVnTable *vn_table_;
     // entries for which the timer is running to clear stale entries
     CbMap stale_l2_entry_map_;
+    // time stamp represented by iteration count of interval
+    // kStaleTimerJobInterval should always be non-zero and start with 1
     uint64_t time_stamp_;
     Timer *stale_clear_timer_;
     // reeval queue used to trigger updates on change in VN-VRF link

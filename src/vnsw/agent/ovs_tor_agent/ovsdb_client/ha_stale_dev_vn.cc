@@ -121,6 +121,10 @@ KSyncEntry* HaStaleDevVnEntry::UnresolvedReference() {
         oper_bridge_table_ = entry->bridge_table();
     }
 
+    if (vn_name_.empty()) {
+        // update vn name from vn if available
+        vn_name_ = entry->vn_name();
+    }
     return NULL;
 }
 
@@ -165,7 +169,7 @@ HaStaleDevVnTable::HaStaleDevVnTable(Agent *agent,
         std::string &dev_name) :
     OvsdbDBObject(NULL, false), agent_(agent), manager_(manager),
     dev_name_(dev_name), state_(state),
-    vn_table_(new HaStaleVnTable(agent, this)), time_stamp_(0),
+    vn_table_(new HaStaleVnTable(agent, this)), time_stamp_(1),
     stale_clear_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
                 "OVSDB Route Replicator cleanup timer",
@@ -177,8 +181,6 @@ HaStaleDevVnTable::HaStaleDevVnTable(Agent *agent,
     route_peer_.reset(manager->Allocate(zero_ip));
     route_peer_->set_ha_stale_export(true);
     OvsdbRegisterDBTable((DBTable *)agent->physical_device_vn_table());
-    stale_clear_timer_->Start(kStaleTimerJobInterval,
-            boost::bind(&HaStaleDevVnTable::StaleClearTimerCb, this));
 }
 
 HaStaleDevVnTable::~HaStaleDevVnTable() {
@@ -277,6 +279,11 @@ ConnectionStateEntry *HaStaleDevVnTable::state() const {
 void HaStaleDevVnTable::StaleClearAddEntry(uint64_t time_stamp,
                                            HaStaleL2RouteEntry *entry,
                                            StaleClearL2EntryCb cb) {
+    if (stale_l2_entry_map_.empty()) {
+        // start the timer while adding the first entry
+        stale_clear_timer_->Start(kStaleTimerJobInterval,
+                boost::bind(&HaStaleDevVnTable::StaleClearTimerCb, this));
+    }
     StaleL2Entry l2_entry(time_stamp, entry);
     stale_l2_entry_map_[l2_entry] = cb;
 }
@@ -285,6 +292,10 @@ void HaStaleDevVnTable::StaleClearDelEntry(uint64_t time_stamp,
                                            HaStaleL2RouteEntry *entry) {
     StaleL2Entry l2_entry(time_stamp, entry);
     stale_l2_entry_map_.erase(l2_entry);
+    if (stale_l2_entry_map_.empty()) {
+        // stop the timer on last entry removal
+        stale_clear_timer_->Cancel();
+    }
 }
 
 bool HaStaleDevVnTable::StaleClearTimerCb() {
@@ -303,6 +314,10 @@ bool HaStaleDevVnTable::StaleClearTimerCb() {
         count++;
     }
 
+    if (stale_l2_entry_map_.empty()) {
+        // do not restart the timer if all entries are removed
+        return false;
+    }
     return true;
 }
 

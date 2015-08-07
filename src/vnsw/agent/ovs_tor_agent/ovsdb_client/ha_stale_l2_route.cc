@@ -52,9 +52,13 @@ void HaStaleL2RouteEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     HaStaleDevVnEntry *dev_vn =
         static_cast<HaStaleDevVnEntry *>(table->dev_vn_ref_.get());
     vxlan_id_ = table->vxlan_id_;
+    // Add route path should be always be an async operation as this
+    // callback will be triggered as part of DB Notification, calling a
+    // DB operation inline may suppress change notification for  other
+    // DB Table clients.
     dev_vn->route_peer()->AddOvsRoute(table->vrf_.get(), table->vxlan_id_,
                                       table->vn_name_, MacAddress(mac_),
-                                      table->dev_ip_);
+                                      table->dev_ip_, true);
     OVSDB_TRACE(Trace, std::string("Adding Ha Stale route vrf ") +
                 table->vrf_->GetName() + ", VxlanId " +
                 integerToString(vxlan_id_) + ", MAC " + mac_ + ", dest ip " +
@@ -89,8 +93,12 @@ void HaStaleL2RouteEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     OVSDB_TRACE(Trace, std::string("withdrawing Ha Stale route vrf ") +
                 table->vrf_->GetName() + ", VxlanId " +
                 integerToString(vxlan_id_) + ", MAC " + mac_);
+    // Delete route path should be always be an async operation as this
+    // callback will be triggered as part of DB Notification, calling a
+    // DB operation inline may suppress change/delete notification for
+    // other DB Table clients.
     dev_vn->route_peer()->DeleteOvsRoute(table->vrf_.get(), vxlan_id_,
-                                         MacAddress(mac_));
+                                         MacAddress(mac_), true);
 
     if (time_stamp_ != 0) {
         HaStaleDevVnTable *dev_vn_table =
