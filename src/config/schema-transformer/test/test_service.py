@@ -1196,12 +1196,12 @@ class TestPolicy(test_case.STTestCase):
         #sg id '0' is not allowed, should not get modified
         sg1_obj.set_configured_security_group_id(0)
         self._vnc_lib.security_group_update(sg1_obj)
-        self.check_security_group_id(sg1_obj.get_fq_name(), 100)
+        self.check_security_group_id(sg1_obj.get_fq_name(), 8000001)
 
         # -ve security group id not allowed, should not get modified
         sg1_obj.set_configured_security_group_id(-100)
         self._vnc_lib.security_group_update(sg1_obj)
-        self.check_security_group_id(sg1_obj.get_fq_name(), 100)
+        self.check_security_group_id(sg1_obj.get_fq_name(), -100)
 
     #end test_sg
 
