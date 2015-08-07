@@ -115,6 +115,8 @@ void Options::Initialize(EventManager &evm,
              "Syslog facility to receive log lines")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable control-node to run in test-mode")
+        ("DEFAULT.tcp_hold_time", opt::value<int>()->default_value(30),
+             "Configurable TCP hold time")
 
         ("DEFAULT.xmpp_server_port",
              opt::value<uint16_t>()->default_value(default_xmpp_port),
@@ -253,6 +255,7 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
+    GetOptValue<int>(var_map, tcp_hold_time_, "DEFAULT.tcp_hold_time");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");

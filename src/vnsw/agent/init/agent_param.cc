@@ -448,6 +448,10 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
         log_property_file_ = "";
     }
+
+    if (!GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time")) {
+        tcp_hold_time_ = 30;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -644,6 +648,7 @@ void AgentParam::ParseDefaultSectionArguments
     }
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
+    GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time");
 }
 
 
@@ -1002,6 +1007,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
+    LOG(DEBUG, "Tcp hold time               : " << tcp_hold_time_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1102,7 +1108,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), dhcp_relay_mode_(false),
-        xmpp_auth_enable_(false), xmpp_server_cert_(""),
+        xmpp_auth_enable_(false), xmpp_server_cert_(""), tcp_hold_time_(30),
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
