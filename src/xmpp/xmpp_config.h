@@ -27,6 +27,7 @@ public:
     bool auth_enabled;
     std::string path_to_server_cert;
     std::string path_to_pvt_key;
+    int tcp_hold_time;
 
     int CompareTo(const XmppChannelConfig &rhs) const;
     static int const default_client_port;
