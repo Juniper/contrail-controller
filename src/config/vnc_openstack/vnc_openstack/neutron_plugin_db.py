@@ -484,8 +484,8 @@ class DBInterface(object):
                 project_uuid = str(uuid.UUID(project_id))
                 # Trigger a project read to ensure project sync
                 project_obj = self._project_read(proj_id=project_uuid)
-            except Exception:
-                raise
+            except vnc_exc.NoIdError:
+                return []
         else:
             project_uuid = None
 
