@@ -54,13 +54,13 @@ class OpencontrailFakeLoadbalancerDriver(
         del self._members[member['id']]
         pass
 
-    def update_pool_health_monitor(self, 
+    def update_pool_health_monitor(self,
                                    old_health_monitor,
                                    health_monitor,
                                    pool_id):
         pass
 
-    def create_pool_health_monitor(self, 
+    def create_pool_health_monitor(self,
                                    health_monitor,
                                    pool_id):
         if health_monitor['id'] not in self._hms:

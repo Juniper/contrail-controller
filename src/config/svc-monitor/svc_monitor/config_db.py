@@ -31,12 +31,12 @@ class LoadbalancerPoolSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['loadbalancer_pool_properties']
-        self.provider = obj['loadbalancer_pool_provider']
+        self.params = obj.get('loadbalancer_pool_properties', None)
+        self.provider = obj.get('loadbalancer_pool_provider', None)
         self.members = set([lm['uuid'] for lm in obj.get('loadbalancer_members', [])])
-        self.id_perms = obj['id_perms']
+        self.id_perms = obj.get('id_perms', None)
         self.parent_uuid = obj['parent_uuid']
-        self.display_name = obj['display_name']
+        self.display_name = obj.get('display_name', None)
         self.update_single_ref('service_instance', obj)
         self.update_single_ref('virtual_ip', obj)
         self.update_single_ref('virtual_machine_interface', obj)
@@ -91,9 +91,9 @@ class LoadbalancerMemberSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['loadbalancer_member_properties']
+        self.params = obj.get('loadbalancer_member_properties', None)
         self.loadbalancer_pool = self.get_parent_uuid(obj)
-        self.id_perms = obj['id_perms']
+        self.id_perms = obj.get('id_perms', None)
     # end update
 
     @classmethod
@@ -126,12 +126,12 @@ class VirtualIpSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['virtual_ip_properties']
+        self.params = obj.get('virtual_ip_properties', None)
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_single_ref('loadbalancer_pool', obj)
-        self.id_perms = obj['id_perms']
+        self.id_perms = obj.get('id_perms', None)
         self.parent_uuid = obj['parent_uuid']
-        self.display_name = obj['display_name']
+        self.display_name = obj.get('display_name', None)
     # end update
 
     @classmethod
@@ -162,11 +162,11 @@ class HealthMonitorSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['loadbalancer_healthmonitor_properties']
+        self.params = obj.get('loadbalancer_healthmonitor_properties', None)
         self.update_multiple_refs('loadbalancer_pool', obj)
-        self.id_perms = obj['id_perms']
+        self.id_perms = obj.get('id_perms', None)
         self.parent_uuid = obj['parent_uuid']
-        self.display_name = obj['display_name']
+        self.display_name = obj.get('display_name', None)
         self.last_sent = self._manager.loadbalancer_agent.update_hm(self)
     # end update
 
@@ -203,7 +203,9 @@ class VirtualMachineSM(DBBaseSM):
         self.update_single_ref('virtual_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
 
-        self.display_name = obj['display_name']
+        self.display_name = obj.get('display_name', None)
+        if self.display_name is None:
+            return
         display_list = self.display_name.split('__')
         if self.service_instance and len(display_list) == 5:
             self.virtualization_type = display_list[-1]
@@ -344,14 +346,16 @@ class ServiceInstanceSM(DBBaseSM):
         self.fq_name = obj['fq_name']
         self.proj_name = obj['fq_name'][-2]
         self.check_vn_changes(obj)
-        self.params = obj['service_instance_properties']
+        self.params = obj.get('service_instance_properties', None)
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_multiple_refs('virtual_machine', obj)
-        self.id_perms = obj['id_perms']
+        self.id_perms = obj.get('id_perms', None)
+        if not self.params:
+            return
         self.vr_id = self.params.get('virtual_router_id', None)
         self.ha_mode = self.params.get('ha_mode', None)
-        if self.ha_mode != 'active-standby':
+        if self.ha_mode != 'active-standby': 
             scale_out = self.params.get('scale_out', None)
             if scale_out:
                 self.max_instances = scale_out.get('max_instances', 1)
@@ -359,7 +363,7 @@ class ServiceInstanceSM(DBBaseSM):
 
     def check_vn_changes(self, obj):
         self.vn_changed = False
-        if not self.params:
+        if not self.params or not obj.get('service_instance_properties'):
             return
         old_ifs = self.params.get('interface_list', [])
         new_ifs = obj['service_instance_properties'].get('interface_list', [])
@@ -412,7 +416,7 @@ class ServiceTemplateSM(DBBaseSM):
             self.virtualization_type = self.params.get(
                 'service_virtualization_type') or 'virtual-machine'
         self.update_multiple_refs('service_instance', obj)
-        self.id_perms = obj['id_perms']
+        self.id_perms = obj.get('id_perms', None)
     # end update
 
     @classmethod
@@ -699,8 +703,6 @@ class SecurityGroupSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        if self.name != 'default':
-            self.delete(self.uuid)
     # end update
 
     @classmethod
