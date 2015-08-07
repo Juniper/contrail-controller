@@ -34,6 +34,7 @@ struct PortInfo input4[] = {
 
 class EcmpTest : public ::testing::Test {
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
         //                 -<vnet2, vrf2>----<vnet5,vrf3>
         // <vnet1, vrf1>----<vnet3, vrf2>----<vnet6,vrf3>----<vnet8, vrf4>
         //                 -<vnet4, vrf2>----<vnet7,vrf3>
@@ -99,7 +100,7 @@ class EcmpTest : public ::testing::Test {
         remote_server_ip_ = Ip4Address::from_string("10.10.1.1");
 
         //Add couple of remote VM routes for generating packet
-        Inet4TunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip1_, 32, 
+        Inet4TunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip1_, 32,
                             remote_server_ip_, TunnelType::AllType(),
                             30, "vn2", SecurityGroupList(),
                             PathPreference());
@@ -136,12 +137,14 @@ class EcmpTest : public ::testing::Test {
         DeleteVmportEnv(input2, 3, true);
         DeleteVmportFIpEnv(input3, 3, true);
         DeleteVmportFIpEnv(input4, 1, true);
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL, "vrf2", 
-                remote_vm_ip1_, 32, NULL);
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
-                "default-project:vn3:vn3", remote_vm_ip2_, 32, NULL);
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
-                "default-project:vn4:vn4", remote_vm_ip3_, 32, NULL);
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+                "vrf2", remote_vm_ip1_, 32, new ControllerVmRoute(bgp_peer));
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+                "default-project:vn3:vn3", remote_vm_ip2_, 32,
+                new ControllerVmRoute(bgp_peer));
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+                "default-project:vn4:vn4", remote_vm_ip3_, 32,
+                new ControllerVmRoute(bgp_peer));
 
         client->WaitForIdle();
         DeleteBgpPeer(bgp_peer);
@@ -191,31 +194,42 @@ public:
 
     void AddLocalVmRoute(const string vrf_name, const string ip, uint32_t plen,
                          const string vn, uint32_t intf_uuid) {
-        Ip4Address vm_ip = Ip4Address::from_string(ip);
         const VmInterface *vm_intf = static_cast<const VmInterface *>
             (VmPortGet(intf_uuid));
-        Agent::GetInstance()->fabric_inet4_unicast_table()->
-            AddLocalVmRouteReq(bgp_peer, vrf_name, vm_ip, plen,
-                               vm_intf->GetUuid(), vn, vm_intf->label(),
-                               SecurityGroupList(), false, PathPreference(),
-                               Ip4Address(0));
+        VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, MakeUuid(intf_uuid), "");
+        ControllerLocalVmRoute *local_vm_route =
+            new ControllerLocalVmRoute(intf_key, vm_intf->label(),
+                    VxLanTable::kInvalidvxlan_id, false, vn,
+                    InterfaceNHFlags::INET4, SecurityGroupList(),
+                    PathPreference(), ControllerPeerPath::kInvalidPeerIdentifier,
+                    NULL);
+        InetUnicastAgentRouteTable *rt_table =
+            agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+
+        rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
+                  Ip4Address::from_string(ip), plen,
+                  static_cast<LocalVmRoute *>(local_vm_route));
     }
 
     void AddRemoteVmRoute(const string vrf_name, const string ip, uint32_t plen,
                           const string vn) {
-        Ip4Address vm_ip = Ip4Address::from_string(ip);
-        Ip4Address server_ip = Ip4Address::from_string("10.11.1.1");
-        Inet4TunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen, server_ip,
-                            TunnelType::AllType(), 16,
-                            vn, SecurityGroupList(), PathPreference());
+        const Ip4Address addr = Ip4Address::from_string(ip);
+        ControllerVmRoute *data =
+            ControllerVmRoute::MakeControllerVmRoute(bgp_peer,
+                               agent_->fabric_vrf_name(), agent_->router_id(),
+                               vrf_name, addr, TunnelType::AllType(), 16,
+                               vn, SecurityGroupList(),
+                               PathPreference());
+        InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,
+            vrf_name, addr, plen, data);
     }
 
     void DeleteRemoteRoute(const string vrf_name, const string ip,
                                uint32_t plen) {
         Ip4Address server_ip = Ip4Address::from_string(ip);
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer, vrf_name,
-                                                        server_ip, plen, NULL);
-    } 
+        agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+                vrf_name, server_ip, plen, new ControllerVmRoute(bgp_peer));
+    }
 
     uint32_t eth_intf_id_;
     Ip4Address remote_vm_ip1_;
@@ -225,7 +239,8 @@ public:
     uint32_t mpls_label_1;
     uint32_t mpls_label_2;
     uint32_t mpls_label_3;
-    BgpPeer *bgp_peer;
+    Peer *bgp_peer;
+    Agent *agent_;
     AgentXmppChannel *channel;
 };
 
@@ -457,8 +472,9 @@ TEST_F(EcmpTest, EcmpTest_8) {
     EXPECT_TRUE(rev_entry->data().component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 1);
-    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
-                                         "vrf2", ip, 24, NULL);
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+                                         "vrf2", ip, 24,
+                                         new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
 }
 
@@ -1854,7 +1870,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 10; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
@@ -1888,7 +1904,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     }
 
     //Send traffic from second service interface
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 10; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(14), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
@@ -1924,7 +1940,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     char router_id[80];
     strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
     //Send traffic from remote VM service
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 10; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.10", router_id, 
                         mpls_label, "11.1.1.1", "10.1.1.1", 
@@ -1956,7 +1972,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     }
  
     //Send traffic from remote VM which is also ecmp
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 10; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.10", router_id, 
                         mpls_label, "11.1.1.3", "10.1.1.1", 
@@ -1987,7 +2003,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     }
 
     //Send traffic from remote VM which is also ecmp
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 10; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.11", router_id, 
                         mpls_label, "11.1.1.3", "10.1.1.1", 
@@ -2000,7 +2016,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->data().vrf == service_vrf_id);
+
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
         EXPECT_TRUE(entry->data().source_vn == "vn11");
         EXPECT_TRUE(entry->data().dest_vn == "vn10");
@@ -2016,18 +2032,20 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         dport++;
     }
 
+    DeleteRemoteRoute("service-vrf1", "10.1.1.0", 24);
+    DeleteRemoteRoute("service-vrf1", "11.1.1.3", 32);
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "routing-instance", "service-vrf1");
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet13");
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet14");
+    client->WaitForIdle();
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
+    WAIT_FOR(10000, 1000, (Agent::GetInstance()->pkt()->
                           flow_table()->Size() == 0));
-    DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
@@ -2257,9 +2275,8 @@ TEST_F(EcmpTest, TrapFlag) {
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::Trap) == false);
     Ip4Address remote_vm = Ip4Address::from_string("10.1.1.1");
-    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL, "vrf2",
-                                                                  remote_vm,
-                                                                  32, NULL);
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+            "vrf2", remote_vm, 32, new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
 }
 
@@ -2317,7 +2334,7 @@ TEST_F(EcmpTest, VgwFlag) {
 
     client->WaitForIdle();
     agent->fabric_inet4_unicast_table()->DeleteReq(bgp_peer, "vrf2",
-                                                   ip, 0, NULL);
+               ip, 0, new ControllerVmRoute(bgp_peer));
     InetInterface::DeleteReq(agent->interface_table(), "vgw1");
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
