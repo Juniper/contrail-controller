@@ -35,7 +35,8 @@ XmppSession::XmppSession(XmppConnectionManager *manager, SslSocket *socket,
       connection_(NULL),
       tag_known_(0),
       index_(-1),
-      stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0, 0)) {
+      stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0, 0)),
+      keepalive_probes_(kSessionKeepaliveProbes) {
     buf_.reserve(kMaxMessageSize);
     offset_ = buf_.begin();
     stream_open_matched_ = false;
@@ -95,6 +96,18 @@ void XmppSession::IncStats(unsigned int type, uint64_t bytes) {
     assert (type < (unsigned int)XmppStanza::RESERVED_STANZA);
     stats_[type].first++;
     stats_[type].second += bytes;
+}
+
+boost::system::error_code XmppSession::EnableTcpKeepalive(int hold_time) {
+    keepalive_idle_time_ = hold_time/3;
+    keepalive_interval_ = 
+        ((hold_time - keepalive_idle_time_)/keepalive_probes_);
+    tcp_user_timeout_ = (hold_time * 1000); // msec
+
+    return (SetSocketKeepaliveOptions(keepalive_idle_time_,
+                                      keepalive_interval_,
+                                      keepalive_probes_,
+                                      tcp_user_timeout_));
 }
 
 boost::regex XmppSession::tag_to_pattern(const char *tag) {
