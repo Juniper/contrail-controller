@@ -140,7 +140,7 @@ class DBInterface(object):
 
     def _ensure_default_security_group_exists(self, proj_id):
         proj_id = str(uuid.UUID(proj_id))
-        proj_obj = self._vnc_lib.project_read(id=proj_id)
+        proj_obj = self._vnc_lib.project_read(id=proj_id, fields=['security_groups'])
         vnc_openstack.ensure_default_security_group(self._vnc_lib, proj_obj)
     #end _ensure_default_security_group_exists
 
