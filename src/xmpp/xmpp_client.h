@@ -74,6 +74,7 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
 
     bool auth_enabled_;
+    int tcp_hold_time_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppClient);
 };
