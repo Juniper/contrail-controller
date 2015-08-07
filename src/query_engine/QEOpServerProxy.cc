@@ -557,6 +557,13 @@ public:
                         selstr << " ";
                         poststr << " ";
                     }
+                    if (inp.overflow) {
+                        qs.set_error("ERROR-ENOBUFS");
+                    } else if (!inp.ret_code) {
+                        qs.set_error("ERROR-EIO");
+                    } else {
+                        qs.set_error("None");
+                    }
                     qs.set_chunk_where_time(wherestr.str());
                     qs.set_chunk_select_time(selstr.str());
                     qs.set_chunk_postproc_time(poststr.str());
@@ -574,7 +581,7 @@ public:
                     qs.set_where(inp.inp.where);
                     qs.set_select(inp.inp.select);
                     qs.set_post(inp.inp.post);
-                    qs.set_time_span(inp.inp.time_period);
+                    qs.set_time_span(static_cast<uint32_t>(inp.inp.time_period));
                     std::vector<QueryStats> vqs;
                     vqs.push_back(qs);
                     qpi.set_query_stats(vqs);
@@ -587,7 +594,7 @@ public:
                     qo.set_qed_start_ts(ret.inp.qp.query_starttm);
                     qo.set_qed_end_ts(now);
                     qo.set_flow_query_rows(static_cast<uint32_t>(outsize));
-        		    QUERY_OBJECT_SEND(qo);
+       	            QUERY_OBJECT_SEND(qo);
 
                     //g_viz_constants.COLLECTOR_GLOBAL_TABLE 
                     QE_LOG_NOQID(INFO, "Finished: QID " << ret.inp.qp.qid <<
@@ -774,6 +781,15 @@ public:
         } else {
             QE_LOG_NOQID(INFO, "Chunks: " << chunk_size.size() <<
                 " Need Merge: " << need_merge);
+        }
+
+        if (pipes_.size() >= 32) {
+            QueryError(qid, EMFILE);
+            QE_LOG_NOQID(ERROR, "Cannot start Pipleline for " << qid <<
+                ". Too many queries : " << pipes_.size());
+	    qo.set_error_string("Too many parallel queries");
+            QUERY_OBJECT_SEND(qo);
+            return;
         }
 
         shared_ptr<Input> inp(new Input());
