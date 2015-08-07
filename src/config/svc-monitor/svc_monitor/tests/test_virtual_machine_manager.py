@@ -13,6 +13,8 @@ class VirtualMachineManagerTest(unittest.TestCase):
         VirtualMachineInterfaceSM._cassandra.read = test_utils.vmi_db_read
         InstanceIpSM._cassandra = mock.MagicMock()
         InstanceIpSM._cassandra.read = test_utils.iip_db_read
+        InterfaceRouteTableSM._cassandra = mock.MagicMock()
+        InterfaceRouteTableSM._cassandra.read = test_utils.irt_db_read
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
@@ -42,6 +44,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
     def test_virtual_machine_create(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
@@ -70,6 +73,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
     def test_missing_image_in_template(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
@@ -85,6 +89,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
     def test_missing_flavor_in_template(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
@@ -107,6 +112,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
     def test_availability_zone_setting(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
@@ -131,6 +137,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
     def test_network_config_validation(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
@@ -147,6 +154,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
     def test_virtual_machine_exists(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
@@ -174,3 +182,27 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
         self.vm_manager.create_service(st, si)
         self.assertTrue(self.log_mock.log_info.call_count, 1)
+
+    def test_virtual_machine_static_routes(self):
+        test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
+
+        st = test_utils.create_test_st(name='vm-template',
+            virt_type='virtual-machine',
+            intf_list=[['management', False], ['left', True, True], ['right', False]])
+        si = test_utils.create_test_si(name='vm-instance', count=2,
+            intf_list=['', 'left-vn', 'right-vn'])
+
+        def nova_oper(resource, oper, proj_name, **kwargs):
+            if resource == 'servers' and oper == 'create':
+                nova_vm = test_utils.FakeNovaServer('fake-vm-uuid', kwargs['name'])
+                return nova_vm
+            else:
+                return mock.MagicMock()
+        self.nova_mock.oper = nova_oper
+
+        self.vm_manager.create_service(st, si)
+        self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(1))
+        self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(2))
