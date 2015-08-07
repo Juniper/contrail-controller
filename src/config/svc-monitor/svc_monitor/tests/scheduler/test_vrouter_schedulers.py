@@ -283,8 +283,7 @@ class TestRandomScheduler(unittest.TestCase):
     def setUp(self):
         super(TestRandomScheduler, self).setUp()
 
-        self.vnc_patch = mock.patch('vnc_api.vnc_api.VncApi', autospec=True)
-        self.vnc_mock = self.vnc_patch.start()
+        self.vnc_mock = mock.MagicMock()
 
         self.analytics_patch = \
             mock.patch('cfgm_common.analytics_client.Client.request')
@@ -296,7 +295,6 @@ class TestRandomScheduler(unittest.TestCase):
 
     def tearDown(self):
         self.analytics_patch.stop()
-        self.vnc_patch.stop()
         super(TestRandomScheduler, self).tearDown()
 
     def test_get_candidates(self):
