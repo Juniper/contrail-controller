@@ -37,11 +37,19 @@ public:
 
     virtual int GetSessionInstance() const { return index_; }
 
+    boost::system::error_code EnableTcpKeepalive(int tcp_hold_time);
+
 protected:
     std::string jid;
     virtual void OnRead(Buffer buffer);
 
 private:
+    // eg: if tcp_hold_time is 10sec,
+    //        keepalive_idle_time_ = 10/2 = 5s
+    //        keepalive_interval_ = 5s / keepalive_probes_ = 5s/2 = 2s
+    //        i.e socket empty - idle timeout (10 sec)
+    //            socket tx buffer not empty - tcp user timeout (10 sec)
+    static const int kSessionKeepaliveProbes = 2; // # unack probe
     typedef std::deque<Buffer> BufferQueue;
 
     boost::regex tag_to_pattern(const char *); 
@@ -61,6 +69,10 @@ private:
     int index_;
     boost::match_results<std::string::const_iterator> res_;
     std::vector<StatsPair> stats_; // packet count
+    int keepalive_idle_time_;
+    int keepalive_interval_;
+    int keepalive_probes_;
+    int tcp_user_timeout_;
     bool stream_open_matched_;
 
     static const boost::regex patt_;
