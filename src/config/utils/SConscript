@@ -9,6 +9,7 @@ env = CfgmEnv.Clone()
 
 utils_scripts = [
   'add_route_target.py',
+  'cass-db-restore.sh',
   'contrail_utils.py',
   'del_route_target.py',
   'provision_bgp.py',
