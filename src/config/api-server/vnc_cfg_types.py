@@ -965,13 +965,24 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
     # end validate_dns_record
 # end class VirtualDnsRecordServer
 
-def _check_policy_rule_uuid(entries):
+def _check_policy_rules(entries):
     if not entries:
-        return
+        return True, ""
     for rule in entries.get('policy_rule') or []:
         if not rule.get('rule_uuid'):
             rule['rule_uuid'] = str(uuid.uuid4())
-# end _check_policy_rule_uuid
+        protocol = rule['protocol']
+        if protocol.isdigit():
+            if int(protocol) < 0 or int(protocol) > 255:
+                return (False, (400, 'Rule with invalid protocol : %s' % \
+                    rule['protocol']))
+        else:
+            valids = ['any', 'icmp', 'tcp', 'udp']
+            if protocol not in valids:
+                return (False, (400, 'Rule with invalid protocol : %s' % \
+                    rule['protocol']))
+    return True, ""
+# end _check_policy_rules
 
 class SecurityGroupServer(SecurityGroupServerGen):
     generate_default_instance = False
@@ -990,9 +1001,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
         if not ok:
             return (ok, response)
 
-        _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
-
-        return True, ""
+        return _check_policy_rules(obj_dict.get('security_group_entries'))
     # end http_post_collection
 
     @classmethod
@@ -1037,8 +1046,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 if not ok:
                     return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
 
-        _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
-        return True, ""
+        return _check_policy_rules(obj_dict.get('security_group_entries'))
     # end http_put
 
 # end class SecurityGroupServer
@@ -1060,13 +1068,12 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
         if not ok:
             return (ok, response)
 
-        _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
         try:
             cls._check_policy(obj_dict)
         except Exception as e:
             return (False, (500, str(e)))
 
-        return True, ""
+        return _check_policy_rules(obj_dict.get('network_policy_entries'))
     # end http_post_collection
 
     @classmethod
@@ -1078,8 +1085,8 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
             return (False, (404, str(e)))
         if not read_ok:
             return (False, (500, read_result))
-        _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
-        return True, ""
+
+        return _check_policy_rules(obj_dict.get('network_policy_entries'))
     # end http_put
 
     @classmethod
