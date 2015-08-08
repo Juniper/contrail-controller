@@ -213,7 +213,7 @@ def redis_query_result(host, port, redis_password, qid):
         status = redis_query_status(host, port, redis_password, qid)
     except redis.exceptions.ConnectionError:
         # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.REDIS,
+        ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
             name = 'Query', status = ConnectionStatus.DOWN,
             message = 'Query[%s] result : Connection Error' % (qid),
             server_addrs = ['%s:%d' % (host, port)]) 
@@ -221,7 +221,7 @@ def redis_query_result(host, port, redis_password, qid):
                 'Failure in connection to the query DB')
     except Exception as e:
         # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.REDIS,
+        ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
             name = 'Query', status = ConnectionStatus.DOWN,
             message = 'Query[%s] result : Exception: %s' % (qid, str(e)),
             server_addrs = ['%s:%d' % (host, port)])
@@ -240,7 +240,7 @@ def redis_query_result(host, port, redis_password, qid):
         else:
             yield {}
     # Update connection info
-    ConnectionState.update(conn_type = ConnectionType.REDIS,
+    ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
         message = None,
         status = ConnectionStatus.UP,
         server_addrs = ['%s:%d' % (host, port)],
@@ -310,7 +310,7 @@ class OpStateServer(object):
                 redis_inst.publish('analytics', redis_msg)
             except redis.exceptions.ConnectionError:
                 # Update connection info
-                ConnectionState.update(conn_type = ConnectionType.REDIS,
+                ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
                     name = 'UVE', status = ConnectionStatus.DOWN,
                     message = 'Connection Error',
                     server_addrs = ['%s:%d' % (redis_server[0], \
@@ -974,7 +974,7 @@ class OpServer(object):
                                       qid=qid)
         except redis.exceptions.ConnectionError:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Query[%s] status : Connection Error' % (qid),
                 server_addrs = ['%s:%s' % (redis_query_ip, \
@@ -983,7 +983,7 @@ class OpServer(object):
                     'Failure in connection to the query DB')
         except Exception as e:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Query[%s] status : Exception %s' % (qid, str(e)),
                 server_addrs = ['%s:%s' % (redis_query_ip, \
@@ -1020,7 +1020,7 @@ class OpServer(object):
                     done = True
         except redis.exceptions.ConnectionError:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Query [%s] chunk #%d : Connection Error' % \
                     (qid, chunk_id),
@@ -1030,7 +1030,7 @@ class OpServer(object):
                     'Failure in connection to the query DB')
         except Exception as e:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Query [%s] chunk #%d : Exception %s' % \
                     (qid, chunk_id, str(e)),
@@ -1101,7 +1101,7 @@ class OpServer(object):
                                     qid, request.json)
             if prg is None:
                 # Update connection info
-                ConnectionState.update(conn_type = ConnectionType.REDIS,
+                ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                     name = 'Query', status = ConnectionStatus.DOWN,
                     message = 'Query[%s] Query Engine not responding' % qid,
                     server_addrs = ['127.0.0.1' + ':' + 
@@ -1113,7 +1113,7 @@ class OpServer(object):
 
         except redis.exceptions.ConnectionError:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Query[%s] Connection Error' % (qid),
                 server_addrs = ['127.0.0.1' + ':' + 
@@ -1122,7 +1122,7 @@ class OpServer(object):
                     'Failure in connection to the query DB')
         except Exception as e:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Query[%s] Exception: %s' % (qid, str(e)),
                 server_addrs = ['127.0.0.1' + ':' + 
@@ -1214,7 +1214,7 @@ class OpServer(object):
 
         except redis.exceptions.ConnectionError:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Sync Query[%s] Connection Error' % qid,
                 server_addrs = ['127.0.0.1' + ':' + 
@@ -1223,7 +1223,7 @@ class OpServer(object):
                     'Failure in connection to the query DB')
         except Exception as e:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Sync Query[%s] Exception: %s' % (qid, str(e)),
                 server_addrs = ['127.0.0.1' + ':' + 
@@ -1233,7 +1233,7 @@ class OpServer(object):
                     'Error: %s' % e)
         else:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.UP,
                 message = None,
                 server_addrs = ['127.0.0.1' + ':' + 
@@ -1307,7 +1307,7 @@ class OpServer(object):
             queries['error_queries'] = error_queries_info
         except redis.exceptions.ConnectionError:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Show queries : Connection Error',
                 server_addrs = ['127.0.0.1' + ':' + 
@@ -1316,7 +1316,7 @@ class OpServer(object):
                     'Failure in connection to the query DB')
         except Exception as err:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS,
+            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
                 name = 'Query', status = ConnectionStatus.DOWN,
                 message = 'Show queries : Exception %s' % str(err),
                 server_addrs = ['127.0.0.1' + ':' + 
