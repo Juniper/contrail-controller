@@ -71,11 +71,17 @@ def create_test_st(name='fake-template', virt_type='virtual-machine', intf_list=
     if virt_type == 'vrouter-instance':
         st_props['vrouter_instance_type'] = 'docker'
     st_props['service_type'] = 'firewall'
+    st_props['service_mode'] = 'in-network'
     st_props['ordered_interfaces'] = True
     st_props['service_scaling'] = True
     st_props['interface_type'] = []
     for intf in intf_list:
-        st_props['interface_type'].append({'service_interface_type': intf[0], 'shared_ip': intf[1]})
+        try:
+            static_route_enable = intf[2]
+        except IndexError:
+            static_route_enable = False
+        st_props['interface_type'].append({'service_interface_type': intf[0],
+            'shared_ip': intf[1], 'static_route_enable': static_route_enable})
     st_obj['service_template_properties'] = st_props
     st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
     return st
@@ -105,6 +111,13 @@ def create_test_project(fq_name_str):
     proj_obj['uuid'] = fq_name_str
     proj_obj['id_perms'] = 'fake-id-perms'
     ProjectSM.locate(proj_obj['uuid'], proj_obj)
+
+def create_test_security_group(fq_name_str):
+    sg_obj = {}
+    sg_obj['fq_name'] = fq_name_str.split(':')
+    sg_obj['uuid'] = fq_name_str
+    sg_obj['id_perms'] = 'fake-id-perms'
+    SecurityGroupSM.locate(sg_obj['uuid'], sg_obj)
 
 def create_test_virtual_network(fq_name_str):
     vn_obj = {}
@@ -211,3 +224,9 @@ def vn_db_read(obj_type, vn_id):
     vn_obj['uuid'] = 'fake-vn-uuid'
     vn_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-vn-uuid']
     return True, [vn_obj]
+
+def irt_db_read(obj_type, irt_id):
+    irt_obj = {}
+    irt_obj['uuid'] = 'fake-irt-uuid'
+    irt_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-irt-uuid']
+    return True, [irt_obj]
