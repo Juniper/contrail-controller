@@ -136,7 +136,7 @@ def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
     args_str = args_str + "--admin_port %s " % (admin_port)
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file api_server_sandesh.log "
+    args_str = args_str + "--log_file api_server_test.log "
 
     import cgitb
     cgitb.enable(format='text')
@@ -164,7 +164,7 @@ def launch_svc_monitor(api_server_ip, api_server_port):
     args_str = args_str + "--ifmap_password api-server "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file svc_monitor.log "
+    args_str = args_str + "--log_file svc_monitor_test.log "
 
     svc_monitor.main(args_str)
 # end launch_svc_monitor
@@ -186,8 +186,8 @@ def launch_schema_transformer(api_server_ip, api_server_port):
     args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file schema_transformer.log "
-    args_str = args_str + "--trace_file schema_transformer.err "
+    args_str = args_str + "--log_file schema_transformer_test.log "
+    args_str = args_str + "--trace_file schema_transformer_test.err "
     to_bgp.main(args_str)
 # end launch_schema_transformer
 
@@ -198,7 +198,7 @@ def launch_device_manager(api_server_ip, api_server_port):
     args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file device_manager.log "
+    args_str = args_str + "--log_file device_manager_test.log "
     device_manager.main(args_str)
 # end launch_device_manager
 
