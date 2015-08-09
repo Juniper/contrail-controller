@@ -10,7 +10,7 @@ configuration model/schema to a representation needed by VNC Control Plane
 
 import gevent
 # Import kazoo.client before monkey patching
-from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
+from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -27,15 +27,13 @@ import uuid
 
 from lxml import etree
 import re
-from cfgm_common import vnc_cpu_info
-from pycassa import NotFoundException
-
 import cfgm_common as common
+from cfgm_common import vnc_cpu_info
+
 from cfgm_common.exceptions import *
 from cfgm_common.imid import *
 from cfgm_common import svc_info
 from cfgm_common.vnc_db import DBBase
-from cfgm_common.vnc_cassandra import VncCassandraClient
 from vnc_api.vnc_api import *
 
 from pysandesh.sandesh_base import *
@@ -59,18 +57,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
 from cStringIO import StringIO
-
-_BGP_RTGT_MAX_ID = 1 << 24
-_BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
-
-_VN_MAX_ID = 1 << 24
-_VN_ID_ALLOC_PATH = "/id/virtual-networks/"
-
-_SECURITY_GROUP_MAX_ID = 1 << 32
-_SECURITY_GROUP_ID_ALLOC_PATH = "/id/security-groups/id/"
-
-_SERVICE_CHAIN_MAX_VLAN = 4093
-_SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
+from db import SchemaTransformerDB
 
 _PROTO_STR_TO_NUM = {
     'icmp': '1',
@@ -163,15 +150,8 @@ def _access_control_list_update(acl_obj, name, obj, entries):
 
 class VirtualNetworkST(DBBase):
     _dict = {}
-    _rt_cf = None
-    _sc_ip_cf = None
     _autonomous_system = 0
 
-    _vn_id_allocator = None
-    _sg_id_allocator = None
-    _rt_allocator = None
-    _sc_vlan_allocator_dict = {}
-    
     def __init__(self, name, obj=None, acl_dict=None, ri_dict=None):
         self.obj = obj or _vnc_lib.virtual_network_read(fq_name_str=name)
         self.name = name
@@ -210,7 +190,7 @@ class VirtualNetworkST(DBBase):
         self.allow_transit = prop.allow_transit
         nid = self.obj.get_virtual_network_network_id()
         if nid is None:
-            nid = prop.network_id or self._vn_id_allocator.alloc(name) + 1
+            nid = prop.network_id or self._cassandra.alloc_vn_id(name) + 1
             self.obj.set_virtual_network_network_id(nid)
             _vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
@@ -272,7 +252,7 @@ class VirtualNetworkST(DBBase):
                 if props:
                     nid = props.network_id
             if nid:
-                cls._vn_id_allocator.delete(nid - 1)
+                cls._cassandra.free_vn_id(nid - 1)
             for policy in NetworkPolicyST.values():
                 if name in policy.analyzer_vn_set:
                     analyzer_vn_set |= policy.networks_back_ref
@@ -304,7 +284,7 @@ class VirtualNetworkST(DBBase):
                 continue
             ri = vn.get_primary_routing_instance()
             ri_fq_name = ri.get_fq_name_str()
-            rtgt_num = int(cls._rt_cf.get(ri_fq_name)['rtgt_num'])
+            rtgt_num = self._cassandra.get_route_target(ri_fq_name)
             old_rtgt_name = "target:%d:%d" % (cls._autonomous_system, rtgt_num)
             new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
             new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
@@ -427,72 +407,31 @@ class VirtualNetworkST(DBBase):
     # end get_vns_in_project
 
     def allocate_service_chain_ip(self, sc_name):
+        sc_ip_address = self._cassandra.get_service_chain_ip(sc_name)
+        if sc_ip_address:
+            return
         try:
-            sc_ip_address = self._sc_ip_cf.get(sc_name)['ip_address']
-        except NotFoundException:
-            try:
-                sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
-                    self.obj, count=1)[0]
-            except (NoIdError, RefsExistError) as e:
-                _sandesh._logger.error(
-                    "Error while allocating ip in network %s: %s", self.name,
-                    str(e))
-                return None
-            self._sc_ip_cf.insert(sc_name, {'ip_address': sc_ip_address})
+            sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
+                self.obj, count=1)[0]
+        except (NoIdError, RefsExistError) as e:
+            _sandesh._logger.error(
+                "Error while allocating ip in network %s: %s", self.name,
+                str(e))
+            return None
+        self._cassandra.add_service_chain_ip(sc_name, sc_ip_address)
         return sc_ip_address
     # end allocate_service_chain_ip
 
     def free_service_chain_ip(self, sc_name):
+        sc_ip_address = self._cassandra.get_service_chain_ip(sc_name)
+        if sc_ip_address == None:
+            return
+        self._cassandra.remove_service_chain_ip(sc_name)
         try:
-            sc_ip_address = self._sc_ip_cf.get(sc_name)['ip_address']
-            self._sc_ip_cf.remove(sc_name)
             _vnc_lib.virtual_network_ip_free(self.obj, [sc_ip_address])
-        except (NoIdError, NotFoundException):
+        except NoIdError :
             pass
     # end free_service_chain_ip
-
-    @classmethod
-    def allocate_service_chain_vlan(cls, service_vm, service_chain):
-        alloc_new = False
-        if service_vm not in cls._sc_vlan_allocator_dict:
-            cls._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
-                _zookeeper_client,
-                (SchemaTransformer._zk_path_prefix +
-                 _SERVICE_CHAIN_VLAN_ALLOC_PATH+service_vm),
-                _SERVICE_CHAIN_MAX_VLAN)
-
-        vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
-
-        try:
-            vlan = int(
-                cls._service_chain_cf.get(service_vm)[service_chain])
-            db_sc = vlan_ia.read(vlan)
-            if (db_sc is None) or (db_sc != service_chain):
-                alloc_new = True
-        except (KeyError, NotFoundException):
-            alloc_new = True
-
-        if alloc_new:
-            # TODO handle overflow + check alloc'd id is not in use
-            vlan = vlan_ia.alloc(service_chain)
-            cls._service_chain_cf.insert(service_vm, {service_chain: str(vlan)})
-
-        # Since vlan tag 0 is not valid, increment before returning
-        return vlan + 1
-    # end allocate_service_chain_vlan
-
-    @classmethod
-    def free_service_chain_vlan(cls, service_vm, service_chain):
-        try:
-            vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
-            vlan = int(cls._service_chain_cf.get(service_vm)[service_chain])
-            cls._service_chain_cf.remove(service_vm, [service_chain])
-            vlan_ia.delete(vlan)
-            if vlan_ia.empty():
-                del cls._sc_vlan_allocator_dict[service_vm]
-        except (KeyError, NotFoundException):
-            pass
-    # end free_service_chain_vlan
 
     def get_route_target(self):
         return "target:%s:%d" % (self.get_autonomous_system(),
@@ -535,24 +474,9 @@ class VirtualNetworkST(DBBase):
             return self.rinst[rinst_name]
 
         is_default = (rinst_name == self._default_ri_name)
-        alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
-        old_rtgt = None
-        try:
-            rtgt_num = int(self._rt_cf.get(rinst_fq_name_str)['rtgt_num'])
-            if rtgt_num < common.BGP_RTGT_MIN_ID:
-                old_rtgt = rtgt_num
-                raise NotFoundException
-            rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
-            if (rtgt_ri_fq_name_str != rinst_fq_name_str):
-                alloc_new = True
-        except NotFoundException:
-            alloc_new = True
-
-        if (alloc_new):
-            # TODO handle overflow + check alloc'd id is not in use
-            rtgt_num = self._rt_allocator.alloc(rinst_fq_name_str)
-            self._rt_cf.insert(rinst_fq_name_str, {'rtgt_num': str(rtgt_num)})
+        old_rtgt = self._cassandra.get_route_target(rinst_fq_name_str)
+        rtgt_num = self._cassandra.alloc_route_target(rinst_fq_name_str)
 
         rt_key = "target:%s:%d" % (self.get_autonomous_system(), rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key).obj
@@ -613,7 +537,7 @@ class VirtualNetworkST(DBBase):
         rinst = RoutingInstanceST(rinst_obj, service_chain, rt_key)
         self.rinst[rinst_name] = rinst
 
-        if old_rtgt:
+        if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
             rt_key = "target:%s:%d" % (self.get_autonomous_system(), old_rtgt)
             RouteTargetST.delete(rt_key)
         return rinst
@@ -1202,7 +1126,6 @@ class RouteTableST(DBBase):
 
 class SecurityGroupST(DBBase):
     _dict = {}
-    _sg_id_allocator = None
 
     def update_acl(self, from_value, to_value):
         for acl in [self.ingress_acl, self.egress_acl]:
@@ -1258,23 +1181,23 @@ class SecurityGroupST(DBBase):
         if config_id:
             if sg_id is not None:
                 if int(sg_id) > SGID_MIN_ALLOC:
-                    self._sg_id_allocator.delete(sg_id - SGID_MIN_ALLOC)
+                    self._cassandra.free_sg_id(sg_id - SGID_MIN_ALLOC)
                 else:
-                    if self.name == self._sg_id_allocator.read(sg_id):
-                        self._sg_id_allocator.delete(sg_id)
+                    if self.name == self._cassanda.get_sg_from_id(sg_id):
+                        self._cassandra.free_sg_id(sg_id)
             self.obj.set_security_group_id(str(config_id))
         else:
             do_alloc = False
             if sg_id is not None:
                 if int(sg_id) < SGID_MIN_ALLOC:
-                    if self.name == self._sg_id_allocator.read(int(sg_id)):
+                    if self.name == self._cassanda.get_sg_from_id(int(sg_id)):
                         self.obj.set_security_group_id(int(sg_id) + SGID_MIN_ALLOC)
                     else:
                         do_alloc = True
             else:
                 do_alloc = True
             if do_alloc:
-                sg_id_num = self._sg_id_allocator.alloc(self.name)
+                sg_id_num = self._cassandra.alloc_sg_id(self.name)
                 self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
         if sg_id != self.obj.get_security_group_id():
             _vnc_lib.security_group_update(self.obj)
@@ -1299,9 +1222,9 @@ class SecurityGroupST(DBBase):
         sg_id = sg.obj.get_security_group_id()
         if sg_id is not None and not sg.config_sgid:
             if sg_id < SGID_MIN_ALLOC:
-                cls._sg_id_allocator.delete(sg_id)
+                cls._cassandra.free_sg_id(sg_id)
             else:
-                cls._sg_id_allocator.delete(sg_id-SGID_MIN_ALLOC)
+                cls._cassandra.free_sg_id(sg_id-SGID_MIN_ALLOC)
         del cls._dict[name]
         for sg in cls._dict.values():
             sg.update_acl(from_value=sg_id, to_value=name)
@@ -1483,13 +1406,7 @@ class RoutingInstanceST(object):
         self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
         rtgt_list = self.obj.get_route_target_refs()
         ri_fq_name_str = self.obj.get_fq_name_str()
-        rt_cf = VirtualNetworkST._rt_cf
-        try:
-            rtgt = int(rt_cf.get(ri_fq_name_str)['rtgt_num'])
-            rt_cf.remove(ri_fq_name_str)
-            VirtualNetworkST._rt_allocator.delete(rtgt)
-        except NotFoundException:
-            pass
+        DBBase._cassandra.free_route_target(ri_fq_name_str)
 
         service_chain = self.service_chain
         if vn_obj is not None and service_chain is not None:
@@ -1506,7 +1423,7 @@ class RoutingInstanceST(object):
                 vmi_obj = _vnc_lib.virtual_machine_interface_read(
                     id=vmi['uuid'])
                 if service_chain is not None:
-                    VirtualNetworkST.free_service_chain_vlan(
+                    DBBase._cassandra.free_service_chain_vlan(
                         vmi_obj.get_parent_fq_name_str(), service_chain)
             except NoIdError:
                 continue
@@ -1532,22 +1449,19 @@ class ServiceChain(DBBase):
     @classmethod
     def init(cls):
         # When schema transformer restarts, read all service chains from cassandra
-        try:
-            for (name,columns) in cls._service_chain_uuid_cf.get_range():
-                chain = jsonpickle.decode(columns['value'])
+        for (name, columns) in cls._cassandra.list_service_chain_uuid():
+            chain = jsonpickle.decode(columns['value'])
 
-                # Some service chains may not be valid any more. We may need to
-                # delete such service chain objects or we have to destroy them.
-                # To handle each case, we mark them with two separate flags,
-                # which will be reset when appropriate calls are made.
-                # Any service chains for which these flags are still set after
-                # all search results are received from ifmap, we will delete/
-                # destroy them
-                chain.present_stale = True
-                chain.created_stale = chain.created
-                cls._dict[name] = chain
-        except NotFoundException:
-            pass
+            # Some service chains may not be valid any more. We may need to
+            # delete such service chain objects or we have to destroy them.
+            # To handle each case, we mark them with two separate flags,
+            # which will be reset when appropriate calls are made.
+            # Any service chains for which these flags are still set after
+            # all search results are received from ifmap, we will delete/
+            # destroy them
+            chain.present_stale = True
+            chain.created_stale = chain.created
+            cls._dict[name] = chain
     # end init
     
     def __init__(self, name, left_vn, right_vn, direction, sp_list, dp_list,
@@ -1612,8 +1526,7 @@ class ServiceChain(DBBase):
         sc = ServiceChain(name, left_vn, right_vn, direction, sp_list,
                           dp_list, protocol, service_list)
         ServiceChain._dict[name] = sc
-        cls._service_chain_uuid_cf.insert(name,
-                                          {'value': jsonpickle.encode(sc)})
+        cls._cassandra.add_service_chain_uuid(name, jsonpickle.encode(sc))
         return sc
     # end find_or_create
 
@@ -1812,8 +1725,7 @@ class ServiceChain(DBBase):
         self.created = True
         self.partially_created = False
         self.error_msg = None
-        self._service_chain_uuid_cf.insert(self.name,
-                                           {'value': jsonpickle.encode(self)})
+        self._cassandra.add_service_chain_uuid(self.name, jsonpickle.encode(self))
     # end _create
 
     def add_pbf_rule(self, vmi, ri1, ri2, ip_address, vlan):
@@ -1847,8 +1759,8 @@ class ServiceChain(DBBase):
     def process_transparent_service(self, vm_info, sc_ip_address,
                                     service_ri1, service_ri2):
         vm_uuid = vm_info['vm_obj'].uuid
-        vlan = VirtualNetworkST.allocate_service_chain_vlan(vm_uuid,
-                                                            self.name)
+        vlan = self._cassandra.allocate_service_chain_vlan(vm_uuid,
+                                                           self.name)
         self.add_pbf_rule(vm_info['left']['vmi'], service_ri1, service_ri2,
                               sc_ip_address, vlan)
         self.add_pbf_rule(vm_info['right']['vmi'], service_ri1, service_ri2,
@@ -1874,8 +1786,8 @@ class ServiceChain(DBBase):
 
         self.created = False
         self.partially_created = False
-        self._service_chain_uuid_cf.insert(self.name,
-                                           {'value': jsonpickle.encode(self)})
+        self._cassandra.add_service_chain_uuid(self.name,
+                                               jsonpickle.encode(self))
 
         vn1_obj = VirtualNetworkST.get(self.left_vn)
         vn2_obj = VirtualNetworkST.get(self.right_vn)
@@ -1898,10 +1810,7 @@ class ServiceChain(DBBase):
         if self.created or self.partially_created:
             self.destroy()
         del self._dict[self.name]
-        try:
-            self._service_chain_uuid_cf.remove(self.name)
-        except NotFoundException:
-            pass
+        self._cassandra.remove_service_chain_uuid(self.name)
     # end delete
     
     def build_introspect(self):
@@ -2192,7 +2101,7 @@ class VirtualMachineInterfaceST(DBBase):
                 service_name, service_chain.name)
             sc_ip_address = vn1_obj.allocate_service_chain_ip(
                 service_name)
-            vlan = VirtualNetworkST.allocate_service_chain_vlan(
+            vlan = self._cassandra.allocate_service_chain_vlan(
                 vm_obj.uuid, service_chain.name)
 
             service_chain.add_pbf_rule(self, service_ri, service_ri,
@@ -2491,7 +2400,7 @@ class LogicalRouterST(DBBase):
                 old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
-            rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
+            rtgt_num = self._cassandra.alloc_route_target(name, True)
             rt_key = "target:%s:%d" % (
                 VirtualNetworkST.get_autonomous_system(), rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
@@ -2508,7 +2417,7 @@ class LogicalRouterST(DBBase):
         if name in cls._dict:
             lr = cls._dict[name]
             rtgt_num = int(lr.route_target.split(':')[-1])
-            VirtualNetworkST._rt_allocator.delete(rtgt_num)
+            cls._cassandra.free_route_target_by_number(rtgt_num)
             RouteTargetST.delete(lr.route_target)
             for interface in lr.interfaces:
                 lr.delete_interface(interface)
@@ -2580,53 +2489,10 @@ class SchemaTransformer(object):
     data + methods used/referred to by ssrc and arc greenlets
     """
 
-    _KEYSPACE = 'to_bgp_keyspace'
-    _RT_CF = 'route_target_table'
-    _SC_IP_CF = 'service_chain_ip_address_table'
-    _SERVICE_CHAIN_CF = 'service_chain_table'
-    _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
-    _zk_path_prefix = ''
-
-    @classmethod
-    def get_db_info(cls):
-        db_info = [(cls._KEYSPACE, [cls._RT_CF, cls._SC_IP_CF,
-                                    cls._SERVICE_CHAIN_CF,
-                                    cls._SERVICE_CHAIN_UUID_CF])]
-        return db_info
-    # end get_db_info
-
     def __init__(self, args=None):
         global _sandesh
         self._args = args
-
-        if args.cluster_id:
-            self._zk_path_pfx = args.cluster_id + '/'
-            SchemaTransformer._zk_path_prefix = self._zk_path_pfx
-            self._keyspace = '%s_%s' %(args.cluster_id, SchemaTransformer._KEYSPACE)
-        else:
-            self._zk_path_pfx = ''
-            self._keyspace = SchemaTransformer._KEYSPACE
-
         self._fabric_rt_inst_obj = None
-
-        # reset zookeeper config
-        if self._args.reset_config:
-            _zookeeper_client.delete_node(self._zk_path_pfx + "/id", True)
-
-        VirtualNetworkST._vn_id_allocator = IndexAllocator(_zookeeper_client,
-            self._zk_path_pfx+_VN_ID_ALLOC_PATH,
-            _VN_MAX_ID)
-        SecurityGroupST._sg_id_allocator = IndexAllocator(
-            _zookeeper_client, self._zk_path_pfx+_SECURITY_GROUP_ID_ALLOC_PATH,
-            _SECURITY_GROUP_MAX_ID)
-        # 0 is not a valid sg id any more. So, if it was previously allocated,
-        # delete it and reserve it
-        if SecurityGroupST._sg_id_allocator.read(0) != '__reserved__':
-            SecurityGroupST._sg_id_allocator.delete(0)
-        SecurityGroupST._sg_id_allocator.reserve(0, '__reserved__')
-        VirtualNetworkST._rt_allocator = IndexAllocator(
-            _zookeeper_client, self._zk_path_pfx+_BGP_RTGT_ALLOC_PATH,
-            _BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
 
         # Initialize discovery client
         self._disc = None
@@ -2663,7 +2529,7 @@ class SchemaTransformer(object):
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
 
-        self._cassandra_init()
+        self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
         DBBase.init(self, _sandesh.logger(), self._cassandra)
         ServiceChain.init()
         self.reinit()
@@ -3461,26 +3327,6 @@ class SchemaTransformer(object):
             vmi.recreate_vrf_assign_table()
     # end process_poll_result
 
-    def _cassandra_init(self):
-        keyspaces = {
-            self._keyspace: [(self._RT_CF, None),
-                             (self._SC_IP_CF, None),
-                             (self._SERVICE_CHAIN_CF, None),
-                             (self._SERVICE_CHAIN_UUID_CF, None)]}
-        cass_server_list = self._args.cassandra_server_list
-        reset_config = self._args.reset_config
-        self._cassandra = VncCassandraClient(cass_server_list, reset_config,
-                                             self._args.cluster_id, keyspaces,
-                                             self.config_log)
-
-        VirtualNetworkST._rt_cf = self._cassandra._cf_dict[self._RT_CF]
-        VirtualNetworkST._sc_ip_cf = self._cassandra._cf_dict[self._SC_IP_CF]
-        VirtualNetworkST._service_chain_cf = self._cassandra._cf_dict[
-            self._SERVICE_CHAIN_CF]
-        ServiceChain._service_chain_uuid_cf = self._cassandra._cf_dict[
-            self._SERVICE_CHAIN_UUID_CF]
-    # end _cassandra_init
-
     def sandesh_ri_build(self, vn_name, ri_name):
         vn = VirtualNetworkST.get(vn_name)
         sandesh_ri_list = []
@@ -3578,10 +3424,8 @@ def launch_arc(transformer, ssrc_mapc):
                 time.sleep(3)
             else:
                 string_buf = StringIO()
-                cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
+                cgitb.Hook(file=string_buf,
+                           format="text").handle(sys.exc_info())
                 try:
                     with open(transformer._args.trace_file, 'a') as err_file:
                         err_file.write(string_buf.getvalue())
