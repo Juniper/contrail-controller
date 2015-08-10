@@ -25,8 +25,6 @@ public:
 
     virtual void OvsdbRegisterDBTable(DBTable *tbl);
 
-    void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
-
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
     OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row);

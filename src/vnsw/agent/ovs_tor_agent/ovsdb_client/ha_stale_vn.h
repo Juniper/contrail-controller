@@ -19,10 +19,8 @@ public:
     HaStaleVnTable(Agent *agent, HaStaleDevVnTable *dev_vn_table);
     virtual ~HaStaleVnTable();
 
-    void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row*);
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
-    OvsdbDBEntry* AllocOvsEntry(struct ovsdb_idl_row*);
     DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry,
                                     const OvsdbDBEntry *ovsdb_entry);
     virtual void EmptyTable(void);
