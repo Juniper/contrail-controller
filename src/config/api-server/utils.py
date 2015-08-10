@@ -157,6 +157,12 @@ def parse_args(args_str):
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
     parser.add_argument(
+        "--disc_server_ip",
+        help="IP address of discovery server")
+    parser.add_argument(
+        "--disc_server_port",
+        help="Port of discovery server")
+    parser.add_argument(
         "--redis_server_ip",
         help="IP address of redis server")
     parser.add_argument(
