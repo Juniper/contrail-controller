@@ -23,6 +23,8 @@ pkt_srcs = [
                 'agent_stats.cc',
                 'flow_table.cc',
                 'flow_handler.cc',
+                'flow_mgmt.cc',
+                'flow_mgmt_dbclient.cc',
                 'packet_buffer.cc',
                 'pkt_init.cc',
                 'pkt_init.cc',
