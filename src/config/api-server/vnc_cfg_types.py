@@ -566,7 +566,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
-        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, subnet_name)
+        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name)
                    for i in range(count)]
         msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
@@ -580,7 +580,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             % (ip_list, vn_fq_name, subnet_name if subnet_name else '')
         cls.addr_mgmt.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         for ip_addr in ip_list:
-            cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name, subnet_name)
+            cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name, sub=subnet_name)
     # end ip_free
 
     @classmethod
