@@ -82,10 +82,6 @@ HaStaleVnTable::HaStaleVnTable(Agent *agent, HaStaleDevVnTable *dev_vn_table) :
 HaStaleVnTable::~HaStaleVnTable() {
 }
 
-void HaStaleVnTable::OvsdbNotify(OvsdbClientIdl::Op op,
-        struct ovsdb_idl_row *row) {
-}
-
 KSyncEntry *HaStaleVnTable::Alloc(const KSyncEntry *key, uint32_t index) {
     const HaStaleVnEntry *k_entry =
         static_cast<const HaStaleVnEntry *>(key);
@@ -97,10 +93,6 @@ KSyncEntry *HaStaleVnTable::DBToKSyncEntry(const DBEntry* db_entry) {
     const VnEntry *entry = static_cast<const VnEntry *>(db_entry);
     HaStaleVnEntry *key = new HaStaleVnEntry(this, entry->GetUuid());
     return static_cast<KSyncEntry *>(key);
-}
-
-OvsdbDBEntry *HaStaleVnTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
-    return NULL;
 }
 
 KSyncDBObject::DBFilterResp HaStaleVnTable::OvsdbDBEntryFilter(

@@ -100,10 +100,6 @@ VnOvsdbObject::VnOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
 VnOvsdbObject::~VnOvsdbObject() {
 }
 
-void VnOvsdbObject::OvsdbNotify(OvsdbClientIdl::Op op,
-        struct ovsdb_idl_row *row) {
-}
-
 KSyncEntry *VnOvsdbObject::Alloc(const KSyncEntry *key, uint32_t index) {
     const VnOvsdbEntry *k_entry =
         static_cast<const VnOvsdbEntry *>(key);
@@ -115,10 +111,6 @@ KSyncEntry *VnOvsdbObject::DBToKSyncEntry(const DBEntry* db_entry) {
     const VnEntry *entry = static_cast<const VnEntry *>(db_entry);
     VnOvsdbEntry *key = new VnOvsdbEntry(this, entry->GetUuid());
     return static_cast<KSyncEntry *>(key);
-}
-
-OvsdbDBEntry *VnOvsdbObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
-    return NULL;
 }
 
 KSyncDBObject::DBFilterResp VnOvsdbObject::OvsdbDBEntryFilter(

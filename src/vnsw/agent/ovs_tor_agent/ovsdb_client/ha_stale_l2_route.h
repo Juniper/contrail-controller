@@ -41,8 +41,6 @@ public:
 
 private:
     friend class HaStaleL2RouteEntry;
-    void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *) {}
-    OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row) { return NULL; }
 
     LifetimeRef<HaStaleL2RouteTable> table_delete_ref_;
     // take reference to a dummy dev_vn entry to hold peer till

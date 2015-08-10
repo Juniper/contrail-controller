@@ -240,10 +240,6 @@ VlanPortBindingTable::VlanPortBindingTable(OvsdbClientIdl *idl) :
 VlanPortBindingTable::~VlanPortBindingTable() {
 }
 
-void VlanPortBindingTable::OvsdbNotify(OvsdbClientIdl::Op op,
-        struct ovsdb_idl_row *row) {
-}
-
 KSyncEntry *VlanPortBindingTable::Alloc(const KSyncEntry *key, uint32_t index) {
     const VlanPortBindingEntry *k_entry =
         static_cast<const VlanPortBindingEntry *>(key);
@@ -256,10 +252,6 @@ KSyncEntry *VlanPortBindingTable::DBToKSyncEntry(const DBEntry* db_entry) {
         static_cast<const VlanLogicalInterface *>(db_entry);
     VlanPortBindingEntry *key = new VlanPortBindingEntry(this, entry);
     return static_cast<KSyncEntry *>(key);
-}
-
-OvsdbDBEntry *VlanPortBindingTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
-    return NULL;
 }
 
 KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(

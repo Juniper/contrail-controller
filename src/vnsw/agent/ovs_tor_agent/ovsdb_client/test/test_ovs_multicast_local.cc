@@ -235,6 +235,11 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
     VnAddReq(1, "vn1", "vrf1");
     WAIT_FOR(1000, 10000, (L2RouteGet("vrf1", MacAddress::BroadcastMac()) != NULL));
 
+    OvsdbMulticastMacLocalReq *mcast_req = new OvsdbMulticastMacLocalReq();
+    mcast_req->HandleRequest();
+    client->WaitForIdle();
+    mcast_req->Release();
+
     //Delete
     DelPhysicalDeviceVn(agent_, 1, 1, true);
     DBRequest del_dev_req(DBRequest::DB_ENTRY_DELETE);

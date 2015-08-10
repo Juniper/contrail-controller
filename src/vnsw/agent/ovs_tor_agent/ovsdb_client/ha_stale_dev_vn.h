@@ -67,8 +67,6 @@ public:
 
 private:
     friend class HaStaleDevVnEntry;
-    void OvsdbNotify(OvsdbClientIdl::Op op, struct ovsdb_idl_row *row) {}
-    OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row) {return NULL;}
 
     bool StaleClearTimerCb();
 

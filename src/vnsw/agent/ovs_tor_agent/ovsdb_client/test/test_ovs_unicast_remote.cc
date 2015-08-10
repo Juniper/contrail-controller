@@ -158,6 +158,18 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
                   && entry->GetState() == KSyncEntry::IN_SYNC));
         // take reference of ucast mac to hold the oper entry as well
         ucast_mac = entry;
+
+        OvsdbVrfReq *vrf_req = new OvsdbVrfReq();
+        vrf_req->HandleRequest();
+        client->WaitForIdle();
+        vrf_req->Release();
+
+        OvsdbUnicastMacRemoteReq *ucast_req = new OvsdbUnicastMacRemoteReq();
+        ucast_req->set_logical_switch(vrf_entry->logical_switch_name());
+        ucast_req->HandleRequest();
+        client->WaitForIdle();
+        ucast_req->Release();
+
     }
 
     // Delete route
