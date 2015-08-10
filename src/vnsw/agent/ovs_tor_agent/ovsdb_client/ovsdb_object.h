@@ -61,8 +61,7 @@ public:
     void NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
     void NotifyDeleteOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
 
-    virtual void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *) = 0;
-    virtual OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row) = 0;
+    virtual OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row) { return NULL;}
     bool DBWalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
     void DBWalkDone(DBTableBase *partition);
 

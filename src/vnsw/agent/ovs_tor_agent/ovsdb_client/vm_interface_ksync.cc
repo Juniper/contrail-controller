@@ -108,10 +108,6 @@ VMInterfaceKSyncObject::VMInterfaceKSyncObject(OvsdbClientIdl *idl, DBTable *tab
 VMInterfaceKSyncObject::~VMInterfaceKSyncObject() {
 }
 
-void VMInterfaceKSyncObject::OvsdbNotify(OvsdbClientIdl::Op op,
-        struct ovsdb_idl_row *row) {
-}
-
 KSyncEntry *VMInterfaceKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {
     const VMInterfaceKSyncEntry *k_entry =
         static_cast<const VMInterfaceKSyncEntry *>(key);
@@ -123,10 +119,6 @@ KSyncEntry *VMInterfaceKSyncObject::DBToKSyncEntry(const DBEntry* db_entry) {
     const VmInterface *entry = static_cast<const VmInterface *>(db_entry);
     VMInterfaceKSyncEntry *key = new VMInterfaceKSyncEntry(this, entry);
     return static_cast<KSyncEntry *>(key);
-}
-
-OvsdbDBEntry *VMInterfaceKSyncObject::AllocOvsEntry(struct ovsdb_idl_row *row) {
-    return NULL;
 }
 
 KSyncDBObject::DBFilterResp VMInterfaceKSyncObject::OvsdbDBEntryFilter(

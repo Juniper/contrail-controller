@@ -284,31 +284,6 @@ void UnicastMacRemoteTable::OvsdbRegisterDBTable(DBTable *tbl) {
     table_delete_ref_.Reset(table->deleter());
 }
 
-void UnicastMacRemoteTable::OvsdbNotify(OvsdbClientIdl::Op op,
-        struct ovsdb_idl_row *row) {
-    const char *mac = ovsdb_wrapper_ucast_mac_remote_mac(row);
-    const char *logical_switch =
-        ovsdb_wrapper_ucast_mac_remote_logical_switch(row);
-    /* if logical switch is not available ignore nodtification */
-    if (logical_switch == NULL)
-        return;
-    const char *dest_ip = ovsdb_wrapper_ucast_mac_remote_dst_ip(row);
-    UnicastMacRemoteEntry key(this, mac);
-    if (op == OvsdbClientIdl::OVSDB_DEL) {
-        NotifyDeleteOvsdb((OvsdbDBEntry*)&key, row);
-        if (dest_ip)
-            key.dest_ip_ = std::string(dest_ip);
-        key.SendTrace(UnicastMacRemoteEntry::DEL_ACK);
-    } else if (op == OvsdbClientIdl::OVSDB_ADD) {
-        NotifyAddOvsdb((OvsdbDBEntry*)&key, row);
-        if (dest_ip)
-            key.dest_ip_ = std::string(dest_ip);
-        key.SendTrace(UnicastMacRemoteEntry::ADD_ACK);
-    } else {
-        assert(0);
-    }
-}
-
 KSyncEntry *UnicastMacRemoteTable::Alloc(const KSyncEntry *key, uint32_t index) {
     const UnicastMacRemoteEntry *k_entry =
         static_cast<const UnicastMacRemoteEntry *>(key);
