@@ -149,13 +149,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int error;
     uint16_t action = 0;
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
-    FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
 
     if (flow_entry_->data().vrouter_evicted_flow_ == true) {
-        return 0;
-    }
-
-    if (rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
         return 0;
     }
 
@@ -182,6 +177,12 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         req.set_fr_flags(0);
     } else {
+        FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
+        if (rev_flow &&
+            rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            return 0;
+        }
+
         flags = VR_FLOW_FLAG_ACTIVE;
         uint32_t fe_action = flow_entry_->match_p().action_info.action;
         if ((fe_action) & (1 << TrafficAction::PASS)) {
