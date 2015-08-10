@@ -87,6 +87,50 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.vm_manager.create_service(st, si)
         self.log_mock.log_error.assert_called_with("Image not present in %s" % ((':').join(st.fq_name)))
 
+    def test_missing_image_in_nova(self):
+        test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
+
+        st = test_utils.create_test_st(name='vm-template',
+            virt_type='virtual-machine',
+            intf_list=[['management', False], ['left', True], ['right', False]])
+        si = test_utils.create_test_si(name='vm-instance', count=2,
+            intf_list=['', 'left-vn', 'right-vn'])
+
+        def nova_oper(resource, oper, proj_name, **kwargs):
+            if resource == 'images' and oper == 'find':
+                return None
+            else:
+                return mock.MagicMock()
+        self.nova_mock.oper = nova_oper
+
+        self.vm_manager.create_service(st, si)
+        self.log_mock.log_error.assert_called_with("Image not found %s" % si.image)
+
+    def test_nova_vm_create_fail(self):
+        test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
+
+        st = test_utils.create_test_st(name='vm-template',
+            virt_type='virtual-machine',
+            intf_list=[['management', False], ['left', True], ['right', False]])
+        si = test_utils.create_test_si(name='vm-instance', count=2,
+            intf_list=['', 'left-vn', 'right-vn'])
+
+        def nova_oper(resource, oper, proj_name, **kwargs):
+            if resource == 'servers' and oper == 'create':
+                return None
+            else:
+                return mock.MagicMock()
+        self.nova_mock.oper = nova_oper
+
+        self.vm_manager.create_service(st, si)
+        self.log_mock.log_error.assert_any_call(test_utils.AnyStringWith('Nova vm create failed'))
+
     def test_missing_flavor_in_template(self):
         test_utils.create_test_project('fake-domain:fake-project')
         test_utils.create_test_security_group('fake-domain:fake-project:default')
