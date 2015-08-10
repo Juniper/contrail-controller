@@ -9,7 +9,10 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
 from cfgm_common import svc_info
 
-class LoadbalancerPoolSM(DBBase):
+class DBBaseSM(DBBase):
+    obj_type = __name__
+
+class LoadbalancerPoolSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
 
@@ -70,7 +73,7 @@ class LoadbalancerPoolSM(DBBase):
     # end add
 # end class LoadbalancerPoolSM
 
-class LoadbalancerMemberSM(DBBase):
+class LoadbalancerMemberSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_member'
 
@@ -107,7 +110,7 @@ class LoadbalancerMemberSM(DBBase):
     # end delete
 # end class LoadbalancerMemberSM
 
-class VirtualIpSM(DBBase):
+class VirtualIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_ip'
 
@@ -144,7 +147,7 @@ class VirtualIpSM(DBBase):
 
 # end class VirtualIpSM
 
-class HealthMonitorSM(DBBase):
+class HealthMonitorSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_healthmonitor'
 
@@ -178,7 +181,7 @@ class HealthMonitorSM(DBBase):
 # end class HealthMonitorSM
 
 
-class VirtualMachineSM(DBBase):
+class VirtualMachineSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_machine'
 
@@ -220,7 +223,7 @@ class VirtualMachineSM(DBBase):
     # end delete
 # end VirtualMachineSM
 
-class VirtualRouterSM(DBBase):
+class VirtualRouterSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_router'
 
@@ -249,7 +252,7 @@ class VirtualRouterSM(DBBase):
 # end VirtualRouterSM
 
 
-class VirtualMachineInterfaceSM(DBBase):
+class VirtualMachineInterfaceSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
 
@@ -306,7 +309,7 @@ class VirtualMachineInterfaceSM(DBBase):
     # end delete
 # end VirtualMachineInterfaceSM
 
-class ServiceInstanceSM(DBBase):
+class ServiceInstanceSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_instance'
 
@@ -388,7 +391,7 @@ class ServiceInstanceSM(DBBase):
 # end class ServiceInstanceSM
 
 
-class ServiceTemplateSM(DBBase):
+class ServiceTemplateSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_template'
 
@@ -423,7 +426,7 @@ class ServiceTemplateSM(DBBase):
 # end class ServiceTemplateSM
 
 
-class VirtualNetworkSM(DBBase):
+class VirtualNetworkSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_network'
 
@@ -456,7 +459,7 @@ class VirtualNetworkSM(DBBase):
 # end class VirtualNetworkSM
 
 
-class FloatingIpSM(DBBase):
+class FloatingIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'floating_ip'
 
@@ -487,7 +490,7 @@ class FloatingIpSM(DBBase):
     # end delete
 # end class FloatingIpSM
 
-class InstanceIpSM(DBBase):
+class InstanceIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'instance_ip'
 
@@ -517,7 +520,7 @@ class InstanceIpSM(DBBase):
     # end delete
 # end class InstanceIpSM
 
-class LogicalInterfaceSM(DBBase):
+class LogicalInterfaceSM(DBBaseSM):
     _dict = {}
     obj_type = 'logical_interface'
 
@@ -565,7 +568,7 @@ class LogicalInterfaceSM(DBBase):
     # end delete
 # end LogicalInterfaceSM
 
-class PhysicalInterfaceSM(DBBase):
+class PhysicalInterfaceSM(DBBaseSM):
     _dict = {}
     obj_type = 'physical_interface'
 
@@ -597,7 +600,7 @@ class PhysicalInterfaceSM(DBBase):
     # end delete
 # end PhysicalInterfaceSM
 
-class PhysicalRouterSM(DBBase):
+class PhysicalRouterSM(DBBaseSM):
     _dict = {}
     obj_type = 'physical_router'
 
@@ -627,7 +630,7 @@ class PhysicalRouterSM(DBBase):
 # end PhysicalRouterSM
 
 
-class ProjectSM(DBBase):
+class ProjectSM(DBBaseSM):
     _dict = {}
     obj_type = 'project'
 
@@ -658,7 +661,7 @@ class ProjectSM(DBBase):
     # end delete
 # end ProjectSM
 
-class DomainSM(DBBase):
+class DomainSM(DBBaseSM):
     _dict = {}
     obj_type = 'domain'
 
@@ -682,7 +685,7 @@ class DomainSM(DBBase):
     # end delete
 # end DomainSM
 
-class SecurityGroupSM(DBBase):
+class SecurityGroupSM(DBBaseSM):
     _dict = {}
     obj_type = 'security_group'
 
@@ -709,7 +712,7 @@ class SecurityGroupSM(DBBase):
     # end delete
 # end SecurityGroupSM
 
-class InterfaceRouteTableSM(DBBase):
+class InterfaceRouteTableSM(DBBaseSM):
     _dict = {}
     obj_type = 'interface_route_table'
 
@@ -737,7 +740,7 @@ class InterfaceRouteTableSM(DBBase):
     # end delete
 # end InterfaceRouteTableSM
 
-class ServiceApplianceSM(DBBase):
+class ServiceApplianceSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_appliance'
 
@@ -778,7 +781,7 @@ class ServiceApplianceSM(DBBase):
     # end delete
 # end ServiceApplianceSM
 
-class ServiceApplianceSetSM(DBBase):
+class ServiceApplianceSetSM(DBBaseSM):
     _dict = {}
     obj_type = 'service_appliance'
 
