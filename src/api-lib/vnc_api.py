@@ -11,12 +11,14 @@ from cfgm_common import jsonutils as json
 import sys
 import time
 import platform
+import functools
 import __main__ as main
 
 import gen.resource_common
+import gen.vnc_api_client_gen
+from gen.vnc_api_client_gen import all_resource_types
 from gen.resource_xsd import *
 from gen.resource_client import *
-from gen.vnc_api_client_gen import VncApiClientGen
 
 from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
@@ -29,6 +31,11 @@ def compare_refs(old_refs, new_refs):
     new_ref_dict = {':'.join(ref['to']): ref['attr'] for ref in new_refs}
     return old_ref_dict == new_ref_dict
 # end compare_refs
+
+def get_object_class(obj_type):
+    cls_name = '%s' %(utils.CamelCase(obj_type.replace('-', '_')))
+    return utils.str_to_class(cls_name, __name__)
+# end get_object_class
 
 def _read_cfg(cfg_parser, section, option, default):
         try:
@@ -59,7 +66,7 @@ class ActionUriDict(dict):
             return dict.__getitem__(self, key)
 
 
-class VncApi(VncApiClientGen):
+class VncApi(object):
     _DEFAULT_WEB_SERVER = "127.0.0.1"
 
     hostname = platform.node()
@@ -78,7 +85,7 @@ class VncApi(VncApiClientGen):
     _DEFAULT_AUTHN_URL = "/v2.0/tokens"
     _DEFAULT_AUTHN_USER = ""
     _DEFAULT_AUTHN_PASSWORD = ""
-    _DEFAULT_AUTHN_TENANT = VncApiClientGen._tenant_name
+    _DEFAULT_AUTHN_TENANT = 'default-tenant'
 
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
@@ -96,7 +103,16 @@ class VncApi(VncApiClientGen):
                  wait_for_connect=False):
         # TODO allow for username/password to be present in creds file
 
-        super(VncApi, self).__init__(self._obj_serializer_diff)
+        self._obj_serializer = self._obj_serializer_diff
+        for resource_type in vnc_api.gen.vnc_api_client_gen.all_resource_types:
+            obj_type = resource_type.replace('-', '_')
+            for oper_str in ('_create', '_read', '_update', '_delete',
+                         's_list', '_get_default_id'):
+                method = getattr(self, '_object%s' %(oper_str))
+                bound_method = functools.partial(method, resource_type)
+                functools.update_wrapper(bound_method, method)
+                setattr(self, '%s%s' %(obj_type, oper_str),
+                    bound_method)
 
         cfg_parser = ConfigParser.ConfigParser()
         try:
@@ -210,6 +226,122 @@ class VncApi(VncApiClientGen):
                 # connected succesfully
                 break
     #end __init__
+
+    def _object_create(self, res_type, obj):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = get_object_class(res_type)
+
+        obj._pending_field_updates |= obj._pending_ref_updates
+        obj._pending_ref_updates = set([])
+        # Ignore fields with None value in json representation
+        json_param = json.dumps(obj, default=self._obj_serializer)
+        json_body = '{"%s":%s}' %(res_type, json_param)
+        content = self._request_server(rest.OP_POST,
+                       obj_cls.create_uri,
+                       data = json_body)
+
+        obj_dict = json.loads(content)[res_type]
+        obj.uuid = obj_dict['uuid']
+        if 'parent_uuid' in obj_dict:
+            obj.parent_uuid = obj_dict['parent_uuid']
+
+        obj.set_server_conn(self)
+
+        return obj.uuid
+    # end _object_create
+
+    def _object_read(self, res_type, fq_name=None, fq_name_str=None,
+                     id=None, ifmap_id=None, fields=None):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = get_object_class(res_type)
+
+        (args_ok, result) = self._read_args_to_id(
+            res_type, fq_name, fq_name_str, id, ifmap_id)
+        if not args_ok:
+            return result
+
+        id = result
+        uri = obj_cls.resource_uri_base[res_type] + '/' + id
+
+        if fields:
+            comma_sep_fields = ','.join(f for f in fields)
+            query_params = {'fields': comma_sep_fields}
+        else:
+            query_params = {'exclude_back_refs':True,
+                            'exclude_children':True,}
+        content = self._request_server(rest.OP_GET, uri, query_params)
+
+        obj_dict = json.loads(content)[res_type]
+        obj = obj_cls.from_dict(**obj_dict)
+        obj.clear_pending_updates()
+        obj.set_server_conn(self)
+
+        return obj
+    # end _object_read
+
+    def _object_update(self, res_type, obj):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = get_object_class(res_type)
+
+        # Read in uuid from api-server if not specified in obj
+        if not obj.uuid:
+            obj.uuid = self.fq_name_to_id(res_type, obj.get_fq_name())
+
+        # Ignore fields with None value in json representation
+        json_param = json.dumps(obj, default=self._obj_serializer)
+        json_body = '{"%s":%s}' %(res_type, json_param)
+
+        id = obj.uuid
+        uri = obj_cls.resource_uri_base[res_type] + '/' + id
+        content = self._request_server(rest.OP_PUT, uri, data=json_body)
+        for ref_name in obj._pending_ref_updates:
+             ref_orig = set([(x.get('uuid'),
+                             tuple(x.get('to', [])), x.get('attr'))
+                        for x in getattr(obj, '_original_' + ref_name, [])])
+             ref_new = set([(x.get('uuid'),
+                            tuple(x.get('to', [])), x.get('attr'))
+                       for x in getattr(obj, ref_name, [])])
+             for ref in ref_orig - ref_new:
+                 self.ref_update(res_type, obj.uuid, ref_name, ref[0],
+                                 list(ref[1]), 'DELETE')
+             for ref in ref_new - ref_orig:
+                 self.ref_update(res_type, obj.uuid, ref_name, ref[0],
+                                 list(ref[1]), 'ADD', ref[2])
+        obj.clear_pending_updates()
+
+        return content
+    # end _object_update
+
+    def _objects_list(self, res_type, parent_id=None, parent_fq_name=None,
+                     obj_uuids=None, back_ref_id=None, fields=None,
+                     detail=False, count=False, filters=None):
+        return self.resource_list(res_type, parent_id=parent_id,
+            parent_fq_name=parent_fq_name, back_ref_id=back_ref_id,
+            obj_uuids=obj_uuids, fields=fields, detail=detail, count=count,
+            filters=filters)
+    # end _objects_list
+
+    def _object_delete(self, res_type, fq_name=None, id=None, ifmap_id=None):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = get_object_class(res_type)
+
+        (args_ok, result) = self._read_args_to_id(
+            obj_type=res_type, fq_name=fq_name, id=id, ifmap_id=ifmap_id)
+        if not args_ok:
+            return result
+
+        id = result
+        uri = obj_cls.resource_uri_base[res_type] + '/' + id
+
+        content = self._request_server(rest.OP_DELETE, uri)
+    # end _object_delete
+
+    def _object_get_default_id(self, res_type):
+        obj_type = res_type.replace('-', '_')
+        obj_cls = get_object_class(res_type)
+
+        return self.fq_name_to_id(res_type, obj_cls().get_fq_name())
+    # end _object_get_default_id
 
     def _obj_serializer_diff(self, obj):
         if hasattr(obj, 'serialize_to_json'):
