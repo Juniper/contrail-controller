@@ -143,7 +143,7 @@ class PhysicalRouterConfig(object):
      network_id : this is used for configuraing irb interfaces
     '''
     def add_routing_instance(self, ri_name, import_targets, export_targets,
-                             prefixes=[], gateways=[], router_external=False, 
+                             prefixes=[], gateways={}, router_external=False, 
                              interfaces=[], vni=None, fip_map=None, network_id=None):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
@@ -341,9 +341,10 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(intf_unit, "name").text = str(network_id)
                 family = etree.SubElement(intf_unit, "family")
                 inet = etree.SubElement(family, "inet")
-                for gateway in gateways:
+                for irb_ip, gateway in gateways.items():
                     addr = etree.SubElement(inet, "address")
-                    etree.SubElement(addr, "name").text = gateway
+                    etree.SubElement(addr, "name").text = irb_ip
+                    etree.SubElement(addr, "virtual-gateway-address").text = gateway
 
             lo_intf = etree.SubElement(interfaces_config, "interface")
             etree.SubElement(lo_intf, "name").text = "lo0"
