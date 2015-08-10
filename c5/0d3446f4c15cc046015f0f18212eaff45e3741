@@ -1,0 +1,9 @@
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Hampapur Ajay <hajay@juniper.net>
+Code-Review+2: Hampapur Ajay <hajay@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Mon, 10 Aug 2015 10:56:26 -0700
+Reviewed-on: https://review.opencontrail.org/12869
+Project: Juniper/contrail-controller
+Branch: refs/heads/R2.22-dev
