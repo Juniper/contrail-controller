@@ -1050,9 +1050,9 @@ def parse_args(args_str):
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
-        defaults.update(dict(config.items("DEFAULTS")))
         for section in config.sections():
             if section == "DEFAULTS":
+                defaults.update(dict(config.items("DEFAULTS")))
                 continue
             service_config[
                 section.lower()] = default_service_opts.copy()
