@@ -286,7 +286,7 @@ class DeviceManager(object):
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBase._OBJ_TYPE_MAP.get(obj_type)
+            obj_class = DBBase.get_obj_type_map().get(obj_type)
             if obj_class is None:
                 return
 
@@ -294,8 +294,8 @@ class DeviceManager(object):
                 obj_dict = oper_info['obj_dict']
                 obj_id = obj_dict['uuid']
                 obj = obj_class.locate(obj_id, obj_dict)
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP,
-                                                       self._REACTION_MAP)
+                dependency_tracker = DependencyTracker(
+                    DBBase.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'UPDATE':
                 obj_id = oper_info['uuid']
@@ -303,27 +303,29 @@ class DeviceManager(object):
                 old_dt = None
                 if obj is not None:
                     old_dt = DependencyTracker(
-                        DBBase._OBJ_TYPE_MAP, self._REACTION_MAP)
+                        DBBase.get_obj_type_map(), self._REACTION_MAP)
                     old_dt.evaluate(obj_type, obj)
                 else:
                     obj = obj_class.locate(obj_id)
                 obj.update()
                 dependency_tracker = DependencyTracker(
-                    DBBase._OBJ_TYPE_MAP, self._REACTION_MAP)
+                    DBBase.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 if old_dt:
                     for resource, ids in old_dt.resources.items():
                         if resource not in dependency_tracker.resources:
                             dependency_tracker.resources[resource] = ids
                         else:
-                            dependency_tracker.resources[resource] = list(set(dependency_tracker.resources[resource]) | set(ids))
+                            dependency_tracker.resources[resource] = list(
+                                set(dependency_tracker.resources[resource]) |
+                                set(ids))
             elif oper_info['oper'] == 'DELETE':
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
                 if obj is None:
                     return
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP,
-                                                       self._REACTION_MAP)
+                dependency_tracker = DependencyTracker(
+                    DBBase.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 obj_class.delete(obj_id)
             else:

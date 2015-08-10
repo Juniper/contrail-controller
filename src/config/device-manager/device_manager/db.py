@@ -736,16 +736,3 @@ class RoutingInstanceDM(DBBase):
     # end delete
 # end RoutingInstanceDM
 
-DBBase._OBJ_TYPE_MAP = {
-    'bgp_router': BgpRouterDM,
-    'physical_router': PhysicalRouterDM,
-    'physical_interface': PhysicalInterfaceDM,
-    'logical_interface': LogicalInterfaceDM,
-    'virtual_machine_interface': VirtualMachineInterfaceDM,
-    'virtual_network': VirtualNetworkDM,
-    'routing_instance': RoutingInstanceDM,
-    'floating_ip': FloatingIpDM,
-    'instance_ip': InstanceIpDM,
-    'global_system_config': GlobalSystemConfigDM,
-    'global_vrouter_config': GlobalVRouterConfigDM,
-}

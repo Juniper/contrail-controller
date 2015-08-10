@@ -94,7 +94,7 @@ class DBBase(object):
         self.parent_id = obj_dict.get('parent_uuid')
         if not self.parent_type or not self.parent_id:
             return
-        p_obj = self._OBJ_TYPE_MAP[self.parent_type].get(self.parent_id)
+        p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_id)
         if p_obj is not None:
             p_obj.add_ref(self.obj_type, self.uuid)
     # end
@@ -102,7 +102,7 @@ class DBBase(object):
     def remove_from_parent(self):
         if not self.parent_type or not self.parent_id:
             return
-        p_obj = self._OBJ_TYPE_MAP[self.parent_type].get(self.parent_id)
+        p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_id)
         if p_obj is not None:
             p_obj.delete_ref(self.obj_type, self.uuid)
 
@@ -119,10 +119,10 @@ class DBBase(object):
         old_id = getattr(self, ref_type, None)
         if old_id == new_id:
             return
-        ref_obj = self._OBJ_TYPE_MAP[ref_type].get(old_id)
+        ref_obj = self.get_obj_type_map()[ref_type].get(old_id)
         if ref_obj is not None:
             ref_obj.delete_ref(self.obj_type, self.uuid)
-        ref_obj = self._OBJ_TYPE_MAP[ref_type].get(new_id)
+        ref_obj = self.get_obj_type_map()[ref_type].get(new_id)
         if ref_obj is not None:
             ref_obj.add_ref(self.obj_type, self.uuid)
         setattr(self, ref_type, new_id)
@@ -153,11 +153,11 @@ class DBBase(object):
             new_refs.add(new_id)
         old_refs = getattr(self, ref_type+'s')
         for ref_id in old_refs - new_refs:
-            ref_obj = self._OBJ_TYPE_MAP[ref_type].get(ref_id)
+            ref_obj = self.get_obj_type_map()[ref_type].get(ref_id)
             if ref_obj is not None:
                 ref_obj.delete_ref(self.obj_type, self.uuid)
         for ref_id in new_refs - old_refs:
-            ref_obj = self._OBJ_TYPE_MAP[ref_type].get(ref_id)
+            ref_obj = self.get_obj_type_map()[ref_type].get(ref_id)
             if ref_obj is not None:
                 ref_obj.add_ref(self.obj_type, self.uuid)
         setattr(self, ref_type+'s', new_refs)
@@ -198,8 +198,10 @@ class DBBase(object):
     @classmethod
     def reset(cls):
         cls._dict = {}
-# end class DBBase
 
-DBBase._OBJ_TYPE_MAP = {
-}
+    @staticmethod
+    def get_obj_type_map():
+        return dict((x.obj_type, x) for x in DBBase.__subclasses__())
+
+# end class DBBase
 
