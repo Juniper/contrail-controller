@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM
+    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -174,11 +174,7 @@ class DeviceManager(object):
                                          q_name, self._vnc_subscribe_callback,
                                          self.config_log)
 
-        cass_server_list = self._args.cassandra_server_list
-        reset_config = self._args.reset_config
-        self._cassandra = VncCassandraClient(cass_server_list, reset_config,
-                                             self._args.cluster_id, None,
-                                             self.config_log)
+        self._cassandra = DMCassandraDB.getInstance(self)
 
         DBBase.init(self, self._sandesh.logger(), self._cassandra)
         ok, global_system_config_list = self._cassandra._cassandra_global_system_config_list()
@@ -221,7 +217,9 @@ class DeviceManager(object):
             self.config_log('physical router list returned error: %s' %
                             pr_list)
         else:
-            for fq_name, uuid in pr_list:
+            pr_uuid_set = set([pr_tuple[1] for pr_tuple in pr_list])
+            self._cassandra.handle_pr_deletes(pr_uuid_set)
+            for uuid in pr_uuid_set:
                 pr = PhysicalRouterDM.locate(uuid)
                 if pr.bgp_router:
                     BgpRouterDM.locate(pr.bgp_router)
