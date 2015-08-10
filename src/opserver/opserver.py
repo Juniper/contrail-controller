@@ -791,8 +791,8 @@ class OpServer(object):
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read(args.conf_file)
-            defaults.update(dict(config.items("DEFAULTS")))
-
+            if 'DEFAULTS' in config.sections():
+                defaults.update(dict(config.items("DEFAULTS")))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
