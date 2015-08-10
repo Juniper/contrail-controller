@@ -23,13 +23,13 @@ class SchemaTransformerDB(VncCassandraClient):
 
     _BGP_RTGT_MAX_ID = 1 << 24
     _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
-    
+
     _VN_MAX_ID = 1 << 24
     _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
-    
+
     _SECURITY_GROUP_MAX_ID = 1 << 32
     _SECURITY_GROUP_ID_ALLOC_PATH = "/id/security-groups/id/"
-    
+
     _SERVICE_CHAIN_MAX_VLAN = 4093
     _SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
 
@@ -60,11 +60,15 @@ class SchemaTransformerDB(VncCassandraClient):
                              (self._SERVICE_CHAIN_CF, None),
                              (self._SERVICE_CHAIN_UUID_CF, None)]}
         cass_server_list = self._args.cassandra_server_list
-        reset_config = self._args.reset_config
+
+        if self._args.reset_config:
+            cass_reset_config = [self._keyspace]
+        else:
+            cass_reset_config = []
 
         super(SchemaTransformerDB, self).__init__(
-            cass_server_list, reset_config, self._args.cluster_id, keyspaces,
-            manager.config_log)
+            cass_server_list, self._args.cluster_id, keyspaces,
+            manager.config_log, reset_config=cass_reset_config)
 
         SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
         SchemaTransformerDB._sc_ip_cf = self._cf_dict[self._SC_IP_CF]
@@ -72,9 +76,9 @@ class SchemaTransformerDB(VncCassandraClient):
             self._SERVICE_CHAIN_CF]
         SchemaTransformerDB._service_chain_uuid_cf = self._cf_dict[
             self._SERVICE_CHAIN_UUID_CF]
-        
+
         # reset zookeeper config
-        if reset_config:
+        if self._args.reset_config:
             zkclient.delete_node(self._zk_path_pfx + "/id", True)
 
         self._vn_id_allocator = IndexAllocator(
@@ -82,7 +86,7 @@ class SchemaTransformerDB(VncCassandraClient):
         self._sg_id_allocator = IndexAllocator(
             zkclient, self._zk_path_pfx+self._SECURITY_GROUP_ID_ALLOC_PATH,
             self._SECURITY_GROUP_MAX_ID)
-        
+
         # 0 is not a valid sg id any more. So, if it was previously allocated,
         # delete it and reserve it
         if self._sg_id_allocator.read(0) != '__reserved__':
@@ -92,7 +96,7 @@ class SchemaTransformerDB(VncCassandraClient):
         self._rt_allocator = IndexAllocator(
             zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
             self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
-        
+
         self._sc_vlan_allocator_dict = {}
     # end __init__
 
