@@ -1548,6 +1548,27 @@ void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
     AddNode("virtual-network", name.c_str(), id, str.str().c_str());
 }
 
+void AddL3Vn(const char *name, int id) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <forwarding-mode>l3</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str());
+}
+
+void AddL2L3Vn(const char *name, int id, bool admin_state) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
+}
+
 void AddL2Vn(const char *name, int id) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
@@ -1564,7 +1585,6 @@ void AddVn(const char *name, int id, bool admin_state) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
     str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
-    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
     str << "    <rpf>enable</rpf>" << endl;
     str << "</virtual-network-properties>" << endl;
     str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
@@ -2045,6 +2065,12 @@ void VxLanNetworkIdentifierMode(bool config) {
     } else {
         str << "<vxlan-network-identifier-mode>automatic</vxlan-network-identifier-mode>" << endl;
     }
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+}
+
+void GlobalForwardingMode(std::string mode) {
+    std::stringstream str;
+    str << "<forwarding-mode>" << mode << "</forwarding-mode>" << endl;
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 
@@ -2552,6 +2578,20 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf) {
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    TestClient::WaitForIdle();
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true,
+                            true, false, true);
+}
+
+void CreateL3VmportEnv(struct PortInfo *input, int count, int acl_id,
+                       const char *vn, const char *vrf) {
+    AddL3Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    TestClient::WaitForIdle();
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true,
                             true, false, true);
 }
@@ -3330,11 +3370,12 @@ BgpPeer *CreateBgpPeer(std::string addr, std::string name) {
 BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     XmppChannelMock *xmpp_channel = new XmppChannelMock();
     AgentXmppChannel *channel;
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 1);
 
     channel = new AgentXmppChannel(Agent::GetInstance(),
-                                   "XMPP Server", "", 0);
+                                   "XMPP Server", "", 1);
     channel->RegisterXmppChannel(xmpp_channel);
+    Agent::GetInstance()->set_controller_xmpp_channel(channel, 1);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::READY);
     client->WaitForIdle();
     return channel->bgp_peer_id();

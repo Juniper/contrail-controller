@@ -65,6 +65,10 @@ public:
     virtual int DeleteMsg(char *buf, int buf_len);
     virtual KSyncEntry *UnresolvedReference();
     void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info) const;
+    bool dhcp_enable() const {return dhcp_enable_;}
+    bool layer3_forwarding() const {return layer3_forwarding_;}
+    bool bridging() const {return bridging_;}
+
 private:
     friend class InterfaceKSyncObject;
     int Encode(sandesh_op::type op, char *buf, int buf_len);

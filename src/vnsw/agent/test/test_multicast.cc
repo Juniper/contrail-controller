@@ -852,10 +852,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_delete) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
 
-    //Change the vn forwarding mode to l2-only
-    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
-        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->bridging() == false);
     //Del VN
     VnDelReq(1);
     client->WaitForIdle();
@@ -910,10 +906,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_ipam_change) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
 
-    //Change the vn forwarding mode to l2-only
-    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
-        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->bridging() == false);
     //Change IPAM
     AddIPAM("vn1", ipam_info_2, 2);
     client->WaitForIdle();
@@ -963,10 +955,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
 
-    //Change the vn forwarding mode to l2-only
-    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
-        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->bridging() == false);
     //VRF delete for VN
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
@@ -1015,11 +1003,6 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
     AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
-
-    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
-        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->bridging() == false);
-    client->WaitForIdle();
 
     AddL2Vn("vn2", 2);
     client->WaitForIdle();

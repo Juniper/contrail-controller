@@ -324,7 +324,7 @@ public:
     bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     // Handle change in VxLan Identifier mode from global-config
-    void UpdateVxLanNetworkIdentifierMode();
+    void GlobalVrouterConfigChanged();
 
     // Helper functions
     VrfEntry *FindVrfRef(const std::string &name) const;

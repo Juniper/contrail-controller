@@ -336,8 +336,7 @@ const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
     if (l2_rt == NULL)
         return NULL;
 
-    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>
-        (l2_rt->FindMacVmBindingPath());
+    const MacVmBindingPath *dhcp_path = l2_rt->FindMacVmBindingPath();
     if (dhcp_path == NULL)
         return NULL;
     return dhcp_path->vm_interface();
@@ -531,9 +530,9 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
     }
 }
 
-const AgentPath *BridgeRouteEntry::FindMacVmBindingPath() const {
+const MacVmBindingPath *BridgeRouteEntry::FindMacVmBindingPath() const {
     Agent *agent = (static_cast<AgentRouteTable *> (get_table()))->agent();
-    return FindPath(agent->mac_vm_binding_peer());
+    return dynamic_cast<MacVmBindingPath*>(FindPath(agent->mac_vm_binding_peer()));
 }
 
 const AgentPath *BridgeRouteEntry::FindOvsPath() const {

@@ -10,22 +10,22 @@
 #include <cmn/agent_db.h>
 
 #include <oper/agent_route_walker.h>
-#include <oper/agent_route_encap.h>
+#include <oper/agent_route_resync.h>
 #include <oper/vrf.h>
 #include <oper/agent_route.h>
 #include <oper/agent_path.h>
 
-AgentRouteEncap::AgentRouteEncap(Agent *agent) : 
+AgentRouteResync::AgentRouteResync(Agent *agent) : 
     AgentRouteWalker(agent, AgentRouteWalker::ALL) {
 }
 
-bool AgentRouteEncap::RouteWalkNotify(DBTablePartBase *partition,
+bool AgentRouteResync::RouteWalkNotify(DBTablePartBase *partition,
                                       DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
     route->EnqueueRouteResync();
     return true;
 }
 
-void AgentRouteEncap::Update() {
+void AgentRouteResync::Update() {
     StartVrfWalk(); 
 }

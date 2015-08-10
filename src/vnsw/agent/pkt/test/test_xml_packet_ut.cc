@@ -147,9 +147,7 @@ TEST_F(TestPkt, flow_tsn_mode_1) {
     client->WaitForIdle();
 
     boost::system::error_code ec;
-    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
-                                      "xmpp channel");
-    EcmpTunnelRouteAdd(agent, bgp_peer, "vrf1", "1.1.1.0", 24,
+    EcmpTunnelRouteAdd(agent, bgp_peer_, "vrf1", "1.1.1.0", 24,
                        "100.100.100.1", 1, "100.100.100.2", 2, "vn1");
 
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/tsn-flow.xml");
@@ -164,12 +162,10 @@ TEST_F(TestPkt, flow_tsn_mode_1) {
         test.Run();
     }
 
-    DeleteRoute("vrf1", "1.1.1.0", 24, bgp_peer);
+    DeleteRoute("vrf1", "1.1.1.0", 24, bgp_peer_);
     client->WaitForIdle();
     DelIPAM("vn1");
     DelVn("vn1");
-    client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
 }
 
