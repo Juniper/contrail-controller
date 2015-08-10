@@ -15,6 +15,7 @@ import copy
 import socket
 import gevent
 from gevent import queue
+from cfgm_common.vnc_cassandra import VncCassandraClient
 
 class BgpRouterDM(DBBase):
     _dict = {}
@@ -232,19 +233,20 @@ class PhysicalRouterDM(DBBase):
                             continue
                         import_set |= ri2.export_targets
 
+                    irb_ips = vn_obj.get_irb_ips(self.uuid)
                     if vn_obj.router_external == False:
                         self.config_manager.add_routing_instance(vrf_name_l3,
                                                              import_set,
                                                              export_set,
                                                              vn_obj.prefixes,
-                                                             vn_obj.gateways,
+                                                             irb_ips,
                                                              vn_obj.router_external,
                                                              ["irb" + "." + str(vn_obj.vn_network_id)])
                         self.config_manager.add_routing_instance(vrf_name_l2,
                                                              import_set,
                                                              export_set,
                                                              vn_obj.prefixes,
-                                                             vn_obj.gateways,
+                                                             irb_ips,
                                                              vn_obj.router_external,
                                                              interfaces,
                                                              vn_obj.vxlan_vni,
@@ -254,7 +256,7 @@ class PhysicalRouterDM(DBBase):
                                                              import_set,
                                                              export_set,
                                                              vn_obj.prefixes,
-                                                             vn_obj.gateways,
+                                                             irb_ips,
                                                              vn_obj.router_external,
                                                              interfaces,
                                                              vn_obj.vxlan_vni,
@@ -596,12 +598,15 @@ class VirtualNetworkDM(DBBase):
         self.router_external = False
         self.vxlan_vni = None
         self.gateways = None
+        self.pr_ip_map = {}
         self.instance_ip_map = {}
         self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
+        is_init = False
         if obj is None:
+            is_init = True
             obj = self.read_obj(self.uuid)
         self.update_multiple_refs('physical_router', obj)
         self.fq_name = obj['fq_name']
@@ -617,16 +622,98 @@ class VirtualNetworkDM(DBBase):
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
         self.prefixes = set()
-        self.gateways = set()
+        self.gateways = {}
+        self.new_physical_router_irb_ip_map = {}
+        self.new_pr_ip_map = {}
         for ipam_ref in obj.get('network_ipam_refs', []):
             for subnet in ipam_ref['attr'].get('ipam_subnets', []):
-                self.prefixes.add('%s/%d' % (subnet['subnet']['ip_prefix'],
-                                             subnet['subnet']['ip_prefix_len'])
-                                  )
-                self.gateways.add('%s/%d' % (subnet['default_gateway'],
-                                             subnet['subnet']['ip_prefix_len'])
-                                  )
+                prefix = subnet['subnet']['ip_prefix']
+                prefix_len = subnet['subnet']['ip_prefix_len']
+                self.prefixes.add('%s/%d' % (prefix, prefix_len))
+                self.gateways[prefix + '/' + str(prefix_len)] = subnet['default_gateway']
+                for pr in self.physical_routers:
+                    self.new_pr_ip_map[pr + ':' + prefix + '/' + str(prefix_len)] = ''
+
+        if is_init:
+            # read cs state
+            pr_subnet_set = DMCassandraDB.get_vn_pr_set(self.uuid)
+            for pr_subnet in pr_subnet_set:
+                ip = DMCassandraDB.get(DMCassandraDB._VN_PR_IRB_IP,
+                                         self.uuid + ':' + pr_subnet)
+                if ip is not None:
+                    self.pr_ip_map[pr_subnet] = ip
+        vn = self._manager._vnc_lib.virtual_network_read(id=self.uuid)
+        self.evaluate_pr_irb_ip_map(set(self.pr_ip_map.keys()),
+                                    set(self.new_pr_ip_map.keys()), vn)
     # end update
+
+    def get_irb_ips(self, pr):
+        irb_ips = {}
+        for pr_subnet, ip_addr in self.pr_ip_map.items():
+            (pr_uuid, subnet_prefix) = pr_subnet.split(':')
+            if pr == pr_uuid:
+                irb_ips[ip_addr] = self.gateways[subnet_prefix]
+        return irb_ips
+    #end
+
+    def evaluate_pr_irb_ip_map(self, old_set, new_set, vn):
+        delete_set = old_set.difference(new_set)
+        create_set = new_set.difference(old_set)
+        for pr_subnet in delete_set:
+            (pr_uuid, subnet_prefix) = pr_subnet.split(':')
+            ret = self.free_ip(vn, self.pr_ip_map[pr_subnet], subnet_prefix)
+            if ret == False:
+                self._logger.error("Unable to free ip for vn/subnet/pr \
+                                  (%s/%s/%s)" %(self.uuid, subnet_prefix, pr_uuid))
+                continue
+            ret = DMCassandraDB.delete(DMCassandraDB._VN_PR_IRB_IP,
+                       self.uuid + ':' + pr_uuid + ':' + subnet_prefix)
+            if ret == False:
+                self._logger.error("Unable to free ip from db for vn/subnet/pr \
+                                  (%s/%s/%s)" %(self.uuid, subnet_prefix, pr_uuid))
+                continue
+            del self.pr_ip_map[pr_subnet]
+
+        for pr_subnet in create_set:
+            (pr_uuid, subnet_prefix) = pr_subnet.split(':')
+            (sub, length) = subnet_prefix.split('/')
+            ip_addr = self.reserve_ip(vn, subnet_prefix)
+            if ip_addr is None:
+                self._logger.error("Unable to allocate ip for vn/subnet/pr \
+                               (%s/%s/%s)" %(self.uuid, subnet_prefix, pr_uuid))
+                continue
+            ret = DMCassandraDB.add(DMCassandraDB._VN_PR_IRB_IP,
+                            self.uuid + ':' + pr_uuid + ':' + subnet_prefix,
+                            {'ip_address': ip_addr + '/' + length})
+            if ret == False:
+                self._logger.error("Unable to store ip for vn/subnet/pr \
+                               (%s/%s/%s)" %(self.uuid, subnet_prefix, pr_uuid))
+                if self.free_ip(vn, ip_addr, subnet_prefix) == False:
+                    self._logger.error("Unable to free ip for vn/subnet/pr \
+                               (%s/%s/%s)" %(self.uuid, subnet_prefix, pr_uuid))
+                continue
+            self.pr_ip_map[pr_subnet] = ip_addr + '/' + length
+    #end evaluate_pr_irb_ip_map
+
+    def reserve_ip(self, vn, subnet_prefix):
+        try:
+            ip_addr = self._manager._vnc_lib.virtual_network_ip_alloc(vn,
+                                                       subnet=subnet_prefix)
+            if ip_addr:
+                return ip_addr[0] #ip_alloc default ip count is 1
+        except:
+            return None
+    #end
+
+    def free_ip(self, vn, ip_addr, subnet_prefix):
+        try:
+            self._manager._vnc_lib.virtual_network_ip_free(vn, [ip_addr],
+                                                     subnet=subnet_prefix)
+            return True
+        except:
+            return False
+    #end
+
 
     def get_vrf_name(self, vrf_type):
         #this function must be called only after vn gets its vn_id
@@ -683,6 +770,14 @@ class VirtualNetworkDM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        for pr_subnet,ip_addr in obj.pr_ip_map.items():
+            (pr_uuid, subnet_prefix) = pr_subnet.split(':')
+            ret = DMCassandraDB.delete(DMCassandraDB._VN_PR_IRB_IP,
+                       uuid + ':' + pr_uuid + ':' + subnet_prefix)
+            if ret == False:
+                self._logger.error("Unable to free ip from db for vn/subnet/pr \
+                                  (%s/%s/%s)" %(uuid, subnet_prefix, pr_uuid))
+                continue
         obj.update_multiple_refs('physical_router', {})
         del cls._dict[uuid]
     # end delete
@@ -737,6 +832,116 @@ class RoutingInstanceDM(DBBase):
         del cls._dict[uuid]
     # end delete
 # end RoutingInstanceDM
+
+class DMCassandraDB(VncCassandraClient):
+    _KEYSPACE = 'dm_keyspace'
+    _VN_PR_IP_CF = 'dm_vn_pr_ip_table'
+    _VN_PR_IRB_IP = 'vn_pr_irb_ip'
+    dm_cassandra_instance = None
+    vn_pr_ip_map = {}
+    method_cf_map = {}
+
+    @classmethod
+    def getInstance(cls):
+        return cls.dm_cassandra_instance
+    #end
+
+    @classmethod
+    def setInstance(cls, manager):
+        cls.dm_cassandra_instance = DMCassandraDB(manager)
+        return cls.dm_cassandra_instance
+    #end
+
+    def __init__(self, manager):
+        self._manager = manager
+        self._args = manager._args
+
+        if self._args.cluster_id:
+            self._keyspace = '%s_%s' % (self._args.cluster_id, self._KEYSPACE)
+        else:
+            self._keyspace = self._KEYSPACE
+
+        keyspaces = {
+            self._keyspace: [(self._VN_PR_IP_CF, None)]}
+        cass_server_list = self._args.cassandra_server_list
+
+        if self._args.reset_config:
+            cass_reset_config = [self._keyspace]
+        else:
+            cass_reset_config = []
+
+        super(DMCassandraDB, self).__init__(
+            cass_server_list, cass_reset_config, self._args.cluster_id, keyspaces,
+            manager.config_log)
+
+        DMCassandraDB._vn_pr_ip_cf = self._cf_dict[self._VN_PR_IP_CF]
+        DMCassandraDB.method_cf_map[DMCassandraDB._VN_PR_IRB_IP] = DMCassandraDB._vn_pr_ip_cf
+        DMCassandraDB.init_vn_map()
+    #end
+
+    @classmethod
+    def get_cf(cls, func):
+        try:
+            return cls.method_cf_map[func]
+        except:
+            return None
+    #end
+
+    @classmethod
+    def init_vn_map(cls):
+        cf = cls.get_cf(cls._VN_PR_IRB_IP)
+        keys = dict(cf.get_range(column_count=0,filter_empty=False)).keys()
+        for key in keys:
+            (vn_uuid, pr_subnet_uuid) = key.split(':', 1)
+            if cls.vn_pr_ip_map.has_key(vn_uuid):
+                cls.vn_pr_ip_map[vn_uuid].add(pr_subnet_uuid)
+            else:
+                cls.vn_pr_ip_map[vn_uuid] = set()
+                cls.vn_pr_ip_map[vn_uuid].add(pr_subnet_uuid)
+    #end
+
+    @classmethod
+    def get_vn_pr_set(cls, vn_uuid):
+        try:
+            return cls.vn_pr_ip_map[vn_uuid]
+        except:
+            return set()
+    #end
+
+    @classmethod
+    def get_db_info(cls):
+        db_info = [(cls._KEYSPACE, [cls._VN_PR_IP_CF])]
+        return db_info
+    # end get_db_info
+
+    @classmethod
+    def add(cls, func, key, value):
+        try:
+            cls.get_cf(func).insert(key, value)
+            return True
+        except:
+            return False
+    #end
+
+    @classmethod
+    def get(cls, func, key):
+        try:
+            ip = cls.get_cf(func).get(key)
+            return ip['ip_address']
+        except:
+            return None
+    #end
+
+    @classmethod
+    def delete(cls, func, key):
+        try:
+            cls.get_cf(func).remove(key)
+            return True
+        except:
+            return False
+    #end
+
+#end
 
 DBBase._OBJ_TYPE_MAP = {
     'bgp_router': BgpRouterDM,

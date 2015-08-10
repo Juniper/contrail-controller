@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM
+    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -174,11 +174,7 @@ class DeviceManager(object):
                                          q_name, self._vnc_subscribe_callback,
                                          self.config_log)
 
-        cass_server_list = self._args.cassandra_server_list
-        reset_config = self._args.reset_config
-        self._cassandra = VncCassandraClient(cass_server_list, reset_config,
-                                             self._args.cluster_id, None,
-                                             self.config_log)
+        self._cassandra = DMCassandraDB.setInstance(self)
 
         DBBase.init(self, self._sandesh.logger(), self._cassandra)
         ok, global_system_config_list = self._cassandra._cassandra_global_system_config_list()
