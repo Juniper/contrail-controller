@@ -47,11 +47,8 @@ void Options::Initialize(EventManager &evm,
     string hostname = host_name(error);
     string host_ip = GetHostIp(evm.io_service(), hostname);
 
-    if (host_ip.empty()) {
-        cout << "Error! Cannot resolve host " << hostname <<
-                "to a valid IP address";
-        exit(-1);
-    }
+    if (host_ip.empty())
+        host_ip = "127.0.0.1";
 
     opt::options_description generic("Generic options");
 
