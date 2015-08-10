@@ -69,5 +69,5 @@ class SvcMonitorTest(unittest.TestCase):
         def db_list(obj_type):
             return (False, None)
         DBBaseSM._cassandra = mock.MagicMock()
-        DBBaseSM._cassandra.list = mock.MagicMock(side_effect=db_list)
+        DBBaseSM._cassandra.list = db_list
         self._svc_monitor.post_init(self.vnc_mock, self.args)

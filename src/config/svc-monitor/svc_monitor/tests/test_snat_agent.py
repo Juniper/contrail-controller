@@ -140,6 +140,7 @@ class SnatAgentTest(unittest.TestCase):
         config_db.LogicalRouterSM.reset()
         config_db.VirtualNetworkSM.reset()
         config_db.VirtualMachineInterfaceSM.reset()
+        self.cassandra.reset_mock()
 
     def obj_to_dict(self, obj):
         def to_json(obj):

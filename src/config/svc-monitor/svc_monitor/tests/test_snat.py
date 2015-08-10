@@ -43,11 +43,15 @@ class SnatInstanceManager(unittest.TestCase):
         ServiceTemplateSM.reset()
         ServiceInstanceSM.reset()
         InstanceIpSM.reset()
+        del InstanceIpSM._cassandra
         VirtualMachineInterfaceSM.reset()
+        del VirtualMachineInterfaceSM._cassandra
         VirtualMachineSM.reset()
+        del VirtualMachineSM._cassandra
         VirtualRouterSM.reset()
+        del VirtualRouterSM._cassandra
         VirtualNetworkSM.reset()
-        VirtualNetworkSM._cassandra.reset_mock()
+        del VirtualNetworkSM._cassandra
 
     def test_snat_instance_create(self):
         test_utils.create_test_project('fake-domain:fake-project')

@@ -50,8 +50,10 @@ class LoadbalancerAgentTest(unittest.TestCase):
         config_db.ServiceApplianceSM.delete("test-lb-provider-0")
         config_db.ServiceApplianceSetSM.delete("test-lb-provider")
         config_db.ServiceApplianceSetSM.delete("opencontrail")
-        pass
+        config_db.LoadbalancerPoolSM.reset()
+        config_db.VirtualIpSM.reset()
     # end tearDown
+
     def create_sa_set(self, fq_name_str):
         sas_obj = {}
         sas_obj['fq_name'] = fq_name_str.split(':')

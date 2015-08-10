@@ -38,8 +38,11 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         ServiceTemplateSM.reset()
         ServiceInstanceSM.reset()
         InstanceIpSM.reset()
+        del InstanceIpSM._cassandra
         VirtualMachineInterfaceSM.reset()
+        del VirtualMachineInterfaceSM._cassandra
         VirtualMachineSM.reset()
+        del VirtualRouterSM._cassandra
 
     def test_vrouter_instance_create(self):
         test_utils.create_test_project('fake-domain:fake-project')

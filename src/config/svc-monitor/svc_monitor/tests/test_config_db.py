@@ -15,7 +15,7 @@ class ConfigDBTest(unittest.TestCase):
     # end setUp
 
     def tearDown(self):
-        pass
+        del self.cassandra
     # end tearDown
 
     def obj_to_dict(self, obj):
