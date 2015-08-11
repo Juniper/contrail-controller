@@ -149,7 +149,7 @@ protected:
     std::string routers_;
 
     // parse and store the host routes coming in config
-    std::vector<OperDhcpOptions::Subnet> host_routes_;
+    std::vector<OperDhcpOptions::HostRoute> host_routes_;
     DhcpOptionLevel host_routes_level_;
 
     std::string ipam_name_;
