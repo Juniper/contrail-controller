@@ -83,7 +83,7 @@ def create_test_st(name='fake-template', virt_type='virtual-machine', intf_list=
         st_props['interface_type'].append({'service_interface_type': intf[0],
             'shared_ip': intf[1], 'static_route_enable': static_route_enable})
     st_obj['service_template_properties'] = st_props
-    st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
+    st = ServiceTemplateSM.locate(st_obj['uuid'], st_obj)
     return st
 
 def create_test_si(name='fake-instance', count=1, vr_id=None, intf_list=None):
@@ -102,7 +102,7 @@ def create_test_si(name='fake-instance', count=1, vr_id=None, intf_list=None):
         si_props['interface_list'].append({'virtual_network': vn_fq_name})
     si_props['virtual_router_id'] = 'fake-vr-uuid'
     si_obj['service_instance_properties'] = si_props
-    si = ServiceInstanceSM.locate('fake-si-uuid', si_obj)
+    si = ServiceInstanceSM.locate(si_obj['uuid'], si_obj)
     return si
 
 def create_test_project(fq_name_str):
@@ -156,15 +156,15 @@ def vn_create(vn_obj):
     vn['uuid'] = vn_obj.uuid
     vn['fq_name'] = vn_obj.fq_name
     VirtualNetworkSM.locate(vn_obj.uuid, vn)
-    return
+    return vn_obj.uuid
 
 def vmi_create(vmi_obj):
     vmi_obj.uuid = 'fake-vmi-uuid'
-    return
+    return vmi_obj.uuid
 
 def iip_create(iip_obj):
     iip_obj.uuid = 'fake-iip-uuid'
-    return
+    return iip_obj.uuid
 
 def vm_create(vm_obj):
     vm_obj.uuid = (':').join(vm_obj.fq_name)
@@ -178,7 +178,15 @@ def vm_create(vm_obj):
         si.virtual_machines.add(vm_obj.uuid)
         vm_db = VirtualMachineSM.locate(vm_obj.uuid)
         vm_db.index = int(vm_obj.display_name.split('__')[-2]) - 1
-    return
+    return vm_obj.uuid
+
+def st_create(st_obj):
+    st_obj.uuid = st_obj.name
+    st = {}
+    st['uuid'] = st_obj.uuid
+    st['fq_name'] = st_obj.fq_name
+    ServiceTemplateSM.locate(st_obj.uuid, st)
+    return st_obj.uuid
 
 def test_get_instance_name(si, inst_count):
     name = si.name + '__' + str(inst_count + 1)

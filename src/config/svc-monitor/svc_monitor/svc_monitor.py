@@ -740,7 +740,7 @@ class SvcMonitor(object):
         except Exception:
             cgitb_error_log(self)
         si.launch_count += 1
-        self.logger.log_info("SI %s creation succeed" % (':').join(si.fq_name))
+        self.logger.log_info("SI %s creation success" % (':').join(si.fq_name))
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
