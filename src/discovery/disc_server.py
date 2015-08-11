@@ -197,6 +197,7 @@ class DiscoveryServer():
 
         # DB interface initialization
         self._db_connect(self._args.reset_config)
+        self._db_conn.db_update_service_entry_oper_state()
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -323,7 +324,8 @@ class DiscoveryServer():
             color = "#FFFF00"   # yellow - missed some heartbeats
             expired = False
 
-        if include_down and entry['admin_state'] != 'up':
+        if include_down and \
+                (entry['admin_state'] != 'up' or entry['oper_state'] != 'up'):
             color = "#FF0000"   # red - publication expired
             expired = True
 
@@ -424,14 +426,10 @@ class DiscoveryServer():
             bottle.abort(400, "Unknown service type")
 
         info = json_req[service_type]
-        admin_state = json_req.get('admin-state', 'up')
-        if admin_state not in ['up', 'down']:
-            bottle.abort(400, "Invalid admin state")
         remote = json_req.get('remote-addr',
                      bottle.request.environ['REMOTE_ADDR'])
 
-        sig = end_point or publisher_id(
-                bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
+        sig = end_point or publisher_id(remote, json.dumps(json_req))
 
         entry = self._db_conn.lookup_service(service_type, service_id=sig)
         if not entry:
@@ -441,15 +439,27 @@ class DiscoveryServer():
                 'in_use': 0,
                 'ts_use': 0,
                 'ts_created': int(time.time()),
-                'prov_state': 'new',
+                'oper_state': 'up',
+                'admin_state': 'up',
+                'oper_state_msg': '',
                 'sequence': str(int(time.time())) + socket.gethostname(),
             }
         elif 'sequence' not in entry or self.service_expired(entry):
             # handle upgrade or republish after expiry
             entry['sequence'] = str(int(time.time())) + socket.gethostname()
 
+        admin_state = json_req.get('admin-state', entry['admin_state'])
+        if admin_state not in ['up', 'down']:
+            bottle.abort(400, "Invalid admin state")
+        oper_state = json_req.get('oper-state', entry['oper_state'])
+        if oper_state not in ['up', 'down']:
+            bottle.abort(400, "Invalid operational state")
+        oper_state_msg = json_req.get('oper-state-reason', entry['oper_state_msg'])
+
         entry['info'] = info
         entry['admin_state'] = admin_state
+        entry['oper_state'] = oper_state
+        entry['oper_state_msg'] = oper_state_msg
         entry['heartbeat'] = int(time.time())
         entry['remote'] = remote
 
@@ -736,7 +746,7 @@ class DiscoveryServer():
         rsp += '        <td>Service Type</td>\n'
         rsp += '        <td>Remote IP</td>\n'
         rsp += '        <td>Service Id</td>\n'
-        rsp += '        <td>Provision State</td>\n'
+        rsp += '        <td>Oper State</td>\n'
         rsp += '        <td>Admin State</td>\n'
         rsp += '        <td>In Use</td>\n'
         rsp += '        <td>Time since last Heartbeat</td>\n'
@@ -756,7 +766,10 @@ class DiscoveryServer():
             rsp += '        <td>' + pub['remote'] + '</td>\n'
             link = do_html_url("/service/%s/brief" % sig, sig)
             rsp += '        <td>' + link + '</td>\n'
-            rsp += '        <td>' + pub['prov_state'] + '</td>\n'
+            oper_state_str = pub['oper_state']
+            if oper_state_str == 'down' and len(pub['oper_state_msg']) > 0:
+                oper_state_str += '/' + pub['oper_state_msg']
+            rsp += '        <td>' + oper_state_str + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
             link = do_html_url("/clients/%s/%s" % (service_type, service_id), 
                 str(pub['in_use']))
@@ -790,7 +803,7 @@ class DiscoveryServer():
         self.syslog('Update service %s' % (id))
         try:
             json_req = bottle.request.json
-            service_type = json_req['service_type']
+            service_type = json_req['service-type']
             self.syslog('Entry %s' % (json_req))
         except (ValueError, KeyError, TypeError) as e:
             bottle.abort(400, e)
@@ -799,8 +812,19 @@ class DiscoveryServer():
         if not entry:
             bottle.abort(405, 'Unknown service')
 
-        if 'admin_state' in json_req:
-            entry['admin_state'] = json_req['admin_state']
+        if 'admin-state' in json_req:
+            admin_state = json_req['admin-state']
+            if admin_state not in ['up', 'down']:
+                bottle.abort(400, "Invalid admin state")
+            entry['admin_state'] = admin_state
+        if 'oper-state' in json_req:
+            oper_state = json_req['oper-state']
+            if oper_state not in ['up', 'down']:
+                bottle.abort(400, "Invalid operational state")
+            entry['oper_state'] = oper_state
+        if 'oper-state-reason' in json_req:
+            entry['oper_state_msg'] = json_req['oper-state-reason']
+
         self._db_conn.update_service(service_type, id, entry)
 
         self.syslog('update service=%s, sid=%s, info=%s'
