@@ -13,8 +13,15 @@ def parse_args():
         '--server', help="Discovery server address in the form IP:Port",
         default = '127.0.0.1:5998')
     parser.add_argument(
-        '--op', choices = ['up', 'down', 'load-balance'], 
-        help="Perform specified operation")
+        '--load-balance',  help="Load balance specified service type", action="store_true")
+    parser.add_argument(
+        '--oper-state', choices = ['up', 'down'],
+        help="Set operational state of a service")
+    parser.add_argument(
+        '--oper-state-reason', help="Reason for down operational state of a service")
+    parser.add_argument(
+        '--admin-state', choices = ['up', 'down'],
+        help="Set administrative state of a service")
     parser.add_argument(
         '--service-id', help="Service id")
     parser.add_argument(
@@ -37,15 +44,20 @@ server_port = server[1]
 
 print 'Discovery Server = ', args.server
 
-if args.op == 'up' or args.op == 'down':
+if args.oper_state or args.admin_state or args.oper_state_reason:
     if not args.service_id or not args.service_type:
         print 'Please specify service type and ID'
         sys.exit(1)
     print 'Service type %s, id %s' % (args.service_type, args.service_id)
     data = {
-        "service_type": args.service_type,
-        "admin_state": args.op,
+        "service-type": args.service_type,
     }
+    if args.oper_state:
+        data['oper-state'] = args.oper_state
+    if args.oper_state_reason:
+        data['oper-state-reason'] = args.oper_state_reason
+    if args.admin_state:
+        data['admin-state'] = args.admin_state
     headers = {
         'Content-type': 'application/json',
     }
@@ -53,13 +65,13 @@ if args.op == 'up' or args.op == 'down':
     r = requests.put(url, data=json.dumps(data), headers=headers)
     if r.status_code != 200:
         print "Operation status %d" % r.status_code
-elif args.op == 'load-balance':
+elif args.load_balance:
     if not args.service_type:
         print 'Please specify service type'
         sys.exit(1)
     if args.service_id:
         print 'Specific service id %s ignored for this operation' % args.service_id
     url = "http://%s:%s/load-balance/%s" % (server_ip, server_port, args.service_type)
-    r = requests.get(url)
+    r = requests.post(url)
     if r.status_code != 200:
         print "Operation status %d" % r.status_code

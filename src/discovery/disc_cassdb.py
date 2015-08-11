@@ -35,6 +35,7 @@ class DiscoveryCassandraClient(object):
         self._cassandra_init(cass_srv_list, max_retries, timeout)
 
         self._debug = {
+            'db_upd_oper_state': 0,
         }
     #end __init__
 
@@ -350,4 +351,19 @@ class DiscoveryCassandraClient(object):
         self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
     # end
 
-    # return tuple (service_type, client_id, service_id)
+    @cass_error_handler
+    def db_update_service_entry_oper_state(self):
+        col_name = ('service',)
+        data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
+        for service_type, services in data:
+            for col_name in services:
+                (_, _, tag) = col_name
+                if tag != 'service-entry':
+                    continue
+                col_value = services[col_name]
+                entry = json.loads(col_value)
+                if 'oper_state' not in entry:
+                    entry['oper_state'] = 'up'
+                    entry['oper_state_msg'] = ''
+                    self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
+                    self._debug['db_upd_oper_state'] += 1
