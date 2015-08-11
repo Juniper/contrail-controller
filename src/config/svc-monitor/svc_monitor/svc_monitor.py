@@ -263,8 +263,12 @@ class SvcMonitor(object):
             if vn:
                 for si_id in ServiceInstanceSM:
                     si = ServiceInstanceSM.get(si_id)
-                    if (':').join(vn.fq_name) in si.params.values():
-                        self._create_service_instance(si)
+                    intf_list = []
+                    if si.params:
+                        intf_list = si.params.get('interface_list', [])
+                    for intf in intf_list:
+                        if (':').join(vn.fq_name) in intf.values():
+                            self._create_service_instance(si)
 
         for vmi_id in dependency_tracker.resources.get('virtual_machine_interface', []):
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
@@ -740,7 +744,7 @@ class SvcMonitor(object):
         except Exception:
             cgitb_error_log(self)
         si.launch_count += 1
-        self.logger.log_info("SI %s creation succeed" % (':').join(si.fq_name))
+        self.logger.log_info("SI %s creation success" % (':').join(si.fq_name))
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
