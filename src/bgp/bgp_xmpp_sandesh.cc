@@ -14,9 +14,10 @@
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_server.h"
 
-using namespace std;
+using std::string;
+using std::vector;
 
-static bool ShowXmppNeighborMatch(BgpXmppChannel *bx_channel,
+static bool ShowXmppNeighborMatch(const BgpXmppChannel *bx_channel,
     const string &search_string) {
     if (search_string.empty())
         return true;
@@ -30,77 +31,69 @@ static bool ShowXmppNeighborMatch(BgpXmppChannel *bx_channel,
     return false;
 }
 
-static void ShowXmppNeighborVisitor(
-    vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server,
-    const string &search_string, BgpXmppChannel *bx_channel) {
-    if (!ShowXmppNeighborMatch(bx_channel, search_string))
-        return;
-    BgpNeighborResp resp;
-    resp.set_peer(bx_channel->ToString());
-    resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
-    resp.set_deleted(bx_channel->peer_deleted());
-    resp.set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
-    resp.set_local_address(bx_channel->local_endpoint().address().to_string());
-    resp.set_peer_type("internal");
-    resp.set_encoding("XMPP");
-    resp.set_state(bx_channel->StateName());
+static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
+    const BgpSandeshContext *bsc, const BgpXmppChannel *bx_channel,
+    bool summary) {
+    bnr->set_peer(bx_channel->ToString());
+    bnr->set_peer_address(bx_channel->remote_endpoint().address().to_string());
+    bnr->set_deleted(bx_channel->peer_deleted());
+    bnr->set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
+    bnr->set_local_address(bx_channel->local_endpoint().address().to_string());
+    bnr->set_peer_type("internal");
+    bnr->set_encoding("XMPP");
+    bnr->set_state(bx_channel->StateName());
 
     const XmppConnection *connection = bx_channel->channel()->connection();
-    resp.set_configured_hold_time(connection->GetConfiguredHoldTime());
-    resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
-    resp.set_auth_type(connection->GetXmppAuthenticationType());
-
-    resp.set_configured_address_families(vector<string>());
-    resp.set_negotiated_address_families(vector<string>());
-    PeerRibMembershipManager *mgr =
-        bx_channel->Peer()->server()->membership_mgr();
-    mgr->FillPeerMembershipInfo(bx_channel->Peer(), &resp);
-    bx_channel->FillTableMembershipInfo(&resp);
-    bx_channel->FillInstanceMembershipInfo(&resp);
-
-    BgpPeer::FillBgpNeighborDebugState(resp, bx_channel->Peer()->peer_stats());
-    nbr_list->push_back(resp);
-}
-
-static void ShowXmppNeighbor(
-    vector<BgpNeighborResp> *list, BgpSandeshContext *bsc,
-    const BgpNeighborReq *req) {
-    bsc->xmpp_peer_manager->VisitChannels(
-        boost::bind(ShowXmppNeighborVisitor,
-            list, bsc->bgp_server, req->get_neighbor(), _1));
-}
-
-static void ShowXmppNeighborSummaryVisitor(
-    vector<BgpNeighborResp> *nbr_list,
-    const string &search_string, BgpXmppChannel *bx_channel) {
-    if (!ShowXmppNeighborMatch(bx_channel, search_string))
+    bnr->set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
+    bnr->set_auth_type(connection->GetXmppAuthenticationType());
+    if (summary)
         return;
-    BgpNeighborResp resp;
-    resp.set_peer(bx_channel->ToString());
-    resp.set_deleted(bx_channel->peer_deleted());
-    resp.set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
-    resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
-    resp.set_peer_type("internal");
-    resp.set_encoding("XMPP");
-    resp.set_state(bx_channel->StateName());
-    resp.set_local_address(bx_channel->local_endpoint().address().to_string());
-    const XmppConnection *connection = bx_channel->channel()->connection();
-    resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
-    resp.set_auth_type(connection->GetXmppAuthenticationType());
-    nbr_list->push_back(resp);
+
+    bnr->set_configured_hold_time(connection->GetConfiguredHoldTime());
+    bnr->set_configured_address_families(vector<string>());
+    bnr->set_negotiated_address_families(vector<string>());
+    const PeerRibMembershipManager *mgr = bsc->bgp_server->membership_mgr();
+    mgr->FillPeerMembershipInfo(bx_channel->Peer(), bnr);
+    bx_channel->FillTableMembershipInfo(bnr);
+    bx_channel->FillInstanceMembershipInfo(bnr);
+
+    BgpPeer::FillBgpNeighborDebugState(*bnr, bx_channel->Peer()->peer_stats());
 }
 
-static void ShowXmppNeighborSummary(
-    vector<BgpNeighborResp> *list, BgpSandeshContext *bsc,
-    const ShowBgpNeighborSummaryReq *req) {
-    bsc->xmpp_peer_manager->VisitChannels(
-        boost::bind(ShowXmppNeighborSummaryVisitor,
-            list, req->get_search_string(), _1));
+static bool ShowXmppNeighbor(const BgpSandeshContext *bsc, bool summary,
+    uint32_t page_limit, uint32_t iter_limit, const string &start_neighbor,
+    const string &search_string, vector<BgpNeighborResp> *list,
+    string *next_neighbor) {
+    const BgpXmppChannelManager *bxcm = bsc->xmpp_peer_manager;
+    BgpXmppChannelManager::const_name_iterator it =
+        bxcm->name_clower_bound(start_neighbor);
+    for (uint32_t iter_count = 0; it != bxcm->name_cend(); ++it, ++iter_count) {
+        const BgpXmppChannel *bx_channel = it->second;
+        if (!ShowXmppNeighborMatch(bx_channel, search_string))
+            continue;
+        BgpNeighborResp bnr;
+        FillXmppNeighborInfo(&bnr, bsc, bx_channel, summary);
+        list->push_back(bnr);
+        if (list->size() >= page_limit)
+            break;
+        if (iter_count >= iter_limit)
+            break;
+    }
+
+    // All done if we've looked at all channels.
+    if (it == bxcm->name_cend() || ++it == bxcm->name_cend())
+        return true;
+
+    // Return true if we've reached the page limit, false if we've reached the
+    // iteration limit.
+    bool done = list->size() >= page_limit;
+    *next_neighbor = it->second->ToString();
+    return done;
 }
 
 static void ShowXmppNeighborStatisticsVisitor(
-    size_t *count, BgpServer *bgp_server, string domain,
-    string up_or_down, BgpXmppChannel *channel) {
+    size_t *count, const BgpServer *bgp_server, string domain,
+    string up_or_down, const BgpXmppChannel *channel) {
 
     if (boost::iequals(up_or_down, "up") && !channel->Peer()->IsReady()) {
         return;
@@ -110,14 +103,16 @@ static void ShowXmppNeighborStatisticsVisitor(
     }
 
     if (!domain.empty()) {
-        RoutingInstanceMgr *rim = bgp_server->routing_instance_mgr();
-        RoutingInstance *ri = rim->GetRoutingInstance(domain);
-        if (!ri) return;
-        BgpTable *table = ri->GetTable(Address::INET);
-        if (!table) return;
+        const RoutingInstanceMgr *rim = bgp_server->routing_instance_mgr();
+        const RoutingInstance *ri = rim->GetRoutingInstance(domain);
+        if (!ri)
+            return;
+        const BgpTable *table = ri->GetTable(Address::INET);
+        if (!table)
+            return;
 
-        if (!bgp_server->membership_mgr()->IPeerRibFind(channel->Peer(),
-                                                        table)) {
+        if (bgp_server->membership_mgr()->GetRegistrationId(
+            channel->Peer(), table) < 0) {
             return;
         }
     }
@@ -126,7 +121,7 @@ static void ShowXmppNeighborStatisticsVisitor(
 }
 
 static void ShowXmppNeighborStatistics(
-    size_t *count, BgpSandeshContext *bsc,
+    size_t *count, const BgpSandeshContext *bsc,
     const ShowNeighborStatisticsReq *req) {
     bsc->xmpp_peer_manager->VisitChannels(
         boost::bind(ShowXmppNeighborStatisticsVisitor, count,
@@ -135,9 +130,8 @@ static void ShowXmppNeighborStatistics(
 
 }
 
-void RegisterSandeshShowXmppExtensions(BgpSandeshContext *ctx) {
-    ctx->SetNeighborShowExtensions(
+void RegisterSandeshShowXmppExtensions(BgpSandeshContext *bsc) {
+    bsc->SetNeighborShowExtensions(
         &ShowXmppNeighbor,
-        &ShowXmppNeighborSummary,
         &ShowXmppNeighborStatistics);
 }

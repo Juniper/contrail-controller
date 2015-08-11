@@ -79,13 +79,14 @@ public:
 
     void Close();
     IPeer *Peer();
+    const IPeer *Peer() const;
     virtual boost::asio::ip::tcp::endpoint endpoint() const;
 
     std::string ToString() const;
     std::string ToUVEKey() const;
     std::string StateName() const;
-    boost::asio::ip::tcp::endpoint remote_endpoint();
-    boost::asio::ip::tcp::endpoint local_endpoint();
+    boost::asio::ip::tcp::endpoint remote_endpoint() const;
+    boost::asio::ip::tcp::endpoint local_endpoint() const;
 
     void set_peer_deleted(); // For unit testing only.
     bool peer_deleted() const;
@@ -101,8 +102,8 @@ public:
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
-    void FillInstanceMembershipInfo(BgpNeighborResp *resp);
-    void FillTableMembershipInfo(BgpNeighborResp *resp);
+    void FillInstanceMembershipInfo(BgpNeighborResp *resp) const;
+    void FillTableMembershipInfo(BgpNeighborResp *resp) const;
 
     const XmppChannel *channel() const { return channel_; }
 
@@ -240,11 +241,23 @@ private:
 class BgpXmppChannelManager {
 public:
     typedef std::map<const XmppChannel *, BgpXmppChannel *> XmppChannelMap;
+    typedef std::map<std::string, BgpXmppChannel *> XmppChannelNameMap;
+    typedef XmppChannelNameMap::const_iterator const_name_iterator;
+    typedef boost::function<void(BgpXmppChannel *)> VisitorFn;
 
     BgpXmppChannelManager(XmppServer *, BgpServer *);
     virtual ~BgpXmppChannelManager();
 
-    typedef boost::function<void(BgpXmppChannel *)> VisitorFn;
+    const_name_iterator name_cbegin() const {
+        return channel_name_map_.begin();
+    }
+    const_name_iterator name_cend() const {
+        return channel_name_map_.end();
+    }
+    const_name_iterator name_clower_bound(const std::string &name) const {
+        return channel_name_map_.lower_bound(name);
+    }
+
     void VisitChannels(BgpXmppChannelManager::VisitorFn);
     BgpXmppChannel *FindChannel(const XmppChannel *channel);
     BgpXmppChannel *FindChannel(std::string client);
@@ -258,6 +271,7 @@ public:
         queue_.Enqueue(bx_channel);
     }
     bool IsReadyForDeletion();
+    void SetQueueDisable(bool disabled);
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
@@ -287,6 +301,7 @@ private:
     BgpServer  *bgp_server_;
     WorkQueue<BgpXmppChannel *> queue_;
     XmppChannelMap channel_map_;
+    XmppChannelNameMap channel_name_map_;
     int id_;
     int asn_listener_id_;
     int identifier_listener_id_;

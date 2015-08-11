@@ -22,8 +22,7 @@ traceobject sandesh BgpPeerObjectTrace {
 }
 
 request sandesh BgpNeighborReq {
-    1: string neighbor;
-    2: string domain;
+    1: string search_string;
 }
 
 struct BgpNeighborRoutingInstance {
@@ -79,10 +78,14 @@ struct BgpNeighborResp {
 
 response sandesh BgpNeighborListResp {
     1: list<BgpNeighborResp> neighbors;
+    2: optional string next_batch (link="BgpNeighborReqIterate",
+                                   link_title="next_batch");
 }
 
 response sandesh ShowBgpNeighborSummaryResp {
     1: list<BgpNeighborResp> neighbors;
+    2: optional string next_batch (link="ShowBgpNeighborSummaryReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowBgpNeighborSummaryReq {
