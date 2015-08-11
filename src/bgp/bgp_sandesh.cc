@@ -638,105 +638,6 @@ void ShowRouteReqIterate::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-class ShowNeighborHandler {
-public:
-    static bool CallbackS1(const Sandesh *sr,
-                           const RequestPipeline::PipeSpec ps, int stage,
-                           int instNum, RequestPipeline::InstData *data);
-};
-
-bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData * data) {
-    vector<BgpNeighborResp> nbr_list;
-    const BgpNeighborReq *req =
-        static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(req->client_context());
-    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    if (req->get_domain() != "") {
-        RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
-        if (ri)
-            ri->peer_manager()->FillBgpNeighborInfo(
-                bsc, &nbr_list, req->get_neighbor(), false);
-    } else {
-        for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
-             it != rim->end(); ++it) {
-            it->peer_manager()->FillBgpNeighborInfo(
-                bsc, &nbr_list, req->get_neighbor(), false);
-        }
-    }
-
-    bsc->ShowNeighborExtension(&nbr_list, req);
-
-    BgpNeighborListResp *resp = new BgpNeighborListResp;
-    resp->set_neighbors(nbr_list);
-    resp->set_context(req->context());
-    resp->Response();
-    return true;
-}
-
-// handler for 'show bgp neighbor'
-void BgpNeighborReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
-    s1.cbFn_ = ShowNeighborHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_= list_of(s1);
-    RequestPipeline rp(ps);
-
-}
-
-class ShowNeighborSummaryHandler {
-public:
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
-};
-
-bool ShowNeighborSummaryHandler::CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData * data) {
-    vector<BgpNeighborResp> nbr_list;
-    const ShowBgpNeighborSummaryReq *req =
-        static_cast<const ShowBgpNeighborSummaryReq *>(ps.snhRequest_.get());
-    const string &search_string = req->get_search_string();
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(req->client_context());
-    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
-         it != rim->end(); ++it) {
-        it->peer_manager()->FillBgpNeighborInfo(
-            bsc, &nbr_list, search_string, true);
-    }
-
-    bsc->ShowNeighborSummaryExtension(&nbr_list, req);
-
-    ShowBgpNeighborSummaryResp *resp = new ShowBgpNeighborSummaryResp;
-    resp->set_neighbors(nbr_list);
-    resp->set_context(req->context());
-    resp->Response();
-    return true;
-}
-
-// handler for 'show bgp neighbor summary'
-void ShowBgpNeighborSummaryReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
-    s1.cbFn_ = ShowNeighborSummaryHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_= list_of(s1);
-    RequestPipeline rp(ps);
-
-}
-
 class ShowNeighborStatisticsHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
@@ -1403,30 +1304,25 @@ BgpSandeshContext::BgpSandeshContext()
 
 void BgpSandeshContext::SetNeighborShowExtensions(
     const NeighborListExtension &show_neighbor,
-    const NeighborSummaryListExtension &show_neighbor_summary,
     const NeighborStatisticsExtension &show_neighbor_statistics) {
     show_neighbor_ext_ = show_neighbor;
-    show_neighbor_summary_ext_ = show_neighbor_summary;
     show_neighbor_statistics_ext_ = show_neighbor_statistics;
 }
 
-void BgpSandeshContext::ShowNeighborExtension(
-    std::vector<BgpNeighborResp> *list, const BgpNeighborReq *req) {
-    if (show_neighbor_ext_) {
-        show_neighbor_ext_(list, this, req);
-    }
-}
-
-void BgpSandeshContext::ShowNeighborSummaryExtension(
-    std::vector<BgpNeighborResp> *list, const ShowBgpNeighborSummaryReq *req) {
-    if (show_neighbor_summary_ext_) {
-        show_neighbor_summary_ext_(list, this, req);
-    }
+bool BgpSandeshContext::ShowNeighborExtension(const BgpSandeshContext *bsc,
+    bool summary, uint32_t page_limit, uint32_t iter_limit,
+    const string &start_neighbor, const string &search_string,
+    vector<BgpNeighborResp> *list, string *next_neighbor) const {
+    if (!show_neighbor_ext_)
+        return true;
+    bool done = show_neighbor_ext_(bsc, summary, page_limit, iter_limit,
+        start_neighbor, search_string, list, next_neighbor);
+    return done;
 }
 
 void BgpSandeshContext::ShowNeighborStatisticsExtension(
-    size_t *count, const ShowNeighborStatisticsReq *req) {
-    if (show_neighbor_statistics_ext_) {
-        show_neighbor_statistics_ext_(count, this, req);
-    }
+    size_t *count, const ShowNeighborStatisticsReq *req) const {
+    if (!show_neighbor_statistics_ext_)
+        return;
+    show_neighbor_statistics_ext_(count, this, req);
 }

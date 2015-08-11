@@ -154,7 +154,7 @@ public:
     const BgpNeighborConfig *config() const { return config_; }
 
     virtual void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
-    void FillNeighborInfo(BgpSandeshContext *bsc,
+    void FillNeighborInfo(const BgpSandeshContext *bsc,
             std::vector<BgpNeighborResp> *nbr_list, bool summary) const;
 
     // thread-safe

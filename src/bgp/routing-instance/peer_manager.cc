@@ -229,11 +229,22 @@ BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
     return NULL;
 }
 
-void PeerManager::FillBgpNeighborInfo(BgpSandeshContext *bsc,
+const BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) const {
+    // Do a partial match
+    BgpPeerKeyMap::const_iterator loc = peers_by_key_.upper_bound(peer_key);
+    if (loc != peers_by_key_.end()) {
+        peer_key = loc->second->peer_key();
+        return loc->second;
+    }
+
+    return NULL;
+}
+
+void PeerManager::FillBgpNeighborInfo(const BgpSandeshContext *bsc,
         vector<BgpNeighborResp> *nbr_list, const string &search_string,
-        bool summary) {
+        bool summary) const {
     BgpPeerKey key = BgpPeerKey();
-    while (BgpPeer *peer = NextPeer(key)) {
+    while (const BgpPeer *peer = NextPeer(key)) {
         if (search_string.empty() ||
             (peer->peer_basename().find(search_string) != string::npos) ||
             (peer->peer_address_string().find(search_string) != string::npos) ||
