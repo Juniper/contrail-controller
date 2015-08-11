@@ -505,8 +505,16 @@ class TestPolicy(test_case.STTestCase):
 
         _match_route_table_cleanup()
 
-        self._vnc_lib.virtual_network_delete(
-            fq_name=['default-domain', 'default-project', 'vn100'])
+        # add the route again, then delete the network without deleting the
+        # link to route table
+        routes.add_route(route)
+        rt.set_routes(routes)
+        self._vnc_lib.route_table_update(rt)
+        _match_route_table(rtgt_list.get_route_target())
+        self._vnc_lib.virtual_network_delete(fq_name=vn.get_fq_name())
+        _match_route_table_cleanup(sc_ri_name, rt100)
+
+        self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
         self.delete_network_policy(np, auto_policy=True)
         gevent.sleep(2)
         self._vnc_lib.virtual_network_delete(
