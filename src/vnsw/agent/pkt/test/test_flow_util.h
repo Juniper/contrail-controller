@@ -4,6 +4,7 @@
 #ifndef __testflow__
 #define __testflow__
 #include "test_pkt_util.h"
+static uint32_t running_hash = 1;
 class TestFlowPkt {
 public:
     //Ingress flow
@@ -83,7 +84,11 @@ public:
 
     void SendIngressFlow() {
         if (!hash_) {
-            hash_ = rand() % 1000;
+            hash_ = running_hash;
+            running_hash++;
+            if (running_hash > 1000) {
+                running_hash = 1;
+            }
         }
 
         switch(proto_) {
@@ -120,7 +125,11 @@ public:
 
     void SendEgressFlow() {
         if (!hash_) {
-            hash_ = rand() % 65535;
+            hash_ = running_hash;
+            running_hash++;
+            if (running_hash > 1000) {
+                running_hash = 1;
+            }
         }
 
         std::string self_server = Agent::GetInstance()->router_id().to_string();
@@ -492,6 +501,10 @@ struct TestFlow {
     };
 
     void Verify(FlowEntry *fe) {
+        EXPECT_TRUE(fe != NULL);
+        if (fe == NULL) {
+            return;
+        }
         for (int i = 0; i < 10; i++) {
             if (action_[i]) {
                 action_[i]->Verify(fe);

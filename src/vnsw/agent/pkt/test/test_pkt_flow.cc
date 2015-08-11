@@ -85,6 +85,19 @@ std::string eth_itf;
 static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
 }
 
+static bool FlowStatsTimerStartStopTrigger (bool stop) {
+    Agent::GetInstance()->flow_stats_collector()->TestStartStopTimer(stop);
+    return true;
+}
+
+static void FlowStatsTimerStartStop (bool stop) {
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler");
+    std::auto_ptr<TaskTrigger> trigger_
+        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, stop), task_id, 0));
+    trigger_->Set();
+    client->WaitForIdle();
+}
+
 class FlowTest : public ::testing::Test {
 public:
     FlowTest() : peer_(NULL), agent_(Agent::GetInstance()) {
@@ -116,8 +129,8 @@ public:
                           VmInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
         agent()->fabric_inet4_unicast_table()->
-            AddLocalVmRouteReq(peer_, vrf, addr, 32, intf->GetUuid(),
-                               intf->vn()->GetName(), label,
+            AddLocalVmRouteReq(agent()->local_peer(), vrf, addr, 32,
+                               intf->GetUuid(), intf->vn()->GetName(), label,
                                SecurityGroupList(), false, PathPreference(),
                                Ip4Address(0));
         client->WaitForIdle();
@@ -128,15 +141,15 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn,
-                            SecurityGroupList(), PathPreference());
+        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::MplsType(),
+                            label, vn, SecurityGroupList(), PathPreference());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
 
     void DeleteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
+        agent()->fabric_inet4_unicast_table()->DeleteReq(agent()->local_peer(),
                                                 vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
@@ -145,7 +158,8 @@ public:
     void DeleteRemoteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
         agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
-                vrf, addr, 32, NULL);
+                vrf, addr, 32,
+                new ControllerVmRoute(static_cast<BgpPeer *>(peer_)));
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
@@ -794,7 +808,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
-                    remote_router_ip, 16),
+                    remote_router_ip, flow0->label()),
             { 
                 new VerifyVn("vn3", "vn5"),
             }
@@ -810,7 +824,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         //Send a TCP flow from remote VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, IPPROTO_TCP, 1006, 1007,
-                    "vrf5", remote_router_ip, 16),
+                    "vrf5", remote_router_ip, flow0->label()),
             {
                 new VerifyVn("vn3", "vn5"),
             }
@@ -998,12 +1012,14 @@ TEST_F(FlowTest, ShortFlow_1) {
         }
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(flow, 1);
     int nh_id = InterfaceTable::GetInstance()->FindInterface(flow0->id())->flow_key_nh()->id();
     FlowEntry *fe = FlowGet(1, vm1_ip, "115.115.115.115", 1,
                             0, 0, nh_id);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_NO_DST_ROUTE);
+    FlowStatsTimerStartStop(false);
 }
 
 TEST_F(FlowTest, FlowAge_1) {
@@ -1101,8 +1117,10 @@ TEST_F(FlowTest, FlowAge_3) {
         },
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(flow, 4);
     EXPECT_EQ(8U, agent()->pkt()->flow_table()->Size());
+    FlowStatsTimerStartStop(false);
 
     // Flow entries are created with #pkts = 1. 
     // Do first sleep for aging to work correctly below
@@ -1153,7 +1171,7 @@ TEST_F(FlowTest, FlowAge_3) {
     agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
-TEST_F(FlowTest, ScaleFlowAge_1) {
+TEST_F(FlowTest, DISABLED_ScaleFlowAge_1) {
     int tmp_age_time = 200 * 1000;
     int bkp_age_time = agent()->flow_stats_collector()->flow_age_time_intvl();
     int total_flows = 200;
@@ -1432,6 +1450,8 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
     WAIT_FOR(1000, 1000, FlowFail(VrfGet("default-project:vn4:vn4")->vrf_id(),
                                  vm5_ip, vm1_fip, 1, 0, 0,
                                  GetFlowKeyNH(input3[0].intf_id)));
+    // wait for deleted entries to go
+    EXPECT_TRUE(FlowTableWait(0));
 
     // Add Non-NAT forward flow
     CreateFlow(non_nat_flow, 1);
@@ -1525,6 +1545,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
     DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
     client->WaitForIdle();
 
+    FlowStatsTimerStartStop(true);
     TestFlow non_nat_flow[] = {
         {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
@@ -1535,6 +1556,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
         }
     };
     CreateFlow(non_nat_flow, 1);
+    FlowStatsTimerStartStop(false);
 
     //Associate a floating IP with flow0
     AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
@@ -1551,9 +1573,9 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
     CreateFlow(nat_flow, 1);
     DeleteFlow(nat_flow, 1);
 
-    EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm5_ip,
-                        vm1_fip, 1, 0, 0,
-                        GetFlowKeyNH(input3[0].intf_id)) == NULL);
+    WAIT_FOR(1000, 1000, FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
+                                      vm5_ip, vm1_fip, 1, 0, 0,
+                                      GetFlowKeyNH(input3[0].intf_id)) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
@@ -1581,7 +1603,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
     TestFlow nat_flow[] = {
         {
              TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
-                    "default-project:vn4:vn4", flow4->id(), 1),
+                    "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
             }
@@ -1652,7 +1674,7 @@ TEST_F(FlowTest, NatAddOldNat_2) {
     TestFlow new_nat_flow[] = {
         {
              TestFlowPkt(Address::INET, vm2_ip, vm5_ip, 1, 0, 0, "vrf5",
-                    flow1->id(), 1),
+                    flow1->id(), 2),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
@@ -1686,7 +1708,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
     TestFlow new_nat_flow[] = {
         {
              TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
-                    "default-project:vn4:vn4", flow4->id(), 1),
+                    "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm2_ip, vm5_ip, 1, 0, 0)
             }
@@ -1695,6 +1717,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
     CreateFlow(new_nat_flow, 1);
     DeleteFlow(new_nat_flow, 1);
 
+    DeleteFlow(nat_flow, 1);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
@@ -1712,17 +1735,19 @@ TEST_F(FlowTest, TwoNatFlow) {
         }
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(nat_flow, 1);
     TestFlow nat_rev_flow[] = {
         {
              TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
-                 "default-project:vn4:vn4", flow4->id(), 1),
+                 "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
             }
         }
     };
     CreateFlow(nat_rev_flow, 1);
+    FlowStatsTimerStartStop(false);
 
     DeleteFlow(nat_flow, 1);    
     EXPECT_TRUE(FlowTableWait(0));
@@ -1730,6 +1755,7 @@ TEST_F(FlowTest, TwoNatFlow) {
 
 TEST_F(FlowTest, FlowAudit) {
     KFlowPurgeHold();
+    FlowStatsTimerStartStop(true);
     EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
     EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, 0));
     RunFlowAudit();
@@ -1737,6 +1763,7 @@ TEST_F(FlowTest, FlowAudit) {
     FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
+    FlowStatsTimerStartStop(false);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
@@ -1854,6 +1881,7 @@ TEST_F(FlowTest, EgressVNVrfTranslate) {
     DeleteRoute("vrf5", vm4_ip);
     client->WaitForIdle();
     //Restore ACL
+    DelLink("virtual-network", "vn3", "access-control-list", "Acl");
     AddLink("virtual-network", "vn5", "access-control-list", "acl1");
     client->WaitForIdle();
 
@@ -1899,6 +1927,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     DelVrf("vrf5");
     client->WaitForIdle();
 
+    FlowStatsTimerStartStop(true);
     TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, false, 1, vrf_id);
     client->WaitForIdle();
 
@@ -1907,6 +1936,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
                             IPPROTO_TCP, 30, 40, 0);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_UNAVIALABLE_INTERFACE);
+    FlowStatsTimerStartStop(false);
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
 }
@@ -1929,7 +1959,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
         },
         {
             TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
-                    remote_router_ip, 16),
+                    remote_router_ip, flow0->label()),
             {}
         }   
     };
@@ -2024,6 +2054,7 @@ TEST_F(FlowTest, Flow_return_error) {
     sock->SetBlockMsgProcessing(true);
     /* Failure to allocate reverse flow index, convert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
+    FlowStatsTimerStartStop(true);
     CreateFlow(flow, 1);
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
@@ -2038,6 +2069,7 @@ TEST_F(FlowTest, Flow_return_error) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
         EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
     }
+    FlowStatsTimerStartStop(false);
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -2048,6 +2080,7 @@ TEST_F(FlowTest, Flow_return_error) {
     sock->SetBlockMsgProcessing(true);
     /* EBADF failure to write an entry, covert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -EBADF);
+    FlowStatsTimerStartStop(true);
     CreateFlow(flow, 1);
 
     fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0,
@@ -2060,6 +2093,7 @@ TEST_F(FlowTest, Flow_return_error) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
         EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
     }
+    FlowStatsTimerStartStop(false);
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -2336,20 +2370,21 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
         },
         {
             TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port+1, "vrf5",
-                        flow0->id(), 1),
+                        flow0->id(), 2),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+1, 0) 
             }
         },
         {
             TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port+2, "vrf5",
-                        flow0->id(), 1),
+                        flow0->id(), 3),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+2, 0) 
             }
         }
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(nat_flow, 3);
     client->WaitForIdle();
     EXPECT_EQ(6, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -2370,6 +2405,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
             EXPECT_EQ(linklocal_src_port[i], 0);
         }
     }
+    FlowStatsTimerStartStop(false);
     
     //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
@@ -2418,27 +2454,28 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
         },
         {
             TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port+1, "vrf5",
-                        flow0->id(), 1),
+                        flow0->id(), 2),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+1, 0) 
             }
         },
         {
             TestFlowPkt(Address::INET, vm2_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port+2, "vrf5",
-                        flow1->id(), 1),
+                        flow1->id(), 3),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+2, 0) 
             }
         },
         {
             TestFlowPkt(Address::INET, vm2_ip, linklocal_ip, IPPROTO_TCP, 3003, linklocal_port+3, "vrf5",
-                        flow1->id(), 1),
+                        flow1->id(), 4),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+3, 0) 
             }
         }
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(nat_flow, 4);
     client->WaitForIdle();
     EXPECT_EQ(8, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -2464,6 +2501,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
             EXPECT_EQ(linklocal_src_port[i], 0);
         }
     }
+    FlowStatsTimerStartStop(false);
     
     //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
@@ -2507,7 +2545,7 @@ TEST_F(FlowTest, FlowLimit_1) {
         //Send a ICMP request from local VM in vn5 to local VM in vn3
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
-                    flow0->id()),
+                    flow0->id(), 1),
             {
                 new VerifyVn("vn5", "vn3"),
             }
@@ -2515,7 +2553,7 @@ TEST_F(FlowTest, FlowLimit_1) {
         //Send an ICMP reply from local VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, vm4_ip, vm1_ip, 1, 0, 0, "vrf3", 
-                    flow3->id()),
+                    flow3->id(), 2),
             {
                 new VerifyVn("vn3", "vn5"),
             }
@@ -2523,7 +2561,7 @@ TEST_F(FlowTest, FlowLimit_1) {
         //Send a TCP packet from local VM in vn5 to local VM in vn3
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5", 
-                    flow0->id()),
+                    flow0->id(), 3),
             {
                 new VerifyVn("vn5", "vn3"),
             }
@@ -2531,13 +2569,14 @@ TEST_F(FlowTest, FlowLimit_1) {
         //Send an TCP packet from local VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3", 
-                    flow3->id()),
+                    flow3->id(), 4),
             {
                 new VerifyVn("vn3", "vn5"),
             }
         }
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(flow, 4);
     client->WaitForIdle();
     int nh_id = InterfaceTable::GetInstance()->FindInterface(flow3->id())->flow_key_nh()->id();
@@ -2547,6 +2586,7 @@ TEST_F(FlowTest, FlowLimit_1) {
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
     EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
+    FlowStatsTimerStartStop(false);
 
     //1. Remove remote VM routes
     DeleteRoute("vrf5", vm4_ip);
@@ -2572,6 +2612,7 @@ TEST_F(FlowTest, FlowLimit_2) {
             }
         }
     };
+    FlowStatsTimerStartStop(true);
     CreateFlow(short_flow, 1);
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     int nh_id = InterfaceTable::GetInstance()->FindInterface(flow0->id())->flow_key_nh()->id();
@@ -2579,6 +2620,7 @@ TEST_F(FlowTest, FlowLimit_2) {
                             0, 0, nh_id);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_NO_DST_ROUTE);
+    FlowStatsTimerStartStop(false);
 
     /* Add Local VM route of vrf3 to vrf5 */
     CreateLocalRoute("vrf5", vm4_ip, flow3, 19);
@@ -2620,9 +2662,11 @@ TEST_F(FlowTest, FlowLimit_2) {
         }
     };
 
+    FlowStatsTimerStartStop(true);
     CreateFlow(flow, 4);
     client->WaitForIdle();
     EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
     nh_id = InterfaceTable::GetInstance()->FindInterface(flow3->id())->flow_key_nh()->id();
     fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
                  IPPROTO_TCP, 300, 200, nh_id);
@@ -2635,6 +2679,7 @@ TEST_F(FlowTest, FlowLimit_2) {
     fe = FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip,
                  IPPROTO_TCP, 100, 101, nh_id);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
+    FlowStatsTimerStartStop(false);
 
     //1. Remove remote VM routes
     DeleteRoute("vrf5", vm4_ip);
