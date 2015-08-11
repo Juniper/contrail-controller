@@ -327,6 +327,9 @@ class VirtualNetworkST(DictST):
                 if name in policy.analyzer_vn_set:
                     analyzer_vn_set |= policy.networks_back_ref
                     policy.analyzer_vn_set.discard(name)
+
+            vn.route_table_refs = set()
+            vn.update_route_table()
             del cls._dict[name]
             vn.uve_send(deleted=True)
         return analyzer_vn_set
