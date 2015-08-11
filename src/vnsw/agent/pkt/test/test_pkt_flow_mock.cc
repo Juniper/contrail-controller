@@ -53,18 +53,18 @@ bool TrafficActionCheck(TrafficAction::Action act,
 }
 
 void ProcessExceptionPackets() {
-    std::vector<ExceptionPacket *>::iterator it;
+    std::vector<ExceptionPacket>::iterator it;
     int hash_id = 10;
     for (it = excep_p_l.begin(); it != excep_p_l.end(); ++it) {
-         ExceptionPacket *ep = *it;
-	 Vn *vn = FindVn(ep->vn);
+         ExceptionPacket ep = *it;
+	 Vn *vn = FindVn(ep.vn);
 	 if (vn == NULL) {
 	     LOG(ERROR, "Vn doesn't exist");
 	     return;
 	 }
-	 Vm *vm = FindVm(*vn, ep->vm);
+	 Vm *vm = FindVm(*vn, ep.vm);
 	 if (vm == NULL) {
-	     LOG(ERROR, "Vm:" << ep->vm << " doesn't exist in the Vn:" << vn->name);
+	     LOG(ERROR, "Vm:" << ep.vm << " doesn't exist in the Vn:" << vn->name);
 	     return;
 	 }
 	 
@@ -74,55 +74,69 @@ void ProcessExceptionPackets() {
 	   return;
 	 }
 	 LOG(DEBUG, "Interface ID:" << intf->id());
-	 TxIpPacket(intf->id(), ep->sip.c_str(), ep->dip.c_str(), 
-	            strtoul((ep->proto).c_str(), NULL, 0), hash_id);
+	 TxIpPacket(intf->id(), ep.sip.c_str(), ep.dip.c_str(),
+	            strtoul((ep.proto).c_str(), NULL, 0), hash_id);
          client->WaitForIdle();
          AclTable *table = Agent::GetInstance()->acl_table();
          KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
          KSyncSockTypeMap::ksync_map_flow::iterator ksit;
          EXPECT_TRUE((ksit = sock->flow_map.find(hash_id)) != sock->flow_map.end());
          vr_flow_req vr_flow = ksit->second;
-         TrafficAction::Action act = table->ConvertActionString(ep->act);
+         TrafficAction::Action act = table->ConvertActionString(ep.act);
          EXPECT_TRUE(TrafficActionCheck(act, vr_flow.get_fr_action()));
-         EXPECT_EQ(VR_FLOW_FLAG_ACTIVE, vr_flow.get_fr_flags());
+         EXPECT_TRUE((vr_flow.get_fr_flags() & VR_FLOW_FLAG_ACTIVE) == VR_FLOW_FLAG_ACTIVE);
          EXPECT_EQ(hash_id, vr_flow.get_fr_index());
          hash_id++;
     }
 }
 
-void CreateNodeNetwork(Vn &vn) {
+void CreateNodeNetwork(Vn &vn, bool del_op) {
     Acl *acl = FindAcl(vn.acl_id);
     EXPECT_TRUE(acl != NULL);
     client->Reset();
-    AddVn(vn.name.c_str(), vn.id);
-    AddVrf(vn.vrf.c_str());
-    AddLink("virtual-network", vn.name.c_str(), "routing-instance", vn.vrf.c_str());
-    AddLink("virtual-network", vn.name.c_str(), "access-control-list", acl->name.c_str()); 
+    if (del_op) {
+        DelVn(vn.name.c_str());
+        DelVrf(vn.vrf.c_str());
+        DelLink("virtual-network", vn.name.c_str(), "routing-instance", vn.vrf.c_str());
+        DelLink("virtual-network", vn.name.c_str(), "access-control-list", acl->name.c_str());
+    } else {
+        AddVn(vn.name.c_str(), vn.id);
+        AddVrf(vn.vrf.c_str());
+        AddLink("virtual-network", vn.name.c_str(), "routing-instance", vn.vrf.c_str());
+        AddLink("virtual-network", vn.name.c_str(), "access-control-list", acl->name.c_str());
+    }
 
-    std::vector<Vm *>::iterator iter;
+    std::vector<Vm>::iterator iter;
     for (iter = vn.vm_l.begin(); iter != vn.vm_l.end();
 	 ++iter) {
-         Vm *vm = *iter;
-	 AddVm(vm->name.c_str(), vm->id);
-
-     CreateVmportEnv(&(vm->pinfo), 1);
+         Vm vm = *iter;
+         if (del_op) {
+             DelVm(vm.name.c_str());
+             DeleteVmportEnv(&(vm.pinfo), 1, 0);
+         } else {
+             AddVm(vm.name.c_str(), vm.id);
+             CreateVmportEnv(&(vm.pinfo), 1);
+         }
     }
     client->WaitForIdle();
+    if (del_op) {
+        return;
+    }
     for (iter = vn.vm_l.begin(); iter != vn.vm_l.end();
 	 ++iter) {
-         Vm *vm = *iter;
-         EXPECT_TRUE(VmPortActive(&(vm->pinfo), 0));
-         EXPECT_TRUE(VmPortPolicyEnable(&(vm->pinfo), 0));
-         Ip4Address ip = Ip4Address::from_string(vm->pinfo.addr);
+         Vm vm = *iter;
+         EXPECT_TRUE(VmPortActive(&(vm.pinfo), 0));
+         EXPECT_TRUE(VmPortPolicyEnable(&(vm.pinfo), 0));
+         Ip4Address ip = Ip4Address::from_string(vm.pinfo.addr);
          EXPECT_TRUE(RouteFind(vn.vrf, ip, 32));
     }
 }
 
-void CreateNodeNetworks() {
-    std::vector<Vn *>::iterator iter;
+void CreateNodeNetworks(bool del_op) {
+    std::vector<Vn>::iterator iter;
     for (iter = vn_l.begin(); iter !=vn_l.end(); ++iter) {
-         Vn *vn = *iter;
-	 CreateNodeNetwork(*vn);
+         Vn vn = *iter;
+	 CreateNodeNetwork(vn, del_op);
     }      
 }
 
@@ -142,8 +156,10 @@ TEST_F(AclFlowTest, Setup) {
     ConstructAclXmlDoc();
     LoadAcl();
     client->Reset();
-    CreateNodeNetworks();
+    CreateNodeNetworks(false);
     ProcessExceptionPackets();
+    client->WaitForIdle();
+    CreateNodeNetworks(true);
 }
 
 } //namespace

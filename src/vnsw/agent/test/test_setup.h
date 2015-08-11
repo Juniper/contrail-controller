@@ -69,7 +69,7 @@ struct Vn {
   int acl_id;
   string name;
   string vrf;
-  std::vector<Vm *> vm_l;
+  std::vector<Vm> vm_l;
 };
 
 struct ExceptionPacket {
@@ -83,9 +83,9 @@ struct ExceptionPacket {
   string act;
 };
 
-std::vector<Vn *> vn_l;
-std::map<int, Acl *> acl_l;
-std::vector<ExceptionPacket *> excep_p_l;
+std::vector<Vn> vn_l;
+std::map<int, Acl> acl_l;
+std::vector<ExceptionPacket> excep_p_l;
 
 class TestSetup {
  public:
@@ -122,11 +122,11 @@ void ReadAcl(ptree &config) {
 	 }
 	 ptree acl_tree = cfg_iter->second;
 	 int i = 0;
-	 Acl *acl = new Acl();
-	 acl->name = acl_tree.get<string>("name");
-	 acl->id = acl_tree.get<string>("id");
-	 int id = strtoul((acl->id).c_str(), NULL, 0);
-	 LOG(DEBUG, "Acl name:" << acl->name);
+	 Acl acl;
+	 acl.name = acl_tree.get<string>("name");
+	 acl.id = acl_tree.get<string>("id");
+	 int id = strtoul((acl.id).c_str(), NULL, 0);
+	 LOG(DEBUG, "Acl name:" << acl.name);
 	 for (ptree::const_iterator iter = acl_tree.begin(); iter != acl_tree.end();
 	      ++iter, ++i) {
 	     if (iter->first == "ace") {
@@ -142,20 +142,18 @@ void ReadAcl(ptree &config) {
 		 LOG(DEBUG, "DP End  :" << ace.dp_e);
 		 LOG(DEBUG, "Proto   :" << ace.protocol);
 		 LOG(DEBUG, "Action  :" << ace.action);
-		 acl->ace_l.push_back(ace);
+		 acl.ace_l.push_back(ace);
 	     }
 	     ++i;
 	 }
       
-	 pair<map<int, Acl*>::iterator,bool> ret;
-	 map<int, Acl*>::iterator it;
+	 map<int, Acl>::iterator it;
 	 it = acl_l.find(id);
 	 if (it != acl_l.end()) {
 	     LOG(DEBUG, "Modifying existing Acl" << id);
-	     delete (it->second);
 	     acl_l.erase(id);
 	 }
-	 acl_l.insert(pair<int, Acl*>(id, acl));
+	 acl_l.insert(pair<int, Acl>(id, acl));
      }
      return;
 }
@@ -163,31 +161,31 @@ void ReadAcl(ptree &config) {
 static int vm_id = 1;
 void ReadVmPort(Vn &vn, string &vm_str)
 {
-     Vm *vm = new Vm();
+     Vm vm;
      istringstream tokens(vm_str);
-     tokens >> vm->name;
-     vm->id = vm_id++;
+     tokens >> vm.name;
+     vm.id = vm_id++;
      string ip_address;
      tokens >> ip_address;
-     string port_name = vm->name + integerToString(vm->id);
-     strncpy(vm->pinfo.name, port_name.c_str(), sizeof(vm->pinfo.name));
-     vm->pinfo.vm_id = vm->id;
-     vm->pinfo.intf_id = vm->id; // ?
-     vm->pinfo.vn_id = vn.id;
-     strncpy(vm->pinfo.addr, ip_address.c_str(), sizeof(vm->pinfo.addr));
-     sprintf(vm->pinfo.mac, "00:00:00:00:00:%02x", vm->pinfo.intf_id);
+     string port_name = vm.name + integerToString(vm.id);
+     strncpy(vm.pinfo.name, port_name.c_str(), sizeof(vm.pinfo.name));
+     vm.pinfo.vm_id = vm.id;
+     vm.pinfo.intf_id = vm.id; // ?
+     vm.pinfo.vn_id = vn.id;
+     strncpy(vm.pinfo.addr, ip_address.c_str(), sizeof(vm.pinfo.addr));
+     sprintf(vm.pinfo.mac, "00:00:00:00:00:%02x", vm.pinfo.intf_id);
      vn.vm_l.push_back(vm);
      
-     LOG(DEBUG, "VM id:" << vm->id);
+     LOG(DEBUG, "VM id:" << vm.id);
      LOG(DEBUG, "VN id:" << vn.id);
      LOG(DEBUG, "VRF  :" << vn.vrf);  
-     LOG(DEBUG, "VM name   :" << vm->name);
-     LOG(DEBUG, "VM Port id:" << vm->pinfo.intf_id);
-     LOG(DEBUG, "VM PortName:" << vm->pinfo.name);
-     LOG(DEBUG, "VM Mac add:" << vm->pinfo.mac);
-     LOG(DEBUG, "VM Port addr:" << vm->pinfo.addr);
-     LOG(DEBUG, "VM Port vnid:" << vm->pinfo.vn_id);
-     LOG(DEBUG, "VM Port vmid:" << vm->pinfo.vm_id);
+     LOG(DEBUG, "VM name   :" << vm.name);
+     LOG(DEBUG, "VM Port id:" << vm.pinfo.intf_id);
+     LOG(DEBUG, "VM PortName:" << vm.pinfo.name);
+     LOG(DEBUG, "VM Mac add:" << vm.pinfo.mac);
+     LOG(DEBUG, "VM Port addr:" << vm.pinfo.addr);
+     LOG(DEBUG, "VM Port vnid:" << vm.pinfo.vn_id);
+     LOG(DEBUG, "VM Port vmid:" << vm.pinfo.vm_id);
      LOG(DEBUG, "");
 }
 
@@ -214,23 +212,23 @@ void ReadVn(ptree &vn_tree, Vn &vn) {
 
 void ReadExceptionPacket(string &str) {
     istringstream tokens(str);
-    ExceptionPacket *ep = new ExceptionPacket();
-    tokens >> ep->vn;
-    LOG(DEBUG, "Source Vn:" << ep->vn);
-    tokens >> ep->vm;
-    LOG(DEBUG, "Source Vm:" << ep->vm);
-    tokens >> ep->sip;
-    LOG(DEBUG, "sip:" << ep->sip);
-    tokens >> ep->dip;
-    LOG(DEBUG, "dip:" << ep->dip);
-    tokens >> ep->sp;
-    LOG(DEBUG, "sp:" << ep->sp);
-    tokens >> ep->dp;
-    LOG(DEBUG, "dp:" << ep->dp);
-    tokens >> ep->proto;
-    LOG(DEBUG, "protocol:" << ep->proto);
-    tokens >> ep->act;
-    LOG(DEBUG, "action:" << ep->act);
+    ExceptionPacket ep;
+    tokens >> ep.vn;
+    LOG(DEBUG, "Source Vn:" << ep.vn);
+    tokens >> ep.vm;
+    LOG(DEBUG, "Source Vm:" << ep.vm);
+    tokens >> ep.sip;
+    LOG(DEBUG, "sip:" << ep.sip);
+    tokens >> ep.dip;
+    LOG(DEBUG, "dip:" << ep.dip);
+    tokens >> ep.sp;
+    LOG(DEBUG, "sp:" << ep.sp);
+    tokens >> ep.dp;
+    LOG(DEBUG, "dp:" << ep.dp);
+    tokens >> ep.proto;
+    LOG(DEBUG, "protocol:" << ep.proto);
+    tokens >> ep.act;
+    LOG(DEBUG, "action:" << ep.act);
     excep_p_l.push_back(ep);    
 }
 
@@ -248,11 +246,11 @@ void ReadVn(ptree &ccfg) {
     for (ptree::iterator iter = ccfg.begin(); iter != ccfg.end();
          ++iter) {
         if (iter->first == "vn") {
-	   Vn *vn = new Vn();
-	   ReadVn(iter->second, *vn);
+	   Vn vn;
+	   ReadVn(iter->second, vn);
 	   vn_l.push_back(vn);
-	   LOG(DEBUG, "Vn Name:" << vn->name);
-	   LOG(DEBUG, "Vn id:" << vn->id);
+	   LOG(DEBUG, "Vn Name:" << vn.name);
+	   LOG(DEBUG, "Vn id:" << vn.id);
            LOG(DEBUG, "");
 	}
     }
@@ -285,20 +283,20 @@ void ReadSetupFile(char *sfile) {
 
 // Finds
 Vn *FindVn(string &str) {
-   std::vector<Vn *>::iterator it;
+   std::vector<Vn>::iterator it;
    for (it = vn_l.begin(); it != vn_l.end(); ++it) {
-        if (((*it)->name.compare(str)) == 0) {
-	    return (*it);
+        if (((*it).name.compare(str)) == 0) {
+	    return &(*it);
 	}
    }
    return NULL;
 }
 
 Vm *FindVm(Vn &vn, string &str) {
-   std::vector<Vm *>::iterator it;
+   std::vector<Vm>::iterator it;
    for (it = vn.vm_l.begin(); it != vn.vm_l.end(); ++it) {
-        if ((*it)->name.compare(str) == 0) {
-	    return (*it);
+        if ((*it).name.compare(str) == 0) {
+	    return &(*it);
 	}
    }
    return NULL;
@@ -306,12 +304,12 @@ Vm *FindVm(Vn &vn, string &str) {
 
 Acl *FindAcl(int acl_id)
 {
-    map<int, Acl*>::iterator it;
+    map<int, Acl>::iterator it;
     it = acl_l.find(acl_id);
     if (it == acl_l.end()) {
         return NULL;
     }
-    return (it->second);
+    return &(it->second);
 }
 
 
@@ -417,9 +415,9 @@ void ConstructAclXmlDoc() {
     xml_node msg = xdoc.append_child("config");
     xml_node update = msg.append_child("update");
     
-    map<int, Acl*>::iterator it;
+    map<int, Acl>::iterator it;
     for (it = acl_l.begin(); it != acl_l.end(); ++it) {
-        CreateAclXmlNode(update, *(it->second));
+        CreateAclXmlNode(update, (it->second));
     }
 
     xdoc.print(std::cout);
