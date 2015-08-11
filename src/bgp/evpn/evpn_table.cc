@@ -36,6 +36,9 @@ size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
 
 EvpnTable::EvpnTable(DB *db, const string &name)
     : BgpTable(db, name), evpn_manager_(NULL) {
+    mac_route_count_ = 0;
+    unique_mac_route_count_ = 0;
+    im_route_count_ = 0;
 }
 
 auto_ptr<DBEntry> EvpnTable::AllocEntry(
@@ -48,6 +51,47 @@ auto_ptr<DBEntry> EvpnTable::AllocEntryStr(
         const string &key_str) const {
     EvpnPrefix prefix = EvpnPrefix::FromString(key_str);
     return auto_ptr<DBEntry> (new EvpnRoute(prefix));
+}
+
+void EvpnTable::AddRemoveCallback(const DBEntryBase *entry, bool add) const {
+    if (IsVpnTable())
+        return;
+    const EvpnRoute *evpn_rt = static_cast<const EvpnRoute *>(entry);
+    const EvpnPrefix &evpn_prefix = evpn_rt->GetPrefix();
+    switch (evpn_prefix.type()) {
+    case EvpnPrefix::MacAdvertisementRoute:
+        // Ignore Broadcast MAC routes.
+        if (evpn_prefix.mac_addr().IsBroadcast())
+            break;
+
+        if (add) {
+            mac_route_count_++;
+        } else {
+            mac_route_count_--;
+        }
+
+        // Ignore MAC routes with IP addresses.
+        if (evpn_prefix.family() != Address::UNSPEC)
+            break;
+
+        if (add) {
+            unique_mac_route_count_++;
+        } else {
+            unique_mac_route_count_--;
+        }
+        break;
+
+    case EvpnPrefix::InclusiveMulticastRoute:
+        if (add) {
+            im_route_count_++;
+        } else {
+            im_route_count_--;
+        }
+        break;
+
+    default:
+        break;
+    }
 }
 
 size_t EvpnTable::Hash(const DBRequestKey *key) const {

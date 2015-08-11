@@ -50,6 +50,14 @@ request sandesh ShowRoutingInstanceSummaryReqIterate {
     1: string iterate_info;
 }
 
+request sandesh ShowEvpnTableReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowEvpnTableSummaryReqIterate {
+    1: string iterate_info;
+}
+
 response sandesh ShowMulticastManagerDetailResp {
     1: list<bgp_peer.ShowMulticastTree> trees;
 }
