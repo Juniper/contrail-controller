@@ -2280,7 +2280,9 @@ class VirtualMachineInterfaceST(DBBaseST):
                 ip_list.append(ip.address)
         for ip in ip_list:
             address = AddressType(subnet=SubnetType(ip, 32))
-            mc = MatchConditionType(src_address=address)
+            mc = MatchConditionType(src_address=address,
+                                    src_port=PortType(),
+                                    dst_port=PortType())
 
             ri_name = vn.obj.get_fq_name_str() + ':' + vn._default_ri_name
             vrf_rule = VrfAssignRuleType(match_condition=mc,
