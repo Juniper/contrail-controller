@@ -351,6 +351,7 @@ class FlowEntry {
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
         reverse_flow_entry_ = reverse_flow_entry;
     }
+    void set_stats_exported(bool value) { stats_.exported = value; }
     bool is_flags_set(const FlowEntryFlags &flags) const { return (flags_ & flags); }
     void set_flags(const FlowEntryFlags &flags) { flags_ |= flags; }
     void reset_flags(const FlowEntryFlags &flags) { flags_ &= ~flags; }
@@ -543,8 +544,6 @@ public:
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
     bool ValidFlowMove(const FlowEntry *new_flow,
                        const FlowEntry *old_flow) const;
-    void FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
-    virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
 
     void RevaluateFlow(FlowEntry *flow);
     void DeleteMessage(FlowEntry *flow);
@@ -641,7 +640,6 @@ struct VmFlowInfo {
 
 extern SandeshTraceBufferPtr FlowTraceBuf;
 extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
-extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 #define FLOW_TRACE(obj, ...)\
 do {\

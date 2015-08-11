@@ -2069,20 +2069,6 @@ void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_
     }
 }
 
-void GetFlowSandeshActionParams(const FlowAction &action_info,
-    std::string &action_str) {
-    std::bitset<32> bs(action_info.action);
-    for (unsigned int i = 0; i <= bs.size(); i++) {
-        if (bs[i]) {
-            if (!action_str.empty()) {
-                action_str += "|";
-            }
-            action_str += TrafficAction::ActionToString(
-                static_cast<TrafficAction::Action>(i));
-        }
-    } 
-}
-
 static void SetAclListAclAction(const std::list<MatchAclParams> &acl_l, std::vector<AclAction> &acl_action_l,
                          std::string &acl_type) {
     std::list<MatchAclParams>::const_iterator it;
@@ -2157,14 +2143,6 @@ string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
     ss << uuid_str << ":";
     ss << ace_id;
     return ss.str();
-}
-
-void FlowTable::DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
-}
-
-void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
-                           uint64_t diff_pkts) {
 }
 
 void FlowTable::SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, int ace_id) {
@@ -2356,8 +2334,8 @@ void FlowTable::SendFlowInternal(FlowEntry *fe) {
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
+    // TODO: Remove teardown_time from stats_ field
     fe->stats_.teardown_time = UTCTimestampUsec();
-    FlowExport(fe, diff_bytes, diff_packets);
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */
