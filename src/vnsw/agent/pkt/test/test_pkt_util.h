@@ -17,7 +17,8 @@ extern void TxIpPacket(int ifindex, const char *sip, const char *dip,
 
 extern void TxL2Packet(int ifindex, const char *smac, const char *dmac,
                        const char *sip, const char *dip, int proto,
-                       int hash_id = 1, int vrf = -1);
+                       int hash_id = 1, int vrf = -1, uint16_t sport = 0,
+                       uint16_t dport = 0);
 extern void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip, 
 		                   int proto, int hash_id = 1);
 

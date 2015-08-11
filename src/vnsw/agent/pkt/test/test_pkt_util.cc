@@ -37,7 +37,8 @@ void TxIpPacket(int ifindex, const char *sip, const char *dip,
 
 void TxL2Packet(int ifindex, const char *smac, const char *dmac,
                 const char *sip, const char *dip,
-		        int proto, int hash_id, int vrf) {
+		        int proto, int hash_id, int vrf,
+                uint16_t sport, uint16_t dport) {
     PktGen *pkt = new PktGen();
 
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
@@ -46,6 +47,8 @@ void TxL2Packet(int ifindex, const char *smac, const char *dmac,
     pkt->AddIpHdr(sip, dip, proto);
     if (proto == 1) {
         pkt->AddIcmpHdr();
+    } else if (proto == IPPROTO_UDP) {
+        pkt->AddUdpHdr(sport, dport, 64);
     }
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());

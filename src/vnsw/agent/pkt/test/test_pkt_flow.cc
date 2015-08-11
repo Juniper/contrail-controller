@@ -2237,18 +2237,18 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
 
     EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
                         fabric_port, linklocal_src_port,
-                        vhost->flow_key_nh()->id()));
+                        vhost->flow_key_nh()->id()) != NULL);
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
                         IPPROTO_TCP, 3000, linklocal_port,
-                        GetFlowKeyNH(input[0].intf_id)));
+                        GetFlowKeyNH(input[0].intf_id)) != NULL);
     
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
                         fabric_port, linklocal_src_port,
-                        vhost->flow_key_nh()->id()));
+                        vhost->flow_key_nh()->id()) != NULL);
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
                         IPPROTO_TCP, 3000, linklocal_port,
-                        GetFlowKeyNH(input[0].intf_id)));
+                        GetFlowKeyNH(input[0].intf_id)) != NULL);
 
     //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
@@ -2296,15 +2296,49 @@ TEST_F(FlowTest, LinkLocalFlow_loopback_1) {
 
     EXPECT_TRUE(FlowGet(0, vhost_ip_addr, mdata_ip.c_str(), IPPROTO_TCP,
                         fabric_port, 3000,
-                        vhost->flow_key_nh()->id()));
+                        vhost->flow_key_nh()->id()) != NULL);
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
                         IPPROTO_TCP, 3000, linklocal_port,
-                        GetFlowKeyNH(input[0].intf_id)));
+                        GetFlowKeyNH(input[0].intf_id)) != NULL);
 
     //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
+}
+
+//l2 linklocal flow and verify NAT is done
+TEST_F(FlowTest, linklocal_l2) {
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
+    std::string fabric_ip("1.2.3.4");
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back("1.2.3.4");
+    TestLinkLocalService service = { "test_service", linklocal_ip, linklocal_port,
+                                     "", fabric_ip_list, fabric_port };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
+
+    TxL2Packet(flow0->id(), input[0].mac, input[1].mac,
+               input[0].addr, linklocal_ip, IPPROTO_UDP, 1, -1, 12345, linklocal_port);
+    client->WaitForIdle();
+
+    uint32_t nh_id = InterfaceTable::GetInstance()->
+                     FindInterface(flow0->id())->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(VrfGet("vrf5")->vrf_id(), input[0].addr, linklocal_ip,
+                            IPPROTO_UDP, 12345, linklocal_port, nh_id);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::LinkLocalFlow));
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort));
+    EXPECT_TRUE(FlowGet(0, fabric_ip, vhost_ip_addr,
+                        IPPROTO_UDP, fabric_port, fe->linklocal_src_port(),
+                        vhost->flow_key_nh()->id()) != NULL);
+
+    FlushFlowTable();
+    client->WaitForIdle();
 
     DelLinkLocalConfig();
     client->WaitForIdle();
@@ -2360,10 +2394,10 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
 
         EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr,
                             IPPROTO_TCP, fabric_port+i, linklocal_src_port[i],
-                            vhost->flow_key_nh()->id()));
+                            vhost->flow_key_nh()->id()) != NULL);
         EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
                             IPPROTO_TCP, 3000+i, linklocal_port+i,
-                            GetFlowKeyNH(input[0].intf_id)));
+                            GetFlowKeyNH(input[0].intf_id)) != NULL);
         if (i == 2) {
             EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
             EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_LINKLOCAL_SRC_NAT);
@@ -2449,15 +2483,15 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
 
         EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
                             fabric_port+i, linklocal_src_port[i],
-                            vhost->flow_key_nh()->id()));
+                            vhost->flow_key_nh()->id()) != NULL);
         if (i <= 1)
             EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
                                 IPPROTO_TCP, 3000+i, linklocal_port+i,
-                                GetFlowKeyNH(input[0].intf_id)));
+                                GetFlowKeyNH(input[0].intf_id)) != NULL);
         else
             EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm2_ip, linklocal_ip,
                                 IPPROTO_TCP, 3000+i, linklocal_port+i,
-                                GetFlowKeyNH(input[1].intf_id)));
+                                GetFlowKeyNH(input[1].intf_id)) != NULL);
         if (i == 3) {
             EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
             EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_LINKLOCAL_SRC_NAT);
