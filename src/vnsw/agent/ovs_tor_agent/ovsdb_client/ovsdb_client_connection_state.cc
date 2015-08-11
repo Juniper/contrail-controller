@@ -34,7 +34,7 @@ bool ConnectionStateEntry::IsConnectionActive() {
         // if there is any non deleted IDL available
         // return true
         if (!(*it)->IsDeleted()) {
-            return false;
+            return true;
         }
     }
 

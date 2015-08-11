@@ -40,6 +40,7 @@ private:
 class HaStaleVnEntry : public OvsdbDBEntry {
 public:
     HaStaleVnEntry(HaStaleVnTable *table, const boost::uuids::uuid &uuid);
+    virtual ~HaStaleVnEntry();
 
     // ovs_entry ref is not valid for VN, override IsDataResolved
     // to return always true
@@ -52,6 +53,7 @@ public:
     std::string ToString() const {return "Ha Stale VN entry";}
     KSyncEntry* UnresolvedReference();
 
+    const std::string &vn_name() const;
     AgentRouteTable *bridge_table() const;
 
 protected:
@@ -60,6 +62,7 @@ protected:
 private:
     friend class HaStaleVnTable;
     boost::uuids::uuid uuid_;
+    std::string vn_name_;
     AgentRouteTable *bridge_table_;
     DISALLOW_COPY_AND_ASSIGN(HaStaleVnEntry);
 };
