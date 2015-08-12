@@ -458,14 +458,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          <xsd:minInclusive value="1"/>
          <xsd:maxInclusive value="65534"/>
      </xsd:restriction>
-</xsd:simpleType> 
+</xsd:simpleType>
 
 <xsd:simpleType name="AccessType">
      <xsd:restriction base="xsd:integer">
          <xsd:minInclusive value="0"/>
          <xsd:maxInclusive value="7"/>
      </xsd:restriction>
-</xsd:simpleType> 
+</xsd:simpleType>
 
 <xsd:complexType name="PermType">
     <xsd:all>
@@ -475,7 +475,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="group-access" type="AccessType"/>
         <xsd:element name="other-access" type="AccessType"/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="IdPermsType">
     <xsd:all>
@@ -488,7 +488,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
         <xsd:element name="creator"       type="xsd:string"/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 
 <xsd:complexType name="PluginProperty">
@@ -1316,7 +1316,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='service-scaling' type='xsd:boolean' default='false'/>
         <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='flavor' type='xsd:string'/>
-        <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/>
+        <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/> <!-- DEPRECATED -->
         <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType'/>
         <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false'/>
 	<xsd:element name='vrouter-instance-type' type='VRouterInstanceType'/>
@@ -1335,11 +1335,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:sequence>
         <xsd:element name='auto-policy' type="xsd:boolean" default='false'/>
         <xsd:element name='availability-zone' type='xsd:string'/>
-        <xsd:element name='management-virtual-network' type='xsd:string'/> <!-- Will be DEPRECATED -->
-        <xsd:element name='left-virtual-network' type='xsd:string'/>       <!-- Will be DEPRECATED -->
-        <xsd:element name='left-ip-address' type='IpAddressType'/>         <!-- Will be DEPRECATED -->
-        <xsd:element name='right-virtual-network' type='xsd:string'/>      <!-- Will be DEPRECATED -->
-        <xsd:element name='right-ip-address' type='IpAddressType'/>        <!-- Will be DEPRECATED -->
+        <xsd:element name='management-virtual-network' type='xsd:string'/> <!-- DEPRECATED -->
+        <xsd:element name='left-virtual-network' type='xsd:string'/>       <!-- DEPRECATED -->
+        <xsd:element name='left-ip-address' type='IpAddressType'/>         <!-- DEPRECATED -->
+        <xsd:element name='right-virtual-network' type='xsd:string'/>      <!-- DEPRECATED -->
+        <xsd:element name='right-ip-address' type='IpAddressType'/>        <!-- DEPRECATED -->
         <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
         <xsd:element name="ha-mode" type="AddressMode"/>
@@ -1370,14 +1370,28 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- #IFMAP-SEMANTICS-IDL
      Link('domain-service-template', 'domain',
           'service-template', ['has']) -->
+
 <xsd:element name='service-instance-service-template'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('service-instance-service-template', 'service-instance',
           'service-template', ['ref']) -->
+
 <xsd:element name='virtual-machine-service-instance'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('virtual-machine-service-instance', 'virtual-machine',
           'service-instance', ['ref', 'derived']) -->
+
+<xsd:complexType name='ServiceInstanceInterface'>
+    <xsd:all>
+        <xsd:element name="instance-id" type="xsd:integer"/>
+        <xsd:element name="interface-type" type="ServiceInterfaceType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name='service-instance-interface' type='ServiceInstanceInterface'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('service-instance-interface', 'service-instance',
+          'virtual-machine-interface', ['ref', 'derived']) -->
 
 <xsd:element name="virtual-DNS"        type="ifmap:IdentityType"/>
 <xsd:element name="domain-virtual-DNS"/>
@@ -1580,6 +1594,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="service-appliance-properties" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('service-appliance-properties', 'service-appliance') -->
+
+<!--  interfaces of the service appliance -->
+<xsd:element name="service-appliance-interface" type="ServiceInterfaceType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-appliance-interface',
+          'service-appliance', 'physical-interface', ['ref'] -->
+
+<!-- when service monitor selects a service appliance for a service instance,
+     it will link the virtual machine interfaces it creates with the
+     corresponding physical interfaces of the service appliance -->
+<xsd:element name="virtual-machine-interface-physical-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-physical-interface',
+          'virtual-machine-interface', 'physical-interface', ['ref'] -->
+
+<!-- connection between two physical interfaces -->
+<xsd:element name="physical-interface-connection" />
+<!--#IFMAP-SEMANTICS-IDL
+     Link('physical-interface-connection',
+          'physical-interface', 'physical-interface', ['ref'] -->
 
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
