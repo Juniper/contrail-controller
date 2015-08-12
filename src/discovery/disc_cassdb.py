@@ -16,9 +16,11 @@ import pycassa.util
 from pycassa.system_manager import *
 from pycassa.util import *
 from pycassa.types import *
+from sandesh_common.vns.constants import DISCOVERY_SERVER_KEYSPACE_NAME, \
+    CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
 class DiscoveryCassandraClient(object):
-    _DISCOVERY_KEYSPACE_NAME = 'DISCOVERY_SERVER'
+    _DISCOVERY_KEYSPACE_NAME = DISCOVERY_SERVER_KEYSPACE_NAME
     _DISCOVERY_CF_NAME = 'discovery'
 
     @classmethod
@@ -99,7 +101,8 @@ class DiscoveryCassandraClient(object):
                 (cf_name, comparator_type, validator_type) = cf_info
                 sys_mgr.create_column_family(keyspace_name, cf_name, 
                         comparator_type = comparator_type, default_validation_class = validator_type)
-                sys_mgr.alter_column_family(keyspace_name, cf_name, gc_grace_seconds=0)
+                sys_mgr.alter_column_family(keyspace_name, cf_name,
+                    gc_grace_seconds=CASSANDRA_DEFAULT_GC_GRACE_SECONDS)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
