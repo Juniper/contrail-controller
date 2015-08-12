@@ -237,9 +237,20 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
     if (vm_host_routes && vm_host_routes->size()) {
         str << "               <host-routes>\n";
         for (unsigned int i = 0; i < vm_host_routes->size(); i++) {
+            std::string prefix, nexthop;
+            std::vector<std::string> tokens;
+            boost::split(tokens, (*vm_host_routes)[i], boost::is_any_of(" \t"));
+            vector<string>::iterator it = tokens.begin();
+            if (it != tokens.end()) {
+                prefix = *it;
+                it++;
+            }
+            if (it != tokens.end()) {
+                nexthop = *it;
+            }
             str << "                   <route>\n";
-            str << "                       <prefix>" << (*vm_host_routes)[i] << "</prefix>\n";
-            str << "                       <next-hop />\n";
+            str << "                       <prefix>" << prefix << "</prefix>\n";
+            str << "                       <next-hop>" << nexthop << "</next-hop>\n";
             str << "                       <next-hop-type />\n";
             str << "                   </route>\n";
         }
@@ -1830,7 +1841,7 @@ void DelVmPortVrf(const char *name) {
 void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_attr,
              const char *vdns_name, const std::vector<std::string> *vm_host_routes,
              const char *add_subnet_tags) {
-    char buff[8192];
+    char buff[10240];
     char node_name[128];
     char ipam_name[128];
     int len = 0;

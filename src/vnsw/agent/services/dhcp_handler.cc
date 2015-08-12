@@ -1104,11 +1104,7 @@ bool DhcpHandler::IsOptionRequested(uint8_t option) {
 
 bool DhcpHandler::IsRouterOptionNeeded() {
     // If GW is not configured, dont include
-    if (config_.gw_addr.is_unspecified())
-        return false;
-
-    // If router option is already included, nothing to do
-    if (is_flag_set(DHCP_OPTION_ROUTER))
+    if (config_.gw_addr.is_unspecified() && routers_.empty())
         return false;
 
     // When client requests Classless Static Routes option and this is

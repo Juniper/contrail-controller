@@ -122,7 +122,7 @@ AgentDBTable *VnEntry::DBToTable() const {
 }
 
 bool VnEntry::GetVnHostRoutes(const std::string &ipam,
-                              std::vector<OperDhcpOptions::Subnet> *routes) const {
+                              std::vector<OperDhcpOptions::HostRoute> *routes) const {
     VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.find(ipam);
     if (it != vn_ipam_data_.end()) {
         *routes = it->second.oper_dhcp_options_.host_routes();
@@ -1140,7 +1140,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
              it != vn_ipam_data_.end(); ++it) {
             VnIpamHostRoutes vn_ipam_host_routes;
             vn_ipam_host_routes.ipam_name = it->first;
-            const std::vector<OperDhcpOptions::Subnet> &host_routes =
+            const std::vector<OperDhcpOptions::HostRoute> &host_routes =
                 it->second.oper_dhcp_options_.host_routes();
             for (uint32_t i = 0; i < host_routes.size(); ++i) {
                 vn_ipam_host_routes.host_routes.push_back(

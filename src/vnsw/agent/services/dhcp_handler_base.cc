@@ -361,18 +361,22 @@ void DhcpHandlerBase::ReadClasslessRoute(uint32_t option, uint16_t opt_len,
     while (value.good()) {
         std::string snetstr;
         value >> snetstr;
-        OperDhcpOptions::Subnet subnet;
-        boost::system::error_code ec = Ip4PrefixParse(snetstr, &subnet.prefix_,
-                                                      (int *)&subnet.plen_);
-        if (ec || subnet.plen_ > 32 || !value.good()) {
+        OperDhcpOptions::HostRoute host_route;
+        boost::system::error_code ec = Ip4PrefixParse(snetstr, &host_route.prefix_,
+                                                      (int *)&host_route.plen_);
+        if (ec || host_route.plen_ > 32 || !value.good()) {
             DHCP_BASE_TRACE("Invalid Classless route DHCP option -"
                             "has to be list of <subnet/plen gw>");
             break;
         }
-        host_routes_.push_back(subnet);
 
-        // ignore the gw, as we use always use subnet's gw
         value >> snetstr;
+        host_route.gw_ = Ip4Address::from_string(snetstr, ec);
+        if (ec) {
+            host_route.gw_ = Ip4Address();
+        }
+
+        host_routes_.push_back(host_route);
     }
 }
 
@@ -385,7 +389,7 @@ void DhcpHandlerBase::ReadClasslessRoute(uint32_t option, uint16_t opt_len,
 // 6) options at IPAM level (classless routes from IPAM dhcp options)
 // Add the options defined at the highest level in priority
 uint16_t DhcpHandlerBase::AddClasslessRouteOption(uint16_t opt_len) {
-    std::vector<OperDhcpOptions::Subnet> host_routes;
+    std::vector<OperDhcpOptions::HostRoute> host_routes;
     do {
         // Port specific host route options
         // TODO: should we remove host routes at port level from schema ?
@@ -429,18 +433,10 @@ uint16_t DhcpHandlerBase::AddClasslessRouteOption(uint16_t opt_len) {
         }
 
         // IPAM level host route options
-        const std::vector<autogen::RouteType> &routes =
-            ipam_type_.host_routes.route;
-        for (unsigned int i = 0; i < routes.size(); ++i) {
-            OperDhcpOptions::Subnet subnet;
-            boost::system::error_code ec = Ip4PrefixParse(routes[i].prefix,
-                                                          &subnet.prefix_,
-                                                          (int *)&subnet.plen_);
-            if (ec || subnet.plen_ > 32) {
-                continue;
-            }
-            host_routes.push_back(subnet);
-        }
+        OperDhcpOptions oper_dhcp_options;
+        oper_dhcp_options.update_host_routes(ipam_type_.host_routes.route);
+        host_routes = oper_dhcp_options.host_routes();
+
         // Host route options from IPAM level DHCP options
         if (!host_routes.size() && host_routes_.size()) {
             host_routes.swap(host_routes_);
@@ -455,13 +451,18 @@ uint16_t DhcpHandlerBase::AddClasslessRouteOption(uint16_t opt_len) {
         for (uint32_t i = 0; i < host_routes.size(); ++i) {
             uint32_t prefix = host_routes[i].prefix_.to_ulong();
             uint32_t plen = host_routes[i].plen_;
+            uint32_t gw = host_routes[i].gw_.to_ulong();
             *ptr++ = plen;
             len++;
-            for (unsigned int i = 0; plen && i <= (plen - 1) / 8; ++i) {
-                *ptr++ = (prefix >> 8 * (3 - i)) & 0xFF;
+            for (unsigned int j = 0; plen && j <= (plen - 1) / 8; ++j) {
+                *ptr++ = (prefix >> 8 * (3 - j)) & 0xFF;
                 len++;
             }
-            *(uint32_t *)ptr = htonl(config_.gw_addr.to_v4().to_ulong());
+            // if GW is not specified, set it to subnet's GW
+            if (gw)
+                *(uint32_t *)ptr = htonl(gw);
+            else
+                *(uint32_t *)ptr = htonl(config_.gw_addr.to_v4().to_ulong());
             ptr += sizeof(uint32_t);
             len += sizeof(uint32_t);
         }
@@ -559,6 +560,7 @@ uint16_t DhcpHandlerBase::AddDhcpOptions(
                 if (option == DHCP_OPTION_ROUTER) {
                     // Router option is added later
                     routers_ = options[i].dhcp_option_value;
+                    set_flag(DHCP_OPTION_ROUTER);
                 } else {
                     opt_len = AddIpv4Option(option, opt_len,
                                             options[i].dhcp_option_value,
