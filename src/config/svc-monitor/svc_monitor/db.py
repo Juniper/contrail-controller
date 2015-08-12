@@ -9,7 +9,8 @@ Service monitor DB to store VM, SI information
 import pycassa
 from pycassa.system_manager import *
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-
+from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME, \
+    CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 import inspect
 import json
 import time
@@ -17,7 +18,7 @@ import time
 
 class ServiceMonitorDB(object):
 
-    _KEYSPACE = 'svc_monitor_keyspace'
+    _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
 
     def __init__(self, args=None):
         self._args = args
@@ -116,9 +117,7 @@ class ServiceMonitorDB(object):
 
         # set up column families
         column_families = [cf_name]
-        gc_grace_sec = 0
-        if num_dbnodes > 1:
-            gc_grace_sec = 60
+        gc_grace_sec = CASSANDRA_DEFAULT_GC_GRACE_SECONDS
         for cf in column_families:
             try:
                 sys_mgr.create_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
