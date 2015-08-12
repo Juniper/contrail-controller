@@ -296,6 +296,9 @@ VirtualDnsConfig::VirtualDnsConfig(IFMapNode *node) : DnsConfig(node->name()) {
 }
 
 VirtualDnsConfig::VirtualDnsConfig(const std::string &name) : DnsConfig(name) {
+    rec_.external_visible = false;
+    rec_.reverse_resolution = false;
+    old_rec_ = rec_;
     virt_dns_config_.insert(DataPair(GetName(), this));
 }
 
@@ -419,7 +422,9 @@ bool VirtualDnsConfig::HasChanged() {
         rec_.dynamic_records_from_client == old_rec_.dynamic_records_from_client &&
         rec_.record_order == old_rec_.record_order &&
         rec_.default_ttl_seconds == old_rec_.default_ttl_seconds &&
-        rec_.next_virtual_DNS == old_rec_.next_virtual_DNS)
+        rec_.next_virtual_DNS == old_rec_.next_virtual_DNS &&
+        rec_.external_visible == old_rec_.external_visible &&
+        rec_.reverse_resolution == old_rec_.reverse_resolution)
         return false;
     return true;
 }
@@ -431,10 +436,10 @@ void VirtualDnsConfig::VirtualDnsTrace(VirtualDnsTraceData &rec) {
     rec.dns_order = rec_.record_order;
     rec.dns_ttl = rec_.default_ttl_seconds;
     rec.dns_next = rec_.next_virtual_DNS;
-    if (IsNotified())
-        rec.installed = "true";
-    else
-        rec.installed = "false";
+    rec.installed = (IsNotified() ? "true" : "false");
+    rec.floating_ip_record = rec_.floating_ip_record;
+    rec.external_visible = (rec_.external_visible ? "yes" : "no");
+    rec.reverse_resolution = (rec_.reverse_resolution ? "yes" : "no");
 }
 
 void VirtualDnsConfig::Trace(const std::string &ev) {
@@ -569,6 +574,9 @@ bool VirtualDnsRecordConfig::CanNotify() {
         return false;
 
     if (rec_.eclass == DNS_CLASS_IN && rec_.type == DNS_PTR_RECORD) {
+        if (!virt_dns_->IsReverseResolutionEnabled()) {
+            return false;
+        }
         uint32_t addr;
         if (BindUtil::IsIPv4(rec_.name, addr) ||
             BindUtil::GetAddrFromPtrName(rec_.name, addr)) {

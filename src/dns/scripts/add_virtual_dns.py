@@ -44,12 +44,23 @@ class AddVirtualDns(object):
             dyn_updates = 'true'
         else:
             dyn_updates = 'false'
-        
+
+        if self._args.external_visible:
+            external_visible = 'true'
+        else:
+            external_visible = 'false'
+
+        if self._args.reverse_resolution:
+            reverse_resolution = 'true'
+        else:
+            reverse_resolution = 'false'
+
         dp_obj.add_virtual_dns(self._args.name, self._args.domain_name, 
                                self._args.dns_domain, dyn_updates, 
                                self._args.record_order, self._args.ttl, 
                                self._args.next_vdns,
-                               self._args.floating_ip_record)
+                               self._args.floating_ip_record,
+                               external_visible, reverse_resolution)
     #end __init__
 
     def _parse_args(self, args_str):
@@ -96,6 +107,8 @@ class AddVirtualDns(object):
         parser.add_argument("--floating_ip_record",
                             choices=['dashed-ip', 'dashed-ip-tenant-name', 'vm-name', 'vm-name-tenant-name'],
                             help = "Name format for floating IP record")
+        parser.add_argument("--external_visible", help = "Make DNS records accessible from fabric", action="store_true")
+        parser.add_argument("--reverse_resolution", help = "Enable reverse resolution in the VDNS", action="store_true")
         parser.add_argument("--api_server_ip", help = "IP address of api server")
         parser.add_argument("--api_server_port", type = int, help = "Port of api server")
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
