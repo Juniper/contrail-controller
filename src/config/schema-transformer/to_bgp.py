@@ -43,7 +43,9 @@ from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
 from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
+    NodeTypeNames, INSTANCE_ID_DEFAULT, SCHEMA_KEYSPACE_NAME, \
+    CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 import discoveryclient.client as client
 try:
@@ -2650,7 +2652,7 @@ class SchemaTransformer(object):
     data + methods used/referred to by ssrc and arc greenlets
     """
 
-    _KEYSPACE = 'to_bgp_keyspace'
+    _KEYSPACE = SCHEMA_KEYSPACE_NAME
     _RT_CF = 'route_target_table'
     _SC_IP_CF = 'service_chain_ip_address_table'
     _SERVICE_CHAIN_CF = 'service_chain_table'
@@ -3594,9 +3596,7 @@ class SchemaTransformer(object):
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        gc_grace_sec = 0
-        if num_dbnodes > 1:
-            gc_grace_sec = 60
+        gc_grace_sec = CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
         for cf in column_families:
             try:

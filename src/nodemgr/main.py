@@ -67,7 +67,8 @@ def main(args_str=' '.join(sys.argv[1:])):
     default = {'rules': '',
                'collectors': [],
                'hostip': '127.0.0.1',
-               'minimum_diskgb': 256
+               'minimum_diskgb': 256,
+               'cassandra_repair_interval': 24,
               }
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
@@ -119,6 +120,9 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="Minimum disk space in GB's")
         parser.add_argument("--hostip",
                             help="IP address of host")
+        parser.add_argument("--cassandra_repair_interval", type=int,
+                            help="Time in hours to periodically run "
+                            "nodetool repair for cassandra maintenance")
     try:
         _args = parser.parse_args(remaining_argv)
     except:
@@ -157,10 +161,11 @@ def main(args_str=' '.join(sys.argv[1:])):
     elif (node_type == 'contrail-database'):
         hostip = _args.hostip
         minimum_diskgb = _args.minimum_diskgb
+        cassandra_repair_interval = _args.cassandra_repair_interval
         prog = DatabaseEventManager(
             rule_file, discovery_server,
             discovery_port, collector_addr,
-            hostip, minimum_diskgb)
+            hostip, minimum_diskgb, cassandra_repair_interval)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
         return
