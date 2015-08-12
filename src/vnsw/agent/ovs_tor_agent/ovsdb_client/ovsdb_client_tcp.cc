@@ -75,14 +75,6 @@ const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
         return server_ep_;
 }
 
-void OvsdbClientTcp::set_connect_complete_cb(SessionEventCb cb) {
-    connect_complete_cb_ = cb;
-}
-
-void OvsdbClientTcp::set_pre_connect_complete_cb(SessionEventCb cb) {
-    pre_connect_complete_cb_ = cb;
-}
-
 OvsdbClientSession *OvsdbClientTcp::FindSession(Ip4Address ip, uint16_t port) {
     // match both ip and port with available session
     // if port is not provided match only ip

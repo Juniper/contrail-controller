@@ -131,11 +131,13 @@ public:
         }
     }
 
-    void NoOpSessionEvent(OvsdbClientTcpSession *session) {
+    void NoOpSessionEvent(OvsdbClientSession *session) {
     }
 
-    void ImmediateCloseSessionEventDone(OvsdbClientTcpSession *session) {
+    void ImmediateCloseSessionEventDone(OvsdbClientSession *ses) {
         immediate_close_done_ = true;
+        OvsdbClientTcpSession *session =
+            static_cast<OvsdbClientTcpSession*>(ses);
         tcp_session_ = session;
         OvsdbClientTcp *ovs_server =
             static_cast<OvsdbClientTcp *>(init_->ovsdb_client());
@@ -143,7 +145,9 @@ public:
                 boost::bind(&OvsdbEventTest::NoOpSessionEvent, this, _1));
     }
 
-    void ImmediateCloseSessionEvent(OvsdbClientTcpSession *session) {
+    void ImmediateCloseSessionEvent(OvsdbClientSession *ses) {
+        OvsdbClientTcpSession *session =
+            static_cast<OvsdbClientTcpSession*>(ses);
         if (session->client_idl() && !session->client_idl()->deleted()) {
             // take reference for idl to validate
             immediate_close_idl_ = session->client_idl();

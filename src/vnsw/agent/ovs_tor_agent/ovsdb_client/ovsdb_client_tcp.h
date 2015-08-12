@@ -100,8 +100,6 @@ private:
 
 class OvsdbClientTcp : public TcpServer, public OvsdbClient {
 public:
-    typedef boost::function<void (OvsdbClientTcpSession *)> SessionEventCb;
-
     OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
             IpAddress tsn_ip, int keepalive_interval,
             int ha_stale_route_interval, OvsPeerManager *manager);
@@ -115,10 +113,6 @@ public:
     uint16_t port();
     Ip4Address tsn_ip();
     const boost::asio::ip::tcp::endpoint &server_ep() const;
-
-    // Used by Test Code to trigger events in specific order
-    void set_connect_complete_cb(SessionEventCb cb);
-    void set_pre_connect_complete_cb(SessionEventCb cb);
 
     // API to shutdown the TCP server
     void shutdown();
@@ -136,8 +130,6 @@ private:
     friend class OvsdbClientTcpSession;
     Ip4Address tsn_ip_;
     bool shutdown_;
-    SessionEventCb connect_complete_cb_;
-    SessionEventCb pre_connect_complete_cb_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };

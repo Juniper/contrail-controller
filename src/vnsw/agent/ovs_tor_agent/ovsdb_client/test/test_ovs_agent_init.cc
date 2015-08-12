@@ -30,6 +30,13 @@
 #define OVSDB_SERVER "build/third_party/openvswitch/ovsdb/ovsdb-server"
 #define DB_FILE_TEMPLATE "controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/vtep.db"
 
+std::string ssl_cert("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/ssl/tor-agent-self-cert.pem");
+std::string ssl_priv("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/ssl/tor-agent-self-privkey.pem");
+std::string ssl_cacert("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/ssl/cacert-tor-agent.pem");
+std::string ovsdb_cert("--certificate=controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/ssl/ovsdb-cert.pem");
+std::string ovsdb_priv("--private-key=controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/ssl/ovsdb-privkey.pem");
+std::string ovsdb_cacert("--ca-cert=controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/ssl/tor-agent-self-cert.pem");
+
 using namespace OVSDB;
 std::string db_file_name;
 std::string lock_file_name;
@@ -59,7 +66,7 @@ void signalHandler(int sig_num) {
     longjmp (env, 1);
 }
 
-static void start_ovsdb_server() {
+static void start_ovsdb_server(bool use_ssl) {
     assert(server_inited == false);
     signal(SIGABRT, signalHandler);
     signal(SIGSEGV, signalHandler);
@@ -78,8 +85,22 @@ static void start_ovsdb_server() {
     server_pid = fork();
 
     if (server_pid == 0) {
-        execlp(OVSDB_SERVER, OVSDB_SERVER, "--remote=ptcp:0:127.0.0.1",
-               db_file_name.c_str(), static_cast<char *>(NULL));
+        if (use_ssl) {
+            std::string remote_str = "--remote=ssl:127.0.0.1:" +
+                integerToString(ovsdb_port);
+            execlp(OVSDB_SERVER, OVSDB_SERVER, remote_str.c_str(),
+                   ovsdb_cert.c_str(), ovsdb_priv.c_str(),
+                   ovsdb_cacert.c_str(),
+                   db_file_name.c_str(), static_cast<char *>(NULL));
+        } else {
+            execlp(OVSDB_SERVER, OVSDB_SERVER, "--remote=ptcp:0:127.0.0.1",
+                   db_file_name.c_str(), static_cast<char *>(NULL));
+        }
+    }
+
+    if (use_ssl) {
+        // nothing more to do return from here
+        return;
     }
 
     std::string port = "";
@@ -172,12 +193,20 @@ TestOvsAgentInit::~TestOvsAgentInit() {
 void TestOvsAgentInit::CreateModules() {
     TestAgentInit::CreateModules();
     if (ovs_init_) {
-        start_ovsdb_server();
-        ovsdb_client_.reset(new OVSDB::OvsdbClientTcpTest(agent(),
-                    IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
-                    IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
-                    ovs_peer_manager()));
-        agent()->set_ovsdb_client(ovsdb_client_.get());
+        if (use_ssl_) {
+            ovsdb_client_.reset(new OVSDB::OvsdbClientSsl(agent(),
+                        IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
+                        IpAddress(Ip4Address::from_string("127.0.0.1")), 0, -1,
+                        ssl_cert, ssl_priv, ssl_cacert, ovs_peer_manager()));
+            agent()->set_ovsdb_client(ovsdb_client_.get());
+        } else {
+            start_ovsdb_server(false);
+            ovsdb_client_.reset(new OVSDB::OvsdbClientTcpTest(agent(),
+                        IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
+                        IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
+                        ovs_peer_manager()));
+            agent()->set_ovsdb_client(ovsdb_client_.get());
+        }
     }
 }
 
@@ -187,8 +216,15 @@ void TestOvsAgentInit::CreateDBTables() {
 
 void TestOvsAgentInit::RegisterDBClients() {
     TestAgentInit::RegisterDBClients();
-    if (ovs_init_)
+    if (ovs_init_) {
         ovsdb_client_->RegisterClients();
+        if (use_ssl_) {
+            // ssl server port will be available only after
+            // RegisterClients, get the port and start ovsdb server
+            ovsdb_port = ovsdb_client_->port();
+            start_ovsdb_server(true);
+        }
+    }
 }
 
 void TestOvsAgentInit::CreatePeers() {
@@ -202,12 +238,16 @@ OvsPeerManager *TestOvsAgentInit::ovs_peer_manager() const {
     return ovs_peer_manager_.get();
 }
 
-OVSDB::OvsdbClientTcp *TestOvsAgentInit::ovsdb_client() const {
+OVSDB::OvsdbClient *TestOvsAgentInit::ovsdb_client() const {
     return ovsdb_client_.get();
 }
 
 void TestOvsAgentInit::set_ovs_init(bool ovs_init) {
     ovs_init_ = ovs_init;
+}
+
+void TestOvsAgentInit::set_use_ssl(bool use_ssl) {
+    use_ssl_ = use_ssl;
 }
 
 void TestOvsAgentInit::KSyncShutdown() {
@@ -243,7 +283,7 @@ bool LoadXml(AgentUtXmlTest &test) {
     return false;
 }
 
-TestClient *OvsTestInit(const char *init_file, bool ovs_init) {
+TestClient *OvsTestInit(const char *init_file, bool ovs_init, bool use_ssl) {
     TestClient *client = new TestClient(new TestOvsAgentInit());
     TestOvsAgentInit *init =
         static_cast<TestOvsAgentInit *>(client->agent_init());
@@ -270,6 +310,7 @@ TestClient *OvsTestInit(const char *init_file, bool ovs_init) {
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
     init->set_ovs_init(ovs_init);
+    init->set_use_ssl(use_ssl);
     param->set_test_mode(true);
     agent->set_ksync_sync_mode(true);
 

@@ -16,6 +16,8 @@ class OvsdbClientSession;
 class ConnectionStateTable;
 class OvsdbClient {
 public:
+    typedef boost::function<void (OvsdbClientSession *)> SessionEventCb;
+
     static const uint32_t OVSDBKeepAliveTimer = 10000; // in millisecond
 
     // minimum value of keep alive interval
@@ -45,6 +47,10 @@ public:
     virtual void AddSessionInfo(SandeshOvsdbClient &client) = 0;
     virtual void shutdown() = 0;
 
+    // fucntions to be used by UT for event generations
+    void set_connect_complete_cb(SessionEventCb cb);
+    void set_pre_connect_complete_cb(SessionEventCb cb);
+
     void RegisterConnectionTable(Agent *agent);
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
@@ -56,6 +62,10 @@ public:
 
 protected:
     OvsPeerManager *peer_manager_;
+
+    SessionEventCb connect_complete_cb_;
+    SessionEventCb pre_connect_complete_cb_;
+
 private:
     boost::scoped_ptr<ConnectionStateTable> connection_table_;
     KSyncObjectManager *ksync_obj_manager_;

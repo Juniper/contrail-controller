@@ -25,6 +25,14 @@ OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval,
 OvsdbClient::~OvsdbClient() {
 }
 
+void OvsdbClient::set_connect_complete_cb(SessionEventCb cb) {
+    connect_complete_cb_ = cb;
+}
+
+void OvsdbClient::set_pre_connect_complete_cb(SessionEventCb cb) {
+    pre_connect_complete_cb_ = cb;
+}
+
 void OvsdbClient::RegisterConnectionTable(Agent *agent) {
     connection_table_.reset(new ConnectionStateTable(agent, peer_manager_));
 }
@@ -76,7 +84,12 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
                                    params->keepalive_interval(),
                                    params->ha_stale_route_interval(), manager));
     } else if (params->tor_protocol() == "pssl") {
-        return (new OvsdbClientSsl(agent, params, manager));
+        return (new OvsdbClientSsl(agent, IpAddress(params->tor_ip()),
+                                   params->tor_port(), params->tsn_ip(),
+                                   params->keepalive_interval(),
+                                   params->ha_stale_route_interval(),
+                                   params->ssl_cert(), params->ssl_privkey(),
+                                   params->ssl_cacert(), manager));
     }
     return NULL;
 }

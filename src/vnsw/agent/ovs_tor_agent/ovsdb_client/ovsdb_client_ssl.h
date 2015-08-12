@@ -86,7 +86,10 @@ public:
     typedef std::pair<Ip4Address, uint16_t> SessionKey;
     typedef std::map<SessionKey, OvsdbClientSslSession *> SessionMap;
 
-    OvsdbClientSsl(Agent *agent, TorAgentParam *params,
+    OvsdbClientSsl(Agent *agent, IpAddress tor_ip, int tor_port,
+            IpAddress tsn_ip, int keepalive_interval,
+            int ha_stale_route_interval, const std::string &ssl_cert,
+            const std::string &ssl_privkey, const std::string &ssl_cacert,
             OvsPeerManager *manager);
     virtual ~OvsdbClientSsl();
 
