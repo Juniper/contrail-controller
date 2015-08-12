@@ -86,6 +86,8 @@ public:
     // Manage db state count for a listener.
     void AddToDBStateCount(ListenerId listener, int count);
 
+    uint64_t GetDBStateCount(ListenerId listener);
+
     // Calculate the size across all partitions.
     // Must be called from Task which is mutually exclusive with db::DBTable.
     virtual size_t Size() const { return 0; }
