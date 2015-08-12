@@ -870,14 +870,6 @@ string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
     return ss.str();
 }
 
-void FlowTable::DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
-}
-
-void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
-                           uint64_t diff_pkts) {
-}
-
 void FlowTable::SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                                   int ace_id) {
 }
@@ -896,7 +888,8 @@ void FlowTable::SendFlowInternal(FlowEntry *fe) {
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
     fe->stats_.teardown_time = UTCTimestampUsec();
-    FlowExport(fe, diff_bytes, diff_packets);
+    agent_->pkt()->flow_mgmt_manager()->ExportEvent(fe, diff_bytes,
+                                                    diff_packets); 
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */

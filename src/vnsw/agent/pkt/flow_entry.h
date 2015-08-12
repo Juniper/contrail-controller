@@ -322,6 +322,7 @@ class FlowEntry {
     uint32_t flow_handle() const { return flow_handle_; }
     void set_flow_handle(uint32_t flow_handle, FlowTable* table);
     FlowEntry *reverse_flow_entry() { return reverse_flow_entry_.get(); }
+    void set_stats_exported(bool value) { stats_.exported = value; }
     const FlowEntry *reverse_flow_entry() const {
         return reverse_flow_entry_.get();
     }

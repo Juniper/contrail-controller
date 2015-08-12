@@ -7,6 +7,7 @@
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt_request.h"
 #include "pkt/flow_mgmt_response.h"
+#include <sandesh/common/flow_types.h>
 
 ////////////////////////////////////////////////////////////////////////////
 // Flow Management module is responsible to keep flow action in-sync with
@@ -55,6 +56,7 @@
 //   * Add of DBEntry
 //   * Change of DBEntry
 //   * Delete of DBEntry
+//   * Export of Flow
 //
 // - Flow Management Response
 //   Flow Management Tree module may generate response events as response to
@@ -65,15 +67,18 @@
 //
 // Workflow for flow manager module is given below,
 // 1. Flow Table module will enqueue message to Flow Management queue on
-//    add/delete/change of a flow
-// 2. Flow Management module builds the following tracking information
+//    add/delete/change of a flow. On Flow delete event, Flow Table module will
+//    will also enqueue export of the flow.
+// 2. Flow stats collection module will enqueue message to Flow Management
+//    queue on export of flow
+// 3. Flow Management module builds the following tracking information
 //    - Operational entry to list of dependent flows
 //    - Flow entry to list of operational-entries it is dependent on
-// 3. DBClient module registers to DBTables of interest and tracks changes to
+// 4. DBClient module registers to DBTables of interest and tracks changes to
 //    operational-db entries 
-// 4. Flow Table module will enqueue a message to Flow Management queue on
+// 5. Flow Table module will enqueue a message to Flow Management queue on
 //    add/delete/change of operational entries
-// 5. The action in flow-management module for operational entry events will
+// 6. The action in flow-management module for operational entry events will
 //    depend on the operational entry type
 //
 //    VN Add/Change      : Revaluate flows for change in policy
@@ -109,9 +114,9 @@
 //
 // Flow reference
 // --------------
-// 1. All message between flow-management and flow-table module will hold
-//    object references. This will ensure ref-count for object dont drop till
-//    messages are processed.
+// 1. All message between flow-management and flow-table/flow-stats module will
+//    hold object references. This will ensure ref-count for object dont drop
+//    till messages are processed.
 // 2. Every flow seen by flow-management module is stored in flow_tree_. Key
 //    for the tree will FlowEntryPtr which holds reference for the flow entry
 //    All other data structures will refer to flow pointer directly.
@@ -976,6 +981,7 @@ public:
     Agent *agent() const { return agent_; }
     FlowTable *flow_table() const { return flow_table_; }
     void AddEvent(FlowEntry *low);
+    void ExportEvent(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
     void DeleteEvent(FlowEntry *flow);
     void AddEvent(const DBEntry *entry, uint32_t gen_id);
     void ChangeEvent(const DBEntry *entry, uint32_t gen_id);
@@ -1006,6 +1012,13 @@ private:
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
     void LogFlow(FlowEntry *flow, const std::string &op);
+    void ExportFlow(FlowEntryPtr &flow, uint64_t diff_bytes, uint64_t diff_pkts);
+    void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
+    void GetFlowSandeshActionParams(const FlowAction &action_info,
+                                    std::string &action_str);
+    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
 
     Agent *agent_;
     FlowTable *flow_table_;
