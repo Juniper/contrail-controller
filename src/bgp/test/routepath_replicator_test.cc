@@ -144,8 +144,29 @@ protected:
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
+
+    void DeleteRoutingInstance(const string &instance_name, const string &rt_name) {
+        ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", instance_name,
+            "virtual-network", instance_name, "virtual-network-routing-instance");
+        ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", instance_name,
+            "route-target", rt_name, "instance-target");
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "virtual-network", instance_name);
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "routing-instance", instance_name);
+        ifmap_test_util::IFMapMsgNodeDelete(
+            &config_db_, "route-target", rt_name);
+        task_util::WaitForIdle();
+    }
+
+    void VerifyTableNoExists(const string &table_name) {
+        TASK_UTIL_EXPECT_TRUE(
+            bgp_server_->database()->FindTable(table_name) == NULL);
+    }
+
     void AddInetRoute(IPeer *peer, const string &instance_name,
-                      const string &prefix, int localpref, string rd = "") {
+                      const string &prefix, int localpref, string rd = "",
+                      const vector<string> &rtarget_list = vector<string>()) {
         boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -160,6 +181,15 @@ protected:
         if (!rd.empty()) {
             attr_spec.push_back(&rd_spec);
         }
+        ExtCommunitySpec spec;
+        if (!rtarget_list.empty()) {
+            BOOST_FOREACH(string tgt, rtarget_list) {
+                RouteTarget rt(RouteTarget::FromString(tgt));
+                spec.communities.push_back(get_value(rt.GetExtCommunity().begin(), 8));
+            }
+            attr_spec.push_back(&spec);
+        }
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
         request.data.reset(new BgpTable::RequestData(attr, 0, 0));
         BgpTable *table = static_cast<BgpTable *>(
@@ -453,16 +483,46 @@ protected:
         bgp_server_->rtarget_group_mgr()->EnableRouteTargetProcessing();
     }
 
-    void VerifyVpnTableStateExists(bool exists) {
+    const TableState *LookupVpnTableState() {
         RoutePathReplicator *replicator =
             bgp_server_->replicator(Address::INETVPN);
-        TASK_UTIL_EXPECT_TRUE(replicator->VpnTableStateExists() == exists);
+        RoutingInstanceMgr *mgr = bgp_server_->routing_instance_mgr();
+        RoutingInstance *master =
+                mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        assert(master);
+        BgpTable *vpn_table = master->GetTable(Address::INETVPN);
+        const TableState *vpn_ts = replicator->FindTableState(vpn_table);
+        return vpn_ts;
+    }
+
+    void VerifyVpnTableStateExists(bool exists) {
+        if (exists)
+            TASK_UTIL_EXPECT_TRUE(LookupVpnTableState() != NULL);
+        else
+            TASK_UTIL_EXPECT_TRUE(LookupVpnTableState() == NULL);
+    }
+
+    const TableState *LookupTableState(const string &instance_name) {
+        RoutePathReplicator *replicator =
+            bgp_server_->replicator(Address::INETVPN);
+
+        BgpTable *table = static_cast<BgpTable *>(
+            bgp_server_->database()->FindTable(instance_name + ".inet.0"));
+        return replicator->FindTableState(table);
+    }
+
+    const TableState *VerifyVRFTableStateExists(const string &instance_name, bool exists) {
+        const TableState *ts = NULL;
+        if (exists)
+            TASK_UTIL_EXPECT_TRUE((ts = LookupTableState(instance_name)) != NULL);
+        else
+            TASK_UTIL_EXPECT_TRUE((ts = LookupTableState(instance_name)) == NULL);
+        return ts;
     }
 
     void VerifyVpnTableStateRouteCount(uint32_t count) {
-        RoutePathReplicator *replicator =
-            bgp_server_->replicator(Address::INETVPN);
-        TASK_UTIL_EXPECT_EQ(count, replicator->VpnTableStateRouteCount());
+        const TableState *vpn_ts = LookupVpnTableState();
+        TASK_UTIL_EXPECT_EQ(count, (vpn_ts ? vpn_ts->route_count() : 0));
     }
 
     EventManager evm_;
@@ -2227,6 +2287,161 @@ TEST_F(ReplicationTest, VpnTableStateDelete3) {
     DeleteVPNRoute(NULL, "192.168.0.1:1:10.0.1.1/32");
     TASK_UTIL_EXPECT_TRUE(bgp_server_->destroyed());
 }
+
+// Test a case where routing instance is deleted with replicated route
+// In this case the route is replicated due to rtarget of the route not due
+// to export_rt of the VRF. Simulate the static route scenario
+TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to blue table with the Rtarget that red imports.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1",
+                 list_of("target:64496:2"));
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("red", "target:64496:2");
+    task_util::WaitForIdle();
+
+    // Make sure that the blue inet table is gone.
+    VerifyTableNoExists("blue.inet.0");
+    VerifyTableNoExists("red.inet.0");
+}
+
+// Test a case where routing instance is deleted with replicated route
+// In this case the route is replicated due to rtarget of the route not due
+// to export_rt of the VRF. Delete the routing instance that importing the route
+TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_1) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to blue table with the Rtarget that red imports.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1",
+                 list_of("target:64496:2"));
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("red", "target:64496:2");
+    task_util::WaitForIdle();
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    // Make sure that the blue inet table is gone.
+    VerifyTableNoExists("blue.inet.0");
+    VerifyTableNoExists("red.inet.0");
+}
+
+// Test a case where routing instance is deleted with replicated routes
+// Same as DeleteInstanceWithReplicatedRoute with multiple routes in
+// different partition
+TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_2) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add multiple routes to blue table with the Rtarget that red imports.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1",
+                 list_of("target:64496:2"));
+    AddInetRoute(peers_[0], "blue", "10.0.1.2/32", 100, "192.168.0.1:1",
+                 list_of("target:64496:2"));
+    AddInetRoute(peers_[0], "blue", "10.0.1.3/32", 100, "192.168.0.1:1",
+                 list_of("target:64496:2"));
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.2/32");
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.3/32");
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("red", "target:64496:2");
+    task_util::WaitForIdle();
+
+    // Make sure that the blue inet table is gone.
+    VerifyTableNoExists("blue.inet.0");
+    VerifyTableNoExists("red.inet.0");
+}
+
+TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to blue table
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    const TableState *ts_blue = VerifyVRFTableStateExists("blue", true);
+    const TableState *ts_red = VerifyVRFTableStateExists("red", true);
+    TASK_UTIL_EXPECT_EQ(1, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+
+    RemoveInstanceRouteTarget("blue", "target:64496:1");
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceImportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("blue").size());
+
+    ts_blue = VerifyVRFTableStateExists("blue", true);
+    ts_red = VerifyVRFTableStateExists("red", true);
+
+    TASK_UTIL_EXPECT_TRUE(ts_red->empty());
+    TASK_UTIL_EXPECT_TRUE(ts_blue->empty());
+    TASK_UTIL_EXPECT_EQ(0, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("blue", "target:64496:1");
+    DeleteRoutingInstance("red", "target:64496:2");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+                                    "routing-instance", "blue",
+                                    "routing-instance", "red",
+                                    "connection");
+    task_util::WaitForIdle();
+
+    VerifyVRFTableStateExists("blue", false);
+    VerifyVRFTableStateExists("red", false);
+}
+
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

@@ -32,19 +32,17 @@ class TaskTrigger;
 // An instance is created for each VRF table and for the VPN table.
 //
 // An entry for VPN table is created when RoutePathReplicator is initialized.
-// This entry gets deleted when the RoutePathReplicator is terminating.
 // An entry for a VRF table is created when processing a Join for the first
-// export route target for the VRF. It is removed when a Leave for the last
-// export route target for the VRF is processed.
+// export route target for the VRF.
+// TableState is removed when a Bgp table is deleted.
+// TableState takes a delete reference to the BgpTable and DeleteActor of the
+// TableState manages the unregister of this listener from the BgpTable and
+// delete of TableState object.
 //
 // A TableState entry keeps track of all the export route targets for a VRF
 // by maintaining the GroupList. TableState cannot be deleted if GroupList
-// is non-empty.
-//
-// The route_count_ keeps track of the number of routes exported to secondary
-// tables.  TableState can be deleted only if the count is 0. This mechanism
-// is required for VPN table since we do not walk the entire VPN table when
-// doing Leave processing for VRF import targets.
+// is non-empty and table has replicated routes. Replicated routes are tracked
+// using the DBStateCount of this listener
 //
 class TableState {
 public:
@@ -56,31 +54,48 @@ public:
     void ManagedDelete();
     bool MayDelete() const;
 
+    LifetimeActor *deleter();
+    const LifetimeActor *deleter() const;
+    bool deleted() const;
+
     void AddGroup(RtGroup *group);
     void RemoveGroup(RtGroup *group);
     const RtGroup *FindGroup(RtGroup *group) const;
     bool empty() const { return list_.empty(); }
-    bool deleted() const { return deleted_; }
 
-    uint32_t route_count() const { return route_count_; }
-    uint32_t increment_route_count() const {
-        return route_count_.fetch_and_increment();
-    }
-    uint32_t decrement_route_count() const {
-        return route_count_.fetch_and_decrement();
-    }
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
     void set_listener_id(DBTableBase::ListenerId listener_id) {
         assert(listener_id_ == DBTableBase::kInvalidId);
         listener_id_ = listener_id;
     }
 
+    uint32_t route_count() const {
+        return table_->GetDBStateCount(listener_id());
+    }
+
+    RoutePathReplicator *replicator() {
+        return replicator_;
+    }
+
+    const RoutePathReplicator *replicator() const {
+        return replicator_;
+    }
+
+    BgpTable *table() const {
+        return table_;
+    }
+
+    BgpTable *table() {
+        return table_;
+    }
+
+    void RetryDelete();
 private:
+    class DeleteActor;
     RoutePathReplicator *replicator_;
     BgpTable *table_;
     DBTableBase::ListenerId listener_id_;
-    mutable tbb::atomic<uint32_t> route_count_;
-    bool deleted_;
+    boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<TableState> table_delete_ref_;
     GroupList list_;
 
@@ -259,6 +274,7 @@ public:
 private:
     friend class ReplicationTest;
     friend class RtReplicated;
+    friend class TableState;
 
     typedef std::map<BgpTable *, TableState *> TableStateList;
     typedef std::map<BgpTable *, BulkSyncState *> BulkSyncOrders;
@@ -279,34 +295,30 @@ private:
     void JoinVpnTable(RtGroup *group);
     void LeaveVpnTable(RtGroup *group);
 
-    bool RouteListener(const TableState *ts, DBTablePartBase *root,
+    bool RouteListener(TableState *ts, DBTablePartBase *root,
                        DBEntryBase *entry);
     void DeleteSecondaryPath(BgpTable  *table, BgpRoute *rt,
                              const RtReplicated::SecondaryRouteInfo &rtinfo);
-    void DBStateSync(BgpTable *table, const TableState *ts, BgpRoute *rt,
+    void DBStateSync(BgpTable *table, TableState *ts, BgpRoute *rt,
                      RtReplicated *dbstate,
                      const RtReplicated::ReplicatedRtPathList *future);
 
-    bool VpnTableStateExists() const { return (vpn_ts_ != NULL); }
-    uint32_t VpnTableStateRouteCount() const {
-        return (vpn_ts_ ? vpn_ts_->route_count() : 0);
+    bool BulkSyncExists(BgpTable *table) const {
+        return (bulk_sync_.find(table) != bulk_sync_.end());
     }
 
     BgpServer *server() { return server_; }
     Address::Family family() const { return family_; }
+    const BgpServer *server() const { return server_; };
 
-    // Mutex to protect unreg_table_list_ and bulk_sync_ from multiple
-    // DBTable tasks.
+    // Mutex to protect bulk_sync_ from multiple DBTable tasks.
     tbb::mutex mutex_;
     BulkSyncOrders bulk_sync_;
-    UnregTableList unreg_table_list_;
     TableStateList table_state_list_;
     BgpServer *server_;
     Address::Family family_;
     BgpTable *vpn_table_;
-    TableState *vpn_ts_;
     boost::scoped_ptr<TaskTrigger> walk_trigger_;
-    boost::scoped_ptr<TaskTrigger> unreg_trigger_;
     SandeshTraceBufferPtr trace_buf_;
 };
 
