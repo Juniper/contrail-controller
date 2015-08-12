@@ -4,6 +4,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
 import sys
 
 Import('BuildEnv')
@@ -89,7 +90,6 @@ OpEnv.SConscript('plugins/alarm_partial_sysinfo/SConscript', exports='OpEnv', du
 OpEnv.SConscript('plugins/alarm_bgp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_xmpp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_vrouter_interface/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('test/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
@@ -112,3 +112,73 @@ OpEnv.Alias('install', OpEnv.InstallAs(
 OpEnv.Alias('install', OpEnv.Install(
             OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
             'contrail-alarm-gen.ini'))
+
+if OpEnv['OPT'] != 'pycov':
+    OpEnv.SConscript('test/SConscript', exports='OpEnv', duplicate = 0)
+else:
+    test_sources = [
+        'run_tests.sh',
+        'requirements.txt',
+        'test-requirements.txt',
+        '.testr.conf',
+        '.coveragerc',
+        'test',
+        ]
+
+    test_sources_rules = []
+    for file in test_sources:
+        test_sources_rules.append(
+           OpEnv.Install(Dir('.'), "#controller/src/opserver/" + file))
+
+    sdist_depends.extend(test_sources_rules)
+    OpEnv.Depends(sdist_gen, sdist_depends)
+
+    buildspace_link = os.environ.get('CONTRAIL_REPO')
+    if buildspace_link:
+        # in CI environment shebang limit exceeds for python
+        # in easy_install/pip, reach to it via symlink
+        top_path = buildspace_link + '/' + Dir('.').path
+        top_dir = Dir(top_path)
+    else:
+        top_dir = Dir('.')
+
+    vm_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/opserver/test/sandesh/virtual_machine.sandesh',
+            'sandesh/', False)
+    vn_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/opserver/test/sandesh/virtual_network.sandesh',
+            'sandesh/', False)
+    stats_test_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/opserver/test/sandesh/stats_test.sandesh',
+            'sandesh/', False)
+    alarm_test_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/opserver/test/sandesh/alarm_test.sandesh',
+            'sandesh/', False)
+    object_table_test_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/opserver/test/sandesh/object_table_test.sandesh',
+            'sandesh/', False)
+    flow_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/sandesh/common/flow.sandesh',
+            'sandesh/', False)
+    qe_test_pkg = OpEnv.SandeshGenPy(
+            '#controller/src/query_engine/qe.sandesh',
+            'sandesh/', False)
+    sandesh_pkgs = [vm_pkg, vn_pkg, stats_test_pkg, alarm_test_pkg,
+                    object_table_test_pkg, flow_pkg, qe_test_pkg]
+
+    testr_str = 'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + \
+              ' && tools_path=../config/common/tests/ ' + \
+              'build_top=' + Dir('#').abspath + '/build/debug ' \
+              'CFLAGS= LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:../../../build/lib ' \
+              'python setup.py run_tests %s 2>&1 | ' \
+              'tee %s.log"'
+    cov_cmd = OpEnv.Command('coveragetest.log', sdist_gen + sandesh_pkgs,
+                testr_str % ('--coverage', 'coveragetest'))
+    test_cmd = OpEnv.Command('test.log', sdist_gen + sandesh_pkgs,
+                testr_str % ('', 'test'))
+
+    OpEnv.Alias('tests', test_cmd)
+    OpEnv.Alias('coverage', cov_cmd)
+    OpEnv.Alias('controller/src/opserver:tests', test_cmd)
+    OpEnv.Alias('controller/src/opserver:coverage', cov_cmd)
+    OpEnv.AlwaysBuild(test_cmd, cov_cmd)
