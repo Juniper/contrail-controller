@@ -122,6 +122,11 @@ public:
         }
     }
 
+    uint64_t GetDBStateCount(ListenerId listener) {
+        assert(db_state_accounting_ && listener != DBTableBase::kInvalidId);
+        return state_count_[listener];
+    }
+
     void FillListeners(vector<ShowTableListener> *listeners) const {
         tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
         ListenerId id = 0;
@@ -201,6 +206,10 @@ void DBTableBase::RunNotify(DBTablePartBase *tpart, DBEntryBase *entry) {
 
 void DBTableBase::AddToDBStateCount(ListenerId listener, int count) {
     info_->AddToDBStateCount(listener, count);
+}
+
+uint64_t DBTableBase::GetDBStateCount(ListenerId listener) {
+    return info_->GetDBStateCount(listener);
 }
 
 bool DBTableBase::MayDelete() const {
