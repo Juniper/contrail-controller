@@ -106,7 +106,7 @@ struct FlowKey {
 
 struct FlowStats {
     FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), exported(false), fip(0),
+        bytes(0), packets(0), intf_in(0), fip(0),
         fip_vm_port_id(Interface::kInvalidIndex) {}
 
     uint64_t setup_time;
@@ -115,7 +115,6 @@ struct FlowStats {
     uint64_t bytes;
     uint64_t packets;
     uint32_t intf_in;
-    bool exported;
     // Following fields are required for FIP stats accounting
     uint32_t fip;
     uint32_t fip_vm_port_id;

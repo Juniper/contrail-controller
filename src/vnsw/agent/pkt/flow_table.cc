@@ -71,10 +71,6 @@ FlowTable::~FlowTable() {
 void FlowTable::Init() {
     FlowEntry::Init();
     rand_gen_ = boost::uuids::random_generator();
-    agent_->acl_table()->set_ace_flow_sandesh_data_cb
-        (boost::bind(&FlowTable::SetAceSandeshData, this, _1, _2, _3));
-    agent_->acl_table()->set_acl_flow_sandesh_data_cb
-        (boost::bind(&FlowTable::SetAclFlowSandeshData, this, _1, _2, _3));
 
     return;
 }
@@ -859,33 +855,6 @@ void FlowTable::UpdateKSync(FlowEntry *flow) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Introspect routines
-/////////////////////////////////////////////////////////////////////////////
-string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
-    string uuid_str = UuidToString(acl->GetUuid());
-    stringstream ss;
-    ss << uuid_str << ":";
-    ss << ace_id;
-    return ss.str();
-}
-
-void FlowTable::DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
-}
-
-void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
-                           uint64_t diff_pkts) {
-}
-
-void FlowTable::SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
-                                  int ace_id) {
-}
-
-void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
-                                      const int last_count) {
-}
-
 void FlowTable::SendFlowInternal(FlowEntry *fe) {
     if (fe->deleted()) {
         /* Already deleted return from here. */
@@ -896,7 +865,8 @@ void FlowTable::SendFlowInternal(FlowEntry *fe) {
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
     fe->stats_.teardown_time = UTCTimestampUsec();
-    FlowExport(fe, diff_bytes, diff_packets);
+    agent_->pkt()->flow_mgmt_manager()->ExportEvent(fe, diff_bytes,
+                                                    diff_packets);
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */

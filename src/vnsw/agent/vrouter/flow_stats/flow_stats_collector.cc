@@ -22,6 +22,7 @@
 #include <uve/interface_uve_stats_table.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
+#include <pkt/flow_mgmt.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <vrouter/flow_stats/flow_stats_interval_types.h>
 
@@ -226,6 +227,7 @@ bool FlowStatsCollector::Run() {
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
     FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
+    FlowMgmtManager *mgr = agent_uve_->agent()->pkt()->flow_mgmt_manager();
 
     run_counter_++;
     if (!flow_obj->Size()) {
@@ -315,10 +317,10 @@ bool FlowStatsCollector::Run() {
                 stats->bytes = bytes;
                 stats->packets = packets;
                 stats->last_modified_time = curr_time;
-                flow_obj->FlowExport(entry, diff_bytes, diff_pkts);
-            } else if (!stats->exported && !entry->deleted()) {
+                mgr->ExportEvent(entry, diff_bytes, diff_pkts);
+            } else if (!entry->deleted()) {
                 /* export flow (reverse) for which traffic is not seen yet. */
-                flow_obj->FlowExport(entry, 0, 0);
+                mgr->ExportEvent(entry, 0, 0);
             }
         }
 
