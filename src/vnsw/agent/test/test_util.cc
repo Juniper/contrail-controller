@@ -3381,6 +3381,12 @@ BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     return channel->bgp_peer_id();
 }
 
+static bool ControllerCleanupTrigger() {
+    Agent::GetInstance()->controller()->Cleanup();
+    Agent::GetInstance()->set_controller_xmpp_channel(NULL, 1);
+    return true;
+}
+
 void DeleteBgpPeer(Peer *peer) {
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
 
@@ -3400,7 +3406,10 @@ void DeleteBgpPeer(Peer *peer) {
         Fire();
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
-    Agent::GetInstance()->controller()->Cleanup();
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp");
+    std::auto_ptr<TaskTrigger> trigger_
+        (new TaskTrigger(boost::bind(ControllerCleanupTrigger), task_id, 0));
+    trigger_->Set();
     client->WaitForIdle();
     if (channel) {
         XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>

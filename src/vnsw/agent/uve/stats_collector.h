@@ -46,6 +46,18 @@ public:
         }
     }
 
+    // To be used by UT only
+    void TestStartStopTimer (bool stop) {
+        if (timer_ != NULL) {
+            if (stop) {
+                assert(timer_->Cancel());
+            } else {
+                timer_->Start(expiry_time_,
+                              boost::bind(&StatsCollector::TimerExpiry, this));
+            }
+        }
+    }
+
     int expiry_time() const { return expiry_time_; }
     void set_expiry_time(int time) {
         if (time != expiry_time_) {
