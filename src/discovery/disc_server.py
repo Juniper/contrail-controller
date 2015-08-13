@@ -8,10 +8,10 @@ between http/rest and database interfaces.
 """
 
 import gevent
-from disc_cassdb import DiscoveryCassandraClient
 from gevent import monkey
 monkey.patch_all()
 from gevent import hub
+from disc_cassdb import DiscoveryCassandraClient
 
 import sys
 import time

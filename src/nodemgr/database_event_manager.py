@@ -27,7 +27,8 @@ from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE
+    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE, \
+    RepairNeededKeyspaces
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
@@ -43,7 +44,7 @@ from database.sandesh.database.process_info.constants import \
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr,
-                 hostip, minimum_diskgb):
+                 hostip, minimum_diskgb, cassandra_repair_interval):
         EventManager.__init__(
             self, rule_file, discovery_server,
             discovery_port, collector_addr)
@@ -52,6 +53,7 @@ class DatabaseEventManager(EventManager):
         self.module_id = ModuleNames[self.module]
         self.hostip = hostip
         self.minimum_diskgb = minimum_diskgb
+        self.cassandra_repair_interval = cassandra_repair_interval
         self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
         self.add_current_process()
     # end __init__
@@ -200,6 +202,14 @@ class DatabaseEventManager(EventManager):
 
     # end database_periodic
 
+    def cassandra_repair(self):
+        for keyspace in RepairNeededKeyspaces:
+            repair_file_name = '/var/log/cassandra/repair-' + keyspace + '.log'
+            with open(repair_file_name, "a") as repair_file:
+                subprocess.Popen(["nodetool", "repair", "-pr", keyspace],
+                                 stdout=repair_file, stderr=repair_file)
+    #end cassandra_repair
+
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(
             NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
@@ -230,4 +240,7 @@ class DatabaseEventManager(EventManager):
             if headers['eventname'].startswith("TICK_60"):
                 self.database_periodic()
                 prev_current_time = self.event_tick_60(prev_current_time)
+                # Perform nodetool repair every cassandra_repair_interval hours
+                if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
+                    self.cassandra_repair()
             self.listener_nodemgr.ok(self.stdout)
