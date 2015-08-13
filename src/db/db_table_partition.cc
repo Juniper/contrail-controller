@@ -98,6 +98,7 @@ void DBTablePartition::Add(DBEntry *entry) {
     assert(ret.second);
     entry->set_table_partition(static_cast<DBTablePartBase *>(this));
     Notify(entry);
+    parent()->AddRemoveCallback(entry, true);
 }
 
 void DBTablePartition::Change(DBEntry *entry) {
@@ -108,6 +109,7 @@ void DBTablePartition::Change(DBEntry *entry) {
 void DBTablePartition::Remove(DBEntryBase *db_entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     DBEntry *entry = static_cast<DBEntry *>(db_entry);
+    parent()->AddRemoveCallback(entry, false);
 
     bool success = tree_.erase(*entry);
     if (!success) {

@@ -303,11 +303,11 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             // Remove the Path from the route
             rt->RemovePath(BgpPath::BGP_XMPP, peer, path_id);
 
+            // Delete the route only if all paths are gone.
             if (rt->front() == NULL) {
-                // Delete the route only if all paths are gone
                 root->Delete(rt);
             } else {
-               root->Notify(rt);
+                root->Notify(rt);
             }
         }
         break;
