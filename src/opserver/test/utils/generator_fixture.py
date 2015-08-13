@@ -48,6 +48,7 @@ class GeneratorFixture(fixtures.Fixture):
         self._start_time = start_time
         self._node_type = node_type
         self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':0'
+        self.flow_vmi_uuid = str(uuid.uuid1())
     # end __init__
 
     def setUp(self):
@@ -117,7 +118,8 @@ class GeneratorFixture(fixtures.Fixture):
             packets=flow.packets, diff_bytes=flow.diff_bytes,
             diff_packets=flow.diff_packets, action=action,
             sg_rule_uuid=flow.sg_rule_uuid,
-            nw_ace_uuid=flow.nw_ace_uuid)
+            nw_ace_uuid=flow.nw_ace_uuid,
+            vmi_uuid=flow.vmi_uuid)
         flow_object = FlowDataIpv4Object(flowdata=flow_data, sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
@@ -147,7 +149,8 @@ class GeneratorFixture(fixtures.Fixture):
                                            protocol=i / 2,
                                            action='pass',
                                            sg_rule_uuid=str(uuid.uuid1()),
-                                           nw_ace_uuid=str(uuid.uuid1())))
+                                           nw_ace_uuid=str(uuid.uuid1()),
+                                           vmi_uuid=self.flow_vmi_uuid))
             self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
         
@@ -162,7 +165,8 @@ class GeneratorFixture(fixtures.Fixture):
                                            protocol=i / 2,
                                            action='drop',
                                            sg_rule_uuid=str(uuid.uuid1()),
-                                           nw_ace_uuid=str(uuid.uuid1())))
+                                           nw_ace_uuid=str(uuid.uuid1()),
+                                           vmi_uuid=self.flow_vmi_uuid))
             self.egress_flows[i].samples = []
             self._logger.info(str(self.egress_flows[i]))
         

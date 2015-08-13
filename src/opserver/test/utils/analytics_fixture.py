@@ -6,6 +6,7 @@ import resource
 import socket
 import fixtures
 import subprocess
+import uuid
 from util import retry
 from mockredis import mockredis
 from mockkafka import mockkafka
@@ -1298,7 +1299,40 @@ class AnalyticsFixture(fixtures.Fixture):
                              filter='action=pass')
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
+
+        # verify vmi_uuid field
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.flow_start_time),
+                             end_time=str(generator_obj.flow_end_time),
+                             select_fields=['UuidKey', 'vmi_uuid'],
+                             where_clause='vrouter=%s'% vrouter)
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt)
+        for r in res:
+            assert(r['vmi_uuid'] == generator_obj.flow_vmi_uuid)
+
+        # verify vmi_uuid with filter
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.flow_start_time),
+                             end_time=str(generator_obj.flow_end_time),
+                             select_fields=['UuidKey', 'vmi_uuid'],
+                             where_clause='vrouter=%s'% vrouter,
+                             filter='vmi_uuid=%s'% generator_obj.flow_vmi_uuid)
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt)
+        for r in res:
+            assert(r['vmi_uuid'] == generator_obj.flow_vmi_uuid)
+
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.flow_start_time),
+                             end_time=str(generator_obj.flow_end_time),
+                             select_fields=['UuidKey', 'vmi_uuid'],
+                             where_clause='vrouter=%s'% vrouter,
+                             filter='vmi_uuid=%s'% str(uuid.uuid1()))
+        self.logger.info(str(res))
+        assert(len(res) == 0)
         return True
+
     # end verify_flow_table
 
     def verify_flow_series_aggregation_binning(self, generator_object):
