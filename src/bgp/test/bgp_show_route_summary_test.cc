@@ -145,7 +145,8 @@ protected:
         }
     }
 
-    void PauseTableDeletion() {
+    void PauseResumeTableDeletion(bool pause) {
+        task_util::TaskSchedulerLock lock;
         RoutingInstanceMgr *rim = server_->routing_instance_mgr();
         for (RoutingInstanceMgr::name_iterator it1 = rim->name_begin();
              it1 != rim->name_end(); ++it1) {
@@ -154,23 +155,21 @@ protected:
                  rtinstance->GetTables().begin();
                  it2 != rtinstance->GetTables().end(); ++it2) {
                 BgpTable *table = it2->second;
-                table->deleter()->PauseDelete();
+                if (pause) {
+                    table->deleter()->PauseDelete();
+                } else {
+                    table->deleter()->ResumeDelete();
+                }
             }
         }
     }
 
+    void PauseTableDeletion() {
+        PauseResumeTableDeletion(true);
+    }
+
     void ResumeTableDeletion() {
-        RoutingInstanceMgr *rim = server_->routing_instance_mgr();
-        for (RoutingInstanceMgr::name_iterator it1 = rim->name_begin();
-             it1 != rim->name_end(); ++it1) {
-            RoutingInstance *rtinstance = it1->second;
-            for (RoutingInstance::RouteTableList::iterator it2 =
-                 rtinstance->GetTables().begin();
-                 it2 != rtinstance->GetTables().end(); ++it2) {
-                BgpTable *table = it2->second;
-                table->deleter()->ResumeDelete();
-            }
-        }
+        PauseResumeTableDeletion(false);
     }
 
     EventManager evm_;
