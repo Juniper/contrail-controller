@@ -51,14 +51,18 @@
 #include <uve/vrouter_uve_entry.h>
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
-const string FlowTable::kTaskName = "Agent::FlowHandler";
+const string FlowTable::kTaskName = "Agent::FlowTable";
 boost::uuids::random_generator FlowTable::rand_gen_;
 
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
 FlowTable::FlowTable(Agent *agent) : 
-    agent_(agent), flow_entry_map_(), linklocal_flow_count_() {
+    agent_(agent),
+    flow_entry_map_(),
+    linklocal_flow_count_(),
+    request_queue_(agent_->task_scheduler()->GetTaskId(kTaskName), 1,
+                   boost::bind(&FlowTable::RequestHandler, this, _1)) {
     max_vm_flows_ = (uint32_t)
         (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
          agent->params()->max_vm_flows()) / 100;
@@ -86,28 +90,56 @@ void FlowTable::InitDone() {
 }
 
 void FlowTable::Shutdown() {
+    request_queue_.Shutdown();
+}
+
+// Generate flow events to FlowTable queue
+void FlowTable::FlowEvent(FlowTableRequest::Event event, FlowEntry *flow) {
+    FlowTableRequest req;
+    req.flow_ = flow;
+    req.event_ = FlowTableRequest::INVALID;
+
+    switch (event) {
+    case FlowTableRequest::ADD_FLOW:
+        // The method can work in SYNC mode by calling Add routine below or
+        // in ASYNC mode by enqueuing a request
+        // Add(flow, flow->reverse_flow_entry());
+        req.event_ = FlowTableRequest::ADD_FLOW;
+        break;
+
+    case FlowTableRequest::UPDATE_FLOW:
+        req.event_ = FlowTableRequest::UPDATE_FLOW;
+        break;
+
+    default:
+        assert(0);
+    }
+
+    if (req.event_ != FlowTableRequest::INVALID)
+        request_queue_.Enqueue(req);
+}
+
+bool FlowTable::RequestHandler(const FlowTableRequest &req) {
+    switch (req.event_) {
+    case FlowTableRequest::ADD_FLOW: {
+        Add(req.flow_.get());
+        break;
+    }
+
+    case FlowTableRequest::UPDATE_FLOW: {
+        Update(req.flow_.get());
+        break;
+    }
+    default:
+         assert(0);
+
+    }
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable Add/Delete routines
 /////////////////////////////////////////////////////////////////////////////
-FlowEntry *FlowTable::Allocate(const FlowKey &key) {
-    FlowEntry *flow = new FlowEntry(key);
-    std::pair<FlowEntryMap::iterator, bool> ret;
-    ret = flow_entry_map_.insert(std::pair<FlowKey, FlowEntry*>(key, flow));
-    if (ret.second == false) {
-        delete flow;
-        flow = ret.first->second;
-        flow->set_deleted(false);
-        DeleteFlowInfo(flow);
-    } else {
-        flow->stats_.setup_time = UTCTimestampUsec();
-        agent_->stats()->incr_flow_created();
-    }
-
-    return flow;
-}
-
 FlowEntry *FlowTable::Find(const FlowKey &key) {
     FlowEntryMap::iterator it;
 
@@ -117,6 +149,120 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
     } else {
         return NULL;
     }
+}
+
+void FlowTable::Copy(FlowEntry *lhs, const FlowEntry *rhs) {
+    DeleteFlowInfo(lhs);
+    lhs->Copy(rhs);
+}
+
+FlowEntry *FlowTable::Locate(FlowEntry *flow) {
+    std::pair<FlowEntryMap::iterator, bool> ret;
+    ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
+    if (ret.second == true) {
+        flow->stats_.setup_time = UTCTimestampUsec();
+        agent_->stats()->incr_flow_created();
+        ret.first->second->set_on_tree();
+        return flow;
+    }
+
+    // Flow entry already present in FlowTable. We cannot just replace the
+    // FlowEntry in tree since it can have references. Copy the data fields
+    // from new flow to old flow
+    Copy(ret.first->second, flow);
+    ret.first->second->set_deleted(false);
+    return ret.first->second;
+}
+
+void FlowTable::Add(FlowEntry *flow) {
+    // The reference to reverse flow is about to be dropped below. This can
+    // potentially release the reverse flow. Hold reference to reverse flow
+    // till this method is complete
+    FlowEntryPtr rflow_ptr = flow->reverse_flow_entry();
+
+    // The forward and reverse flow in request are linked. Unlink the flows
+    // first. Flow table processing will link them if necessary
+    flow->set_reverse_flow_entry(NULL);
+    if (rflow_ptr.get())
+        rflow_ptr->set_reverse_flow_entry(NULL);
+
+    flow = Locate(flow);
+    FlowEntry *rflow = NULL;
+    if (rflow_ptr.get())
+        rflow = Locate(rflow_ptr.get());
+
+    Add(flow, rflow);
+}
+
+void FlowTable::Update(FlowEntry *flow_req) {
+    // The reference to reverse flow is about to be dropped below. This can
+    // potentially release the reverse flow. Hold reference to reverse flow
+    // till this method is complete
+    FlowEntryPtr rflow_ptr = flow_req->reverse_flow_entry();
+
+    // The forward and reverse flow in request are linked. Unlink the flows
+    // first. Flow table processing will link them if necessary
+    flow_req->set_reverse_flow_entry(NULL);
+    if (rflow_ptr.get())
+        rflow_ptr->set_reverse_flow_entry(NULL);
+
+    FlowEntry *flow = Find(flow_req->key());
+    if (flow == NULL)
+        return;
+    if (flow->deleted() || flow->IsShortFlow())
+        return;
+    Copy(flow, flow_req);
+
+    FlowEntry *rflow = NULL;
+    if (rflow_ptr.get()) {
+        rflow = Find(rflow_ptr->key());
+        if (rflow)
+            Copy(rflow, rflow_ptr.get());
+    }
+
+    Add(flow, rflow);
+}
+
+void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
+    // If the flows are already present, we want to retain the Forward and
+    // Reverse flow characteristics for flow.
+    // We have following conditions,
+    // flow has ReverseFlow set, rflow has ReverseFlow reset
+    //      Swap flow and rflow
+    // flow has ReverseFlow set, rflow has ReverseFlow set
+    //      Unexpected case. Continue with flow as forward flow
+    // flow has ReverseFlow reset, rflow has ReverseFlow reset
+    //      Unexpected case. Continue with flow as forward flow
+    // flow has ReverseFlow reset, rflow has ReverseFlow set
+    //      No change in forward/reverse flow. Continue as forward-flow
+    if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
+        rflow && !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
+        FlowEntry *tmp = flow;
+        flow = rflow;
+        rflow = tmp;
+    }
+
+    UpdateReverseFlow(flow, rflow);
+
+    // Add the forward flow after adding the reverse flow first to avoid 
+    // following sequence
+    // 1. Agent adds forward flow
+    // 2. vrouter releases the packet
+    // 3. Packet reaches destination VM and destination VM replies
+    // 4. Agent tries adding reverse flow. vrouter processes request in core-0
+    // 5. vrouter gets reverse packet in core-1
+    // 6. If (4) and (3) happen together, vrouter can allocate 2 hash entries
+    //    for the flow.
+    //
+    // While the scenario above cannot be totally avoided, programming reverse
+    // flow first will reduce the probability
+    if (rflow) {
+        UpdateKSync(rflow);
+        AddFlowInfo(rflow);
+    }
+
+    UpdateKSync(flow);
+    AddFlowInfo(flow);
 }
 
 void FlowTable::DeleteInternal(FlowEntryMap::iterator &it) {
@@ -201,38 +347,6 @@ void FlowTable::DeleteAll() {
         }
         Delete(entry->key(), true);
     }
-}
-
-void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
-    flow->reset_flags(FlowEntry::ReverseFlow);
-    /* reverse flow may not be aviable always, eg: Flow Audit */
-    if (rflow != NULL)
-        rflow->set_flags(FlowEntry::ReverseFlow);
-    UpdateReverseFlow(flow, rflow);
-
-    flow->GetPolicyInfo();
-    // Add the forward flow after adding the reverse flow first to avoid 
-    // following sequence
-    // 1. Agent adds forward flow
-    // 2. vrouter releases the packet
-    // 3. Packet reaches destination VM and destination VM replies
-    // 4. Agent tries adding reverse flow. vrouter processes request in core-0
-    // 5. vrouter gets reverse packet in core-1
-    // 6. If (4) and (3) happen together, vrouter can allocate 2 hash entries
-    //    for the flow.
-    //
-    // While the scenario above cannot be totally avoided, programming reverse
-    // flow first will reduce the probability
-
-    if (rflow) {
-        rflow->GetPolicyInfo();
-        ResyncAFlow(rflow);
-        AddFlowInfo(rflow);
-    }
-
-
-    ResyncAFlow(flow);
-    AddFlowInfo(flow);
 }
 
 bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
@@ -486,25 +600,17 @@ void FlowTable::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
 // Flow revluation routines. Processing will vary based on DBEntry type
 /////////////////////////////////////////////////////////////////////////////
 void FlowTable::ResyncAFlow(FlowEntry *fe) {
-    fe->UpdateRpf();
-    fe->DoPolicy();
+    fe->ResyncFlow();
+
+    // If this is forward flow, the SG action could potentially have changed
+    // due to reflexive nature. Update KSync for reverse flow first
+    FlowEntry *rflow = (fe->is_flags_set(FlowEntry::ReverseFlow) == false) ?
+        fe->reverse_flow_entry() : NULL;
+    if (rflow) {
+        UpdateKSync(rflow);
+    }
+
     UpdateKSync(fe);
-
-    // If this is forward flow, update the SG action for reflexive entry
-    if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
-        return;
-    }
-
-    FlowEntry *rflow = fe->reverse_flow_entry();
-    if (rflow == NULL) {
-        return;
-    }
-
-    rflow->UpdateReflexiveAction();
-    // Check if there is change in action for reverse flow
-    rflow->ActionRecompute();
-
-    UpdateKSync(rflow);
 }
 
 void FlowTable::RevaluateInterface(FlowEntry *flow) {
@@ -805,7 +911,8 @@ bool FlowTable::FlowResponseHandler(const FlowMgmtResponse *resp) {
             RevaluateRoute(flow, rt);
             break;
         }
-        assert(0);
+
+        assert(active_flow == false);
         break;
     }
 

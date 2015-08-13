@@ -122,6 +122,8 @@ struct FlowStats {
 };
 
 typedef std::list<MatchAclParams> MatchAclParamsList;
+// IMPORTANT: Keep this structure assignable. Assignment operator is used in
+// FlowEntry::Copy() on this structure
 struct MatchPolicy {
     MatchPolicy():
         m_acl_l(), policy_action(0), m_out_acl_l(), out_policy_action(0), 
@@ -137,6 +139,7 @@ struct MatchPolicy {
 
     ~MatchPolicy() {}
 
+    // IMPORTANT: Keep this structure assignable.
     MatchAclParamsList m_acl_l;
     uint32_t policy_action;
 
@@ -173,6 +176,8 @@ struct MatchPolicy {
     FlowAction action_info;
 };
 
+// IMPORTANT: Keep this structure assignable. Assignment operator is used in
+// FlowEntry::Copy() on this structure
 struct FlowData {
     FlowData() :
         smac(), dmac(), source_vn(""), dest_vn(""), source_sg_id_l(),
@@ -222,6 +227,8 @@ struct FlowData {
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
     uint8_t l2_rpf_plen;
+    // IMPORTANT: Keep this structure assignable. Assignment operator is used in
+    // FlowEntry::Copy() on this structure
 };
 
 class FlowEntry {
@@ -295,12 +302,15 @@ class FlowEntry {
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry();
 
+    // Copy data fields from rhs
+    void Copy(const FlowEntry *rhs);
+
     void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
-                     const PktControlInfo *rev_ctrl);
+                     const PktControlInfo *rev_ctrl, FlowEntry *rflow);
     void InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
-                     const PktControlInfo *rev_ctrl);
+                     const PktControlInfo *rev_ctrl, FlowEntry *rflow);
     void InitAuditFlow(uint32_t flow_idx);
     static void Init();
 
@@ -309,6 +319,7 @@ class FlowEntry {
     static const SecurityGroupList &default_sg_list() {
         return default_sg_list_;
     }
+    static FlowEntry *Allocate(const FlowKey &key);
 
     // Flow accessor routines
     int GetRefCount() { return refcount_; }
@@ -363,6 +374,8 @@ class FlowEntry {
     bool set_pending_recompute(bool value);
     const MacAddress &smac() const { return data_.smac; }
     const MacAddress &dmac() const { return data_.dmac; }
+    bool on_tree() const { return on_tree_; }
+    void set_on_tree() { on_tree_ = true; }
     tbb::mutex &mutex() { return mutex_; }
 
     FlowTableKSyncEntry *ksync_entry() const { return ksync_entry_; }
@@ -382,7 +395,9 @@ class FlowEntry {
     }
     bool deleted() { return deleted_; }
 
+    bool IsShortFlow() { return (flags_ & (1 << ShortFlow)); }
     // Flow action routines
+    void ResyncFlow();
     bool ActionRecompute();
     bool DoPolicy();
     void MakeShortFlow(FlowShortReason reason);
@@ -396,12 +411,14 @@ class FlowEntry {
     void ResetStats();
 
     void FillFlowInfo(FlowInfo &info);
-    void GetPolicyInfo();
+    void GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow);
+    void GetPolicyInfo(const FlowEntry *rflow);
     void GetPolicyInfo(const VnEntry *vn);
+    void GetPolicyInfo();
     void GetVrfAssignAcl();
     void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
 
-    void GetPolicy(const VnEntry *vn);
+    void GetPolicy(const VnEntry *vn, const FlowEntry *rflow);
     void GetNonLocalFlowSgList(const VmInterface *vm_port);
     void GetLocalFlowSgList(const VmInterface *vm_port,
                             const VmInterface *reverse_vm_port);
@@ -421,7 +438,7 @@ private:
     friend void intrusive_ptr_release(FlowEntry *fe);
     bool SetRpfNH(FlowTable *ft, const AgentRoute *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
-                     const PktControlInfo *rev_ctrl);
+                     const PktControlInfo *rev_ctrl, FlowEntry *rflow);
     void GetSourceRouteInfo(const AgentRoute *rt);
     void GetDestRouteInfo(const AgentRoute *rt);
     void UpdateRpf();
@@ -455,9 +472,12 @@ private:
     //Underlay source port. 0 for local flows. Used during flow-export
     uint16_t underlay_source_port_;
     bool underlay_sport_exported_;
+    // Is flow-entry on the tree
+    bool on_tree_;
     // atomic refcount
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;
+    // IMPORTANT: Remember to update Copy() routine if new fields are added
 
     static InetUnicastRouteEntry inet4_route_key_;
     static InetUnicastRouteEntry inet6_route_key_;

@@ -1311,58 +1311,105 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     return true;
 }
 
-void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
-                      PktControlInfo *out) {
-    FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
-                pkt->sport, pkt->dport);
-    FlowEntryPtr flow;
-    if (pkt->type != PktType::MESSAGE) {
-        flow = flow_table->Allocate(key);
-    } else {
-        flow = flow_entry;
-        flow_table->DeleteFlowInfo(flow.get());
+// A flow can mean that traffic is seen on an interface. The path preference
+// module can potentially be interested in this event. Check and generate
+// traffic seen event
+void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
+                                      const PktControlInfo *in) {
+    // Traffic seen should not be generated for MESSAGE
+    if (pkt->type == PktType::MESSAGE) {
+        return;
     }
-    tbb::mutex::scoped_lock flow_mutex(flow->mutex());
 
+    // Dont generate Traffic seen for egress flows or short or linklocal flows
+    if (ingress == false || short_flow || linklocal_flow) {
+        return;
+    }
+
+    const AgentRoute *rt = NULL;
+    IpAddress sip = pkt->ip_saddr.to_v4();
     if (pkt->family == Address::INET) {
-        Ip4Address v4_src = pkt->ip_saddr.to_v4();
-        if (ingress && !short_flow && !linklocal_flow) {
-            const AgentRoute *rt = NULL;
-            if (l3_flow) {
-                rt = in->rt_;
-            } else if (in->vrf_) {
-                rt = FlowEntry::GetUcRoute(in->vrf_, v4_src);
-            }
-            if (rt && rt->WaitForTraffic()) {
-                flow_table->agent()->oper_db()->route_preference_module()->
-                    EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
-                                       pkt->vrf, pkt->smac);
-            }
+        if (l3_flow) {
+            rt = in->rt_;
+        } else if (in->vrf_) {
+            rt = FlowEntry::GetUcRoute(in->vrf_, sip.to_v4());
         }
     } else if (pkt->family == Address::INET6) {
         //TODO:: Handle Ipv6 changes
     }
+    // Generate event if route was waiting for traffic
+    if (rt && rt->WaitForTraffic()) {
+        flow_table->agent()->oper_db()->route_preference_module()->
+            EnqueueTrafficSeen(sip.to_v4(), 32, in->intf_->id(), pkt->vrf,
+                               pkt->smac);
+    }
+}
 
-    // Do not allow more than max flows
-    if ((in->vm_ &&
-         (flow_table->VmFlowCount(in->vm_) + 2) > flow_table->max_vm_flows()) ||
-        (out->vm_ &&
-         (flow_table->VmFlowCount(out->vm_) + 2) > flow_table->max_vm_flows())) {
+
+// Apply flow limits for in and out VMs
+void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
+                                  const PktControlInfo *out) {
+    // Ignore flow limit checks for MESSAGE processing
+    if (pkt->type == PktType::MESSAGE) {
+        return;
+    }
+
+    uint32_t limit = flow_table->max_vm_flows();
+    bool limit_exceeded = false;
+    if (in->vm_ && ((flow_table->VmFlowCount(in->vm_) + 2) > limit)) {
+        limit_exceeded = true;
+    }
+
+    if (out->vm_ && ((flow_table->VmFlowCount(out->vm_) + 2) > limit)) {
+        limit_exceeded = true;
+    }
+
+    if (limit_exceeded) {
         flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_FLOW_LIMIT;
     }
+}
 
-    if (!short_flow && linklocal_bind_local_port &&
-        flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
-        nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
-        if (!nat_sport) {
-            flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
-            short_flow = true;
-            short_flow_reason = FlowEntry::SHORT_LINKLOCAL_SRC_NAT;
-        }
+void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
+                                    const PktControlInfo *in,
+                                    const FlowEntry *flow) {
+    if (short_flow)
+        return;
+
+    if (linklocal_bind_local_port == false)
+        return;
+
+    if (flow->linklocal_src_port_fd() != PktFlowInfo::kLinkLocalInvalidFd)
+        return;
+
+    nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
+    if (!nat_sport) {
+        flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_LINKLOCAL_SRC_NAT;
     }
+    return;
+}
     
+void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
+                      PktControlInfo *out) {
+    FlowTableRequest::Event event = FlowTableRequest::ADD_FLOW;
+    if (pkt->type == PktType::MESSAGE) {
+        event = FlowTableRequest::UPDATE_FLOW;
+    }
+
+    // Generate traffic seen event for path preference module
+    GenerateTrafficSeen(pkt, in);
+
+    FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
+                pkt->sport, pkt->dport);
+    FlowEntryPtr flow = FlowEntry::Allocate(key);
+    tbb::mutex::scoped_lock flow_mutex(flow->mutex());
+
+    ApplyFlowLimits(in, out);
+    LinkLocalPortBind(pkt, in, flow.get());
+
     // In case the packet is for a reverse flow of a linklocal flow,
     // link to that flow (avoid creating a new reverse flow entry for the case)
     FlowEntryPtr rflow = flow->reverse_flow_entry();
@@ -1383,46 +1430,43 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         r_dport = pkt->sport;
     }
 
+    // Allocate reverse flow
     if (nat_done) {
         FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
-        rflow = flow_table->Allocate(rkey);
+        rflow = FlowEntry::Allocate(rkey);
     } else {
         FlowKey rkey(out->nh_, pkt->ip_daddr, pkt->ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
-        rflow = flow_table->Allocate(rkey);
+        rflow = FlowEntry::Allocate(rkey);
     }
     tbb::mutex::scoped_lock mutex_rflow(rflow->mutex());
 
-    // If the flows are already present, we want to retain the Forward and
-    // Reverse flow characteristics for flow.
-    // We have following conditions,
-    // flow has ReverseFlow set, rflow has ReverseFlow reset
-    //      Swap flow and rflow
-    // flow has ReverseFlow set, rflow has ReverseFlow set
-    //      Unexpected case. Continue with flow as forward flow
-    // flow has ReverseFlow reset, rflow has ReverseFlow reset
-    //      Unexpected case. Continue with flow as forward flow
-    // flow has ReverseFlow reset, rflow has ReverseFlow set
-    //      No change in forward/reverse flow. Continue as forward-flow
     bool swap_flows = false;
-    if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
-        !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
+    // If this is message processing, then retain forward and reverse flows
+    if (pkt->type == PktType::MESSAGE &&
+        flow_entry->is_flags_set(FlowEntry::ReverseFlow)) {
         swap_flows = true;
     }
 
     tcp_ack = pkt->tcp_ack;
-    flow->InitFwdFlow(this, pkt, in, out);
-    rflow->InitRevFlow(this, pkt, out, in);
+    flow->InitFwdFlow(this, pkt, in, out, rflow.get());
+    rflow->InitRevFlow(this, pkt, out, in, flow.get());
+
+    flow->GetPolicyInfo();
+    rflow->GetPolicyInfo();
+
+    flow->ResyncFlow();
+    rflow->ResyncFlow();
 
     /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
      * both forward and reverse flows are not not linked to each other yet.
      * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
     if (swap_flows) {
-        flow_table->Add(rflow.get(), flow.get());
+        flow_table->FlowEvent(event, rflow.get());
     } else {
-        flow_table->Add(flow.get(), rflow.get());
+        flow_table->FlowEvent(event, flow.get());
     }
 }
 
