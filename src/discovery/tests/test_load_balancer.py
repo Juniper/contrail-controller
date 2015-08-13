@@ -94,7 +94,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         self.assertEqual(entry['in_use'], 0)
 
         # Issue load-balance command
-        (code, msg) = self._http_get('/load-balance/foobar')
+        (code, msg) = self._http_post('/load-balance/foobar', '')
         self.assertEqual(code, 200)
 
         # wait for all TTL to expire before looking at publisher's counters
