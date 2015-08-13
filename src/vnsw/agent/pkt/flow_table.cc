@@ -3651,6 +3651,7 @@ void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     }
     s_flow.set_sg_rule_uuid(flow->sg_rule_uuid());
     s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
+    s_flow.set_vmi_uuid(to_string(flow->data().intf_entry.get()->GetUuid()));
 
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (rev_flow) {
