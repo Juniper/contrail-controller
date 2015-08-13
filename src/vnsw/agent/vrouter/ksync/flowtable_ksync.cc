@@ -628,8 +628,7 @@ bool FlowTableKSyncObject::AuditProcess() {
                                 Find(key);
             if (flow_p == NULL) {
                 /* Create Short flow only for non-existing flows. */
-                FlowEntryPtr flow(ksync_->agent()->pkt()->flow_table()->
-                                  Allocate(key));
+                FlowEntryPtr flow(FlowEntry::Allocate(key));
                 flow->InitAuditFlow(flow_idx);
                 AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
                             "entry to short flow");

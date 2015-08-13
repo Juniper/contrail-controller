@@ -85,7 +85,8 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     peer_vrouter_(),
     tunnel_type_(TunnelType::INVALID),
     underlay_source_port_(0),
-    underlay_sport_exported_(false) {
+    underlay_sport_exported_(false),
+    on_tree_(false) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -108,6 +109,23 @@ void FlowEntry::Init() {
     alloc_count_ = 0;
 }
 
+FlowEntry *FlowEntry::Allocate(const FlowKey &key) {
+    return new FlowEntry(key);
+}
+
+// selectively copy fields from RHS
+void FlowEntry::Copy(const FlowEntry *rhs) {
+    data_ = rhs->data_;
+    flags_ = rhs->flags_;
+    short_flow_reason_ = rhs->short_flow_reason_;
+    sg_rule_uuid_ = rhs->sg_rule_uuid_;
+    nw_ace_uuid_ = rhs->nw_ace_uuid_;
+    peer_vrouter_ = rhs->peer_vrouter_;
+    tunnel_type_ = rhs->tunnel_type_;
+    underlay_source_port_ = rhs->underlay_source_port_;
+    underlay_sport_exported_ = rhs->underlay_sport_exported_;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Routines to initialize FlowEntry from PktControlInfo
 /////////////////////////////////////////////////////////////////////////////
@@ -118,17 +136,22 @@ void intrusive_ptr_add_ref(FlowEntry *fe) {
 void intrusive_ptr_release(FlowEntry *fe) {
     int prev = fe->refcount_.fetch_and_decrement();
     if (prev == 1) {
-        FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-        FlowTable::FlowEntryMap::iterator it =
-            table->flow_entry_map_.find(fe->key());
-        assert(it != table->flow_entry_map_.end());
-        table->flow_entry_map_.erase(it);
+        if (fe->on_tree()) {
+            FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
+            FlowTable::FlowEntryMap::iterator it =
+                table->flow_entry_map_.find(fe->key());
+            assert(it != table->flow_entry_map_.end());
+            table->flow_entry_map_.erase(it);
+        }
         delete fe;
     }
 }
 
 bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
-                            const PktControlInfo *rev_ctrl) {
+                            const PktControlInfo *rev_ctrl,
+                            FlowEntry *rflow) {
+    reverse_flow_entry_ = rflow;
+    reset_flags(FlowEntry::ReverseFlow);
     peer_vrouter_ = info->peer_vrouter;
     tunnel_type_ = info->tunnel_type;
     if (stats_.last_modified_time) {
@@ -182,7 +205,8 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
 
 void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
-                            const PktControlInfo *rev_ctrl) {
+                            const PktControlInfo *rev_ctrl,
+                            FlowEntry *rflow) {
     if (flow_handle_ != pkt->GetAgentHdr().cmd_param) {
         if (flow_handle_ != FlowEntry::kInvalidFlowHandle) {
             LOG(DEBUG, "Flow index changed from " << flow_handle_ 
@@ -191,7 +215,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         flow_handle_ = pkt->GetAgentHdr().cmd_param;
     }
 
-    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
+    if (InitFlowCmn(info, ctrl, rev_ctrl, rflow) == false) {
         return;
     }
     if (info->linklocal_bind_local_port) {
@@ -255,10 +279,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
-                            const PktControlInfo *rev_ctrl) {
-    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
+                            const PktControlInfo *rev_ctrl,
+                            FlowEntry *rflow) {
+    if (InitFlowCmn(info, ctrl, rev_ctrl, rflow) == false) {
         return;
     }
+    set_flags(FlowEntry::ReverseFlow);
     if (ctrl->intf_) {
         stats_.intf_in = ctrl->intf_->id();
     } else {
@@ -560,7 +586,7 @@ void FlowEntry::ResetPolicy() {
 }
 
 // Rebuild all the policy rules to be applied
-void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
+void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
     // Reset old values first
     ResetPolicy();
 
@@ -579,7 +605,7 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
         return;
 
     // Get Network policy/mirror cfg policy/mirror policies 
-    GetPolicy(vn);
+    GetPolicy(vn, rflow);
 
     // Get Sg list
     GetSgList(data_.intf_entry.get());
@@ -589,10 +615,18 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
 }
 
 void FlowEntry::GetPolicyInfo() {
-    GetPolicyInfo(data_.vn_entry.get());
+    GetPolicyInfo(data_.vn_entry.get(), reverse_flow_entry());
 }
 
-void FlowEntry::GetPolicy(const VnEntry *vn) {
+void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
+    GetPolicyInfo(vn, reverse_flow_entry());
+}
+
+void FlowEntry::GetPolicyInfo(const FlowEntry *rflow) {
+    GetPolicyInfo(data_.vn_entry.get(), rflow);
+}
+
+void FlowEntry::GetPolicy(const VnEntry *vn, const FlowEntry *rflow) {
     if (vn == NULL)
         return;
 
@@ -621,7 +655,6 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     }
 
     const VnEntry *rvn = NULL;
-    FlowEntry *rflow = reverse_flow_entry_.get();
     // For local flows, we have to apply NW Policy from out-vn also
     if (!is_flags_set(FlowEntry::LocalFlow) || rflow == NULL) {
         // Not local flow
@@ -1152,6 +1185,20 @@ done:
 /////////////////////////////////////////////////////////////////////////////
 // Flow policy action compute routines
 /////////////////////////////////////////////////////////////////////////////
+void FlowEntry::ResyncFlow() {
+    UpdateRpf();
+    DoPolicy();
+
+    // If this is forward flow, update the SG action for reflexive entry
+    FlowEntry *rflow = (is_flags_set(FlowEntry::ReverseFlow) == false) ?
+        reverse_flow_entry() : NULL;
+    if (rflow) {
+        // Update action for reverse flow
+        rflow->UpdateReflexiveAction();
+        rflow->ActionRecompute();
+    }
+}
+
 // Recompute FlowEntry action based on ACLs already set in the flow
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;

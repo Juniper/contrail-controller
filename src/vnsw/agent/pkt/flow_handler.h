@@ -8,6 +8,7 @@
 #include "pkt/proto_handler.h"
 
 static const std::string unknown_vn_ = "__UNKNOWN__";
+static const std::string kFlowHandlerTask = "Agent::FlowHandler";
 
 struct PktInfo;
 class PktFlowInfo;
