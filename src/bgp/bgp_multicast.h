@@ -312,8 +312,8 @@ public:
     BgpServer *server();
     McastTreeManager *tree_manager() const { return tree_manager_; }
 
-    bool empty() { return sg_list_.empty(); }
-    size_t size() { return sg_list_.size(); }
+    bool empty() const { return sg_list_.empty(); }
+    size_t size() const { return sg_list_.size(); }
 
 private:
     friend class BgpMulticastTest;
@@ -370,6 +370,9 @@ class McastTreeManager {
 public:
     static const int kDegree = 4;
 
+    typedef std::vector<McastManagerPartition *> PartitionList;
+    typedef PartitionList::const_iterator const_iterator;
+
     enum NodeLevel {
         LevelFirst = 0,
         LevelNative = 0,
@@ -379,6 +382,9 @@ public:
 
     explicit McastTreeManager(ErmVpnTable *table);
     virtual ~McastTreeManager();
+
+    const_iterator begin() const { return partitions_.begin(); }
+    const_iterator end() const { return partitions_.end(); }
 
     virtual void Initialize();
     virtual void Terminate();
@@ -395,13 +401,14 @@ public:
     void RetryDelete();
 
     LifetimeActor *deleter();
+    const LifetimeActor *deleter() const;
+    bool deleted() const;
 
 private:
     friend class BgpMulticastTest;
     friend class ShowMulticastManagerDetailHandler;
 
     class DeleteActor;
-    typedef std::vector<McastManagerPartition *> PartitionList;
 
     void AllocPartitions();
     void FreePartitions();

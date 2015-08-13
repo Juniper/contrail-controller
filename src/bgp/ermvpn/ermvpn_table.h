@@ -51,6 +51,7 @@ public:
     void CreateTreeManager();
     void DestroyTreeManager();
     McastTreeManager *GetTreeManager();
+    const McastTreeManager *GetTreeManager() const;
     virtual void set_routing_instance(RoutingInstance *rtinstance);
 
 private:
