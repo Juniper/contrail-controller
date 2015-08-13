@@ -1325,6 +1325,17 @@ class AnalyticsFixture(fixtures.Fixture):
                              filter='action=pass')
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
+
+        # verify vmi_uuid field
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.flow_start_time),
+                             end_time=str(generator_obj.flow_end_time),
+                             select_fields=['UuidKey', 'vmi_uuid'],
+                             where_clause='vrouter=%s'% vrouter)
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt)
+        for r in res:
+            assert(r['vmi_uuid'] == generator_obj.flow_vmi_uuid)
         return True
     # end verify_flow_table
 
