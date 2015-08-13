@@ -294,10 +294,14 @@ request sandesh ShowEvpnTableSummaryReq {
 struct ShowMulticastManager {
     1: string name (link="ShowMulticastManagerDetailReq");
     2: u32 total_trees;
+    3: bool deleted;
+    4: string deleted_at;
 }
 
 response sandesh ShowMulticastManagerResp {
     1: list<ShowMulticastManager> managers;
+    2: optional string next_batch (link="ShowMulticastManagerReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowMulticastManagerReq {

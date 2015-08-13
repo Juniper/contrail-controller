@@ -1013,3 +1013,17 @@ LifetimeActor *McastTreeManager::deleter() {
     return deleter_.get();
 }
 
+//
+// Return the LifetimeActor for the McastTreeManager.
+// Const version.
+//
+const LifetimeActor *McastTreeManager::deleter() const {
+    return deleter_.get();
+}
+
+//
+// Return true if the McastTreeManager is deleted.
+//
+bool McastTreeManager::deleted() const {
+    return deleter_->IsDeleted();
+}
