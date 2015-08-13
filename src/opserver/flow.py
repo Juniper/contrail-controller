@@ -17,6 +17,8 @@ import datetime
 import sandesh.viz.constants as VizConstants
 from sandesh.viz.ttypes import FlowRecordFields
 from opserver_util import OpServerUtils
+import uuid
+
 
 class FlowQuerier(object):
 
@@ -58,6 +60,8 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_UNDERLAY_PROTO]
         self._UNDERLAY_SPORT = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_UNDERLAY_SPORT]
+        self._VMI_UUID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_VMI_UUID]
     # end __init__
 
     # Public functions
@@ -123,6 +127,8 @@ class FlowQuerier(object):
             help="Flow records to vrouter IP address")
         parser.add_argument("--tunnel-info", action="store_true",
             help="Show flow tunnel information")
+	parser.add_argument("--vmi-uuid",
+            help="Show vmi uuid information")
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")        
         self._args = parser.parse_args()
@@ -213,6 +219,13 @@ class FlowQuerier(object):
                 op=OpServerUtils.MatchOp.EQUAL)
             where.append(source_ip_match.__dict__)
 
+        if self._args.vmi_uuid is not None:
+            vmi_match = OpServerUtils.Match(
+                name=self._VMI_UUID,
+                value=uuid.UUID(self._args.vmi_uuid),
+                op=OpServerUtils.MatchOp.EQUAL)
+            where.append(vmi_match.__dict__)
+
         if self._args.destination_ip is not None:
             dest_ip_match = OpServerUtils.Match(
                 name=self._DESTINATION_IP,
@@ -289,6 +302,7 @@ class FlowQuerier(object):
             self._NW_ACE_UUID,
             self._VROUTER_IP,
             self._OTHER_VROUTER_IP,
+            self._VMI_UUID,
         ]
         if self._args.tunnel_info:
             select_list.append(self._UNDERLAY_PROTO)
@@ -470,6 +484,13 @@ class FlowQuerier(object):
                 other_vrouter_ip = ' [DST-VR:' + flow_dict[self._OTHER_VROUTER_IP] + ']'
             else:
                 other_vrouter_ip = ''
+
+            if self._VMI_UUID in flow_dict and (
+                    flow_dict[self._VMI_UUID] is not None):
+                src_vmi_uuid = ' [SRC VMI UUID:' + flow_dict[self._VMI_UUID] + ']'
+            else:
+                src_vmi_uuid = ' [SRC VMI UUID: None]'
+
             # Underlay info
             if self._UNDERLAY_PROTO in flow_dict and\
                 flow_dict[self._UNDERLAY_PROTO] is not None:
@@ -490,12 +511,13 @@ class FlowQuerier(object):
                 else:
                     tunnel_info = ''
             print '[SRC-VR:{0}{1}] {2} {3} ({4} -- {5}) {6} '\
-                '{7}:{8}:{9} ---> {10}:{11}:{12}{13} <{14} P ({15} B)>'\
-                ' : SG:{16} ACL:{17} {18}{19}'.format(
+                '{7}:{8}:{9}:{10} ---> {11}:{12}:{13}{14} <{15} P ({16} B)>'\
+                ' : SG:{17} ACL:{18} {19}{20}'.format(
                vrouter, vrouter_ip, direction, action, setup_ts, teardown_ts,
-               protocol, source_vn, source_ip, source_port, destination_vn,
-               destination_ip, destination_port, other_vrouter_ip, agg_pkts,
-               agg_bytes, sg_rule_uuid, nw_ace_uuid, tunnel_info, flow_uuid)
+               protocol, source_vn, source_ip, source_port, src_vmi_uuid,
+               destination_vn, destination_ip, destination_port,
+               other_vrouter_ip, agg_pkts, agg_bytes, sg_rule_uuid,
+               nw_ace_uuid, tunnel_info, flow_uuid)
     # end display
 
 # end class FlowQuerier
