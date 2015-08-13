@@ -535,6 +535,7 @@ bool FlowMgmtTree::TryDelete(FlowMgmtKey *key, FlowMgmtEntry *entry) {
     }
 
     Tree::iterator it = tree_.find(key);
+    assert(it != tree_.end());
     tree_.erase(it);
     delete entry;
     delete it->first;
