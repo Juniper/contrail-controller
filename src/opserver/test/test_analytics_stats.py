@@ -34,7 +34,7 @@ from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
 from utils.opserver_introspect_utils import VerificationOpsSrv
-from utils.util import retry, find_buildroot, redis_path
+from utils.util import retry, find_buildroot
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -55,8 +55,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         cls.cassandra_port = StatsTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
         cls.redis_port = StatsTest.get_free_port()
-        mockredis.start_redis(
-            cls.redis_port, redis_path())
+        mockredis.start_redis(cls.redis_port)
 
     @classmethod
     def tearDownClass(cls):

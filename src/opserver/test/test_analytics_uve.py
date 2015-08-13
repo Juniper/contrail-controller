@@ -22,7 +22,7 @@ import unittest
 import testtools
 import fixtures
 import socket
-from utils.util import obj_to_dict, find_buildroot, redis_path
+from utils.util import obj_to_dict, find_buildroot
 from utils.analytics_fixture import AnalyticsFixture
 from utils.generator_fixture import GeneratorFixture
 from mockredis import mockredis
@@ -51,8 +51,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 assert(False)
 
         cls.redis_port = AnalyticsUveTest.get_free_port()
-        mockredis.start_redis(
-            cls.redis_port, redis_path())
+        mockredis.start_redis(cls.redis_port)
         cls.zk_port = AnalyticsUveTest.get_free_port()
         mockzoo.start_zoo(cls.zk_port)
 

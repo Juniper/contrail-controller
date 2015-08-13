@@ -22,6 +22,37 @@ import redis
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
+redis_ver = '2.6.13'
+redis_bdir = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
+redis_url = redis_bdir + '/redis-'+redis_ver+'.tar.gz'
+redis_exe = redis_bdir + '/bin/redis-server'
+
+def install_redis():
+    if not os.path.exists(redis_url):
+        process = subprocess.Popen(['wget', '-P', redis_bdir,
+                                    'https://redis.googlecode.com/files/redis-'\
+                                    + redis_ver + '.tar.gz'],
+                                   cwd=redis_bdir)
+        process.wait()
+        if process.returncode is not 0:
+            raise SystemError('wget '+redis_url)
+    if not os.path.exists(redis_bdir + '/redis-'+redis_ver):
+        process = subprocess.Popen(['tar', 'xzvf', redis_url],
+                                   cwd=redis_bdir)
+        process.wait()
+        if process.returncode is not 0:
+            raise SystemError('untar '+redis_url)
+    if not os.path.exists(redis_exe):
+        process = subprocess.Popen(['make', 'PREFIX=' + redis_bdir, 'install'],
+                                   cwd=redis_bdir + '/redis-'+redis_ver)
+        process.wait()
+        if process.returncode is not 0:
+            raise SystemError('install '+redis_url)
+
+def get_redis_path():
+    if not os.path.exists(redis_exe):
+        install_redis()
+    return redis_exe
 
 def redis_version():
     '''
@@ -41,12 +72,13 @@ def redis_version():
 '''
 
 
-def start_redis(port, exe=None, password=None):
+def start_redis(port, password=None):
     '''
     Client uses this function to start an instance of redis
     Arguments:
         cport : An unused TCP port for redis to use as the client port
     '''
+    exe = get_redis_path()
     version = redis_version()
     if version == 2.6:
         redis_conf = "redis.26.conf"
@@ -70,8 +102,6 @@ def start_redis(port, exe=None, password=None):
                      ("/var/lib/redis/6379", redisbase + "cache")])
     if password:
        replace_string_(redisbase + redis_conf,[("# requirepass foobared","requirepass " + password)])
-    if exe == None:
-        exe = "redis-server"
     command = exe + " " + redisbase + redis_conf
     subprocess.Popen(command.split(' '),
                                stdout=subprocess.PIPE,

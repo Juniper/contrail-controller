@@ -26,7 +26,6 @@ from opserver.opserver_util import OpServerUtils
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
 from sandesh_common.vns.ttypes import NodeType, Module
 from pysandesh.util import UTCTimestampUsec
-from utils.util import redis_path
 
 class Query(object):
     table = None
@@ -461,7 +460,6 @@ class Redis(object):
             self.use_global = True
         self.password = password
         self.running = False
-        self.rs = redis_path()
     # end __init__
 
     def start(self):
@@ -470,9 +468,7 @@ class Redis(object):
         if not self.use_global:
             if self.port == -1:
                 self.port = AnalyticsFixture.get_free_port()
-            ret = mockredis.start_redis(
-                self.port, self.rs,
-                self.password)
+            ret = mockredis.start_redis(self.port, self.password)
             assert(ret)
         else:
             redish = redis.StrictRedis("127.0.0.1", self.port, password=self.password)

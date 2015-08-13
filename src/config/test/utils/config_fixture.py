@@ -158,16 +158,15 @@ class ApiServer(object):
     # end stop
         
 class Redis(object):
-    def __init__(self, builddir):
+    def __init__(self):
         self.port = ConfigFixture.get_free_port()
-        self.builddir = builddir
         self.running = False
     # end __init__
 
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port, self.builddir + '/testroot/bin/redis-server') 
+        mockredis.start_redis(self.port)
     # end start
 
     def stop(self):
@@ -228,7 +227,7 @@ class ConfigFixture(fixtures.Fixture):
     def setUp(self):
         super(ConfigFixture, self).setUp()
 
-        self.redis_cfg = Redis(self.builddir)
+        self.redis_cfg = Redis()
         self.redis_cfg.start()
         self.zoo = Zookeeper()
         self.zoo.start()

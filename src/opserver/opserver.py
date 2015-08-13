@@ -450,16 +450,17 @@ class OpServer(object):
             self._args.disc_server_ip,
             self._args.disc_server_port,
             ModuleNames[Module.OPSERVER])
-        self.disc.set_sandesh(sandesh_global)
+        self.disc.set_sandesh(self._sandesh)
         self._logger.info("Disc Publish to %s : %d - %s"
                           % (self._args.disc_server_ip,
                              self._args.disc_server_port, str(data)))
         self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end
 
-    def __init__(self):
+    def __init__(self, args_str=' '.join(sys.argv[1:])):
         self._args = None
-        self._parse_args()
+        self._parse_args(args_str)
+        print args_str
  
         self._homepage_links = []
         self._homepage_links.append(
@@ -478,21 +479,22 @@ class OpServer(object):
         self._hostname = socket.gethostname()
         if self._args.dup:
             self._hostname += 'dup'
+        self._sandesh = Sandesh()
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
-        sandesh_global.init_generator(
+        self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
-        sandesh_global.set_logging_params(
+        self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
             level=self._args.log_level,
             file=self._args.log_file,
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
-        ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
+        ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
@@ -503,9 +505,9 @@ class OpServer(object):
         ]
         # Create trace buffers 
         for buf in self.trace_buf:
-            sandesh_global.trace_buffer_create(name=buf['name'], size=buf['size'])
+            self._sandesh.trace_buffer_create(name=buf['name'], size=buf['size'])
 
-        self._logger = sandesh_global._logger
+        self._logger = self._sandesh._logger
         self._get_common = self._http_get_common
         self._put_common = self._http_put_common
         self._delete_common = self._http_delete_common
@@ -1888,8 +1890,8 @@ class OpServer(object):
         purge_stat.duration = duration
         purge_info.name  = self._hostname
         purge_info.stats = [purge_stat]
-        purge_data = DatabasePurge(data=purge_info)
-        purge_data.send()
+        purge_data = DatabasePurge(data=purge_info, sandesh=self._sandesh)
+        purge_data.send(sandesh=self._sandesh)
     #end db_purge_operation
 
     def _auto_purge(self):
@@ -2095,8 +2097,11 @@ class OpServer(object):
 
             # At some point, the following attributes will be deprecated in favor of cpu_info
             mod_cpu_state.module_cpu_info = [mod_cpu_info]
-            opserver_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
-            opserver_cpu_state_trace.send()
+            opserver_cpu_state_trace = ModuleCpuStateTrace(
+                    data=mod_cpu_state,
+                    sandesh=self._sandesh
+                    )
+            opserver_cpu_state_trace.send(sandesh=self._sandesh)
 
             aly_cpu_state = AnalyticsCpuState()
             aly_cpu_state.name = self._hostname
@@ -2109,8 +2114,11 @@ class OpServer(object):
             aly_cpu_info.mem_res = mod_cpu_info.cpu_info.meminfo.res
             aly_cpu_state.cpu_info = [aly_cpu_info]
 
-            aly_cpu_state_trace = AnalyticsCpuStateTrace(data=aly_cpu_state)
-            aly_cpu_state_trace.send()
+            aly_cpu_state_trace = AnalyticsCpuStateTrace(
+                    data=aly_cpu_state,
+                    sandesh=self._sandesh
+                    )
+            aly_cpu_state_trace.send(sandesh=self._sandesh)
 
             gevent.sleep(60)
     #end cpu_info_logger
@@ -2132,8 +2140,8 @@ class OpServer(object):
         self._uve_server.update_redis_uve_list(newlist)
         self._state_server.update_redis_list(newlist)
 
-def main():
-    opserver = OpServer()
+def main(args_str=' '.join(sys.argv[1:])):
+    opserver = OpServer(args_str)
     gevs = [ 
         gevent.spawn(opserver.start_webserver),
         gevent.spawn(opserver.cpu_info_logger),
@@ -2142,7 +2150,7 @@ def main():
     if opserver.disc:
         sp = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
                            COLLECTOR_DISCOVERY_SERVICE_NAME, opserver.disc_cb, \
-                           sandesh_global)
+                           opserver._sandesh)
         sp.start()
         gevs.append(sp)
 
