@@ -40,7 +40,7 @@
      vm-name="vm2" vm-uuid="2" vrf="vrf1" ip="1.1.1.2"
     />
     <vmi-vrf uuid="1" name="tap2-vm2" />
-    <validate name="validate-1">
+    <validate name="validate-3">
         <virtual-machine name="vm2" uuid="2" present="1"/>
         <virtual-machine-interface name="tap2" uuid="2" present="1" active="1" />
     </validate>
