@@ -105,12 +105,21 @@ void RouteExport::Notify(const Agent *agent,
         VrfExport::State *vs = 
             static_cast<VrfExport::State *>(vrf->GetState(vrf->get_table(),
                                                           vrf_id));
-        if (vs) {
-            DBTableBase::ListenerId id = vs->rt_export_[route->GetTableType()]->
-                GetListenerId();
-            if (id != id_)
-                return;
-        }
+        // If VRF state is not present then listener has not been added.
+        // Addition of listener later will result in walk to notify all routes.
+        // That in turn will add state as well by calling current routine.
+        // Therefore return when empty VRF state is found.
+        if (!vs)
+            return;
+
+        // There may be instances when decommisioned peer is not yet
+        // unregistered while a new peer is already present. So there will be
+        // two notifications. If its for decommisioned peer then ignore the same
+        // by checking the listener id with active bgp peer listener id.
+        DBTableBase::ListenerId id = vs->rt_export_[route->GetTableType()]->
+            GetListenerId();
+        if (id != id_)
+            return;
     }
 
     if (route->is_multicast()) {
@@ -276,7 +285,11 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     //Handle withdraw for following cases:
     //- Route is not having any active multicast exportable path or is deleted.
     //- associate(false): Bgp Peer has gone down and state needs to be removed. 
-    if ((route_can_be_dissociated || !associate) && (state != NULL)) {
+    if (route_can_be_dissociated || !associate) {
+        if (state == NULL) {
+            return;
+        }
+
         if (state->fabric_multicast_exported_ == true) {
             AgentXmppChannel::ControllerSendMcastRouteDelete(bgp_xmpp_peer,
                                                              route);
@@ -286,12 +299,12 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         if ((state->ingress_replication_exported_ == true)) {
             state->tunnel_type_ = TunnelType::INVALID;
             AgentXmppChannel::ControllerSendEvpnRouteDelete(bgp_xmpp_peer,
-                                                      route,
-                                                      state->vn_,
-                                                      state->label_,
-                                                      state->destination_,
-                                                      state->source_,
-                                                      TunnelType::AllType());
+                                                            route,
+                                                            state->vn_,
+                                                            state->label_,
+                                                            state->destination_,
+                                                            state->source_,
+                                                            TunnelType::AllType());
             state->ingress_replication_exported_ = false;
         }
 
