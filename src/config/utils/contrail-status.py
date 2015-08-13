@@ -381,7 +381,8 @@ def main():
     agent = package_installed('contrail-vrouter')
     capi = package_installed('contrail-config')
     cwebui = package_installed('contrail-web-core')
-    database = package_installed('contrail-openstack-database')
+    database = (package_installed('contrail-openstack-database') or
+                package_installed('contrail-database'))
     storage = package_installed('contrail-storage')
 
     vr = False
