@@ -386,6 +386,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
     s_flow.set_drop_reason
         (FlowEntry::FlowDropReasonStr.at(flow->data().drop_reason));
+    if (flow->intf_entry() != NULL) {
+        s_flow.set_vmi_uuid(UuidToString(flow->intf_entry()->GetUuid()));
+    }
 
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (rev_flow) {

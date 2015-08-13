@@ -208,6 +208,7 @@ enum FlowRecordFields {
    FLOWREC_OTHER_VROUTER_IP,
    FLOWREC_UNDERLAY_PROTO,
    FLOWREC_UNDERLAY_SPORT,
+   FLOWREC_VMI_UUID,
    FLOWREC_MAX,
 }
 
@@ -249,6 +250,7 @@ const list<string> FlowRecordNames = [
     "other_vrouter_ip",
     "underlay_proto",
     "underlay_source_port",
+    "vmi_uuid",
     "invalid",
 ]
 
@@ -521,7 +523,7 @@ const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
 const string STAT_VT_PREFIX      = "StatTable";
 
-const list<stat_table> _STAT_TEST_TABLES = [ 
+const list<stat_table> _STAT_TEST_TABLES = [
 {
       'display_name' : 'Test',
       'stat_type' : 'StatTestState',
@@ -879,7 +881,7 @@ const list<stat_table> _STAT_TABLES  = [
       'display_name' : 'Database Purge Statistics',
       'stat_type' : 'DatabasePurgeInfo'
       'stat_attr' : 'stats',
-      'obj_table' : DATABASE_INFO_TABLE, 
+      'obj_table' : DATABASE_INFO_TABLE,
       'attributes': [
           { 'name' : 'stats.purge_id',  'datatype' : 'string', 'index' : true},
           { 'name' : 'stats.request_time', 'datatype' : 'int', 'index' : true},
@@ -1342,6 +1344,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'other_vrouter_ip', 'datatype' : 'string', 'index' : false },
                { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
                { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'vmi_uuid', 'datatype' : 'uuid', 'index' : false },
                ]
          },
          'columnvalues' : [ ],
@@ -1403,7 +1406,7 @@ const list<query_table> _TABLES = [
 
 // all object tables have the same schema and same query-able columns
 // as below
-const query_schema_type _OBJECT_TABLE_SCHEMA = 
+const query_schema_type _OBJECT_TABLE_SCHEMA =
         {
              'type' : 'OBJECT',
              'columns' :  [
