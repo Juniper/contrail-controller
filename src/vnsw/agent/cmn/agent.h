@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <net/ethernet.h>
 #include <boost/intrusive_ptr.hpp>
+#include <base/intrusive_ptr_back_ref.h>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>
 #include "net/mac_address.h"
@@ -62,8 +63,10 @@ void intrusive_ptr_release(const SgEntry* p);
 void intrusive_ptr_add_ref(const SgEntry* p);
 
 class VrfEntry;
-typedef boost::intrusive_ptr<VrfEntry> VrfEntryRef;
-typedef boost::intrusive_ptr<const VrfEntry> VrfEntryConstRef;
+typedef IntrusivePtrRef<VrfEntry> VrfEntryRef;
+typedef IntrusivePtrRef<const VrfEntry> VrfEntryConstRef;
+void intrusive_ptr_add_back_ref(const IntrusiveReferer ref, const VrfEntry* p);
+void intrusive_ptr_del_back_ref(const IntrusiveReferer ref, const VrfEntry* p);
 void intrusive_ptr_release(const VrfEntry* p);
 void intrusive_ptr_add_ref(const VrfEntry* p);
 

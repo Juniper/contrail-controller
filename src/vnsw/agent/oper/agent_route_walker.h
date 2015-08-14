@@ -48,7 +48,7 @@ struct AgentRouteWalkerQueueEntry {
 
     AgentRouteWalkerQueueEntry(VrfEntry *vrf, RequestType type,
                                bool all_walks_done) :
-        vrf_ref_(vrf), type_(type), all_walks_done_(all_walks_done) { }
+        vrf_ref_(vrf, this), type_(type), all_walks_done_(all_walks_done) { }
     virtual ~AgentRouteWalkerQueueEntry() { }
 
     VrfEntryRef vrf_ref_;

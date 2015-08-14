@@ -708,7 +708,7 @@ private:
 class ArpNH : public NextHop {
 public:
     ArpNH(VrfEntry *vrf, const Ip4Address &ip) :
-        NextHop(ARP, false, false), vrf_(vrf), ip_(ip), interface_(), mac_() {};
+        NextHop(ARP, false, false), vrf_(vrf, this), ip_(ip), interface_(), mac_() {};
     virtual ~ArpNH() { };
 
     virtual std::string ToString() { return "ARP"; }
@@ -865,10 +865,10 @@ class InterfaceNH : public NextHop {
 public:
     InterfaceNH(Interface *intf, bool policy, uint8_t flags) :
         NextHop(INTERFACE, true, policy), interface_(intf),
-        flags_(flags), dmac_() { };
+        flags_(flags), dmac_(), vrf_(NULL, this) { };
     InterfaceNH(Interface *intf, bool policy) :
         NextHop(INTERFACE, true, policy), interface_(intf),
-        flags_(InterfaceNHFlags::INET4), dmac_() { };
+        flags_(InterfaceNHFlags::INET4), dmac_(), vrf_(NULL, this) { };
     virtual ~InterfaceNH() { };
 
     virtual std::string ToString() const {
@@ -964,7 +964,7 @@ private:
 class VrfNH : public NextHop {
 public:
     VrfNH(VrfEntry *vrf, bool policy, bool vxlan_nh_):
-        NextHop(VRF, true, policy), vrf_(vrf), vxlan_nh_(vxlan_nh_),
+        NextHop(VRF, true, policy), vrf_(vrf, this), vxlan_nh_(vxlan_nh_),
         flood_unknown_unicast_(false) {}
     virtual ~VrfNH() { };
 
@@ -1049,7 +1049,7 @@ class VlanNH : public NextHop {
 public:
     VlanNH(Interface *intf, uint32_t vlan_tag):
         NextHop(VLAN, true, false), interface_(intf), vlan_tag_(vlan_tag),
-        smac_(), dmac_(), vrf_(NULL) { };
+        smac_(), dmac_(), vrf_(NULL, this) { };
     virtual ~VlanNH() { };
 
     bool NextHopIsLess(const DBEntry &rhs) const;
@@ -1259,7 +1259,7 @@ public:
     CompositeNH(COMPOSITETYPE type, bool policy,
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
-        component_nh_key_list_(component_nh_key_list), vrf_(vrf) {
+        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this) {
     }
 
     virtual ~CompositeNH() { };
