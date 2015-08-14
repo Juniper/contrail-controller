@@ -5,26 +5,18 @@
 #include "bgp/test/bgp_show_instance_or_table_test.h"
 
 typedef TypeDefinition<
-    ShowRoutingInstanceReq,
-    ShowRoutingInstanceReqIterate,
-    ShowRoutingInstanceResp> RegularReq;
+    ShowBgpInstanceConfigReq,
+    ShowBgpInstanceConfigReqIterate,
+    ShowBgpInstanceConfigResp> ConfigReq;
 
-typedef TypeDefinition<
-    ShowRoutingInstanceSummaryReq,
-    ShowRoutingInstanceSummaryReqIterate,
-    ShowRoutingInstanceSummaryResp> SummaryReq;
-
-// Specialization of RequestIsDetail for regular request.
+// Specialization to identify config request.
 template<>
-bool BgpShowInstanceOrTableTest<RegularReq>::RequestIsDetail() const {
+bool BgpShowInstanceOrTableTest<ConfigReq>::RequestIsConfig() const {
     return true;
 }
 
-// Instantiate all test patterns for ShowRoutingInstanceReq.
-INSTANTIATE_TYPED_TEST_CASE_P(Regular, BgpShowInstanceOrTableTest, RegularReq);
-
-// Instantiate all test patterns for ShowRoutingInstanceSummaryReq.
-INSTANTIATE_TYPED_TEST_CASE_P(Summary, BgpShowInstanceOrTableTest, SummaryReq);
+// Instantiate all test patterns for ShowBgpInstanceConfigReq.
+INSTANTIATE_TYPED_TEST_CASE_P(Config, BgpShowInstanceOrTableTest, ConfigReq);
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
