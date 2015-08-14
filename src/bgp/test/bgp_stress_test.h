@@ -232,13 +232,13 @@ public:
     static std::string ToString(EventType event);
     static EventType FromString(const std::string event);
     static void ReadEventsFromFile(std::string events_file);
-    static EventType GetTestEvent(int count);
+    static EventType GetTestEvent();
     static int random(int limit);
     static std::vector<int> GetEventItems(int nitems, int inc = 0);
     static void clear_events();
     static std::vector<EventType> d_events_list_;
-
-private:
+    static bool log_;
+    static int count_;
     static std::vector<std::string> d_events_played_list_;
     static float GetEventWeightSum();
 };
@@ -386,7 +386,8 @@ protected:
 
     void BringUpXmppAgent(std::vector<int> agent_ids, bool verify_state);
     void BringUpXmppAgents(int nagents);
-    void BringDownXmppAgent(std::vector<int> agent_ids, bool verify_state);
+    void BringDownXmppAgent(BgpStressTestEvent::EventType event,
+                            std::vector<int> agent_ids, bool verify_state);
     void BringDownXmppAgents(int nagents);
     void AddBgpPeer(int peer_id, bool verify_state);
     void AddBgpPeer(std::vector<int> peer_id, bool verify_state);
@@ -414,6 +415,7 @@ protected:
     void UpdateSocketBufferSize();
     void ShowAllRoutes();
     void ShowNeighborStatistics();
+    void Pause();
     void ValidateShowNeighborStatisticsResponse(size_t expected_count,
                                                 Sandesh *sandesh);
     void ValidateShowRouteSandeshResponse(Sandesh *sandesh);
