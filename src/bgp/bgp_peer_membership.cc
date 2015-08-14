@@ -321,7 +321,7 @@ void IPeerRib::ManagedDelete() {
 // required.  Also create a WorkQueue to handle IPeerRibEvents.
 //
 PeerRibMembershipManager::PeerRibMembershipManager(BgpServer *server) :
-        server_(server) {
+        server_(server), current_jobs_count_(0), total_jobs_count_(0) {
     if (membership_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         membership_task_id_ = scheduler->GetTaskId("bgp::PeerMembership");
@@ -630,6 +630,8 @@ void PeerRibMembershipManager::Register(
     request.instance_id = instance_id;
     request.policy = policy;
     request.notify_completion_fn = notify_completion_fn;
+    current_jobs_count_++;
+    total_jobs_count_++;
 
     tbb::mutex::scoped_lock lock(mutex_);
     IPeerRibEvent *event = ProcessRequest(IPeerRibEvent::REGISTER_RIB, table,
@@ -670,6 +672,8 @@ void PeerRibMembershipManager::Unregister(IPeer *ipeer, BgpTable *table,
     request.action_mask = static_cast<MembershipRequest::Action>(
         MembershipRequest::RIBIN_DELETE | MembershipRequest::RIBOUT_DELETE);
     request.notify_completion_fn = notify_completion_fn;
+    current_jobs_count_++;
+    total_jobs_count_++;
 
     tbb::mutex::scoped_lock lock(mutex_);
 
@@ -693,6 +697,8 @@ void PeerRibMembershipManager::UnregisterPeer(IPeer *ipeer,
     IPeerRibEvent *event = new IPeerRibEvent(IPeerRibEvent::UNREGISTER_PEER,
                                              ipeer, NULL);
 
+    current_jobs_count_++;
+    total_jobs_count_++;
     event->request.action_get_fn = action_get_fn;
     event->request.notify_completion_fn = notify_completion_fn;
     Enqueue(event);
@@ -730,6 +736,8 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
         request.notify_completion_fn = boost::bind(
             &PeerRibMembershipManager::UnregisterPeerDone,
             this, _1, _2, count, event->request.notify_completion_fn);
+        current_jobs_count_++;
+        total_jobs_count_++;
 
         IPeerRibEvent *process_event;
         process_event = ProcessRequest(IPeerRibEvent::UNREGISTER_RIB,
@@ -773,6 +781,8 @@ void PeerRibMembershipManager::UnregisterPeerDone(
     event->ipeer = ipeer;
     event->table = NULL;
     event->request.notify_completion_fn = notify_completion_fn;
+    current_jobs_count_++;
+    total_jobs_count_++;
     Enqueue(event);
 }
 
@@ -784,6 +794,7 @@ void PeerRibMembershipManager::UnregisterPeerDone(
 void PeerRibMembershipManager::UnregisterPeerCompleteCallback(
                                    IPeerRibEvent *event) {
     // Inform the requestor (PeerCloseManager) that this process is complete
+    current_jobs_count_--;
     event->request.notify_completion_fn(event->ipeer, NULL);
 }
 
@@ -916,6 +927,7 @@ void PeerRibMembershipManager::NotifyCompletion(BgpTable *table,
     for (MembershipRequestList::iterator iter =
             request_list->begin(); iter != request_list->end(); iter++) {
         MembershipRequest *request = iter.operator->();
+        current_jobs_count_--;
         if (request->notify_completion_fn) {
             request->notify_completion_fn(request->ipeer, table);
         }
@@ -1082,6 +1094,7 @@ void PeerRibMembershipManager::ProcessUnregisterRibCompleteEvent(
         }
 
         // Notify the caller indicating the completion this process
+        current_jobs_count_--;
         if (request->notify_completion_fn) {
             request->notify_completion_fn(request->ipeer, event->table);
         }

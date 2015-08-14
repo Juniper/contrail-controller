@@ -71,6 +71,18 @@ do {                                                             \
                     << ":"  << __LINE__ << " " << str);          \
 } while (false)
 
+#define BGP_STRESS_TEST_EVENT_LOG(event)                                \
+    do {                                                                \
+        if (!BgpStressTestEvent::log_)                                  \
+            break;                                                      \
+        ostringstream out;                                              \
+        out << "Feed " << BgpStressTestEvent::count_++ << "th event: "; \
+        out << BgpStressTestEvent::ToString(event);                     \
+        BgpStressTestEvent::d_events_played_list_.push_back(out.str()); \
+        BGP_STRESS_TEST_LOG(out.str());                                 \
+        BgpStressTestEvent::log_ = false;                               \
+    } while (false)
+
 #undef __BGP_PROFILE__
 
 #if defined(__BGP_PROFILE__) && ! defined(__APPLE__)
@@ -118,6 +130,10 @@ using ::testing::Bool;
 using ::testing::ValuesIn;
 using ::testing::Combine;
 
+int BgpStressTestEvent::count_;
+bool BgpStressTestEvent::log_;
+vector<BgpStressTestEvent::EventType> BgpStressTestEvent::d_events_list_;
+vector<string> BgpStressTestEvent::d_events_played_list_;
 static int d_events_ = 50;
 static vector<float> d_events_weight_ = boost::assign::list_of
    (50.0) // ADD_BGP_ROUTE
@@ -182,6 +198,7 @@ static string d_routes_send_trigger_ = "";
 static string d_log_category_ = "";
 static string d_log_level_ = "SYS_DEBUG";
 static bool d_log_local_disable_ = false;
+static bool d_log_trace_enable_ = false;
 static bool d_log_disable_ = false;
 static bool d_no_verify_routes_ = false;
 static bool d_no_agent_updates_processing_ = false;
@@ -388,7 +405,7 @@ float BgpStressTestEvent::GetEventWeightSum() {
     return event_weight_sum_;
 }
 
-BgpStressTestEvent::EventType BgpStressTestEvent::GetTestEvent(int count) {
+BgpStressTestEvent::EventType BgpStressTestEvent::GetTestEvent() {
     float rnd;
     int     i;
     EventType event;
@@ -397,7 +414,7 @@ BgpStressTestEvent::EventType BgpStressTestEvent::GetTestEvent(int count) {
     // Check if events to be fed are known (from a file..)
     //
     if (!d_events_list_.empty()) {
-        event = d_events_list_[count - 1];
+        event = d_events_list_[count_];
     } else {
         rnd = random((int) GetEventWeightSum());
         for(i = 0; i < NUM_TEST_EVENTS; i++) {
@@ -409,13 +426,7 @@ BgpStressTestEvent::EventType BgpStressTestEvent::GetTestEvent(int count) {
 
         event = static_cast<EventType>(i + 1);
     }
-
-    ostringstream out;
-    out << "Feed " << count << "th event: " << ToString(event);
-    d_events_played_list_.push_back(out.str());
-
-    BGP_STRESS_TEST_LOG(out.str());
-
+    log_ = true;
     return event;
 }
 
@@ -445,16 +456,12 @@ vector<int> BgpStressTestEvent::GetEventItems(int nitems, int inc) {
             }
         }
     }
-
     return event_ids_list;
 }
 
 void BgpStressTestEvent::clear_events() {
     d_events_played_list_.clear();
 }
-
-vector<BgpStressTestEvent::EventType> BgpStressTestEvent::d_events_list_;
-vector<string> BgpStressTestEvent::d_events_played_list_;
 
 void BgpStressTest::IFMapInitialize() {
     if (d_external_mode_) return;
@@ -1001,6 +1008,7 @@ void BgpStressTest::AddBgpInet6VpnRoute(int peer_id, int route_id,
     if (!peer) {
         return;
     }
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_BGP_ROUTE);
     BGP_WAIT_FOR_PEER_STATE(peers_[peer_id]->peer(), StateMachine::ESTABLISHED);
 
     // Create the attributes
@@ -1091,6 +1099,7 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
     IPeer *peer = peers_[peer_id]->peer();
     if (!peer) return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_BGP_ROUTE);
     BGP_WAIT_FOR_PEER_STATE(peers_[peer_id]->peer(), StateMachine::ESTABLISHED);
 
     Ip4Prefix prefix(Ip4Prefix::FromString("192.168.255.0/24"));
@@ -1211,6 +1220,7 @@ void BgpStressTest::DeleteBgpInet6VpnRoute(int peer_id, int route_id,
     if (!peer) {
         return;
     }
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_BGP_ROUTE);
 
     // For odd peer_id's, choose hard-coded value; for even, choose the
     // peer_id. This is have half of the RD's as dups.
@@ -1274,6 +1284,8 @@ void BgpStressTest::DeleteBgpInetRouteInternal(int family, int peer_id,
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
     BgpTable *table = rtinstance_->GetTable(families_[family]);
     if (!table) return;
+
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_BGP_ROUTE);
     IPeer *peer = peers_[peer_id]->peer();
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1359,6 +1371,8 @@ void BgpStressTest::SubscribeConfiguration(int agent_id, bool verify) {
     string agent_name = GetAgentConfigName(agent_id);
     if (xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name)) return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::SUBSCRIBE_CONFIGURATION);
+
     // no config messages sent until config subscribe
     TASK_UTIL_EXPECT_EQ(0,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
@@ -1417,6 +1431,7 @@ void BgpStressTest::UnsubscribeConfiguration(int agent_id, bool verify) {
     if (!xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name))
         return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::UNSUBSCRIBE_CONFIGURATION);
     TASK_UTIL_EXPECT_NE(0,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
 
@@ -1497,6 +1512,8 @@ void BgpStressTest::SubscribeRoutingInstance(vector<int> agent_ids,
                         GetInstanceName(instance_id)))
                 continue;
 
+            BGP_STRESS_TEST_EVENT_LOG(
+                BgpStressTestEvent::SUBSCRIBE_ROUTING_INSTANCE);
             BGP_STRESS_TEST_LOG("Subscribing agent "
                     << xmpp_agents_[agent_id]->ToString()
                     << " to instance " << GetInstanceName(instance_id));
@@ -1539,6 +1556,8 @@ void BgpStressTest::UnsubscribeRoutingInstance(vector<int> agent_ids,
                         GetInstanceName(instance_id)))
                 continue;
 
+            BGP_STRESS_TEST_EVENT_LOG(
+                BgpStressTestEvent::UNSUBSCRIBE_ROUTING_INSTANCE);
             BGP_STRESS_TEST_LOG("Unsubscribing agent "
                     << xmpp_agents_[agent_id]->ToString()
                     << " to instance " << GetInstanceName(instance_id));
@@ -1593,6 +1612,7 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
                 GetInstanceName(instance_id)))
         return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_XMPP_ROUTE);
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
     xmpp_agents_[agent_id]->AddRoute(GetInstanceName(instance_id),
                                      prefix.ToString(),
@@ -1689,6 +1709,7 @@ void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
     if (!xmpp_agents_[agent_id]->route_mgr_->HasSubscribed(
                 GetInstanceName(instance_id)))
         return;
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_XMPP_ROUTE);
 
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
     xmpp_agents_[agent_id]->DeleteRoute(GetInstanceName(instance_id),
@@ -1846,13 +1867,18 @@ void BgpStressTest::BringUpXmppAgent(vector<int> agent_ids, bool verify_state) {
     BOOST_FOREACH(int agent_id, agent_ids) {
 
         if (agent_id < (int) xmpp_agents_.size() && xmpp_agents_[agent_id]) {
-            xmpp_agents_[agent_id]->SessionUp();
+            if (xmpp_agents_[agent_id]->down()) {
+                BGP_STRESS_TEST_EVENT_LOG(
+                    BgpStressTestEvent::BRING_UP_XMPP_AGENT);
+                xmpp_agents_[agent_id]->SessionUp();
+            }
             continue;
         }
 
         if (agent_id >= (int) xmpp_agents_.size()) {
             xmpp_agents_.resize(agent_id + 1, NULL);
         }
+        BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::BRING_UP_XMPP_AGENT);
 
         string agent_name = GetAgentName(agent_id);
         string source_addr(d_xmpp_source_);
@@ -1933,8 +1959,11 @@ void BgpStressTest::BringUpXmppAgents(int nagents) {
     BGP_STRESS_TEST_LOG("End bringing up " << nagents << " agents");
 }
 
-void BgpStressTest::BringDownXmppAgent(vector<int> agent_ids,
-                                       bool verify_state) {
+void BgpStressTest::BringDownXmppAgent(
+        BgpStressTestEvent::EventType event, vector<int> agent_ids,
+        bool verify_state) {
+    bool cleared = false;
+
     BOOST_FOREACH(int agent_id, agent_ids) {
         if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
             continue;
@@ -1945,10 +1974,14 @@ void BgpStressTest::BringDownXmppAgent(vector<int> agent_ids,
         if (d_no_agent_messages_processing_) {
             xmpp_agents_[agent_id]->DisableRead(false);
         }
-        xmpp_agents_[agent_id]->SessionDown();
+        if (!xmpp_agents_[agent_id]->down()) {
+            BGP_STRESS_TEST_EVENT_LOG(event);
+            cleared = true;
+            xmpp_agents_[agent_id]->SessionDown();
+        }
     }
 
-    if (!verify_state) return;
+    if (!verify_state || !cleared) return;
 
     int count = 0;
     BOOST_FOREACH(int agent_id, agent_ids) {
@@ -1973,7 +2006,8 @@ void BgpStressTest::BringDownXmppAgents(int nagents) {
         for (int agent_id = 0; agent_id < nagents; ++agent_id) {
             agent_ids.push_back(agent_id);
         }
-        BringDownXmppAgent(agent_ids, false);
+        BringDownXmppAgent(BgpStressTestEvent::BRING_DOWN_XMPP_AGENT,
+                           agent_ids, false);
     }
 
     for (int agent_id = 0; agent_id < nagents; ++agent_id) {
@@ -1992,6 +2026,7 @@ void BgpStressTest::AddBgpPeer(int peer_id, bool verify_state) {
 
     if (peer_id < (int) peers_.size() && peers_[peer_id]) return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_BGP_PEER);
     if (peer_id >= (int) peers_.size()) {
         peers_.resize(peer_id + 1, NULL);
         peer_servers_.resize(peer_id + 1, NULL);
@@ -2061,10 +2096,10 @@ void BgpStressTest::DeleteBgpPeer(int peer_id, bool verify_state) {
 
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_BGP_PEER);
     ostringstream out;
     out << "<delete>";
     string peer_name = peers_[peer_id]->peer()->ToString();
-
     out << GetRouterConfig(0, peer_id, true);
     out << GetRouterConfig(peer_id, 0, true);
     out << "</delete>";
@@ -2135,6 +2170,7 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
         if (peer_id >= (int) peers_.size() || !peers_[peer_id])
             continue;
         if (established[peer_id]) {
+            BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::CLEAR_BGP_PEER);
             TASK_UTIL_EXPECT_TRUE(peers_[peer_id]->peer()->flap_count() >
                                 flap_count[peer_id]);
         }
@@ -2166,6 +2202,9 @@ void BgpStressTest::ClearBgpPeers(int npeers) {
 }
 
 void BgpStressTest::AddRouteTarget(int instance_id, int target) {
+    if (instance_id >= (int) instances_.size() || !instances_[instance_id])
+        return;
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_ROUTE_TARGET);
     ifmap_test_util::IFMapMsgLink(server_->config_db(), "routing-instance",
                          GetInstanceName(instance_id),
                          "route-target",
@@ -2191,6 +2230,9 @@ void BgpStressTest::AddRouteTarget(int instance_id, int target) {
 }
 
 void BgpStressTest::RemoveRouteTarget(int instance_id, int target) {
+    if (instance_id >= (int) instances_.size() || !instances_[instance_id])
+        return;
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_ROUTE_TARGET);
     ifmap_test_util::IFMapMsgUnlink(server_->config_db(), "routing-instance",
                          GetInstanceName(instance_id),
                          "route-target",
@@ -2214,6 +2256,7 @@ void BgpStressTest::AddRoutingInstance(int instance_id, int ntargets) {
 
     if (instances_[instance_id]) return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_ROUTING_INSTANCE);
     instances_[instance_id] = true;
 
     if (instance_id) {
@@ -2250,6 +2293,7 @@ void BgpStressTest::DeleteRoutingInstance(int instance_id, int ntargets) {
     if (instance_id >= (int) instances_.size() || !instances_[instance_id])
         return;
 
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_ROUTING_INSTANCE);
     for (int agent_id = 0; agent_id < n_agents_; ++agent_id) {
         UnsubscribeRoutingInstance(agent_id, instance_id);
     }
@@ -2293,13 +2337,7 @@ void BgpStressTest::DeleteRoutingInstances() {
 
 void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
                                  int nroutes, int ntargets) {
-    BGP_STRESS_TEST_LOG("Start injecting BGP and/or XMPP routes");
-    AddAllBgpRoutes(nroutes, ntargets);
-    BGP_STRESS_TEST_LOG("End injecting BGP and/or XMPP routes");
-
-    //
     // Add XmppPeers with routes as well
-    //
     BGP_STRESS_TEST_LOG("Start subscribing all XMPP Agents");
     SubscribeAgents(ninstances, nagents);
     BGP_STRESS_TEST_LOG("End subscribing all XMPP Agents");
@@ -2311,6 +2349,15 @@ void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
         BGP_STRESS_TEST_LOG("End subscribing all agents' "
                             "IFMAP configuration");
     }
+
+    // Wait for subscription processing to complete
+    TASK_UTIL_EXPECT_NE(0, server_->membership_mgr()->total_jobs_count());
+    TASK_UTIL_EXPECT_EQ(0, server_->membership_mgr()->current_jobs_count());
+    WaitForIdle();
+
+    BGP_STRESS_TEST_LOG("Start injecting BGP and/or XMPP routes");
+    AddAllBgpRoutes(nroutes, ntargets);
+    BGP_STRESS_TEST_LOG("End injecting BGP and/or XMPP routes");
 
     if (!d_routes_send_trigger_.empty()) {
 
@@ -2479,6 +2526,7 @@ void BgpStressTest::ValidateShowRouteSandeshResponse(Sandesh *sandesh) {
 }
 
 void BgpStressTest::ShowAllRoutes() {
+    BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::SHOW_ALL_ROUTES);
     Sandesh::set_response_callback(
        boost::bind(&BgpStressTest::ValidateShowRouteSandeshResponse, this, _1));
     ShowRouteReq *show_req = new ShowRouteReq;
@@ -2499,10 +2547,24 @@ void BgpStressTest::UpdateSocketBufferSize() {
     ostringstream out;
     out << new_size;
     if (!setenv("TCP_SESSION_SOCKET_BUFFER_SIZE", out.str().c_str(), 1)) {
+        BGP_STRESS_TEST_EVENT_LOG(
+            BgpStressTestEvent::CHANGE_SOCKET_BUFFER_SIZE);
         BGP_DEBUG_UT("Socket buffer size changed from " <<
                      socket_buffer_size_ << " to " << socket_buffer_size_);
         socket_buffer_size_ = new_size;
     }
+}
+
+
+// Fork off python shell for pause. Use portable fork and exec instead of
+// system() call which is platform specific, wrt signal handling.
+void BgpStressTest::Pause() {
+    BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell to resume");
+    pid_t pid;
+    if (!(pid = fork()))
+        execl("/usr/bin/python", "/usr/bin/python", NULL);
+    int status;
+    waitpid(pid, &status, 0);
 }
 
 TEST_P(BgpStressTest, RandomEvents) {
@@ -2527,16 +2589,13 @@ TEST_P(BgpStressTest, RandomEvents) {
 
     ShowAllRoutes();
     ShowNeighborStatistics();
-
-    if (d_pause_after_initial_setup_) {
-        BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell to resume");
-        system("/usr/bin/python");
-    }
+    if (d_pause_after_initial_setup_)
+        Pause();
 
     HEAP_PROFILER_DUMP("bgp_stress_test");
 
-    for (int count = 1; !d_events_ || count <= d_events_; ++count) {
-        switch (BgpStressTestEvent::GetTestEvent(count)) {
+    while (!d_events_ || BgpStressTestEvent::count_ < d_events_) {
+        switch (BgpStressTestEvent::GetTestEvent()) {
             case BgpStressTestEvent::ADD_BGP_ROUTE:
                 if (d_external_mode_) break;
                 if (!n_peers_ || !n_families_ || !n_routes_) break;
@@ -2577,7 +2636,7 @@ TEST_P(BgpStressTest, RandomEvents) {
 
             case BgpStressTestEvent::BRING_DOWN_XMPP_AGENT:
                 if (!n_agents_) break;
-                BringDownXmppAgent(
+                BringDownXmppAgent(BgpStressTestEvent::BRING_DOWN_XMPP_AGENT,
                         BgpStressTestEvent::GetEventItems(n_agents_), true);
                 break;
 
@@ -2585,7 +2644,8 @@ TEST_P(BgpStressTest, RandomEvents) {
                 if (!n_agents_) break;
 
                 event_ids_list = BgpStressTestEvent::GetEventItems(n_agents_);
-                BringDownXmppAgent(event_ids_list, true);
+                BringDownXmppAgent(BgpStressTestEvent::CLEAR_XMPP_AGENT,
+                                   event_ids_list, true);
                 ShowAllRoutes();
                 BringUpXmppAgent(event_ids_list, true);
                 break;
@@ -2690,9 +2750,10 @@ TEST_P(BgpStressTest, RandomEvents) {
                 break;
 
             case BgpStressTestEvent::PAUSE:
+                BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::PAUSE);
                 BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell "
                              "to resume");
-                system("/usr/bin/python");
+                Pause();
                 break;
         }
     }
@@ -2732,7 +2793,10 @@ static void process_command_line_args(int argc, const char **argv) {
     "Scaling\n"
     "=======\n"
     "Tweak nagents, npeers, nroutes, ninstances, ntargets as desired\n\n"
-    "Usage:"
+    "Use --no-agents-updates-processing option\n"
+    "Tune following environment variables: e.g.\n"
+    "TCP_SESSION_SOCKET_BUFFER_SIZE=65536 CONCURRENCY_CHECK_DISABLE=TRUE BGP_KEEPALIVE_SECONDS=30000 XMPP_KEEPALIVE_SECONDS=30000 CONTRAIL_UT_TEST_TIMEOUT=3000 WAIT_FOR_IDLE=320 TASK_UTIL_WAIT_TIME=10000 TASK_UTIL_RETRY_COUNT=250000 BGP_STRESS_TEST_SUITE=1 NO_HEAPCHECK=TRUE LOG_DISABLE=TRUE\n"
+    "Usage"
     );
     desc.add_options()
         ("help", "produce help message")
@@ -2765,6 +2829,8 @@ static void process_command_line_args(int argc, const char **argv) {
             "set log level ")
         ("log-local-disable", bool_switch(&d_log_local_disable_),
              "Disable local logging")
+        ("log-trace-enable", bool_switch(&d_log_trace_enable_),
+             "Enable logging traces")
         ("nagents", value<int>()->default_value(d_agents_),
             "set number of xmpp agents")
         ("nevents", value<int>()->default_value(d_events_),
@@ -3175,7 +3241,7 @@ static void process_command_line_args(int argc, const char **argv) {
     // Set Sandesh log category and level
     //
     Sandesh::SetLoggingParams(!d_log_local_disable_, d_log_category_,
-                              d_log_level_);
+                              d_log_level_, d_log_trace_enable_);
 
     //
     // If we are connecting to external xmpp server, PAUSE at the end of the
