@@ -525,6 +525,18 @@ protected:
         TASK_UTIL_EXPECT_EQ(count, (vpn_ts ? vpn_ts->route_count() : 0));
     }
 
+    void DisableBulkSync() {
+        RoutePathReplicator *replicator =
+            bgp_server_->replicator(Address::INETVPN);
+        replicator->walk_trigger_->set_disable();
+    }
+
+    void EnableBulkSync() {
+        RoutePathReplicator *replicator =
+            bgp_server_->replicator(Address::INETVPN);
+        replicator->walk_trigger_->set_enable();
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
@@ -2390,6 +2402,8 @@ TEST_F(ReplicationTest, DeleteInstanceWithReplicatedRoute_2) {
     VerifyTableNoExists("red.inet.0");
 }
 
+// Verify that TableState does not get deleted if the BgpTable is not marked
+// deleted, even if all other conditions are met.
 TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
     vector<string> instance_names = list_of("blue")("red");
     multimap<string, string> connections = map_list_of("blue", "red");
@@ -2442,6 +2456,70 @@ TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
     VerifyVRFTableStateExists("red", false);
 }
 
+// Verify that TableState does not get deleted if the BgpTable is on the
+// bulk sync list, even if all other conditions are met.
+TEST_F(ReplicationTest, TableStateOnVRFInBulkSyncList) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to blue table
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    const TableState *ts_blue = VerifyVRFTableStateExists("blue", true);
+    const TableState *ts_red = VerifyVRFTableStateExists("red", true);
+    TASK_UTIL_EXPECT_EQ(1, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+
+    DisableBulkSync();
+
+    RemoveInstanceRouteTarget("blue", "target:64496:1");
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceImportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("blue").size());
+
+    ts_blue = VerifyVRFTableStateExists("blue", true);
+    ts_red = VerifyVRFTableStateExists("red", true);
+
+    TASK_UTIL_EXPECT_TRUE(ts_red->empty());
+    TASK_UTIL_EXPECT_TRUE(ts_blue->empty());
+    TASK_UTIL_EXPECT_EQ(1, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    DeleteRoutingInstance("blue", "target:64496:1");
+    DeleteRoutingInstance("red", "target:64496:2");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+                                    "routing-instance", "blue",
+                                    "routing-instance", "red",
+                                    "connection");
+    task_util::WaitForIdle();
+
+    ts_blue = VerifyVRFTableStateExists("blue", true);
+    ts_red = VerifyVRFTableStateExists("red", true);
+    TASK_UTIL_EXPECT_EQ(0, ts_blue->route_count());
+    TASK_UTIL_EXPECT_EQ(0, ts_red->route_count());
+    TASK_UTIL_EXPECT_TRUE(ts_blue->table()->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(ts_red->table()->IsDeleted());
+
+    EnableBulkSync();
+
+    VerifyVRFTableStateExists("blue", false);
+    VerifyVRFTableStateExists("red", false);
+}
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
