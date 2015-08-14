@@ -213,8 +213,6 @@ static bool ParseDomTags(const std::string& tstr,
             string pattr = pterm.substr(found+1, string::npos);
             pugi::xml_node anode_p = elem_chain->at(idx).second.child(pattr.c_str());
             DbHandler::Var pv = ParseNode(anode_p);
-            LOG(DEBUG, __func__ <<" PrefixProc for " << elem_chain->at(0).first <<
-                " pname " << pname << " val " << pv);
             tv.prefix = make_pair(pname, pv);
         }
 
@@ -572,10 +570,8 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 seq, true, node_type, instance_id);
         }
         LOG(DEBUG, __func__ << " Deleted " << key);
-        if (!is_alarm) {
-            osp_->UVENotif(object.name(), 
-                source, node_type, module, instance_id, key, deleted);
-        }
+        osp_->UVENotif(object.name(), 
+            source, node_type, module, instance_id, key, deleted);
         return true;
     }
 
@@ -639,12 +635,9 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         }
     }
 
-
     // Publish on the Kafka bus that this UVE has changed
-    if (!is_alarm) {
-        osp_->UVENotif(object.name(), 
-            source, node_type, module, instance_id, key, deleted);
-    }
+    osp_->UVENotif(object.name(), 
+        source, node_type, module, instance_id, key, deleted);
     return true;
 }
 

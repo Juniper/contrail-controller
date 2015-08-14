@@ -14,7 +14,127 @@ import traceback
 import uuid
 import struct
 import socket
+import discoveryclient.client as client 
+from sandesh_common.vns.constants import ALARM_PARTITION_SERVICE_NAME
+from pysandesh.util import UTCTimestampUsec
+import select
+import redis
+from collections import namedtuple
 
+PartInfo = namedtuple("PartInfo",["ip_address","instance_id","acq_time","port"])
+
+def sse_pack(d):
+    """Pack data in SSE format"""
+    buffer = ''
+    for k in ['event','data']:
+        if k in d.keys():
+            buffer += '%s: %s\n' % (k, d[k])
+    return buffer + '\n'
+
+class UveStreamPart(gevent.Greenlet):
+    def __init__(self, partno, logger, q, pi, rpass):
+        gevent.Greenlet.__init__(self)
+        self._logger = logger
+        self._q = q
+        self._pi = pi
+        self._partno = partno
+        self._rpass = rpass
+
+    def syncpart(self, redish):
+        inst = self._pi.instance_id
+        part = self._partno
+        keys = list(redish.smembers("AGPARTKEYS:%s:%d" % (inst, part)))
+        ppe = redish.pipeline()
+        for key in keys:
+            ppe.hgetall("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
+        pperes = ppe.execute()
+        idx=0
+        for res in pperes:
+            for tk,tv in res.iteritems():
+                msg = {'event': 'sync', 'data':\
+                    json.dumps({'partition':self._partno,
+                        'key':keys[idx], 'type':tk, 'value':json.dumps(tv)})}
+                self._q.put(sse_pack(msg))
+            idx += 1
+        
+    def _run(self):
+        lredis = None
+        while True:
+            try:
+                lredis = redis.StrictRedis(
+                        host=self._pi.ip_address,
+                        port=self._pi.port,
+                        password=self._rpass,
+                        db=2)
+                self.syncpart(lredis)
+                # TODO: Read redis uve stream
+                while True:
+                    gevent.sleep(1)
+            except gevent.GreenletExit:
+                break
+            except Exception as ex:
+                template = "Exception {0} in uve stream proc. Arguments:\n{1!r}"
+                messag = template.format(type(ex).__name__, ex.args)
+                self._logger.error("%s : traceback %s" % \
+                                  (messag, traceback.format_exc()))
+                lredis = None
+        return None
+
+class UveStreamer(gevent.Greenlet):
+    def __init__(self, logger, q, rfile, agp_cb, partitions, rpass):
+        gevent.Greenlet.__init__(self)
+        self._logger = logger
+        self._q = q
+        self._rfile = rfile
+        self._agp_cb = agp_cb
+        self._agp = {}
+        self._parts = {}
+        self._partitions = partitions
+        self._rpass = rpass
+
+    def _run(self):
+        inputs = [ self._rfile ]
+        outputs = [ ]
+        msg = {'event': 'init', 'data':\
+            json.dumps({'partitions':self._partitions})}
+        self._q.put(sse_pack(msg))
+        while True:
+            readable, writable, exceptional = select.select(inputs, outputs, inputs, 1)
+            if (readable or writable or exceptional):
+                break
+            newagp = self._agp_cb()
+            set_new, set_old = set(newagp.keys()), set(self._agp.keys())
+            intersect = set_new.intersection(set_old)
+            # deleted parts
+            for elem in set_old - intersect:
+                self.partition_stop(elem)
+            # new parts
+            for elem in set_new - intersect:
+                self.partition_start(elem, newagp[elem])
+            # changed parts
+            for elem in intersect:
+                if self._agp[elem] != newagp[elem]:
+                    self.partition_stop(elem)
+                    self.partition_start(elem, newagp[elem])
+            self._agp = newagp
+        for part, pi in self._agp.iteritems():
+            self.partition_stop(part)
+
+    def partition_start(self, partno, pi):
+        self._logger.error("Starting agguve part %d using %s" %( partno, pi))
+        msg = {'event': 'clear', 'data':\
+            json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
+        self._q.put(sse_pack(msg))
+        self._parts[partno] = UveStreamPart(partno, self._logger,
+            self._q, pi, self._rpass)
+        self._parts[partno].start()
+
+    def partition_stop(self, partno):
+        self._logger.error("Stopping agguve part %d" % partno)
+        self._parts[partno].kill()
+        self._parts[partno].get()
+        del self._parts[partno]
+            
 class PartitionHandler(gevent.Greenlet):
     def __init__(self, brokers, group, topic, logger, limit):
         gevent.Greenlet.__init__(self)
@@ -49,7 +169,7 @@ class PartitionHandler(gevent.Greenlet):
                 self._logger.error("Starting %s" % self._topic)
 
                 # Find the offset of the last message that has been queued
-                consumer.seek(0,2)
+                consumer.seek(-1,2)
                 try:
                     mi = consumer.get_message(timeout=0.1)
                     consumer.commit()
@@ -110,8 +230,11 @@ class UveStreamProc(PartitionHandler):
     #              that may have changed for a given notification
     #  rsc       : Callback function to check on collector status
     #              and get sync contents for new collectors
+    #  aginst    : instance_id of alarmgen
+    #  rport     : redis server port
+    #  disc      : discovery client to publish to
     def __init__(self, brokers, partition, uve_topic, logger, callback,
-            host_ip, rsc):
+            host_ip, rsc, aginst, rport, disc = None):
         super(UveStreamProc, self).__init__(brokers, "workers",
             uve_topic, logger, False)
         self._uvedb = {}
@@ -119,10 +242,18 @@ class UveStreamProc(PartitionHandler):
         self._uveout = {}
         self._callback = callback
         self._partno = partition
-        self._host_ip, = struct.unpack('>I', socket.inet_pton(
+        self._host_ip = host_ip
+        self._ip_code, = struct.unpack('>I', socket.inet_pton(
                                         socket.AF_INET, host_ip))
         self.disc_rset = set()
         self._resource_cb = rsc
+        self._aginst = aginst
+        self._disc = disc
+        self._acq_time = UTCTimestampUsec() 
+        self._rport = rport
+
+    def acq_time(self):
+        return self._acq_time
 
     def resource_check(self, msgs):
         '''
@@ -136,6 +267,13 @@ class UveStreamProc(PartitionHandler):
         if len(chg_res):
             self.start_partition(chg_res)
         self.disc_rset = newset
+        if self._disc:
+            data = { 'instance-id' : self._aginst,
+                     'partition' : str(self._partno),
+                     'ip-address': self._host_ip, 
+                     'acq-time': str(self._acq_time),
+                     'port':str(self._rport)}
+            self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         
     def stop_partition(self, kcoll=None):
         clist = []
@@ -143,6 +281,14 @@ class UveStreamProc(PartitionHandler):
             clist = self._uvedb.keys()
             # If all collectors are being cleared, clear resoures too
             self.disc_rset = set()
+            if self._disc:
+                # TODO: Unpublish instead of setting acq-time to 0
+                data = { 'instance-id' : self._aginst,
+                         'partition' : str(self._partno),
+                         'ip-address': self._host_ip, 
+                         'acq-time': "0",
+                         'port':str(self._rport)}
+                self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         else:
             clist = [kcoll]
         self._logger.error("Stopping part %d collectors %s" % \
@@ -191,7 +337,7 @@ class UveStreamProc(PartitionHandler):
                         self._uvedb[kcoll][kgen][tab][rkey][typ] = {}
                         self._uvedb[kcoll][kgen][tab][rkey][typ]["c"] = 0
                         self._uvedb[kcoll][kgen][tab][rkey][typ]["u"] = \
-                                uuid.uuid1(self._host_ip)
+                                uuid.uuid1(self._ip_code)
                         uves[kk][typ] = contents
                     
         self._logger.error("Starting part %d UVEs %s" % \
@@ -291,7 +437,7 @@ class UveStreamProc(PartitionHandler):
                         self._uvedb[coll][gen][tab][rkey][uv["type"]] = {}
                         self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] = 1
                         self._uvedb[coll][gen][tab][rkey][uv["type"]]["u"] = \
-                            uuid.uuid1(self._host_ip)
+                            uuid.uuid1(self._ip_code)
                 chg[uv["key"]] = { uv["type"] : uv["value"] }
 
                 # Record stats on UVE Keys being processed

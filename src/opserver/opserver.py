@@ -46,7 +46,7 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
-     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME
+     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_PARTITION_SERVICE_NAME
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -66,6 +66,7 @@ from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
 from generator_introspect_util import GeneratorIntrospectUtil
 from stevedore import hook
+from partition_handler import PartInfo, UveStreamer
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -529,9 +530,18 @@ class OpServer(object):
                  for k, v in ModuleCategoryMap.iteritems())
 
         self.disc = None
+        self.agp = {}
+        ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
+            name = 'UVE-Aggregation', status = ConnectionStatus.INIT)
         if self._args.disc_server_ip:
             self.disc_publish()
         else:
+            pi = PartInfo(ip_address = self._args.host_ip,
+                          acq_time = UTCTimestampUsec(),
+                          instance_id = 0,
+                          port = self._args.redis_server_port)
+                          
+            self.agp = { 0: pi }
             self.redis_uve_list = []
             try:
                 if type(self._args.redis_uve_list) is str:
@@ -695,6 +705,7 @@ class OpServer(object):
                      'GET', self.send_trace_buffer)
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
+        bottle.route('/analytics/uve-stream', 'GET', self.uve_stream)
 
         for uve in UVE_MAP:
             bottle.route(
@@ -736,6 +747,7 @@ class OpServer(object):
                                --use_syslog
                                --syslog_facility LOG_USER
                                --worker_id 0
+                               --partitions 5
                                --redis_uve_list 127.0.0.1:6379
                                --auto_db_purge
         '''
@@ -771,6 +783,7 @@ class OpServer(object):
             'analytics_flow_ttl' : -1,
             'logging_conf': '',
             'logger_class': None,
+            'partitions'        : 5,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -887,6 +900,8 @@ class OpServer(object):
             help="Cassandra user name")
         parser.add_argument("--cassandra_password",
             help="Cassandra password")
+        parser.add_argument("--partitions", type=int,
+            help="Number of partitions for hashing UVE keys")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -928,6 +943,18 @@ class OpServer(object):
 
         return json_body
     # end homepage_http_get
+
+    def uve_stream(self):
+        bottle.response.set_header('Content-Type', 'text/event-stream')
+        bottle.response.set_header('Cache-Control', 'no-cache')
+        # This is needed to detect when the client hangs up
+        rfile = bottle.request.environ['wsgi.input'].rfile
+
+        body = gevent.queue.Queue()
+        ph = UveStreamer(self._logger, body, rfile, self.get_agp,
+            self._args.partitions, self._args.redis_password)
+        ph.start()
+        return body
 
     def documentation_http_get(self, filename):
         return bottle.static_file(
@@ -2132,6 +2159,34 @@ class OpServer(object):
         self._uve_server.update_redis_uve_list(newlist)
         self._state_server.update_redis_list(newlist)
 
+    def disc_agp(self, clist):
+        new_agp = {}
+        for elem in clist:
+            pi = PartInfo(instance_id = elem['instance-id'],
+                          ip_address = elem['ip-address'],
+                          acq_time = int(elem['acq-time']),
+                          port = int(elem['port']))
+            partno = int(elem['partition'])
+            if partno not in new_agp:
+                new_agp[partno] = pi
+            else:
+                if new_agp[partno] != pi:
+                    if pi.acq_time > new_agp[partno].acq_time:
+                        new_agp[partno] = pi
+        if len(new_agp) == self._args.partitions and \
+                len(self.agp) != self._args.partitions:
+            ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
+                name = 'UVE-Aggregation', status = ConnectionStatus.UP,
+                message = 'Partitions:%d' % len(new_agp))
+        if len(new_agp) != self._args.partitions:
+            ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
+                name = 'UVE-Aggregation', status = ConnectionStatus.DOWN,
+                message = 'Partitions:%d' % len(new_agp))
+        self.agp = new_agp        
+
+    def get_agp(self):
+        return self.agp
+
 def main():
     opserver = OpServer()
     gevs = [ 
@@ -2145,6 +2200,12 @@ def main():
                            sandesh_global)
         sp.start()
         gevs.append(sp)
+
+        sp2 = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
+                            ALARM_PARTITION_SERVICE_NAME, opserver.disc_agp, \
+                            sandesh_global)
+        sp2.start()
+        gevs.append(sp2)
 
     gevent.joinall(gevs)
 
