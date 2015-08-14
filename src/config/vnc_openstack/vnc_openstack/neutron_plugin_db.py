@@ -1628,6 +1628,16 @@ class DBInterface(object):
                 try:
                     port_obj = self._virtual_machine_interface_read(
                         port_id=port_ref['uuid'])
+
+                    # In case of floating ip on the Virtual-ip, svc-monitor will
+                    # link floating ip to "right" interface of service VMs
+                    # launched by ha-proxy service instance. Skip them
+                    props = port_obj.get_virtual_machine_interface_properties()
+                    if props:
+                        interface_type = props.get_service_interface_type()
+                        if interface_type == "right":
+                            continue
+
                     port_id = port_ref['uuid']
                     break
                 except NoIdError:
