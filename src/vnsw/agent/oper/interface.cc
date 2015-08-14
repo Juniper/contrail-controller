@@ -336,7 +336,7 @@ void InterfaceTable::GlobalVrouterConfigChanged() {
 Interface::Interface(Type type, const uuid &uuid, const string &name,
                      VrfEntry *vrf) :
     type_(type), uuid_(uuid), name_(name),
-    vrf_(vrf), label_(MplsTable::kInvalidLabel),
+    vrf_(vrf, this), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true),
     ipv6_active_(false), l2_active_(true), id_(kInvalidIndex),
     dhcp_enabled_(true), dns_enabled_(true), mac_(), os_index_(kInvalidIndex),

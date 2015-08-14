@@ -30,13 +30,13 @@ using std::string;
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
         const MulticastMacLocalEntry *key) : OvsdbEntry(table),
     logical_switch_name_(key->logical_switch_name_),
-    logical_switch_(key->logical_switch_) {
+    vrf_(NULL, this), logical_switch_(key->logical_switch_) {
 }
 
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
                                     const LogicalSwitchEntry *logical_switch) :
     OvsdbEntry(table), logical_switch_name_(logical_switch->name()),
-    logical_switch_(logical_switch) {
+    vrf_(NULL, this), logical_switch_(logical_switch) {
 }
 
 OVSDB::VnOvsdbEntry *MulticastMacLocalEntry::GetVnEntry() const {

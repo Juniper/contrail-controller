@@ -31,19 +31,20 @@ using std::string;
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
         const std::string &logical_switch, const std::string &mac) :
     OvsdbEntry(table), mac_(mac), logical_switch_name_(logical_switch),
-    dest_ip_("") {
+    dest_ip_(""), vrf_(NULL, this) {
 }
 
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
         const UnicastMacLocalEntry *key) : OvsdbEntry(table), mac_(key->mac_),
-    logical_switch_name_(key->logical_switch_name_), dest_ip_(key->dest_ip_) {
+    logical_switch_name_(key->logical_switch_name_), dest_ip_(key->dest_ip_),
+    vrf_(NULL, this) {
 }
 
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
         struct ovsdb_idl_row *row) : OvsdbEntry(table),
     mac_(ovsdb_wrapper_ucast_mac_local_mac(row)),
     logical_switch_name_(ovsdb_wrapper_ucast_mac_local_logical_switch(row)),
-    dest_ip_() {
+    dest_ip_(), vrf_(NULL, this) {
     if (ovsdb_wrapper_ucast_mac_local_dst_ip(row))
         dest_ip_ = ovsdb_wrapper_ucast_mac_local_dst_ip(row);
 }

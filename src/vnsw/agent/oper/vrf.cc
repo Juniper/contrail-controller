@@ -37,7 +37,7 @@ class VrfEntry::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(VrfEntry *vrf) : 
         LifetimeActor((static_cast<VrfTable *>(vrf->get_table()))->
-                      agent()->lifetime_manager()), table_(vrf) {
+                      agent()->lifetime_manager()), table_(vrf, this) {
     }
     virtual ~DeleteActor() { 
     }

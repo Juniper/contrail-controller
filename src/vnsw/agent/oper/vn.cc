@@ -87,10 +87,11 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
 }
 
 VnEntry::VnEntry(Agent *agent, uuid id) :
-    AgentOperDBEntry(), agent_(agent), uuid_(id), vxlan_id_(0), vnid_(0),
-    bridging_(true), layer3_forwarding_(true), admin_state_(true),
-    table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false),
-    old_vxlan_id_(0), forwarding_mode_(Agent::L2_L3) {
+    AgentOperDBEntry(), agent_(agent), uuid_(id), vrf_(NULL, this),
+    vxlan_id_(0), vnid_(0), bridging_(true), layer3_forwarding_(true),
+    admin_state_(true), table_label_(0), enable_rpf_(true),
+    flood_unknown_unicast_(false), old_vxlan_id_(0),
+    forwarding_mode_(Agent::L2_L3) {
 }
 
 VnEntry::~VnEntry() {
