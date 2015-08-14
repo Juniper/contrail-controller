@@ -44,7 +44,7 @@ public:
     };
 
     VrfAssign(Type type, Interface *interface)
-        : type_(type), interface_(interface), vrf_(NULL) { };
+        : type_(type), interface_(interface), vrf_(NULL, this) { };
     virtual ~VrfAssign() { };
 
     uint32_t GetRefCount() const {

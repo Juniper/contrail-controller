@@ -36,6 +36,20 @@ public:
         }
     }
 
+    friend void intrusive_ptr_add_back_ref(const IntrusiveReferrer ref,
+                                           const Derived* p) {
+        const AgentRefCount *entry = (const AgentRefCount *) (p);
+        tbb::mutex::scoped_lock lock(entry->mutex_);
+        entry->back_ref_set_.insert(ref);
+    }
+
+    friend void intrusive_ptr_del_back_ref(const IntrusiveReferrer ref,
+                                           const Derived* p) {
+        const AgentRefCount *entry = (const AgentRefCount *) (p);
+        tbb::mutex::scoped_lock lock(entry->mutex_);
+        entry->back_ref_set_.erase(ref);
+    }
+
     uint32_t GetRefCount() const {return refcount_;};
 protected:
     AgentRefCount() {refcount_ = 0;}
@@ -44,6 +58,8 @@ protected:
     virtual ~AgentRefCount() {assert(refcount_ == 0);};
     void swap(AgentRefCount&) {};
 private:
+    mutable tbb::mutex mutex_;
+    mutable std::set<IntrusiveReferrer> back_ref_set_;
     mutable tbb::atomic<uint32_t> refcount_;
 };
 

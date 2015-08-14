@@ -63,7 +63,7 @@ bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) {
 }
 
 AgentRouteTable::AgentRouteTable(DB *db, const std::string &name):
-    RouteTable(db, name), agent_(NULL), deleter_(NULL),
+    RouteTable(db, name), agent_(NULL), vrf_entry_(NULL, this), deleter_(NULL),
     vrf_delete_ref_(this, NULL) {
 }
 
