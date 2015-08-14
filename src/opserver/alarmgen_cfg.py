@@ -26,6 +26,7 @@ contrail-alarm-gen  --log_level SYS_DEBUG
                     --partitions 5
                     --redis_password
                     --http_server_port 5995
+                    --redis_server_port 6379
                     --redis_uve_list 127.0.0.1:6379
                     --alarmgen_list 127.0.0.1:0
                     --kafka_broker_list 127.0.0.1:9092

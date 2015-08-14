@@ -316,7 +316,8 @@ class OpServer(object):
                 str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
-                '--log_level', "SYS_DEBUG",
+                '--log_level', "SYS_INFO",
+                '--partitions', "4",
                 '--rest_api_port', str(self.listen_port)]
         if self.analytics_fixture.redis_uves[0].password:
             args.append('--redis_password')
