@@ -54,6 +54,10 @@ from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
 import discoveryclient.client as client 
 from kafka import KafkaClient, SimpleProducer
+import redis
+from collections import namedtuple
+
+OutputRow = namedtuple("OutputRow",["key","typ","val"])
 
 class AGTabStats(object):
     """ This class is used to store per-UVE-table information
@@ -278,7 +282,6 @@ class Controller(object):
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 
         self._workers = {}
-        self._acq_time = {}
         self._uveq = {}
         self._uveqf = {}
 
@@ -436,6 +439,80 @@ class Controller(object):
 
         return disc_instances, coll_delete, chg_res            
 
+    @staticmethod
+    def send_agg_uve(redish, inst, part, acq_time, rows):
+        """ 
+        This function writes aggregated UVEs to redis
+
+        Each row has a UVE key, one of it's structs type names and the structs value
+        If type is "None", it means that the UVE is being removed
+        If value is none, it mean that struct of the UVE is being removed
+
+        The key and typename information is also published on a redis channel
+        """
+        old_acq_time = redish.hget("AGPARTS:%s" % inst, part)
+        if old_acq_time is None:
+            redish.hset("AGPARTS:%s" % inst, part, acq_time)
+        else:
+            # Is there stale information for this partition?
+            if int(old_acq_time) != acq_time:
+                ppe2 = redish.pipeline()
+                ppe2.hdel("AGPARTS:%s" % inst, part)
+                ppe2.smembers("AGPARTKEYS:%s:%d" % (inst, part))
+                pperes2 = ppe2.execute()
+                ppe3 = redish.pipeline()
+                # Remove all contents for this AG-Partition
+                for elem in pperes2[-1]:
+                    ppe3.delete("AGPARTVALUES:%s:%d:%s" % (inst, part, elem))
+                ppe3.delete("AGPARTKEYS:%s:%d" % (inst, part))
+                ppe3.hset("AGPARTS:%s" % inst, part, acq_time)
+                pperes3 = ppe3.execute()
+
+        pub_list = []        
+        ppe = redish.pipeline()
+        check_keys = set()
+        for row in rows: 
+            vjson = json.dumps(row.val)
+            typ = row.typ
+            key = row.key
+            pub_list.append({"key":key,"type":typ})
+            if typ is None:
+                # The entire contents of the UVE should be removed
+                ppe.srem("AGPARTKEYS:%s:%d" % (inst, part), key)
+                ppe.delete("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
+            else:
+                if row.val is None:
+                    # Remove the given struct from the UVE
+                    ppe.hdel("AGPARTVALUES:%s:%d:%s" % (inst, part, key), typ)
+                    check_keys.add(key)
+                else:
+                    ppe.sadd("AGPARTKEYS:%s:%d" % (inst, part), key)
+                    ppe.hset("AGPARTVALUES:%s:%d:%s" % (inst, part, key),
+                        typ, vjson)
+        ppe.execute()
+        
+        # Find the keys that have no content (all structs have been deleted) 
+        ppe4 = redish.pipeline()
+        check_keys_list = list(check_keys)
+        for kk in check_keys_list:
+           ppe4.exists("AGPARTVALUES:%s:%d:%s" % (inst, part, kk))
+        pperes4 = ppe4.execute()
+
+        # From the index, removes keys for which there are now no contents
+        ppe5 = redish.pipeline()
+        idx = 0
+        for res in pperes4:
+            if not res:
+                ppe5.srem("AGPARTKEYS:%s:%d" % (inst, part), check_keys_list[idx])
+                # TODO: alarmgen should have already figured out if all structs of 
+                #       the UVE are gone, and should have sent a UVE delete
+                #       We should not need to figure this out again
+                assert()
+            idx += 1
+        ppe5.execute()
+
+        redish.publish('AGPARTPUB:%s:%d' % (inst, part), json.dumps(pub_list))
+        
     def run_uve_processing(self):
         """
         This function runs in its own gevent, and provides state compression
@@ -446,8 +523,11 @@ class Controller(object):
         set should not grow in an unbounded manner (like a queue can)
         """
 
-        kfk = None
-        prod = None
+        if self.disc:
+            max_out_rows = 20
+        else:
+            max_out_rows = 2
+        lredis = None
         while True:
             for part in self._uveqf.keys():
                 self._logger.error("Stop UVE processing for %d" % part)
@@ -474,61 +554,58 @@ class Controller(object):
                 gevent.joinall(gevs.values())
                 for part in gevs.keys():
                     # If UVE processing failed, requeue the working set
-                    pres = gevs[part].get()
-                    if pres is None:
+                    outp = gevs[part].get()
+                    if outp is None:
                         self._logger.error("UVE Process failed for %d" % part)
                         self.handle_uve_notifq(part, pendingset[part])
                     else:
-                        output, output_alm = pres
                         try:
-                            if kfk is None:
-                                kfk = KafkaClient(\
-                                        ','.join(self._conf.kafka_broker_list()),
-                                        self._hostname)
-                                prod = SimpleProducer(kfk, async=False,
-                                    req_acks=SimpleProducer.ACK_AFTER_CLUSTER_COMMIT,
-                                    ack_timeout=2000,
-                                    batch_send_every_n=10, batch_send_every_t=3)
-                            utopic = "agguve-"+str(part)
-                            atopic = "alarm-"+str(part)
-                            outs = [(utopic, output),(atopic, output_alm)]
-                            for elem in outs:
-                                topic,outp = elem
-                                if len(outp):
-                                    kfk.ensure_topic_exists(topic)
-                                    for ku,vu in outp.iteritems():
-                                        if vu is None:
-                                            # This message has no type!
-                                            # Its used to indicate a delete of the entire UVE
-                                            row = {}
-                                            row["message"] = "UVEUpdate"
-                                            row["key"] = ku
-                                            row["gen"] = self._hostname + ":" + self._instance_id
-                                            row["coll"] = self._acq_time[part]
-                                            row["type"] = None
-                                            prod.send_messages(topic, json.dumps(row))
-                                            self._logger.info("Publish %s: %s" % \
-                                                (topic, json.dumps(row)))
-                                            continue
-                                        for kt,vt in vu.iteritems():
-                                            row = {}
-                                            row["message"] = "UVEUpdate"
-                                            row["key"] = ku
-                                            row["gen"] = self._hostname + ":" + self._instance_id
-                                            row["coll"] = self._acq_time[part]
-                                            row["type"] = kt
-                                            row["value"] = vt
-                                            prod.send_messages(topic, json.dumps(row))
-                                            self._logger.info("Publish %s: %s" % \
-                                                (topic, json.dumps(row)))
-                                
+                            if lredis is None:
+                                lredis = redis.StrictRedis(
+                                        host="127.0.0.1",
+                                        port=self._conf.redis_server_port(),
+                                        password=self._conf.redis_password(),
+                                        db=2)
+                  
+                            if len(outp):
+                                rows = []
+                                for ku,vu in outp.iteritems():
+                                    if vu is None:
+                                        # This message has no type!
+                                        # Its used to indicate a delete of the entire UVE
+                                        rows.append(OutputRow(key=ku, typ=None, val=None))
+                                        if len(rows) >= max_out_rows:
+                                            Controller.send_agg_uve(lredis,
+                                                self._instance_id,
+                                                part,
+                                                self._workers[part].acq_time(),
+                                                rows)
+                                            rows[:] = []
+                                        continue
+                                    for kt,vt in vu.iteritems():
+                                        rows.append(OutputRow(key=ku, typ=kt, val=vt))
+                                        if len(rows) >= max_out_rows:
+                                            Controller.send_agg_uve(lredis,
+                                                self._instance_id,
+                                                part,
+                                                self._workers[part].acq_time(),
+                                                rows)
+                                            rows[:] = []
+                                # Flush all remaining rows
+                                if len(rows):
+                                    Controller.send_agg_uve(lredis,
+                                        self._instance_id,
+                                        part,
+                                        self._workers[part].acq_time(),
+                                        rows)
+                                    rows[:] = []
+
                         except Exception as ex:
                             template = "Exception {0} in uve proc. Arguments:\n{1!r}"
                             messag = template.format(type(ex).__name__, ex.args)
                             self._logger.error("%s : traceback %s" % \
                                               (messag, traceback.format_exc()))
-                            kfk = None
-                            prod = None
+                            lredis = None
                             # We need to requeue
                             self.handle_uve_notifq(part, pendingset[part])
                             gevent.sleep(1)
@@ -575,7 +652,6 @@ class Controller(object):
         self._logger.debug("Changed part %d UVEs : %s" % (part, str(uves)))
         success = True
         output = {}
-        output_alm = {}
         for uv,types in uves.iteritems():
             tab = uv.split(':',1)[0]
             if tab not in self.tab_perf:
@@ -590,10 +666,6 @@ class Controller(object):
                     filters["cfilt"][typ] = set()
 
             failures, uve_data = self._us.get_uve(uv, True, filters)
-
-            # Do not store alarms in the UVE Cache
-            if "UVEAlarms" in uve_data:
-                del uve_data["UVEAlarms"]
 
             if failures:
                 success = False
@@ -663,15 +735,19 @@ class Controller(object):
                 del output[uv]
             local_uve = self.ptab_info[part][tab][uve_name].values()
             
+            self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
+
             if len(local_uve.keys()) == 0:
                 self._logger.info("UVE %s deleted in proc" % (uv))
                 del self.ptab_info[part][tab][uve_name]
                 output[uv] = None
-
-            self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
-
+                
+                # Both alarm and non-alarm contents are gone.
+                # We do not need to do alarm evaluation
+                continue
+            
             # Withdraw the alarm if the UVE has no non-alarm structs
-            if len(local_uve.keys()) == 0:
+            if len(local_uve.keys()) == 1 and "UVEAlarms" in local_uve:
                 if tab in self.tab_alarms:
                     if uv in self.tab_alarms[tab]:
                         del self.tab_alarms[tab][uv]
@@ -680,13 +756,18 @@ class Controller(object):
                                 sandesh=self._sandesh)
                         self._logger.info('send del alarm: %s' % (alarm_msg.log()))
                         alarm_msg.send(sandesh=self._sandesh)
-                        output_alm[uv] = None
                 continue
-
+ 
             # Handing Alarms
             if not self.mgrs.has_key(tab):
                 continue
             prevt = UTCTimestampUsec()
+
+            #TODO: We may need to remove alarm from local_uve before 
+            #      alarm evaluation
+            # if "UVEAlarms" in uve_data:
+            #     del uve_data["UVEAlarms"]
+
             results = self.mgrs[tab].map_method("__call__", uv, local_uve)
             self.tab_perf[tab].record_call(UTCTimestampUsec() - prevt)
             new_uve_alarms = {}
@@ -738,19 +819,17 @@ class Controller(object):
                     ustruct = UVEAlarms(name = uve_name,
                             deleted = True)
                     del self.tab_alarms[tab][uv]
-                    output_alm[uv] = None
                 else:
                     alm_copy = copy.deepcopy(self.tab_alarms[tab][uv])
                     ustruct = UVEAlarms(name = uve_name,
                             alarms = alm_copy.values(),
                             deleted = False)
-                    output_alm[uv] = Controller.alarm_encode(alm_copy)
                 alarm_msg = AlarmTrace(data=ustruct, table=tab, \
                         sandesh=self._sandesh)
                 self._logger.info('send alarm: %s' % (alarm_msg.log()))
                 alarm_msg.send(sandesh=self._sandesh)
         if success:
-            return output, output_alm
+            return output
         else:
             return None
  
@@ -847,12 +926,22 @@ class Controller(object):
             if partno in self._workers:
                 self._logger.info("Dup partition %d" % partno)
             else:
-                self._acq_time[partno] = UTCTimestampUsec()
+                cdisc = None
+                if self.disc:
+                    cdisc = client.DiscoveryClient(
+                        self._conf.discovery()['server'],
+                        self._conf.discovery()['port'],
+                        ModuleNames[Module.ALARM_GENERATOR],
+                        '%s-%s-%d' % (self._hostname,
+                            self._instance_id, partno))
                 ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
                         partno, "uve-" + str(partno),
                         self._logger,
                         self.handle_uve_notifq, self._conf.host_ip(),
-                        self.handle_resource_check)
+                        self.handle_resource_check,
+                        self._instance_id,
+                        self._conf.redis_server_port(),
+                        cdisc)
                 ph.start()
                 self._workers[partno] = ph
                 tout = 600
@@ -894,7 +983,6 @@ class Controller(object):
                         break
                     idx += 1
                 if partno not in self._uveq:
-                    del self._acq_time[partno]
                     status = True 
                 else:
                     # TODO: The partition has not stopped yet
