@@ -1625,6 +1625,11 @@ class DBInterface(object):
         port_refs = fip_obj.get_virtual_machine_interface_refs()
         if port_refs:
             for port_ref in port_refs:
+                # In case of floating ip on the Virtual-ip, svc-monitor will
+                # link floating ip to "right" interface of service VMs
+                # launched by ha-proxy service instance. Skip them
+                if port_ref['to'][2].find("__right__") != -1:
+                    continue
                 try:
                     port_obj = self._virtual_machine_interface_read(
                         port_id=port_ref['uuid'])
