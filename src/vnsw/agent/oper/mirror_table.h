@@ -31,7 +31,7 @@ struct MirrorEntryData : public AgentData {
 class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
 public:
     MirrorEntry(std::string analyzer_name) : 
-           analyzer_name_(analyzer_name), vrf_(NULL), nh_(NULL) { };
+           analyzer_name_(analyzer_name), vrf_(NULL, this), nh_(NULL) { };
     virtual ~MirrorEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;

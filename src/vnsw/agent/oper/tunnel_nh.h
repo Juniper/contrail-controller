@@ -85,7 +85,7 @@ class MirrorNH : public NextHop {
 public:
     MirrorNH(VrfEntry *vrf, const Ip4Address &sip, uint16_t sport,
              const Ip4Address &dip, uint16_t dport):
-        NextHop(NextHop::MIRROR, false, false), vrf_(vrf), sip_(sip),
+        NextHop(NextHop::MIRROR, false, false), vrf_(vrf, this), sip_(sip),
         sport_(sport), dip_(dip), dport_(dport), arp_rt_(this),
         interface_(NULL), dmac_(){ };
     virtual ~MirrorNH() { };

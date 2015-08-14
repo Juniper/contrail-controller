@@ -21,7 +21,7 @@ using OVSDB::VnOvsdbObject;
 
 VnOvsdbEntry::VnOvsdbEntry(VnOvsdbObject *table,
         const boost::uuids::uuid &uuid) : OvsdbDBEntry(table), uuid_(uuid),
-        vxlan_id_(0), name_("") {
+        vrf_(NULL, this), vxlan_id_(0), name_("") {
 }
 
 void VnOvsdbEntry::AddMsg(struct ovsdb_idl_txn *txn) {

@@ -218,7 +218,7 @@ public:
     typedef DependencyList<NextHop, AgentRoute> TunnelNhDependencyList;
 
     AgentRoute(VrfEntry *vrf, bool is_multicast) :
-        Route(), vrf_(vrf), is_multicast_(is_multicast) { }
+        Route(), vrf_(vrf, this), is_multicast_(is_multicast) { }
     virtual ~AgentRoute() { }
 
     // Virtual functions from base DBEntry

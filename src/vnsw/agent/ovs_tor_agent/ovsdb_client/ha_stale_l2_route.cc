@@ -203,7 +203,7 @@ HaStaleL2RouteTable::HaStaleL2RouteTable(
         HaStaleDevVnEntry *dev_vn, AgentRouteTable *table) :
     OvsdbDBObject(NULL, false), table_delete_ref_(this, table->deleter()),
     state_(dev_vn->state()), dev_ip_(dev_vn->dev_ip().to_v4()),
-    vxlan_id_(dev_vn->vxlan_id()), vrf_(table->vrf_entry()),
+    vxlan_id_(dev_vn->vxlan_id()), vrf_(table->vrf_entry(), this),
     vn_name_(dev_vn->vn_name()) {
     HaStaleDevVnTable *dev_table =
         static_cast<HaStaleDevVnTable*>(dev_vn->table());

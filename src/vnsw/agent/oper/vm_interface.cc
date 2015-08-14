@@ -3308,13 +3308,13 @@ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
 
 VmInterface::FloatingIp::FloatingIp() : 
     ListEntry(), floating_ip_(), vn_(NULL),
-    vrf_(NULL), vrf_name_(""), vn_uuid_(), l2_installed_(false),
+    vrf_(NULL, this), vrf_name_(""), vn_uuid_(), l2_installed_(false),
     ethernet_tag_(0) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_),
-    floating_ip_(rhs.floating_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_),
+    floating_ip_(rhs.floating_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
     vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
     l2_installed_(rhs.l2_installed_), ethernet_tag_(rhs.ethernet_tag_) {
 }
@@ -3322,7 +3322,7 @@ VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
 VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     const std::string &vrf,
                                     const boost::uuids::uuid &vn_uuid) :
-    ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL), vrf_name_(vrf),
+    ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this), vrf_name_(vrf),
     vn_uuid_(vn_uuid), l2_installed_(false), ethernet_tag_(0) {
 }
 
@@ -3578,7 +3578,7 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 ///////////////////////////////////////////////////////////////////////////////
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
     ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), mac_(),
-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL), gw_ip_(0) {
+    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this), gw_ip_(0) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(
@@ -3586,7 +3586,7 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(
     rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
     ecmp_(rhs.ecmp_), mac_(rhs.mac_),
     l2_entry_installed_(rhs.l2_entry_installed_), ethernet_tag_(rhs.ethernet_tag_),
-    vrf_ref_(rhs.vrf_ref_), gw_ip_(rhs.gw_ip_) {
+    vrf_ref_(rhs.vrf_ref_, this), gw_ip_(rhs.gw_ip_) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
@@ -3594,7 +3594,7 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
                                                     uint32_t plen, bool ecmp,
                                                     const MacAddress &mac) :
     ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL) {
+    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this) {
 }
 
 VmInterface::AllowedAddressPair::~AllowedAddressPair() {
@@ -3801,13 +3801,13 @@ void VmInterface::SecurityGroupEntryList::Remove
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::ServiceVlan::ServiceVlan() :
     ListEntry(), tag_(0), vrf_name_(""), addr_(0), plen_(32), smac_(), dmac_(),
-    vrf_(NULL), label_(MplsTable::kInvalidLabel) {
+    vrf_(NULL, this), label_(MplsTable::kInvalidLabel) {
 }
 
 VmInterface::ServiceVlan::ServiceVlan(const ServiceVlan &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_), tag_(rhs.tag_),
     vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), plen_(rhs.plen_),
-    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_), label_(rhs.label_) {
+    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_, this), label_(rhs.label_) {
 }
 
 VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
@@ -3815,7 +3815,7 @@ VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
                                       const MacAddress &smac,
                                       const MacAddress &dmac) :
     ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), plen_(plen),
-    smac_(smac), dmac_(dmac), vrf_(NULL), label_(MplsTable::kInvalidLabel)
+    smac_(smac), dmac_(dmac), vrf_(NULL, this), label_(MplsTable::kInvalidLabel)
     {
 }
 
@@ -3998,12 +3998,12 @@ bool VmInterface::IsFloatingIp(const IpAddress &ip) const {
 // VRF assign rule routines
 ////////////////////////////////////////////////////////////////////////////
 VmInterface::VrfAssignRule::VrfAssignRule():
-    ListEntry(), id_(0), vrf_name_(" "), vrf_(NULL), ignore_acl_(false) {
+    ListEntry(), id_(0), vrf_name_(" "), vrf_(NULL, this), ignore_acl_(false) {
 }
 
 VmInterface::VrfAssignRule::VrfAssignRule(const VrfAssignRule &rhs):
     ListEntry(rhs.installed_, rhs.del_pending_), id_(rhs.id_),
-    vrf_name_(rhs.vrf_name_), vrf_(rhs.vrf_), ignore_acl_(rhs.ignore_acl_),
+    vrf_name_(rhs.vrf_name_), vrf_(rhs.vrf_, this), ignore_acl_(rhs.ignore_acl_),
     match_condition_(rhs.match_condition_) {
 }
 
@@ -4011,8 +4011,8 @@ VmInterface::VrfAssignRule::VrfAssignRule(uint32_t id,
     const autogen::MatchConditionType &match_condition, 
     const std::string &vrf_name,
     bool ignore_acl):
-    ListEntry(), id_(id), vrf_name_(vrf_name), ignore_acl_(ignore_acl), 
-    match_condition_(match_condition) {
+    ListEntry(), id_(id), vrf_name_(vrf_name), vrf_(NULL, this),
+    ignore_acl_(ignore_acl), match_condition_(match_condition) {
 }
 
 VmInterface::VrfAssignRule::~VrfAssignRule() {
