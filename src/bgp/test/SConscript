@@ -122,7 +122,7 @@ env.Append(LIBS = ['route', 'routing_instance', 'net'])
 
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
 env.Append(LIBS = ['xmpp_unicast', 'xmpp_multicast', 'xmpp_enet',
-                   'boost_regex', 'boost_program_options'])
+                   'boost_regex', 'boost_program_options', 'boost_chrono'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
