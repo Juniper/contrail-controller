@@ -19,6 +19,7 @@ import json
 import gevent
 import socket, struct
 import copy
+import traceback
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -49,9 +50,10 @@ class ServicePoller(gevent.Greenlet):
                 sub_obj = \
                     self.disc.subscribe(self.svc_name, 0)
                 slist= sub_obj.info 
-            except Exception as e:
+            except Exception as ex:
                 self.logger.error('Failed to get svc list %s from ' \
-                                   'discovery server' % self.svc_name)
+                                   'discovery server : %s %s' % \
+                    (self.svc_name, str(ex.args), traceback.format_exc()))
             else:
                 if slist:
                     disc_trace = self.trace_cls()
