@@ -281,6 +281,7 @@ protected:
     }
 
     void PauseBgpPeerDelete() {
+        task_util::TaskSchedulerLock lock;
         BgpPeer *peer_y1 = bgp_server_x_->FindMatchingPeer(
             BgpConfigManager::kMasterInstance, "Y1");
         peer_y1->deleter()->PauseDelete();
@@ -290,6 +291,7 @@ protected:
     }
 
     void ResumeBgpPeerDelete() {
+        task_util::TaskSchedulerLock lock;
         BgpPeer *peer_y1 = bgp_server_x_->FindMatchingPeer(
             BgpConfigManager::kMasterInstance, "Y1");
         peer_y1->deleter()->ResumeDelete();
