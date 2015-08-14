@@ -106,12 +106,12 @@ class TestDbInterface(unittest.TestCase):
             get_floating_ip_fixed_ip_address= lambda: 'fip_port_ip')
 
         fip_obj.get_virtual_machine_interface_refs = \
-            lambda: [{'uuid': 'fip_port_uuid1'}]
+            lambda: [{'uuid': 'fip_port_uuid1', 'to': 'fake_name'}]
         fip_neutron = dbi._floatingip_vnc_to_neutron(fip_obj)
         self.assertEqual(fip_neutron['router_id'], 'router_uuid')
 
         fip_obj.get_virtual_machine_interface_refs = \
-            lambda: [{'uuid': 'fip_port_uuid2'}]
+            lambda: [{'uuid': 'fip_port_uuid2', 'to': 'fake_name'}]
         fip_neutron = dbi._floatingip_vnc_to_neutron(fip_obj)
         self.assertIsNone(fip_neutron['router_id'])
 
