@@ -62,6 +62,14 @@ typedef ::testing::Types <
         ShowRoutingInstanceSummaryReqIterate,
         ShowRoutingInstanceSummaryResp >,
     TypeDefinition<
+        ShowEvpnTableReq,
+        ShowEvpnTableReqIterate,
+        ShowEvpnTableResp >,
+    TypeDefinition<
+        ShowEvpnTableSummaryReq,
+        ShowEvpnTableSummaryReqIterate,
+        ShowEvpnTableSummaryResp >,
+    TypeDefinition<
         ShowBgpInstanceConfigReq,
         ShowBgpInstanceConfigReqIterate,
         ShowBgpInstanceConfigResp > > TypeDefinitionList;
@@ -93,6 +101,9 @@ protected:
 
     bool RequestIsConfig() const { return false; }
     bool RequestIsDetail() const { return false; }
+    void AddInstanceOrTableName(vector<string> *names, const string &name) {
+        names->push_back(name);
+    }
 
     virtual void SetUp() {
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
@@ -234,6 +245,12 @@ protected:
              it != rim->name_end(); ++it) {
             RoutingInstance *rtinstance = it->second;
             rtinstance->deleter()->PauseDelete();
+            RoutingInstance::RouteTableList tables = rtinstance->GetTables();
+            for (RoutingInstance::RouteTableList::iterator it2 = tables.begin();
+                 it2 != tables.end(); ++it2) {
+                BgpTable *table = it2->second;
+                table->deleter()->PauseDelete();
+            }
         }
     }
 
@@ -245,6 +262,12 @@ protected:
              it != rim->name_end(); ++it) {
             RoutingInstance *rtinstance = it->second;
             rtinstance->deleter()->ResumeDelete();
+            RoutingInstance::RouteTableList tables = rtinstance->GetTables();
+            for (RoutingInstance::RouteTableList::iterator it2 = tables.begin();
+                 it2 != tables.end(); ++it2) {
+                BgpTable *table = it2->second;
+                table->deleter()->ResumeDelete();
+            }
         }
     }
 
@@ -275,6 +298,70 @@ bool BgpShowRoutingInstanceTest<TypeDefinition<ShowRoutingInstanceReq,
     return true;
 }
 
+// Common routine ShowEvpnTableReq and ShowEvpnTableSummaryReq.
+static void AddEvpnTableName(vector<string> *names, const string &name) {
+    string table_name;
+    if (name == BgpConfigManager::kMasterInstance) {
+        table_name = "bgp.evpn.0";
+    } else {
+        table_name = name + ".evpn.0";
+    }
+    names->push_back(table_name);
+}
+
+// Specialization to identify ShowEvpnTableReq.
+template<>
+void BgpShowRoutingInstanceTest<TypeDefinition<ShowEvpnTableReq,
+    ShowEvpnTableReqIterate,
+    ShowEvpnTableResp> >::AddInstanceOrTableName(vector<string> *names,
+        const string &name) {
+    AddEvpnTableName(names, name);
+}
+
+// Specialization to identify ShowEvpnTableSummaryReq.
+template<>
+void BgpShowRoutingInstanceTest<TypeDefinition<ShowEvpnTableSummaryReq,
+    ShowEvpnTableSummaryReqIterate,
+    ShowEvpnTableSummaryResp> >::AddInstanceOrTableName(vector<string> *names,
+        const string &name) {
+    AddEvpnTableName(names, name);
+}
+
+// Specialization to identify ShowEvpnTableReq.
+template<>
+void BgpShowRoutingInstanceTest<TypeDefinition<ShowEvpnTableReq,
+    ShowEvpnTableReqIterate, ShowEvpnTableResp> >::ValidateResponse(
+        Sandesh *sandesh, vector<string> &result, const string &next_batch) {
+    ShowEvpnTableResp *resp =
+        dynamic_cast<ShowEvpnTableResp *>(sandesh);
+    TASK_UTIL_EXPECT_TRUE(resp != NULL);
+    TASK_UTIL_EXPECT_EQ(result.size(), resp->get_tables().size());
+    TASK_UTIL_EXPECT_EQ(next_batch, resp->get_next_batch());
+    for (size_t i = 0; i < resp->get_tables().size(); ++i) {
+        TASK_UTIL_EXPECT_EQ(result[i], resp->get_tables()[i].get_name());
+        cout << resp->get_tables()[i].log() << endl;
+    }
+    validate_done_ = true;
+}
+
+// Specialization to identify ShowEvpnTableSummaryReq.
+template<>
+void BgpShowRoutingInstanceTest<TypeDefinition<ShowEvpnTableSummaryReq,
+    ShowEvpnTableSummaryReqIterate,
+    ShowEvpnTableSummaryResp> >::ValidateResponse(Sandesh *sandesh,
+        vector<string> &result, const string &next_batch) {
+    ShowEvpnTableSummaryResp *resp =
+        dynamic_cast<ShowEvpnTableSummaryResp *>(sandesh);
+    TASK_UTIL_EXPECT_TRUE(resp != NULL);
+    TASK_UTIL_EXPECT_EQ(result.size(), resp->get_tables().size());
+    TASK_UTIL_EXPECT_EQ(next_batch, resp->get_next_batch());
+    for (size_t i = 0; i < resp->get_tables().size(); ++i) {
+        TASK_UTIL_EXPECT_EQ(result[i], resp->get_tables()[i].get_name());
+        cout << resp->get_tables()[i].log() << endl;
+    }
+    validate_done_ = true;
+}
+
 //
 // Instantiate fixture class template for each entry in TypeDefinitionList.
 //
@@ -290,16 +377,16 @@ TYPED_TEST(BgpShowRoutingInstanceTest, Request1) {
     typedef typename TypeParam::ReqT ReqT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->HandleRequest();
@@ -318,16 +405,17 @@ TYPED_TEST(BgpShowRoutingInstanceTest, Request2) {
 
     this->sandesh_context_.set_iter_limit(5);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->HandleRequest();
@@ -346,16 +434,16 @@ TYPED_TEST(BgpShowRoutingInstanceTest, Request3) {
 
     this->sandesh_context_.set_page_limit(13);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->HandleRequest();
@@ -374,16 +462,16 @@ TYPED_TEST(BgpShowRoutingInstanceTest, Request4) {
 
     this->sandesh_context_.set_page_limit(4);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
     for (int idx = 900; idx < 903; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn903||";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->HandleRequest();
@@ -403,16 +491,16 @@ TYPED_TEST(BgpShowRoutingInstanceTest, Request5) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
     for (int idx = 900; idx < 903; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn903||";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->HandleRequest();
@@ -431,16 +519,16 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch0) {
     typedef typename TypeParam::ReqT ReqT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("");
@@ -460,15 +548,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch1) {
     typedef typename TypeParam::ReqT ReqT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("vn");
@@ -489,15 +577,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch2) {
 
     this->sandesh_context_.set_iter_limit(5);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("vn");
@@ -518,15 +606,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch3) {
 
     this->sandesh_context_.set_page_limit(12);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("vn");
@@ -547,15 +635,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch4) {
 
     this->sandesh_context_.set_page_limit(4);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 900; idx < 904; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn904||vn";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("vn");
@@ -577,15 +665,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch5) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 900; idx < 904; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn904||vn";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("vn");
@@ -605,11 +693,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch6) {
     typedef typename TypeParam::ReqT ReqT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("xyz");
@@ -629,11 +717,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch7) {
     typedef typename TypeParam::ReqT ReqT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("xyz");
@@ -655,11 +743,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch8) {
         return;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("deleted");
@@ -684,16 +772,16 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch9) {
     this->server_->Shutdown(false);
     task_util::WaitForIdle();
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back(BgpConfigManager::kMasterInstance);
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("deleted");
@@ -714,12 +802,12 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestWithSearch10) {
     typedef typename TypeParam::ReqT ReqT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
-    instance_names.push_back("vn907");
+    vector<string> names;
+    this->AddInstanceOrTableName(&names, "vn907");
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqT *req = new ReqT;
     req->set_search_string("vn907");
@@ -738,15 +826,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate1) {
     typedef typename TypeParam::ReqIterateT ReqIterateT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||");
@@ -766,15 +854,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate2) {
 
     this->sandesh_context_.set_iter_limit(5);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||");
@@ -794,15 +882,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate3) {
 
     this->sandesh_context_.set_page_limit(11);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||");
@@ -822,15 +910,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate4) {
 
     this->sandesh_context_.set_page_limit(4);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 905; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn905||";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||");
@@ -851,15 +939,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate5) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 905; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn905||";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||");
@@ -880,11 +968,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate6) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("");
@@ -905,11 +993,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate7) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901");
@@ -930,11 +1018,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate8) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901|");
@@ -955,11 +1043,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterate9) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn919||");
@@ -979,15 +1067,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch1) {
     typedef typename TypeParam::ReqIterateT ReqIterateT;
 
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 910; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn90");
@@ -1008,15 +1096,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch2) {
 
     this->sandesh_context_.set_iter_limit(4);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 910; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn90");
@@ -1037,15 +1125,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch3) {
 
     this->sandesh_context_.set_page_limit(4);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 905; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn905||vn90";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn90");
@@ -1066,15 +1154,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch4) {
 
     this->sandesh_context_.set_page_limit(9);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 910; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn910||vn90";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn90");
@@ -1096,15 +1184,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch5) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 905; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn905||vn90";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn90");
@@ -1126,15 +1214,15 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch6) {
     this->sandesh_context_.set_page_limit(9);
     this->sandesh_context_.set_iter_limit(3);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     for (int idx = 901; idx < 910; ++idx) {
         string name = string("vn") + integerToString(idx);
-        instance_names.push_back(name);
+        this->AddInstanceOrTableName(&names, name);
     }
     string next_batch = "vn910||vn90";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn90");
@@ -1156,11 +1244,11 @@ TYPED_TEST(BgpShowRoutingInstanceTest, RequestIterateWithSearch7) {
     this->sandesh_context_.set_page_limit(4);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
-    vector<string> instance_names;
+    vector<string> names;
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRoutingInstanceTest<TypeParam>::ValidateResponse, this,
-        _1, instance_names, next_batch));
+        _1, names, next_batch));
     this->validate_done_ = false;
     ReqIterateT *req = new ReqIterateT;
     req->set_iterate_info("vn901||vn92");

@@ -75,6 +75,8 @@ public:
     // Record has been modified.
     virtual void Change(DBEntryBase *) = 0;
 
+    // Callback from table partition for entry add/remove.
+    virtual void AddRemoveCallback(const DBEntryBase *entry, bool add) const { }
 
     // Register a DB listener.
     ListenerId Register(ChangeCallback callback,
