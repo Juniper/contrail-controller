@@ -55,28 +55,67 @@ do {                                                                           \
     Rpr##obj::TraceMsg(trace_buf_, __FILE__, __LINE__, __VA_ARGS__);           \
 } while (false)
 
+class TableState::DeleteActor : public LifetimeActor {
+public:
+    DeleteActor(TableState *ts)
+        : LifetimeActor(ts->replicator()->server()->lifetime_manager()),
+          ts_(ts) {
+    }
+
+    virtual bool MayDelete() const {
+        return ts_->MayDelete();
+    }
+
+    virtual void Shutdown() {
+    }
+
+    virtual void Destroy() {
+        ts_->replicator()->DeleteTableState(ts_->table());
+    }
+
+private:
+    TableState *ts_;
+};
+
 TableState::TableState(RoutePathReplicator *replicator, BgpTable *table)
     : replicator_(replicator),
       table_(table),
       listener_id_(DBTableBase::kInvalidId),
-      deleted_(false),
+      deleter_(new DeleteActor(this)),
       table_delete_ref_(this, table->deleter()) {
     assert(table->deleter() != NULL);
-    route_count_ = 0;
 }
 
 TableState::~TableState() {
 }
 
 void TableState::ManagedDelete() {
-    if (!table_->IsVpnTable())
-        return;
-    deleted_ = true;
-    replicator_->DeleteVpnTableState();
+    deleter()->Delete();
+}
+
+bool TableState::deleted() const {
+    return deleter()->IsDeleted();
+}
+
+LifetimeActor *TableState::deleter() {
+    return deleter_.get();
+}
+
+const LifetimeActor *TableState::deleter() const {
+    return deleter_.get();
 }
 
 bool TableState::MayDelete() const {
-    return (deleted_ && list_.empty() && route_count_ == 0);
+    if (list_.empty() && !route_count() &&
+        !replicator()->BulkSyncExists(table()))
+        return true;
+    return false;
+}
+
+void TableState::RetryDelete() {
+    if (!deleter()->IsDeleted())
+        return;
+    deleter()->RetryDelete();
 }
 
 void TableState::AddGroup(RtGroup *group) {
@@ -114,24 +153,18 @@ RoutePathReplicator::RoutePathReplicator(BgpServer *server,
     : server_(server),
       family_(family),
       vpn_table_(NULL),
-      vpn_ts_(NULL),
       walk_trigger_(new TaskTrigger(
           boost::bind(&RoutePathReplicator::StartWalk, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
-      unreg_trigger_(new TaskTrigger(
-          boost::bind(&RoutePathReplicator::UnregisterTables, this),
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
       trace_buf_(SandeshTraceBufferCreate("RoutePathReplicator", 500)) {
 }
 
 RoutePathReplicator::~RoutePathReplicator() {
-    assert(!vpn_ts_);
     assert(table_state_list_.empty());
 }
 
 void RoutePathReplicator::Initialize() {
     assert(!vpn_table_);
-    assert(!vpn_ts_);
 
     RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     assert(mgr);
@@ -140,15 +173,7 @@ void RoutePathReplicator::Initialize() {
     assert(master);
     vpn_table_ = master->GetTable(family_);
     assert(vpn_table_);
-    vpn_ts_ = AddTableState(vpn_table_);
-    assert(vpn_ts_);
-}
-
-void RoutePathReplicator::DeleteVpnTableState() {
-    if (!vpn_ts_ || !vpn_ts_->MayDelete())
-        return;
-    unreg_table_list_.insert(vpn_table_);
-    unreg_trigger_->Set();
+    assert(AddTableState(vpn_table_));
 }
 
 TableState *RoutePathReplicator::AddTableState(BgpTable *table,
@@ -184,33 +209,10 @@ void RoutePathReplicator::RemoveTableState(BgpTable *table, RtGroup *group) {
 void RoutePathReplicator::DeleteTableState(BgpTable *table) {
     TableState *ts = FindTableState(table);
     assert(ts);
-    if (!ts->empty())
-        return;
-
     RPR_TRACE(UnregTable, table->name());
     table->Unregister(ts->listener_id());
     table_state_list_.erase(table);
-    if (ts == vpn_ts_)
-        vpn_ts_ = NULL;
     delete ts;
-}
-
-//
-// Enqueue BgpTable to unregister list if the TableState is empty.
-//
-// Skip if the BgpTable is still on the bulk sync list.  This can
-// happen if we're called from the bgp::Config Task and a previous
-// walk is still in progress.
-//
-void RoutePathReplicator::UnregisterTableState(BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
-    const TableState *ts = FindTableState(table);
-    if (!ts->empty())
-        return;
-    if (bulk_sync_.find(table) != bulk_sync_.end())
-        return;
-    unreg_table_list_.insert(table);
-    unreg_trigger_->Set();
 }
 
 TableState *RoutePathReplicator::FindTableState(BgpTable *table) {
@@ -260,7 +262,7 @@ RoutePathReplicator::StartWalk() {
         }
         BgpTable *table = it->first;
         RPR_TRACE(Walk, table->name());
-        const TableState *ts = FindTableState(table);
+        TableState *ts = FindTableState(table);
         assert(ts);
         DB *db = server()->database();
         DBTableWalker::WalkId id = db->GetWalker()->WalkTable(table, NULL,
@@ -269,16 +271,6 @@ RoutePathReplicator::StartWalk() {
         it->second->SetWalkerId(id);
         it->second->SetWalkAgain(false);
     }
-    return true;
-}
-
-bool RoutePathReplicator::UnregisterTables() {
-    CHECK_CONCURRENCY("bgp::Config");
-    for (UnregTableList::iterator it = unreg_table_list_.begin();
-         it != unreg_table_list_.end(); ++it) {
-        DeleteTableState(*it);
-    }
-    unreg_table_list_.clear();
     return true;
 }
 
@@ -298,12 +290,14 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *dbtable) {
     }
     delete bulk_sync_state;
     bulk_sync_.erase(loc);
-    UnregisterTableState(table);
+    TableState *ts = FindTableState(table);
+    ts->RetryDelete();
 }
 
 void RoutePathReplicator::JoinVpnTable(RtGroup *group) {
     CHECK_CONCURRENCY("bgp::Config");
-    if (!vpn_ts_ || vpn_ts_->FindGroup(group))
+    TableState *vpn_ts = FindTableState(vpn_table_);
+    if (!vpn_ts || vpn_ts->FindGroup(group))
         return;
     RPR_TRACE(TableJoin, vpn_table_->name(), group->rt().ToString(), true);
     group->AddImportTable(family(), vpn_table_);
@@ -314,14 +308,14 @@ void RoutePathReplicator::JoinVpnTable(RtGroup *group) {
 
 void RoutePathReplicator::LeaveVpnTable(RtGroup *group) {
     CHECK_CONCURRENCY("bgp::Config");
-    if (!vpn_ts_)
+    TableState *vpn_ts = FindTableState(vpn_table_);
+    if (!vpn_ts)
         return;
     RPR_TRACE(TableLeave, vpn_table_->name(), group->rt().ToString(), true);
     group->RemoveImportTable(family(), vpn_table_);
     RPR_TRACE(TableLeave, vpn_table_->name(), group->rt().ToString(), false);
     group->RemoveExportTable(family(), vpn_table_);
     RemoveTableState(vpn_table_, group);
-    DeleteVpnTableState();
 }
 
 //
@@ -392,8 +386,6 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
         if (!table->empty()) {
             RequestWalk(table);
             walk_trigger_->Set();
-        } else {
-            UnregisterTableState(table);
         }
     }
 
@@ -404,7 +396,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
     }
 }
 
-void RoutePathReplicator::DBStateSync(BgpTable *table, const TableState *ts,
+void RoutePathReplicator::DBStateSync(BgpTable *table, TableState *ts,
     BgpRoute *rt, RtReplicated *dbstate,
     const RtReplicated::ReplicatedRtPathList *future) {
     set_synchronize(dbstate->GetMutableList(), future,
@@ -414,9 +406,8 @@ void RoutePathReplicator::DBStateSync(BgpTable *table, const TableState *ts,
     if (dbstate->GetList().empty()) {
         rt->ClearState(table, ts->listener_id());
         delete dbstate;
-        uint32_t prev_route_count = ts->decrement_route_count();
-        if (prev_route_count == 1 && ts == vpn_ts_)
-            DeleteVpnTableState();
+        if (table->GetDBStateCount(ts->listener_id()) == 0)
+            ts->RetryDelete();
     }
 }
 
@@ -480,7 +471,7 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
 // If primary table is a VRF table attach it's export targets to replicated
 // path in the VPN table.
 //
-bool RoutePathReplicator::RouteListener(const TableState *ts,
+bool RoutePathReplicator::RouteListener(TableState *ts,
     DBTablePartBase *root, DBEntryBase *entry) {
     CHECK_CONCURRENCY("db::DBTable");
 
@@ -511,7 +502,6 @@ bool RoutePathReplicator::RouteListener(const TableState *ts,
     if (dbstate == NULL) {
         dbstate = new RtReplicated(this);
         rt->SetState(table, id, dbstate);
-        ts->increment_route_count();
     }
 
     // Get the export route target list from the routing instance.
