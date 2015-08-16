@@ -3940,7 +3940,8 @@ def run_schema_transformer(args):
             # Update connection info
             connection_state_update(ConnectionStatus.DOWN, str(e))
             time.sleep(3)
-        except ResourceExhaustionError:  # haproxy throws 503
+        except (RuntimeError, ResourceExhaustionError):
+            # auth failure or haproxy throws 503
             time.sleep(3)
 
     global transformer
