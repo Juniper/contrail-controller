@@ -280,6 +280,7 @@ public:
     }
     bool IsReadyForDeletion();
     void SetQueueDisable(bool disabled);
+    size_t GetQueueSize() const;
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);

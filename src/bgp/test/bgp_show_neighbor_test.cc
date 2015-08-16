@@ -300,6 +300,15 @@ protected:
         peer_y2->deleter()->ResumeDelete();
     }
 
+    void VerifyBgpPeerDelete() {
+        BgpPeer *peer_y1 = bgp_server_x_->FindMatchingPeer(
+            BgpConfigManager::kMasterInstance, "Y1");
+        TASK_UTIL_EXPECT_TRUE(peer_y1->IsDeleted());
+        BgpPeer *peer_y2 = bgp_server_x_->FindMatchingPeer(
+            BgpConfigManager::kMasterInstance, "Y2");
+        TASK_UTIL_EXPECT_TRUE(peer_y2->IsDeleted());
+    }
+
     void AddBgpPeerNames(vector<string> *neighbor_names,
         const string &name = string()) {
         if (name.empty() || name == "Y1") {
@@ -671,7 +680,9 @@ TYPED_TEST(BgpShowNeighborTest, RequestWithSearch8) {
     this->PauseBgpPeerDelete();
     this->bcm_x_->SetQueueDisable(true);
     this->ShutdownAgents();
+    TASK_UTIL_EXPECT_EQ(12, this->bcm_x_->GetQueueSize());
     this->bgp_server_x_->Shutdown(false);
+    this->VerifyBgpPeerDelete();
     this->sandesh_context_.set_page_limit(0);
     this->sandesh_context_.set_iter_limit(0);
     vector<string> neighbor_names;

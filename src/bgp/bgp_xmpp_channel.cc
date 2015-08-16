@@ -2253,6 +2253,10 @@ void BgpXmppChannelManager::SetQueueDisable(bool disabled) {
     queue_.set_disable(disabled);
 }
 
+size_t BgpXmppChannelManager::GetQueueSize() const {
+    return queue_.Length();
+}
+
 void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
     as_t old_local_asn) {
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
