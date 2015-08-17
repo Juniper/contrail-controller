@@ -53,6 +53,7 @@ public:
 
     void ManagedDelete();
     bool MayDelete() const;
+    void RetryDelete();
 
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;
@@ -89,7 +90,6 @@ public:
         return table_;
     }
 
-    void RetryDelete();
 private:
     class DeleteActor;
     RoutePathReplicator *replicator_;
