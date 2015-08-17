@@ -125,9 +125,6 @@ public:
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
                            int ace_id);
    
-    void FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
-    virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
-
     void RevaluateFlow(FlowEntry *flow);
     void DeleteMessage(FlowEntry *flow);
 
@@ -217,7 +214,6 @@ struct VmFlowInfo {
 
 extern SandeshTraceBufferPtr FlowTraceBuf;
 extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
-extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 #define FLOW_TRACE(obj, ...)\
 do {\
