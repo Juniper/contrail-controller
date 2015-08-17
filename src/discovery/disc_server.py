@@ -387,7 +387,7 @@ class DiscoveryServer():
         ctype = bottle.request.headers['content-type']
         json_req = {}
         try:
-            if ctype == 'application/xml':
+            if 'application/xml' in ctype:
                 data = xmltodict.parse(bottle.request.body.read())
             else:
                 data = bottle.request.json
@@ -404,26 +404,40 @@ class DiscoveryServer():
         self._debug['msg_pubs'] += 1
         ctype = bottle.request.headers['content-type']
         json_req = {}
-        if ctype == 'application/json':
-            data = bottle.request.json
-            for service_type, info in data.items():
-                json_req['name'] = service_type
-                json_req['info'] = info
-        elif ctype == 'application/xml':
-            data = xmltodict.parse(bottle.request.body.read())
-            for service_type, info in data.items():
-                json_req['name'] = service_type
-                json_req['info'] = dict(info)
-        else:
-            bottle.abort(400, e)
+        try:
+            if 'application/json' in ctype:
+                data = bottle.request.json
+            elif 'application/xml' in ctype:
+                data = xmltodict.parse(bottle.request.body.read())
+        except Exception as e:
+            self.syslog('Unable to parse publish request')
+            self.syslog(bottle.request.body.buf)
+            bottle.abort(415, 'Unable to parse publish request')
+
+        # new format - publish tag to envelop entire content
+        if 'publish' in data:
+            data = data['publish']
+        for key, value in data.items():
+            json_req[key] = value
+
+        # old format didn't include explicit tag for service type
+        service_type = data.get('service-type', data.keys()[0])
+
+        # convert ordered dict to normal dict
+        try:
+            json_req[service_type] = data[service_type]
+        except (ValueError, KeyError, TypeError) as e:
+            bottle.abort(400, "Unknown service type")
+
+        info = json_req[service_type]
+        admin_state = json_req.get('admin-state', 'up')
+        if admin_state not in ['up', 'down']:
+            bottle.abort(400, "Invalid admin state")
+        remote = json_req.get('remote-addr',
+                     bottle.request.environ['REMOTE_ADDR'])
 
         sig = end_point or publisher_id(
                 bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
-
-        # Rx {'name': u'ifmap-server', 'info': {u'ip_addr': u'10.84.7.1',
-        # u'port': u'8443'}}
-        info = json_req['info']
-        service_type = json_req['name']
 
         entry = self._db_conn.lookup_service(service_type, service_id=sig)
         if not entry:
@@ -434,7 +448,6 @@ class DiscoveryServer():
                 'ts_use': 0,
                 'ts_created': int(time.time()),
                 'prov_state': 'new',
-                'remote': bottle.request.environ.get('REMOTE_ADDR'),
                 'sequence': str(int(time.time())) + socket.gethostname(),
             }
         elif 'sequence' not in entry or self.service_expired(entry):
@@ -442,8 +455,9 @@ class DiscoveryServer():
             entry['sequence'] = str(int(time.time())) + socket.gethostname()
 
         entry['info'] = info
-        entry['admin_state'] = 'up'
+        entry['admin_state'] = admin_state
         entry['heartbeat'] = int(time.time())
+        entry['remote'] = remote
 
         # insert entry if new or timed out
         self._db_conn.update_service(service_type, sig, entry)
@@ -516,9 +530,9 @@ class DiscoveryServer():
     def api_subscribe(self):
         self._debug['msg_subs'] += 1
         ctype = bottle.request.headers['content-type']
-        if ctype == 'application/json':
+        if 'application/json' in ctype:
             json_req = bottle.request.json
-        elif ctype == 'application/xml':
+        elif 'application/xml' in ctype:
             data = xmltodict.parse(bottle.request.body.read())
             json_req = {}
             for service_type, info in data.items():
@@ -531,6 +545,8 @@ class DiscoveryServer():
         client_id = json_req['client']
         count = reqcnt = int(json_req['instances'])
         client_type = json_req.get('client-type', '')
+        remote = json_req.get('remote-addr',
+                     bottle.request.environ['REMOTE_ADDR'])
 
         assigned_sid = set()
         r = []
@@ -544,11 +560,11 @@ class DiscoveryServer():
         if not cl_entry:
             cl_entry = {
                 'instances': count,
-                'remote': bottle.request.environ.get('REMOTE_ADDR'),
                 'client_type': client_type,
             }
             self.create_sub_data(client_id, service_type)
-            self._db_conn.insert_client_data(service_type, client_id, cl_entry)
+        cl_entry['remote'] = remote
+        self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
         if sdata:
@@ -570,7 +586,7 @@ class DiscoveryServer():
         if count == 0:
             r = [entry['info'] for entry in pubs_active]
             response = {'ttl': ttl, service_type: r}
-            if ctype == 'application/xml':
+            if 'application/xml' in ctype:
                 response = xmltodict.unparse({'response': response})
             return response
 
@@ -591,13 +607,13 @@ class DiscoveryServer():
                 count -= 1
                 if count == 0:
                     response = {'ttl': ttl, service_type: r}
-                    if ctype == 'application/xml':
+                    if 'application/xml' in ctype:
                         response = xmltodict.unparse({'response': response})
                     return response
 
 
         # skip duplicates from existing assignments
-	pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
+        pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
 
         # find instances based on policy (lb, rr, fixed ...)
         pubs = self.service_list(service_type, pubs)
@@ -622,7 +638,7 @@ class DiscoveryServer():
 
 
         response = {'ttl': ttl, service_type: r}
-        if ctype == 'application/xml':
+        if 'application/xml' in ctype:
             response = xmltodict.unparse({'response': response})
         return response
     # end api_subscribe
@@ -712,7 +728,7 @@ class DiscoveryServer():
                         (entry['service_id'], json.dumps(result)))
 
         response = {service_type: r}
-        if ctype == 'application/xml':
+        if 'application/xml' in ctype:
             response = xmltodict.unparse({'response': response})
         return response
     # end api_subscribe
