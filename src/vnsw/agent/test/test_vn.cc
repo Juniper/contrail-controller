@@ -953,6 +953,41 @@ TEST_F(CfgTest, CfgUuidChange) {
 
 }
 
+TEST_F(CfgTest, multicast_fabric_routes) {
+    //Send control node message on subnet bcast after family has changed to L2
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "11.1.1.200", true},
+    };
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.200", 32)));
+    EXPECT_FALSE(RouteFind("vrf1", "224.0.0.0", 8));
+    EXPECT_FALSE(RouteFindV6("vrf1", "ff00::", 8));
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->fabric_vrf_name(),
+                          "224.0.0.0", 8));
+    EXPECT_TRUE(RouteFindV6(Agent::GetInstance()->fabric_vrf_name(),
+                            "ff00::", 8));
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
