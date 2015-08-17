@@ -83,7 +83,12 @@ class TestPolicy(test_case.STTestCase):
         if not ri_refs:
             print "retrying ... ", test_common.lineno()
             raise Exception('ri_refs is None for %s' % fq_name)
-        self.assertEqual(ri_refs[0]['to'], to_fq_name)
+        found = False
+        for ri_ref in ri_refs:
+            if ri_ref['to'] == to_fq_name:
+                found = True
+                break
+        self.assertTrue(found)
 
     @retries(5, hook=retry_exc_handler)
     def check_ri_refs_are_deleted(self, fq_name):
@@ -128,6 +133,20 @@ class TestPolicy(test_case.STTestCase):
         return sc
 
     @retries(5, hook=retry_exc_handler)
+    def wait_to_get_link(self, ident_name, link_fq_name):
+        self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']), Contains(link_fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def wait_to_remove_link(self, ident_name, link_fq_name):
+        self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']), Not(Contains(link_fq_name)))
+
+    @retries(5, hook=retry_exc_handler)
+    def wait_to_get_sg_id(self, sg_fq_name):
+        sg_obj = self._vnc_lib.security_group_read(sg_fq_name)
+        if sg_obj.get_security_group_id() is None:
+            raise Exception('Security Group Id is none %s' % str(sg_fq_name)) 
+
+    @retries(5, hook=retry_exc_handler)
     def check_acl_match_dst_cidr(self, fq_name, ip_prefix, ip_len):
         acl = self._vnc_lib.access_control_list_read(fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
@@ -137,6 +156,120 @@ class TestPolicy(test_case.STTestCase):
                     return
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.match_condition.src_address.virtual_network == vn1_fq_name and
+                rule.match_condition.dst_address.virtual_network == vn2_fq_name):
+                    return
+        raise Exception('nets %s/%s not found in ACL rules for %s' %
+                        (vn1_fq_name, vn2_fq_name, fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_match_sg(self, fq_name, acl_name, sg_id, is_all_rules = False):
+        sg_obj = self._vnc_lib.security_group_read(fq_name)
+        acls = sg_obj.get_access_control_lists()
+        acl = None
+        for acl_to in acls or []:
+            if (acl_to['to'][-1] == acl_name): 
+                acl = self._vnc_lib.access_control_list_read(id=acl_to['uuid'])
+                break
+        self.assertTrue(acl != None)
+        match = False
+        for rule in acl.access_control_list_entries.acl_rule:
+            if acl_name == 'egress-access-control-list':
+                if rule.match_condition.dst_address.security_group != sg_id:
+                    if is_all_rules:
+                        raise Exception('sg %s/%s not found in %s - for some rule' %
+                                           (str(fq_name), str(sg_id), acl_name))
+                else:
+                    match = True
+                    break
+            if acl_name == 'ingress-access-control-list':
+                if rule.match_condition.src_address.security_group != sg_id:
+                    if is_all_rules:
+                        raise Exception('sg %s/%s not found in %s - for some rule' %
+                                           (str(fq_name), str(sg_id), acl_name))
+                else:
+                    match = True
+                    break
+        if match == False:
+            raise Exception('sg %s/%s not found in %s' %
+                        (str(fq_name), str(sg_id), acl_name))
+        return
+
+    @retries(5, hook=retry_exc_handler)
+    def check_no_policies_for_sg(self, fq_name):
+        try:
+            sg_obj = self._vnc_lib.security_group_read(fq_name)
+            sg_entries = sg_obj.get_security_group_entries()
+            if sg_entries.get_policy_rule():
+                raise Exception('sg %s found policies' % (str(fq_name)))
+        except NoIdError:
+            pass
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_not_match_sg(self, fq_name, acl_name, sg_id):
+        try:
+            sg_obj = self._vnc_lib.security_group_read(fq_name)
+            acls = sg_obj.get_access_control_lists()
+            acl = None
+            for acl_to in acls or []:
+                if (acl_to['to'][-1] != acl_name):
+                    continue
+                acl = self._vnc_lib.access_control_list_read(id=acl_to['uuid'])
+                if acl == None:
+                    return
+                for rule in acl.access_control_list_entries.acl_rule:
+                    if acl_name == 'egress-access-control-list':
+                        if rule.match_condition.dst_address.security_group == sg_id:
+                            raise Exception('sg %s/%s found in %s - for some rule' %
+                                           (str(fq_name), str(sg_id), acl_name))
+                    if acl_name == 'ingress-access-control-list':
+                        if rule.match_condition.src_address.security_group == sg_id:
+                            raise Exception('sg %s/%s found in %s - for some rule' %
+                                           (str(fq_name), str(sg_id), acl_name))
+        except NoIdError:
+            pass
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_not_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
+        acl = None
+        try:
+            acl = self._vnc_lib.access_control_list_read(fq_name)
+        except NoIdError:
+            return
+        found = False
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.match_condition.src_address.virtual_network == vn1_fq_name and
+                rule.match_condition.dst_address.virtual_network == vn2_fq_name):
+                found = True
+        if found == True:
+            raise Exception('nets %s/%s found in ACL rules for %s' %
+                        (vn1_fq_name, vn2_fq_name, fq_name))
+        return
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_not_match_mirror_to_ip(self, fq_name):
+        acl = None
+        try:
+            acl = self._vnc_lib.access_control_list_read(fq_name)
+        except NoIdError:
+            return
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.action_list.mirror_to.analyzer_ip_address is not None):
+                raise Exception('mirror to ip %s found in ACL rules for %s' % (fq_name))
+        return
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_match_mirror_to_ip(self, fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.action_list.mirror_to.analyzer_ip_address is not None):
+                return
+        raise Exception('mirror to ip not found in ACL rules for %s' % (fq_name))
 
     @retries(5, hook=retry_exc_handler)
     def check_route_target_in_routing_instance(self, ri_name, rt_list):
@@ -434,7 +567,6 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy
-# end class TestPolicy
 
 # end class TestPolicy
 
@@ -522,7 +654,16 @@ class TestPolicy(test_case.STTestCase):
 
         _match_route_table_cleanup(sc_ri_name, rt100)
 
+        # add the route again, then delete the network without deleting the
+        # link to route table
+        routes.add_route(route)
+        rt.set_routes(routes)
+        self._vnc_lib.route_table_update(rt)
+        _match_route_table(rtgt_list.get_route_target())
         self._vnc_lib.virtual_network_delete(fq_name=vn.get_fq_name())
+        _match_route_table_cleanup(sc_ri_name, rt100)
+
+        self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
         self.delete_network_policy(np, auto_policy=True)
         gevent.sleep(2)
         self._vnc_lib.virtual_network_delete(fq_name=lvn.get_fq_name())
@@ -731,63 +872,6 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj, sc_ri_name))
     #end
 
-    @retries(5, hook=retry_exc_handler)
-    def check_bgp_peering(self, router1, router2, length):
-        r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
-        ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
-        self.assertEqual(len(ref_names), length)
-        self.assertThat(ref_names, Contains(router2.get_fq_name()))
-
-    def create_bgp_router(self, name, vendor, asn=None):
-        ip_fabric_ri = self._vnc_lib.routing_instance_read(
-            fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
-        router = BgpRouter(name, parent_obj=ip_fabric_ri)
-        params = BgpRouterParams()
-        params.vendor = 'contrail'
-        params.autonomous_system = asn
-        router.set_bgp_router_parameters(params)
-        self._vnc_lib.bgp_router_create(router)
-        return router
-
-    def test_ibgp_auto_mesh(self):
-
-        # create router1
-        r1_name = self.id() + 'router1'
-        router1 = self.create_bgp_router(r1_name, 'contrail')
-
-        # create router2
-        r2_name = self.id() + 'router2'
-        router2 = self.create_bgp_router(r2_name, 'contrail')
-
-        self.check_bgp_peering(router1, router2, 1)
-
-        r3_name = self.id() + 'router3'
-        router3 = self.create_bgp_router(r3_name, 'juniper', 1)
-
-        self.check_bgp_peering(router1, router2, 1)
-
-        params = router3.get_bgp_router_parameters()
-        params.autonomous_system = 64512
-        router3.set_bgp_router_parameters(params)
-        self._vnc_lib.bgp_router_update(router3)
-
-        self.check_bgp_peering(router1, router3, 2)
-
-        r4_name = self.id() + 'router4'
-        router4 = self.create_bgp_router(r4_name, 'juniper', 1)
-
-        gsc = self._vnc_lib.global_system_config_read(
-            fq_name=['default-global-system-config'])
-
-        gsc.set_autonomous_system(1)
-        self.check_bgp_peering(router1, router4, 3)
-
-	self._vnc_lib.bgp_router_delete(id=router1.uuid)
-	self._vnc_lib.bgp_router_delete(id=router2.uuid)
-	self._vnc_lib.bgp_router_delete(id=router3.uuid)
-	self._vnc_lib.bgp_router_delete(id=router4.uuid)
-        gevent.sleep(1)
-
     # test logical router functionality
     def test_logical_router(self):
         # create  vn1
@@ -827,5 +911,418 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self._vnc_lib.logical_router_delete(id=lr.uuid)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_bgp_peering(self, router1, router2, length):
+        r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
+        ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
+        self.assertEqual(len(ref_names), length)
+        self.assertThat(ref_names, Contains(router2.get_fq_name()))
+
+    def create_bgp_router(self, name, vendor, asn=None):
+        ip_fabric_ri = self._vnc_lib.routing_instance_read(
+            fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
+        router = BgpRouter(name, parent_obj=ip_fabric_ri)
+        params = BgpRouterParams()
+        params.vendor = 'contrail'
+        params.autonomous_system = asn
+        router.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_create(router)
+        return router
+
+    def test_ibgp_auto_mesh(self):
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router(r1_name, 'contrail')
+
+        # create router2
+        r2_name = self.id() + 'router2'
+        router2 = self.create_bgp_router(r2_name, 'contrail')
+
+        self.check_bgp_peering(router1, router2, 1)
+
+        r3_name = self.id() + 'router3'
+        router3 = self.create_bgp_router(r3_name, 'juniper', 1)
+
+        self.check_bgp_peering(router1, router2, 1)
+
+        params = router3.get_bgp_router_parameters()
+        params.autonomous_system = 64512
+        router3.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_update(router3)
+
+        self.check_bgp_peering(router1, router3, 2)
+
+        r4_name = self.id() + 'router4'
+        router4 = self.create_bgp_router(r4_name, 'juniper', 1)
+
+        gsc = self._vnc_lib.global_system_config_read(
+            fq_name=['default-global-system-config'])
+
+        gsc.set_autonomous_system(1)
+        self.check_bgp_peering(router1, router4, 3)
+
+	self._vnc_lib.bgp_router_delete(id=router1.uuid)
+	self._vnc_lib.bgp_router_delete(id=router2.uuid)
+	self._vnc_lib.bgp_router_delete(id=router3.uuid)
+	self._vnc_lib.bgp_router_delete(id=router4.uuid)
+        gevent.sleep(1)
+
+    @retries(10, hook=retry_exc_handler)
+    def check_vrf_assign_table(self, vmi_fq_name, floating_ip, is_present = True):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        if is_present:
+            self.assertEqual(vmi.get_vrf_assign_table().vrf_assign_rule[1].match_condition.src_address.subnet.ip_prefix, floating_ip)
+        else:
+            try:
+                self.assertEqual(vmi.get_vrf_assign_table().vrf_assign_rule[1].match_condition.src_address.subnet.ip_prefix, floating_ip)
+                raise Exception('floating is still present: ' + floating_ip)
+            except:
+                pass
+
+    def test_analyzer(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], 'transparent', 'analyzer', action_type = 'mirror-to')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
+        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
+        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn1_obj))
+        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn2_obj))
+
+        self.check_acl_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.check_acl_not_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_not_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_not_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_security_group_id(self, sg_fq_name, verify_sg_id = None):
+        sg = self._vnc_lib.security_group_read(sg_fq_name)
+        sg_id = sg.get_security_group_id()
+        if sg_id is None: 
+            raise Exception('sg id is not present for %s' % sg_fq_name)
+        if verify_sg_id is not None and str(sg_id) != str(verify_sg_id):
+            raise Exception('sg id is not same as passed value (%s, %s)' % (str(sg_id), str(verify_sg_id)))
+
+    def _security_group_rule_build(self, rule_info, sg_uuid):
+        protocol = rule_info['protocol']
+        port_min = rule_info['port_min'] or 0
+        port_max = rule_info['port_max'] or 65535 
+        direction = rule_info['direction'] or 'ingress'
+        ip_prefix = rule_info['ip_prefix']
+        ether_type = rule_info['ether_type']
+        sg_id = rule_info['sg_id']
+
+        if ip_prefix:
+            cidr = ip_prefix.split('/')
+            pfx = cidr[0]
+            pfx_len = int(cidr[1])
+            endpt = [AddressType(subnet=SubnetType(pfx, pfx_len))]
+        elif sg_id:
+            try:
+                sg_obj = self._vnc_lib.security_group_read(id=sg_uuid)
+            except NoIdError:
+                raise Exception('SecurityGroupNotFound %s' % sg_uuid)
+            endpt = [AddressType(security_group=sg_obj.get_fq_name_str())]
+
+        local = None
+        remote = None
+        if direction == 'ingress':
+            dir = '>'
+            local = endpt
+            remote = [AddressType(security_group='local')]
+        else:
+            dir = '>'
+            remote = endpt
+            local = [AddressType(security_group='local')]
+
+        if not protocol:
+            protocol = 'any'
+
+        if protocol.isdigit():
+            protocol = int(protocol)
+            if protocol < 0 or protocol > 255:
+                raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
+        else:
+            if protocol not in ['any', 'tcp', 'udp', 'icmp']:
+                raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
+
+        if not ip_prefix and not sg_id:
+            if not ether_type:
+                ether_type = 'IPv4'
+
+        sgr_uuid = str(uuid.uuid4())
+        rule = PolicyRuleType(rule_uuid=sgr_uuid, direction=dir,
+                                  protocol=protocol,
+                                  src_addresses=local,
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=remote,
+                                  dst_ports=[PortType(port_min, port_max)],
+                                  ethertype=ether_type)
+        return rule
+    #end _security_group_rule_build
+
+    def _security_group_rule_append(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            rules = PolicyEntriesType([sg_rule])
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                sgr_copy = copy.copy(sgr)
+                sgr_copy.rule_uuid = sg_rule.rule_uuid
+                if sg_rule == sgr_copy:
+                    raise Exception('SecurityGroupRuleExists %s' % sgr.rule_uuid)
+            rules.add_policy_rule(sg_rule)
+
+        sg_obj.set_security_group_entries(rules)
+    #end _security_group_rule_append
+
+    def _security_group_rule_remove(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            raise Exception('SecurityGroupRuleNotExists %s' % sgr.rule_uuid)
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                if sgr.rule_uuid == sg_rule.rule_uuid:
+                    rules.delete_policy_rule(sgr)
+                    sg_obj.set_security_group_entries(rules)
+                    return
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+
+    #end _security_group_rule_append
+
+    def security_group_create(self, sg_name, project_fq_name):
+        project_obj = self._vnc_lib.project_read(project_fq_name)
+        sg_obj = SecurityGroup(name=sg_name, parent_obj=project_obj)
+        self._vnc_lib.security_group_create(sg_obj)
+        return sg_obj
+    #end security_group_create
+
+    def test_sg(self):
+        #create sg and associate egress rule and check acls
+        sg1_obj = self.security_group_create('sg-1', [u'default-domain', u'default-project'])
+        self.wait_to_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = {}
+        rule1['port_min'] = 0
+        rule1['port_max'] = 65535
+        rule1['direction'] = 'egress'
+        rule1['ip_prefix'] = None
+        rule1['protocol'] = 'any'
+        rule1['ether_type'] = 'IPv4'
+        rule1['sg_id'] = sg1_obj.get_security_group_id()
+        sg_rule1 = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+        self._security_group_rule_append(sg1_obj, sg_rule1)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_security_group_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        sg1_obj.set_configured_security_group_id(100)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_security_group_id(sg1_obj.get_fq_name(), 100)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                         sg1_obj.get_security_group_id())
+
+        #create another sg and associate ingress rule and check acls
+        sg2_obj = self.security_group_create('sg-2', [u'default-domain', u'default-project'])
+        self.wait_to_get_sg_id(sg2_obj.get_fq_name())
+        sg2_obj = self._vnc_lib.security_group_read(sg2_obj.get_fq_name())
+        rule2 = {}
+        rule2['port_min'] = 0
+        rule2['port_max'] = 65535
+        rule2['direction'] = 'ingress'
+        rule2['ip_prefix'] = None
+        rule2['protocol'] = 'any'
+        rule2['ether_type'] = 'IPv4'
+        rule2['sg_id'] = sg2_obj.get_security_group_id()
+        sg_rule2 = self._security_group_rule_build(rule2, sg2_obj.get_uuid())
+        self._security_group_rule_append(sg2_obj, sg_rule2)
+        self._vnc_lib.security_group_update(sg2_obj)
+        self.check_security_group_id(sg2_obj.get_fq_name())
+        self.check_acl_match_sg(sg2_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg2_obj.get_security_group_id())
+
+        #add ingress and egress rules to same sg and check for both
+        rule1['sg_id'] = sg2_obj.get_security_group_id()
+        sg_rule3 = self._security_group_rule_build(rule1, sg2_obj.get_uuid())
+        self._security_group_rule_append(sg2_obj, sg_rule3)
+        self._vnc_lib.security_group_update(sg2_obj)
+        self.check_security_group_id(sg2_obj.get_fq_name())
+        self.check_acl_match_sg(sg2_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg2_obj.get_security_group_id())
+        self.check_acl_match_sg(sg2_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg2_obj.get_security_group_id())
+
+        #add one more ingress and egress
+        rule1['direction'] = 'ingress'
+        rule1['port_min'] = 1
+        rule1['port_max'] = 100
+        self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_uuid()))
+        rule1['direction'] = 'egress'
+        rule1['port_min'] = 101
+        rule1['port_max'] = 200
+        self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_uuid()))
+        self._vnc_lib.security_group_update(sg2_obj)
+        self.check_acl_match_sg(sg2_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg2_obj.get_security_group_id(), True)
+        self.check_acl_match_sg(sg2_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg2_obj.get_security_group_id(), True)
+
+        # duplicate security group id configured, vnc api allows
+        # isn't this a problem?
+        sg2_obj.set_configured_security_group_id(100)
+        self._vnc_lib.security_group_update(sg2_obj)
+        self.check_security_group_id(sg2_obj.get_fq_name(), 100)
+
+        #sg id '0' is not allowed, should not get modified
+        sg1_obj.set_configured_security_group_id(0)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_security_group_id(sg1_obj.get_fq_name(), 8000001)
+
+        # -ve security group id not allowed, should not get modified
+        sg1_obj.set_configured_security_group_id(-100)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_security_group_id(sg1_obj.get_fq_name(), -100)
+
+    #end test_sg
+
+    def test_delete_sg(self):
+        #create sg and associate egress rule and check acls
+        sg1_obj = self.security_group_create('sg-1', [u'default-domain', u'default-project'])
+        self.wait_to_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = {}
+        rule1['ip_prefix'] = None
+        rule1['protocol'] = 'any'
+        rule1['ether_type'] = 'IPv4'
+        rule1['sg_id'] = sg1_obj.get_security_group_id()
+
+        rule1['direction'] = 'ingress'
+        rule1['port_min'] = 1
+        rule1['port_max'] = 100
+        rule_in_obj = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+        rule1['direction'] = 'egress'
+        rule1['port_min'] = 101
+        rule1['port_max'] = 200
+        rule_eg_obj = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+
+        self._security_group_rule_append(sg1_obj, rule_in_obj)
+        self._security_group_rule_append(sg1_obj, rule_eg_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self._security_group_rule_remove(sg1_obj, rule_in_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self._security_group_rule_append(sg1_obj, rule_in_obj)
+        self._security_group_rule_remove(sg1_obj, rule_eg_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self._security_group_rule_remove(sg1_obj, rule_in_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+        self.check_no_policies_for_sg(sg1_obj.get_fq_name())
+
+        self._vnc_lib.security_group_delete(fq_name=sg1_obj.get_fq_name())
+    #end test_sg
+
+    def test_fip(self):
+
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], 'in-network')
+
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
+
+        vmi_fq_name = 'default-domain:default-project:default-domain__default-project__test.test_service.TestPolicy.test_fips1__1__left__1'
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name.split(':'))
+
+        vn3_name = 'vn-public'
+        vn3_obj = VirtualNetwork(vn3_name)
+        vn3_obj.set_router_external(True)
+        ipam3_obj = NetworkIpam('ipam3')
+        self._vnc_lib.network_ipam_create(ipam3_obj)
+        vn3_obj.add_network_ipam(ipam3_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+        vn3_uuid = self._vnc_lib.virtual_network_create(vn3_obj)
+        fip_pool_name = 'vn_public_fip_pool'
+        fip_pool = FloatingIpPool(fip_pool_name, vn3_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool)
+        fip_obj = FloatingIp("fip1", fip_pool)
+        default_project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        fip_obj.set_project(default_project)
+        fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        fip_obj.set_virtual_machine_interface(vmi)
+        self._vnc_lib.floating_ip_update(fip_obj)
+
+        fip_obj = self._vnc_lib.floating_ip_read(fip_obj.get_fq_name())
+
+        for obj in [fip_obj]:
+            ident_name = self.get_obj_imid(obj)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        self.wait_to_get_link(ident_name, vmi_fq_name)
+
+        fip = fip_obj.get_floating_ip_address()
+        self.check_vrf_assign_table(vmi.get_fq_name(), fip, True)
+
+        fip_fq_name = fip_obj.get_fq_name()
+        self._vnc_lib.floating_ip_delete(fip_fq_name)
+        self.wait_to_remove_link(self.get_obj_imid(vmi), fip_fq_name)
+        self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
 
 # end class TestRouteTable

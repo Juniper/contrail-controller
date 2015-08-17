@@ -449,18 +449,17 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         vn_obj.clear_pending_updates()
         return vn_obj
     # end create_virtual_network
-    def create_network_policy(self, vn1, vn2, service_list=None, service_mode=None):
+    def create_network_policy(self, vn1, vn2, service_list=None, service_mode=None, service_type=None, action_type='simple-action'):
         addr1 = AddressType(virtual_network=vn1.get_fq_name_str())
         addr2 = AddressType(virtual_network=vn2.get_fq_name_str())
         port = PortType(-1, 0)
-        action = "pass"
-        action_list = ActionListType(simple_action=action)
+        service_name_list = []
         if service_list:
-            service_name_list = []
             for service in service_list:
                 sti = [ServiceTemplateInterfaceType(
                     'left'), ServiceTemplateInterfaceType('right')]
                 st_prop = ServiceTemplateType(
+                    service_type=service_type,
                     flavor='medium',
                     image_name='junk',
                     ordered_interfaces=True,
@@ -487,8 +486,14 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 self._vnc_lib.service_instance_create(service_instance)
                 service_name_list.append(service_instance.get_fq_name_str())
 
+        if action_type == 'mirror-to':
+            mirror = MirrorActionType(analyzer_name=service_instance.get_fq_name_str())
+            action_list = ActionListType(mirror_to=mirror)
+        elif service_name_list:
             action_list = ActionListType(apply_service=service_name_list)
-            action = None
+        else:
+            action_list = ActionListType(simple_action='pass')
+
         prule = PolicyRuleType(direction="<>", protocol="any",
                                src_addresses=[addr1], dst_addresses=[addr2],
                                src_ports=[port], dst_ports=[port],
