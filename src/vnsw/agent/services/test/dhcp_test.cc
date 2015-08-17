@@ -31,17 +31,17 @@
 #define CLIENT_REQ_IP "1.2.3.4"
 #define CLIENT_REQ_PREFIX "1.2.3.0"
 #define CLIENT_REQ_GW "1.2.3.1"
-#define MAX_WAIT_COUNT 1000
+#define MAX_WAIT_COUNT 3000
 #define BUF_SIZE 8192
 MacAddress src_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
 MacAddress dest_mac(0x00, 0x11, 0x12, 0x13, 0x14, 0x15);
 #define DHCP_RESPONSE_STRING "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Gateway : 1.1.1.200; Host Name : vm1; DNS : 1.1.1.200; Domain Name : test.contrail.juniper.net; "
-#define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
+#define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 150.25.75.254;192.168.1.128/28 -> 1.1.1.200;"
 #define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
 #define IPAM_DHCP_OPTIONS_STRING "DNS : 1.2.3.4; Domain Name : test.com; Time Server : 3.2.14.5"
-#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 3.2.14.5;"
+#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 3.2.14.5; Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 150.25.75.254;192.168.1.128/28 -> 1.1.1.200;Gateway : 1.2.3.4; Gateway : 5.6.7.8; Gateway : 1.1.1.200;"
 #define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Time Server : 13.12.14.15; Domain Name : test.com;"
-#define PORT_HOST_ROUTE_STRING "Host Routes : 99.2.3.0/24 -> 1.1.1.200;99.5.0.0/16 -> 1.1.1.200;"
+#define PORT_HOST_ROUTE_STRING "Host Routes : 99.2.3.0/24 -> 1.1.1.200;99.5.0.0/16 -> 99.5.0.1;"
 
 #define DHCP_CHECK(condition)                                                  \
                     do {                                                       \
@@ -1093,9 +1093,9 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
         </dhcp-option-list>\
         <host-routes>\
             <route><prefix>10.1.1.0/24</prefix> <next-hop /> <next-hop-type /></route>\
-            <route><prefix>10.1.2.0/24</prefix> <next-hop /> <next-hop-type /></route>\
-            <route><prefix>150.25.75.0/24</prefix> <next-hop /> <next-hop-type /></route>\
-            <route><prefix>192.168.1.128/28</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>10.1.2.0/24</prefix> <next-hop>junk</next-hop> <next-hop-type /></route>\
+            <route><prefix>150.25.75.0/24</prefix> <next-hop>150.25.75.254</next-hop> <next-hop-type /></route>\
+            <route><prefix>192.168.1.128/28</prefix> <next-hop>0.0.0.0</next-hop> <next-hop-type /></route>\
         </host-routes>\
     </network-ipam-mgmt>";
 
@@ -1204,10 +1204,14 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
                 <dhcp-option-name>4</dhcp-option-name>\
                 <dhcp-option-value>3.2.14.5</dhcp-option-value>\
             </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>3</dhcp-option-name>\
+                <dhcp-option-value>12.13.14.15 23.24.25.26</dhcp-option-value>\
+            </dhcp-option>\
         </dhcp-option-list>\
         <host-routes>\
             <route><prefix>1.2.3.0/24</prefix> <next-hop /> <next-hop-type /></route>\
-            <route><prefix>4.5.0.0/16</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>4.5.0.0/16</prefix> <next-hop>4.5.0.254</next-hop> <next-hop-type /></route>\
         </host-routes>\
     </network-ipam-mgmt>";
     char add_subnet_tags[] = 
@@ -1220,14 +1224,18 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
             <dhcp-option-name>15</dhcp-option-name>\
             <dhcp-option-value>subnet.com</dhcp-option-value>\
         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>3</dhcp-option-name>\
+            <dhcp-option-value>1.2.3.4 5.6.7.8</dhcp-option-value>\
+        </dhcp-option>\
      </dhcp-option-list>";
     // option 4 from ipam and other options from subnet should be used
 
     std::vector<std::string> vm_host_routes;
     vm_host_routes.push_back("10.1.1.0/24");
-    vm_host_routes.push_back("10.1.2.0/24");
-    vm_host_routes.push_back("150.25.75.0/24");
-    vm_host_routes.push_back("192.168.1.128/28");
+    vm_host_routes.push_back("10.1.2.0/24 junk");
+    vm_host_routes.push_back("150.25.75.0/24 150.25.75.254");
+    vm_host_routes.push_back("192.168.1.128/28 0.0.0.0");
 
     CreateVmportEnv(input, 2, 0);
     client->WaitForIdle();
@@ -1309,8 +1317,8 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
             </dhcp-option>\
         </dhcp-option-list>\
         <host-routes>\
-            <route><prefix>1.2.3.0/24</prefix> <next-hop /> <next-hop-type /></route>\
-            <route><prefix>4.5.0.0/16</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>1.2.3.0/24</prefix> <next-hop>0.0.0.0</next-hop> <next-hop-type /></route>\
+            <route><prefix>4.5.0.0/16</prefix> <next-hop>4.5.0.254</next-hop> <next-hop-type /></route>\
         </host-routes>\
     </network-ipam-mgmt>";
 
@@ -1334,8 +1342,8 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>\
      <virtual-machine-interface-host-routes>\
-         <route><prefix>99.2.3.0/24</prefix> <next-hop /> <next-hop-type /> </route>\
-         <route><prefix>99.5.0.0/16</prefix> <next-hop /> <next-hop-type /> </route>\
+         <route><prefix>99.2.3.0/24</prefix> <next-hop>0.0.0.0</next-hop> <next-hop-type /> </route>\
+         <route><prefix>99.5.0.0/16</prefix> <next-hop>99.5.0.1</next-hop> <next-hop-type /> </route>\
     </virtual-machine-interface-host-routes>";
     // option 6 from vm interface, option 4 from subnet and option 15
     // from ipam should be used
@@ -1898,11 +1906,11 @@ TEST_F(DhcpTest, ClasslessOption) {
     "<virtual-machine-interface-dhcp-option-list>\
         <dhcp-option>\
             <dhcp-option-name>classless-static-routes</dhcp-option-name>\
-            <dhcp-option-value>10.1.2.0/24 1.2.3.4 20.20.20.0/24 20.20.20.1</dhcp-option-value>\
+            <dhcp-option-value>10.1.2.0/24 0.0.0.0 20.20.20.0/24 20.20.20.1</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
-    #define OPTION_CATEGORY_CLASSLESS "Host Routes : 10.1.2.0/24 -> 1.1.1.200;20.20.20.0/24 -> 1.1.1.200;"
+    #define OPTION_CATEGORY_CLASSLESS "Host Routes : 10.1.2.0/24 -> 1.1.1.200;20.20.20.0/24 -> 20.20.20.1;"
     DhcpOptionCategoryTest(vm_interface_attr, true, OPTION_CATEGORY_CLASSLESS,
                            false, "");
 }
@@ -1913,7 +1921,7 @@ TEST_F(DhcpTest, ClasslessOptionError) {
     "<virtual-machine-interface-dhcp-option-list>\
         <dhcp-option>\
             <dhcp-option-name>classless-static-routes</dhcp-option-name>\
-            <dhcp-option-value>10.1.2.0/24 1.2.3.4 abcd</dhcp-option-value>\
+            <dhcp-option-value>10.1.2.0/24 0.0.0.0 abcd</dhcp-option-value>\
          </dhcp-option>\
         <dhcp-option>\
             <dhcp-option-name>classless-static-routes</dhcp-option-name>\

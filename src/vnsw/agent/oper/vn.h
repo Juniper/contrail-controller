@@ -141,7 +141,7 @@ public:
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
     const VnIpam *GetIpam(const IpAddress &ip) const;
     bool GetVnHostRoutes(const std::string &ipam,
-                         std::vector<OperDhcpOptions::Subnet> *routes) const;
+                         std::vector<OperDhcpOptions::HostRoute> *routes) const;
     bool GetIpamName(const IpAddress &vm_addr, std::string *ipam_name) const;
     bool GetIpamData(const IpAddress &vm_addr, std::string *ipam_name,
                      autogen::IpamType *ipam_type) const;
