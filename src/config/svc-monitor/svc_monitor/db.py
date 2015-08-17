@@ -10,11 +10,11 @@ import inspect
 
 from cfgm_common import jsonutils as json
 from cfgm_common.vnc_cassandra import VncCassandraClient
-
+from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME
 
 class ServiceMonitorDB(VncCassandraClient):
 
-    _KEYSPACE = 'svc_monitor_keyspace'
+    _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
     _SVC_SI_CF = 'service_instance_table'
     _LB_CF = 'pool_table'
 

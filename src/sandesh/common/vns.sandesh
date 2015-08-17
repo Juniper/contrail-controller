@@ -432,3 +432,19 @@ const string ALARM_GENERATOR_SERVICE_NAME = "AlarmGenerator"
 const string IFMAP_SERVER_DISCOVERY_SERVICE_NAME = "IfmapServer"
 const string XMPP_SERVER_DISCOVERY_SERVICE_NAME = "xmpp-server"
 const string DNS_SERVER_DISCOVERY_SERVICE_NAME = "dns-server"
+
+// Cassandra Keyspace Names
+const string SVC_MONITOR_KEYSPACE_NAME = "svc_monitor_keyspace"
+const string SCHEMA_KEYSPACE_NAME = "to_bgp_keyspace"
+const string API_SERVER_KEYSPACE_NAME = "config_db_uuid"
+const string DISCOVERY_SERVER_KEYSPACE_NAME = "DISCOVERY_SERVER"
+
+const list<string> RepairNeededKeyspaces = [
+    API_SERVER_KEYSPACE_NAME,
+    SCHEMA_KEYSPACE_NAME,
+    SVC_MONITOR_KEYSPACE_NAME,
+    DISCOVERY_SERVER_KEYSPACE_NAME,
+]
+
+// Set to default of 10 days
+const u32 CASSANDRA_DEFAULT_GC_GRACE_SECONDS = 864000

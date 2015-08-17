@@ -15,6 +15,8 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh_common.vns.constants import API_SERVER_KEYSPACE_NAME, \
+    CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 import time
 from cfgm_common import jsonutils as json
 import utils
@@ -25,7 +27,7 @@ from operator import itemgetter
 
 class VncCassandraClient(object):
     # Name to ID mapping keyspace + tables
-    _UUID_KEYSPACE_NAME = 'config_db_uuid'
+    _UUID_KEYSPACE_NAME = API_SERVER_KEYSPACE_NAME
 
     # TODO describe layout
     _OBJ_UUID_CF_NAME = 'obj_uuid_table'
@@ -174,9 +176,7 @@ class VncCassandraClient(object):
             # TODO verify only EEXISTS
             self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
-        gc_grace_sec = 0
-        if self._num_dbnodes > 1:
-            gc_grace_sec = 60
+        gc_grace_sec = CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
         for cf_info in cf_info_list:
             try:
