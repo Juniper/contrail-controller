@@ -79,10 +79,3 @@ def find_buildroot(path):
         return path + '/build/debug'
     return os.path.sep.join(pe[:i+1])
 #end find_buildroot
-
-def redis_path():
-    rs = 'redis-server'
-    if os.system('which ' + rs) != 0:
-        rs = find_buildroot(os.getcwd()) + '/testroot/bin/redis-server'
-    return rs
-#end redis_path

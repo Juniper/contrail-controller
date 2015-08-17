@@ -26,7 +26,7 @@ from mockcassandra import mockcassandra
 from mockredis import mockredis
 import logging
 from pysandesh.util import UTCTimestampUsec
-from utils.util import find_buildroot, redis_path
+from utils.util import find_buildroot
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -47,11 +47,9 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         cls.cassandra_port = AnalyticsDbTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
         cls.redis_port = AnalyticsDbTest.get_free_port()
-        mockredis.start_redis(
-            cls.redis_port, redis_path())
+        mockredis.start_redis(cls.redis_port)
         cls.redis_password_port = AnalyticsDbTest.get_free_port()
-        mockredis.start_redis(
-            cls.redis_password_port, redis_path(), password='contrail')
+        mockredis.start_redis(cls.redis_password_port, password='contrail')
 
     @classmethod
     def tearDownClass(cls):

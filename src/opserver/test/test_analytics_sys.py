@@ -35,7 +35,7 @@ from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
-from utils.util import find_buildroot, redis_path
+from utils.util import find_buildroot
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -56,8 +56,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         cls.cassandra_port = AnalyticsTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
         cls.redis_port = AnalyticsTest.get_free_port()
-        mockredis.start_redis(
-            cls.redis_port, redis_path())
+        mockredis.start_redis(cls.redis_port)
 
 
     @classmethod

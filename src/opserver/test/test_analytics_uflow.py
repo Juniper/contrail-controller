@@ -26,9 +26,9 @@ from mockcassandra import mockcassandra
 from mockredis import mockredis
 from utils.analytics_fixture import AnalyticsFixture
 from utils.opserver_introspect_utils import VerificationOpsSrv
-from utils.util import retry
+from utils.util import retry, find_buildroot
 
-builddir = sys.path[0] + '/../..'
+builddir = find_buildroot(os.getcwd())
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -44,8 +44,7 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
         cls.cassandra_port = AnalyticsFixture.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
         cls.redis_port = AnalyticsFixture.get_free_port()
-        mockredis.start_redis(
-            cls.redis_port, builddir+'/testroot/bin/redis-server')
+        mockredis.start_redis(cls.redis_port)
     # end setUpClass
 
     @classmethod
