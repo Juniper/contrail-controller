@@ -54,6 +54,14 @@ bool FlowHandler::Run() {
         pkt_info_->vrf = fe->data().vrf;
         pkt_info_->l3_forwarding = fe->l3_flow();
         info.l3_flow = fe->l3_flow();
+    } else {
+        if (pkt_info_->ip == NULL && pkt_info_->ip6 == NULL) {
+            FLOW_TRACE(DetailErr, pkt_info_->agent_hdr.cmd_param,
+                       pkt_info_->agent_hdr.ifindex, pkt_info_->agent_hdr.vrf,
+                       pkt_info_->ether_type, 0, "Flow : Non-IP packet. Dropping",
+                       pkt_info_->l3_forwarding);
+            return true;
+        }
     }
 
     if (info.Process(pkt_info_.get(), &in, &out) == false) {

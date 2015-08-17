@@ -258,7 +258,8 @@ public:
         SecurityGroupList empty_sg_id_l;
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
-                                                        100, 0, 0));
+                                                        100, PktHandler::FLOW,
+                                                        0));
         PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();
 
