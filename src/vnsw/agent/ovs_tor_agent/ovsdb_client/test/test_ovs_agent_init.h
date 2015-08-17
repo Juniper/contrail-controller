@@ -10,6 +10,7 @@
 #include <test/test_pkt0_interface.h>
 #include <test/test_agent_init.h>
 #include <ovs_tor_agent/ovsdb_client/ovsdb_client_tcp.h>
+#include <ovs_tor_agent/ovsdb_client/ovsdb_client_ssl.h>
 #include "test-xml/test_xml.h"
 
 class Agent;
@@ -20,7 +21,8 @@ class OvsPeerManager;
 void LoadAndRun(const std::string &file_name);
 bool LoadXml(AgentUtXmlTest &test);
 
-TestClient *OvsTestInit(const char *init_file, bool ovs_init);
+TestClient *OvsTestInit(const char *init_file, bool ovs_init,
+                        bool use_ssl = false);
 
 namespace OVSDB {
 // OVSDB::OvsdbClientTcp objects override for test code to
@@ -31,9 +33,6 @@ public:
                               TcpServer *server, Socket *sock,
                               bool async_ready = true);
     virtual ~OvsdbClientTcpSessionTest();
-
-    // maximum number of inflight txn messages allowed
-    virtual bool ThrottleInFlightTxnMessages() { return true; }
 };
 
 class OvsdbClientTcpTest : public OvsdbClientTcp {
@@ -67,17 +66,19 @@ public:
     void RegisterDBClients();
 
     OvsPeerManager *ovs_peer_manager() const;
-    OVSDB::OvsdbClientTcp *ovsdb_client() const;
+    OVSDB::OvsdbClient *ovsdb_client() const;
 
     void set_ovs_init(bool ovs_init);
+    void set_use_ssl(bool use_ssl);
 
     void KSyncShutdown();
 
 private:
     std::auto_ptr<OvsPeerManager> ovs_peer_manager_;
-    std::auto_ptr<OVSDB::OvsdbClientTcp> ovsdb_client_;
+    std::auto_ptr<OVSDB::OvsdbClient> ovsdb_client_;
 
     bool ovs_init_;
+    bool use_ssl_;
     DISALLOW_COPY_AND_ASSIGN(TestOvsAgentInit);
 };
 

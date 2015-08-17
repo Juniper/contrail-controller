@@ -18,12 +18,16 @@ using OVSDB::OvsdbClientSslSession;
 using OVSDB::OvsdbClientTcpSessionReader;
 using OVSDB::ConnectionStateTable;
 
-OvsdbClientSsl::OvsdbClientSsl(Agent *agent, TorAgentParam *params,
-        OvsPeerManager *manager) :
+OvsdbClientSsl::OvsdbClientSsl(Agent *agent, IpAddress tor_ip, int tor_port,
+                               IpAddress tsn_ip, int keepalive_interval,
+                               int ha_stale_route_interval,
+                               const std::string &ssl_cert,
+                               const std::string &ssl_privkey,
+                               const std::string &ssl_cacert,
+                               OvsPeerManager *manager) :
     SslServer(agent->event_manager(), boost::asio::ssl::context::tlsv1_server),
-    OvsdbClient(manager, params->keepalive_interval(),
-                params->ha_stale_route_interval()), agent_(agent),
-    ssl_server_port_(params->tor_port()), tsn_ip_(params->tsn_ip()),
+    OvsdbClient(manager, keepalive_interval, ha_stale_route_interval),
+    agent_(agent), ssl_server_port_(tor_port), tsn_ip_(tsn_ip.to_v4()),
     shutdown_(false) {
     // Get SSL context from base class and update
     boost::asio::ssl::context *ctx = context();
@@ -34,25 +38,24 @@ OvsdbClientSsl::OvsdbClientSsl(Agent *agent, TorAgentParam *params,
                           boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
     assert(ec.value() == 0);
 
-    ctx->use_certificate_chain_file(params->ssl_cert(), ec);
+    ctx->use_certificate_chain_file(ssl_cert, ec);
     if (ec.value() != 0) {
         LOG(ERROR, "Error : " << ec.message() << ", while using cert file : "
-            << params->ssl_cert());
+            << ssl_cert);
         exit(EINVAL);
     }
 
-    ctx->use_private_key_file(params->ssl_privkey(),
-                              boost::asio::ssl::context::pem, ec);
+    ctx->use_private_key_file(ssl_privkey, boost::asio::ssl::context::pem, ec);
     if (ec.value() != 0) {
         LOG(ERROR, "Error : " << ec.message() << ", while using privkey file : "
-            << params->ssl_privkey());
+            << ssl_privkey);
         exit(EINVAL);
     }
 
-    ctx->load_verify_file(params->ssl_cacert(), ec);
+    ctx->load_verify_file(ssl_cacert, ec);
     if (ec.value() != 0) {
         LOG(ERROR, "Error : " << ec.message() << ", while using cacert file : "
-            << params->ssl_cacert());
+            << ssl_cacert);
         exit(EINVAL);
     }
 }
