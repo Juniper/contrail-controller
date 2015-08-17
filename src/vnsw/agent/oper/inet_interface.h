@@ -50,6 +50,8 @@ public:
     void DeActivateSimpleGateway();
     void ActivateHostInterface();
     void DeActivateHostInterface();
+    void AddHostMulticastRoutes();
+    void DelHostMulticastRoutes();
 
     // Helper functions
     static void Create(InterfaceTable *table, const std::string &ifname,

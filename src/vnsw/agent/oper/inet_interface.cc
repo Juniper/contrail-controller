@@ -224,6 +224,44 @@ static void DeleteHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                   GetIp4SubnetBroadcastAddress(addr, plen), 32);
 }
 
+void InetInterface::AddHostMulticastRoutes() {
+    VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
+    InetUnicastAgentRouteTable *uc_rt_table =
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
+    // Add v4 route for covering multicast
+    uc_rt_table->AddVHostRecvRoute(uc_rt_table->agent()->local_peer(),
+                                   vrf()->GetName(),
+                                   name_,
+                                   IPV4_MULTICAST_BASE_ADDRESS,
+                                   MULTICAST_BASE_ADDRESS_PLEN,
+                                   vn_name_,
+                                   false);
+    // Add v6 route for covering multicast
+    uc_rt_table->AddVHostRecvRoute(uc_rt_table->agent()->local_peer(),
+                                   vrf()->GetName(),
+                                   name_,
+                                   IPV6_MULTICAST_BASE_ADDRESS,
+                                   MULTICAST_BASE_ADDRESS_PLEN,
+                                   vn_name_,
+                                   false);
+}
+
+void InetInterface::DelHostMulticastRoutes() {
+    VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
+    InetUnicastAgentRouteTable *uc_rt_table =
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
+    // Del v4 route for covering multicast
+    uc_rt_table->Delete(uc_rt_table->agent()->local_peer(),
+                        vrf()->GetName(),
+                        IPV4_MULTICAST_BASE_ADDRESS,
+                        MULTICAST_BASE_ADDRESS_PLEN);
+    // Del v6 route for covering multicast
+    uc_rt_table->Delete(uc_rt_table->agent()->local_peer(),
+                        vrf()->GetName(),
+                        IPV6_MULTICAST_BASE_ADDRESS,
+                        MULTICAST_BASE_ADDRESS_PLEN);
+}
+
 // Things to do to activate VHOST/LL interface
 // 1. Create the receive next-hops for interface (with policy and witout policy)
 // 2. Add routes needed to manage the IP address on interface
@@ -243,18 +281,12 @@ void InetInterface::ActivateHostInterface() {
         AddHostRoutes(agent, uc_rt_table, vrf(), name(), xconnect_.get(),
                       ip_addr_, plen_, vn_name_);
     }
+    AddHostMulticastRoutes();
 
     if (gw_.to_ulong()) {
         AddDefaultRoute(agent, uc_rt_table, vrf(), xconnect_.get(), gw_,
                         vn_name_);
     }
-
-    // Add receive-route for broadcast address
-    Inet4MulticastAgentRouteTable *mc_rt_table =
-        static_cast<Inet4MulticastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
-    mc_rt_table->AddVHostRecvRoute(vrf()->GetName(), name_,
-                                   Ip4Address(0xFFFFFFFF), false);
 
     ReceiveNHKey nh_key(new InetInterfaceKey(name_), false);
     flow_key_nh_ = static_cast<const NextHop *>(
@@ -272,17 +304,11 @@ void InetInterface::DeActivateHostInterface() {
         DeleteHostRoutes(agent, uc_rt_table, vrf(), xconnect_.get(), ip_addr_,
                          plen_);
     }
+    DelHostMulticastRoutes();
 
     if (gw_.to_ulong()) {
         DeleteDefaultRoute(agent, uc_rt_table, vrf(), gw_);
     }
-
-    Inet4MulticastAgentRouteTable *mc_rt_table =
-        static_cast<Inet4MulticastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
-    // Add receive-route for broadcast address
-    mc_rt_table->Delete(vrf()->GetName(), Ip4Address(0),
-                        Ip4Address(0xFFFFFFFF));
 
     // Delete receive nexthops
     ReceiveNH::Delete(agent->nexthop_table(), name_);

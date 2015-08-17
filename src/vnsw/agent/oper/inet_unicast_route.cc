@@ -1313,7 +1313,7 @@ void InetUnicastAgentRouteTable::AddInetInterfaceRouteReq(const Peer *peer,
 static void AddVHostRecvRouteInternal(DBRequest *req, const Peer *peer,
                                       const string &vrf,
                                       const string &interface,
-                                      const Ip4Address &addr, uint8_t plen,
+                                      const IpAddress &addr, uint8_t plen,
                                       const string &vn_name, bool policy) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req->key.reset(new InetUnicastRouteKey(peer, vrf, addr, plen));
@@ -1326,7 +1326,7 @@ static void AddVHostRecvRouteInternal(DBRequest *req, const Peer *peer,
 void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
                                                    const string &vrf,
                                                    const string &interface,
-                                                   const Ip4Address &addr,
+                                                   const IpAddress &addr,
                                                    uint8_t plen,
                                                    const string &vn_name,
                                                    bool policy) {
@@ -1334,17 +1334,25 @@ void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
     AddVHostRecvRouteInternal(&req, peer, vrf, interface, addr, plen,
                               vn_name, policy);
     static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
-    Inet4UnicastTableProcess(Agent::GetInstance(), vrf, req);
+    if (addr.is_v4()) {
+        Inet4UnicastTableProcess(Agent::GetInstance(), vrf, req);
+    } else if (addr.is_v6()) {
+        Inet6UnicastTableProcess(Agent::GetInstance(), vrf, req);
+    }
 }
 
 void InetUnicastAgentRouteTable::AddVHostRecvRouteReq
     (const Peer *peer, const string &vrf, const string &interface,
-     const Ip4Address &addr, uint8_t plen, const string &vn_name, bool policy) {
+     const IpAddress &addr, uint8_t plen, const string &vn_name, bool policy) {
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, interface, addr, plen,
                               vn_name, policy);
     static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
-    Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
+    if (addr.is_v4()) {
+        Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
+    } else if (addr.is_v6()) {
+        Inet6UnicastTableEnqueue(Agent::GetInstance(), vrf, &req);
+    }
 }
 
 void

@@ -272,11 +272,11 @@ public:
                                   uint32_t label, const string &vn_name);
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const string &interface,
-                                  const Ip4Address &addr, uint8_t plen,
+                                  const IpAddress &addr, uint8_t plen,
                                   const string &vn_name, bool policy);
     static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
                                      const string &interface,
-                                     const Ip4Address &addr, uint8_t plen,
+                                     const IpAddress &addr, uint8_t plen,
                                      const string &vn_name, bool policy);
     static void AddVHostSubnetRecvRoute(const Peer *peer, const string &vrf,
                                         const string &interface,
