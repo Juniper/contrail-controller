@@ -33,8 +33,15 @@ bool ControllerRouteWalker::VrfWalkNotify(DBTablePartBase *partition,
                                           DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     // Notification from deleted VRF should have taken care of all operations
-    // w.r.t. peer, see VrfExport::Notify 
-    if (vrf->IsDeleted()) 
+    // w.r.t. peer, see VrfExport::Notify
+    // Exception is DelPeer walk. Reason being that this walk will start when
+    // peer goes down in agent xmpp channel. When it happens bgp peer in channel
+    // is reset. Any add/delete notification on said VRF checks if xmpp channel
+    // is active which internally checks for bgp peer. In current case it will
+    // be NULL and will in-turn ignore notification for delete. State will
+    // not be deleted for that peer in vrf. To delete state, delpeer walk will
+    // have to traverse deleted VRF as well.
+    if (vrf->IsDeleted() && (type_ != DELPEER))
         return true;
 
     switch (type_) {
