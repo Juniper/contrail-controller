@@ -201,6 +201,10 @@ McastTreeManager *ErmVpnTable::GetTreeManager() {
     return tree_manager_;
 }
 
+const McastTreeManager *ErmVpnTable::GetTreeManager() const {
+    return tree_manager_;
+}
+
 void ErmVpnTable::set_routing_instance(RoutingInstance *rtinstance) {
     BgpTable::set_routing_instance(rtinstance);
     CreateTreeManager();

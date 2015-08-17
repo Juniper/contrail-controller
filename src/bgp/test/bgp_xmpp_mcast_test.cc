@@ -54,29 +54,6 @@ protected:
         validate_done_ = 1;
     }
 
-    static void ValidateShowManagerMulticastResponse(Sandesh *sandesh,
-        vector<string> &result) {
-        ShowMulticastManagerResp *resp =
-            dynamic_cast<ShowMulticastManagerResp *>(sandesh);
-        EXPECT_NE((ShowMulticastManagerResp *)NULL, resp);
-
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_managers().size());
-        cout << "*******************************************************"<<endl;
-        for (size_t i = 0; i < resp->get_managers().size(); ++i) {
-            cout << resp->get_managers()[i].log() << endl;
-            bool found = false;
-            BOOST_FOREACH(const string &manager_name, result) {
-                if (resp->get_managers()[i].get_name() == manager_name) {
-                    found = true;
-                    break;
-                }
-            }
-            EXPECT_TRUE(found);
-        }
-        cout << "*******************************************************"<<endl;
-        validate_done_ = 1;
-    }
-
     static void ValidateShowManagerMulticastDetailResponse(Sandesh *sandesh,
         vector<string> &result) {
         ShowMulticastManagerDetailResp *resp =
@@ -774,78 +751,6 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     show_req = new ShowRouteReq;
     show_req->set_routing_table("blue.ermvpn.0");
     validate_done_ = 0;
-    show_req->HandleRequest();
-    show_req->Release();
-    task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, validate_done_);
-};
-
-TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManager) {
-    Subscribe("pink", 2);
-
-    const char *mroute = "225.0.0.1,90.1.1.1";
-    const char *networks[] = { "blue", "pink" };
-
-    // Add mcast routes for all agents.
-    BOOST_FOREACH(const char *net, networks) {
-        agent_xa_->AddMcastRoute(net, mroute, "10.1.1.1", "10000-19999");
-        agent_xb_->AddMcastRoute(net, mroute, "10.1.1.2", "20000-29999");
-        agent_xc_->AddMcastRoute(net, mroute, "10.1.1.3", "30000-39999");
-        task_util::WaitForIdle();
-    }
-
-    // Verify that all agents have the routes.
-    TASK_UTIL_EXPECT_EQ(2, agent_xa_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(2, agent_xb_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(2, agent_xc_->McastRouteCount());
-
-    // Verify multicast manager via sandesh.
-    BgpSandeshContext sandesh_context;
-    RegisterSandeshShowXmppExtensions(&sandesh_context);
-    sandesh_context.bgp_server = bs_x_.get();
-    sandesh_context.xmpp_peer_manager = bcm_x_.get();
-    Sandesh::set_client_context(&sandesh_context);
-    vector<string> result = list_of("blue.ermvpn.0")("pink.ermvpn.0");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
-    ShowMulticastManagerReq *show_req = new ShowMulticastManagerReq;
-    validate_done_ = 0;
-    show_req->HandleRequest();
-    show_req->Release();
-    task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, validate_done_);
-
-    // Match "".
-    result = list_of("blue.ermvpn.0")("pink.ermvpn.0");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
-    show_req = new ShowMulticastManagerReq;
-    validate_done_ = 0;
-    show_req->set_search_string("");
-    show_req->HandleRequest();
-    show_req->Release();
-    task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, validate_done_);
-
-    // Match "ermvpn.0".
-    result = list_of("blue.ermvpn.0")("pink.ermvpn.0");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
-    show_req = new ShowMulticastManagerReq;
-    validate_done_ = 0;
-    show_req->set_search_string("ermvpn.0");
-    show_req->HandleRequest();
-    show_req->Release();
-    task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, validate_done_);
-
-    // Match "pink".
-    result = list_of("pink.ermvpn.0");
-    Sandesh::set_response_callback(
-        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
-    show_req = new ShowMulticastManagerReq;
-    validate_done_ = 0;
-    show_req->set_search_string("pink");
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
