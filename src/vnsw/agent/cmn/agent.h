@@ -191,6 +191,9 @@ extern void RouterIdDepInit(Agent *agent);
 #define METADATA_NAT_PORT 80
 #define AGENT_INIT_TASKNAME "Agent::Init"
 #define AGENT_SHUTDOWN_TASKNAME "Agent::Shutdown"
+#define IPV4_MULTICAST_BASE_ADDRESS "224.0.0.0"
+#define IPV6_MULTICAST_BASE_ADDRESS "ff00::"
+#define MULTICAST_BASE_ADDRESS_PLEN 8
 
 #define VROUTER_SERVER_PORT 20914
 
