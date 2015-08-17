@@ -74,6 +74,7 @@ class DiscoveryServer():
             'db_upd_hb': 0,
             'throttle_subs':0,
             '503': 0,
+            'count_lb': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -124,6 +125,9 @@ class DiscoveryServer():
                 'List published services in JSON format'))
         # show a specific service type
         bottle.route('/services/<service_type>', 'GET', self.show_all_services)
+
+        # api to perform on-demand load-balance across available publishers
+        bottle.route('/load-balance/<service_type>', 'POST', self.api_lb_service)
 
         # update service
         bottle.route('/service/<id>', 'PUT', self.service_http_put)
@@ -530,7 +534,10 @@ class DiscoveryServer():
 
         assigned_sid = set()
         r = []
-        ttl = random.randint(self._args.ttl_min, self._args.ttl_max)
+        ttl_min = int(self.get_service_config(service_type, 'ttl_min'))
+        ttl_max = int(self.get_service_config(service_type, 'ttl_max'))
+        ttl = random.randint(ttl_min, ttl_max)
+
 
         # check client entry and any existing subscriptions
         cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
@@ -569,10 +576,11 @@ class DiscoveryServer():
 
         if subs:
             plist = dict((entry['service_id'],entry) for entry in pubs_active)
-            for service_id, result in subs:
+            for service_id, expired in subs:
+                # expired True if service was marked for deletion by LB command
                 # previously published service is gone
                 entry = plist.get(service_id, None)
-                if entry is None:
+                if entry is None or expired:
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
                     continue
                 result = entry['info']
@@ -618,6 +626,49 @@ class DiscoveryServer():
             response = xmltodict.unparse({'response': response})
         return response
     # end api_subscribe
+
+    # on-demand API to load-balance existing subscribers across all currently available
+    # publishers. Needed if publisher gets added or taken down
+    def api_lb_service(self, service_type):
+        if service_type is None:
+            bottle.abort(405, "Missing service")
+
+        pubs = self._db_conn.lookup_service(service_type)
+        if pubs is None:
+            bottle.abort(405, 'Unknown service')
+        pubs_active = [item for item in pubs if not self.service_expired(item)]
+
+        # only load balance if over 5% deviation from average to avoid churn
+        avg_per_pub = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
+        lb_list = {item['service_id']:(item['in_use']-int(avg_per_pub)) for item in pubs_active if item['in_use'] > int(1.05*avg_per_pub)}
+        if len(lb_list) == 0:
+            return
+
+        clients = self._db_conn.get_all_clients(service_type=service_type)
+        if clients is None:
+            return
+
+        self.syslog('Initial load-balance server-list: %s, avg-per-pub %d, clients %d' \
+            % (lb_list, avg_per_pub, len(clients)))
+
+        """
+        Walk through all subscribers and mark one publisher per subscriber down
+        for deletion later. We could have deleted subscription right here.
+        However the discovery server view of subscribers will not match with actual
+        subscribers till respective TTL expire. Note that we only mark down ONE
+        publisher per subscriber to avoid much churn at the subscriber end.
+            self._db_conn.delete_subscription(service_type, client_id, service_id)
+        """
+        clients_lb_done = []
+        for client in clients:
+            (service_type, client_id, service_id, mtime, ttl) = client
+            if client_id not in clients_lb_done and service_id in lb_list and lb_list[service_id] > 0:
+                self._db_conn.mark_delete_subscription(service_type, client_id, service_id)
+                clients_lb_done.append(client_id)
+                lb_list[service_id] -= 1
+                self._debug['count_lb'] += 1
+        return {}
+    # end api_lb_service
 
     def api_query(self):
         self._debug['msg_query'] += 1
@@ -1101,7 +1152,9 @@ def parse_args(args_str):
     return args
 # end parse_args
 
+server = None
 def run_discovery_server(args):
+    global server
     server = DiscoveryServer(args)
     pipe_start_app = server.get_pipe_start_app()
 
