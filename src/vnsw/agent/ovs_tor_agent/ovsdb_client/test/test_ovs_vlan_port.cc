@@ -72,6 +72,9 @@ protected:
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
         WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {

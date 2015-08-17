@@ -97,6 +97,9 @@ public:
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
         WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
 
         AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
                             "client/test/xml/ucast-local-test-setup.xml");
@@ -115,6 +118,10 @@ public:
     }
 
     virtual void TearDown() {
+        WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
+        WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+        client->WaitForIdle();
         AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
                             "client/test/xml/ucast-local-test-teardown.xml");
         // set current session in test context

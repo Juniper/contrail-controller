@@ -85,6 +85,8 @@ protected:
                   (tcp_server_->NextSession(NULL))) != NULL);
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
+        WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
+        client->WaitForIdle();
         WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
         client->WaitForIdle();
     }
@@ -98,10 +100,6 @@ protected:
     OvsdbClientTcpTest *tcp_server_;
     OvsdbClientTcpSession *tcp_session_;
 };
-
-TEST_F(OvsBaseTest, BasicOvsdb) {
-    WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
-}
 
 TEST_F(OvsBaseTest, MulticastLocalBasic) {
     AgentUtXmlTest
