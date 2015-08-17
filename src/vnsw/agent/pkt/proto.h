@@ -15,25 +15,22 @@ class Proto {
 public:
     Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
           boost::asio::io_service &io);
+    Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
+          boost::asio::io_service &io, uint32_t workq_iterations);
     virtual ~Proto();
 
+    void set_trace(bool val) { trace_ = val; }
     Agent *agent() const { return agent_; }
-
-    virtual bool Validate(PktInfo *msg) {
-        return true;
-    }
-
-    virtual bool RemovePktBuff() {
-        return false;
-    }
 
     virtual ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                             boost::asio::io_service &io) = 0;
-    virtual bool ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg);
+    virtual bool Enqueue(boost::shared_ptr<PktInfo> msg);
     bool ProcessProto(boost::shared_ptr<PktInfo> msg_info);
 
 protected:
     Agent *agent_;
+    PktHandler::PktModuleName module_;
+    bool trace_;
     boost::asio::io_service &io_;
 
 private:

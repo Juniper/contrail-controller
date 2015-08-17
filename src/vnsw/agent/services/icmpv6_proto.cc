@@ -18,7 +18,7 @@ Icmpv6Proto::Icmpv6Proto(Agent *agent, boost::asio::io_service &io) :
                              boost::bind(&Icmpv6Proto::InterfaceNotify,
                                          this, _2));
 
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL));
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(PktHandler::ICMPV6, NULL));
     routing_advert_handler_.reset(new Icmpv6Handler(agent, pkt_info, io));
 
     timer_ = TimerManager::CreateTimer(io, "Icmpv6Timer",
