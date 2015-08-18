@@ -62,26 +62,33 @@ bool SFlowGenerator::ProcessSFlowPacket(
     flow_data.set_name(ip_address_);
     std::string flow_type =
         g_uflow_constants.FlowTypeName.find(FlowType::SFLOW)->second;
-    boost::ptr_vector<SFlowFlowSampleData>::const_iterator fs_it = 
+    boost::ptr_vector<SFlowFlowSample>::const_iterator fs_it =
         sflow_data.flow_samples.begin();
     std::vector<UFlowSample> samples;
     for (; fs_it != sflow_data.flow_samples.end(); ++fs_it) {
-        const SFlowFlowSampleData& fs_data = *fs_it;
+        const SFlowFlowSample& flow_sample = *fs_it;
         UFlowSample sample;
-        sample.set_pifindex(fs_data.flow_sample.sourceid_index);
-        boost::ptr_map<uint32_t, SFlowFlowRecord>::const_iterator fr_it = 
-            fs_data.flow_records.find(SFLOW_FLOW_HEADER);
-        if (fr_it != fs_data.flow_records.end()) {
-            SFlowFlowHeader* record = (SFlowFlowHeader*)fr_it->second;
-            if (record->is_ip_data_set) {
-                SFlowFlowIpData& ip_data = record->decoded_ip_data;
-                sample.sip = ip_data.src_ip.ToString();
-                sample.dip = ip_data.dst_ip.ToString();
-                sample.sport = ip_data.src_port;
-                sample.dport = ip_data.dst_port;
-                sample.protocol = ip_data.protocol;
-                sample.flowtype = flow_type;
-                samples.push_back(sample);
+        sample.set_pifindex(flow_sample.sourceid_index);
+        boost::ptr_vector<SFlowFlowRecord>::const_iterator fr_it =
+            flow_sample.flow_records.begin();
+        for (; fr_it != flow_sample.flow_records.end(); ++fr_it) {
+            switch(fr_it->type) {
+            case SFLOW_FLOW_HEADER: {
+                SFlowFlowHeader& record = (SFlowFlowHeader&)*fr_it;
+                if (record.is_ip_data_set) {
+                    SFlowFlowIpData& ip_data = record.decoded_ip_data;
+                    sample.sip = ip_data.src_ip.to_string();
+                    sample.dip = ip_data.dst_ip.to_string();
+                    sample.sport = ip_data.src_port;
+                    sample.dport = ip_data.dst_port;
+                    sample.protocol = ip_data.protocol;
+                    sample.flowtype = flow_type;
+                    samples.push_back(sample);
+                }
+                break;
+            }
+            default:
+                break;
             }
         }
     }

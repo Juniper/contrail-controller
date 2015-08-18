@@ -9,16 +9,11 @@
 #include <ostream>
 #include <sstream>
 
-struct SFlowMacaddress {
-    uint8_t addr[6];
+#include <boost/ptr_container/ptr_vector.hpp>
 
-    explicit SFlowMacaddress() : addr() {
-    }
-    ~SFlowMacaddress() {
-    }
-    friend std::ostream &operator<<(std::ostream &out,
-                                    const SFlowMacaddress &sflow_mac);
-};
+#include "net/address.h"
+#include "net/mac_address.h"
+
 
 enum SFlowIpaddressType {
     SFLOW_IPADDR_UNKNOWN = 0,
@@ -26,75 +21,20 @@ enum SFlowIpaddressType {
     SFLOW_IPADDR_V6
 };
 
-struct SFlowIpaddress {
-    uint32_t type;
-    union {
-        uint8_t ipv4[4];
-        uint8_t ipv6[16];
-    } address;
-
-    explicit SFlowIpaddress() : type(), address() {
-    }
-    ~SFlowIpaddress() {
-    }
-    const std::string ToString() const;
-    friend std::ostream &operator<<(std::ostream &out,
-                                    const SFlowIpaddress &sflow_ipaddr);
-};
-
-struct SFlowHeader {
-    uint32_t version;
-    SFlowIpaddress agent_ip_address;
-    uint32_t agent_subid;
-    uint32_t seqno;
-    uint32_t uptime;
-    uint32_t nsamples;
-
-    explicit SFlowHeader() 
-        : version(), agent_ip_address(), agent_subid(), seqno(),
-          uptime(), nsamples() {
-    }
-    ~SFlowHeader() {
-    }
-    friend std::ostream &operator<<(std::ostream &out,
-                                    const SFlowHeader &sflow_header);
-};
-
-enum SFlowSampleType {
-    SFLOW_FLOW_SAMPLE = 1,
-    SFLOW_FLOW_SAMPLE_EXPANDED = 3
-};
-
-struct SFlowFlowSample {
-    uint32_t seqno;
-    uint32_t sourceid_type;
-    uint32_t sourceid_index;
-    uint32_t sample_rate;
-    uint32_t sample_pool;
-    uint32_t drops;
-    uint32_t input_port_format;
-    uint32_t input_port;
-    uint32_t output_port_format;
-    uint32_t output_port;
-    uint32_t nflow_records;
-
-    explicit SFlowFlowSample()
-        : seqno(), sourceid_type(), sourceid_index(), sample_rate(),
-          sample_pool(), drops(), input_port_format(), input_port(),
-          output_port_format(), output_port(), nflow_records() {
-    }
-    ~SFlowFlowSample() {
-    }
-    friend std::ostream &operator<<(std::ostream &out,
-                                    const SFlowFlowSample &flow_sample);
-};
-
 enum SFlowFlowRecordType {
     SFLOW_FLOW_HEADER = 1
 };
 
 struct SFlowFlowRecord {
-    explicit SFlowFlowRecord() {
+    SFlowFlowRecordType type;
+    uint32_t length;
+
+    static const size_t kMinFlowRecordLen = 8;
+
+    explicit SFlowFlowRecord(SFlowFlowRecordType record_type,
+                             uint32_t record_len)
+        : type(record_type),
+          length(record_len) {
     }
     virtual ~SFlowFlowRecord() {
     }
@@ -106,8 +46,8 @@ enum SFlowFlowHeaderProtocol {
 };
 
 struct SFlowFlowEthernetData {
-    SFlowMacaddress src_mac;
-    SFlowMacaddress dst_mac;
+    MacAddress src_mac;
+    MacAddress dst_mac;
     uint16_t vlan_id;
     uint16_t ether_type;
 
@@ -116,6 +56,7 @@ struct SFlowFlowEthernetData {
     }
     ~SFlowFlowEthernetData() {
     }
+    bool operator==(const SFlowFlowEthernetData& rhs) const;
     friend std::ostream& operator<<(std::ostream& out,
                                     const SFlowFlowEthernetData &eth_data);
 };
@@ -123,8 +64,8 @@ struct SFlowFlowEthernetData {
 struct SFlowFlowIpData {
     uint32_t length;
     uint32_t protocol;
-    SFlowIpaddress src_ip;
-    SFlowIpaddress dst_ip;
+    IpAddress src_ip;
+    IpAddress dst_ip;
     uint32_t src_port;
     uint32_t dst_port;
     uint32_t tcp_flags;
@@ -136,6 +77,7 @@ struct SFlowFlowIpData {
     }
     ~SFlowFlowIpData() {
     }
+    bool operator==(const SFlowFlowIpData& rhs) const;
     friend std::ostream &operator<<(std::ostream &out,
                                     const SFlowFlowIpData &ip_data);
 };
@@ -151,15 +93,88 @@ struct SFlowFlowHeader : public SFlowFlowRecord {
     SFlowFlowEthernetData decoded_eth_data;
     SFlowFlowIpData decoded_ip_data;
 
-    explicit SFlowFlowHeader() 
-        : protocol(), frame_length(), stripped(), header_length(),
+    explicit SFlowFlowHeader(uint32_t flow_record_len)
+        : SFlowFlowRecord(SFLOW_FLOW_HEADER, flow_record_len),
+          protocol(), frame_length(), stripped(), header_length(),
           header(), is_eth_data_set(), is_ip_data_set(),
           decoded_eth_data(), decoded_ip_data() {
     }
     virtual ~SFlowFlowHeader() {
     }
+    bool operator==(const SFlowFlowHeader& rhs) const;
     friend std::ostream& operator<<(std::ostream& out,
                                     const SFlowFlowHeader& flow_header);
+};
+
+enum SFlowSampleType {
+    SFLOW_FLOW_SAMPLE = 1,
+    SFLOW_COUNTER_SAMPLE = 2,
+    SFLOW_FLOW_SAMPLE_EXPANDED = 3,
+    SFLOW_COUNTER_SAMPLE_EXPANDED = 4
+};
+
+struct SFlowSample {
+    SFlowSampleType type;
+    uint32_t length;
+
+    static const size_t kMinSampleLen = 8;
+
+    explicit SFlowSample(SFlowSampleType sample_type, uint32_t sample_len)
+        : type(sample_type),
+          length(sample_len) {
+    }
+    virtual ~SFlowSample() {
+    }
+};
+
+struct SFlowFlowSample : SFlowSample {
+    uint32_t seqno;
+    uint32_t sourceid_type;
+    uint32_t sourceid_index;
+    uint32_t sample_rate;
+    uint32_t sample_pool;
+    uint32_t drops;
+    uint32_t input_port_format;
+    uint32_t input_port;
+    uint32_t output_port_format;
+    uint32_t output_port;
+    uint32_t nflow_records;
+    boost::ptr_vector<SFlowFlowRecord> flow_records;
+
+    static const size_t kMinFlowSampleLen = 32;
+    static const size_t kMinExpandedFlowSampleLen = 44;
+
+    explicit SFlowFlowSample(SFlowSampleType sample_type, uint32_t sample_len)
+        : SFlowSample(sample_type, sample_len),
+          seqno(), sourceid_type(), sourceid_index(), sample_rate(),
+          sample_pool(), drops(), input_port_format(), input_port(),
+          output_port_format(), output_port(), nflow_records(),
+          flow_records() {
+    }
+    ~SFlowFlowSample() {
+    }
+    bool operator==(const SFlowFlowSample& rhs) const;
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const SFlowFlowSample &flow_sample);
+};
+
+struct SFlowHeader {
+    uint32_t version;
+    IpAddress agent_ip_address;
+    uint32_t agent_subid;
+    uint32_t seqno;
+    uint32_t uptime;
+    uint32_t nsamples;
+
+    explicit SFlowHeader()
+        : version(), agent_ip_address(), agent_subid(), seqno(),
+          uptime(), nsamples() {
+    }
+    ~SFlowHeader() {
+    }
+    bool operator==(const SFlowHeader&) const;
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const SFlowHeader &sflow_header);
 };
 
 #endif // __SFLOW_H__
