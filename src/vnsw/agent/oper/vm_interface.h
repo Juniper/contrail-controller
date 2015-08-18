@@ -309,6 +309,43 @@ public:
         VrfAssignRuleSet list_;
     };
 
+    struct InstanceIp : ListEntry {
+        InstanceIp();
+        InstanceIp(const InstanceIp &rhs);
+        InstanceIp(const IpAddress &ip, bool is_primary, const std::string &vrf_name);
+        ~InstanceIp();
+        bool operator == (const InstanceIp &rhs) const;
+        bool operator() (const InstanceIp &lhs,
+                         const InstanceIp &rhs) const;
+        bool IsLess(const InstanceIp *rhs) const;
+        void L3Activate(VmInterface *interface, bool force_update) const;
+        void L3DeActivate(VmInterface *interface, VrfEntry *old_vrf) const;
+        void L2Activate(VmInterface *interface, bool force_update,
+                        uint32_t old_ethernet_tag) const;
+        void L2DeActivate(VmInterface *interface, VrfEntry *old_vrf,
+                          uint32_t old_ethernet_tag) const;
+        void DeActivate(VmInterface *interface, bool l2,
+                        VrfEntry *old_vrf, uint32_t old_ethernet_tag) const;
+        void Activate(VmInterface *interface, bool force_update, bool l2,
+                      int old_ethernet_tag) const;
+
+        const IpAddress ip_;
+        bool is_primary_;
+        const std::string vrf_;
+        mutable bool l2_installed_;
+    };
+    typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
+
+    struct InstanceIpList {
+        InstanceIpList() : list_() { }
+        ~InstanceIpList() { };
+        void Insert(const InstanceIp *rhs);
+        void Update(const InstanceIp *lhs, const InstanceIp *rhs);
+        void Remove(InstanceIpSet::iterator &it);
+
+        InstanceIpSet list_;
+    };
+
     enum Trace {
         ADD,
         DELETE,
@@ -416,6 +453,14 @@ public:
 
     const AllowedAddressPairList &allowed_address_pair_list() const {
         return allowed_address_pair_list_;
+    }
+
+    const InstanceIpList &instance_ipv4_list() const {
+        return instance_ipv4_list_;
+    }
+
+    const InstanceIpList &instance_ipv6_list() const {
+        return instance_ipv6_list_;
     }
 
     void set_vxlan_id(int vxlan_id) { vxlan_id_ = vxlan_id; }
@@ -558,7 +603,8 @@ private:
     void DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
-                  const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
+                  const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
+                  int old_ethernet_tag);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
@@ -631,6 +677,15 @@ private:
                        const MacAddress &mac);
     void UpdateVrfAssignRule();
     void DeleteVrfAssignRule();
+    void UpdateIpv4InstanceIp(bool force_update, bool policy_change,
+                              bool l2, uint32_t old_ethernet_tag);
+    void DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
+                              VrfEntry *old_vrf);
+    void UpdateIpv6InstanceIp(bool force_update, bool policy_change,
+                              bool l2, uint32_t old_ethernet_tag);
+    void DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
+                              VrfEntry *old_vrf);
+
     void AddL2ReceiveRoute(bool old_l2_active);
     void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
 
@@ -677,6 +732,8 @@ private:
     ServiceVlanList service_vlan_list_;
     StaticRouteList static_route_list_;
     AllowedAddressPairList allowed_address_pair_list_;
+    InstanceIpList instance_ipv4_list_;
+    InstanceIpList instance_ipv6_list_;
 
     // Peer for interface routes
     std::auto_ptr<LocalVmPortPeer> peer_;
@@ -832,6 +889,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::StaticRouteList static_route_list_;
     VmInterface::VrfAssignRuleList vrf_assign_rule_list_;
     VmInterface::AllowedAddressPairList allowed_address_pair_list_;
+    VmInterface::InstanceIpList instance_ipv4_list_;
+    VmInterface::InstanceIpList instance_ipv6_list_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
     // Parent physical-interface. Used in VMWare/ ToR logical-interface
