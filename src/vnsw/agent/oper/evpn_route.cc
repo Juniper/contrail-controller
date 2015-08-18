@@ -108,11 +108,12 @@ void EvpnAgentRouteTable::AddReceiveRouteReq(const Peer *peer,
                                              const MacAddress &mac,
                                              const IpAddress &ip_addr,
                                              uint32_t ethernet_tag,
-                                             const string &vn_name) {
+                                             const string &vn_name,
+                                             const PathPreference &pref) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
-    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref));
     Enqueue(&req);
 }
 
@@ -122,11 +123,12 @@ void EvpnAgentRouteTable::AddReceiveRoute(const Peer *peer,
                                           const MacAddress &mac,
                                           const IpAddress &ip_addr,
                                           uint32_t ethernet_tag,
-                                          const string &vn_name) {
+                                          const string &vn_name,
+                                          const PathPreference &pref) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
-    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref));
     Process(req);
 }
 

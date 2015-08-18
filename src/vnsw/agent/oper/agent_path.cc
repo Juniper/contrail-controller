@@ -500,6 +500,11 @@ bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (path->path_preference().ConfigChanged(path_preference_)) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
+
     if (path->ChangeNH(agent, agent->nexthop_table()->l2_receive_nh()) == true)
         ret = true;
 
@@ -723,7 +728,7 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     //Copy over entire path preference structure, whenever there is a
     //transition from active-active to active-backup struture
-    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+    if (path->path_preference().ConfigChanged(path_preference_)) {
         path->set_path_preference(path_preference_);
         ret = true;
     }
