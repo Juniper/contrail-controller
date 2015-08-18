@@ -481,6 +481,10 @@ class OpServer(object):
             self._hostname += 'dup'
         self._sandesh = Sandesh()
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._args.sandesh_tx_buffer_threshold is not None:
+            self._sandesh._DEFAULT_BUFFER_THRESHOLD = \
+                int(self._args.sandesh_tx_buffer_threshold)
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
@@ -773,6 +777,7 @@ class OpServer(object):
             'analytics_flow_ttl' : -1,
             'logging_conf': '',
             'logger_class': None,
+            'sandesh_tx_buffer_threshold': None,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -889,7 +894,8 @@ class OpServer(object):
             help="Cassandra user name")
         parser.add_argument("--cassandra_password",
             help="Cassandra password")
-
+        parser.add_argument("--sandesh_tx_buffer_threshold",
+            help="Sandesh transmit side buffer size for the generator")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()

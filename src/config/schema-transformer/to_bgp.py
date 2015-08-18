@@ -2670,6 +2670,10 @@ class SchemaTransformer(object):
                 ModuleNames[Module.SCHEMA_TRANSFORMER])
 
         _sandesh = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if args.sandesh_tx_buffer_threshold is not None:
+            _sandesh._DEFAULT_BUFFER_THRESHOLD = \
+                int(args.sandesh_tx_buffer_threshold)
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request = \
             self.sandesh_ri_handle_request
@@ -3678,6 +3682,7 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
+        'sandesh_tx_buffer_threshold': None,
     }
     secopts = {
         'use_certs': False,
@@ -3791,7 +3796,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
-
+    parser.add_argument("--sandesh_tx_buffer_threshold",
+            help="Sandesh transmit buffer size")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()

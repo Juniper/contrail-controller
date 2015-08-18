@@ -69,6 +69,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'hostip': '127.0.0.1',
                'minimum_diskgb': 256,
                'cassandra_repair_interval': 24,
+               'sandesh_tx_buffer_threshold': None,
               }
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
@@ -114,6 +115,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                         nargs='+',
                         help='Collector addresses in format' +
                              'ip1:port1 ip2:port2')
+    parser.add_argument("--sandesh_tx_buffer_threshold",
+            help="Sandesh transmit buffer size")
     if (node_type == 'contrail-database'):
         parser.add_argument("--minimum_diskgb",
                             type=int,
@@ -134,6 +137,8 @@ def main(args_str=' '.join(sys.argv[1:])):
     sys.stderr.write("Discovery port: " + str(discovery_port) + "\n")
     collector_addr = _args.collectors
     sys.stderr.write("Collector address: " + str(collector_addr) + "\n")
+    if _args.sandesh_tx_buffer_threshold is not None:
+        sandesh_global._DEFAULT_BUFFER_THRESHOLD = int(_args.sandesh_tx_buffer_threshold)
     # done parsing arguments
 
     if not 'SUPERVISOR_SERVER_URL' in os.environ:

@@ -217,9 +217,12 @@ class Controller(object):
         if test_logger is not None:
             is_collector = False
         self._sandesh = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._conf.sandesh_tx_buffer_size() is not None:
+            self._sandesh._DEFAULT_BUFFER_THRESHOLD = int(self._conf.sandesh_tx_buffer_size())
         self._sandesh.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(), 
+                                      self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],

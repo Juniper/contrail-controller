@@ -786,6 +786,8 @@ public:
 
     int introspect_port() const { return introspect_port_;}
 
+    uint32_t get_buffer_threshold() { return buffer_threshold_; }
+
     DB *db() const {return db_;}
 
     TaskScheduler *task_scheduler() const { return task_scheduler_; }
@@ -979,7 +981,7 @@ private:
     std::string instance_id_;
     int module_type_;
     std::string module_name_;
-
+    uint32_t buffer_threshold_;
     // DB handles
     DB *db_;
     TaskScheduler *task_scheduler_;

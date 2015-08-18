@@ -64,7 +64,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             'partitions'        : 5,
             'zk_list'           : None,
             'redis_uve_list'    : ['127.0.0.1:6379'],
-            'alarmgen_list'     : ['127.0.0.1:0']
+            'alarmgen_list'     : ['127.0.0.1:0'],
+            'sandesh_tx_buffer_threshold' : None,
         }
 
         redis_opts = {
@@ -150,6 +151,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
         parser.add_argument("--alarmgen_list",
             help="List of alarmgens in ip:inst format. For internal use only",
             nargs="+")
+        parser.add_argument("--sandesh_tx_buffer_threshold",
+            help="sandesh transmit buffer size")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -224,3 +227,6 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
     def host_ip(self):
         return self._args.host_ip
+
+    def sandesh_tx_buffer_size(self):
+        return self._args.sandesh_tx_buffer_threshold

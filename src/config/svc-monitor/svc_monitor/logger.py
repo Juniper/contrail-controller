@@ -201,6 +201,10 @@ class ServiceMonitorLogger(object):
     # init sandesh
     def _sandesh_init(self, discovery):
         sandesh_instance = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._args.sandesh_tx_buffer_threshold is not None:
+            sandesh_instance._DEFAULT_BUFFER_THRESHOLD = \
+                int(self._args.sandesh_tx_buffer_threshold)
         sandesh.ServiceInstanceList.handle_request =\
             self.sandesh_si_handle_request
         sandesh_instance.init_generator(

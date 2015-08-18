@@ -355,6 +355,7 @@ int main(int argc, char *argv[])
 
     unsigned short coll_port = analytics.GetCollector()->GetPort();
     VizSandeshContext vsc(&analytics);
+    Sandesh::systemlog_buffer_size_ = options.get_buffer_threshold();
     Sandesh::InitCollector(
             module_id,
             analytics.name(),

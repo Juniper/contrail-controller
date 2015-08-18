@@ -124,6 +124,9 @@ void Options::Initialize(EventManager &evm,
              "Syslog facility to receive log lines")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable dns to run in test-mode")
+        ("DEFAULT.sandesh_tx_buffer_threshold",
+              opt::value<uint32_t>()->default_value(10),"Buffersize for sandesh"
+              " Messagetypes on the TX side beyond which they are dropped")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
@@ -262,6 +265,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
+    GetOptValue<uint32_t>(var_map, buffer_threshold_,
+                              "DEFAULT.sandesh_tx_buffer_threshold");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");

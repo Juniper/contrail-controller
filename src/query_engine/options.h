@@ -47,6 +47,7 @@ public:
     const bool test_mode() const { return test_mode_; }
     const std::string cassandra_user() const { return cassandra_user_; }
     const std::string cassandra_password() const { return cassandra_password_; }
+    const uint32_t get_buffer_threshold() const { return buffer_threshold_; }
 
 private:
 
@@ -90,6 +91,7 @@ private:
     int max_slice_;
     bool test_mode_;
     int analytics_data_ttl_;
+    uint32_t buffer_threshold_;
     std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> collector_server_list_;
 

@@ -71,6 +71,7 @@ optional arguments:
             'scan_frequency'  : 60,
             'http_server_port': 5921,
             'zookeeper'       : '127.0.0.1:2181',
+            'sandesh_tx_buffer_threshold': None,
         }
 
         config = None
@@ -119,6 +120,8 @@ optional arguments:
             help="introspect server port")
         parser.add_argument("--zookeeper",
             help="ip:port of zookeeper server")
+        parser.add_argument("--sandesh_tx_buffer_threshold",
+            help="Sandesh transmit buffer size")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -168,3 +171,5 @@ optional arguments:
     def http_port(self):
         return self._args.http_server_port
 
+    def buffer_threshold(self):
+        return self._args.sandesh_tx_buffer_threshold

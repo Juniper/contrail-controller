@@ -1131,6 +1131,10 @@ class VncApiServer(object):
 
         # sandesh init
         self._sandesh = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._args.sandesh_tx_buffer_threshold is not None:
+            self._sandesh._DEFAULT_BUFFER_THRESHOLD =
+                int(self._args.sandesh_tx_buffer_threshold)
         module = Module.API_SERVER
         module_name = ModuleNames[Module.API_SERVER]
         node_type = Module2NodeType[module]

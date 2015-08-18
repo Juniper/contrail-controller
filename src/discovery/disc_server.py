@@ -177,6 +177,9 @@ class DiscoveryServer():
 
         # sandesh init
         self._sandesh = Sandesh()
+        if self._args.sandesh_tx_buffer_threshold is not None:
+            self._sandesh._DEFAULT_BUFFER_THRESHOLD = \
+                int(self._args.sandesh_tx_buffer_threshold)
         module = Module.DISCOVERY_SERVICE
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -1047,6 +1050,7 @@ def parse_args(args_str):
         'worker_id': '0',
         'logging_conf': '',
         'logger_class': None,
+        'sandesh_tx_buffer_threshold': None,
     }
 
     # per service options
@@ -1153,6 +1157,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_tx_buffer_threshold",
+            help="Sandesh transmit buffer size")
 
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file

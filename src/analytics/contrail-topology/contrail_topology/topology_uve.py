@@ -19,6 +19,9 @@ class LinkUve(object):
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
         self._instance_id = '0'
+        if self._conf_.buffer_threshold() is not None:
+            sandesh_global.systemlog_buffer_size =
+                                      int(self._conf_.buffer_threshold())
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._conf.collectors(), 
