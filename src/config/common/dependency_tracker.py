@@ -16,21 +16,21 @@ class DependencyTracker(object):
         self.resources = {}
     # end __init__
 
-    def _add_resource(self, obj_type, obj_uuid):
+    def _add_resource(self, obj_type, obj_key):
         if obj_type in self.resources:
-            if obj_uuid in self.resources[obj_type]:
+            if obj_key in self.resources[obj_type]:
                 # already visited
                 return False
-            self.resources[obj_type].append(obj_uuid)
+            self.resources[obj_type].append(obj_key)
         else:
-            self.resources[obj_type] = [obj_uuid]
+            self.resources[obj_type] = [obj_key]
         return True
     # end _add_resource
 
     def evaluate(self, obj_type, obj, from_type='self'):
         if obj_type not in self._reaction_map:
             return
-        if not self._add_resource(obj_type, obj.uuid):
+        if not self._add_resource(obj_type, obj.get_key()):
             return
 
         for ref_type in self._reaction_map[obj_type][from_type]:

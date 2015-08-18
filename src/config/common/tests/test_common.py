@@ -176,8 +176,6 @@ def kill_svc_monitor(glet):
 
 def kill_schema_transformer(glet):
     glet.kill()
-    to_bgp.transformer.ssrc_task.kill()
-    to_bgp.transformer.arc_task.kill()
     to_bgp.transformer.reset()
 
 def launch_schema_transformer(api_server_ip, api_server_port):
