@@ -6,27 +6,35 @@
 #include "sflow_collector.h"
 #include "sflow_generator.h"
 
-SFlowListener::SFlowListener(EventManager* evm)
-    : UdpServer(evm) {
+SFlowCollector::SFlowCollector(EventManager* evm,
+            DbHandler* db_handler, const std::string& ip_address, int port)
+    : UdpServer(evm),
+      db_handler_(db_handler),
+      ip_address_(ip_address),
+      port_(port) {
 }
 
-SFlowListener::~SFlowListener() {
+SFlowCollector::~SFlowCollector() {
 }
 
-void SFlowListener::Start(const std::string& ip_address, int port) {
-    if (ip_address.empty()) {
-        Initialize(port);
-    } else {
-        Initialize(ip_address, port);
+void SFlowCollector::Start() {
+    if (port_ != -1) {
+        if (ip_address_.empty()) {
+            Initialize(port_);
+        } else {
+            Initialize(ip_address_, port_);
+        }
+        StartReceive();
     }
-    StartReceive();
 }
 
-void SFlowListener::Shutdown() {
-    UdpServer::Shutdown();
+void SFlowCollector::Shutdown() {
+    if (port_ != -1) {
+        UdpServer::Shutdown();
+    }
 }
 
-void SFlowListener::HandleReceive(boost::asio::const_buffer& buffer,
+void SFlowCollector::HandleReceive(boost::asio::const_buffer& buffer,
             boost::asio::ip::udp::endpoint remote_endpoint,
             size_t bytes_transferred,
             const boost::system::error_code& error) {
@@ -36,30 +44,6 @@ void SFlowListener::HandleReceive(boost::asio::const_buffer& buffer,
     } else {
         DeallocateBuffer(buffer);
     }
-}
-
-SFlowCollector::SFlowCollector(EventManager* evm,
-            DbHandler* db_handler, int port, 
-            int generator_inactive_timeout)
-    : SFlowListener(evm),
-      db_handler_(db_handler),
-      ip_address_(),
-      port_(port),
-      generator_inactive_timeout_(generator_inactive_timeout),
-      generator_cleanup_timer_(NULL) {
-}
-
-SFlowCollector::~SFlowCollector() {
-}
-
-void SFlowCollector::Start() {
-    if (port_ != -1) {
-        SFlowListener::Start(ip_address_, port_);
-    }
-}
-
-void SFlowCollector::Shutdown() {
-    SFlowListener::Shutdown();
 }
 
 void SFlowCollector::ProcessSFlowPacket(boost::asio::const_buffer& buffer,
@@ -82,7 +66,4 @@ SFlowGenerator* SFlowCollector::GetSFlowGenerator(
                 new SFlowGenerator(generator_ip, this, db_handler_)).first;
     }
     return it->second;
-}
-
-void SFlowCollector::SFlowGeneratorCleanupHandler() {
 }
