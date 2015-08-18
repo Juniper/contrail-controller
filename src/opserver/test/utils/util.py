@@ -74,11 +74,5 @@ def find_buildroot(path):
     try:
         return os.environ['BUILDTOP']
     except:
-        pe = path.split(os.path.sep)
-        i, ln = -1, len(pe)
-        while i > -ln and pe[i-1] != 'build':
-            i -= 1
-        if i == -ln:
-            return path + '/build/debug'
-        return os.path.sep.join(pe[:i+1])
+        return path + '/build/debug'
 #end find_buildroot

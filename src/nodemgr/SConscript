@@ -87,7 +87,8 @@ sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rul
                 ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
+sdist_gen = OpEnv.Command('dist/nodemgr-0.1dev.tar.gz', 'setup.py',
+                          cd_cmd + 'python setup.py sdist')
 
 OpEnv.Depends(sdist_gen, sdist_depends)
 
