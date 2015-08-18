@@ -922,6 +922,7 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
+        'sandesh_send_rate_limit' : None,
         }
     secopts = {
         'use_certs': False,
@@ -1051,6 +1052,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_send_rate_limit",
+            help="Sandesh transmit buffer size")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config

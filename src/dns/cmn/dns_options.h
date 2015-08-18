@@ -46,6 +46,7 @@ public:
     const std::string xmpp_server_key() const { return xmpp_server_key_; }
     const bool test_mode() const { return test_mode_; }
     const bool collectors_configured() const { return collectors_configured_; }
+    const uint32_t get_buffer_threshold() const { return buffer_threshold_; }
 
 private:
 
@@ -101,6 +102,7 @@ private:
     bool test_mode_;
     bool collectors_configured_;
     std::vector<std::string> default_collector_server_list_;
+    uint32_t buffer_threshold_;
 
     boost::program_options::options_description config_file_options_;
 };

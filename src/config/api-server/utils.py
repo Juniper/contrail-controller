@@ -65,6 +65,7 @@ def parse_args(args_str):
         'rabbit_max_pending_updates': '4096',
         'cluster_id': '',
         'max_requests': 1024,
+        'sandesh_send_rate_limit': None,
     }
     # ssl options
     secopts = {
@@ -261,6 +262,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_send_rate_limit",
+            help="Sandesh transmit buffer size")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:

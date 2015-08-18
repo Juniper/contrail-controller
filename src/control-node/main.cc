@@ -519,6 +519,7 @@ int main(int argc, char *argv[]) {
 
     BgpSandeshContext sandesh_context;
     RegisterSandeshShowXmppExtensions(&sandesh_context);
+    Sandesh::sandesh_send_ratelimit_ = options.get_buffer_threshold();
     if (sandesh_generator_init) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;

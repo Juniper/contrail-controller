@@ -219,6 +219,7 @@ public:
         return physical_interface_mac_addr_;
     }
     std::string agent_base_dir() const { return agent_base_dir_; }
+    uint32_t get_buffer_threshold() { return buffer_threshold_; }
 
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
@@ -411,6 +412,7 @@ private:
     std::string physical_interface_pci_addr_;
     std::string physical_interface_mac_addr_;
     std::string agent_base_dir_;
+    uint32_t buffer_threshold_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

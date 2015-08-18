@@ -457,6 +457,10 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(xmpp_dns_server_cert_2_, "DEFAULT.xmpp_server_cert_2")) {
         xmpp_dns_server_cert_2_ = "/etc/contrail/ssl/certs/dns-cert.pem";
     }
+    if (!GetValueFromTree<uint32_t>(buffer_threshold_,
+                                    "DEFAULT.sandesh_send_rate_limit")) {
+        buffer_threshold_ = 10;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -661,6 +665,8 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<bool>(var_map, xmpp_dns_auth_enable_2_, "DEFAULT.xmpp_dns_auth_enable_2");
     GetOptValue<string>(var_map, xmpp_dns_server_cert_1_, "DEFAULT.xmpp_dns_server_cert_1");
     GetOptValue<string>(var_map, xmpp_dns_server_cert_2_, "DEFAULT.xmpp_dns_server_cert_2");
+    GetOptValue<uint32_t>(var_map, buffer_threshold_,
+                          "DEFAULT.sandesh_send_rate_limit");
 }
 
 
@@ -1147,7 +1153,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         platform_(VROUTER_ON_HOST),
         physical_interface_pci_addr_(""),
         physical_interface_mac_addr_(""),
-        agent_base_dir_() {
+        agent_base_dir_(),
+        buffer_threshold_(get_buffer_threshold()) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1224,6 +1231,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
          "Mode in which vrouter is running, option are dpdk or vnic")
+        ("DEFAULT.sandesh_send_rate_limit",
+         opt::value<uint32_t>()->default_value(10),
+         "threshold value for sandesh systemlog/object log msgs")
         ;
     options_.add(generic);
 

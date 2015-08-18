@@ -86,6 +86,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.get_buffer_threshold(), 10);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -126,17 +127,20 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.get_buffer_threshold(), 10);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
+    char argv_3[] = "--DEFAULT.sandesh_send_rate_limit=5";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
     vector<string> passed_conf_files;
@@ -167,6 +171,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.get_buffer_threshold(), 5);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -233,6 +238,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "start_time=123456\n"
         "max_tasks=200\n"
         "max_slice=500\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -309,6 +315,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.test_mode(), true);
     EXPECT_EQ(options_.cassandra_user(), "cassandra1");
     EXPECT_EQ(options_.cassandra_password(), "cassandra1");
+    EXPECT_EQ(options_.get_buffer_threshold(), 5);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -335,6 +342,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "start_time=543457\n"
         "max_tasks=900\n"
         "max_slice=800\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -359,7 +367,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << cassandra_config;
     config_file.close();
 
-    int argc = 18;
+    int argc = 19;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_query_engine.conf";
@@ -378,6 +386,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_14[] = "--CASSANDRA.cassandra_user=cassandra";
     char argv_15[] = "--CASSANDRA.cassandra_password=cassandra";
     char argv_16[] = "--conf_file=./options_test_cassandra_config_file.conf";
+    char argv_17[] = "--DEFAULT.sandesh_send_rate_limit=7";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -395,6 +404,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[15] = argv_14;
     argv[16] = argv_15;
     argv[17] = argv_16;
+    argv[18] = argv_17;
 
     options_.Parse(evm_, argc, argv);
 
@@ -438,7 +448,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 900);
     EXPECT_EQ(options_.max_slice(), 800);
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.cassandra_user(),"cassandra");
+    EXPECT_EQ(options_.get_buffer_threshold(), 7);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {
