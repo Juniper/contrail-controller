@@ -326,6 +326,25 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi::xml_node node = pugi->FindNode("cookie");
     if (!pugi->IsNull(node)) {
+        std::string cookie = node.child_value();
+        if (cookie.find(serviceName) == string::npos) {
+
+            // Backward compatibility support, newer client and older
+            // discovery server, fallback to older publish api
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                "PublishResponseHandler, Version Mismatch, older discovery server",
+                 serviceName, ec.value());
+            resp->pub_fallback_++;
+            // Fallback to older body
+ 
+            resp->publish_msg_.clear();
+            resp->publish_msg_ = resp->client_msg_;
+            Publish(serviceName); 
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Publish Response - Version Mismatch");
+            return; 
+        }
         resp->cookie_ = node.child_value();
         resp->attempts_ = 0;
         resp->pub_rcvd_++;
@@ -387,7 +406,21 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
-    pub_msg->publish_msg_ = msg;
+
+    pub_msg->client_msg_ = msg;
+    pub_msg->publish_msg_ = "<publish>" + msg;
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(msg) != -1) {
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        pugi::xml_node node_addr = pugi->FindNode("ip-address");
+        if (!pugi->IsNull(node_addr)) {
+            std::string addr = node_addr.child_value();
+            pub_msg->publish_msg_ +=
+                "<remote-addr>" + addr + "</remote-addr>";
+        }
+    }
+    pub_msg->publish_msg_ += "</publish>";
+
     boost::system::error_code ec;
     pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
     pub_msg->pub_sent_++;
@@ -395,14 +428,15 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     //save it in a map
     publish_response_map_.insert(make_pair(serviceName, pub_msg)); 
      
-    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName, msg); 
+    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName, 
+                        pub_msg->publish_msg_); 
 
     // Update connection info
     ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
         serviceName, ConnectionStatus::INIT, ds_endpoint_,
         "Publish");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_, 
-                           serviceName, msg);
+                           serviceName, pub_msg->publish_msg_);
 }
 
 void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
@@ -477,8 +511,19 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
     pub_msg->dss_ep_.port(ds_endpoint_.port());
     pub_msg->oper_state = false;
 
+    pub_msg->client_msg_ = msg;
     pub_msg->publish_msg_ += "<publish>" + msg;
     pub_msg->publish_msg_ += "<service-type>" + serviceName + "</service-type>";
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(msg) != -1) {
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        pugi::xml_node node_addr = pugi->FindNode("ip-address");
+        if (!pugi->IsNull(node_addr)) {
+            std::string addr = node_addr.child_value();
+            pub_msg->publish_msg_ +=
+                "<remote-addr>" + addr + "</remote-addr>";
+        }
+    }
     pub_msg->publish_msg_ += "<oper-state>down</oper-state>";
     pub_msg->publish_msg_ +=
         "<oper-state-reason>Initial Registration</oper-state-reason>";
