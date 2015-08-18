@@ -780,7 +780,7 @@ BgpTable *RoutingInstance::VpnTableCreate(Address::Family vpn_family) {
     AddTable(table);
     RTINSTANCE_LOG_TABLE(Create, this, table, SandeshLevel::SYS_DEBUG,
         RTINSTANCE_LOG_FLAG_ALL);
-    assert(server_->rtarget_group_mgr()->GetRtGroupMap().empty());
+    assert(server_->rtarget_group_mgr()->empty());
     RoutePathReplicator *replicator = server_->replicator(vpn_family);
     replicator->Initialize();
     return table;
