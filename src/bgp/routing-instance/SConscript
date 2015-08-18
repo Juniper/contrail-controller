@@ -16,7 +16,6 @@ env.Append(CPPPATH = [env['TOP'] + '/io'])
 SandeshGenFiles = env.SandeshGenCpp('routing_instance_analytics.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('service_chaining.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('static_route.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('rtarget_group.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 librouting_instance = env.Library('routing_instance', SandeshGenSrcs + 

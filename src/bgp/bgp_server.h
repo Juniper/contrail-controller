@@ -78,6 +78,9 @@ public:
         return inst_mgr_.get();
     }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
+    const RTargetGroupMgr *rtarget_group_mgr() const {
+        return rtarget_group_mgr_.get();
+    }
     BgpConditionListener *condition_listener(Address::Family family) {
         if (family == Address::INET)
             return inet_condition_listener_.get();
