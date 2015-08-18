@@ -78,6 +78,9 @@ class TestDbInterface(unittest.TestCase):
         dbi = MockDbInterface()
         vmi_obj = None
 
+        def fake_virtual_machine_interface_properties():
+            return None
+
         def fake_virtual_machine_read(id, fq_name=None, fields=None,
                                       parent_id=None):
             if id == 'fip_port_uuid1':
@@ -87,6 +90,8 @@ class TestDbInterface(unittest.TestCase):
             elif id == 'router_port_uuid':
                 net_uuid = 'match_vn_uuid'
             return flexmock(uuid=id,
+                            get_virtual_machine_interface_properties=\
+                            fake_virtual_machine_interface_properties,
                             get_virtual_network_refs=\
                             lambda: [{'uuid': net_uuid}])
 
