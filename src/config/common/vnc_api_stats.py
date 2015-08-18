@@ -18,9 +18,12 @@ def log_api_stats(func):
             statistics.response_size = len(str(response))
             return response
         except Exception, err_response:
-            statistics.response_size = len(err_response.body)
+            try:
+                statistics.response_size = len(err_response.body)
+            except:
+                pass
             statistics.response_code = err_response.status_code
-            raise
+            raise err_response
         finally:
             # Collect api stats and send to analytics
             statistics.collect()

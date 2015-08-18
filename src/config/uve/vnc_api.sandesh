@@ -58,7 +58,7 @@ struct VncApiStats {
     4: string remote_ip
     5: string domain_name
     6: string project_name
-    7: string object_type
+    7: string object_type (key="ConfigObjectTable")
     8: double response_time_in_usec
     9: u64 response_size
     10: u64 response_code
