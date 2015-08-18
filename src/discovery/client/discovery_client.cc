@@ -387,7 +387,20 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
-    pub_msg->publish_msg_ = msg;
+
+    pub_msg->publish_msg_ = "<publish>" + msg;
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(msg) != -1) {
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        pugi::xml_node node_addr = pugi->FindNode("ip-address");
+        if (!pugi->IsNull(node_addr)) {
+            std::string addr = node_addr.child_value(); 
+            pub_msg->publish_msg_ +=
+                "<remote-addr>" + addr + "</remote-addr>";
+        }
+    }
+    pub_msg->publish_msg_ = "</publish>";
+
     boost::system::error_code ec;
     pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
     pub_msg->pub_sent_++;
@@ -479,6 +492,16 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
 
     pub_msg->publish_msg_ += "<publish>" + msg;
     pub_msg->publish_msg_ += "<service-type>" + serviceName + "</service-type>";
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(msg) != -1) {
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        pugi::xml_node node_addr = pugi->FindNode("ip-address");
+        if (!pugi->IsNull(node_addr)) {
+            std::string addr = node_addr.child_value(); 
+            pub_msg->publish_msg_ +=
+                "<remote-addr>" + addr + "</remote-addr>";
+        }
+    }
     pub_msg->publish_msg_ += "<oper-state>down</oper-state>";
     pub_msg->publish_msg_ +=
         "<oper-state-reason>Initial Registration</oper-state-reason>";
