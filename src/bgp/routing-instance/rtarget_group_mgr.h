@@ -203,20 +203,22 @@ private:
 class RTargetGroupMgr {
 public:
     typedef boost::ptr_map<const RouteTarget, RtGroup> RtGroupMap;
-    typedef std::map<BgpTable *,
-            RtGroupMgrTableState *> RtGroupMgrTableStateList;
-    typedef std::set<RTargetRoute *> RTargetRouteTriggerList;
-    typedef std::set<RouteTarget> RouteTargetTriggerList;
-    typedef std::set<RtGroup *> RtGroupRemoveList;
+    typedef RtGroupMap::const_iterator const_iterator;
 
     explicit RTargetGroupMgr(BgpServer *server);
     virtual ~RTargetGroupMgr();
+
+    bool empty() const { return rtgroup_map_.empty(); }
+    const_iterator begin() const { return rtgroup_map_.begin(); }
+    const_iterator end() const { return rtgroup_map_.end(); }
+    const_iterator lower_bound(const RouteTarget &rt) const {
+        return rtgroup_map_.lower_bound(rt);
+    }
 
     // RtGroup
     RtGroup *GetRtGroup(const RouteTarget &rt);
     RtGroup *GetRtGroup(const ExtCommunity::ExtCommunityValue &comm);
     RtGroup *LocateRtGroup(const RouteTarget &rt);
-    RtGroupMap &GetRtGroupMap() { return rtgroup_map_; }
     void NotifyRtGroup(const RouteTarget &rt);
     void RemoveRtGroup(const RouteTarget &rt);
 
@@ -235,6 +237,12 @@ private:
 
     friend class BgpXmppRTargetTest;
     friend class ReplicationTest;
+
+    typedef std::map<BgpTable *,
+            RtGroupMgrTableState *> RtGroupMgrTableStateList;
+    typedef std::set<RTargetRoute *> RTargetRouteTriggerList;
+    typedef std::set<RouteTarget> RouteTargetTriggerList;
+    typedef std::set<RtGroup *> RtGroupRemoveList;
 
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
@@ -278,7 +286,6 @@ private:
     RTargetRouteTriggerList rtarget_route_list_;
     std::vector<RouteTargetTriggerList> rtarget_trigger_lists_;
     RtGroupRemoveList rtgroup_remove_list_;
-    WorkQueue<RtGroupMgrReq *> *process_queue_;
     LifetimeRef<RTargetGroupMgr> master_instance_delete_ref_;
 
     DISALLOW_COPY_AND_ASSIGN(RTargetGroupMgr);

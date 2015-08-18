@@ -7,8 +7,8 @@
 #include <utility>
 #include <boost/foreach.hpp>
 
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
-#include "bgp/routing-instance/rtarget_group_types.h"
 #include "bgp/rtarget/rtarget_route.h"
 
 using std::pair;
@@ -174,9 +174,9 @@ bool RtGroup::HasInterestedPeer(const string &name) const {
 }
 
 void RtGroup::FillMemberTables(const RtGroupMembers &rt_members,
-    vector<MemberTableList> *member_list) const {
+    vector<ShowRtGroupMemberTableList> *member_list) const {
     BOOST_FOREACH(const RtGroupMembers::value_type &rt_tables, rt_members) {
-        MemberTableList member;
+        ShowRtGroupMemberTableList member;
         vector<string> table_names;
         BOOST_FOREACH(BgpTable *table, rt_tables.second) {
             table_names.push_back(table->name());
@@ -203,14 +203,14 @@ void RtGroup::FillDependentRoutes(vector<string> *rtlist) const {
     }
 }
 
-void RtGroup::FillShowInfoCommon(ShowRtGroupInfo *info,
+void RtGroup::FillShowInfoCommon(ShowRtGroup *info,
     bool fill_peers, bool fill_routes) const {
-    info->set_rtarget(rt_.ToString());
+    info->set_rtarget(ToString());
 
-    vector<MemberTableList> import_members;
+    vector<ShowRtGroupMemberTableList> import_members;
     FillMemberTables(import_, &import_members);
     info->set_import_members(import_members);
-    vector<MemberTableList> export_members;
+    vector<ShowRtGroupMemberTableList> export_members;
     FillMemberTables(export_, &export_members);
     info->set_export_members(export_members);
 
@@ -226,14 +226,14 @@ void RtGroup::FillShowInfoCommon(ShowRtGroupInfo *info,
     }
 }
 
-void RtGroup::FillShowInfo(ShowRtGroupInfo *info) const {
+void RtGroup::FillShowInfo(ShowRtGroup *info) const {
     FillShowInfoCommon(info, true, true);
 }
 
-void RtGroup::FillShowSummaryInfo(ShowRtGroupInfo *info) const {
+void RtGroup::FillShowSummaryInfo(ShowRtGroup *info) const {
     FillShowInfoCommon(info, true, false);
 }
 
-void RtGroup::FillShowPeerInfo(ShowRtGroupInfo *info) const {
+void RtGroup::FillShowPeerInfo(ShowRtGroup *info) const {
     FillShowInfoCommon(info, false, true);
 }

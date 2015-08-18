@@ -50,6 +50,18 @@ request sandesh ShowRoutingInstanceSummaryReqIterate {
     1: string iterate_info;
 }
 
+request sandesh ShowRtGroupReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowRtGroupSummaryReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowRtGroupPeerReqIterate {
+    1: string iterate_info;
+}
+
 request sandesh ShowEvpnTableReqIterate {
     1: string iterate_info;
 }
