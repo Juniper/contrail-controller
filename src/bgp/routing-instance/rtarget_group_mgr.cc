@@ -73,124 +73,12 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
         rtfilter_task_id_ = scheduler->GetTaskId("bgp::RTFilter");
     }
 
-   process_queue_ =
-        new WorkQueue<RtGroupMgrReq *>(rtfilter_task_id_, 0,
-             boost::bind(&RTargetGroupMgr::RequestHandler, this, _1));
-
     for (int i = 0; i < DB::PartitionCount(); i++) {
         rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new
                TaskTrigger(boost::bind(&RTargetGroupMgr::ProcessRouteTargetList,
                                        this, i),
                TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), i)));
     }
-}
-
-bool RTargetGroupMgr::RequestHandler(RtGroupMgrReq *req) {
-    CHECK_CONCURRENCY("bgp::RTFilter");
-
-    switch (req->type_) {
-    case RtGroupMgrReq::SHOW_RTGROUP: {
-        ShowRtGroupResp *snh_resp =
-            static_cast<ShowRtGroupResp *>(req->snh_resp_);
-        std::vector<ShowRtGroupInfo> rtgroup_info_list;
-        if (req->param_.empty()) {
-            for (RtGroupMap::const_iterator it = rtgroup_map_.begin();
-                 it != rtgroup_map_.end(); it++) {
-                ShowRtGroupInfo info;
-                const RtGroup *rtgroup = it->second;
-                rtgroup->FillShowInfo(&info);
-                rtgroup_info_list.push_back(info);
-            }
-        } else {
-            RouteTarget rtarget = RouteTarget::FromString(req->param_);
-            RtGroupMap::const_iterator it = rtgroup_map_.find(rtarget);
-            if (it != rtgroup_map_.end()) {
-                ShowRtGroupInfo info;
-                const RtGroup *rtgroup = it->second;
-                rtgroup->FillShowInfo(&info);
-                rtgroup_info_list.push_back(info);
-            }
-        }
-
-        snh_resp->set_rtgroup_list(rtgroup_info_list);
-        snh_resp->Response();
-        break;
-    }
-    case RtGroupMgrReq::SHOW_RTGROUP_PEER: {
-        ShowRtGroupPeerResp *snh_resp =
-            static_cast<ShowRtGroupPeerResp *>(req->snh_resp_);
-        std::vector<ShowRtGroupInfo> rtgroup_info_list;
-        for (RtGroupMap::iterator it = rtgroup_map_.begin();
-             it != rtgroup_map_.end(); it++) {
-            ShowRtGroupInfo info;
-            RtGroup *rtgroup = it->second;
-            if (!rtgroup->HasInterestedPeer(req->param_))
-                continue;
-            rtgroup->FillShowPeerInfo(&info);
-            rtgroup_info_list.push_back(info);
-        }
-
-        snh_resp->set_rtgroup_list(rtgroup_info_list);
-        snh_resp->Response();
-        break;
-    }
-    case RtGroupMgrReq::SHOW_RTGROUP_SUMMARY: {
-        ShowRtGroupSummaryResp *snh_resp =
-            static_cast<ShowRtGroupSummaryResp *>(req->snh_resp_);
-        std::vector<ShowRtGroupInfo> rtgroup_info_list;
-        for (RtGroupMap::iterator it = rtgroup_map_.begin();
-             it != rtgroup_map_.end(); it++) {
-            ShowRtGroupInfo info;
-            RtGroup *rtgroup = it->second;
-            rtgroup->FillShowSummaryInfo(&info);
-            rtgroup_info_list.push_back(info);
-        }
-
-        snh_resp->set_rtgroup_list(rtgroup_info_list);
-        snh_resp->Response();
-        break;
-    }
-    default: {
-        break;
-    }
-    }
-
-    delete req;
-    return true;
-}
-
-void RTargetGroupMgr::Enqueue(RtGroupMgrReq *req) {
-    process_queue_->Enqueue(req);
-}
-
-void ShowRtGroupReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    RTargetGroupMgr *mgr =  bsc->bgp_server->rtarget_group_mgr();
-    ShowRtGroupResp *resp = new ShowRtGroupResp;
-    resp->set_context(context());
-    RtGroupMgrReq  *req =
-        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP, resp, get_rtarget());
-    mgr->Enqueue(req);
-}
-
-void ShowRtGroupPeerReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    RTargetGroupMgr *mgr =  bsc->bgp_server->rtarget_group_mgr();
-    ShowRtGroupPeerResp *resp = new ShowRtGroupPeerResp;
-    resp->set_context(context());
-    RtGroupMgrReq  *req =
-        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP_PEER, resp, get_peer());
-    mgr->Enqueue(req);
-}
-
-void ShowRtGroupSummaryReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    RTargetGroupMgr *mgr =  bsc->bgp_server->rtarget_group_mgr();
-    ShowRtGroupSummaryResp *resp = new ShowRtGroupSummaryResp;
-    resp->set_context(context());
-    RtGroupMgrReq  *req =
-        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP_SUMMARY, resp);
-    mgr->Enqueue(req);
 }
 
 void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
@@ -464,7 +352,6 @@ bool RTargetGroupMgr::RTargetRouteNotify(DBTablePartBase *root,
 }
 
 RTargetGroupMgr::~RTargetGroupMgr() {
-    delete process_queue_;
     assert(rtgroup_map_.empty());
 }
 

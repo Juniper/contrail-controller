@@ -23,13 +23,14 @@ RouteTarget::RouteTarget(const bytes_type &data) {
 }
 
 const uint64_t RouteTarget::GetExtCommunityValue() const {
-        return get_value(data_.begin(), 8);
+    return get_value(data_.begin(), 8);
 }
 
 RouteTarget RouteTarget::FromString(const string &str,
                                     boost::system::error_code *errorp) {
     RouteTarget rt;
     uint8_t data[RouteTarget::kSize];
+
     // target:1:2 OR target:1.2.3.4:3
     size_t pos = str.find(':');
     if (pos == string::npos) {
