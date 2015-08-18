@@ -215,6 +215,7 @@ env.Depends(ctrlnode, lib_rtarget)
 env.Depends(ctrlnode, lib_ifmap_server)
 
 env.Alias('control-node', ctrlnode)
+env.Alias('contrail-control', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 

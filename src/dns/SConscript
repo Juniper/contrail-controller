@@ -45,7 +45,7 @@ if sys.platform != 'darwin':
                       '-Wl,--no-whole-archive'])
 
 contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
-env.Alias('src/dns:contrail-dns', contrail_dns)
+env.Alias('contrail-dns', contrail_dns)
 env.Default(contrail_dns)
 
 # Please update sandesh/common/vns.sandesh on process name change
