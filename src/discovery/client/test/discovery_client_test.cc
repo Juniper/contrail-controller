@@ -161,7 +161,7 @@ public:
 
         pugi->AddChildNode("response", "");
         pugi->AddChildNode(serviceNameTag.c_str(), "");
-        pugi->AddChildNode("cookie", "952012c31dd56951b9177930af75c73e");
+        pugi->AddChildNode("cookie", serviceNameTag);
 
         stringstream ss;
         impl->PrintDoc(ss);
