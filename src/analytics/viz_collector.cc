@@ -52,7 +52,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
             db_initializer_->GetDbHandler(), syslog_port)),
     sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
-        sflow_port, -1)),
+        std::string(), sflow_port)),
     ipfix_collector_(new IpfixCollector(evm, db_initializer_->GetDbHandler(),
         string(), ipfix_port)) {
     error_code error;
