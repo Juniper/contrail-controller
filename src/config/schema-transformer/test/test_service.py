@@ -785,14 +785,13 @@ class TestPolicy(test_case.STTestCase):
                                       self.get_ri_name(vn2_obj))
 
         # stop st
-        gevent.sleep(1)
         test_common.kill_schema_transformer(self._st_greenlet)
-        gevent.sleep(5)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
+        gevent.sleep(3)
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
@@ -803,7 +802,6 @@ class TestPolicy(test_case.STTestCase):
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self._api_server_ip, self._api_server_port)
-        gevent.sleep(4)
 
         #check if all ri's  are deleted
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj))
@@ -833,14 +831,12 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         # stop st and wait for sometime
-        gevent.sleep(1)
         test_common.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self._api_server_ip, self._api_server_port)
-        gevent.sleep(4)
 
         #check service chain state
         sc = self.wait_to_get_sc()
