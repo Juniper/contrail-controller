@@ -250,6 +250,11 @@ bgp_show_routing_instance_test = env.UnitTest('bgp_show_routing_instance_test',
 env.Alias('src/bgp:bgp_show_routing_instance_test',
     bgp_show_routing_instance_test)
 
+bgp_show_rtarget_group_test = env.UnitTest('bgp_show_rtarget_group_test',
+    ['bgp_show_rtarget_group_test.cc'])
+env.Alias('src/bgp:bgp_show_rtarget_group_test',
+    bgp_show_rtarget_group_test)
+
 bgp_stress_test = env.UnitTest('bgp_stress_test',
                                ['bgp_stress_test.cc'])
 env.Alias('src/bgp:bgp_stress_test', bgp_stress_test)
@@ -417,6 +422,7 @@ test_suite = [
     bgp_show_neighbor_test,
     bgp_show_route_summary_test,
     bgp_show_routing_instance_test,
+    bgp_show_rtarget_group_test,
     bgp_stress_test,
     bgp_table_export_test,
     bgp_table_test,
