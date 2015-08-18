@@ -227,9 +227,7 @@ class DeviceManager(object):
             pr.set_config_state()
 
         self._db_resync_done.set()
-        while 1:
-            # Just wait indefinitely
-            time.sleep(5)
+        gevent.joinall(self._vnc_kombu.greenlets())
     # end __init__
 
     def connection_state_update(self, status, message=None):
