@@ -22,3 +22,4 @@ stevedore
 ../nodemgr/dist/nodemgr-0.1dev.tar.gz
 ../libpartition/dist/libpartition-0.1dev.tar.gz
 ../discovery/client/dist/discoveryclient-0.1dev.tar.gz
+../config/common/dist/cfgm_common-0.1dev.tar.gz

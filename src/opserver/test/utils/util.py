@@ -73,7 +73,7 @@ def obj_to_dict(obj):
 def find_buildroot(path):
     pe = path.split(os.path.sep)
     i, ln = -1, len(pe)
-    while i > -ln and (pe[i-1], pe[i]) != ('build', 'debug'):
+    while i > -ln and pe[i-1] != 'build':
         i -= 1
     if i == -ln:
         return path + '/build/debug'

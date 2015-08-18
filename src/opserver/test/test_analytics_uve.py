@@ -324,7 +324,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                       num_vm_ifs=5, msg_count=5)
     # end test_05_collector_ha
 
-    #@unittest.skip('Skipping AlarmGen basic test')
+    @unittest.skip('Skipping AlarmGen basic test')
     def test_06_alarmgen_basic(self):
         '''
         This test starts the analytics processes.
