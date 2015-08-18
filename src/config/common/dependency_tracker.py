@@ -4,10 +4,13 @@
 
 """
 This file contains implementation of dependency tracker
-for physical router configuration manager
+for contrail config daemons
 """
 
 
+# This class tracks dependencies among different objects based on a reaction map.
+# Objects could be derived from DBBase. Each object has an object_type and the
+# mapping from object_type to the class is specified using object_class_map
 class DependencyTracker(object):
 
     def __init__(self, object_class_map, reaction_map):
@@ -16,21 +19,21 @@ class DependencyTracker(object):
         self.resources = {}
     # end __init__
 
-    def _add_resource(self, obj_type, obj_uuid):
+    def _add_resource(self, obj_type, obj_key):
         if obj_type in self.resources:
-            if obj_uuid in self.resources[obj_type]:
+            if obj_key in self.resources[obj_type]:
                 # already visited
                 return False
-            self.resources[obj_type].append(obj_uuid)
+            self.resources[obj_type].append(obj_key)
         else:
-            self.resources[obj_type] = [obj_uuid]
+            self.resources[obj_type] = [obj_key]
         return True
     # end _add_resource
 
     def evaluate(self, obj_type, obj, from_type='self'):
         if obj_type not in self._reaction_map:
             return
-        if not self._add_resource(obj_type, obj.uuid):
+        if not self._add_resource(obj_type, obj.get_key()):
             return
 
         for ref_type in self._reaction_map[obj_type][from_type]:
