@@ -116,6 +116,13 @@ env.Requires(protobuf_test, [env['TOP'] + '/analytics/test/test_message.desc',
                              env['TOP'] + '/analytics/test/test_message_extensions.desc'])
 protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
 
+sflow_parser_test_obj = env_noWerror_excep.Object('sflow_parser_test.o',
+                                                  'sflow_parser_test.cc')
+sflow_parser_test = env.UnitTest('sflow_parser_test',
+    [sflow_parser_test_obj, '../sflow.o', '../sflow_parser.o',
+     '../sflow_types.o'])
+env.Alias('src/analytics:sflow_parser_test', sflow_parser_test)
+
 test_suite = [ 
                options_test,
                viz_message_test,
@@ -123,6 +130,7 @@ test_suite = [
                stat_walker_test,
                protobuf_test,
                syslog_test,
+               sflow_parser_test
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
