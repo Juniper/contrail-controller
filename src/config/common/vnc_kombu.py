@@ -165,6 +165,9 @@ class VncKombuClientBase(object):
         self._publisher_greenlet = gevent.spawn(self._publisher)
         self._connection_monitor_greenlet = gevent.spawn(self._connection_watch_forever)
 
+    def greenlets(self):
+        return [self._publisher_greenlet, self._connection_monitor_greenlet]
+
     def shutdown(self):
         self._publisher_greenlet.kill()
         self._connection_monitor_greenlet.kill()
