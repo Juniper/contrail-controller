@@ -103,6 +103,27 @@ public:
         client->WaitForIdle();
     }
 
+    void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip) {
+        std::ostringstream buf;
+        buf << "<virtual-machine-interface-allowed-address-pairs>";
+        buf << "<allowed-address-pair>";
+        buf << "<ip>";
+        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
+        buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
+        buf << "</ip>";
+        buf << "<mac><mac-address>" << "00:00:00:00:00:00"
+            << "</mac-address></mac>";
+        buf << "<address-mode>" << "active-active" << "</address-mode>";
+        buf << "</allowed-address-pair>";
+        buf << "</virtual-machine-interface-allowed-address-pairs>";
+        char cbuf[10000];
+        strcpy(cbuf, buf.str().c_str());
+        AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+        client->WaitForIdle();
+    }
+
+
     void AddStaticPreference(std::string intf_name, int intf_id,
                              uint32_t value) {
         std::ostringstream buf;
@@ -241,7 +262,7 @@ TEST_F(TestAap, EvpnRoute) {
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
 }
 
-//Check if subnet gateway for allowed address pait route gets set properly
+//Check if subnet gateway for allowed address pair route gets set properly
 TEST_F(TestAap, EvpnRoute_1) {
     Ip4Address ip = Ip4Address::from_string("10.10.10.10");
     MacAddress mac("0a:0b:0c:0d:0e:0f");
@@ -382,6 +403,16 @@ TEST_F(TestAap, StateMachine_3) {
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
     EXPECT_TRUE(path->path_preference().ecmp() == false);
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    evpn_rt = EvpnRouteGet("vrf1",
+                            MacAddress::FromString(vm_intf->vm_mac()),
+                            Ip4Address(0), 0);
+    path = rt->FindPath(vm_intf->peer());
+    path = evpn_rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 }
 
 //Verify that dependent static route gets high preference,
@@ -413,7 +444,7 @@ TEST_F(TestAap, StateMachine_4) {
        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
                           MacAddress::FromString(vm_intf->vm_mac()));
    client->WaitForIdle();
-   EXPECT_TRUE(path->path_preference().sequence() == 1);
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
@@ -513,29 +544,28 @@ TEST_F(TestAap, StateMachine_7) {
         EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
                            MacAddress::FromString(vm_intf->vm_mac()));
     client->WaitForIdle();
-    EXPECT_TRUE(path->path_preference().sequence() == 1);
-    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
-    EXPECT_TRUE(path->path_preference().ecmp() == false);
-    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
-
-    //Send a dummy update, and verify nothing changes
-    Agent::GetInstance()->oper_db()->route_preference_module()->
-        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
-                           MacAddress::FromString(vm_intf->vm_mac()));
-    client->WaitForIdle();
-    EXPECT_TRUE(path->path_preference().sequence() == 1);
-    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
-    EXPECT_TRUE(path->path_preference().ecmp() == false);
-    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
-
-    //Verify that interface native IP is still inactive
-    Ip4Address native_ip = Ip4Address::from_string("1.1.1.1");
-    rt = RouteGet("vrf1", native_ip, 32);
-    path = rt->FindPath(vm_intf->peer());
     EXPECT_TRUE(path->path_preference().sequence() == 0);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
     EXPECT_TRUE(path->path_preference().ecmp() == false);
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    Ip4Address native_ip = Ip4Address::from_string("1.1.1.1");
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(native_ip, 32, vm_intf->id(),
+                           vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    rt = RouteGet("vrf1", native_ip, 32);
+    path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 }
 
 //Create a interface with IP address 24.1.1.1(intf2)
@@ -609,10 +639,19 @@ TEST_F(TestAap, StateMachine_9) {
        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
                           MacAddress::FromString(vm_intf->vm_mac()));
    client->WaitForIdle();
-   EXPECT_TRUE(path->path_preference().sequence() == 1);
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    PathPreference path_preference(100, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
+            16, "vn1", SecurityGroupList(), path_preference);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
 }
 
 //Verify that static preference is populated
@@ -863,6 +902,190 @@ TEST_F(TestAap, StateMachine_15) {
     //Check that agent withdraws its route after 100ms
     //since BGP path, didnt reflect local agent nexthop
     WAIT_FOR(1000, 1000, (path->path_preference().wait_for_traffic() == true));
+}
+
+TEST_F(TestAap, StateMachine_16) {
+    Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
+    AddEcmpAap("intf1", 1, aap_ip);
+    EXPECT_TRUE(RouteFind("vrf1", aap_ip, 32));
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", aap_ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    PathPreference path_preference(100, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(peer_, "vrf1", aap_ip, 32, server_ip, bmap,
+            16, "vn1", SecurityGroupList(), path_preference);
+
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    rt = RouteGet("vrf1", ip, 32);
+    path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
+
+TEST_F(TestAap, StateMachine_17) {
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    client->WaitForIdle();
+
+    //Configure Floating-IP for intf7 in default-project:vn1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address fip = Ip4Address::from_string("1.1.1.100");
+    InetUnicastRouteEntry *rt = RouteGet("default-project:vn2:vn2", fip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("default-project:vn2:vn2",
+                 MacAddress::FromString(vm_intf->vm_mac()), fip, 0);
+    const AgentPath *evpn_path = evpn_rt->FindPath(vm_intf->peer());
+
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                           MacAddress::FromString(vm_intf->vm_mac()));
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(evpn_path->path_preference().preference() ==
+                PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    PathPreference path_preference(100, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(peer_, "default-project:vn2:vn2", fip, 32, server_ip, bmap,
+            16, "vn1", SecurityGroupList(), path_preference);
+
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(evpn_path->path_preference().preference() ==
+                PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    rt = RouteGet("vrf1", ip, 32);
+    path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    DelLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
+}
+
+//Upon interface deactivation and activation, make sure
+//floating IP tracking happens
+TEST_F(TestAap, StateMachine_18) {
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    client->WaitForIdle();
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    //Configure Floating-IP for intf7 in default-project:vn1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address fip = Ip4Address::from_string("1.1.1.100");
+
+    for (uint32_t i = 0; i < 100; i++) {
+        DelLink("virtual-machine-interface", "intf1",
+                "virtual-network", "vn1");
+        client->WaitForIdle();
+        AddLink("virtual-machine-interface", "intf1",
+                "virtual-network", "vn1");
+        client->WaitForIdle();
+        InetUnicastRouteEntry *rt = RouteGet("default-project:vn2:vn2", fip, 32);
+        const AgentPath *path = rt->FindPath(vm_intf->peer());
+
+        EvpnRouteEntry *evpn_rt = EvpnRouteGet("default-project:vn2:vn2",
+                MacAddress::FromString(vm_intf->vm_mac()), fip, 0);
+        const AgentPath *evpn_path = evpn_rt->FindPath(vm_intf->peer());
+
+        EXPECT_TRUE(path->path_preference().sequence() == 0);
+        EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+        EXPECT_TRUE(evpn_path->path_preference().preference() ==
+                    PathPreference::LOW);
+        EXPECT_TRUE(path->path_preference().ecmp() == false);
+        EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+        Agent::GetInstance()->oper_db()->route_preference_module()->
+            EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                    MacAddress::FromString(vm_intf->vm_mac()));
+        client->WaitForIdle();
+        EXPECT_TRUE(path->path_preference().sequence() == 0);
+        EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+        EXPECT_TRUE(evpn_path->path_preference().preference() ==
+                    PathPreference::HIGH);
+        EXPECT_TRUE(path->path_preference().ecmp() == false);
+        EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+    }
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    DelLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

@@ -432,7 +432,8 @@ public:
 
     const std::string GetAnalyzer() const; 
 
-    void SetPathPreference(PathPreference *pref, bool ecmp) const;
+    void SetPathPreference(PathPreference *pref, bool ecmp,
+                           const IpAddress &dependent_ip) const;
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
     bool NeedMplsLabel() const;
     bool IsVxlanMode() const;
@@ -495,7 +496,8 @@ public:
                                 bool policy_change,
                                 const Ip4Address &new_addr,
                                 const Ip6Address &new_v6_addr,
-                                const MacAddress &mac) const;
+                                const MacAddress &mac,
+                                const IpAddress &dependent_ip) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
 
@@ -513,7 +515,8 @@ private:
     void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
-                  bool ecmp, const IpAddress &gw_ip);
+                  bool ecmp, const IpAddress &gw_ip,
+                  const IpAddress &dependent_ip);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
     void ResolveRoute(const std::string &vrf_name, const Ip4Address &addr,
