@@ -18,6 +18,8 @@ class DBBase(object):
     _cassandra = None
     _manager = None
 
+    _indexed_by_name = False
+
     @classmethod
     def init(cls, manager, logger, cassandra):
         cls._logger = logger
@@ -45,16 +47,16 @@ class DBBase(object):
 
     @classmethod
     def get(cls, key):
-        if key in cls._dict:
-            return cls._dict[key]
-        return None
+        return cls._dict.get(key)
     # end get
 
     @classmethod
     def locate(cls, key, *args):
         if key not in cls._dict:
             try:
-                cls._dict[key] = cls(key, *args)
+                obj = cls(key, *args)
+                cls._dict[key] = obj
+                return obj
             except NoIdError as e:
                 cls._logger.debug(
                     "Exception %s while creating %s for %s",
@@ -63,10 +65,17 @@ class DBBase(object):
         return cls._dict[key]
     # end locate
 
+    def delete_obj(self):
+        # Override in derived class to provide additional functionality
+        pass
+
     @classmethod
     def delete(cls, key):
-        if key in cls._dict:
-            del cls._dict[key]
+        obj = cls.get(key)
+        if obj is None:
+            return
+        obj.delete_obj()
+        del cls._dict[key]
     # end delete
 
     def get_ref_uuid_from_dict(self, obj_dict, ref_name):
@@ -74,6 +83,12 @@ class DBBase(object):
             return obj_dict[ref_name][0]['uuid']
         else:
             return None
+
+    def get_key(self):
+        if self._indexed_by_name:
+            return self.name
+        return self.uuid
+    # end get_key
 
     def add_ref(self, ref_type, ref):
         if hasattr(self, ref_type):
@@ -91,77 +106,103 @@ class DBBase(object):
             ref_set.discard(ref)
     # end delete_ref
 
-    def add_to_parent(self, obj_dict):
-        self.parent_type = obj_dict.get('parent_type')
-        self.parent_id = obj_dict.get('parent_uuid')
-        if not self.parent_type or not self.parent_id:
+    def add_to_parent(self, obj):
+        if isinstance(obj, dict):
+            self.parent_type = obj.get('parent_type')
+        else:
+            self.parent_type = obj.get_parent_type()
+        if self._indexed_by_name:
+            if isinstance(obj, dict):
+                fq_name = obj_dict.get('fq_name', [])
+                if fq_name:
+                    self.parent_key = ':'.join(fq_name[:-1])
+                else:
+                    return
+            else:
+                self.parent_key = obj.get_parent_fq_name_str()
+        else:
+            if isinstance(obj, dict):
+                self.parent_key = obj.get('parent_uuid')
+            else:
+                self.parent_key = obj.get_parent_uuid
+        if not self.parent_type or not self.parent_key:
             return
-        p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_id)
+        p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_key)
         if p_obj is not None:
-            p_obj.add_ref(self.obj_type, self.uuid)
+            p_obj.add_ref(self.obj_type, self.get_key())
     # end
 
     def remove_from_parent(self):
-        if not self.parent_type or not self.parent_id:
+        if not self.parent_type or not self.parent_key:
             return
-        p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_id)
+        p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_key)
         if p_obj is not None:
-            p_obj.delete_ref(self.obj_type, self.uuid)
+            p_obj.delete_ref(self.obj_type, self.get_key())
+
+    def _get_ref_key(self, ref):
+        if self._indexed_by_name:
+            key = ':'.join(ref['to'])
+        else:
+            try:
+                key = ref['uuid']
+            except KeyError:
+                fq_name = ref['to']
+                key = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
+        return key
+    # end _get_ref_key
 
     def update_single_ref(self, ref_type, obj):
-        refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
-        if refs:
-            try:
-                new_id = refs[0]['uuid']
-            except KeyError:
-                fq_name = refs[0]['to']
-                new_id = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
+        if isinstance(obj, dict):
+            refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
         else:
-            new_id = None
-        old_id = getattr(self, ref_type, None)
-        if old_id == new_id:
+            refs = (getattr(obj, ref_type+'_refs', None) or
+                    getattr(obj, ref_type+'_back_refs', None))
+
+        if refs:
+            new_key = self._get_ref_key(refs[0])
+        else:
+            new_key = None
+        old_key = getattr(self, ref_type, None)
+        if old_key == new_key:
             return
-        ref_obj = self.get_obj_type_map()[ref_type].get(old_id)
+        ref_obj = self.get_obj_type_map()[ref_type].get(old_key)
         if ref_obj is not None:
-            ref_obj.delete_ref(self.obj_type, self.uuid)
-        ref_obj = self.get_obj_type_map()[ref_type].get(new_id)
+            ref_obj.delete_ref(self.obj_type, self.get_key())
+        ref_obj = self.get_obj_type_map()[ref_type].get(new_key)
         if ref_obj is not None:
-            ref_obj.add_ref(self.obj_type, self.uuid)
-        setattr(self, ref_type, new_id)
+            ref_obj.add_ref(self.obj_type, self.get_key())
+        setattr(self, ref_type, new_key)
     # end update_single_ref
 
     def set_children(self, ref_type, obj):
         refs = obj.get(ref_type+'s')
         new_refs = set()
         for ref in refs or []:
-            try:
-                new_id = ref['uuid']
-            except KeyError:
-                fq_name = ref['to']
-                new_id = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
-            new_refs.add(new_id)
+            new_key = self._get_ref_key(ref)
+            new_refs.add(new_key)
         setattr(self, ref_type+'s', new_refs)
     # end
 
     def update_multiple_refs(self, ref_type, obj):
-        refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
+        if isinstance(obj, dict):
+            refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
+        else:
+            refs = (getattr(obj, ref_type+'_refs', None) or
+                    getattr(obj, ref_type+'_back_refs', None))
+
         new_refs = set()
         for ref in refs or []:
-            try:
-                new_id = ref['uuid']
-            except KeyError:
-                fq_name = ref['to']
-                new_id = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
-            new_refs.add(new_id)
+            new_key = self._get_ref_key(ref)
+            new_refs.add(new_key)
         old_refs = getattr(self, ref_type+'s')
-        for ref_id in old_refs - new_refs:
-            ref_obj = self.get_obj_type_map()[ref_type].get(ref_id)
+        for ref_key in old_refs - new_refs:
+            ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
-                ref_obj.delete_ref(self.obj_type, self.uuid)
-        for ref_id in new_refs - old_refs:
-            ref_obj = self.get_obj_type_map()[ref_type].get(ref_id)
+                ref_obj.delete_ref(self.obj_type, self.get_key())
+        for ref_key in new_refs - old_refs:
+            ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
-                ref_obj.add_ref(self.obj_type, self.uuid)
+                ref_obj.add_ref(self.obj_type, self.get_key())
         setattr(self, ref_type+'s', new_refs)
     # end update_multiple_refs
 
@@ -174,6 +215,11 @@ class DBBase(object):
         return objs[0]
     # end read_obj
 
+    @classmethod
+    def vnc_obj_from_dict(cls, obj_type, obj_dict):
+        cls = obj_type_to_vnc_class(obj_type, __name__)
+        return cls.from_dict(**obj_dict)
+
     def read_vnc_obj(self, uuid=None, fq_name=None, obj_type=None):
         if uuid is None and fq_name is None:
             raise NoIdError('')
@@ -183,8 +229,7 @@ class DBBase(object):
                 fq_name = fq_name.split(':')
             uuid = self._cassandra.fq_name_to_uuid(obj_type, fq_name)
         obj_dict = self.read_obj(uuid, obj_type)
-        cls = obj_type_to_vnc_class(obj_type, __name__)
-        obj = cls.from_dict(**obj_dict)
+        obj = self.vnc_obj_from_dict(obj_type, obj_dict)
         obj.clear_pending_updates()
         return obj
     # end read_vnc_obj
