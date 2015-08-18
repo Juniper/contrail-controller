@@ -135,7 +135,7 @@ protected:
     }
 
     void StaleNodesProcTimeout() {
-        server_.StaleNodesProcTimeout();
+        server_.StaleEntriesProcTimeout();
     }
 
     DB db_;
