@@ -907,8 +907,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
         cout << "*****************************************************" << endl;
         int i = 0;
-        BOOST_FOREACH(const ShowRtGroupInfo &info,
-            resp->get_rtgroup_list()) {
+        BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
             TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
             cout << info.log() << endl;
             i++;
@@ -927,8 +926,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
         cout << "*****************************************************" << endl;
         int i = 0;
-        BOOST_FOREACH(const ShowRtGroupInfo &info,
-            resp->get_rtgroup_list()) {
+        BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
             TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
             cout << info.log() << endl;
             i++;
@@ -963,7 +961,7 @@ protected:
         Sandesh::set_response_callback(
             boost::bind(ValidateRTGroupResponse, _1, result));
         ShowRtGroupReq *req = new ShowRtGroupReq;
-        req->set_rtarget(rtarget);
+        req->set_search_string(rtarget);
         validate_done_ = 0;
         req->HandleRequest();
         req->Release();
@@ -980,7 +978,7 @@ protected:
         Sandesh::set_response_callback(
             boost::bind(ValidateRTGroupPeerResponse, _1, result));
         ShowRtGroupPeerReq *req = new ShowRtGroupPeerReq;
-        req->set_peer(peer);
+        req->set_search_string(peer);
         validate_done_ = 0;
         req->HandleRequest();
         req->Release();
@@ -2136,6 +2134,7 @@ TEST_F(BgpXmppRTargetTest, HTTPIntrospect3) {
     const BgpPeer *peer_cn2 = FindMatchingPeer(mx_.get(), "CN2");
     EXPECT_TRUE(peer_cn2 != NULL);
     VerifyRtGroupPeerSandesh(mx_.get(), peer_cn2->peer_basename(), result);
+    VerifyRtGroupPeerSandesh(mx_.get(), string(), vector<string>());
 
     VerifyRtGroupPeerSandesh(mx_.get(), "undefined", vector<string>());
     VerifyRtGroupPeerSandesh(cn1_.get(), "undefined", vector<string>());
