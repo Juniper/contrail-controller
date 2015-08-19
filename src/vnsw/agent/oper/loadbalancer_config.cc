@@ -118,7 +118,33 @@ void LoadbalancerConfig::GenerateHealthMonitors(
     if (count) {
         ostr << endl;
     }
-    ostr << "  ]" << endl;
+    ostr << "  ]," << endl;
+    *out << ostr.str();
+}
+
+void LoadbalancerConfig::GenerateCustomAttributes(
+    ostream *out, const LoadbalancerProperties &props) const {
+    const std::vector<autogen::KeyValuePair> &custom_attributes = props.custom_attributes();
+
+    ostringstream ostr;
+    autogen::KeyValuePairs::const_iterator curr_iter, next_iter, end_iter;
+    curr_iter = custom_attributes.begin();
+    end_iter = custom_attributes.end();
+
+    ostr << "  \"custom-attributes\":{" << endl;
+
+    while (curr_iter != end_iter) {
+        next_iter = curr_iter + 1;
+        const autogen::KeyValuePair element = (*curr_iter);
+        ostr << "     \"" << element.key << "\":\"" << element.value << "\"";
+        if (next_iter == end_iter) {
+            ostr << endl;
+            break;
+        }
+        ostr << "," << endl;
+        curr_iter = next_iter;
+    }
+    ostr << "  }" << endl;
     *out << ostr.str();
 }
 
@@ -137,6 +163,7 @@ void LoadbalancerConfig::GenerateConfig(
     GenerateVip(&fs, props);
     GenerateMembers(&fs, props);
     GenerateHealthMonitors(&fs, props);
+    GenerateCustomAttributes(&fs, props);
     fs << "}" << endl;
     fs.close();
 }

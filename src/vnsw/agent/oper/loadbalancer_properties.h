@@ -62,12 +62,21 @@ public:
         return &monitors_;
     }
 
+    const std::vector<autogen::KeyValuePair> &custom_attributes() const {
+        return custom_attributes_;
+    }
+
+    void set_custom_attributes(const std::vector<autogen::KeyValuePair> &custom_attributes) {
+        custom_attributes_ = custom_attributes;
+    }
+
 private:
     autogen::LoadbalancerPoolType pool_;
     boost::uuids::uuid vip_uuid_;
     autogen::VirtualIpType vip_;
     MemberMap members_;
     HealthmonitorMap monitors_;
+    std::vector<autogen::KeyValuePair> custom_attributes_;
 };
 
 #endif  // VNSW_AGENT_OPER_LOADBALANCER_PROPERTIES_H__
