@@ -55,6 +55,48 @@ class FlowTable;
 class FlowTableKSyncEntry;
 class FlowMgmtResponse;
 
+/////////////////////////////////////////////////////////////////////////////
+// Flow addition is a two step process.
+// - FlowHandler :
+//   Flow is created in this context (file pkt_flow_info.cc).
+//   There can potentially be multiple FlowHandler task running in parallel
+// - FlowTable :
+//   This module will maintain a tree of all flows created. It is also
+//   responsible to generate KSync events. It is run in a single task context
+//
+//   This module has WorkQueue running in "Agent::FlowTable" task context.
+//   FlowTableRequest are enqueued to the queue to to add/delete flows.
+//
+//   Functionality of FLowTable:
+//   1. Manage flow_entry_map_ which contains all flows
+//   2. Enforce the per-VM flow limits
+//   3. Generate events to KSync and FlowMgmt modueles
+/////////////////////////////////////////////////////////////////////////////
+struct FlowTableRequest {
+    enum Event {
+        INVALID,
+        ADD_FLOW,
+        DELETE_FLOW,
+        UPDATE_FLOW
+    };
+
+    FlowTableRequest() : event_(INVALID), flow_(NULL) {
+    }
+
+    FlowTableRequest(Event event, FlowEntry *flow) :
+        event_(event), flow_(flow) {
+    }
+
+    FlowTableRequest(const FlowTableRequest &rhs) :
+        event_(rhs.event_), flow_(rhs.flow_) {
+    }
+
+    virtual ~FlowTableRequest() { }
+
+    Event event_;
+    FlowEntryPtr flow_;
+};
+
 struct FlowTaskMsg : public InterTaskMsg {
     FlowTaskMsg(FlowEntry * fe) : InterTaskMsg(0), fe_ptr(fe) { }
     virtual ~FlowTaskMsg() { }
@@ -76,6 +118,7 @@ public:
     static boost::uuids::random_generator rand_gen_;
 
     typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
+    typedef std::pair<FlowKey, FlowEntry *> FlowEntryMapPair;
     typedef std::map<const VmEntry *, VmFlowInfo *> VmFlowTree;
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
     typedef boost::function<bool(FlowEntry *flow)> FlowEntryCb;
@@ -88,9 +131,10 @@ public:
     void Shutdown();
 
     // Table managment routines
-    FlowEntry *Allocate(const FlowKey &key);
-    void Add(FlowEntry *flow, FlowEntry *rflow);
+    FlowEntry *Locate(FlowEntry *flow);
     FlowEntry *Find(const FlowKey &key);
+    void Add(FlowEntry *flow, FlowEntry *rflow);
+    void Update(FlowEntry *flow, FlowEntry *rflow);
     bool Delete(const FlowKey &key, bool del_reverse_flow);
     void DeleteAll();
     // Test code only used method
@@ -120,6 +164,7 @@ public:
 
     static const std::string &TaskName() { return kTaskName; }
     // Sandesh routines
+    void Copy(FlowEntry *lhs, const FlowEntry *rhs);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
                                const int last_count);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
@@ -154,19 +199,15 @@ public:
 
     void UpdateKSync(FlowEntry *flow);
 
+    // Flow Table request queue events
+    void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow);
+
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
-    Agent *agent_;
-    FlowEntryMap flow_entry_map_;
-
-    VmFlowTree vm_flow_tree_;
-    uint32_t max_vm_flows_;     // maximum flow count allowed per vm
-    uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
-
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
     std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl,
                                          const int last_count);
@@ -189,6 +230,19 @@ private:
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
+
+    void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
+                     FlowEntry *new_rflow, bool update);
+    void Add(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
+             FlowEntry *new_rflow, bool update);
+    bool RequestHandler(const FlowTableRequest &req);
+    Agent *agent_;
+    FlowEntryMap flow_entry_map_;
+
+    VmFlowTree vm_flow_tree_;
+    uint32_t max_vm_flows_;     // maximum flow count allowed per vm
+    uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
+    WorkQueue<FlowTableRequest> request_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };

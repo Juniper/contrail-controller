@@ -88,6 +88,10 @@ public:
     bool UnknownUnicastFlow(const PktInfo *p,
                             const PktControlInfo *in_info,
                             const PktControlInfo *out_info);
+    void GenerateTrafficSeen(const PktInfo *pkt, const PktControlInfo *in);
+    void ApplyFlowLimits(const PktControlInfo *in, const PktControlInfo *out);
+    void LinkLocalPortBind(const PktInfo *pkt, const PktControlInfo *in,
+                           const FlowEntry *flow);
 
 public:
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,

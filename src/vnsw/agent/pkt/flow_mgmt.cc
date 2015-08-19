@@ -786,9 +786,11 @@ bool FlowMgmtTree::TryDelete(FlowMgmtKey *key, FlowMgmtEntry *entry) {
     }
 
     Tree::iterator it = tree_.find(key);
+    assert(it != tree_.end());
+    FlowMgmtKey *first = it->first;
     tree_.erase(it);
     delete entry;
-    delete it->first;
+    delete first;
 
     return true;
 }

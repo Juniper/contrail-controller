@@ -17,7 +17,7 @@ class FlowProto : public Proto {
 public:
     static const std::string kFlowTaskName;
     FlowProto(Agent *agent, boost::asio::io_service &io) :
-        Proto(agent, FlowTable::TaskName().c_str(), PktHandler::FLOW, io) {
+        Proto(agent, kFlowHandlerTask.c_str(), PktHandler::FLOW, io) {
         agent->SetFlowProto(this);
     }
     virtual ~FlowProto() {}

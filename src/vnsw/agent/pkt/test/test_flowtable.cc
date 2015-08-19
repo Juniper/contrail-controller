@@ -71,7 +71,7 @@ class SetupTask;
 FlowEntry *FlowInit(TestFlowKey *t) {
     FlowKey key;
     t->InitFlowKey(&key);
-    FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
+    FlowEntry *flow = FlowEntry::Allocate(key);
 
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
                                                     100, 0, 0));
@@ -83,12 +83,14 @@ FlowEntry *FlowInit(TestFlowKey *t) {
     ctrl.intf_ = VmPortGet(t->ifindex_);
     ctrl.vm_ = VmGet(t->vm_);
 
-    flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
+    flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl, NULL);
     return flow;
 }
 
-static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-    Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
+static void FlowAdd(FlowEntryPtr fwd, FlowEntryPtr rev) {
+    fwd->set_reverse_flow_entry(rev.get());
+    rev->set_reverse_flow_entry(fwd.get());
+    Agent::GetInstance()->pkt()->flow_table()->Add(fwd.get(), rev.get());
 }
 
 class FlowTableTest : public ::testing::Test {
@@ -262,7 +264,7 @@ public:
     FlowEntry *FlowInit(TestFlowKey *t) {
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
+        FlowEntry *flow = FlowEntry::Allocate(key);
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0, 0));
         pkt_info->family = Address::INET;
@@ -274,13 +276,8 @@ public:
         ctrl.intf_ = VmPortGet(t->ifindex_);
         ctrl.vm_ = VmGet(t->vm_);
 
-        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl, NULL);
         return flow;
-    }
-
-    static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
-        client->WaitForIdle();
     }
 
     static void TestSetup(bool ksync_init) {
@@ -396,6 +393,11 @@ class SetupTask : public Task {
 
             test_->flow1_r = FlowInit(test_->key1_r);
             test_->flow1_r->set_flags(FlowEntry::LocalFlow);
+
+            test_->flow1->GetPolicyInfo(test_->flow1_r);
+            test_->flow1_r->GetPolicyInfo(test_->flow1);
+            test_->flow1->ResyncFlow();
+            test_->flow1_r->ResyncFlow();
             FlowAdd(test_->flow1, test_->flow1_r);
 
             test_->flow2 = FlowInit(test_->key2);
@@ -403,6 +405,10 @@ class SetupTask : public Task {
 
             test_->flow2_r = FlowInit(test_->key2_r);
             test_->flow2_r->reset_flags(FlowEntry::LocalFlow);
+            test_->flow2->GetPolicyInfo(test_->flow2_r);
+            test_->flow2_r->GetPolicyInfo(test_->flow2);
+            test_->flow2->ResyncFlow();
+            test_->flow2_r->ResyncFlow();
             FlowAdd(test_->flow2, test_->flow2_r);
             return true;
         }
