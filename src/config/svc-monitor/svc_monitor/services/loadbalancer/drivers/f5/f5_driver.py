@@ -49,6 +49,7 @@ class OpencontrailF5LoadbalancerDriver(
             'global_routed_mode': 'True',
             'ha_mode': 'standalone',
             'use_snat': 'True',
+            'vip_vlan': None,
             'num_snat': '1',
             'user': 'admin',
             'password': 'c0ntrail123',
@@ -64,6 +65,7 @@ class OpencontrailF5LoadbalancerDriver(
         self.sync_mode = f5opts.get('sync_mode')
         self.ha_mode = f5opts.get('ha_mode')
         self.use_snat = f5opts.get('use_snat')
+        self.vip_vlan = f5opts.get('vip_vlan')
         self.num_snat = f5opts.get('num_snat')
         self.icontrol_user = f5opts.get('user')
         self.icontrol_password = f5opts.get('password')
@@ -312,6 +314,12 @@ class OpencontrailF5LoadbalancerDriver(
                                                     port=int(new_pool_info['members'][member]['protocol_port']),
                                                     folder=new_pool_info['tenant_id'],
                                                     no_checks=True)
+                            bigip.pool.set_member_ratio(name=new_pool_info['id'],
+                                                    ip_address=ip_address,
+                                                    port=int(new_pool_info['members'][member]['protocol_port']),
+                                                    ratio=int(new_pool_info['members'][member]['weight']),
+                                                    folder=new_pool_info['tenant_id'],
+                                                    no_checks=True)
 
                     if len(removed_members):
                         for member in removed_members:
@@ -343,6 +351,16 @@ class OpencontrailF5LoadbalancerDriver(
                                         bigip.pool.disable_member(name=new_pool_info['id'],
                                                     ip_address=ip_address,
                                                     port=int(new_pool_info['members'][member]['protocol_port']),
+                                                    folder=new_pool_info['tenant_id'],
+                                                    no_checks=True)
+                                if member_property == 'weight':
+                                    ip_address = new_pool_info['members'][member]['address']
+                                    if self.global_routed_mode:
+                                        ip_address = ip_address + "%0"
+                                    bigip.pool.set_member_ratio(name=new_pool_info['id'],
+                                                    ip_address=ip_address,
+                                                    port=int(new_pool_info['members'][member]['protocol_port']),
+                                                    ratio=int(new_pool_info['members'][member]['weight']),
                                                     folder=new_pool_info['tenant_id'],
                                                     no_checks=True)
 
@@ -501,8 +519,8 @@ class OpencontrailF5LoadbalancerDriver(
         ip_address = pool_info['vip']['params']['address']
         if self.global_routed_mode:
             ip_address = ip_address + "%0"
-            vlan_name = None
-            use_snat = False
+            vlan_name = self.vip_vlan
+            use_snat = True
             snat_pool_name = None
         else:
             vlan_name = str(pool_info['vip']['vlan_tag'])
@@ -518,7 +536,7 @@ class OpencontrailF5LoadbalancerDriver(
                         use_snat=use_snat,
                         snat_pool=snat_pool_name,
                         folder=pool_info['tenant_id'],
-                        preserve_vlan_name=False)
+                        preserve_vlan_name=True)
 
         description = pool_info['vip']['name'] + ':' + pool_info['vip']['description']
         bigip_vs.set_description(name=pool_info['virtual_ip'],
@@ -766,6 +784,12 @@ class OpencontrailF5LoadbalancerDriver(
                                     port=int(pool_info['members'][member]['protocol_port']),
                                     folder=pool_info['tenant_id'],
                                     no_checks=True)
+            bigip.pool.set_member_ratio(name=pool_info['id'],
+                                    ip_address=ip_address,
+                                    port=int(pool_info['members'][member]['protocol_port']),
+                                    ratio=int(pool_info['members'][member]['weight']),
+                                    folder=pool_info['tenant_id'],
+                                    no_checks=True)
 
         # create vip and and related objects
         self.create_vip_service(bigip, pool_info)
@@ -938,7 +962,8 @@ class OpencontrailF5LoadbalancerDriver(
         self.release_pool_resource(pool_info)
         if pool_info['tenant_id'] not in self.project_list:
             return
-        self.project_list[pool_info['tenant_id']].remove(pool_info['id'])
+        if pool_info['id'] in self.project_list[pool_info['tenant_id']]:
+            self.project_list[pool_info['tenant_id']].remove(pool_info['id'])
         if not len(self.project_list[pool_info['tenant_id']]):
             bigips = self.__bigips.values()
             for bigip in bigips:
