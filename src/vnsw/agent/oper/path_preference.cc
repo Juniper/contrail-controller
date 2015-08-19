@@ -531,6 +531,7 @@ void PathPreferenceIntfState::Notify() {
         RouteAddrList rt;
         rt.vrf_name_ = it->vrf_name_;
         if (it->floating_ip_.is_v4()) {
+            rt.family_ = AF_INET;
             rt.plen_ = 32;
             rt.ip_ = it->floating_ip_.to_v4();
             Insert(rt, traffic_seen);
@@ -544,6 +545,7 @@ void PathPreferenceIntfState::Notify() {
         service_vlan_set.begin();
     for (;service_vlan_it != service_vlan_set.end(); ++service_vlan_it) {
         RouteAddrList rt;
+        rt.family_ = AF_INET;
         rt.plen_ = service_vlan_it->plen_;
         rt.ip_ = service_vlan_it->addr_;
         rt.vrf_name_ = service_vlan_it->vrf_name_;
@@ -561,6 +563,7 @@ void PathPreferenceIntfState::Notify() {
             if (static_rt_it->vrf_ == "") {
                 continue;
             }
+            rt.family_ = AF_INET;
             rt.plen_ = static_rt_it->plen_;
             rt.ip_ = static_rt_it->addr_;
             rt.vrf_name_ = static_rt_it->vrf_;
