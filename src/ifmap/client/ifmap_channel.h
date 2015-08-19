@@ -172,11 +172,13 @@ public:
     void set_start_stale_entries_cleanup(bool value) {
         start_stale_entries_cleanup_ = value;
     }
-    bool start_stale_entries_cleanup() { return start_stale_entries_cleanup_; }
+    bool start_stale_entries_cleanup() const {
+        return start_stale_entries_cleanup_;
+    }
     void set_end_of_rib_computed(bool value) {
         end_of_rib_computed_ = value;
     }
-    bool end_of_rib_computed() { return end_of_rib_computed_; }
+    bool end_of_rib_computed() const { return end_of_rib_computed_; }
     bool EndOfRibTimerRunning();
 
 private:

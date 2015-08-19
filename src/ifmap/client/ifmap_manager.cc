@@ -17,26 +17,11 @@
 IFMapManager::IFMapManager(IFMapServer *ifmap_server, const std::string& url,
                            const std::string& user, const std::string& passwd,
                            const std::string& certstore, PollReadCb readcb,
-                           boost::asio::io_service *io_service,
-                           DiscoveryServiceClient *ds_client)
-    : pollreadcb_(readcb), io_service_(io_service),
-      channel_(new IFMapChannel(this, user, passwd, certstore)),
-      state_machine_(new IFMapStateMachine(this)),
-      peer_finder_(new PeerIFMapServerFinder(this, ds_client, url)),
-      ifmap_server_(ifmap_server) {
-
-    ifmap_server->set_ifmap_manager(this);
-}
-
-IFMapManager::IFMapManager(IFMapServer *ifmap_server, const std::string& url,
-                           const std::string& user, const std::string& passwd,
-                           const std::string& certstore, PollReadCb readcb,
                            boost::asio::io_service *io_service)
     : pollreadcb_(readcb), io_service_(io_service),
       channel_(new IFMapChannel(this, user, passwd, certstore)),
       state_machine_(new IFMapStateMachine(this)), peer_finder_(NULL),
       ifmap_server_(ifmap_server) {
-
     ifmap_server->set_ifmap_manager(this);
 }
 
@@ -46,6 +31,11 @@ IFMapManager::IFMapManager()
 }
 
 IFMapManager::~IFMapManager() {
+}
+
+void IFMapManager::InitializeDiscovery(DiscoveryServiceClient *ds_client,
+                                       const std::string& url) {
+    peer_finder_.reset(new PeerIFMapServerFinder(this, ds_client, url));
 }
 
 void IFMapManager::Start(const std::string &host, const std::string &port) {
@@ -62,6 +52,10 @@ void IFMapManager::SetChannel(IFMapChannel *channel) {
 
 uint64_t IFMapManager::GetChannelSequenceNumber() {
     return channel_->get_sequence_number();
+}
+
+bool IFMapManager::GetEndOfRibComputed() const {
+    return channel_->end_of_rib_computed();
 }
 
 void IFMapManager::SetStartStaleEntriesCleanup(bool value) {

@@ -463,18 +463,23 @@ void ControlNodeShutdown() {
     evm.Shutdown();
 }
 
-static void ControlNodeGetProcessStateCb(const BgpServer *server,
+static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
+    const IFMapManager *ifmap_manager,
     const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
     size_t expected_connections) {
     GetProcessStateCb(cinfos, state, message, expected_connections);
     if (state == ProcessState::NON_FUNCTIONAL)
         return;
-    if (server->bgp_identifier() &&
-        server->local_autonomous_system() && server->autonomous_system())
-        return;
-    state = ProcessState::NON_FUNCTIONAL;
-    message = "No BGP configuration for self";
+    if (!ifmap_manager->GetEndOfRibComputed()) {
+        state = ProcessState::NON_FUNCTIONAL;
+        message = "IFMap Server End-Of-RIB not computed";
+    } else if (!bgp_server->bgp_identifier() ||
+        !bgp_server->local_autonomous_system() ||
+        !bgp_server->autonomous_system()) {
+        state = ProcessState::NON_FUNCTIONAL;
+        message = "No BGP configuration for self";
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -492,8 +497,7 @@ int main(int argc, char *argv[]) {
     std::string log_property_file = options.log_property_file();
     if (log_property_file.size()) {
         LoggingInit(log_property_file);
-    }
-    else {
+    } else {
         LoggingInit(options.log_file(), options.log_file_size(),
                     options.log_files_count(), options.use_syslog(),
                     options.syslog_facility(), module_name);
@@ -543,7 +547,7 @@ int main(int argc, char *argv[]) {
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
-    // XXX Disable logging -- for test purposes only
+    // Disable logging -- for test purposes only.
     if (options.log_disable()) {
         SetLoggingDisabled(true);
     }
@@ -566,24 +570,23 @@ int main(int argc, char *argv[]) {
     BgpConfigParser parser(&config_db);
     parser.Parse(FileRead(options.bgp_config_file().c_str()));
 
-    bgp_server->rtarget_group_mgr()->Initialize();
     // TODO:  Initialize throws an exception (via boost) in case the
     // user does not have permissions to bind to the port.
-
+    bgp_server->rtarget_group_mgr()->Initialize();
     LOG(DEBUG, "Starting Bgp Server at port " << options.bgp_port());
     if (!bgp_server->session_manager()->Initialize(options.bgp_port()))
         exit(1);
 
-    //Create Xmpp Server
+    // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);
     XmppServer *xmpp_server = CreateXmppServer(&evm, &options, &xmpp_cfg);
     if (xmpp_server == NULL) {
         exit(1);
     }
 
-    // Register XMPP channel peers 
+    // Create BGP and IFMap channel managers.
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
-                    new BgpXmppChannelManager(xmpp_server, bgp_server.get()));
+        new BgpXmppChannelManager(xmpp_server, bgp_server.get()));
     sandesh_context.xmpp_peer_manager = bgp_peer_manager.get();
     IFMapChannelManager ifmap_channel_mgr(xmpp_server, &ifmap_server);
     ifmap_server.set_ifmap_channel_manager(&ifmap_channel_mgr);
@@ -594,6 +597,16 @@ int main(int argc, char *argv[]) {
     IFMapSandeshContext ifmap_sandesh_context(&ifmap_server);
     Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
+    // Create IFMapManager and associate with the IFMapServer.
+    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+    IFMapManager *ifmap_manager = new IFMapManager(&ifmap_server,
+        options.ifmap_server_url(), options.ifmap_user(),
+        options.ifmap_password(), options.ifmap_certs_store(),
+        boost::bind(
+            &IFMapServerParser::Receive, ifmap_parser, &config_db, _1, _2, _3),
+        evm.io_service());
+    ifmap_server.set_ifmap_manager(ifmap_manager);
+
     // Determine if the number of connections is as expected. At the moment,
     // consider connections to collector, discovery server and IFMap (irond)
     // servers as critical to the normal functionality of control-node.
@@ -603,76 +616,68 @@ int main(int argc, char *argv[]) {
     // 3. Discovery Server subscribe Collector
     // 4. Discovery Server subscribe IfmapServer
     // 5. IFMap Server (irond)
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Init(*evm.io_service(), options.hostname(),
-            module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
-            boost::bind(&ControlNodeGetProcessStateCb,
-                bgp_server.get(), _1, _2, _3, 5));
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::GetInstance()->Init(
+        *evm.io_service(), options.hostname(),
+        module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
+        boost::bind(&ControlNodeGetProcessStateCb,
+                    bgp_server.get(), ifmap_manager, _1, _2, _3, 5));
 
-    //Register services with Discovery Service Server
-    DiscoveryServiceClient *ds_client = NULL; 
+    // Parse discovery server configuration.
     tcp::endpoint dss_ep;
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
         options.discovery_server(), options.discovery_port(), &dss_ep)) {
+        LOG(ERROR, "Invalid Discovery Server hostname or address " <<
+            options.discovery_server());
+        exit(1);
+    }
 
-        string subscriber_name = 
-            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep, subscriber_name); 
-        ds_client->Init();
-  
-        // publish xmpp-server service
-        ControlNode::SetSelfIp(options.host_ip());
-        if (!options.host_ip().empty()) {
-            stringstream pub_ss;
-            const std::string &sname(
-                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME);
-            pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
-                      "</ip-address><port>" << options.xmpp_port() <<
-                      "</port></" << sname << ">";
-            string pub_msg;
-            pub_msg = pub_ss.str();
-            ds_client->Publish(sname, pub_msg);
-        }
+    // Create and initialize discovery client.
+    string subscriber_name =
+        g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
+    DiscoveryServiceClient *ds_client =
+        new DiscoveryServiceClient(&evm, dss_ep, subscriber_name);
+    ds_client->Init();
 
-        // subscribe to collector service if not configured
-        if (!options.collectors_configured()) {
-            Module::type module = Module::CONTROL_NODE;
-            NodeType::type node_type = 
-                g_vns_constants.Module2NodeType.find(module)->second;
-            string subscriber_name = 
-                g_vns_constants.ModuleNames.find(module)->second;
-            string node_type_name = 
-                g_vns_constants.NodeTypeNames.find(node_type)->second; 
-            Sandesh::CollectorSubFn csf = 0;
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe,
-                              ds_client, _1, _2, _3);
-            vector<string> list;
-            list.clear();
-            Sandesh::InitGenerator(subscriber_name,
-                                   options.hostname(),
-                                   node_type_name,
-                                   g_vns_constants.INSTANCE_ID_DEFAULT, 
-                                   &evm,
-                                   options.http_server_port(),
-                                   csf,
-                                   list,
-                                   &sandesh_context);
-        }
-    } else {
-        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
-                    options.discovery_server());
+    // Initialize discovery mechanism for IFMapManager.
+    // Must happen after call to ConnectionStateManager::Init to ensure that
+    // ConnectionState is not updated before the ConnectionStateManager gets
+    // initialized.
+    ifmap_manager->InitializeDiscovery(ds_client, options.ifmap_server_url());
+
+    // Publish xmpp-server service.
+    ControlNode::SetSelfIp(options.host_ip());
+    if (!options.host_ip().empty()) {
+        stringstream pub_ss;
+        const std::string &sname(
+            g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME);
+        pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
+              "</ip-address><port>" << options.xmpp_port() <<
+              "</port></" << sname << ">";
+        string pub_msg;
+        pub_msg = pub_ss.str();
+        ds_client->Publish(sname, pub_msg);
+    }
+
+    // Subscribe to collector service if collector isn't explicitly configured.
+    if (!options.collectors_configured()) {
+        Module::type module = Module::CONTROL_NODE;
+        NodeType::type node_type =
+            g_vns_constants.Module2NodeType.find(module)->second;
+        string subscriber_name =
+            g_vns_constants.ModuleNames.find(module)->second;
+        string node_type_name =
+            g_vns_constants.NodeTypeNames.find(node_type)->second;
+        Sandesh::CollectorSubFn csf = 0;
+        csf = boost::bind(&DiscoveryServiceClient::Subscribe,
+                          ds_client, _1, _2, _3);
+        vector<string> list;
+        Sandesh::InitGenerator(subscriber_name, options.hostname(),
+                               node_type_name,
+                               g_vns_constants.INSTANCE_ID_DEFAULT,
+                               &evm, options.http_server_port(),
+                               csf, list, &sandesh_context);
     }
     ControlNode::SetDiscoveryServiceClient(ds_client);
-
-    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
-
-    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server,
-                options.ifmap_server_url(), options.ifmap_user(),
-                options.ifmap_password(), options.ifmap_certs_store(),
-                boost::bind(&IFMapServerParser::Receive, ifmap_parser,
-                            &config_db, _1, _2, _3), evm.io_service(),
-                ds_client);
-    ifmap_server.set_ifmap_manager(ifmapmgr);
 
     CpuLoadData::Init();
     uint64_t start_time = UTCTimestampUsec();
@@ -689,18 +694,15 @@ int main(int argc, char *argv[]) {
                         start_time, node_info_log_timer.get()),
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
 
-    // Start Periodic timer to send BGPRouterInfo UVE
+    // Start periodic timer to send BGPRouterInfo UVE.
     node_info_log_timer->Start(
         60 * 1000,
         boost::bind(&ControlNodeInfoLogTimer, node_info_trigger.get()),
         NULL);
 
-    /*
-     * Event loop
-     */
+    // Event loop.
     evm.Run();
 
     ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get());
-
     return 0;
 }

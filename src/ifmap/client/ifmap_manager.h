@@ -29,14 +29,10 @@ public:
                  const std::string& user, const std::string& passwd,
                  const std::string& certstore, PollReadCb readcb,
                  boost::asio::io_service *io_service);
-    IFMapManager(IFMapServer *ifmap_server, const std::string& url,
-                 const std::string& user, const std::string& passwd,
-                 const std::string& certstore, PollReadCb readcb,
-                 boost::asio::io_service *io_service,
-                 DiscoveryServiceClient *ds_client);
-
     virtual ~IFMapManager();
 
+    void InitializeDiscovery(DiscoveryServiceClient *ds_client,
+                             const std::string& url);
     virtual void Start(const std::string &host, const std::string &port);
 
     boost::asio::io_service *io_service() { return io_service_; }
@@ -50,6 +46,7 @@ public:
     }
     std::string get_url();
     uint64_t GetChannelSequenceNumber();
+    bool GetEndOfRibComputed() const;
     void GetPeerServerInfo(IFMapPeerServerInfoUI &server_info);
     void RetrieveStaticHostPort(const std::string& url);
     void GetAllDSPeerInfo(IFMapDSPeerInfo *ds_peer_info);
