@@ -464,7 +464,7 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
 
         if (it_path->peer() &&
             it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER &&
-            it_path->path_preference().ecmp() == true &&
+            it_path->path_preference().is_ecmp() == true &&
             it_path != path)
             count++;
     }
@@ -564,7 +564,7 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
 
     // We are interested only in path from LOCAL_VM_PORT_PEER
     if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER ||
-        path->path_preference().ecmp() == false) {
+        path->path_preference().is_ecmp() == false) {
         return false;
     }
 
@@ -586,7 +586,7 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
 
         if (it_path->peer() &&
             it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER &&
-            it_path->path_preference().ecmp() == true) {
+            it_path->path_preference().is_ecmp() == true) {
             count++;
             if (it_path != path)
                 vm_port_path = it_path;

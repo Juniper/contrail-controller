@@ -27,12 +27,14 @@ do {                                                                      \
 //traffic(GARP or flow from VM)
 class PathPreferenceSM:
     public sc::state_machine<PathPreferenceSM, Init> {
+    typedef DependencyList<PathPreferenceSM, PathPreferenceSM> PathDependencyList;
 public:
     static const uint32_t kMinInterval = 5 * 1000;
     static const uint32_t kMaxInterval = 100 * 1000;
     static const uint32_t kMaxFlapCount = 5;
     PathPreferenceSM(Agent *agent, const Peer *peer,
-                     AgentRoute *rt);
+                     AgentRoute *rt, bool dependent_rt,
+                     const PathPreference &pref);
     ~PathPreferenceSM();
     uint32_t sequence() const {return path_preference_.sequence();}
     uint32_t preference() const {return path_preference_.preference();}
@@ -45,6 +47,7 @@ public:
     }
     uint32_t flap_count() const { return flap_count_;}
 
+    bool is_dependent_rt() const { return is_dependent_rt_;}
     void set_sequence(uint32_t seq_no) {
         path_preference_.set_sequence(seq_no);
     }
@@ -77,6 +80,14 @@ public:
         last_high_priority_change_at_ = timestamp;
     }
 
+    void set_dependent_rt(PathPreferenceSM *sm) {
+        dependent_rt_.reset(sm);
+    }
+
+    void set_is_dependent_rt(bool dependent_path) {
+        is_dependent_rt_ = dependent_path;
+    }
+
     bool seen() { return seen_; }
     uint32_t max_sequence() const { return max_sequence_;}
     void Process();
@@ -92,6 +103,7 @@ public:
     bool IsPathFlapping() const;
     bool IsPathStable() const;
     void UpdateFlapTime();
+    void UpdateDependentRoute();
 private:
     Agent *agent_;
     const Peer *peer_;
@@ -103,6 +115,9 @@ private:
     uint32_t timeout_;
     uint64_t last_high_priority_change_at_;
     uint32_t flap_count_;
+    bool is_dependent_rt_;
+    DependencyRef<PathPreferenceSM, PathPreferenceSM> dependent_rt_;
+    DEPENDENCY_LIST(PathPreferenceSM, PathPreferenceSM, dependent_routes_);
 };
 
 //Per Route state machine containing a map for all
@@ -114,7 +129,10 @@ public:
     ~PathPreferenceState();
     void Process();
     PathPreferenceSM *GetSM(const Peer *);
+    PathPreferenceSM* GetDependentPath(const AgentPath *path) const;
 private:
+    bool GetRouteListenerId(const VrfEntry *vrf,
+                            DBTableBase::ListenerId &rt_id) const;
     Agent *agent_;
     AgentRoute *rt_;
     PeerPathPreferenceMap path_preference_peer_map_;
@@ -198,10 +216,14 @@ public:
     Agent *agent() { return agent_;}
     DBTableBase::ListenerId vrf_id() const { return vrf_id_;}
     DBTableBase::ListenerId intf_id() const { return intf_id_;}
+    void AddUnresolvedPath(PathPreferenceState *sm);
+    void DeleteUnresolvedPath(PathPreferenceState *sm);
+    void Resolve();
 private:
     Agent *agent_;
     DBTableBase::ListenerId vrf_id_;
     DBTableBase::ListenerId intf_id_;
     WorkQueue<PathPreferenceEventContainer> work_queue_;
+    std::set<PathPreferenceState *> unresolved_paths_;
 };
 #endif
