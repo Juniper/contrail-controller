@@ -645,6 +645,7 @@ bool IFMapChannel::EndOfRibProcTimeout() {
     IFMAP_PEER_DEBUG(IFMapServerConnection, integerToString(timeout),
                      "millisecond end of rib timer fired");
     set_end_of_rib_computed(true);
+    process::ConnectionState::GetInstance()->Update();
     return false;
 }
 
