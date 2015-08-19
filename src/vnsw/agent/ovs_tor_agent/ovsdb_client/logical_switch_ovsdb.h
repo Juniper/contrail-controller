@@ -90,6 +90,9 @@ public:
 
     bool IsLocalMacsRef() const;
 
+    // Override Ack api to get trigger on Ack
+    void Ack(bool success);
+
 private:
     void SendTrace(Trace event) const;
     void DeleteOldMcastRemoteMac();
@@ -102,6 +105,10 @@ private:
     // the reference till timeout or when all the local
     // macs are withdrawn
     KSyncEntryPtr local_mac_ref_;
+
+    // physical_locator create ref
+    KSyncEntryPtr pl_create_ref_;
+
     int64_t vxlan_id_;
     struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;

@@ -86,7 +86,7 @@ public:
     OvsdbDBObject *table() { return table_;}
 
     KSyncObject* GetObject();
-    void Ack(bool success);
+    virtual void Ack(bool success);
 
 protected:
     // by default create transaction for all entries

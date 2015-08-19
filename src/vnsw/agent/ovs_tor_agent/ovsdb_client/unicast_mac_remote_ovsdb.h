@@ -59,6 +59,7 @@ public:
                           const UnicastMacRemoteEntry *key);
     UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
                           struct ovsdb_idl_row *entry);
+    virtual ~UnicastMacRemoteEntry();
 
     // OVSDB schema does not consider a key for unicast mac remote entry
     // so over-ride the default behaviour of NotifyAdd and NotifyDelete
@@ -85,11 +86,17 @@ public:
     const std::string &dest_ip() const;
     bool self_exported_route() const;
 
+    // Override Ack api to get trigger on Ack
+    void Ack(bool success);
+
 private:
     friend class UnicastMacRemoteTable;
     friend class VrfOvsdbObject;
     void SendTrace(Trace event) const;
     void DeleteDupEntries(struct ovsdb_idl_txn *);
+
+    // physical_locator create ref
+    KSyncEntryPtr pl_create_ref_;
 
     std::string mac_;
     std::string logical_switch_name_;
