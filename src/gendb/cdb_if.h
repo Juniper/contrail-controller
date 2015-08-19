@@ -160,7 +160,7 @@ private:
     bool Db_AsyncAddColumnLocked(CdbIfColList &cl);
     void Db_BatchAddColumn(bool done);
     // Read
-    static const int kMaxQueryRows = 5000;
+    static const int kMaxQueryRows = 50;
 
     // Statistics
     struct CdbIfStats {
