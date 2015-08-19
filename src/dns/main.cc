@@ -255,8 +255,9 @@ int main(int argc, char *argv[]) {
                 options.ifmap_password(), options.ifmap_certs_store(),
                 boost::bind(&IFMapServerParser::Receive, ifmap_parser,
                             &config_db, _1, _2, _3),
-                        Dns::GetEventManager()->io_service(), ds_client);
+                        Dns::GetEventManager()->io_service());
     ifmap_server.set_ifmap_manager(ifmapmgr);
+    ifmapmgr->InitializeDiscovery(ds_client, options.ifmap_server_url());
 
     Dns::GetEventManager()->Run();
 
