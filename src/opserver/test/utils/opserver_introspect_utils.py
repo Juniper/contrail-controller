@@ -22,13 +22,13 @@ class VerificationOpsSrv (VerificationUtilBase):
         super(VerificationOpsSrv, self).__init__(ip, port)
 
     def get_ops_vm(self, vm='default-virtual-machine'):
-        vm_dict = self.dict_get('analytics/virtual-machine/' + vm)
+        vm_dict = self.dict_get('analytics/uves/virtual-machine/' + vm)
         return OpVMResult(vm_dict)
 
     def get_ops_vn(self, vn='default-virtual-network'):
         res = None
         try:
-            vn_dict = self.dict_get('analytics/virtual-network/' + vn)
+            vn_dict = self.dict_get('analytics/uves/virtual-network/' + vn)
             res = OpVNResult(vn_dict)
         except Exception as e:
             print e
@@ -41,7 +41,7 @@ class VerificationOpsSrv (VerificationUtilBase):
         res = None
         try:
             #import pdb; pdb.set_trace()
-            col_dict = self.dict_get('analytics/collector/' + col)
+            col_dict = self.dict_get('analytics/uves/analytics-node/' + col)
             res = OpCollectorResult(col_dict)
         except Exception as e:
             print e
