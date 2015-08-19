@@ -23,7 +23,7 @@ class QueryResultMetaData;
 class QEOpServerProxy {
 public:
     static const int nMaxChunks = 16;
-    static const int nMaxRows = 1000000;
+    static const int nMaxRows = 2500000;
 
     // Increase max number of threads available by a factor of 4
     static const int nThreadCountMultFactor = 4;

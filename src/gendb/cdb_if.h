@@ -165,7 +165,8 @@ private:
     bool DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
                               org::apache::cassandra::CfDef *newcfdef);
     // Read
-    static const int kMaxQueryRows = 5000;
+    static const int kMaxQueryRows = 50;
+
     // API to get range of column data for a range of rows 
     // Number of columns returned is less than or equal to count field
     // in crange
