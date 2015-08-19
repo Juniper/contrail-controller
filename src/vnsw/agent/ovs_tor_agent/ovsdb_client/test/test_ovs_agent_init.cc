@@ -196,14 +196,14 @@ void TestOvsAgentInit::CreateModules() {
         if (use_ssl_) {
             ovsdb_client_.reset(new OVSDB::OvsdbClientSsl(agent(),
                         IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
-                        IpAddress(Ip4Address::from_string("127.0.0.1")), 0, -1,
+                        IpAddress(Ip4Address::from_string("127.0.0.2")), 0, -1,
                         ssl_cert, ssl_priv, ssl_cacert, ovs_peer_manager()));
             agent()->set_ovsdb_client(ovsdb_client_.get());
         } else {
             start_ovsdb_server(false);
             ovsdb_client_.reset(new OVSDB::OvsdbClientTcpTest(agent(),
                         IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
-                        IpAddress(Ip4Address::from_string("127.0.0.1")), 0,
+                        IpAddress(Ip4Address::from_string("127.0.0.2")), 0,
                         ovs_peer_manager()));
             agent()->set_ovsdb_client(ovsdb_client_.get());
         }

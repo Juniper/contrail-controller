@@ -88,6 +88,7 @@ bool OvsdbDBEntry::Add() {
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        TxnDoneNoMessage();
         return true;
     }
     object->client_idl_->TxnScheduleJsonRpc(msg);
@@ -121,6 +122,7 @@ bool OvsdbDBEntry::Change() {
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        TxnDoneNoMessage();
         return true;
     }
     object->client_idl_->TxnScheduleJsonRpc(msg);
@@ -149,6 +151,7 @@ bool OvsdbDBEntry::Delete() {
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        TxnDoneNoMessage();
         // current transaction deleted trigger post delete
         PostDelete();
         return true;
