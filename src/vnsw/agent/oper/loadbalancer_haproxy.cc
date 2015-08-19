@@ -64,6 +64,12 @@ void LoadbalancerHaproxy::GenerateGlobal(
     *out << string(4, ' ') << "group nogroup" << endl;
     *out << string(4, ' ') << "stats socket " << filename
                            << ".sock mode 0666 level user" << endl;
+    *out << string(4, ' ') << "tune.ssl.default-dh-param 2048" << endl;
+    *out << string(4, ' ') << "ssl-default-bind-ciphers " <<
+                              "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:" <<
+                              "DH+AES256:ECDH+AES128:DH+AES:" <<
+                              "ECDH+3DES:DH+3DES:RSA+AESGCM:" <<
+                              "RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS" << endl;
     *out << endl;
 }
 
