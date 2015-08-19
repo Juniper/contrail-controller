@@ -106,6 +106,7 @@ qed_sources = [
     'QEOpServerProxy.cc',
     'qed.cc',
     'options.cc',
+    'utils.cc',
 ]
 
 qed_except_sources = [

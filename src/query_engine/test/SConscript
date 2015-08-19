@@ -50,6 +50,11 @@ options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
 			    platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/query_engine:options_test', options_test)
 
+utils_test = env.UnitTest('utils_test', ['../utils.o',
+                                             'utils_test.cc'],
+			    )
+env.Alias('contrail-query-engine:utils_test', utils_test)
+
 select_test_obj = env_noWerror_excep.Object('select_test.o',
                                             'select_test.cc')
 
@@ -93,6 +98,7 @@ select_fs_query_test = env.UnitTest('select_fs_query_test',
 
 test_suite = [
                options_test,
+               utils_test,
                select_fs_query_test,
                select_test
              ]
