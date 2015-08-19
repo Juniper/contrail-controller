@@ -719,7 +719,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:simpleType name="VxlanNetworkIdentifierType">
      <xsd:restriction base="xsd:integer">
          <xsd:minInclusive value="1"/>
-         <xsd:maxInclusive value="1048575"/>
+         <xsd:maxInclusive value="16777215"/>
      </xsd:restriction>
 </xsd:simpleType> 
 
