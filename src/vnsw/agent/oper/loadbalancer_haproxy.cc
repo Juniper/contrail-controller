@@ -124,6 +124,12 @@ void LoadbalancerHaproxy::GenerateFrontend(
         *out << string(4, ' ')
              << "maxconn " << vip.connection_limit << endl;
     }
+
+    if (vip.protocol == "HTTP" || vip.protocol == "HTTPS") {
+        *out << string(4, ' ')
+             << "option forwardfor" << endl;
+    }
+
     *out << endl;
 }
 
