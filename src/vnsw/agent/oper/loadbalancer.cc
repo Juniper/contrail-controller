@@ -95,6 +95,7 @@ void Loadbalancer::CalculateProperties(DBGraph *graph, Properties *properties) {
     autogen::LoadbalancerPool *pool =
             static_cast<autogen::LoadbalancerPool *>(node_->GetObject());
     properties->set_pool_properties(pool->properties());
+    properties->set_custom_attributes(pool->custom_attributes());
 
     for (DBGraphVertex::adjacency_iterator iter = node_->begin(graph);
          iter != node_->end(graph); ++iter) {

@@ -29,6 +29,8 @@ private:
                          const LoadbalancerProperties &props) const;
     void GenerateHealthMonitors(std::ostream *out,
                                 const LoadbalancerProperties &props) const;
+    void GenerateCustomAttributes(std::ostream *out,
+                                  const LoadbalancerProperties &props) const;
 
     Agent *agent_;
 
