@@ -803,7 +803,7 @@ class BgpAttrDB : public BgpPathAttributeDB<BgpAttr, BgpAttrPtr, BgpAttrSpec,
 public:
     explicit BgpAttrDB(BgpServer *server);
     BgpAttrPtr ReplaceCommunityAndLocate(const BgpAttr *attr,
-                                         const Community *community);
+                                         CommunityPtr community);
     BgpAttrPtr ReplaceExtCommunityAndLocate(const BgpAttr *attr,
                                             ExtCommunityPtr extcomm);
     BgpAttrPtr ReplaceOriginVnPathAndLocate(const BgpAttr *attr,

@@ -379,6 +379,7 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
     }
 
     BgpAttrDB *attr_db = routing_instance()->server()->attr_db();
+    CommunityDB *comm_db = routing_instance()->server()->comm_db();
     for (Route::PathList::iterator it = nexthop_route()->GetPathList().begin();
          it != nexthop_route()->GetPathList().end(); it++) {
         BgpPath *nexthop_route_path = static_cast<BgpPath *>(it.operator->());
@@ -402,6 +403,14 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
             ExtCommunityRouteTargetList(nexthop_route_path->GetAttr());
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             nexthop_route_path->GetAttr(), ptr);
+
+        // Append accept-own to the communities from the nexthop route.
+        const Community *orig_community =
+            nexthop_route_path->GetAttr()->community();
+        CommunityPtr new_community =
+            comm_db->AppendAndLocate(orig_community, Community::AcceptOwn);
+        new_attr =
+            attr_db->ReplaceCommunityAndLocate(new_attr.get(), new_community);
 
         // Replace the source rd if the nexthop path is a secondary path
         // of a primary path in the l3vpn table. Use the RD of the primary.
