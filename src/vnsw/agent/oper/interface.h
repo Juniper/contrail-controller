@@ -309,17 +309,26 @@ public:
     bool OperDBResync(DBEntry *entry, const DBRequest *req);
 
     // Config handlers
-    bool ProcessConfig(IFMapNode *node, DBRequest &req);
-    bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
-    bool PhysicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
-    bool VmiProcessConfig(IFMapNode *node, DBRequest &req);
-    bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool PhysicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool VmiProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req,
+         const boost::uuids::uuid &u);
     bool VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     bool LogicalInterfaceIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
-    bool PhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
-    bool LogicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
-    bool RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
-    bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool PhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool LogicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest
+            &req, const boost::uuids::uuid &u);
+    bool IFNodeToReq(IFMapNode *node, DBRequest &req, const boost::uuids::uuid
+            &u);
     bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     // Handle change in VxLan Identifier mode from global-config

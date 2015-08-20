@@ -9,7 +9,6 @@
 #include <ifmap/ifmap_node.h>
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
 #include <oper/operdb_init.h>
 #include <oper/config_manager.h>
@@ -188,7 +187,7 @@ void PhysicalDeviceTable::RegisterDBClients(IFMapDependencyManager *dep) {
 }
 
 static PhysicalDeviceKey *BuildKey(const autogen::PhysicalRouter
-        *router, boost::uuids::uuid &u) {
+        *router, const boost::uuids::uuid &u) {
     return new PhysicalDeviceKey(u);
 }
 
@@ -211,14 +210,11 @@ bool PhysicalDeviceTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool PhysicalDeviceTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
+bool PhysicalDeviceTable::ProcessConfig(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
     autogen::PhysicalRouter *router = static_cast <autogen::PhysicalRouter *>
         (node->GetObject());
     assert(router);
-
-    boost::uuids::uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
 
     req.key.reset(BuildKey(router, u));
     if (node->IsDeleted()) {
@@ -233,17 +229,16 @@ bool PhysicalDeviceTable::ProcessConfig(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
-bool PhysicalDeviceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool PhysicalDeviceTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
     autogen::PhysicalRouter *router = static_cast <autogen::PhysicalRouter *>
         (node->GetObject());
     assert(router);
 
-    boost::uuids::uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
+    assert(!u.is_nil());
 
     req.key.reset(BuildKey(router, u));
-    if (node->IsDeleted()) {
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
     }

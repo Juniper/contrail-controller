@@ -59,12 +59,16 @@ protected:
     };
 
     virtual void SetUp() {
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->DisConnect();
+        client->WaitForIdle();
         client->Reset();
         thread_ = new ServerThread(&evm_);
         bgp_peer1 = new test::ControlNodeMock(&evm_, "127.0.0.1");
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer1->GetServerPort(), 0);
-        Agent::GetInstance()->set_dns_server("", 0);
+        Agent::GetInstance()->set_dns_server("127.0.0.1", 0);
         Agent::GetInstance()->set_dns_server_port(bgp_peer1->GetServerPort(), 0);
         RouterIdDepInit(Agent::GetInstance());
         thread_->Start();
@@ -72,8 +76,6 @@ protected:
     }
 
     virtual void TearDown() {
-        Agent::GetInstance()->controller()->DisConnect();
-        client->WaitForIdle();
         if (Agent::GetInstance()->headless_agent_mode()) {
             TaskScheduler::GetInstance()->Stop();
             Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
@@ -167,7 +169,7 @@ TEST_F(VrfTest, VrfAddDelWithVm_1) {
 
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VrfNotifyWait(1));
+    EXPECT_TRUE(client->VrfNotifyWait(2));
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
     EXPECT_TRUE(RouteFind("vrf1", vm1_ip, 32));
     EXPECT_TRUE(RouteFind("vrf1", vm2_ip, 32));
@@ -269,7 +271,7 @@ TEST_F(VrfTest, CheckIntfActivate) {
 
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VrfNotifyWait(1));
+    EXPECT_TRUE(client->VrfNotifyWait(2));
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
     EXPECT_TRUE(RouteFind("vrf1", vm1_ip, 32));
     EXPECT_TRUE(RouteFind("vrf1", vm2_ip, 32));
@@ -310,7 +312,7 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
 
     CreateVmportFIpEnv(input, 2);
     client->WaitForIdle();
-    EXPECT_TRUE(client->VrfNotifyWait(2));
+    EXPECT_TRUE(client->VrfNotifyWait(4));
     EXPECT_TRUE(DBTableFind("default-project:vn1:vn1.uc.route.0"));
     EXPECT_TRUE(RouteFind("default-project:vn1:vn1", vm1_ip, 32));
 
@@ -349,6 +351,9 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init, false, true, false);
 
     int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    ShutdownAgentController(Agent::GetInstance());
+    Agent::GetInstance()->event_manager()->Shutdown();
     client->WaitForIdle();
     TestShutdown();
     delete client;

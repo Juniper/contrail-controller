@@ -16,7 +16,6 @@
 #include <agent_types.h>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 
 #include <filter/traffic_action.h>
 #include <filter/acl_entry_match.h>
@@ -322,12 +321,11 @@ bool AclTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
 
     AccessControlList *cfg_acl = static_cast <AccessControlList *> (node->GetObject());
-    uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
+    assert(!u.is_nil());
 
     // Delete ACL
     if (req.oper == DBRequest::DB_ENTRY_DELETE) {

@@ -206,6 +206,16 @@ void InstanceManager::Initialize(DB *database, AgentSignal *signal,
 
 }
 
+void InstanceManager::SetNetNSCmd(const std::string &netns_cmd) {
+    ServiceInstance::Properties prop;
+    prop.virtualization_type =
+        ServiceInstance::ServiceInstance::NetworkNamespace;
+    NetNSInstanceAdapter *adapter = static_cast<NetNSInstanceAdapter
+        *>(FindApplicableAdapter(prop));
+    if (adapter)
+        adapter->set_cmd(netns_cmd);
+}
+
 void InstanceManager::SetStaleTimerInterval(int minutes) {
     stale_timer_interval_ = minutes * 60 * 1000;
 }

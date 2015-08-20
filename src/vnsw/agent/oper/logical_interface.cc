@@ -8,7 +8,6 @@
 
 #include <ifmap/ifmap_node.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/interface_common.h>
@@ -208,7 +207,7 @@ void VlanLogicalInterface::SetSandeshData(SandeshLogicalInterface *data) const {
 // Config handling routines
 /////////////////////////////////////////////////////////////////////////////
 static LogicalInterfaceKey *BuildKey(IFMapNode *node,
-                                     boost::uuids::uuid &u) {
+                                     const boost::uuids::uuid &u) {
     return new VlanLogicalInterfaceKey(u, node->name());
 }
 
@@ -219,12 +218,12 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
     string physical_interface;
     IFMapNode *adj_node = NULL;
     boost::uuids::uuid dev_uuid = nil_uuid();
-    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
-        (agent, node, "physical-interface");
+    adj_node = agent->config_manager()->FindAdjacentIFMapNode(node,
+            "physical-interface");
     if (adj_node) {
         physical_interface = adj_node->name();
-        IFMapNode *prouter_node = agent->cfg_listener()->FindAdjacentIFMapNode
-            (agent, adj_node, "physical-router");
+        IFMapNode *prouter_node = agent->config_manager()->FindAdjacentIFMapNode
+            (adj_node, "physical-router");
         if (prouter_node) {
             autogen::PhysicalRouter *router =
                 static_cast<autogen::PhysicalRouter *>(prouter_node->GetObject());
@@ -236,8 +235,8 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
 
     // Find link with virtual-machine-interface adjacency
     boost::uuids::uuid vmi_uuid = nil_uuid();
-    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
-        (agent, node, "virtual-machine-interface");
+    adj_node = agent->config_manager()->FindAdjacentIFMapNode
+        (node, "virtual-machine-interface");
     if (adj_node) {
         autogen::VirtualMachineInterface *vmi =
             static_cast<autogen::VirtualMachineInterface *>
@@ -248,8 +247,8 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
     }
 
     string dev_name;
-    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
-        (agent, node, "physical-router");
+    adj_node = agent->config_manager()->FindAdjacentIFMapNode
+        (node, "physical-router");
     if (adj_node) {
         dev_name = adj_node->name();
         if (dev_uuid != nil_uuid()) {
@@ -296,14 +295,11 @@ bool InterfaceTable::LogicalInterfaceIFNodeToUuid(IFMapNode *node,
 }
 
 bool InterfaceTable::LogicalInterfaceProcessConfig(IFMapNode *node,
-                                                   DBRequest &req) {
+                                                   DBRequest &req,
+                                                   const boost::uuids::uuid &u) {
     autogen::LogicalInterface *port =
         static_cast <autogen::LogicalInterface *>(node->GetObject());
     assert(port);
-
-    boost::uuids::uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
 
     req.key.reset(BuildKey(node, u));
     if (node->IsDeleted()) {
@@ -322,17 +318,14 @@ bool InterfaceTable::LogicalInterfaceProcessConfig(IFMapNode *node,
 }
 
 bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
-                                                 DBRequest &req) {
+                                                 DBRequest &req,
+                                                 const boost::uuids::uuid &u) {
     autogen::LogicalInterface *port =
         static_cast <autogen::LogicalInterface *>(node->GetObject());
     assert(port);
 
-    boost::uuids::uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
-
     req.key.reset(BuildKey(node, u));
-    if (node->IsDeleted()) {
+    if (req.oper == DBRequest::DB_ENTRY_DELETE || node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
     }
