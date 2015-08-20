@@ -1145,15 +1145,25 @@ class DBInterface(object):
 
             if not sgr_q['protocol']:
                 sgr_q['protocol'] = 'any'
-            protos = ['any', constants.PROTO_NAME_TCP, str(constants.PROTO_NUM_TCP),
-                      constants.PROTO_NAME_UDP, str(constants.PROTO_NUM_UDP),
-                      constants.PROTO_NAME_ICMP, str(constants.PROTO_NUM_ICMP)]
-            if sgr_q['protocol'] not in protos:
-                protos = [constants.PROTO_NAME_TCP, constants.PROTO_NAME_UDP,
-                          constants.PROTO_NAME_ICMP]
+
+            invalid = False
+            protos = ['any',
+                      constants.PROTO_NAME_TCP,
+                      constants.PROTO_NAME_UDP,
+                      constants.PROTO_NAME_ICMP]
+            if sgr_q['protocol'].isdigit():
+                protocol = int(sgr_q['protocol'])
+                if protocol < 0 or protocol > 255:
+                    invalid = True
+            else:
+                if sgr_q['protocol'] not in protos:
+                    invalid = True
+
+            if invalid:
                 self._raise_contrail_exception(
                     'SecurityGroupRuleInvalidProtocol',
-                    protocol=sgr_q['protocol'], values=protos)
+                    protocol=sgr_q['protocol'],
+                    values=protos)
 
             if not sgr_q['remote_ip_prefix'] and not sgr_q['remote_group_id']:
                 if not sgr_q['ethertype']:
