@@ -1540,8 +1540,16 @@ void DelVm(const char *name) {
     DelNode("virtual-machine", name);
 }
 
-void AddVrf(const char *name, int id) {
-    AddNode("routing-instance", name, id);
+void AddVrf(const char *name, int id, bool default_ri) {
+    std::stringstream str;
+    str << "    <routing-instance-is-default>" << default_ri << "</routing-instance-is-default>" << endl;
+    char buff[10240];
+    int len = 0;
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, "routing-instance", name, id, str.str().c_str());
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+    return;
 }
 
 void DelVrf(const char *name) {

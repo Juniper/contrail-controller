@@ -282,6 +282,77 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_FALSE(VmFind(1));
 }
 
+TEST_F(CfgTest, FloatingIpDefaultVrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    AddVn("default-project:vn2", 2);
+    client->WaitForIdle();
+
+    AddVrf("default-project:vn2:vn2");
+    AddLink("virtual-network", "default-project:vn2", "routing-instance", "default-project:vn2:vn2");
+    AddVrf("vrf2", 0, false);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "default-project:vn2", "routing-instance", "vrf2");
+    client->WaitForIdle();
+
+    // Create floating-ip on vn2
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.2.2.100");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+    client->Reset();
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2",
+                          Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_FALSE(RouteFind("vrf2",
+                          Ip4Address::from_string("2.2.2.100"), 32));
+
+    // Cleanup
+    LOG(DEBUG, "Doing cleanup");
+
+    // Delete links
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2:vn2");
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind("default-project:vn2:vn2",
+                           Ip4Address::from_string("2.2.2.100"), 32));
+
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "vrf2");
+
+    client->WaitForIdle();
+
+    DelVn("default-project:vn2");
+    DelVrf("default-project:vn2:vn2");
+    DelVrf("vrf2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf2"));
+    EXPECT_FALSE(VrfFind("default-project:vn2:vn2"));
+    EXPECT_FALSE(VnFind(2));
+}
+
 // Create Nova intf first
 // Intf config without FIP
 // Add FIP later
