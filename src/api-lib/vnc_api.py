@@ -82,6 +82,7 @@ class VncApi(VncApiClientGen):
     _DEFAULT_AUTHN_USER = ""
     _DEFAULT_AUTHN_PASSWORD = ""
     _DEFAULT_AUTHN_TENANT = VncApiClientGen._tenant_name
+    _DEFAULT_DOMAIN_ID = "default"
 
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
@@ -136,11 +137,32 @@ class VncApi(VncApiClientGen):
             self._tenant_name = tenant_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
                           self._DEFAULT_AUTHN_TENANT)
-            self._authn_body = \
-                '{"auth":{"passwordCredentials":{' + \
-                '"username": "%s",' % (self._username) + \
-                ' "password": "%s"},' % (self._password) + \
-                ' "tenantName":"%s"}}' % (self._tenant_name)
+            if 'v2' in self._authn_url:
+                 self._authn_body = \
+                     '{"auth":{"passwordCredentials":{' + \
+                     '"username": "%s",' % (self._username) + \
+                     ' "password": "%s"},' % (self._password) + \
+                     ' "tenantName":"%s"}}' % (self._tenant_name)
+            else:
+                 self._authn_body = \
+                     '{"auth":{"identity":{' + \
+                        '"methods": ["password"],' + \
+                          ' "password":{' + \
+                            ' "user":{' + \
+                               ' "name": "%s",' % (self._username) + \
+                               ' "domain": { "id": "%s" },' % (self._DEFAULT_DOMAIN_ID) + \
+                               ' "password": "%s"' % (self._password) + \
+                             '}' + \
+                            '}' + \
+                          '},' + \
+                          ' "scope":{' + \
+                            ' "project":{' + \
+                              ' "domain": { "id": "%s" },' % (self._DEFAULT_DOMAIN_ID) + \
+                              ' "name": "%s"' % (self._username) + \
+                            '}' + \
+                          '}' + \
+                        '}' + \
+                     '}'
             self._user_info = user_info
 
         if not api_server_host:
@@ -243,17 +265,20 @@ class VncApi(VncApiClientGen):
             return headers
         url = "%s://%s:%s%s" % (self._authn_protocol, self._authn_server, self._authn_port,
                                   self._authn_url)
+        new_headers = headers or {}
         try:
             response = requests.post(url, data=self._authn_body,
                                  headers=self._DEFAULT_AUTHN_HEADERS)
         except Exception as e:
             raise RuntimeError('Unable to connect to keystone for authentication. Verify keystone server details')
 
-        if response.status_code == 200:
+        if (response.status_code == 200) or (response.status_code == 201):
             # plan is to re-issue original request with new token
-            new_headers = headers or {}
-            authn_content = json.loads(response.text)
-            self._auth_token = authn_content['access']['token']['id']
+            if 'v2' in self._authn_url:
+                authn_content = json.loads(response.text)
+                self._auth_token = authn_content['access']['token']['id']
+            else:
+                self._auth_token = response.headers['x-subject-token']
             new_headers['X-AUTH-TOKEN'] = self._auth_token
             return new_headers
         else:
