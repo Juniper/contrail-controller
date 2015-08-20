@@ -159,6 +159,8 @@ protected:
         client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->controller()->
+                 DecommissionedPeerListSize() == 0));
 
         TcpServerManager::DeleteServer(xs1);
         TcpServerManager::DeleteServer(xs2);
