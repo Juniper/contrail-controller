@@ -628,9 +628,10 @@ protected:
         const string &prefix, const string &path_id, const string &origin_vn,
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetPathAttributes(instance, prefix,
             path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
-            SiteOfOrigin(), vector<uint32_t>(), vector<string>()));
+            SiteOfOrigin(), commlist, vector<string>()));
     }
 
     bool CheckInetRouteAttributes(const string &instance, const string &prefix,
@@ -670,19 +671,19 @@ protected:
         int label = 0) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), vector<uint32_t>(),
-            vector<string>()));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance, const string &prefix,
         const vector<string> &path_ids, const string &origin_vn) {
         task_util::WaitForIdle();
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), vector<uint32_t>(),
-            vector<string>()));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -690,9 +691,10 @@ protected:
         const vector<uint32_t> sg_ids) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
-            SiteOfOrigin(), vector<uint32_t>(), vector<string>()));
+            SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -700,10 +702,10 @@ protected:
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            tunnel_encaps, SiteOfOrigin(), vector<uint32_t>(),
-            vector<string>()));
+            tunnel_encaps, SiteOfOrigin(), commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -711,9 +713,10 @@ protected:
         const SiteOfOrigin &soo) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), soo, vector<uint32_t>(), vector<string>()));
+            set<string>(), soo, commlist, vector<string>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -732,9 +735,10 @@ protected:
         const vector<string> &origin_vn_path) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), vector<uint32_t>(), origin_vn_path));
+            set<string>(), SiteOfOrigin(), commlist, origin_vn_path));
     }
 
     string FileRead(const string &filename) {
@@ -2803,7 +2807,9 @@ TEST_P(ServiceChainParamTest, ValidateCommunityExtRoute) {
 
     // Check for ExtConnect route
     CommunitySpec commspec;
-    commspec.communities = commlist;
+    commspec.communities.push_back(Community::AcceptOwn);
+    commspec.communities.insert(
+        commspec.communities.end(), commlist.begin(), commlist.end());
     VerifyInetRouteExists("blue", "10.1.1.0/24");
     VerifyInetRouteAttributes(
         "blue", "10.1.1.0/24", "2.3.4.5", "red", commspec);
@@ -2815,7 +2821,7 @@ TEST_P(ServiceChainParamTest, ValidateCommunityExtRoute) {
     commspec.communities.clear();
     VerifyInetRouteExists("blue", "10.1.1.0/24");
     VerifyInetRouteAttributes(
-        "blue", "10.1.1.0/24", "2.3.4.5", "red", commspec);
+        "blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute and connected route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");

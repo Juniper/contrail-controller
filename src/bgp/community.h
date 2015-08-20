@@ -43,6 +43,7 @@ struct CommunitySpec : public BgpAttribute {
 class Community {
 public:
     enum WellKnownCommunity {
+        AcceptOwn = 0xFFFF0001,
         NoExport = 0xFFFFFF01,
         NoAdvertise = 0xFFFFFF02,
         NoExportSubconfed = 0xFFFFFF03,
@@ -52,12 +53,18 @@ public:
         : comm_db_(comm_db) {
         refcount_ = 0;
     }
+    explicit Community(const Community &rhs)
+        : comm_db_(rhs.comm_db_), communities_(rhs.communities_) {
+        refcount_ = 0;
+    }
     explicit Community(CommunityDB *comm_db, const CommunitySpec spec);
-
     virtual ~Community() { }
+
+    void Append(uint32_t value);
     virtual void Remove();
     int CompareTo(const Community &rhs) const;
     bool ContainsValue(uint32_t value) const;
+    void BuildStringList(std::vector<std::string> *list) const;
 
     const std::vector<uint32_t> &communities() const { return communities_; }
 
@@ -110,6 +117,8 @@ class CommunityDB : public BgpPathAttributeDB<Community, CommunityPtr,
 public:
     explicit CommunityDB(BgpServer *server);
     virtual ~CommunityDB() { }
+
+    CommunityPtr AppendAndLocate(const Community *src, uint32_t value);
 
 private:
 };

@@ -976,7 +976,7 @@ BgpAttrDB::BgpAttrDB(BgpServer *server) : server_(server) {
 
 // Return a clone of attribute with updated community.
 BgpAttrPtr BgpAttrDB::ReplaceCommunityAndLocate(const BgpAttr *attr,
-                                                const Community *community) {
+                                                CommunityPtr community) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_community(community);
     return Locate(clone);
