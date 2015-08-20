@@ -1238,9 +1238,11 @@ class SecurityGroupST(DBBaseST):
             return
         self.config_sgid = config_id
         sg_id = self.obj.get_security_group_id()
+        if sg_id is not None:
+            sg_id = int(sg_id)
         if config_id:
             if sg_id is not None:
-                if int(sg_id) > SGID_MIN_ALLOC:
+                if sg_id > SGID_MIN_ALLOC:
                     self._cassandra.free_sg_id(sg_id - SGID_MIN_ALLOC)
                 else:
                     if self.name == self._cassandra.get_sg_from_id(sg_id):
@@ -1249,9 +1251,9 @@ class SecurityGroupST(DBBaseST):
         else:
             do_alloc = False
             if sg_id is not None:
-                if int(sg_id) < SGID_MIN_ALLOC:
-                    if self.name == self._cassandra.get_sg_from_id(int(sg_id)):
-                        self.obj.set_security_group_id(int(sg_id) + SGID_MIN_ALLOC)
+                if sg_id < SGID_MIN_ALLOC:
+                    if self.name == self._cassandra.get_sg_from_id(sg_id):
+                        self.obj.set_security_group_id(sg_id + SGID_MIN_ALLOC)
                     else:
                         do_alloc = True
             else:
@@ -1259,7 +1261,7 @@ class SecurityGroupST(DBBaseST):
             if do_alloc:
                 sg_id_num = self._cassandra.alloc_sg_id(self.name)
                 self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
-        if sg_id != self.obj.get_security_group_id():
+        if sg_id != int(self.obj.get_security_group_id()):
             _vnc_lib.security_group_update(self.obj)
         from_value = self.sg_id or self.name
         if update_acl:
