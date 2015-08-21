@@ -315,6 +315,10 @@ class Subnet(object):
         return None
     # end ip_reserve
 
+    def ip_count(self):
+        return self._db_conn.subnet_alloc_count(self._name)
+    # end ip_count
+
     def ip_alloc(self, ipaddr=None, value=None):
         if ipaddr:
             return self.ip_reserve(ipaddr, value)
@@ -835,6 +839,14 @@ class AddrMgmt(object):
         return True, ""
     # end net_check_subnet_delete
 
+    # return number of ip address currently allocated for a subnet
+    # count will also include reserved ips
+    def ip_count_req(self, vn_fq_name, subnet_name=None):
+        vn_fq_name_str = ':'.join(vn_fq_name)
+        subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
+        return subnet_obj.ip_count()
+    # end ip_count_req
+
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
     def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None, asked_ip_addr=None, 
@@ -1027,37 +1039,13 @@ class AddrMgmt(object):
     # end ip_free_notify
 
     # Given IP address count on given virtual network, subnet/List of subnet
-    def ip_count(self, obj_dict, subnet=None):
+    def ip_count(self, subnet=None):
         db_conn = self._get_db_conn()
         addr_num = 0
         if not subnet:
             return addr_num
 
-        instip_refs = obj_dict.get('instance_ip_back_refs', None)
-        if instip_refs:
-            for ref in instip_refs:
-                uuid = ref['uuid']
-                try:
-                    (ok, result) = db_conn.dbe_read(
-                        'instance-ip', {'uuid': uuid})
-                    inst_ip = result.get('instance_ip_address')
-                    if not inst_ip:
-                        self.config_log(
-                            "Error in ip_count, ip null: %s" %(uuid),
-                            level=SandeshLevel.SYS_ERR)
-                        continue
-                    if IPAddress(inst_ip) in IPNetwork(subnet):
-                        addr_num += 1
-                except cfgm_common.exceptions.NoIdError:
-                    continue
-                except Exception as e:
-                    ok = False
-                    result = cfgm_common.utils.detailed_traceback()
-                if not ok:
-                    self.config_log(result, level=SandeshLevel.SYS_ERR)
-                    continue
-
-
+        addr_num = self._db_conn.subnet_alloc_count(self._name, subnet)
         return addr_num
     # end ip_count
 
