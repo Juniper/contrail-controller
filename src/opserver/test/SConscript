@@ -140,6 +140,7 @@ def run_coverage(env, target, source):
         ' -t "test coverage" --num-spaces 4 ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
     os.system(genhtml_cmd)
  
+env.Append(ENV = {'BUILDTOP': Dir(env['TOP']).abspath})
 if env['OPT'] != 'coverage':
     env['env_venv'] = venv
     test = env.PyTestSuiteCov('opserver-test', local_sources)
