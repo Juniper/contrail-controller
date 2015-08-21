@@ -2277,7 +2277,7 @@ class VncApiServer(object):
         subnet_list = req_dict[
             'subnet_list'] if 'subnet_list' in req_dict else []
         result = vnc_cfg_types.VirtualNetworkServer.subnet_ip_count(
-            obj_dict, subnet_list)
+            vn_fq_name, subnet_list)
         return result
     # end vn_subnet_ip_count_http_post
 
