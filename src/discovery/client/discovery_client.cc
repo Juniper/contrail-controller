@@ -412,11 +412,11 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
     PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
     if (loc != publish_response_map_.end()) {
         DSPublishResponse *resp = loc->second;
-        bool admin_state = resp->admin_state;
+        bool oper_state = resp->oper_state;
 
         std::string reeval_reason;
-        resp->admin_state = cb(reeval_reason);
-        if (resp->admin_state != admin_state) {
+        resp->oper_state = cb(reeval_reason);
+        if (resp->oper_state != oper_state) {
 
             auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
             if (impl->LoadDoc(resp->publish_msg_) == -1) {
@@ -425,15 +425,17 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
             }
 
             XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-            if (resp->admin_state) {
-                pugi->ModifyNode("admin-state", "up");
+            if (resp->oper_state) {
+                pugi->ModifyNode("oper-state", "up");
+                pugi->ModifyNode("oper-state-reason", reeval_reason);
 
                 // Update connection info
                 ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                     serviceName, ConnectionStatus::UP, ds_endpoint_,
                     "Change Publish State, UP " + reeval_reason);
             } else {
-                pugi->ModifyNode("admin-state", "down");
+                pugi->ModifyNode("oper-state", "down");
+                pugi->ModifyNode("oper-state-reason", reeval_reason);
 
                 // Update connection info
                 ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
@@ -473,11 +475,13 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
     DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
-    pub_msg->admin_state = false;
+    pub_msg->oper_state = false;
 
     pub_msg->publish_msg_ += "<publish>" + msg;
     pub_msg->publish_msg_ += "<service-type>" + serviceName + "</service-type>";
-    pub_msg->publish_msg_ += "<admin-state>down</admin-state>";
+    pub_msg->publish_msg_ += "<oper-state>down</oper-state>";
+    pub_msg->publish_msg_ +=
+        "<oper-state-reason>Initial Registration</oper-state-reason>";
     pub_msg->publish_msg_ += "</publish>";
     boost::system::error_code ec;
     pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
@@ -955,7 +959,7 @@ bool DiscoveryServiceClient::IsPublishServiceRegisteredUp(
     PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
     if (loc != publish_response_map_.end()) {
         DSPublishResponse *pub_resp = loc->second;
-        return(pub_resp->admin_state);
+        return(pub_resp->oper_state);
     }
 
     return false;

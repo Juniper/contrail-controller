@@ -87,7 +87,7 @@ struct DSPublishResponse {
     Timer *publish_conn_timer_;
 
     boost::asio::ip::udp::endpoint dss_ep_;
-    bool admin_state;
+    bool oper_state;
     DiscoveryServiceClient *ds_client_;
     std::string publish_msg_;
     std::string publish_hdr_;
