@@ -13,6 +13,7 @@
 #include "base/misc_utils.h"
 #include "base/util.h"
 #include "net/address_util.h"
+#include "viz_constants.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -85,16 +86,16 @@ void Options::Initialize(EventManager &evm,
          "Listener port of Google Protocol Buffer collector server")
 
         ("DEFAULT.analytics_data_ttl",
-             opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
              "global TTL(hours) for analytics data")
         ("DEFAULT.analytics_config_audit_ttl",
-             opt::value<int>()->default_value(-1),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsConfigAuditTTL),
              "global TTL(hours) for analytics config audit data")
         ("DEFAULT.analytics_statistics_ttl",
-             opt::value<int>()->default_value(-1),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsStatisticsTTL),
              "global TTL(hours) for analytics stats data")
         ("DEFAULT.analytics_flow_ttl",
-             opt::value<int>()->default_value(-1),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsFlowTTL),
              "global TTL(hours) for analytics flow data")
         ("DEFAULT.cassandra_server_list",
            opt::value<vector<string> >()->default_value(

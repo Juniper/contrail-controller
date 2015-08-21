@@ -12,6 +12,7 @@
 #include "base/util.h"
 #include "query_engine/buildinfo.h"
 #include "net/address_util.h"
+#include "viz_constants.h"
 
 #include "options.h"
 
@@ -69,7 +70,7 @@ void Options::Initialize(EventManager &evm,
     opt::options_description config("Configuration options");
     config.add_options()
         ("DEFAULT.analytics_data_ttl",
-             opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
+             opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
              "global TTL(hours) for analytics data")
         ("DEFAULT.collectors",
            opt::value<vector<string> >()->default_value(
