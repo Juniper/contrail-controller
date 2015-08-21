@@ -109,10 +109,6 @@ public:
      */
     void CalculateProperties(DBGraph *graph, Properties *properties);
 
-    void set_node(IFMapNode *node) { node_ = node; }
-
-    IFMapNode *node() { return node_; }
-
     void set_properties(const Properties &properties) {
         properties_ = properties;
     }
@@ -127,9 +123,15 @@ public:
         ifmap_node_state_ref_ = ref;
     }
 
+    IFMapNode *ifmap_node() {
+        if (!ifmap_node_state_ref_)
+            return NULL;
+        IFMapNodeState *state = ifmap_node_state_ref_.get();
+        return state->node();
+    }
+
 private:
     boost::uuids::uuid uuid_;
-    IFMapNode *node_;
     Properties properties_;
     IFMapDependencyManager::IFMapNodePtr ifmap_node_state_ref_;
 
@@ -175,6 +177,7 @@ class ServiceInstanceTable : public AgentDBTable {
      * the dependency manager directly.
      */
     void ChangeEventHandler(IFMapNode *node, DBEntry *entry);
+    bool HandleAddChange(ServiceInstance *svc_instance, const DBRequest *key);
 
     DBGraph *graph_;
     IFMapDependencyManager *dependency_manager_;
