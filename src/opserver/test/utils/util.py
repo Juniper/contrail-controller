@@ -71,11 +71,16 @@ def obj_to_dict(obj):
 # end obj_to_dict
 
 def find_buildroot(path):
-    pe = path.split(os.path.sep)
-    i, ln = -1, len(pe)
-    while i > -ln and (pe[i-1], pe[i]) != ('build', 'debug'):
-        i -= 1
-    if i == -ln:
-        return path + '/build/debug'
-    return os.path.sep.join(pe[:i+1])
+    try:
+        print 'TG:::::::::', os.environ['BUILDTOP']
+        return os.environ['BUILDTOP']
+    except:
+        print 'TG:::::::::', path
+        pe = path.split(os.path.sep)
+        i, ln = -1, len(pe)
+        while i > -ln and pe[i-1] != 'build':
+            i -= 1
+        if i == -ln:
+            return path + '/build/debug'
+        return os.path.sep.join(pe[:i+1])
 #end find_buildroot
