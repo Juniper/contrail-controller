@@ -350,85 +350,6 @@ class OpServer(object):
         * ``/analytics/query``:
         * ``/analytics/operation/database-purge``:
     """
-
-    def __new__(cls, *args, **kwargs):
-        obj = super(OpServer, cls).__new__(cls, *args, **kwargs)
-        bottle.route('/', 'GET', obj.homepage_http_get)
-        bottle.route('/analytics', 'GET', obj.analytics_http_get)
-        bottle.route('/analytics/uves', 'GET', obj.uves_http_get)
-        bottle.route('/analytics/alarms', 'GET', obj.alarms_http_get)
-        bottle.route(
-            '/analytics/virtual-networks', 'GET', obj.uve_list_http_get)
-        bottle.route(
-            '/analytics/virtual-machines', 'GET', obj.uve_list_http_get)
-        bottle.route(
-            '/analytics/service-instances', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/service-chains', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/vrouters', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/bgp-routers', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/bgp-peers', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/xmpp-peers', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/collectors', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/generators', 'GET', obj.uve_list_http_get)
-        bottle.route('/analytics/config-nodes', 'GET', obj.uve_list_http_get)
-        bottle.route(
-            '/analytics/virtual-network/<name>', 'GET', obj.uve_http_get)
-        bottle.route(
-            '/analytics/virtual-machine/<name>', 'GET', obj.uve_http_get)
-        bottle.route(
-            '/analytics/service-instance/<name>', 'GET', obj.uve_http_get)
-        bottle.route(
-            '/analytics/service-chain/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/vrouter/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/bgp-router/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/bgp-peer/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/xmpp-peer/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/collector/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/generator/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/config-node/<name>', 'GET', obj.uve_http_get)
-        bottle.route('/analytics/query', 'POST', obj.query_process)
-        bottle.route('/analytics/query/<queryId>', 'GET', obj.query_status_get)
-        bottle.route('/analytics/query/<queryId>/chunk-final/<chunkId>',
-                     'GET', obj.query_chunk_get)
-        bottle.route('/analytics/queries', 'GET', obj.show_queries)
-        bottle.route('/analytics/tables', 'GET', obj.tables_process)
-        bottle.route('/analytics/operation/database-purge',
-                     'POST', obj.process_purge_request)
-        bottle.route('/analytics/operation/analytics-data-start-time',
-                     'GET', obj._get_analytics_data_start_time)
-        bottle.route('/analytics/table/<table>', 'GET', obj.table_process)
-        bottle.route(
-            '/analytics/table/<table>/schema', 'GET', obj.table_schema_process)
-        for i in range(0, len(_TABLES)):
-            if len(_TABLES[i].columnvalues) > 0:
-                bottle.route('/analytics/table/<table>/column-values',
-                             'GET', obj.column_values_process)
-                bottle.route('/analytics/table/<table>/column-values/<column>',
-                             'GET', obj.column_process)
-        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
-                     'GET', obj.send_trace_buffer)
-        bottle.route('/documentation/<filename:path>', 'GET',
-                     obj.documentation_http_get)
-
-        for uve in UVE_MAP:
-            bottle.route(
-                '/analytics/uves/' + uve + 's', 'GET', obj.uve_list_http_get)
-            bottle.route(
-                '/analytics/uves/' + uve + '/<name>', 'GET', obj.uve_http_get)
-            bottle.route(
-                '/analytics/uves/' + uve, 'POST', obj.uve_http_post)
-            bottle.route(
-                '/analytics/alarms/' + uve + 's', 'GET', obj.alarm_list_http_get)
-            bottle.route(
-                '/analytics/alarms/' + uve + '/<name>', 'GET', obj.alarm_http_get)
-            bottle.route(
-                '/analytics/alarms/' + uve, 'POST', obj.alarm_http_post)
-            bottle.route(
-                '/analytics/alarms/' + uve +'s/types', 'GET', obj.alarm_http_types)
-
-        return obj
-    # end __new__
-
     def disc_publish(self):
         try:
             import discoveryclient.client as client
@@ -636,32 +557,6 @@ class OpServer(object):
         bottle.route('/analytics', 'GET', self.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', self.uves_http_get)
         bottle.route('/analytics/alarms', 'GET', self.alarms_http_get)
-        bottle.route(
-            '/analytics/virtual-networks', 'GET', self.uve_list_http_get)
-        bottle.route(
-            '/analytics/virtual-machines', 'GET', self.uve_list_http_get)
-        bottle.route(
-            '/analytics/service-instances', 'GET', self.uve_list_http_get)
-        bottle.route(
-            '/analytics/service-chains', 'GET', self.uve_list_http_get)
-        bottle.route('/analytics/vrouters', 'GET', self.uve_list_http_get)
-        bottle.route('/analytics/bgp-routers', 'GET', self.uve_list_http_get)
-        bottle.route('/analytics/collectors', 'GET', self.uve_list_http_get)
-        bottle.route('/analytics/generators', 'GET', self.uve_list_http_get)
-        bottle.route('/analytics/config-nodes', 'GET', self.uve_list_http_get)
-        bottle.route(
-            '/analytics/virtual-network/<name>', 'GET', self.uve_http_get)
-        bottle.route(
-            '/analytics/virtual-machine/<name>', 'GET', self.uve_http_get)
-        bottle.route(
-            '/analytics/service-instance/<name>', 'GET', self.uve_http_get)
-        bottle.route(
-            '/analytics/service-chain/<name>', 'GET', self.uve_http_get)
-        bottle.route('/analytics/vrouter/<name>', 'GET', self.uve_http_get)
-        bottle.route('/analytics/bgp-router/<name>', 'GET', self.uve_http_get)
-        bottle.route('/analytics/collector/<name>', 'GET', self.uve_http_get)
-        bottle.route('/analytics/generator/<name>', 'GET', self.uve_http_get)
-        bottle.route('/analytics/config-node/<name>', 'GET', self.uve_http_get)
         bottle.route('/analytics/query', 'POST', self.query_process)
         bottle.route(
             '/analytics/query/<queryId>', 'GET', self.query_status_get)
@@ -687,27 +582,46 @@ class OpServer(object):
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
 
-        for uve in UVE_MAP:
-            bottle.route(
-                '/analytics/uves/' + uve + 's', 'GET', self.uve_list_http_get)
-            bottle.route(
-                '/analytics/uves/' + uve + '/<name>', 'GET', self.uve_http_get)
-            bottle.route(
-                '/analytics/uves/' + uve, 'POST', self.uve_http_post)
-            bottle.route(
-                '/analytics/alarms/' + uve + 's', 'GET', self.alarm_list_http_get)
-            bottle.route(
-                '/analytics/alarms/' + uve + '/<name>', 'GET', self.alarm_http_get)
-            bottle.route(
-                '/analytics/alarms/' + uve, 'POST', self.alarm_http_post)
-            bottle.route(
-                '/analytics/alarms/' + uve +'s/types', 'GET', self.alarm_http_types)
+        bottle.route('/analytics/<uvealarm>/<tables>', 'GET', self.dyn_list_http_get)
+        bottle.route('/analytics/<uvealarm>/<table>/<name:path>', 'GET', self.dyn_http_get)
+        bottle.route('/analytics/<uvealarm>/<tables>', 'POST', self.dyn_http_post)
+        bottle.route('/analytics/alarms/<tables>/types', 'GET', self._uve_alarm_http_types)
 
         # start gevent to monitor disk usage and automatically purge
         if (self._args.auto_db_purge):
             gevent.spawn(self._auto_purge)
 
     # end __init__
+
+    def dyn_http_get(self, uvealarm, table, name):
+        is_alarm = None
+        if uvealarm == "uves":
+            is_alarm = False
+        elif uvealarm == "alarms":
+            is_alarm = True
+        else:
+            return {}
+        return self._uve_alarm_http_get(table, name, is_alarm)
+
+    def dyn_list_http_get(self, uvealarm, tables):
+        is_alarm = None
+        if uvealarm == "uves":
+            is_alarm = False
+        elif uvealarm == "alarms":
+            is_alarm = True
+        else:
+            return []
+        return self._uve_alarm_list_http_get(is_alarm)
+
+    def dyn_http_post(self, uvealarm, tables):
+        is_alarm = None
+        if uvealarm == "uves":
+            is_alarm = False
+        elif uvealarm == "alarms":
+            is_alarm = True
+        else:
+            return {}
+        return self._uve_alarm_http_post(is_alarm)
 
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
         '''
@@ -1415,70 +1329,48 @@ class OpServer(object):
             yield u']}'
     # end _uve_alarm_http_post
 
-    def uve_http_post(self):
-        return self._uve_alarm_http_post(is_alarm=False)
-    # end uve_http_post
-
-    def alarm_http_post(self):
-        return self._uve_alarm_http_post(is_alarm=True)
-    # end alarm_http_post
-
-    def _uve_alarm_http_get(self, name, is_alarm):
+    def _uve_alarm_http_get(self, uve_type, name, is_alarm):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
             abort(code, msg)
-        uve_type = bottle.request.url.rsplit('/', 2)[1]
-        try:
+        uve_tbl = uve_type
+        if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
+
+        bottle.response.set_header('Content-Type', 'application/json')
+        uve_name = uve_tbl + ':' + name
+        req = bottle.request.query
+        try:
+            filters = OpServer._uve_filter_set(req)
         except Exception as e:
-            yield {}
+            yield bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
+        
+        flat = False
+        if 'flat' in req.keys() or any(filters.values()):
+            flat = True
+
+        uve_name = uve_tbl + ':' + name
+        if name.find('*') != -1:
+            flat = True
+            yield u'{"value": ['
+            first = True
+            if filters['kfilt'] is None:
+                filters['kfilt'] = [name]
+            for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
+                                                      filters, is_alarm):
+                if first:
+                    yield u'' + json.dumps(gen)
+                    first = False
+                else:
+                    yield u', ' + json.dumps(gen)
+            yield u']}'
         else:
-            bottle.response.set_header('Content-Type', 'application/json')
-            uve_name = uve_tbl + ':' + name
-            req = bottle.request.query
-            try:
-                filters = OpServer._uve_filter_set(req)
-            except Exception as e:
-                yield bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
-            
-            flat = False
-            if 'flat' in req.keys() or any(filters.values()):
-                flat = True
-
-            uve_name = uve_tbl + ':' + name
-            if name.find('*') != -1:
-                flat = True
-                yield u'{"value": ['
-                first = True
-                if filters['kfilt'] is None:
-                    filters['kfilt'] = [name]
-                for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
-                                                          filters, is_alarm):
-                    if first:
-                        yield u'' + json.dumps(gen)
-                        first = False
-                    else:
-                        yield u', ' + json.dumps(gen)
-                yield u']}'
-            else:
-                _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
-                                               is_alarm=is_alarm)
-                yield json.dumps(rsp)
+            _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
+                                           is_alarm=is_alarm)
+            yield json.dumps(rsp)
     # end _uve_alarm_http_get
-
-    def uve_http_get(self, name):
-        return self._uve_alarm_http_get(name, is_alarm=False)
-    # end uve_http_get
-
-    def alarm_http_get(self, name):
-        return self._uve_alarm_http_get(name, is_alarm=True)
-    # end alarm_http_get
-
-    def alarm_http_types(self):
-        return self._uve_alarm_http_types()
-    # end alarm_http_get
 
     def _uve_alarm_http_types(self):
         # common handling for all resource get
@@ -1543,14 +1435,6 @@ class OpServer(object):
                  for uve in uve_list]
             return json.dumps(uve_links)
     # end _uve_alarm_list_http_get
-
-    def uve_list_http_get(self):
-        return self._uve_alarm_list_http_get(is_alarm=False)
-    # end uve_list_http_get
-
-    def alarm_list_http_get(self):
-        return self._uve_alarm_list_http_get(is_alarm=True)
-    # end alarm_list_http_get
 
     def analytics_http_get(self):
         # common handling for all resource get
