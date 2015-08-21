@@ -339,7 +339,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # request to allocate 10 ip address using bulk allocation api
         data = {"subnet" : "11.1.1.0/24", "count" : 10}
         url = '/virtual-network/%s/ip-alloc' %(vn.uuid)
-        rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url,
+                                                json.dumps(data))
         ret_data = json.loads(rv_json)
         ret_ip_addr = ret_data['ip_addr']
         expected_ip_addr = ['11.1.1.252', '11.1.1.251', '11.1.1.250',
@@ -351,24 +352,49 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         for idx in range(len(expected_ip_addr)):
             self.assertEqual(expected_ip_addr[idx], ret_ip_addr[idx])
         
-        print 'Verified bulk ip address allocation'
+        print 'Verify bulk ip address allocation'
+        # Find out number of allocated ips from given VN/subnet
+        # We should not get 13 ip allocated from this subnet
+        # 10 user request + 3 reserved ips (first, last and gw).
+        data = {"subnet_list" : ["11.1.1.0/24"]}
+        url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url,
+                                                json.dumps(data))
+        ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
+        allocated_ip = ret_ip_count - 3
+        self.assertEqual(allocated_ip, 10)
 
-        #free allocated ip addresses from vn
+        #free 5 allocated ip addresses from vn
         data = {"subnet" : "11.1.1.0/24",
                 "ip_addr" : ['11.1.1.252', '11.1.1.251', '11.1.1.250',
-                             '11.1.1.249', '11.1.1.248', '11.1.1.247',
-                             '11.1.1.246', '11.1.1.245', '11.1.1.244',
-                             '11.1.1.243']}
+                             '11.1.1.249', '11.1.1.248']}
         url = '/virtual-network/%s/ip-free' %(vn.uuid)
         self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
 
         # Find out number of allocated ips from given VN/subnet
-        # We should not get any ip allocated from this subnet
+        # We should  get 5+3 ip allocated from this subnet
         data = {"subnet_list" : ["11.1.1.0/24"]}
         url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
-        rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url,
+                                                json.dumps(data))
         ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
-        self.assertEqual(ret_ip_count, 0)
+        allocated_ip = ret_ip_count - 3
+        self.assertEqual(allocated_ip, 5)
+
+        #free remaining 5 allocated ip addresses from vn
+        data = {"subnet" : "11.1.1.0/24",
+                "ip_addr": ['11.1.1.247', '11.1.1.246', '11.1.1.245',
+                            '11.1.1.244', '11.1.1.243']}
+        url = '/virtual-network/%s/ip-free' %(vn.uuid)
+        self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+
+        data = {"subnet_list" : ["11.1.1.0/24"]}
+        url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url,
+                                                json.dumps(data))
+        ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
+        allocated_ip = ret_ip_count - 3
+        self.assertEqual(allocated_ip, 0)
         print 'Verified bulk ip free'
 
         # cleanup
