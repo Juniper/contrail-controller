@@ -236,6 +236,15 @@ protected:
                 other_agent.get()));
     }
 
+    size_t GetVrfTableSize(BgpServerTestPtr server, const string &name) {
+        RoutingInstanceMgr *rim = server->routing_instance_mgr();
+        TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(name) != NULL);
+        const RoutingInstance *rtinstance = rim->GetRoutingInstance(name);
+        TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(Address::ERMVPN) != NULL);
+        const BgpTable *table = rtinstance->GetTable(Address::ERMVPN);
+        return table->Size();
+    }
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -560,6 +569,180 @@ TEST_F(BgpXmppMcastMultiAgentTest, MultipleRoutes) {
         VerifyLabel(agent_xb_, "blue", mroute, 20000, 29999);
         VerifyLabel(agent_xc_, "blue", mroute, 30000, 39999);
     }
+
+    // Delete mcast route for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->DeleteMcastRoute("blue", mroute);
+        agent_xb_->DeleteMcastRoute("blue", mroute);
+        agent_xc_->DeleteMcastRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+};
+
+TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion1) {
+    const char *mroute_list[] = {
+        "225.0.0.1,90.1.1.1",
+        "225.0.0.1,90.1.1.2",
+    };
+
+    // Add mcast route 0 for all agents.
+    agent_xa_->AddMcastRoute("blue", mroute_list[0], "10.1.1.1", "10000-19999");
+    agent_xb_->AddMcastRoute("blue", mroute_list[0], "10.1.1.2", "20000-29999");
+    agent_xc_->AddMcastRoute("blue", mroute_list[0], "10.1.1.3", "30000-30000");
+    task_util::WaitForIdle();
+
+    // Verify that all native and local routes got added.
+    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify all OList elements for route 0 on all agents.
+    VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
+    VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.3", agent_xc_);
+    VerifyOListElem(agent_xb_, "blue", mroute_list[0], 1, "10.1.1.1", agent_xa_);
+    VerifyOListElem(agent_xc_, "blue", mroute_list[0], 1, "10.1.1.1", agent_xa_);
+
+    // Verify the labels used for route 0 by all agents.
+    VerifyLabel(agent_xa_, "blue", mroute_list[0], 10000, 19999);
+    VerifyLabel(agent_xb_, "blue", mroute_list[0], 20000, 29999);
+    VerifyLabel(agent_xc_, "blue", mroute_list[0], 30000, 30000);
+
+    // Add mcast route 1 for all agents.
+    agent_xa_->AddMcastRoute("blue", mroute_list[1], "10.1.1.1", "10000-19999");
+    agent_xb_->AddMcastRoute("blue", mroute_list[1], "10.1.1.2", "20000-29999");
+    agent_xc_->AddMcastRoute("blue", mroute_list[1], "10.1.1.3", "30000-30000");
+    task_util::WaitForIdle();
+
+    // Verify that all native and local routes got added.
+    TASK_UTIL_EXPECT_EQ(8, GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify all OList elements for route 1 on agents a and b.
+    // Verify that there's no route on agent c.
+    VerifyOListElem(agent_xa_, "blue", mroute_list[1], 1, "10.1.1.2", agent_xb_);
+    VerifyOListElem(agent_xb_, "blue", mroute_list[1], 1, "10.1.1.1", agent_xa_);
+    VerifyOListElem(agent_xc_, "blue", mroute_list[1], 0);
+
+    // Verify the labels used for route 1 by agents a and b.
+    VerifyLabel(agent_xa_, "blue", mroute_list[1], 10000, 19999);
+    VerifyLabel(agent_xb_, "blue", mroute_list[1], 20000, 29999);
+
+    // Verify that agents a and b have 2 routes, but agent c has only 1.
+    TASK_UTIL_EXPECT_EQ(2, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_xb_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xc_->McastRouteCount());
+
+    // Delete mcast route for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->DeleteMcastRoute("blue", mroute);
+        agent_xb_->DeleteMcastRoute("blue", mroute);
+        agent_xc_->DeleteMcastRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+};
+
+TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion2) {
+    const char *mroute_list[] = {
+        "225.0.0.1,90.1.1.1",
+        "225.0.0.1,90.1.1.2",
+    };
+
+    // Add mcast route 0 for all agents.
+    agent_xa_->AddMcastRoute("blue", mroute_list[0], "10.1.1.1", "10000-10000");
+    agent_xb_->AddMcastRoute("blue", mroute_list[0], "10.1.1.2", "20000-29999");
+    agent_xc_->AddMcastRoute("blue", mroute_list[0], "10.1.1.3", "30000-39999");
+    task_util::WaitForIdle();
+
+    // Verify that all native and local routes got added.
+    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify all OList elements for route 0 on all agents.
+    VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
+    VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.3", agent_xc_);
+    VerifyOListElem(agent_xb_, "blue", mroute_list[0], 1, "10.1.1.1", agent_xa_);
+    VerifyOListElem(agent_xc_, "blue", mroute_list[0], 1, "10.1.1.1", agent_xa_);
+
+    // Verify the labels used for route 0 by all agents.
+    VerifyLabel(agent_xa_, "blue", mroute_list[0], 10000, 10000);
+    VerifyLabel(agent_xb_, "blue", mroute_list[0], 20000, 29999);
+    VerifyLabel(agent_xc_, "blue", mroute_list[0], 30000, 30000);
+
+    // Add mcast route 1 for all agents.
+    agent_xa_->AddMcastRoute("blue", mroute_list[1], "10.1.1.1", "10000-10000");
+    agent_xb_->AddMcastRoute("blue", mroute_list[1], "10.1.1.2", "20000-29999");
+    agent_xc_->AddMcastRoute("blue", mroute_list[1], "10.1.1.3", "30000-39999");
+    task_util::WaitForIdle();
+
+    // Verify that all native and local routes got added.
+    TASK_UTIL_EXPECT_EQ(8, GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify all OList elements for route 1 on agents b and c.
+    // Verify that there's no route on agent c.
+    VerifyOListElem(agent_xb_, "blue", mroute_list[1], 1, "10.1.1.3", agent_xc_);
+    VerifyOListElem(agent_xc_, "blue", mroute_list[1], 1, "10.1.1.2", agent_xb_);
+    VerifyOListElem(agent_xa_, "blue", mroute_list[1], 0);
+
+    // Verify the labels used for route 1 by agents b and c.
+    VerifyLabel(agent_xb_, "blue", mroute_list[1], 20000, 29999);
+    VerifyLabel(agent_xc_, "blue", mroute_list[1], 30000, 39999);
+
+    // Verify that agents a and c have 2 routes, but agent a has only 1.
+    TASK_UTIL_EXPECT_EQ(2, agent_xb_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_xc_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+
+    // Delete mcast route for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->DeleteMcastRoute("blue", mroute);
+        agent_xb_->DeleteMcastRoute("blue", mroute);
+        agent_xc_->DeleteMcastRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+};
+
+TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion3) {
+    const char *mroute_list[] = {
+        "225.0.0.1,90.1.1.1",
+        "225.0.0.1,90.1.1.2",
+    };
+
+    // Add mcast route 0 for all agents.
+    agent_xa_->AddMcastRoute("blue", mroute_list[0], "10.1.1.1", "10000-10000");
+    agent_xb_->AddMcastRoute("blue", mroute_list[0], "10.1.1.2", "20000-20000");
+    agent_xc_->AddMcastRoute("blue", mroute_list[0], "10.1.1.3", "30000-30000");
+    task_util::WaitForIdle();
+
+    // Verify that all native and local routes got added.
+    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify all OList elements for route 0 on all agents.
+    VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
+    VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.3", agent_xc_);
+    VerifyOListElem(agent_xb_, "blue", mroute_list[0], 1, "10.1.1.1", agent_xa_);
+    VerifyOListElem(agent_xc_, "blue", mroute_list[0], 1, "10.1.1.1", agent_xa_);
+
+    // Verify the labels used for route 0 by all agents.
+    VerifyLabel(agent_xa_, "blue", mroute_list[0], 10000, 10000);
+    VerifyLabel(agent_xb_, "blue", mroute_list[0], 20000, 20000);
+    VerifyLabel(agent_xc_, "blue", mroute_list[0], 30000, 30000);
+
+    // Add mcast route 1 for all agents.
+    agent_xa_->AddMcastRoute("blue", mroute_list[1], "10.1.1.1", "10000-10000");
+    agent_xb_->AddMcastRoute("blue", mroute_list[1], "10.1.1.2", "20000-20000");
+    agent_xc_->AddMcastRoute("blue", mroute_list[1], "10.1.1.3", "30000-30000");
+    task_util::WaitForIdle();
+
+    // Verify that all native routes got added.
+    // There should be a local route for only the first mcast route.
+    TASK_UTIL_EXPECT_EQ(7, GetVrfTableSize(bs_x_, "blue"));
+    task_util::WaitForIdle();
+
+    // Verify that there's no route on all agents.
+    VerifyOListElem(agent_xa_, "blue", mroute_list[1], 0);
+    VerifyOListElem(agent_xb_, "blue", mroute_list[1], 0);
+    VerifyOListElem(agent_xc_, "blue", mroute_list[1], 0);
+
+    // Verify that all agents have only 1 route.
+    TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xb_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xc_->McastRouteCount());
 
     // Delete mcast route for all agents.
     BOOST_FOREACH(const char *mroute, mroute_list) {
