@@ -262,6 +262,49 @@ request sandesh ShowRoutingInstanceSummaryReq {
     1: string search_string;
 }
 
+struct ShowRtGroupMemberTableList {
+    1: string family;
+    2: list<string> tables;
+}
+
+struct ShowRtGroupInfo {
+    1: string rtarget (link="ShowRtGroupReq");
+    2: list<ShowRtGroupMemberTableList> import_members;
+    3: list<ShowRtGroupMemberTableList> export_members;
+    4: optional list<string> peers_interested;
+    5: optional list<string> dep_route;
+}
+
+response sandesh ShowRtGroupResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+    2: optional string next_batch (link="ShowRtGroupReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRtGroupReq {
+    1: string search_string;
+}
+
+response sandesh ShowRtGroupSummaryResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+    2: optional string next_batch (link="ShowRtGroupSummaryReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRtGroupSummaryReq {
+    1: string search_string;
+}
+
+response sandesh ShowRtGroupPeerResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+    2: optional string next_batch (link="ShowRtGroupPeerReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRtGroupPeerReq {
+    1: string search_string;
+}
+
 struct ShowEvpnTable {
     1: string name (link="ShowRouteReq");
     2: u64 mac_routes;
