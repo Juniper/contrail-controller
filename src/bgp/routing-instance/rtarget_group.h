@@ -15,7 +15,7 @@
 
 class BgpRoute;
 class RTargetRoute;
-class MemberTableList;
+class ShowRtGroupMemberTableList;
 class ShowRtGroupInfo;
 
 class RtGroupInterestedPeerSet : public BitSet {
@@ -65,6 +65,7 @@ public:
 
     explicit RtGroup(const RouteTarget &rt);
     const RouteTarget &rt();
+    std::string ToString() const { return rt_.ToString(); }
     bool MayDelete() const;
 
     const RtGroupMemberList GetImportTables(Address::Family family) const;
@@ -95,7 +96,7 @@ public:
 
 private:
     void FillMemberTables(const RtGroupMembers &rt_members,
-        std::vector<MemberTableList> *member_list) const;
+        std::vector<ShowRtGroupMemberTableList> *member_list) const;
     void FillInterestedPeers(std::vector<std::string> *interested_peers) const;
     void FillDependentRoutes(std::vector<std::string> *rtlist) const;
     void FillShowInfoCommon(
