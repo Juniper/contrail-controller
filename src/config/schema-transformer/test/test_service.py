@@ -57,6 +57,28 @@ class TestPolicy(test_case.STTestCase):
         self.assertEqual(sci.prefix[0], prefix)
 
     @retries(5, hook=retry_exc_handler)
+    def check_service_chain_pbf_rules(self, service_fq_name, vmi_fq_name, macs):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        ri_refs = vmi.get_routing_instance_refs()
+        for ri_ref in ri_refs:
+            sc_name = ri_ref['to']
+            if sc_name == service_fq_name:
+                pbf_rule = ri_ref['attr']
+                self.assertTrue(pbf_rule.service_chain_address != None)
+                self.assertTrue(pbf_rule.vlan_tag != None)
+                self.assertTrue(pbf_rule.direction == 'both')
+                self.assertTrue(pbf_rule.src_mac == macs[0])
+                self.assertTrue(pbf_rule.dst_mac == macs[1])
+                return
+        raise Exception('Service chain pbf rules not found for %s' % service_fq_name)
+ 
+    @retries(5, hook=retry_exc_handler)
+    def check_service_chain_ip(self, sc_name):
+        _SC_IP_CF = 'service_chain_ip_address_table'
+        cf = CassandraCFs.get_cf(_SC_IP_CF)
+        ip = cf.get(sc_name)['ip_address']
+
+    @retries(5, hook=retry_exc_handler)
     def check_ri_rt_state_vn_policy(self, fq_name, to_fq_name, expect_to_find):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -549,6 +571,43 @@ class TestPolicy(test_case.STTestCase):
 
         self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_names[0]),
                                        prefix='10.0.0.0/24')
+
+        self.check_service_chain_ip(sc_ri_names[0])
+        self.check_service_chain_ip(sc_ri_names[1])
+        self.check_service_chain_ip(sc_ri_names[2])
+
+        sc_fq_names = [
+                       self.get_ri_name(vn1_obj, sc_ri_names[0]),
+                       self.get_ri_name(vn2_obj, sc_ri_names[0]),
+                       self.get_ri_name(vn1_obj, sc_ri_names[1]),
+                       self.get_ri_name(vn2_obj, sc_ri_names[1]),
+                       self.get_ri_name(vn1_obj, sc_ri_names[2]),
+                       self.get_ri_name(vn2_obj, sc_ri_names[2])
+                      ]
+        vmi_fq_names = [
+                        ['default-domain', 'default-project', 
+                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys1__1__left__1'],
+                        ['default-domain', 'default-project', 
+                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys1__1__right__2'],
+                        ['default-domain', 'default-project', 
+                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys2__1__left__1'],
+                        ['default-domain', 'default-project', 
+                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys2__1__right__2'],
+                        ['default-domain', 'default-project', 
+                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys3__1__left__1'],
+                        ['default-domain', 'default-project', 
+                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys3__1__right__2']
+                       ]
+
+        mac1 = '02:00:00:00:00:01'
+        mac2 = '02:00:00:00:00:02'
+
+        self.check_service_chain_pbf_rules(sc_fq_names[0], vmi_fq_names[0], [mac1, mac2])
+        self.check_service_chain_pbf_rules(sc_fq_names[1], vmi_fq_names[1], [mac2, mac1])
+        self.check_service_chain_pbf_rules(sc_fq_names[2], vmi_fq_names[2], [mac1, mac2])
+        self.check_service_chain_pbf_rules(sc_fq_names[3], vmi_fq_names[3], [mac2, mac1])
+        self.check_service_chain_pbf_rules(sc_fq_names[4], vmi_fq_names[4], [mac1, mac2])
+        self.check_service_chain_pbf_rules(sc_fq_names[5], vmi_fq_names[5], [mac2, mac1])
 
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn2_obj)
