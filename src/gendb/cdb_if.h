@@ -163,7 +163,7 @@ private:
     bool DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
                               org::apache::cassandra::CfDef *newcfdef);
     // Read
-    static const int kMaxQueryRows = 5000;
+    static const int kMaxQueryRows = 50;
 
     // Statistics
     struct CdbIfStats {
