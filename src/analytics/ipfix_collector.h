@@ -57,4 +57,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(IpfixCollector);
 };
 
-#endif // __SFLOW_COLLECTOR_H__
+#endif // __IPFIX_COLLECTOR_H__
