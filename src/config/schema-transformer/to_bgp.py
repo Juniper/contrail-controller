@@ -1840,8 +1840,8 @@ class ServiceChain(DBBaseST):
             vn1_obj.get_primary_routing_instance().get_fq_name_str())
         if self.direction == '<>' and not nat_service:
             service_ri2.add_service_info(
-                vn2_obj, service, vm_info['right']['address'],
-                vn1_obj.get_primary_routing_instance().get_fq_name_str())
+                vn1_obj, service, vm_info['right']['address'],
+                vn2_obj.get_primary_routing_instance().get_fq_name_str())
         return True
     # end process_in_network_service
 
