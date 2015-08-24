@@ -853,7 +853,7 @@ class TestPolicy(test_case.STTestCase):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
         gevent.sleep(2)
 
         # check if vn is deleted
@@ -966,7 +966,7 @@ class TestPolicy(test_case.STTestCase):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
         gevent.sleep(4)
 
         #check if all ri's  are deleted
@@ -1003,7 +1003,7 @@ class TestPolicy(test_case.STTestCase):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
         gevent.sleep(4)
 
         #check service chain state

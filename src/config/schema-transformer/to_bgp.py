@@ -249,25 +249,6 @@ class VirtualNetworkST(DBBaseST):
             nid = prop.network_id or self._cassandra.alloc_vn_id(name) + 1
             self.obj.set_virtual_network_network_id(nid)
             _vnc_lib.virtual_network_update(self.obj)
-        if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
-            self._default_ri_name = common.IP_FABRIC_RI_FQ_NAME[-1]
-            self.locate_routing_instance_no_target(self._default_ri_name,
-                                                   ri_dict)
-        elif self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
-            self._default_ri_name = common.LINK_LOCAL_RI_FQ_NAME[-1]
-            self.locate_routing_instance_no_target(self._default_ri_name,
-                                                   ri_dict)
-        else:
-            self._default_ri_name = self.obj.name
-            ri_obj = self.locate_routing_instance(self._default_ri_name, None,
-                                                  ri_dict)
-            if ri_obj is not None:
-                # if primary RI is connected to another primary RI, we need to
-                # also create connection between the VNs
-                for connection in ri_obj.connections:
-                    remote_ri_fq_name = connection.split(':')
-                    if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
-                        self.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
 
         for ri in getattr(self.obj, 'routing_instances', []):
             ri_name = ri['to'][-1]
@@ -284,6 +265,35 @@ class VirtualNetworkST(DBBaseST):
         self.update_ipams()
         self.uve_send()
     # end __init__
+
+    def add_virtual_network_routing_instance(self, ri_fq_name_str):
+        ri_fq_name = ri_fq_name_str.split(':')
+        if ri_fq_name[-1] in self.rinst:
+            return
+        try:
+            ri_obj = self.read_vnc_obj(fq_name=ri_fq_name_str, obj_type='routing_instance')
+        except NoIdError:
+            return
+        ri_dict = {ri_fq_name_str: ri_obj}
+        if ri_obj.get_routing_instance_is_default():
+            self._default_ri_name = ri_obj.name
+        else:
+            # echo back of RI created by schema transformer
+            return
+
+        if (self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME or
+            self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME):
+            self.locate_routing_instance_no_target(ri_obj.name, ri_dict=ri_dict)
+        else:
+            ri_obj = self.locate_routing_instance(ri_obj.name, None, ri_dict)
+            if ri_obj is not None:
+                # if primary RI is connected to another primary RI, we need to
+                # also create connection between the VNs
+                for connection in ri_obj.connections:
+                    remote_ri_fq_name = connection.split(':')
+                    if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
+                        self.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
+    # end add_virtual_network_routing_instance
 
     @staticmethod
     def _get_service_id_from_ri(ri_name):
@@ -514,7 +524,6 @@ class VirtualNetworkST(DBBaseST):
         if rinst_name in self.rinst:
             return self.rinst[rinst_name]
 
-        is_default = (rinst_name == self._default_ri_name)
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         old_rtgt = self._cassandra.get_route_target(rinst_fq_name_str)
         rtgt_num = self._cassandra.alloc_route_target(rinst_fq_name_str)
@@ -522,12 +531,15 @@ class VirtualNetworkST(DBBaseST):
         rt_key = "target:%s:%d" % (GlobalSystemConfigST.get_autonomous_system(),
                                    rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key).obj
-        if is_default:
-            inst_tgt_data = InstanceTargetType()
-        elif self._ri_needs_external_rt(rinst_name, service_chain):
-            inst_tgt_data = InstanceTargetType(import_export="export")
-        else:
-            inst_tgt_data = None
+
+        def get_inst_tgt_data(is_default):
+            if is_default:
+                inst_tgt_data = InstanceTargetType()
+            elif self._ri_needs_external_rt(rinst_name, service_chain):
+                inst_tgt_data = InstanceTargetType(import_export="export")
+            else:
+                inst_tgt_data = None
+            return inst_tgt_data
 
         try:
             try:
@@ -542,12 +554,10 @@ class VirtualNetworkST(DBBaseST):
                     rinst_obj = None
                 else:
                     need_update = False
-                    if (rinst_obj.get_routing_instance_is_default() !=
-                            is_default):
-                        rinst_obj.set_routing_instance_is_default(is_default)
-                        need_update = True
                     old_rt_refs = copy.deepcopy(rinst_obj.get_route_target_refs())
                     rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
+                    inst_tgt_data = get_inst_tgt_data(
+                        rinst_obj.get_routing_instance_is_default())
                     if inst_tgt_data:
                         for rt in self.rt_list:
                             rtgt_obj = RouteTarget(rt)
@@ -562,7 +572,8 @@ class VirtualNetworkST(DBBaseST):
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
                 rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
-                rinst_obj.set_routing_instance_is_default(is_default)
+                rinst_obj.set_routing_instance_is_default(False)
+                inst_tgt_data = get_inst_tgt_data(False)
                 if inst_tgt_data:
                     for rt in self.rt_list:
                         rtgt_obj = RouteTarget(rt)
@@ -573,7 +584,7 @@ class VirtualNetworkST(DBBaseST):
                 "Error while creating routing instance: " + str(e))
             return None
 
-        if rinst_obj.name == self._default_ri_name:
+        if rinst_obj.routing_instance_is_default:
             self._route_target = rtgt_num
 
         rinst = RoutingInstanceST(rinst_obj, service_chain, rt_key)
@@ -1464,12 +1475,16 @@ class RoutingInstanceST(object):
             rtgt_obj = RouteTarget(rt)
             self.obj.del_route_target(rtgt_obj)
         if len(rt_add) or len(rt_del or set()):
-            _vnc_lib.routing_instance_update(self.obj)
+            try:
+                _vnc_lib.routing_instance_update(self.obj)
+            except NoIdError:
+                if not self.obj.routing_instance_is_default:
+                    err_msg = common.utils.detailed_traceback()
+                    _sandesh._logger.error(err_msg)
     # end update_route_target_list
 
     def delete(self, vn_obj=None):
         # refresh the ri object because it could have changed
-        self.obj = self.read_vnc_obj(self.obj.uuid, obj_type='routing_instance')
         rtgt_list = self.obj.get_route_target_refs()
         ri_fq_name_str = self.obj.get_fq_name_str()
         DBBaseST._cassandra.free_route_target(ri_fq_name_str)
@@ -1483,6 +1498,14 @@ class RoutingInstanceST(object):
             uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
             uve_msg.send(sandesh=_sandesh)
 
+        # read-back to get vmi backrefs on RI
+        try:
+            obj = self.read_vnc_obj(
+                self.obj.uuid, obj_type='routing_instance')
+            self.obj = obj
+        except NoIdError:
+            # for native-RI api-server deletes in VN delete context
+            pass
         vmi_refs = getattr(self.obj, 'virtual_machine_interface_back_refs', [])
         for vmi in vmi_refs:
             try:
@@ -1497,7 +1520,10 @@ class RoutingInstanceST(object):
                 continue
 
         # end for vmi
-        _vnc_lib.routing_instance_delete(id=self.obj.uuid)
+        try:
+            _vnc_lib.routing_instance_delete(id=self.obj.uuid)
+        except NoIdError:
+            pass
         for rtgt in rtgt_list or []:
             try:
                 RouteTargetST.delete(rtgt['to'][0])
@@ -2180,19 +2206,6 @@ class VirtualMachineInterfaceST(DBBaseST):
     def set_virtual_network(self, vn_name):
         self.virtual_network = vn_name
         self._vn_dict.setdefault(vn_name, []).append(self)
-        virtual_network = VirtualNetworkST.locate(vn_name)
-        if virtual_network is None:
-            return
-        ri = virtual_network.get_primary_routing_instance().obj
-        refs = self.obj.get_routing_instance_refs()
-        if ri.get_fq_name() not in [r['to'] for r in (refs or [])]:
-            self.obj.add_routing_instance(
-                ri, PolicyBasedForwardingRuleType(direction="both"))
-            try:
-                _vnc_lib.virtual_machine_interface_update(self.obj)
-            except NoIdError:
-                _sandesh._logger.error("NoIdError while updating interface " +
-                                       self.name)
 
         for lr in LogicalRouterST.values():
             if self.name in lr.interfaces:
@@ -2830,6 +2843,15 @@ class SchemaTransformer(object):
         # TODO cleanup sandesh context
         pass
     # end cleanup
+
+
+    def add_virtual_network_routing_instance(self, idents, meta):
+        vn_name = idents['virtual-network']
+        ri_name = idents['routing-instance']
+        vn_obj = VirtualNetworkST.get(vn_name)
+        if vn_obj is None:
+            return
+        vn_obj.add_virtual_network_routing_instance(ri_name)
 
     def delete_virtual_network_network_policy(self, idents, meta):
         # Virtual network's reference to network policy is being deleted

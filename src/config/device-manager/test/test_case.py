@@ -14,9 +14,9 @@ class DMTestCase(test_common.TestCase):
         super(DMTestCase, self).setUp()
         flexmock(manager, connect=fake_netconf_connect)
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
         self._dm_greenlet = gevent.spawn(test_common.launch_device_manager,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
 
     def tearDown(self):
         self._dm_greenlet.kill()
