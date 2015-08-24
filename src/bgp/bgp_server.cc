@@ -299,6 +299,16 @@ LifetimeActor *BgpServer::deleter() {
     return deleter_.get();
 }
 
+bool BgpServer::HasSelfConfiguration() const {
+    if (!bgp_identifier())
+        return false;
+    if (!local_autonomous_system())
+        return false;
+    if (!autonomous_system())
+        return false;
+    return true;
+}
+
 int BgpServer::RegisterPeer(BgpPeer *peer) {
     peer_list_.insert(make_pair(peer->peer_name(), peer));
 

@@ -168,6 +168,7 @@ protected:
                  node_a_->bgp_port(), node_b_->bgp_port());
         node_a_->BgpConfig(config);
         node_b_->BgpConfig(config);
+        task_util::WaitForIdle();
     }
     virtual void TearDown() {
         agent_a_->Delete();
