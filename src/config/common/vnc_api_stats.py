@@ -17,9 +17,10 @@ def log_api_stats(func):
             response = func(api_server_obj, resource_type, *args, **kwargs)
             statistics.response_size = len(str(response))
             return response
-        except Exception, err_response:
-            statistics.response_size = len(err_response.body)
-            statistics.response_code = err_response.status_code
+        except Exception as err_response:
+            if isinstance(err_response, bottle.HTTPError):
+                statistics.response_size = len(err_response.body)
+                statistics.response_code = err_response.status_code
             raise
         finally:
             # Collect api stats and send to analytics

@@ -1464,12 +1464,16 @@ class RoutingInstanceST(object):
             rtgt_obj = RouteTarget(rt)
             self.obj.del_route_target(rtgt_obj)
         if len(rt_add) or len(rt_del or set()):
-            _vnc_lib.routing_instance_update(self.obj)
+            try:
+                _vnc_lib.routing_instance_update(self.obj)
+            except NoIdError:
+                if not self.obj.routing_instance_is_default:
+                    err_msg = common.utils.detailed_traceback()
+                    _sandesh._logger.error(err_msg)
     # end update_route_target_list
 
     def delete(self, vn_obj=None):
         # refresh the ri object because it could have changed
-        self.obj = self.read_vnc_obj(self.obj.uuid, obj_type='routing_instance')
         rtgt_list = self.obj.get_route_target_refs()
         ri_fq_name_str = self.obj.get_fq_name_str()
         DBBaseST._cassandra.free_route_target(ri_fq_name_str)
@@ -1483,6 +1487,14 @@ class RoutingInstanceST(object):
             uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
             uve_msg.send(sandesh=_sandesh)
 
+        # read-back to get vmi backrefs on RI
+        try:
+            obj = self.read_vnc_obj(
+                self.obj.uuid, obj_type='routing_instance')
+            self.obj = obj
+        except NoIdError:
+            # for native-RI api-server deletes in VN delete context
+            pass
         vmi_refs = getattr(self.obj, 'virtual_machine_interface_back_refs', [])
         for vmi in vmi_refs:
             try:
@@ -1497,7 +1509,10 @@ class RoutingInstanceST(object):
                 continue
 
         # end for vmi
-        _vnc_lib.routing_instance_delete(id=self.obj.uuid)
+        try:
+            _vnc_lib.routing_instance_delete(id=self.obj.uuid)
+        except NoIdError:
+            pass
         for rtgt in rtgt_list or []:
             try:
                 RouteTargetST.delete(rtgt['to'][0])
