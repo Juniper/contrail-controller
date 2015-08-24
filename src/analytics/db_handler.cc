@@ -524,6 +524,8 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
             ":Messagetype", message_type, header.get_Timestamp(), ttl);
         FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":ModuleId", header.get_Module(), header.get_Timestamp(), ttl);
+        FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
+            ":Source", header.get_Source(), header.get_Timestamp(), ttl);
     }
 }
 
@@ -649,6 +651,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         FieldNamesTableInsert(table, ":Messagetype", message_type, timestamp, ttl);
         FieldNamesTableInsert(table, ":ModuleId", header.get_Module(),
             timestamp, ttl);
+        FieldNamesTableInsert(table, ":Source", header.get_Source(), timestamp, ttl);
     }
 }
 
