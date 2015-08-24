@@ -111,22 +111,23 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
     } else {
         autogen::VirtualDnsType vdns_type;
         std::string vdns_name;
-        GetVdnsData(vmitf->vn(), vmitf->ip_addr(), vmitf->ip6_addr(),
+        GetVdnsData(vmitf->vn(), vmitf->primary_ip_addr(),
+                    vmitf->primary_ip6_addr(),
                     vdns_name, vdns_type);
         VmDataMap::iterator it = all_vms_.find(vmitf);
         if (it == all_vms_.end()) {
             if (!UpdateDnsEntry(vmitf, vmitf->vn(), vmitf->vm_name(), vdns_name,
-                                vmitf->ip_addr(), vmitf->ip6_addr(),
+                                vmitf->primary_ip_addr(), vmitf->primary_ip6_addr(),
                                 false, false))
                 vdns_name = "";
             IpVdnsMap vmdata;
-            vmdata.insert(IpVdnsPair(vmitf->ip_addr().to_ulong(), vdns_name));
+            vmdata.insert(IpVdnsPair(vmitf->primary_ip_addr().to_ulong(), vdns_name));
             all_vms_.insert(VmDataPair(vmitf, vmdata));
             DNS_BIND_TRACE(DnsBindTrace, "Vm Interface added : " <<
                            vmitf->vm_name());
         } else {
             CheckForUpdate(it->second, vmitf, vmitf->vn(),
-                           vmitf->ip_addr(), vmitf->ip6_addr(),
+                           vmitf->primary_ip_addr(), vmitf->primary_ip6_addr(),
                            vdns_name, vdns_type);
         }
 
@@ -174,10 +175,12 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
         if (it->first->vn() == vn) {
             std::string vdns_name;
             autogen::VirtualDnsType vdns_type;
-            GetVdnsData(vn, it->first->ip_addr(), it->first->ip6_addr(),
+            GetVdnsData(vn, it->first->primary_ip_addr(),
+                        it->first->primary_ip6_addr(),
                         vdns_name, vdns_type);
             CheckForUpdate(it->second, it->first, it->first->vn(),
-                           it->first->ip_addr(), it->first->ip6_addr(),
+                           it->first->primary_ip_addr(),
+                           it->first->primary_ip6_addr(),
                            vdns_name, vdns_type);
         }
     }
@@ -244,13 +247,14 @@ void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
         std::string vdns_name;
         autogen::VirtualDnsType vdns_type;
-        GetVdnsData(it->first->vn(), it->first->ip_addr(),
-                    it->first->ip6_addr(), vdns_name, vdns_type);
+        GetVdnsData(it->first->vn(), it->first->primary_ip_addr(),
+                    it->first->primary_ip6_addr(), vdns_name, vdns_type);
         // in case of VDNS delete, clear the name
         if (!is_ipam && is_deleted && vdns_name == name)
             vdns_name.clear();
         CheckForUpdate(it->second, it->first, it->first->vn(),
-                       it->first->ip_addr(), it->first->ip6_addr(),
+                       it->first->primary_ip_addr(),
+                       it->first->primary_ip6_addr(),
                        vdns_name, vdns_type);
     }
     DnsFipSet::iterator it = fip_list_.begin();

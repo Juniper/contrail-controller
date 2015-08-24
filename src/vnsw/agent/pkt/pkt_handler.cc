@@ -768,9 +768,9 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
     if (vm_intf->vmi_type() != VmInterface::GATEWAY) {
         //Gateway interface doesnt have IP address
-        if (dst_ip.is_v6() && vm_intf->ip6_addr().is_unspecified())
+        if (dst_ip.is_v6() && vm_intf->primary_ip6_addr().is_unspecified())
             return false;
-        else if (dst_ip.is_v4() && vm_intf->ip_addr().is_unspecified())
+        else if (dst_ip.is_v4() && vm_intf->primary_ip_addr().is_unspecified())
             return false;
     }
     const VnEntry *vn = vm_intf->vn();
@@ -781,7 +781,7 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
                 if (!ipam[i].IsV4()) {
                     continue;
                 }
-                IpAddress src_ip = vm_intf->ip_addr();
+                IpAddress src_ip = vm_intf->primary_ip_addr();
                 if (vm_intf->vmi_type() == VmInterface::GATEWAY) {
                     src_ip = vm_intf->subnet();
                 }
@@ -794,7 +794,7 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
                 if (!ipam[i].IsV6()) {
                     continue;
                 }
-                if (IsIp6SubnetMember(vm_intf->ip6_addr(),
+                if (IsIp6SubnetMember(vm_intf->primary_ip6_addr(),
                                       ipam[i].ip_prefix.to_v6(), ipam[i].plen))
                     return (ipam[i].default_gw == dst_ip ||
                             ipam[i].dns_server == dst_ip);

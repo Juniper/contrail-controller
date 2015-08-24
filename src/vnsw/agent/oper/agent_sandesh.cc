@@ -178,13 +178,13 @@ bool AgentIntfSandesh::Filter(const DBEntryBase *entry) {
         return false;
 
     if (v4_str_.empty() == false) {
-        if (v4_ != vmi->ip_addr()) {
+        if (v4_ != vmi->primary_ip_addr()) {
             return false;
         }
     }
 
     if (v6_str_.empty() == false) {
-        if (v6_ != vmi->ip6_addr()) {
+        if (v6_ != vmi->primary_ip6_addr()) {
             return false;
         }
     }

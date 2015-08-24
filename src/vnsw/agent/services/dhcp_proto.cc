@@ -172,9 +172,9 @@ void DhcpProto::CreateLeaseDb(VmInterface *vmi) {
 
     std::string res;
     std::vector<Ip4Address> reserve_list;
-    if (vmi->ip_addr().to_ulong()) {
-        reserve_list.push_back(vmi->ip_addr());
-        res = vmi->ip_addr().to_string() + ", ";
+    if (vmi->primary_ip_addr().to_ulong()) {
+        reserve_list.push_back(vmi->primary_ip_addr());
+        res = vmi->primary_ip_addr().to_string() + ", ";
     }
     reserve_list.push_back(vn_ipam->default_gw.to_v4());
     reserve_list.push_back(vn_ipam->dns_server.to_v4());

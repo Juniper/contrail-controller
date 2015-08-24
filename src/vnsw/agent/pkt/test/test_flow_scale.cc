@@ -23,7 +23,7 @@ public:
         WAIT_FOR(10000, 1000, VmPortActive(input, 0));
 
         vnet = VmInterfaceGet(1);
-        strcpy(vnet_addr, vnet->ip_addr().to_string().c_str());
+        strcpy(vnet_addr, vnet->primary_ip_addr().to_string().c_str());
 
         boost::system::error_code ec;
         Inet4TunnelRouteAdd(NULL, "vrf1", 

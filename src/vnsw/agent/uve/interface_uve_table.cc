@@ -103,9 +103,9 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     UveVMInterfaceAgent *s_intf) const {
     s_intf->set_name(name);
     SetVnVmInfo(s_intf);
-    s_intf->set_ip_address(intf_->ip_addr().to_string());
+    s_intf->set_ip_address(intf_->primary_ip_addr().to_string());
     s_intf->set_mac_address(intf_->vm_mac());
-    s_intf->set_ip6_address(intf_->ip6_addr().to_string());
+    s_intf->set_ip6_address(intf_->primary_ip6_addr().to_string());
     s_intf->set_ip6_active(intf_->ipv6_active());
 
     vector<VmFloatingIPAgent> uve_fip_list;
@@ -171,7 +171,7 @@ bool InterfaceUveTable::UveInterfaceEntry::GetVmInterfaceGateway(
         return false;
     }
     const vector<VnIpam> &list = vn->GetVnIpam();
-    Ip4Address vm_addr = vm_intf->ip_addr();
+    Ip4Address vm_addr = vm_intf->primary_ip_addr();
     unsigned int i;
     for (i = 0; i < list.size(); i++) {
         if (list[i].IsSubnetMember(vm_addr))

@@ -1022,7 +1022,8 @@ TEST_F(ArpTest, IntfArpReqTest_1) {
     Agent::GetInstance()->GetArpProto()->ClearInterfaceArpStats(vmi->id());
     Ip4Address arp_tip = Ip4Address::from_string("1.1.1.2");
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize()); // For GW
-    SendArpReq(vmi->id(), vrf->vrf_id(), vmi->ip_addr().to_ulong(), arp_tip.to_ulong());
+    SendArpReq(vmi->id(), vrf->vrf_id(), vmi->primary_ip_addr().to_ulong(),
+               arp_tip.to_ulong());
     WaitForCompletion(2);
     EXPECT_TRUE(FindArpNHEntry(arp_tip.to_ulong(), "vrf1"));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->GetArpProto()->ArpRequestStatsCounter(vmi->id()) >= 1U));
@@ -1048,12 +1049,14 @@ TEST_F(ArpTest, IntfArpReqTest_2) {
     Agent::GetInstance()->GetArpProto()->ClearInterfaceArpStats(vmi->id());
     Ip4Address arp_tip = Ip4Address::from_string("1.1.1.2");
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize()); // For GW
-    SendArpReq(vmi->id(), vrf->vrf_id(), vmi->ip_addr().to_ulong(), arp_tip.to_ulong());
+    SendArpReq(vmi->id(), vrf->vrf_id(), vmi->primary_ip_addr().to_ulong(),
+               arp_tip.to_ulong());
     WaitForCompletion(2);
     EXPECT_TRUE(FindArpNHEntry(arp_tip.to_ulong(), "vrf1"));
     EXPECT_TRUE(FindArpRoute(arp_tip.to_ulong(), "vrf1"));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->GetArpProto()->ArpRequestStatsCounter(vmi->id()) >= 1U));
-    SendArpReply(vmi->id(), vrf->vrf_id(), vmi->ip_addr().to_ulong(), arp_tip.to_ulong());
+    SendArpReply(vmi->id(), vrf->vrf_id(), vmi->primary_ip_addr().to_ulong(),
+                 arp_tip.to_ulong());
     client->WaitForIdle();
     WAIT_FOR(500, 1000, (1U == Agent::GetInstance()->GetArpProto()->ArpReplyStatsCounter(vmi->id())));
     WAIT_FOR(500, 1000, (1U == Agent::GetInstance()->GetArpProto()->ArpResolvedStatsCounter(vmi->id())));
