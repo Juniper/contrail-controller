@@ -9,6 +9,8 @@
 
 from cfgm_common import jsonutils as json
 import re
+import copy
+import bottle
 
 import cfgm_common
 import cfgm_common.utils
@@ -17,6 +19,8 @@ import netaddr
 import uuid
 from vnc_quota import QuotaHelper
 
+import context
+from context import get_context, set_context, get_request
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
@@ -25,7 +29,54 @@ from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
-class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
+class ResourceDbMixin(object):
+    generate_default_instance = True
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return True, ''
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return True, ''
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+        return True, ''
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+        return True, ''
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        return True, ''
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        return True, ''
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        pass
+    #end dbe_create_notification
+
+    @classmethod
+    def dbe_update_notification(cls, obj_ids):
+        pass
+    #end dbe_update_notification
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_ids, obj_dict):
+        pass
+    #end dbe_delete_notification
+
+# end class ResourceDbMixin
+
+class Resource(ResourceDbMixin):
+    server = None
+
+class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
     def _check_asn(cls, obj_dict, db_conn):
         global_asn = obj_dict.get('autonomous_system')
@@ -56,29 +107,29 @@ class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
     # end _check_asn
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls._check_asn(obj_dict, db_conn)
         if not ok:
             return ok, result
         return True, ''
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, result = cls._check_asn(obj_dict, db_conn)
         if not ok:
             return ok, result
         return True, ''
-    # end http_put
+    # end pre_dbe_update
 
 # end class GlobalSystemConfigServer
 
 
-class FloatingIpServer(FloatingIpServerGen):
+class FloatingIpServer(Resource, FloatingIp):
     generate_default_instance = False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         proj_dict = obj_dict['project_refs'][0]
         if 'uuid' in proj_dict:
             proj_uuid = proj_dict['uuid']
@@ -106,53 +157,48 @@ class FloatingIpServer(FloatingIpServerGen):
             fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip,
                                                   alloc_id=obj_dict['uuid'])
+            def undo():
+                db_conn.config_log(
+                    'AddrMgmt: free FIP %s for vn=%s tenant=%s, on undo'
+                        % (fip_addr, vn_fq_name, tenant_name),
+                           level=SandeshLevel.SYS_DEBUG)
+                cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
+                return True, ""
+            # end undo
+            get_context().push_undo(undo)
         except Exception as e:
             return (False, (500, str(e)))
+
         obj_dict['floating_ip_address'] = fip_addr
         db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s, tenant=%s, askip=%s' \
             % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name,
                req_ip), level=SandeshLevel.SYS_DEBUG)
+
         return True, ""
-    # end http_post_collection
+    # end pre_dbe_create
+
 
     @classmethod
-    def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
-        vn_fq_name = obj_dict['fq_name'][:-2]
-        fip_addr = obj_dict['floating_ip_address']
-        db_conn.config_log('AddrMgmt: free FIP %s for vn=%s tenant=%s, on post fail'
-                           % (fip_addr, vn_fq_name, tenant_name),
-                           level=SandeshLevel.SYS_DEBUG)
-        cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
-        return True, ""
-    # end http_post_collection_fail
-
-    @classmethod
-    def http_delete(cls, id, obj_dict, db_conn):
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
         db_conn.config_log('AddrMgmt: free FIP %s for vn=%s'
                            % (fip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
-        return True, ""
-    # end http_delete
-
-    @classmethod
-    def http_delete_fail(cls, id, obj_dict, db_conn):
-        vn_fq_name = obj_dict['fq_name'][:-2]
-        req_ip = obj_dict.get("floating_ip_address", None)
-        if req_ip is None:
-            return True, ""
-        try:
-            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip,
+        def undo():
+            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=fip_addr,
                                        alloc_id=obj_dict['uuid'])
-        except Exception as e:
-            return (False, (500, str(e)))
-        db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure'
-                           % (obj_dict['floating_ip_address'], vn_fq_name),
-                           level=SandeshLevel.SYS_DEBUG)
+            db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure'
+                               % (obj_dict['floating_ip_address'], vn_fq_name),
+                               level=SandeshLevel.SYS_DEBUG)
+            return True, ""
+        # end undo
+        get_context().push_undo(undo)
+
         return True, ""
-    # end http_delete_fail
+    # end pre_dbe_delete
+
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
@@ -171,7 +217,7 @@ class FloatingIpServer(FloatingIpServerGen):
 # end class FloatingIpServer
 
 
-class InstanceIpServer(InstanceIpServerGen):
+class InstanceIpServer(Resource, InstanceIp):
     generate_default_instance = False
 
     @classmethod
@@ -199,7 +245,7 @@ class InstanceIpServer(InstanceIpServerGen):
         return False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
@@ -244,6 +290,15 @@ class InstanceIpServer(InstanceIpServerGen):
                 vn_fq_name, vn_dict=vn_dict, sub=sub, asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version,
                 alloc_id=obj_dict['uuid'])
+
+            def undo():
+                db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
+                                   % (ip_addr, vn_fq_name, tenant_name),
+                                   level=SandeshLevel.SYS_DEBUG)
+                cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
+                return True, ""
+            # end undo
+            get_context().push_undo(undo)
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
@@ -252,26 +307,10 @@ class InstanceIpServer(InstanceIpServerGen):
                vn_fq_name, tenant_name, req_ip),
             level=SandeshLevel.SYS_DEBUG)
         return True, ""
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
-                (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
-            # Ignore ip-fabric and link-local address allocations
-            return True,  ""
-
-        ip_addr = obj_dict['instance_ip_address']
-        db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
-                           % (ip_addr, vn_fq_name, tenant_name),
-                           level=SandeshLevel.SYS_DEBUG)
-        cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
-        return True, ""
-    # end http_post_collection_fail
-
-    @classmethod
-    def http_delete(cls, id, obj_dict, db_conn):
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
@@ -289,31 +328,20 @@ class InstanceIpServer(InstanceIpServerGen):
                            % (ip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
-        return True, ""
-    # end http_delete
-
-    @classmethod
-    def http_delete_fail(cls, id, obj_dict, db_conn):
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
-                (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
-            # Ignore ip-fabric and link-local address allocations
-            return True,  ""
-
-        req_ip = obj_dict.get("instance_ip_address", None)
-        if req_ip is None:
-            return True, ""
-        try:
-            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip,
+        def undo():
+            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=ip_addr,
                                        alloc_id=obj_dict['uuid'])
-        except Exception as e:
-            return (False, (500, str(e)))
-        db_conn.config_log('AddrMgmt: alloc %s for vn=%s to recover DELETE failure'
-                           % (obj_dict['instance_ip_address'], vn_fq_name),
-                           level=SandeshLevel.SYS_DEBUG)
+            db_conn.config_log(
+                'AddrMgmt: alloc %s for vn=%s to recover DELETE failure'
+                % (obj_dict['instance_ip_address'], vn_fq_name),
+                level=SandeshLevel.SYS_DEBUG)
+
+            return True, ""
+        # end undo
+        get_context().push_undo(undo)
 
         return True, ""
-    # end http_delete_fail
+    # end pre_dbe_delete
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
@@ -335,11 +363,11 @@ class InstanceIpServer(InstanceIpServerGen):
 # end class InstanceIpServer
 
 
-class LogicalRouterServer(LogicalRouterServerGen):
+class LogicalRouterServer(Resource, LogicalRouter):
     generate_default_instance = False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -348,16 +376,16 @@ class LogicalRouterServer(LogicalRouterServerGen):
                                'user_visibility': user_visibility}
 
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
-    # end http_post_collection
+    # end pre_dbe_create
 
 # end class LogicalRouterServer
 
 
-class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
+class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     generate_default_instance = False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
         if not vn_uuid:
@@ -418,10 +446,37 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                     if aap['mac'] == "":
                         aap['mac'] = obj_dict['virtual_machine_interface_mac_addresses']['mac_address']
         return True, ""
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # Create ref to native/vn-default routing instance
+        vn_refs = obj_dict.get('virtual_network_refs', [])
+        if not vn_refs:
+            return True, ''
+
+        vn_fq_name = vn_refs[0].get('to')
+        if not vn_fq_name:
+            vn_uuid = vn_refs[0]['uuid']
+            vn_fq_name = db_conn.uuid_to_fq_name(vn_uuid)
+
+        ri_fq_name = vn_fq_name[:]
+        ri_fq_name.append(vn_fq_name[-1])
+        ri_uuid = db_conn.fq_name_to_uuid(
+            'routing-instance', ri_fq_name)
+
+        attr = PolicyBasedForwardingRuleType(direction="both")
+        attr_as_dict = attr.__dict__
+        cls.server.internal_request_ref_update(
+            'virtual-machine-interface', obj_dict['uuid'], 'ADD',
+            'routing-instance', ri_uuid,
+            attr_as_dict)
+
+        return True, ''
+    # end post_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
             vmi_id = {'uuid': id}
             try:
@@ -438,12 +493,12 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                     if aap['mac'] == "":
                         aap['mac'] = read_result['virtual_machine_interface_mac_addresses']['mac_address']
         return True, ""
-    # end http_put
+    # end pre_dbe_update
 # end class VirtualMachineInterfaceServer
 
-class ServiceApplianceSetServer(ServiceApplianceSetServerGen):
+class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         (ok, result) = db_conn.dbe_list('loadbalancer-pool', back_ref_uuids=[id])
         if not ok:
             return (ok, result)
@@ -452,10 +507,10 @@ class ServiceApplianceSetServer(ServiceApplianceSetServerGen):
                   "pools are using it"
             return (False, (409, msg))
         return True, ""
-    # end http_put
+    # end pre_dbe_update
 # end class ServiceApplianceSetServer
 
-class VirtualNetworkServer(VirtualNetworkServerGen):
+class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def _check_route_targets(cls, obj_dict, db_conn):
@@ -490,7 +545,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end _check_route_targets
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -514,20 +569,33 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return (False, (400, error))
         try:
             cls.addr_mgmt.net_create_req(obj_dict)
+            def undo():
+                cls.addr_mgmt.net_delete_req(obj_dict)
+                return True, ""
+            get_context().push_undo(undo)
         except Exception as e:
             return (False, (500, str(e)))
 
         return True, ""
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
-        cls.addr_mgmt.net_delete_req(obj_dict)
-        return True, ""
-    # end post_collection_fail
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # Create native/vn-default routing instance
+        ri_fq_name = obj_dict['fq_name'][:]
+        ri_fq_name.append(obj_dict['fq_name'][-1])
+        ri_obj = RoutingInstance(
+            parent_type='virtual-network', fq_name=ri_fq_name)
+
+        cls.server.internal_request_create(
+            'routing-instance',
+            ri_obj.serialize_to_json())
+
+        return True, ''
+    # end post_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
@@ -571,48 +639,62 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
+            def undo():
+                # failed => update with flipped values for db_dict and req_dict
+                cls.addr_mgmt.net_update_req(fq_name, obj_dict, read_result, id)
+            # end undo
+            get_context().push_undo(undo)
         except Exception as e:
             return (False, (500, str(e)))
 
         return True, ""
-    # end http_put
+    # end pre_dbe_update
+
 
     @classmethod
-    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
-        if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
-                (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
-            # Ignore ip-fabric subnet updates
-            return True,  ""
-
-        ipam_refs = obj_dict.get('network_ipam_refs', None)
-        if not ipam_refs:
-            # NOP for addr-mgmt module
-            return True,  ""
-
-        vn_id = {'uuid': id}
-        try:
-            (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id,
-                                               obj_fields=['network_ipam_refs'])
-        except cfgm_common.exceptions.NoIdError as e:
-            return (False, (404, 'VN Not Found at PUT fail: %s' %(vn_id)))
-        if not read_ok:
-            return (False, (500, read_result))
-
-        # failed => update with flipped values for db_dict and req_dict
-        cls.addr_mgmt.net_update_req(fq_name, obj_dict, read_result, id)
-    # end http_put_fail
-
-    @classmethod
-    def http_delete(cls, id, obj_dict, db_conn):
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
         cls.addr_mgmt.net_delete_req(obj_dict)
+        def undo():
+            cls.addr_mgmt.net_create_req(obj_dict)
+        get_context().push_undo(undo)
         return True, ""
-    # end http_delete
+    # end pre_dbe_delete
 
     @classmethod
-    def http_delete_fail(cls, id, obj_dict, db_conn):
-        cls.addr_mgmt.net_create_req(obj_dict)
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Delete native/vn-default routing instance
+        # For this find backrefs and remove their ref to RI
+        ri_fq_name = obj_dict['fq_name'][:]
+        ri_fq_name.append(obj_dict['fq_name'][-1])
+        ri_uuid = db_conn.fq_name_to_uuid(
+            'routing-instance', ri_fq_name)
+
+        backref_fields = list(RoutingInstance.backref_fields)
+        ok, result = db_conn.dbe_read(
+            obj_type='routing-instance',
+            obj_ids={'uuid': ri_uuid},
+            obj_fields=backref_fields)
+        if not ok:
+            return ok, result
+
+        ri_obj_dict = result
+        for backref_field in backref_fields:
+            backref_field_types = RoutingInstance.backref_field_types
+            obj_type = backref_field_types[backref_field][0]
+            def drop_ref(obj_uuid):
+                # drop ref from ref_uuid to ri_uuid
+                cls.server.internal_request_ref_update(
+                    obj_type, obj_uuid, 'DELETE',
+                    'routing-instance', ri_uuid)
+            # end drop_ref
+            for backref in ri_obj_dict.get(backref_field, []):
+                drop_ref(backref['uuid'])
+
+        cls.server.internal_request_delete('routing-instance', ri_uuid)
+
         return True, ""
-    # end http_delete_fail
+    # end post_dbe_delete
+
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
@@ -660,10 +742,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 # end class VirtualNetworkServer
 
 
-class NetworkIpamServer(NetworkIpamServerGen):
+class NetworkIpamServer(Resource, NetworkIpam):
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ipam_uuid = obj_dict['uuid']
         ipam_id = {'uuid': ipam_uuid}
         try:
@@ -684,13 +766,7 @@ class NetworkIpamServer(NetworkIpamServerGen):
             return (False, (409, "Cannot change DNS Method " +
                     " with active VMs referring to the IPAM"))
         return True, ""
-    # end http_put
-
-    @classmethod
-    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
-        # undo any state change done by http_put function
-        return True, ""
-    # end http_put_fail
+    # end pre_dbe_update
 
     @classmethod
     def is_change_allowed(cls, old, new, obj_dict, db_conn):
@@ -732,27 +808,21 @@ class NetworkIpamServer(NetworkIpamServerGen):
 # end class NetworkIpamServer
 
 
-class VirtualDnsServer(VirtualDnsServerGen):
+class VirtualDnsServer(Resource, VirtualDns):
     generate_default_instance = False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return cls.validate_dns_server(obj_dict, db_conn)
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls.validate_dns_server(obj_dict, db_conn)
-    # end http_put
+    # end pre_dbe_update
 
     @classmethod
-    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
-        # undo any state change done by http_put function
-        return True, ""
-    # end http_put_fail
-
-    @classmethod
-    def http_delete(cls, id, obj_dict, db_conn):
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
         vdns_name = ":".join(obj_dict['fq_name'])
         if 'parent_uuid' in obj_dict:
             domain_uuid = obj_dict['parent_uuid']
@@ -791,13 +861,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                              "Virtual DNS server is referred"
                              " by other virtual DNS servers"))
         return True, ""
-    # end http_delete
-
-    @classmethod
-    def http_delete_fail(cls, id, obj_dict, db_conn):
-        # undo any state change done by http_delete function
-        return True, ""
-    # end http_delete_fail
+    # end pre_dbe_delete
 
     @classmethod
     def is_valid_dns_name(cls, name):
@@ -895,35 +959,18 @@ class VirtualDnsServer(VirtualDnsServerGen):
 # end class VirtualDnsServer
 
 
-class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
+class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
     generate_default_instance = False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return cls.validate_dns_record(obj_dict, db_conn)
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls.validate_dns_record(obj_dict, db_conn)
-    # end http_put
-
-    @classmethod
-    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
-        # undo any state change done by http_put function
-        return True, ""
-    # end http_put_fail
-
-    @classmethod
-    def http_delete(cls, id, obj_dict, db_conn):
-        return True, ""
-    # end http_delete
-
-    @classmethod
-    def http_delete_fail(cls, id, obj_dict, db_conn):
-        # undo any state change done by http_delete function
-        return True, ""
-    # end http_delete_fail
+    # end pre_dbe_update
 
     @classmethod
     def validate_dns_record(cls, obj_dict, db_conn):
@@ -1016,11 +1063,11 @@ def _check_policy_rules(entries, network_policy_rule=False):
     return True, ""
 # end _check_policy_rules
 
-class SecurityGroupServer(SecurityGroupServerGen):
+class SecurityGroupServer(Resource, SecurityGroup):
     generate_default_instance = False
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -1034,10 +1081,10 @@ class SecurityGroupServer(SecurityGroupServerGen):
             return (ok, response)
 
         return _check_policy_rules(obj_dict.get('security_group_entries'))
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         try:
             (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
         except cfgm_common.exceptions.NoIdError as e:
@@ -1079,15 +1126,15 @@ class SecurityGroupServer(SecurityGroupServerGen):
                     return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
 
         return _check_policy_rules(obj_dict.get('security_group_entries'))
-    # end http_put
+    # end pre_dbe_update
 
 # end class SecurityGroupServer
 
 
-class NetworkPolicyServer(NetworkPolicyServerGen):
+class NetworkPolicyServer(Resource, NetworkPolicy):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -1101,10 +1148,10 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
             return (ok, response)
 
         return _check_policy_rules(obj_dict.get('network_policy_entries'), True)
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         p_id = {'uuid': id}
         try:
             (read_ok, read_result) = db_conn.dbe_read('network-policy', p_id)
@@ -1114,14 +1161,14 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
             return (False, (500, read_result))
 
         return _check_policy_rules(obj_dict.get('network_policy_entries'), True)
-    # end http_put
+    # end pre_dbe_update
 
 # end class NetworkPolicyServer
 
-class LogicalInterfaceServer(LogicalInterfaceServerGen):
+class LogicalInterfaceServer(Resource, LogicalInterface):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         (ok, msg) = cls._check_vlan(obj_dict, db_conn)
         if ok == False:
             return (False, msg)
@@ -1130,10 +1177,10 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
         if 'logical_interface_vlan_tag' in obj_dict:
             vlan = obj_dict['logical_interface_vlan_tag']
         return PhysicalInterfaceServer._check_interface_name(obj_dict, db_conn, vlan)
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         interface = {'uuid': id}
         try:
             (read_ok, read_result) = db_conn.dbe_read('logical-interface', interface)
@@ -1155,7 +1202,7 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
                     return (False, (403, "Cannot change Vlan id"))
 
         return True, ""
-    # end http_put
+    # end pre_dbe_update
 
     @classmethod
     def _check_vlan(cls, obj_dict, db_conn):
@@ -1168,15 +1215,15 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
 
 # end class LogicalInterfaceServer
 
-class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
+class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return cls._check_interface_name(obj_dict, db_conn, None)
-    # end http_post_collection
+    # end pre_dbe_create
 
     @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         # do not allow change in display name
         if 'display_name' in obj_dict:
             try:
@@ -1193,7 +1240,7 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
                 return (False, (403, "Cannot change display name !"))
 
         return True, ""
-    # end http_put
+    # end pre_dbe_update
 
     @classmethod
     def _check_interface_name(cls, obj_dict, db_conn, vlan_tag):
@@ -1282,10 +1329,10 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
 # end class PhysicalInterfaceServer
 
 
-class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
+class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
 
         try:
@@ -1331,10 +1378,10 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
 #end class LoadbalancerMemberServer
 
 
-class LoadbalancerPoolServer(LoadbalancerPoolServerGen):
+class LoadbalancerPoolServer(Resource, LoadbalancerPool):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -1346,10 +1393,10 @@ class LoadbalancerPoolServer(LoadbalancerPoolServerGen):
 # end class LoadbalancerPoolServer
 
 
-class LoadbalancerHealthmonitorServer(LoadbalancerHealthmonitorServerGen):
+class LoadbalancerHealthmonitorServer(Resource, LoadbalancerHealthmonitor):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -1361,10 +1408,10 @@ class LoadbalancerHealthmonitorServer(LoadbalancerHealthmonitorServerGen):
 # end class LoadbalancerHealthmonitorServer
 
 
-class VirtualIpServer(VirtualIpServerGen):
+class VirtualIpServer(Resource, VirtualIp):
 
     @classmethod
-    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
@@ -1375,4 +1422,3 @@ class VirtualIpServer(VirtualIpServerGen):
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class VirtualIpServer
-
