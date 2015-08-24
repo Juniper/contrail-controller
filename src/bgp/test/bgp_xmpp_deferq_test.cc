@@ -2072,6 +2072,9 @@ TEST_F(BgpXmppUnitTest, DeferCloseWithPendingUnregister) {
 }
 
 TEST_F(BgpXmppUnitTest, CreateRoutingInstanceWithPeerCloseInProgress1) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
     // create an XMPP client in server A
     agent_a_.reset(
         new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));

@@ -286,7 +286,7 @@ protected:
 
     virtual void SetUp() {
 
-        server_.reset(new BgpServerTest(&evm_, "test"));
+        server_.reset(new BgpServerTest(&evm_, "A"));
         xmpp_server_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
 
         channel_manager_.reset(new BgpXmppChannelManagerMock(
