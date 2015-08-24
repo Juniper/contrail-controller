@@ -91,6 +91,7 @@ struct DSPublishResponse {
     DiscoveryServiceClient *ds_client_;
     std::string publish_msg_;
     std::string publish_hdr_;
+    std::string client_msg_;
     int attempts_;
 
     // Stats
