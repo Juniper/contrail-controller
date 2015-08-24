@@ -281,6 +281,38 @@ TEST_F(BgpAttrTest, CommunityCompare2) {
     EXPECT_EQ(0, comm1.CompareTo(comm2));
 }
 
+TEST_F(BgpAttrTest, CommunityBuildStringList1) {
+    CommunitySpec spec;
+    spec.communities.push_back(0xFFFF0000);
+    spec.communities.push_back(Community::AcceptOwn);
+    spec.communities.push_back(Community::NoExport);
+    spec.communities.push_back(Community::NoAdvertise);
+    spec.communities.push_back(Community::NoExportSubconfed);
+    Community comm(comm_db_, spec);
+
+    vector<string> expected_list = list_of("65535:0")("accept-own")
+        ("no-export")("no-advertise")("no-export-subconfed");
+    vector<string> result_list;
+    comm.BuildStringList(&result_list);
+    EXPECT_EQ(expected_list, result_list);
+}
+
+TEST_F(BgpAttrTest, CommunityBuildStringList2) {
+    CommunitySpec spec;
+    spec.communities.push_back(Community::NoExportSubconfed);
+    spec.communities.push_back(Community::NoAdvertise);
+    spec.communities.push_back(Community::NoExport);
+    spec.communities.push_back(Community::AcceptOwn);
+    spec.communities.push_back(0xFFFF0000);
+    Community comm(comm_db_, spec);
+
+    vector<string> expected_list = list_of("65535:0")("accept-own")
+        ("no-export")("no-advertise")("no-export-subconfed");
+    vector<string> result_list;
+    comm.BuildStringList(&result_list);
+    EXPECT_EQ(expected_list, result_list);
+}
+
 TEST_F(BgpAttrTest, ExtCommunityCompare1) {
     ExtCommunitySpec spec1;
     for (int idx = 1; idx < 5; idx++)
