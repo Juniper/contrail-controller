@@ -85,6 +85,7 @@ public:
     explicit SFlowPktGen() :
         encode_ptr_(buff_),
         end_ptr_(buff_+(kMaxSFlowPktLen/4)) {
+        memset(buff_, 0, kMaxSFlowPktLen);
     }
     ~SFlowPktGen() {
     }
