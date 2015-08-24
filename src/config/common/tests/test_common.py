@@ -128,8 +128,8 @@ def generate_logconf_file_contents():
     return cfg_parser
 # end generate_logconf_file_contents
 
-def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
-                      conf_sections):
+def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
+                      admin_port, conf_sections):
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
@@ -137,7 +137,7 @@ def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
     args_str = args_str + "--admin_port %s " % (admin_port)
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file api_server_test.log "
+    args_str = args_str + "--log_file api_server_%s.log " %(test_id)
 
     import cgitb
     cgitb.enable(format='text')
@@ -402,6 +402,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         http_server_port = get_free_port()
         self._api_admin_port = get_free_port()
         self._api_svr_greenlet = gevent.spawn(launch_api_server,
+                                     self.id(),
                                      self._api_server_ip, self._api_server_port,
                                      http_server_port, self._api_admin_port,
                                      self._config_knobs)
@@ -418,7 +419,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._api_server_session.mount("http://", adapter)
         self._api_server_session.mount("https://", adapter)
         self._api_server = vnc_cfg_api_server.server
-        self._api_server._sandesh.set_logging_params(level="SYS_WARN")
+        self._api_server._sandesh.set_logging_level(level="SYS_DEBUG")
         self.addCleanup(self.cleanUp)
     # end setUp
 
