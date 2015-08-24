@@ -136,6 +136,7 @@ public:
         return bgp_identifier_.to_string();
     }
     uint16_t hold_time() const { return hold_time_; }
+    bool HasSelfConfiguration() const;
 
     // Status
     uint32_t num_routing_instance() const;
