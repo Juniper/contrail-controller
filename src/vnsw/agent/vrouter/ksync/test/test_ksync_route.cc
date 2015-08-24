@@ -112,7 +112,7 @@ public:
 
 // proxy_arp_ and flood_ flags for interface-route
 TEST_F(TestKSyncRoute, vm_interface_route_1) {
-    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->ip_addr());
+    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->primary_ip_addr());
     EXPECT_TRUE(rt != NULL);
 
     std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf1_rt_obj_, rt));
@@ -125,7 +125,7 @@ TEST_F(TestKSyncRoute, vm_interface_route_1) {
 
 // proxy_arp_ and flood_ flags for interface-route when MAC not stitched
 TEST_F(TestKSyncRoute, vm_interface_route_2) {
-    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->ip_addr());
+    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->primary_ip_addr());
     EXPECT_TRUE(rt != NULL);
 
     std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf1_rt_obj_, rt));

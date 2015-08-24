@@ -464,7 +464,7 @@ void Dhcpv6Handler::FillDhcpInfo(Ip6Address &addr, int plen,
 }
 
 bool Dhcpv6Handler::FindLeaseData() {
-    Ip6Address ip = vm_itf_->ip6_addr();
+    Ip6Address ip = vm_itf_->primary_ip6_addr();
     FindDomainName(ip);
     if (vm_itf_->ipv6_active()) {
         if (vm_itf_->fabric_port()) {

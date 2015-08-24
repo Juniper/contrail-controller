@@ -120,7 +120,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         const VmInterface *vmitf =
             static_cast<const VmInterface *>(intf);
         if (vmitf->do_dhcp_relay()) {
-            ip_ = vmitf->ip_addr().to_ulong();
+            ip_ = vmitf->primary_ip_addr().to_ulong();
         }
         network_id_ = vmitf->vxlan_id();
         rx_vlan_id_ = vmitf->rx_vlan_id();
@@ -215,8 +215,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         }
 
         if (vm_port->do_dhcp_relay()) {
-            if (ip_ != vm_port->ip_addr().to_ulong()) {
-                ip_ = vm_port->ip_addr().to_ulong();
+            if (ip_ != vm_port->primary_ip_addr().to_ulong()) {
+                ip_ = vm_port->primary_ip_addr().to_ulong();
                 ret = true;
             }
         } else {

@@ -314,7 +314,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
 
         if((*it)->GetLocalListSize() == 0) {
             MCTRACE(Info, "Del route for multicast address",
-                    vm_itf->ip_addr().to_string());
+                    vm_itf->primary_ip_addr().to_string());
             //Time to delete route(for mcast address) and mpls
             DeleteBroadcast(agent_->local_vm_peer(),
                             (*it)->vrf_name_, 0, Composite::L2INTERFACE);
@@ -324,7 +324,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
     }
     vm_to_mcobj_list_[vm_itf->GetUuid()].clear();
     DeleteVmToMulticastObjMap(vm_itf->GetUuid());
-    MCTRACE(Info, "Del vm notify done ", vm_itf->ip_addr().to_string());
+    MCTRACE(Info, "Del vm notify done ", vm_itf->primary_ip_addr().to_string());
 }
 
 //Delete multicast object for vrf/G
