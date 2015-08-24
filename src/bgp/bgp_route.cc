@@ -294,6 +294,11 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
     show_route->set_paths(show_route_paths);
 }
 
+static void FillRoutePathCommunityInfo(const Community *comm,
+    ShowRoutePath *show_path) {
+    comm->BuildStringList(&show_path->communities);
+}
+
 static void FillRoutePathExtCommunityInfo(const BgpTable *table,
     const ExtCommunity *extcomm,
     ShowRoutePath *show_path) {
@@ -426,9 +431,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_replicated(false);
         }
         if (attr->community()) {
-            CommunitySpec comm;
-            comm.communities = attr->community()->communities();
-            srp.communities.push_back(comm.ToString());
+            FillRoutePathCommunityInfo(attr->community(), &srp);
         }
         if (attr->ext_community()) {
             FillRoutePathExtCommunityInfo(table, attr->ext_community(), &srp);

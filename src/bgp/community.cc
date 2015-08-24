@@ -9,6 +9,7 @@
 
 #include <boost/foreach.hpp>
 
+#include "base/string_util.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
@@ -55,6 +56,13 @@ size_t CommunitySpec::EncodeLength() const {
     return communities.size() * sizeof(uint32_t);
 }
 
+void Community::Append(uint32_t value) {
+    if (ContainsValue(value))
+        return;
+    communities_.push_back(value);
+    sort(communities_.begin(), communities_.end());
+}
+
 void Community::Remove() {
     comm_db_->Delete(this);
 }
@@ -67,7 +75,45 @@ bool Community::ContainsValue(uint32_t value) const {
     return false;
 }
 
+void Community::BuildStringList(vector<string> *list) const {
+    BOOST_FOREACH(uint32_t community, communities_) {
+        string name;
+        switch (community) {
+        case AcceptOwn:
+            name = "accept-own";
+            break;
+        case NoExport:
+            name = "no-export";
+            break;
+        case NoAdvertise:
+            name = "no-advertise";
+            break;
+        case NoExportSubconfed:
+            name = "no-export-subconfed";
+            break;
+        default:
+            name = integerToString(community / 65536) + ":" +
+                integerToString(community % 65536);
+            break;
+        }
+        list->push_back(name);
+    }
+}
+
 CommunityDB::CommunityDB(BgpServer *server) {
+}
+
+CommunityPtr CommunityDB::AppendAndLocate(const Community *src,
+    uint32_t value) {
+    Community *clone;
+    if (src) {
+        clone = new Community(*src);
+    } else {
+        clone = new Community(this);
+    }
+
+    clone->Append(value);
+    return Locate(clone);
 }
 
 string ExtCommunitySpec::ToString() const {

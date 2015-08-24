@@ -350,6 +350,9 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
     }
 
     BgpAttrDB *attr_db = server->attr_db();
+    CommunityDB *comm_db = server->comm_db();
+    CommunityPtr new_community =
+        comm_db->AppendAndLocate(orig_community, Community::AcceptOwn);
     ExtCommunityDB *extcomm_db = server->extcomm_db();
     PeerRibMembershipManager *membership_mgr = server->membership_mgr();
     OriginVnPathDB *ovnpath_db = server->ovnpath_db();
@@ -405,10 +408,8 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
         // Replace extended community, community and origin vn path.
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             attr, new_ext_community);
-        if (orig_community) {
-            new_attr = attr_db->ReplaceCommunityAndLocate(new_attr.get(),
-                orig_community);
-        }
+        new_attr =
+            attr_db->ReplaceCommunityAndLocate(new_attr.get(), new_community);
         new_attr = attr_db->ReplaceOriginVnPathAndLocate(new_attr.get(),
             new_ovnpath);
 
