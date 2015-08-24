@@ -354,7 +354,7 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
             ret = false;
         }
 
-        strcpy(vnet_addr[id], vnet[id]->ip_addr().to_string().c_str());
+        strcpy(vnet_addr[id], vnet[id]->primary_ip_addr().to_string().c_str());
     }
 
     eth = EthInterfaceGet("vnet0");

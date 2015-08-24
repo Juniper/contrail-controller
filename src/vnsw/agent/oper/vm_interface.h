@@ -309,6 +309,45 @@ public:
         VrfAssignRuleSet list_;
     };
 
+    struct InstanceIp : ListEntry {
+        InstanceIp();
+        InstanceIp(const InstanceIp &rhs);
+        InstanceIp(const IpAddress &ip, bool ecmp, bool is_primary);
+        ~InstanceIp();
+        bool operator == (const InstanceIp &rhs) const;
+        bool operator() (const InstanceIp &lhs,
+                         const InstanceIp &rhs) const;
+        bool IsLess(const InstanceIp *rhs) const;
+        void L3Activate(VmInterface *interface, bool force_update) const;
+        void L3DeActivate(VmInterface *interface, VrfEntry *old_vrf) const;
+        void L2Activate(VmInterface *interface, bool force_update,
+                        uint32_t old_ethernet_tag) const;
+        void L2DeActivate(VmInterface *interface, VrfEntry *old_vrf,
+                          uint32_t old_ethernet_tag) const;
+        void DeActivate(VmInterface *interface, bool l2,
+                        VrfEntry *old_vrf, uint32_t old_ethernet_tag) const;
+        void Activate(VmInterface *interface, bool force_update, bool l2,
+                      int old_ethernet_tag) const;
+
+        const IpAddress ip_;
+        bool ecmp_;
+        mutable bool l2_installed_;
+        const Ip4Address gw_ip_;
+        mutable bool old_ecmp_;
+        mutable bool is_primary_;
+    };
+    typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
+
+    struct InstanceIpList {
+        InstanceIpList() : list_() { }
+        ~InstanceIpList() { };
+        void Insert(const InstanceIp *rhs);
+        void Update(const InstanceIp *lhs, const InstanceIp *rhs);
+        void Remove(InstanceIpSet::iterator &it);
+
+        InstanceIpSet list_;
+    };
+
     enum Trace {
         ADD,
         DELETE,
@@ -352,11 +391,11 @@ public:
     const VmEntry *vm() const { return vm_.get(); }
     const VnEntry *vn() const { return vn_.get(); }
     const MirrorEntry *mirror_entry() const { return mirror_entry_.get(); }
-    const Ip4Address &ip_addr() const { return ip_addr_; }
+    const Ip4Address &primary_ip_addr() const { return primary_ip_addr_; }
     bool policy_enabled() const { return policy_enabled_; }
     const Ip4Address &subnet_bcast_addr() const { return subnet_bcast_addr_; }
     const Ip4Address &mdata_ip_addr() const { return mdata_addr_; }
-    const Ip6Address &ip6_addr() const { return ip6_addr_; }
+    const Ip6Address &primary_ip6_addr() const { return primary_ip6_addr_; }
     const std::string &vm_mac() const { return vm_mac_; }
     bool fabric_port() const { return fabric_port_; }
     bool need_linklocal_ip() const { return  need_linklocal_ip_; }
@@ -418,6 +457,14 @@ public:
         return allowed_address_pair_list_;
     }
 
+    const InstanceIpList &instance_ipv4_list() const {
+        return instance_ipv4_list_;
+    }
+
+    const InstanceIpList &instance_ipv6_list() const {
+        return instance_ipv6_list_;
+    }
+
     void set_vxlan_id(int vxlan_id) { vxlan_id_ = vxlan_id; }
     void set_subnet_bcast_addr(const Ip4Address &addr) {
         subnet_bcast_addr_ = addr;
@@ -428,7 +475,7 @@ public:
     void set_mirror_direction(Interface::MirrorDirection mirror_direction) {
         mirror_direction_ = mirror_direction;
     }
-    void set_ip_addr(const Ip4Address &addr) { ip_addr_ = addr; }
+    void set_primary_ip_addr(const Ip4Address &addr) { primary_ip_addr_ = addr; }
 
     const std::string GetAnalyzer() const; 
 
@@ -486,7 +533,7 @@ public:
     bool GetIpamDhcpOptions(
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
-    Ip4Address GetGateway() const;
+    Ip4Address GetGateway(const IpAddress &ip) const;
     void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
@@ -552,16 +599,18 @@ private:
                      bool old_ipv6_active, const Ip6Address &old_v6_addr,
                      const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                      bool old_dhcp_enable, bool old_layer3_forwarding,
-                     bool force_update);
+                     bool force_update, const Ip4Address &old_dhcp_addr);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
                   const Ip6Address &old_v6_addr, const Ip4Address &subnet,
-                  const uint8_t old_subnet_plen);
+                  const uint8_t old_subnet_plen,
+                  const Ip4Address &old_dhcp_addr);
     void DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
-                  const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
+                  const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
+                  int old_ethernet_tag, const Ip4Address &old_dhcp_addr);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
@@ -634,15 +683,24 @@ private:
                        const MacAddress &mac);
     void UpdateVrfAssignRule();
     void DeleteVrfAssignRule();
+    void UpdateIpv4InstanceIp(bool force_update, bool policy_change,
+                              bool l2, uint32_t old_ethernet_tag);
+    void DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
+                              VrfEntry *old_vrf);
+    void UpdateIpv6InstanceIp(bool force_update, bool policy_change,
+                              bool l2, uint32_t old_ethernet_tag);
+    void DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
+                              VrfEntry *old_vrf);
+
     void AddL2ReceiveRoute(bool old_l2_active);
     void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
 
     VmEntryRef vm_;
     VnEntryRef vn_;
-    Ip4Address ip_addr_;
+    Ip4Address primary_ip_addr_;
     Ip4Address mdata_addr_;
     Ip4Address subnet_bcast_addr_;
-    Ip6Address ip6_addr_;
+    Ip6Address primary_ip6_addr_;
     std::string vm_mac_;
     bool policy_enabled_;
     MirrorEntryRef mirror_entry_;
@@ -680,6 +738,8 @@ private:
     ServiceVlanList service_vlan_list_;
     StaticRouteList static_route_list_;
     AllowedAddressPairList allowed_address_pair_list_;
+    InstanceIpList instance_ipv4_list_;
+    InstanceIpList instance_ipv6_list_;
 
     // Peer for interface routes
     std::auto_ptr<LocalVmPortPeer> peer_;
@@ -695,6 +755,9 @@ private:
     int ethernet_tag_;
     // Logical interface uuid to which the interface belongs
     boost::uuids::uuid logical_interface_;
+    Ip4Address nova_ip_addr_;
+    Ip6Address nova_ip6_addr_;
+    Ip4Address dhcp_addr_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -835,6 +898,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::StaticRouteList static_route_list_;
     VmInterface::VrfAssignRuleList vrf_assign_rule_list_;
     VmInterface::AllowedAddressPairList allowed_address_pair_list_;
+    VmInterface::InstanceIpList instance_ipv4_list_;
+    VmInterface::InstanceIpList instance_ipv6_list_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
     // Parent physical-interface. Used in VMWare/ ToR logical-interface

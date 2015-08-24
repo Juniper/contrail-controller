@@ -246,7 +246,7 @@ TEST_F(TestVnswIf, oper_state_1) {
     EXPECT_FALSE(vnet1_->ipv4_active());
     EXPECT_FALSE(vnet1_->l2_active());
     client->WaitForIdle();
-    EXPECT_TRUE(RouteGet(vnet1_->vrf()->GetName(), vnet1_->ip_addr(), 32) 
+    EXPECT_TRUE(RouteGet(vnet1_->vrf()->GetName(), vnet1_->primary_ip_addr(), 32)
                 == NULL);
 
     InterfaceEvent(true, "vnet1", (IFF_UP|IFF_RUNNING));
@@ -255,7 +255,7 @@ TEST_F(TestVnswIf, oper_state_1) {
     EXPECT_TRUE(vnet1_->ipv4_active());
     EXPECT_TRUE(vnet1_->l2_active());
 
-    EXPECT_TRUE(RouteGet(vnet1_->vrf()->GetName(), vnet1_->ip_addr(), 32) 
+    EXPECT_TRUE(RouteGet(vnet1_->vrf()->GetName(), vnet1_->primary_ip_addr(), 32)
                 != NULL);
 }
 

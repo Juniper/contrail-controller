@@ -714,7 +714,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     linklocal_flow = true;
     nat_done = true;
     nat_ip_saddr = Ip4Address(METADATA_IP_ADDR);
-    nat_ip_daddr = vm_port->ip_addr();
+    nat_ip_daddr = vm_port->primary_ip_addr();
     nat_dport = pkt->dport;
     if (pkt->sport == flow_table->agent()->metadata_server_port()) {
         nat_sport = METADATA_NAT_PORT;
@@ -747,7 +747,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         vm_port->floating_ip_list().list_;
 
     // We must NAT if the IP-DA is not same as Primary-IP on interface
-    if (pkt->ip_daddr.to_v4() == vm_port->ip_addr()) {
+    if (pkt->ip_daddr.to_v4() == vm_port->primary_ip_addr()) {
         return;
     }
 
@@ -783,7 +783,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     // Translate the Dest-IP
     if (nat_done == false)
         nat_ip_saddr = pkt->ip_saddr;
-    nat_ip_daddr = vm_port->ip_addr();
+    nat_ip_daddr = vm_port->primary_ip_addr();
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
     nat_vrf = dest_vrf;

@@ -213,14 +213,14 @@ TEST_F(IcmpTest, IcmpPingTest) {
         stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
-    } while (stats.icmp_gw_ping < 2);
+    } while (stats.icmp_gw_ping < 6);
     client->WaitForIdle();
-    EXPECT_EQ(2U, stats.icmp_gw_ping);
+    EXPECT_EQ(6U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
 
     IcmpInfo *sand1 = new IcmpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 2));
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 6));
     sand1->HandleRequest();
     client->WaitForIdle();
     sand1->Release();
@@ -238,14 +238,14 @@ TEST_F(IcmpTest, IcmpPingTest) {
         stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
-    } while (stats.icmp_gw_ping < 3);
+    } while (stats.icmp_gw_ping < 8);
     client->WaitForIdle();
-    EXPECT_EQ(3U, stats.icmp_gw_ping);
+    EXPECT_EQ(8U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
 
     IcmpInfo *sand2 = new IcmpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 3));
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 8));
     sand2->HandleRequest();
     client->WaitForIdle();
     sand2->Release();
@@ -276,9 +276,9 @@ TEST_F(IcmpTest, IcmpPingTest) {
         stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
-    } while (stats.icmp_gw_ping < 4);
+    } while (stats.icmp_gw_ping < 10);
     client->WaitForIdle();
-    EXPECT_EQ(4U, stats.icmp_gw_ping);
+    EXPECT_EQ(10U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
 
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[0].gw)));
@@ -297,14 +297,14 @@ TEST_F(IcmpTest, IcmpPingTest) {
         stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
-    } while (stats.icmp_gw_ping < 9);
+    } while (stats.icmp_gw_ping < 19);
     client->WaitForIdle();
-    EXPECT_EQ(9U, stats.icmp_gw_ping);
+    EXPECT_EQ(19U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
 
     IcmpInfo *sand3 = new IcmpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 9));
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 19));
     sand3->HandleRequest();
     client->WaitForIdle();
     sand3->Release();

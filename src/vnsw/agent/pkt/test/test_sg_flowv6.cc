@@ -339,7 +339,7 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
             ret = false;
         }
 
-        strcpy(vnet_addr[id], vnet[id]->ip6_addr().to_string().c_str());
+        strcpy(vnet_addr[id], vnet[id]->primary_ip6_addr().to_string().c_str());
     }
 
     return ret;
