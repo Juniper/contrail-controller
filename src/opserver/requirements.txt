@@ -1,9 +1,9 @@
 lxml
-gevent
-geventhttpclient
+gevent==1.1a2
+geventhttpclient==1.0a
 redis
 xmltodict
 prettytable
 psutil>=0.4.1
-bottle==0.11.6
+bottle==0.12.8
 
