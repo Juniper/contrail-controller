@@ -97,6 +97,8 @@ struct ItfSandeshData {
    47: string physical_device;
    48: string physical_interface;
    49: optional string ipv4_active;
+   50: list<string> fixed_ip4_list;
+   51: list<string> fixed_ip6_list;
 }
 
 struct VnIpamData {

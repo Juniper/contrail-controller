@@ -273,7 +273,7 @@ bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
     Interface *intf = FindInterfaceFromMetadataIp(ip);
     if (intf && intf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vintf = static_cast<const VmInterface *>(intf);
-        *vm_ip = vintf->ip_addr().to_string();
+        *vm_ip = vintf->primary_ip_addr().to_string();
         if (vintf->vm()) {
             *vm_uuid = UuidToString(vintf->vm()->GetUuid());
             *vm_project_uuid = UuidToString(vintf->vm_project_uuid());
@@ -743,8 +743,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_vn_name(vintf->vn()->GetName());
         if (vintf->vm())
             data.set_vm_uuid(UuidToString(vintf->vm()->GetUuid()));
-        data.set_ip_addr(vintf->ip_addr().to_string());
-        data.set_ip6_addr(vintf->ip6_addr().to_string());
+        data.set_ip_addr(vintf->primary_ip_addr().to_string());
+        data.set_ip6_addr(vintf->primary_ip6_addr().to_string());
         data.set_mac_addr(vintf->vm_mac());
         data.set_mdata_ip_addr(vintf->mdata_ip_addr().to_string());
         data.set_vxlan_id(vintf->vxlan_id());
@@ -802,7 +802,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
             if (!ipv4_active_) {
                 string reason = "Ipv4 Inactive < " + v4_v6_common_reason;
-                if (vintf->ip_addr().to_ulong() == 0) {
+                if (vintf->primary_ip_addr().to_ulong() == 0) {
                     reason += "no-ipv4-addr ";
                 }
                 reason += " >";
@@ -810,7 +810,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             }
             if (!ipv6_active_) {
                 string reason = "Ipv6 Inactive < " + v4_v6_common_reason;
-                if (vintf->ip6_addr().is_unspecified()) {
+                if (vintf->primary_ip6_addr().is_unspecified()) {
                     reason += "no-ipv6-addr ";
                 }
                 reason += " >";
@@ -909,6 +909,26 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             aap_list.push_back(entry);
         }
         data.set_allowed_address_pair_list(aap_list);
+
+        std::vector<std::string> fixed_ip4_list;
+        VmInterface::InstanceIpSet::iterator fixed_ip4_it =
+            vintf->instance_ipv4_list().list_.begin();
+        while (fixed_ip4_it != vintf->instance_ipv4_list().list_.end()) {
+            const VmInterface::InstanceIp &rt = *fixed_ip4_it;
+            fixed_ip4_it++;
+            fixed_ip4_list.push_back(rt.ip_.to_string());
+        }
+        data.set_fixed_ip4_list(fixed_ip4_list);
+
+        std::vector<std::string> fixed_ip6_list;
+        VmInterface::InstanceIpSet::iterator fixed_ip6_it =
+            vintf->instance_ipv6_list().list_.begin();
+        while (fixed_ip6_it != vintf->instance_ipv6_list().list_.end()) {
+            const VmInterface::InstanceIp &rt = *fixed_ip6_it;
+            fixed_ip6_it++;
+            fixed_ip6_list.push_back(rt.ip_.to_string());
+        }
+        data.set_fixed_ip6_list(fixed_ip6_list);
 
         if (vintf->fabric_port()) {
             data.set_fabric_port("FabricPort");

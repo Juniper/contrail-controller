@@ -55,7 +55,8 @@ bool Icmpv6Handler::Run() {
                 Ip6Address prefix;
                 uint8_t plen;
                 if (vm_itf->vn() &&
-                    vm_itf->vn()->GetPrefix(vm_itf->ip6_addr(), &prefix, &plen)) {
+                    vm_itf->vn()->GetPrefix(vm_itf->primary_ip6_addr(),
+                                            &prefix, &plen)) {
                     boost::system::error_code ec;
                     Ip6Address src_addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
                     uint32_t interface =
@@ -109,7 +110,7 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
                 (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) + sizeof(ip6_hdr));
             Ip6Address prefix;
             uint8_t plen;
-            if ((*it)->vn()->GetPrefix((*it)->ip6_addr(), &prefix, &plen)) {
+            if ((*it)->vn()->GetPrefix((*it)->primary_ip6_addr(), &prefix, &plen)) {
                 SendRAResponse((*it)->id(), (*it)->vrf()->vrf_id(),
                                src_addr.to_bytes().data(),
                                dest_addr.to_bytes().data(),

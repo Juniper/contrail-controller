@@ -606,7 +606,7 @@ void DhcpHandler::ReleaseGatewayInterfaceLease() {
 
 bool DhcpHandler::FindLeaseData() {
     Ip4Address unspecified;
-    Ip4Address ip = vm_itf_->ip_addr();
+    Ip4Address ip = vm_itf_->primary_ip_addr();
     // Change client name to VM name; this is the name assigned to the VM
     config_.client_name_ = vm_itf_->vm_name();
     FindDomainName(ip);

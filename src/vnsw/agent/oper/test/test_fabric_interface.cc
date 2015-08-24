@@ -255,7 +255,7 @@ TEST_F(FabricInterfaceTest, dhcp_snoop_1) {
     client->WaitForIdle();
 
     EXPECT_TRUE(intf->do_dhcp_relay());
-    EXPECT_TRUE(intf->ip_addr().to_string() == "1.1.1.1");
+    EXPECT_TRUE(intf->primary_ip_addr().to_string() == "1.1.1.1");
     InetUnicastRouteEntry *rt;
     rt = RouteGet(fabric_vrf_name_, Ip4Address::from_string("1.1.1.1"), 32);
     EXPECT_TRUE(rt != NULL);

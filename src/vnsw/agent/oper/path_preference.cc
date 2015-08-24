@@ -515,7 +515,7 @@ void PathPreferenceIntfState::Notify() {
     if (intf_->vrf()) {
         instance_ip_.vrf_name_ = intf_->vrf()->GetName();
     }
-    instance_ip_.ip_ = intf_->ip_addr();
+    instance_ip_.ip_ = intf_->primary_ip_addr();
     instance_ip_.plen_ = 32;
 
     //Check if the native IP is active
