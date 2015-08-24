@@ -94,3 +94,4 @@ OpEnv.Depends(sdist_gen, sdist_depends)
 OpEnv.Default(sdist_gen)
 
 OpEnv.Alias("src:nodemgr", sdist_gen)
+OpEnv.Alias("contrail-nodemgr", sdist_gen)

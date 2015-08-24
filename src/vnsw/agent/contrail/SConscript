@@ -108,7 +108,7 @@ contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
                                'pkt0_interface_base.cc',
                                 platform_dependent])
 
-env.Alias('agent:contrail-vrouter-agent', contrail_vrouter_agent)
+env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
 # Please update sandesh/common/vns.sandesh on process name change

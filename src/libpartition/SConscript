@@ -48,4 +48,4 @@ PartEnv['LIBPARTITION_PKG'] = sdist_gen
 #PartEnv.SConscript('docs/SConscript', exports='PartEnv', duplicate = 0)
 
 PartEnv.Default(sdist_gen)
-PartEnv.Alias("src/libpartition:libpartition", sdist_gen)
+PartEnv.Alias("contrail:libpartition", sdist_gen)

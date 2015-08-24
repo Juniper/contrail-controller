@@ -93,7 +93,7 @@ OpEnv.SConscript('plugins/alarm_vrouter_interface/SConscript', exports='OpEnv', 
 OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
-OpEnv.Alias("src/opserver:opserver", sdist_gen)
+OpEnv.Alias("contrail-analytics-api", sdist_gen)
 
 OpEnv.SConscript('node_mgr/SConscript', exports='BuildEnv', duplicate = 0)
 OpEnv.Alias('install', OpEnv.Install(

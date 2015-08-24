@@ -164,7 +164,7 @@ qedt = env.UnitTest(
         ['../analytics/vizd_table_desc.o', rac,
         '../analytics/viz_constants.o'])
 
-env.Alias("src/query_engine:qed", qed)
+env.Alias("contrail-query-engine", qed)
 env.Alias("src/query_engine:qedt", qedt)
 
 env.Depends(qed, '#/build/include/hiredis/hiredis.h')

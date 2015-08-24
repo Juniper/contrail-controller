@@ -177,7 +177,7 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         syslog_collector_obj,
         parser_util_obj,
         ])
-AnalyticsEnv.Alias('src/analytics:vizd', vizd)
+AnalyticsEnv.Alias('contrail-collector', vizd)
 AnalyticsEnv.Default(vizd)
 
 AnalyticsEnv.Requires(OpServerProxy_obj, '#/build/include/rapidjson')
