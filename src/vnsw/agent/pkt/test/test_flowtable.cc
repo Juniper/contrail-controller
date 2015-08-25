@@ -74,7 +74,7 @@ FlowEntry *FlowInit(TestFlowKey *t) {
     FlowEntry *flow = FlowEntry::Allocate(key);
 
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
-                                                    100, 0, 0));
+                                                    100, PktHandler::FLOW, 0));
     PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
     PktInfo *pkt = pkt_info.get();
 
@@ -266,7 +266,8 @@ public:
         t->InitFlowKey(&key);
         FlowEntry *flow = FlowEntry::Allocate(key);
 
-        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0, 0));
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0,
+                                                        PktHandler::FLOW, 0));
         pkt_info->family = Address::INET;
         PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();

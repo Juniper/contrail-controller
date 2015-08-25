@@ -54,8 +54,8 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
 PktHandler::~PktHandler() {
 }
 
-void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
-    enqueue_cb_.at(type) = cb;
+void PktHandler::Register(PktModuleName type, Proto *proto) {
+    proto_list_.at(type) = proto;
 }
 
 uint32_t PktHandler::EncapHeaderLen() const {
@@ -188,23 +188,63 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     return INVALID;
 }
 
-void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
-    boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
-    uint8_t *pkt = buff->data();
+static PktHandler::PktModuleName AgentHdrToModule(const AgentHdr &hdr) {
+    PktHandler::PktModuleName module = PktHandler::INVALID;
 
-    PktModuleName mod = ParsePacket(hdr, pkt_info.get(), pkt);
-    pkt_info->packet_buffer()->set_module(mod);
+    switch (hdr.cmd) {
+    case AgentHdr::TRAP_RESOLVE:
+    case AgentHdr::TRAP_ARP:
+        module = PktHandler::ARP;
+        break;
+
+    case AgentHdr::TRAP_TOR_CONTROL_PKT:
+    case AgentHdr::TRAP_L3_PROTOCOLS:
+        module = PktHandler::DHCP;
+        break;
+
+    case AgentHdr::TRAP_NEXTHOP:
+        module = PktHandler::DNS;
+        break;
+    case AgentHdr::TRAP_ZERO_TTL:
+    case AgentHdr::TRAP_DIAG:
+        module = PktHandler::DIAG;
+        break;
+
+    case AgentHdr::TRAP_ICMP_ERROR:
+    case AgentHdr::TRAP_HANDLE_DF:
+        module = PktHandler::ICMP_ERROR;
+        break;
+
+    case AgentHdr::TRAP_FLOW_MISS:
+    case AgentHdr::TRAP_ECMP_RESOLVE:
+        module = PktHandler::FLOW;
+        break;
+
+    case AgentHdr::TRAP_L2_PROTOCOL:
+    case AgentHdr::TRAP_SOURCE_MISMATCH:
+        assert(0);
+        break;
+
+    case AgentHdr::TX_SWITCH:
+    case AgentHdr::TX_ROUTE:
+    default:
+        break;
+    }
+
+    return module;
+}
+
+void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(buff));
+    PktModuleName mod = AgentHdrToModule(hdr);
+    pkt_info->agent_hdr = hdr;
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len, pkt_info->pkt,
-                                   &pkt_info->agent_hdr);
     if (mod == INVALID) {
         agent_->stats()->incr_pkt_dropped();
         return;
     }
 
-    if (!(enqueue_cb_.at(mod))(pkt_info)) {
-        stats_.PktQThresholdExceeded(mod);
-    }
+    Enqueue(mod, pkt_info);
     return;
 }
 
@@ -601,8 +641,8 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 // Enqueue an inter-task message to the specified module
 void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
     if (mod < MAX_MODULES) {
-        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg));
-        if (!(enqueue_cb_.at(mod))(pkt_info)) {
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(mod, msg));
+        if (!(proto_list_.at(mod)->Enqueue(pkt_info))) {
             PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" <<
                       mod << ">");
         }
@@ -843,6 +883,7 @@ void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
 ///////////////////////////////////////////////////////////////////////////////
 
 PktInfo::PktInfo(const PacketBufferPtr &buff) :
+    module(PktHandler::INVALID),
     pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
@@ -851,8 +892,9 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     transp.tcp = 0;
 }
 
-PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
+PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
                  uint32_t mdata) :
+    module(mod),
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
@@ -867,7 +909,8 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
     transp.tcp = 0;
 }
 
-PktInfo::PktInfo(InterTaskMsg *msg) :
+PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
+    module(mod),
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
@@ -929,6 +972,20 @@ std::size_t PktInfo::hash() const {
     boost::hash_combine(seed, sport);
     boost::hash_combine(seed, dport);
     return seed;
+}
+
+void PktHandler::AddPktTrace(PktModuleName module, PktTrace::Direction dir,
+                             const PktInfo *pkt) {
+    pkt_trace_.at(module).AddPktTrace(PktTrace::In, pkt->len, pkt->pkt,
+                                      &pkt->agent_hdr);
+}
+
+void PktHandler::Enqueue(PktModuleName module,
+                         boost::shared_ptr<PktInfo> pkt_info) {
+    if (!(proto_list_.at(module)->Enqueue(pkt_info))) {
+        stats_.PktQThresholdExceeded(module);
+    }
+    return;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
