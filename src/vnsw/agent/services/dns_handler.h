@@ -94,7 +94,7 @@ private:
     uint32_t retries_[MAX_XMPP_SERVERS];
     Action action_;
     QueryKey *rkey_;
-    Timer *timer_;
+    Timer *timer_[MAX_XMPP_SERVERS];
     std::string ipam_name_;
     std::string domain_name_;
     autogen::IpamType ipam_type_;
