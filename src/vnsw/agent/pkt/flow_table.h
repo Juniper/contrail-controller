@@ -333,6 +333,26 @@ class FlowEntry {
     static const uint8_t kMaxMirrorsPerFlow=0x2;
     static const std::map<FlowPolicyState, const char*> FlowPolicyStateStr;
 
+    struct LinkLocalFd {
+        int fd;
+        mutable uint32_t flow_index;
+        mutable FlowKey flow_key;
+        mutable uint64_t timestamp;
+
+        LinkLocalFd(int desc, uint32_t index, const FlowKey &key) :
+            fd(desc), flow_index(index), flow_key(key) {
+            timestamp = ClockMonotonicUsec();
+        }
+        bool operator<(const LinkLocalFd &rhs) const {
+            return fd < rhs.fd;
+        }
+    };
+    typedef std::set<LinkLocalFd> LinkLocalFdSet;
+    static LinkLocalFdSet linklocal_fd_set_;
+    static const LinkLocalFdSet &linklocal_fd_set() {
+        return linklocal_fd_set_;
+    }
+
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
         PCAP_CAPTURE_HOST = 1,
@@ -359,6 +379,7 @@ class FlowEntry {
     virtual ~FlowEntry() {
         if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
             close(linklocal_src_port_fd_);
+            DelLinkLocalFd(linklocal_src_port_fd_);
         }
         alloc_count_.fetch_and_decrement();
     };
@@ -447,6 +468,9 @@ class FlowEntry {
     }
     uint16_t short_flow_reason() const { return short_flow_reason_; }
     bool set_pending_recompute(bool value);
+    static void AddLinkLocalFd(int fd, uint32_t index, const FlowKey &key);
+    static void DelLinkLocalFd(int fd);
+
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;

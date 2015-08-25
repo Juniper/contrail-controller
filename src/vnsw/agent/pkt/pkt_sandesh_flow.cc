@@ -413,4 +413,31 @@ void FlowAgeTimeReq::HandleRequest() const {
     resp->Response();
 }
 
+void FetchLinkLocalFdInfo::HandleRequest() const {
+    LinkLocalFdInfoResp *resp = new LinkLocalFdInfoResp();
+    std::vector<LinkLocalFdInfo> &list =
+        const_cast<std::vector<LinkLocalFdInfo>&>(resp->get_linklocal_fd_list());
+
+    const FlowEntry::LinkLocalFdSet &linklocal_fd_set =
+                        FlowEntry::linklocal_fd_set();
+    FlowEntry::LinkLocalFdSet::const_iterator it = linklocal_fd_set.begin();
+    while (it != linklocal_fd_set.end()){
+        LinkLocalFdInfo info;
+        info.fd = it->fd;
+        info.flow_index = it->flow_index;
+        info.source_addr = it->flow_key.src_addr.to_string();
+        info.dest_addr = it->flow_key.dst_addr.to_string();
+        info.protocol = it->flow_key.protocol;
+        info.source_port = it->flow_key.src_port;
+        info.dest_port = it->flow_key.dst_port;
+        info.timestamp = integerToString(UTCUsecToPTime(it->timestamp));
+        list.push_back(info);
+        ++it;
+    }
+
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
