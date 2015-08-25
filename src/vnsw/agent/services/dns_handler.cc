@@ -24,11 +24,13 @@ DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
         retries_[count] = 0;
+        std::stringstream ss;
+        ss << "DnsHandlerTimer " << count;
+        timer_[count] = TimerManager::CreateTimer(io, ss.str(),
+            TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+            PktHandler::DNS);
         count++;
     }
-    timer_ = TimerManager::CreateTimer(io, "DnsHandler Timer",
-         TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
-         PktHandler::DNS);
 }
 
 DnsHandler::~DnsHandler() {
@@ -39,8 +41,12 @@ DnsHandler::~DnsHandler() {
     if (rkey_) {
         delete rkey_;
     }
-    timer_->Cancel();
-    TimerManager::DeleteTimer(timer_);
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        timer_[count]->Cancel();
+        TimerManager::DeleteTimer(timer_[count]);
+        count++;
+    }
 }
 
 bool DnsHandler::Run() {
@@ -404,14 +410,15 @@ bool DnsHandler::SendDnsQuery(int8_t idx, uint16_t xid) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to named server : " <<
                        agent()->dns_server(idx) <<
                        "; xid =" << xid << " " << DnsItemsToString(items_));
-        timer_->Cancel();
-        timer_->Start(dns_proto->timeout(),
+        timer_[idx]->Cancel();
+        timer_[idx]->Start(dns_proto->timeout(),
                       boost::bind(&DnsHandler::TimerExpiry, this, xid));
         return true;
     } 
 cleanup:
     dns_proto->IncrStatsDrop();
     dns_proto->DelDnsQuery(xid);
+    dns_proto->DelDnsQueryIndex(xid);
     return false;
 }
 
@@ -532,6 +539,7 @@ bool DnsHandler::HandleBindResponse() {
     uint16_t xid = ntohs(*(uint16_t *)ipc->resp);
     DnsProto *dns_proto = agent()->GetDnsProto();
     DnsHandler *handler = dns_proto->GetDnsQueryHandler(xid);
+    bool valid_response = false;
     if (handler) {
         dns_flags flags;
         DnsItems ques, ans, auth, add;
@@ -539,7 +547,6 @@ bool DnsHandler::HandleBindResponse() {
                                        ques, ans, auth, add)) {
             switch(handler->action_) {
                 case DnsHandler::DNS_QUERY:
-                    handler->Resolve(flags, ques, ans, auth, add);
                     if (flags.ret) {
                         DNS_BIND_TRACE(DnsBindError, "Query failed : " <<
                                        BindUtil::DnsResponseCode(flags.ret) <<
@@ -547,6 +554,8 @@ bool DnsHandler::HandleBindResponse() {
                                        DnsItemsToString(items_) <<
                                        DnsItemsToString(linklocal_items_));
                     } else {
+                        valid_response = true;
+                        handler->Resolve(flags, ques, ans, auth, add);
                         DNS_BIND_TRACE(DnsBindTrace,
                                        "Query successful : xid = " <<
                                        xid << " " << DnsItemsToString(ans) <<
@@ -566,11 +575,14 @@ bool DnsHandler::HandleBindResponse() {
 
         dns_proto->DelDnsQuery(xid);
         dns_proto->DelDnsQueryIndex(xid);
-        dns_proto->DelDnsQueryHandler(handler);
 
-        /* Delete Request on Response from any one DNS Server */
-        dns_proto->DelVmRequest(handler->rkey_);
-        delete handler;
+        if ((valid_response) || (!dns_proto->IsDnsHandlerInUse(handler))) {
+            dns_proto->DelDnsQueryHandler(handler);
+            /* Delete Request on valid Response from any one DNS Server */
+            /* Delete Request if both DNS Servers have invalid response */
+            dns_proto->DelVmRequest(handler->rkey_);
+            delete handler;
+        }
     } else {
         DNS_BIND_TRACE(DnsBindError, "Invalid or Response ignored xid " << xid <<
                        " received from DNS server - dropping");
