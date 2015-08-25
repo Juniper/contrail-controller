@@ -127,9 +127,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Packets needing flow
-    if ((hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-         hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE)) {
-        
+    if (IsFlowPacket(pkt_info)) {
         if ((pkt_info->ip && pkt_info->family == Address::INET) ||
             (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
             return FLOW;
@@ -217,6 +215,7 @@ static PktHandler::PktModuleName AgentHdrToModule(const AgentHdr &hdr) {
 
     case AgentHdr::TRAP_FLOW_MISS:
     case AgentHdr::TRAP_ECMP_RESOLVE:
+    case AgentHdr::TRAP_HOLD_ACTION:
         module = PktHandler::FLOW;
         break;
 
@@ -402,9 +401,8 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->icmp_id);
-        } else if ((pkt_info->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-                    pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) &&
-                   (icmp->icmp_type == ICMP_DEST_UNREACH)) {
+        } else if (IsFlowPacket(pkt_info) &&
+                   icmp->icmp_type == ICMP_DEST_UNREACH) {
             //Agent has to look at inner payload
             //and recalculate the parameter
             //Handle this only for packets requiring flow miss
@@ -655,8 +653,7 @@ bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
 
     uint16_t offset = htons(pkt_info->ip->ip_off);
     if (((offset & IP_MF) || (offset & IP_OFFMASK)) &&
-        (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_FLOW_MISS) &&
-        (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ECMP_RESOLVE))
+        !IsFlowPacket(pkt_info))
         return true;
     return false;
 }
@@ -791,6 +788,15 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     // IP Packets
     ParseIpPacket(pkt_info, pkt_type, pkt);
     return true;
+}
+
+bool PktHandler::IsFlowPacket(PktInfo *pkt_info) {
+    if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE ||
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_HOLD_ACTION) {
+        return true;
+    }
+    return false;
 }
 
 bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {

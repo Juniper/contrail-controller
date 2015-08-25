@@ -188,7 +188,8 @@ struct FlowData {
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         source_plen(0), dest_plen(0), drop_reason(0),
         vrf_assign_evaluated(false), pending_recompute(false),
-        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen) {
+        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen),
+        vrouter_evicted_flow(false){
     }
 
     MacAddress smac;
@@ -226,6 +227,7 @@ struct FlowData {
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
     uint8_t l2_rpf_plen;
+    bool vrouter_evicted_flow;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };

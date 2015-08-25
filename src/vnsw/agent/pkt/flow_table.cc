@@ -175,6 +175,7 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow) {
 }
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
+    EvictVrouterFlow(flow, flow->flow_handle_);
     FlowEntry *new_flow = Locate(flow);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow) : NULL;
     Add(flow, new_flow, rflow, new_rflow, false);
@@ -233,6 +234,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     UpdateReverseFlow(flow, rflow);
+    AddIndexFlowInfo(flow, flow->flow_handle_);
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -539,6 +541,34 @@ uint32_t FlowTable::VmLinkLocalFlowCount(const VmEntry *vm) {
     return 0;
 }
 
+void FlowTable::DeleteVrouterEvictedFlow(FlowEntry *flow) {
+    flow->data().vrouter_evicted_flow = true;
+    if (flow->reverse_flow_entry()) {
+        flow->reverse_flow_entry()->data().vrouter_evicted_flow = true;
+    }
+    Delete(flow->key(), true);
+}
+
+void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
+        flow_index_tree_.insert(std::pair<uint32_t,FlowEntry*>(flow_handle,
+                                                               flow));
+    }
+}
+
+void FlowTable::DeleteByIndex(uint32_t flow_handle) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
+        flow_index_tree_.erase(flow_handle);
+    }
+}
+
+FlowEntry* FlowTable::FindByIndex(uint32_t flow_handle) {
+    FlowIndexTree::iterator it = flow_index_tree_.find(flow_handle);
+    if (it != flow_index_tree_.end()) {
+        return it->second;
+    }
+    return NULL;
+}
 ////////////////////////////////////////////////////////////////////////////
 // Flow Info tree management
 ////////////////////////////////////////////////////////////////////////////
@@ -999,4 +1029,29 @@ void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow) {
     if (rflow) {
         SendFlowInternal(rflow);
     }
+}
+
+void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
+    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
+        return;
+    }
+
+    FlowEntry *flow = FindByIndex(flow_handle);
+    if (flow && flow != fe) {
+        DeleteVrouterEvictedFlow(flow);
+    }
+}
+
+void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
+    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
+        return;
+    }
+
+    FlowEntry *flow = FindByIndex(flow_handle);
+    if (flow && flow != fe) {
+        DeleteVrouterEvictedFlow(flow);
+    }
+
+    InsertByIndex(flow_handle, fe);
+    fe->set_flow_handle(flow_handle, this);
 }

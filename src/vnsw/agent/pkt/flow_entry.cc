@@ -142,6 +142,7 @@ void intrusive_ptr_release(FlowEntry *fe) {
                 table->flow_entry_map_.find(fe->key());
             assert(it != table->flow_entry_map_.end());
             table->flow_entry_map_.erase(it);
+            table->DeleteByIndex(fe->flow_handle());
         }
         delete fe;
     }
@@ -199,6 +200,7 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.in_vm_entry = ctrl->vm_ ? ctrl->vm_ : NULL;
     data_.out_vm_entry = rev_ctrl->vm_ ? rev_ctrl->vm_ : NULL;
     l3_flow_ = info->l3_flow;
+    data_.vrouter_evicted_flow = false;
 
     return true;
 }

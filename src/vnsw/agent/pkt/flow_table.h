@@ -122,6 +122,7 @@ public:
     typedef std::map<const VmEntry *, VmFlowInfo *> VmFlowTree;
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
     typedef boost::function<bool(FlowEntry *flow)> FlowEntryCb;
+    typedef std::map<uint32_t, FlowEntry *> FlowIndexTree;
 
     FlowTable(Agent *agent);
     virtual ~FlowTable();
@@ -196,7 +197,12 @@ public:
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);
     void DeleteFlow(const FlowEntry *flow);
-
+    void DeleteByIndex(uint32_t flow_handle);
+    void InsertByIndex(uint32_t flow_handle, FlowEntry *flow);
+    FlowEntry *FindByIndex(uint32_t flow_handle);
+    void DeleteVrouterEvictedFlow(FlowEntry *flow);
+    void AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index);
+    void EvictVrouterFlow(FlowEntry *fe, uint32_t flow_index);
     void UpdateKSync(FlowEntry *flow);
 
     // Flow Table request queue events
@@ -243,7 +249,7 @@ private:
     uint32_t max_vm_flows_;     // maximum flow count allowed per vm
     uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
     WorkQueue<FlowTableRequest> request_queue_;
-
+    FlowIndexTree flow_index_tree_;
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 
