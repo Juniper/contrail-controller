@@ -1344,6 +1344,10 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
     }
 
+    // copy the linklocal port, fd from the flow, required for recompute cases
+    nat_sport = flow->linklocal_src_port();
+    linklocal_src_port_fd = flow->linklocal_src_port_fd();
+
     if (pkt->family == Address::INET) {
         Ip4Address v4_src = pkt->ip_saddr.to_v4();
         if (ingress && !short_flow && !linklocal_flow) {
@@ -1373,9 +1377,10 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         short_flow_reason = FlowEntry::SHORT_FLOW_LIMIT;
     }
 
-    if (!short_flow && linklocal_bind_local_port &&
-        flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
-        nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
+    if (!short_flow && linklocal_bind_local_port) {
+        if (flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
+            nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
+        }
         if (!nat_sport) {
             flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
             short_flow = true;
