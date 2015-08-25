@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<test_suite name="pkt-parse">
+<test name="vrf-vn-1" verbose="0">
+    <virtual-network uuid="1" name="vn1" vxlan-id="2" network-id="2"/>
+    <virtual-machine uuid="1" name="vm1"/>
+    <vrf uuid="1" name="vrf1" />
+    <vmi-vrf uuid="1" name="tap1-vm1" />
+    <link left="virtual-network" left-name="vn1"
+          right="routing-instance" right-name="vrf1" />
+
+    <virtual-machine-interface nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:01:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+
+    <validate name="validate-1">
+        <virtual-network name="vn1" uuid="1" present="1" />
+        <virtual-machine-interface name="tap1" uuid="1" present="1" active="1" />
+        <virtual-machine name="vm1" uuid="1" present="1"/>
+    </validate>
+    <fdb uuid="1" id="1" name="fdb_1" mac="00:00:00:00:01:02" vrf="vrf1"
+     vn="vn1" vxlan_id="0" tunnel-dest="5.5.5.5" tunnel-type="vxlan" sg="2"
+     label="5" />
+
+    <packet uuid="1" id="1" name="l2-tcp-from-fabric" intf="1" fwd_mode="l2"
+     tunnel_type="vxlan" tunnel_sip="10.10.10.10"
+     smac="00:00:00:00:01:02" dmac="00:00:00:00:01:01"
+     sip="1.1.1.2" dip="1.1.1.1" proto="tcp" sport="1" dport="1"
+     type="flow" hash_id="1"/>
+
+    <validate name="validate-1">
+        <flow name="l2-vxlan-tcp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="10" sip="1.1.1.2"
+         dip="1.1.1.1" proto="tcp" sport="1" dport="1" svn="vn1"
+         dvn="vn1" action="pass"/> 
+    </validate>
+
+
+    <packet uuid="1" id="1" name="l2-tcp-from-fabric" intf="1" fwd_mode="l2"
+     tunnel_type="gre" tunnel_sip="10.10.10.10"
+     smac="00:00:00:00:01:02" dmac="00:00:00:00:01:01"
+     sip="1.1.1.2" dip="1.1.1.1" proto="tcp" sport="1" dport="2"
+     type="flow" hash_id="1"/>
+ 
+    <validate name="validate-2">
+        <flow name="l2-vxlan-tcp-to-vm-vxlan-2" uuid="1" vrf="vrf1" nh="10" sip="1.1.1.2"
+         dip="1.1.1.1" proto="tcp" sport="1" dport="1" svn="vn1"
+         dvn="vn1" deleted="true"/> 
+        <flow name="l2-gre-tcp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="14" sip="1.1.1.2"
+         dip="1.1.1.1" proto="tcp" sport="1" dport="2" svn="vn1"
+         dvn="vn1" action="pass"/> 
+    </validate>
+
+    <fdb uuid="1" id="1" name="fdb_1" delete="1" mac="00:00:00:00:01:02" vrf="vrf1"
+     vn="vn1" vxlan_id="0" tunnel-dest="5.5.5.5" tunnel-type="vxlan" sg="1"
+     label="5" />
+    <virtual-machine-interface delete="1" nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+
+    <virtual-machine delete="1" uuid="1" name="vm1"/>
+    <vmi-vrf delete="1" uuid="1" name="tap1-vm1" />
+    <vrf delete="1" uuid="1" name="vrf1" />
+    <virtual-network delete="1" uuid="1" name="vn1">
+</test>
+</test_suite>

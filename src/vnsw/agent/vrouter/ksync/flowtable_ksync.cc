@@ -148,7 +148,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int error;
     uint16_t action = 0;
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
-    FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
+
+    if (flow_entry_->data().vrouter_evicted_flow == true) {
+        return 0;
+    }
 
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
@@ -175,11 +178,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         req.set_fr_flags(0);
     } else {
-        //If action is NAT and reverse flow entry is not valid
-        //then we should wait for the reverse flow to be programmed
-        if ((flow_entry_->is_flags_set(FlowEntry::NatFlow) ||
-             flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) &&
-            rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+        FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
+        if (rev_flow &&
+            rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
             return 0;
         }
 
@@ -251,15 +252,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_ftable_size(0);
         req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
 
-        if (flow_entry_->is_flags_set(FlowEntry::EcmpFlow) &&
-            flow_entry_->reverse_flow_entry() != NULL) {
-            flags |= VR_RFLOW_VALID; 
-            FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
-            req.set_fr_rindex(rev_flow->flow_handle());
-        }
- 
         if (action == VR_FLOW_ACTION_NAT) {
-            flags |= VR_RFLOW_VALID; 
             FlowEntry *nat_flow = flow_entry_->reverse_flow_entry();
             const FlowKey *nat_key = &nat_flow->key();
 
@@ -285,7 +278,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
             flags |= VR_FLOW_FLAG_VRFT;
             req.set_fr_flow_dvrf(flow_entry_->data().dest_vrf);
-            req.set_fr_rindex(nat_flow->flow_handle());
         }
 
         if (fe_action & (1 << TrafficAction::VRF_TRANSLATE)) {
@@ -310,6 +302,11 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             //Set to discard, vrouter ignores RPF check if
             //nexthop is set to discard
             req.set_fr_src_nh_index(0);
+        }
+
+        if (rev_flow) {
+            flags |= VR_RFLOW_VALID;
+            req.set_fr_rindex(rev_flow->flow_handle());
         }
 
         req.set_fr_flags(flags);

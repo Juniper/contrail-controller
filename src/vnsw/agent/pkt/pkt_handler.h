@@ -112,6 +112,7 @@ struct AgentHdr {
         TRAP_TOR_CONTROL_PKT = AGENT_TRAP_TOR_CONTROL_PKT,
         TRAP_ZERO_TTL = AGENT_TRAP_ZERO_TTL,
         TRAP_ICMP_ERROR = AGENT_TRAP_ICMP_ERROR,
+        TRAP_HOLD_ACTION = AGENT_TRAP_FLOW_ACTION_HOLD,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -241,6 +242,7 @@ public:
     Agent *agent() const { return agent_; }
     PktModule *pkt_module() const { return pkt_module_; }
     void Enqueue(PktModuleName module, boost::shared_ptr<PktInfo> pkt_info);
+    bool IsFlowPacket(PktInfo *pkt_info);
 
 private:
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
