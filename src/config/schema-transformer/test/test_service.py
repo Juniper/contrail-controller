@@ -48,6 +48,36 @@ def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,), hook=None):
 class TestPolicy(test_case.STTestCase):
 
     @retries(5, hook=retry_exc_handler)
+    def check_ri_asn(self, fq_name, rt_target):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        rt_refs = ri.get_route_target_refs()
+        if not rt_refs:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('ri_refs is None for %s' % fq_name)
+        for rt_ref in rt_refs:
+            if rt_ref['to'][0] == rt_target:
+                return
+        raise Exception('rt_target %s not found in ri %s' % (rt_target, fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_bgp_asn(self, fq_name, asn):
+        router = self._vnc_lib.bgp_router_read(fq_name)
+        params = router.get_bgp_router_parameters()
+        if not params:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('bgp params is None for %s' % fq_name)
+        self.assertEqual(params.get_autonomous_system(), asn)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_lr_asn(self, fq_name, rt_target):
+        router = self._vnc_lib.logical_router_read(fq_name)
+        rt_refs = router.get_route_target_refs()
+        if not rt_refs:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('ri_refs is None for %s' % fq_name)
+        self.assertEqual(rt_refs[0]['to'][0], rt_target)
+
+    @retries(5, hook=retry_exc_handler)
     def check_service_chain_prefix_match(self, fq_name, prefix):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         sci = ri.get_service_chain_information()
@@ -1326,6 +1356,57 @@ class TestPolicy(test_case.STTestCase):
 
         self._vnc_lib.security_group_delete(fq_name=sg1_obj.get_fq_name())
     #end test_sg
+
+    def test_asn(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+        for obj in [vn1_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
+
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router(r1_name, 'contrail')
+        self.check_bgp_asn(router1.get_fq_name(), 64512)
+
+        # create virtual machine interface
+        vmi_name = self.id() + 'vmi1'
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project', fq_name=['default-domain', 'default-project', vmi_name])
+        vmi.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        # create logical router
+        lr_name = self.id() + 'lr1'
+        lr = LogicalRouter(lr_name)
+        lr.add_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_create(lr)
+        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000002')
+
+        #update global system config but dont change asn value for equality path
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_autonomous_system(64512)
+        self._vnc_lib.global_system_config_update(gs)
+
+        # check route targets
+        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
+        self.check_bgp_asn(router1.get_fq_name(), 64512)
+        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000002')
+
+        #update ASN value
+        gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
+        gs.set_autonomous_system(50000)
+        self._vnc_lib.global_system_config_update(gs)
+
+        # check new route targets
+        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:50000:8000001')
+        self.check_bgp_asn(router1.get_fq_name(), 50000)
+        self.check_lr_asn(lr.get_fq_name(), 'target:50000:8000002')
+
+    #end test_asn
 
     def test_fip(self):
 
