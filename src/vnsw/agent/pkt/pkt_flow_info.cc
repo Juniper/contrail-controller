@@ -1373,9 +1373,13 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         short_flow_reason = FlowEntry::SHORT_FLOW_LIMIT;
     }
 
-    if (!short_flow && linklocal_bind_local_port &&
-        flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
-        nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
+    if (!short_flow && linklocal_bind_local_port) {
+        if (flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
+            nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
+        } else {
+            nat_sport = flow->linklocal_src_port();
+            linklocal_src_port_fd = flow->linklocal_src_port_fd();
+        }
         if (!nat_sport) {
             flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
             short_flow = true;

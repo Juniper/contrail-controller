@@ -62,6 +62,7 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowTable::default_sg_list_;
+FlowEntry::LinkLocalFdSet FlowEntry::linklocal_fd_set_;
 
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
@@ -920,6 +921,23 @@ void FlowEntry::GetPolicyInfo() {
     GetPolicyInfo(data_.vn_entry.get());
 }
 
+void FlowEntry::AddLinkLocalFd(int fd, uint32_t index, const FlowKey &key) {
+    std::set<LinkLocalFd>::iterator it =
+        linklocal_fd_set_.find(LinkLocalFd(fd, 0, key));
+    if (it == linklocal_fd_set_.end()) {
+        linklocal_fd_set_.insert(LinkLocalFd(fd, index, key));
+    } else {
+        it->flow_index = index;
+        it->flow_key = key;
+        it->timestamp = ClockMonotonicUsec();
+    }
+}
+
+void FlowEntry::DelLinkLocalFd(int fd) {
+    FlowKey key;
+    linklocal_fd_set_.erase(LinkLocalFd(fd, 0, key));
+}
+
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     flow->reset_flags(FlowEntry::ReverseFlow);
     /* reverse flow may not be aviable always, eg: Flow Audit */
@@ -1411,15 +1429,17 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         flow_handle_ = pkt->GetAgentHdr().cmd_param;
     }
 
-    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
-        return;
-    }
     if (info->linklocal_bind_local_port) {
         linklocal_src_port_ = info->nat_sport;
         linklocal_src_port_fd_ = info->linklocal_src_port_fd;
+        AddLinkLocalFd(linklocal_src_port_fd_, flow_handle_, key_);
         set_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     } else {
         reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
+    }
+
+    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
+        return;
     }
     stats_.intf_in = pkt->GetAgentHdr().ifindex;
 
