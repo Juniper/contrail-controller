@@ -23,6 +23,8 @@ elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
     ]
 elif distname == 'fedora' and LooseVersion(version) >= LooseVersion('20'):
     pass
+elif distname == 'SuSE' and LooseVersion(version) >= LooseVersion('12'):
+    subdirs += ['tbb']
 else:
     subdirs += [
         'boost',
