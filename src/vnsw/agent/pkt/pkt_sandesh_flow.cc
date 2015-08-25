@@ -425,4 +425,32 @@ done:
     resp->Response();
 }
 
+void FetchLinkLocalFlowInfo::HandleRequest() const {
+    LinkLocalFlowInfoResp *resp = new LinkLocalFlowInfoResp();
+    std::vector<LinkLocalFlowInfo> &list =
+        const_cast<std::vector<LinkLocalFlowInfo>&>
+        (resp->get_linklocal_flow_list());
+
+    const FlowTable::LinkLocalFlowInfoMap &flow_map =
+        Agent::GetInstance()->pkt()->flow_table()->linklocal_flow_info_map();
+    FlowTable::LinkLocalFlowInfoMap::const_iterator it = flow_map.begin();
+    while (it != flow_map.end()) {
+        LinkLocalFlowInfo info;
+        info.fd = it->first;
+        info.flow_index = it->second.flow_index;
+        info.source_addr = it->second.flow_key.src_addr.to_string();
+        info.dest_addr = it->second.flow_key.dst_addr.to_string();
+        info.protocol = it->second.flow_key.protocol;
+        info.source_port = it->second.flow_key.src_port;
+        info.dest_port = it->second.flow_key.dst_port;
+        info.timestamp = integerToString(UTCUsecToPTime(it->second.timestamp));
+        list.push_back(info);
+        ++it;
+    }
+
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
