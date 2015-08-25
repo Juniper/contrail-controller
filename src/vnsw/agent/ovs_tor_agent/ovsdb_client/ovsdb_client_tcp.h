@@ -55,6 +55,8 @@ public:
 
     int keepalive_interval();
 
+    const boost::system::error_code &ovsdb_close_reason() const;
+
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();

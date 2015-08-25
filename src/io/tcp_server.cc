@@ -366,7 +366,7 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
 
 done:
     if (need_close) {
-        session->CloseInternal(false, false);
+        session->CloseInternal(ec, false, false);
     }
     AsyncAccept();
 }
