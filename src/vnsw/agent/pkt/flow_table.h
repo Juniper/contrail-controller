@@ -356,12 +356,7 @@ class FlowEntry {
         TcpAckFlow      = 1 << 10
     };
     FlowEntry(const FlowKey &k);
-    virtual ~FlowEntry() {
-        if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
-            close(linklocal_src_port_fd_);
-        }
-        alloc_count_.fetch_and_decrement();
-    };
+    virtual ~FlowEntry();
 
     bool ActionRecompute();
     void UpdateKSync(const FlowTable* table);
@@ -447,6 +442,7 @@ class FlowEntry {
     }
     uint16_t short_flow_reason() const { return short_flow_reason_; }
     bool set_pending_recompute(bool value);
+
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -592,6 +588,17 @@ public:
         SecurityGroupList sg_l_;
     };
 
+    struct LinkLocalFlowInfo {
+        uint32_t flow_index;
+        FlowKey flow_key;
+        uint64_t timestamp;
+
+        LinkLocalFlowInfo(uint32_t index, const FlowKey &key, uint64_t t) :
+            flow_index(index), flow_key(key), timestamp(t) {}
+    };
+    typedef std::map<int, LinkLocalFlowInfo> LinkLocalFlowInfoMap;
+    typedef std::pair<int, LinkLocalFlowInfo> LinkLocalFlowInfoPair;
+
     FlowTable(Agent *agent);
     virtual ~FlowTable();
     
@@ -633,6 +640,13 @@ public:
         return flow_entry_map_.end(); 
     }
 
+    const LinkLocalFlowInfoMap &linklocal_flow_info_map() {
+        return linklocal_flow_info_map_;
+    }
+    void AddLinkLocalFlowInfo(int fd, uint32_t index, const FlowKey &key,
+                              const uint64_t timestamp);
+    void DelLinkLocalFlowInfo(int fd);
+
     DBTableBase::ListenerId nh_listener_id();
     AgentRoute *GetUcRoute(const VrfEntry *entry, const IpAddress &addr);
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
@@ -669,6 +683,9 @@ private:
 
     InetUnicastRouteEntry inet4_route_key_;
     InetUnicastRouteEntry inet6_route_key_;
+
+    // maintain the linklocal flow info against allocated fd, debug purpose only
+    LinkLocalFlowInfoMap linklocal_flow_info_map_;
 
     void AclNotify(DBTablePartBase *part, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
