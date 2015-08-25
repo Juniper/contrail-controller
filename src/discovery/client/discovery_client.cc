@@ -448,7 +448,8 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
 
         std::string reeval_reason;
         resp->oper_state = cb(reeval_reason);
-        if (resp->oper_state != oper_state) {
+        if ((resp->oper_state != oper_state) ||
+            (resp->oper_state_reason.compare(reeval_reason))) {
 
             auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
             if (impl->LoadDoc(resp->publish_msg_) == -1) {
@@ -456,6 +457,7 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
                 return;
             }
 
+            resp->oper_state_reason = reeval_reason;
             XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
             if (resp->oper_state) {
                 pugi->ModifyNode("oper-state", "up");
@@ -478,13 +480,13 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
             stringstream ss;
             impl->PrintDoc(ss);
             resp->publish_msg_ = ss.str();
-
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
-                                   serviceName, resp->publish_msg_);
-            SendHttpPostMessage(resp->publish_hdr_, serviceName,
-                                resp->publish_msg_);
-
         }
+
+        /* Send publish unconditionally */
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
+                               serviceName, resp->publish_msg_);
+        SendHttpPostMessage(resp->publish_hdr_, serviceName,
+                            resp->publish_msg_);
     }
 }
 
@@ -508,6 +510,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
     pub_msg->oper_state = false;
+    pub_msg->oper_state_reason = "Initial Registration";
 
     pub_msg->client_msg_ = msg;
     pub_msg->publish_msg_ += "<publish>" + msg;
@@ -523,8 +526,9 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
         }
     }
     pub_msg->publish_msg_ += "<oper-state>down</oper-state>";
-    pub_msg->publish_msg_ +=
-        "<oper-state-reason>Initial Registration</oper-state-reason>";
+    pub_msg->publish_msg_ += "<oper-state-reason>";
+    pub_msg->publish_msg_ += pub_msg->oper_state_reason;
+    pub_msg->publish_msg_ += "</oper-state-reason>";
     pub_msg->publish_msg_ += "</publish>";
     boost::system::error_code ec;
     pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
@@ -1007,6 +1011,17 @@ bool DiscoveryServiceClient::IsPublishServiceRegisteredUp(
 
     return false;
 }
+
+void DiscoveryServiceClient::PublishServiceReEvalString(
+         std::string serviceName, std::string &reeval_reason) {
+
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *pub_resp = loc->second;
+        reeval_reason = pub_resp->oper_state_reason;
+    }
+}
+
 
 void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
          std::vector<DiscoveryClientSubscriberStats> &ds_stats) {
