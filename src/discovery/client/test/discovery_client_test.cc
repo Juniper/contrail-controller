@@ -75,6 +75,21 @@ public:
         }
     }
 
+    bool XmppServicePublishReEvalStringHandler(std::string &msg) {
+        static bool publish_reeval = true;
+        xmpp_reeval_pub_++;
+        if (publish_reeval) {
+            publish_reeval = false;
+            msg = "Service waiting for condition 1111";
+        } else {
+            publish_reeval = true;
+            msg = "Service waiting for condition 2222";
+        }
+        return false;
+    }
+
+
+
     void BuildServiceResponseMessage(std::string serviceNameTag, uint num_instances,
                                        std::string &msg) {
         auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
@@ -971,8 +986,9 @@ TEST_F(DiscoveryServiceClientTest, ReEvaluatePublishTest) {
     TASK_UTIL_EXPECT_TRUE(
         dsc_publish->IsPublishServiceRegisteredUp(service));
 
-    EvmShutdown();
+    dsc_publish->SetHeartBeatInterval(10);
 
+    EvmShutdown();
     //withdraw publish service
     dsc_publish->WithdrawPublish(service);
     task_util::WaitForIdle();
@@ -984,6 +1000,73 @@ TEST_F(DiscoveryServiceClientTest, ReEvaluatePublishTest) {
     task_util::WaitForIdle();
 }
 
+TEST_F(DiscoveryServiceClientTest, ReEvaluatePublishReasonStringTest) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5997);
+    DiscoveryServiceClientMock *dsc_publish =
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test", false));
+    dsc_publish->SetHeartBeatInterval(0);
+    dsc_publish->Init();
+
+    //publish a service
+    std::string service = "xmpp-server-publish-reeval-string-test";
+    std::string msg;
+    dsc_publish->BuildPublishMessage(service, msg);
+    dsc_publish->Publish(service, msg,
+      boost::bind(&DiscoveryServiceClientMock::XmppServicePublishReEvalStringHandler,
+                  dsc_publish, _1));
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+    std::string reeval_string;
+    dsc_publish->PublishServiceReEvalString(service, reeval_string);
+    EXPECT_STREQ(reeval_string.c_str(),"Initial Registration");
+
+    // send publisher cookie response
+    std::string msg2;
+    dsc_publish->BuildPublishResponseMessage(service, msg2);
+    boost::system::error_code ec;
+    dsc_publish->PublishResponseHandler(msg2, ec, service, NULL);
+
+    TASK_UTIL_EXPECT_EQ(1, dsc_publish->XmppServiceReEvalPublishCount());
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+    reeval_string.clear();
+    dsc_publish->PublishServiceReEvalString(service, reeval_string);
+    EXPECT_STREQ(reeval_string.c_str(),"Service waiting for condition 1111");
+
+    TASK_UTIL_EXPECT_EQ(2, dsc_publish->XmppServiceReEvalPublishCount());
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+    reeval_string.clear();
+    dsc_publish->PublishServiceReEvalString(service, reeval_string);
+    EXPECT_STREQ(reeval_string.c_str(),"Service waiting for condition 2222");
+
+    TASK_UTIL_EXPECT_EQ(3, dsc_publish->XmppServiceReEvalPublishCount());
+    //Confirm published service is DOWN
+    TASK_UTIL_EXPECT_FALSE(
+        dsc_publish->IsPublishServiceRegisteredUp(service));
+    reeval_string.clear();
+    dsc_publish->PublishServiceReEvalString(service, reeval_string);
+    EXPECT_STREQ(reeval_string.c_str(),"Service waiting for condition 1111");
+
+    dsc_publish->SetHeartBeatInterval(10);
+
+    EvmShutdown();
+    //withdraw publish service
+    dsc_publish->WithdrawPublish(service);
+    task_util::WaitForIdle();
+
+    dsc_publish->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle();
+    delete dsc_publish;
+    task_util::WaitForIdle();
+    task_util::WaitForIdle();
+}
 
 }
 
