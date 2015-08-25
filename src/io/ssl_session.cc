@@ -116,7 +116,12 @@ void SslSession::AcceptHandShakeHandler(TcpSessionPtr session,
     } else {
         // close session on failure
         ssl_session->SetSslHandShakeFailure();
-        ssl_session->CloseInternal(false);
+        TCP_SESSION_LOG_ERROR(ssl_session, TCP_DIR_OUT,
+                              "SSL Handshake failed due to error: "
+                              << error.value() << " category: "
+                              << error.category().name()
+                              << " message: " << error.message());
+        ssl_session->CloseInternal(error, false);
     }
 }
 
@@ -134,8 +139,13 @@ void SslSession::ConnectHandShakeHandler(TcpSessionPtr session, Endpoint remote,
     if (ret == false) {
         // report connect failure and close the session
         ssl_session->SetSslHandShakeFailure();
+        TCP_SESSION_LOG_ERROR(ssl_session, TCP_DIR_OUT,
+                              "SSL Handshake failed due to error: "
+                              << error.value() << " category: "
+                              << error.category().name()
+                              << " message: " << error.message());
         ssl_session->ConnectFailed();
-        ssl_session->CloseInternal(false);
+        ssl_session->CloseInternal(error, false);
     }
 }
 

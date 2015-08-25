@@ -159,6 +159,11 @@ int OvsdbClientTcpSession::keepalive_interval() {
     return ovs_server->keepalive_interval();
 }
 
+const boost::system::error_code &
+OvsdbClientTcpSession::ovsdb_close_reason() const {
+    return close_reason();
+}
+
 ConnectionStateTable *OvsdbClientTcpSession::connection_table() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     return ovs_server->connection_table();
