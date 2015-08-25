@@ -115,14 +115,16 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                         r->get_fr_index() << ">");
                 }
             }
-            entry->set_flow_handle(r->get_fr_index(), table);
-            //Tie forward flow and reverse flow
-            if (entry->is_flags_set(FlowEntry::NatFlow) ||
-                entry->is_flags_set(FlowEntry::EcmpFlow)) {
-                 FlowEntry *rev_flow = entry->reverse_flow_entry();
-                 if (rev_flow) {
-                     table->UpdateKSync(rev_flow);
-                 }
+
+            bool update_rev_flow = false;
+            if ((int)entry->flow_handle() != r->get_fr_index()) {
+                update_rev_flow = true;
+                table->AddIndexFlowInfo(entry, r->get_fr_index());
+            }
+
+            FlowEntry *rev_flow = entry->reverse_flow_entry();
+            if (rev_flow && update_rev_flow) {
+                table->UpdateKSync(rev_flow);
             }
         }
     } else {
