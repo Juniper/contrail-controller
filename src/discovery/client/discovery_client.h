@@ -88,6 +88,7 @@ struct DSPublishResponse {
 
     boost::asio::ip::udp::endpoint dss_ep_;
     bool oper_state;
+    std::string oper_state_reason;
     DiscoveryServiceClient *ds_client_;
     std::string publish_msg_;
     std::string publish_hdr_;
@@ -151,7 +152,11 @@ public:
     }
     int GetHeartBeatInterval() { return heartbeat_interval_; }
 
+    // Test Functions
     bool IsPublishServiceRegisteredUp(std::string serviceName);
+    void PublishServiceReEvalString(std::string serviceName, 
+                                    std::string &reeval_reason);
+    
 
     // sandesh introspect fill stats 
     void FillDiscoveryServicePublisherStats(
