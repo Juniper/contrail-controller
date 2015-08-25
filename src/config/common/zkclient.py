@@ -134,6 +134,10 @@ class IndexAllocator(object):
         self._reset_in_use(bit_idx)
     # end reset_in_use
 
+    def get_alloc_count(self):
+        return self._in_use.count()
+    # end get_alloc_count
+
     def alloc(self, value=None):
         # Allocates a index from the allocation list
         if self._in_use.all():
