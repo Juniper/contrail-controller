@@ -38,7 +38,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM
+    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -173,16 +173,7 @@ class DeviceManager(object):
                                          q_name, self._vnc_subscribe_callback,
                                          self.config_log)
 
-        cass_server_list = self._args.cassandra_server_list
-        cred = None
-        if self._args.cassandra_user is not None and \
-           self._args.cassandra_password is not None:
-            cred={'username':self._args.cassandra_user,
-                  'password':self._args.cassandra_password}
-        self._cassandra = VncCassandraClient(cass_server_list,
-                                             self._args.cluster_id,
-                                             None,
-                                             self.config_log,credential=cred)
+        self._cassandra = DMCassandraDB.getInstance(self) 
 
         DBBaseDM.init(self, self._sandesh.logger(), self._cassandra)
         for obj in GlobalSystemConfigDM.list_obj():
@@ -200,7 +191,11 @@ class DeviceManager(object):
         for obj in BgpRouterDM.list_obj():
             BgpRouterDM.locate(obj['uuid'], obj)
 
-        for obj in PhysicalRouterDM.list_obj():
+        pr_obj_list = PhysicalRouterDM.list_obj()
+        pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
+        self._cassandra.handle_pr_deletes(pr_uuid_set)
+
+        for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
             li_set = pr.logical_interfaces
             for pi_id in pr.physical_interfaces:

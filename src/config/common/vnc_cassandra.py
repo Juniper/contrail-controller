@@ -91,6 +91,33 @@ class VncCassandraClient(object):
         self._obj_fq_name_cf = self._cf_dict[self._OBJ_FQ_NAME_CF_NAME]
     # end __init__
 
+    def get_cf(self, func):
+        return self._cf_dict.get(func)
+    #end
+
+    def add(self, func, key, value):
+        try:
+            self.get_cf(func).insert(key, value)
+            return True
+        except:
+            return False
+    #end
+
+    def get(self, func, key):
+        try:
+            return self.get_cf(func).get(key)
+        except:
+            return None
+    #end
+
+    def delete(self, func, key):
+        try:
+            self.get_cf(func).remove(key)
+            return True
+        except:
+            return False
+    #end
+
     def _update_sandesh_status(self, status, msg=''):
         ConnectionState.update(conn_type=ConnectionType.DATABASE,
             name='Cassandra', status=status, message=msg,
