@@ -45,6 +45,7 @@ protected:
 
     void VerifySFlowParseError(const SFlowPktGen& sflow_pktgen,
                                size_t sflow_pktlen) const {
+        LOG(INFO, "sFlow Packet Len: " << sflow_pktlen);
         SFlowParser parser(sflow_pktgen.GetSFlowPkt(),
                            sflow_pktlen, trace_buf_);
         SFlowData act_sflow_data;
@@ -350,53 +351,85 @@ TEST_F(SFlowParserTest, ParseErrorSFlowSampleData) {
 TEST_F(SFlowParserTest, ParseErrorSFlowFlowSample) {
     SFlowHeader sflow_header;
     CreateSFlowHeader(sflow_header, "10.205.213.14", 1);
+    SFlowFlowSample flow_sample1(SFLOW_FLOW_SAMPLE, 0);
+    CreateSFlowFlowSample1(flow_sample1, SFLOW_FLOW_HEADER_ETHERNET_ISO8023,
+                           "192.168.1.1", "192.168.1.2",
+                           IPPROTO_TCP, 23331, 8081);
+    flow_sample1.length = ComputeSFlowFlowSampleLength(flow_sample1);
+    SFlowFlowSample flow_sample2(SFLOW_FLOW_SAMPLE_EXPANDED, 0);
+    CreateSFlowFlowSample1(flow_sample2, SFLOW_FLOW_HEADER_ETHERNET_ISO8023,
+                           "192.168.1.1", "192.168.1.2",
+                           IPPROTO_UDP, 24441, 8081);
+    flow_sample2.length = ComputeSFlowFlowSampleLength(flow_sample2);
+
+    LOG(INFO, "== Test Invalid sFlow Packet Length ==");
+
+    LOG(INFO, "Len(sFlow Packet) < Required to read FlowSample");
     SFlowPktGen sflow_pktgen1;
     sflow_pktgen1.WriteHeader(sflow_header);
     size_t sflow_hdrlen = sflow_pktgen1.GetSFlowPktLen();
+    sflow_pktgen1.WriteFlowSample(flow_sample1);
     size_t min_val = sflow_hdrlen + SFlowSample::kMinSampleLen;
-    size_t max_val = min_val + SFlowFlowSample::kMinExpandedFlowSampleLen - 1;
-    boost::random::mt19937 gen;
-    boost::random::uniform_int_distribution<> dist(min_val, max_val);
+    // set sflow pkt length < required to read FlowSample
+    size_t max_val = min_val + SFlowFlowSample::kMinFlowSampleLen - 1;
+    boost::random::mt19937 gen1;
+    boost::random::uniform_int_distribution<> dist1(min_val, max_val);
     for (int i = 0; i < 5; ++i) {
-        VerifySFlowParseError(sflow_pktgen1, dist(gen));
+        VerifySFlowParseError(sflow_pktgen1, dist1(gen1));
     }
 
-    SFlowFlowSample flow_sample(SFLOW_FLOW_SAMPLE_EXPANDED, 0);
-    CreateSFlowFlowSample1(flow_sample, SFLOW_FLOW_HEADER_ETHERNET_ISO8023,
-                           "192.168.1.1", "192.168.1.2",
-                           IPPROTO_TCP, 24441, 8081);
-    flow_sample.length = ComputeSFlowFlowSampleLength(flow_sample);
-    boost::ptr_vector<SFlowFlowRecord>::iterator fr1 =
-        flow_sample.flow_records.begin();
-    uint32_t flow_record_len = fr1->length;
-    // set flow record length > actual flow record length
-    fr1->length = flow_record_len + 4;
-    sflow_pktgen1.WriteFlowSample(flow_sample);
-    VerifySFlowParseError(sflow_pktgen1, sflow_pktgen1.GetSFlowPktLen());
-
-    // set flow record length < actual flow record length
+    LOG(INFO, "Len(sFlow Packet) < Required to read ExpandedFlowSample");
     SFlowPktGen sflow_pktgen2;
     sflow_pktgen2.WriteHeader(sflow_header);
-    fr1->length = flow_record_len - 4;
-    sflow_pktgen2.WriteFlowSample(flow_sample);
-    VerifySFlowParseError(sflow_pktgen2, sflow_pktgen2.GetSFlowPktLen());
+    sflow_pktgen2.WriteFlowSample(flow_sample2);
+    min_val = sflow_hdrlen + SFlowSample::kMinSampleLen;
+    // set sflow pkt length < required to read ExpandedFlowSample
+    max_val = min_val + SFlowFlowSample::kMinExpandedFlowSampleLen - 1;
+    boost::random::mt19937 gen2;
+    boost::random::uniform_int_distribution<> dist2(min_val, max_val);
+    for (int i = 0; i < 5; ++i) {
+        VerifySFlowParseError(sflow_pktgen2, dist2(gen2));
+    }
 
-    // set invalid number of flow records
+    LOG(INFO, "== Test Invalid Flow Record Length ==");
+
+    LOG(INFO, "flow record length > actual flow record length");
+    boost::ptr_vector<SFlowFlowRecord>::iterator fr1 =
+        flow_sample1.flow_records.begin();
+    uint32_t flow_record_len = fr1->length;
     SFlowPktGen sflow_pktgen3;
     sflow_pktgen3.WriteHeader(sflow_header);
-    fr1->length = flow_record_len;
-    uint32_t nflow_records = flow_sample.nflow_records;
-    // set nflow_records < actual number of flow records
-    flow_sample.nflow_records = nflow_records - 1;
-    sflow_pktgen3.WriteFlowSample(flow_sample);
+    // set flow record length > actual flow record length
+    fr1->length = flow_record_len + 4;
+    sflow_pktgen3.WriteFlowSample(flow_sample1);
     VerifySFlowParseError(sflow_pktgen3, sflow_pktgen3.GetSFlowPktLen());
 
-    // set nflow_records > actual number of flow records
+    LOG(INFO, "flow record length < actual flow record length");
     SFlowPktGen sflow_pktgen4;
     sflow_pktgen4.WriteHeader(sflow_header);
-    flow_sample.nflow_records = nflow_records + 1;
-    sflow_pktgen4.WriteFlowSample(flow_sample);
+    // set flow record length < actual flow record length
+    fr1->length = flow_record_len - 4;
+    sflow_pktgen4.WriteFlowSample(flow_sample1);
     VerifySFlowParseError(sflow_pktgen4, sflow_pktgen4.GetSFlowPktLen());
+
+    LOG(INFO, "== Test Invalid number of flow records ==");
+
+    LOG(INFO, "nflow_records < actual number of flow records");
+    uint32_t nflow_records = flow_sample2.nflow_records;
+    SFlowPktGen sflow_pktgen5;
+    sflow_pktgen5.WriteHeader(sflow_header);
+    // set nflow_records < actual number of flow records
+    flow_sample2.nflow_records = nflow_records - 1;
+    sflow_pktgen5.WriteFlowSample(flow_sample2);
+    VerifySFlowParseError(sflow_pktgen5, sflow_pktgen5.GetSFlowPktLen());
+
+    LOG(INFO, "nflow_records > actual number of flow records");
+    SFlowPktGen sflow_pktgen6;
+    sflow_pktgen6.WriteHeader(sflow_header);
+    // set nflow_records > actual number of flow records
+    flow_sample2.nflow_records = nflow_records + 1;
+    sflow_pktgen6.WriteFlowSample(flow_sample2);
+    VerifySFlowParseError(sflow_pktgen6, sflow_pktgen6.GetSFlowPktLen());
 }
 
 int main(int argc, char **argv) {
