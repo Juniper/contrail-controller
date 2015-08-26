@@ -135,7 +135,8 @@ class DeviceConfig(object):
                 if snmp.get_retries():
                     nd['Retries'] = snmp.get_retries()
                 if snmp.get_timeout():
-                    nd['Timeout'] = snmp.get_timeout()
+                    #timeout converted from s to us
+                    nd['Timeout'] = snmp.get_timeout()*1000000
                 if nd['Version'] in (1, 2):
                     nd['Community'] = snmp.get_v2_community()
                 elif nd['Version'] == 3:
