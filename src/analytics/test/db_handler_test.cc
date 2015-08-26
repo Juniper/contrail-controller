@@ -351,7 +351,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                         _,
                         _))))
-        .Times(4)
+        .Times(6)
         .WillRepeatedly(Return(true));
 
     db_handler()->MessageTableInsert(&vmsgp);
@@ -448,7 +448,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(3)
+            .Times(4)
             .WillRepeatedly(Return(true));
       }
 
@@ -476,7 +476,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(3)
+            .Times(4)
             .WillRepeatedly(Return(true));
       }
 
