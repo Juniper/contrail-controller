@@ -23,3 +23,9 @@ distribute>=0.7.3
 ../libpartition/dist/libpartition-0.1dev.tar.gz
 ../discovery/client/dist/discoveryclient-0.1dev.tar.gz
 ../config/common/dist/cfgm_common-0.1dev.tar.gz
+../opserver/plugins/alarm_bgp_connectivity
+../opserver/plugins/alarm_partial_sysinfo
+../opserver/plugins/alarm_process_connectivity
+../opserver/plugins/alarm_process_status
+../opserver/plugins/alarm_vrouter_interface
+../opserver/plugins/alarm_xmpp_connectivity
