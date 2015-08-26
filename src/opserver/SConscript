@@ -227,6 +227,12 @@ test_depends = [
         '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
         '/analytics/vizd',
         '/query_engine/qedt',
+        '/opserver/plugins/alarm_bgp_connectivity/dist/alarm_bgp_connectivity-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_partial_sysinfo/dist/alarm_partial_sysinfo-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_process_connectivity/dist/alarm_process_connectivity-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_process_status/dist/alarm_process_status-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_vrouter_interface/dist/alarm_vrouter_interface-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz',
                ]
 OpEnv.Depends(test_cmd, [OpEnv['TOP']+x for x in test_depends])
 
