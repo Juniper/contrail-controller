@@ -212,7 +212,7 @@ static const AgentPath *GetMulticastExportablePath(const Agent *agent,
     //Subnet discard
     if (active_path == NULL) {
         const AgentPath *local_path = route->FindPath(agent->local_peer());
-        if (local_path) {
+        if (local_path && !agent->tor_agent_enabled()) {
             return local_path;
         }
     }
@@ -220,12 +220,12 @@ static const AgentPath *GetMulticastExportablePath(const Agent *agent,
     return active_path;
 }
 
-static bool RouteCanDissociate(const AgentRoute *route) {
+bool RouteExport::MulticastRouteCanDissociate(const AgentRoute *route) {
     bool can_dissociate = route->IsDeleted();
     Agent *agent = static_cast<AgentRouteTable*>(route->get_table())->
         agent();
     const AgentPath *local_path = route->FindPath(agent->local_peer());
-    if (local_path) {
+    if (local_path && !agent->tor_agent_enabled()) {
         return can_dissociate;
     }
     if (route->is_multicast()) {
@@ -275,7 +275,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     Agent *agent = bgp_xmpp_peer->agent();
     AgentRoute *route = static_cast<AgentRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(), id_));
-    bool route_can_be_dissociated = RouteCanDissociate(route);
+    bool route_can_be_dissociated = MulticastRouteCanDissociate(route);
 
     //Currently only bridge flood route is taken, though there is a seperate
     //multicast table as well. In future if multicats table is populated, get

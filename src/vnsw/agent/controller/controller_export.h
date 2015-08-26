@@ -49,6 +49,7 @@ public:
     void Unregister();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
 
+    bool MulticastRouteCanDissociate(const AgentRoute *route);
     static void Walkdone(DBTableBase *partition, RouteExport *rt);
     static RouteExport* Init(AgentRouteTable *table, 
                              AgentXmppChannel *bgp_xmpp_peer);
