@@ -88,6 +88,7 @@ import vnc_auth
 import vnc_auth_keystone
 import vnc_perms
 from cfgm_common import vnc_cpu_info
+from cfgm_common.vnc_api_stats import log_api_stats
 
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -287,6 +288,7 @@ class VncApiServer(object):
                     bottle.abort(code, err_msg)
     # end _validate_perms_in_request
 
+    @log_api_stats
     def http_resource_create(self, resource_type):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
@@ -435,6 +437,7 @@ class VncApiServer(object):
         return {resource_type: rsp_body}
     # end http_resource_create
 
+    @log_api_stats
     def http_resource_read(self, resource_type, id):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
@@ -528,6 +531,7 @@ class VncApiServer(object):
         return {resource_type: rsp_body}
     # end http_resource_read
 
+    @log_api_stats
     def http_resource_update(self, resource_type, id):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
@@ -625,6 +629,7 @@ class VncApiServer(object):
         return {resource_type: rsp_body}
     # end http_resource_update
 
+    @log_api_stats
     def http_resource_delete(self, resource_type, id):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
@@ -765,6 +770,7 @@ class VncApiServer(object):
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
     # end http_resource_delete
 
+    @log_api_stats
     def http_resource_list(self, resource_type):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
@@ -2176,6 +2182,8 @@ class VncApiServer(object):
         apiConfig.operation = 'post'
         apiConfig.body = str(request.json)
         if uuid_in_req:
+            if uuid_in_req != str(uuid.UUID(uuid_in_req)):
+                bottle.abort(400, 'Invalid UUID format: ' + uuid_in_req)
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
                 bottle.abort(

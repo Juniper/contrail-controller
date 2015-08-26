@@ -22,7 +22,8 @@ import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
 import cfgm_common.zkclient
-from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
+from cfgm_common.uve.vnc_api.ttypes import (VncApiConfigLog, VncApiError,
+    VncApiStatsLog)
 from cfgm_common import imid
 
 from test_utils import *
@@ -239,6 +240,7 @@ def setup_common_flexmock():
     flexmock(kombu.Producer, __new__=FakeKombu.Producer)
 
     flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
+    flexmock(VncApiStatsLog, __new__=FakeVncApiStatsLog)
 #end setup_common_flexmock
 
 @contextlib.contextmanager
