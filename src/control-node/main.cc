@@ -474,12 +474,24 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
     if (!ifmap_manager->GetEndOfRibComputed()) {
         state = ProcessState::NON_FUNCTIONAL;
         message = "IFMap Server End-Of-RIB not computed";
-    } else if (!bgp_server->bgp_identifier() ||
-        !bgp_server->local_autonomous_system() ||
-        !bgp_server->autonomous_system()) {
+    } else if (!bgp_server->HasSelfConfiguration()) {
         state = ProcessState::NON_FUNCTIONAL;
         message = "No BGP configuration for self";
     }
+}
+
+static bool ControlNodeReEvalPublishCb(const BgpServer *bgp_server,
+    const IFMapManager *ifmap_manager, std::string &message) {
+    if (!ifmap_manager->GetEndOfRibComputed()) {
+        message = "IFMap Server End-Of-RIB not computed";
+        return false;
+    }
+    if (!bgp_server->HasSelfConfiguration()) {
+        message = "No BGP configuration for self";
+        return false;
+    }
+    message = "OK";
+    return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -645,7 +657,9 @@ int main(int argc, char *argv[]) {
                 "</port></" << sname << ">";
             string pub_msg;
             pub_msg = pub_ss.str();
-            ds_client->Publish(sname, pub_msg);
+            ds_client->Publish(sname, pub_msg,
+                boost::bind(&ControlNodeReEvalPublishCb,
+                    bgp_server.get(), ifmap_manager, _1));
         }
 
         // Subscribe to collector service if collector isn't explicitly configured.
