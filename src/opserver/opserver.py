@@ -66,7 +66,7 @@ from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
 from generator_introspect_util import GeneratorIntrospectUtil
 from stevedore import hook
-from partition_handler import PartInfo, UveStreamer
+from partition_handler import PartInfo, UveStreamer, UveCacheProcessor
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -516,10 +516,17 @@ class OpServer(object):
 
         self._collector_pool = None
         self._state_server = OpStateServer(self._logger, self._args.redis_password)
+
+        body = gevent.queue.Queue()
+        self._uvedbstream = UveStreamer(self._logger, body, None, self.get_agp,
+            self._args.partitions, self._args.redis_password)
+        self._uvedbcache = UveCacheProcessor(self._logger, body, self._args.partitions)
+
         self._uve_server = UVEServer(('127.0.0.1',
                                       self._args.redis_server_port),
                                      self._logger,
-                                     self._args.redis_password)
+                                     self._args.redis_password,
+                                     self._uvedbcache)
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
@@ -539,12 +546,12 @@ class OpServer(object):
         if self._args.disc_server_ip:
             self.disc_publish()
         else:
-            pi = PartInfo(ip_address = self._args.host_ip,
-                          acq_time = UTCTimestampUsec(),
-                          instance_id = 0,
-                          port = self._args.redis_server_port)
-                          
-            self.agp = { 0: pi }
+            for part in range(0,self._args.partitions):
+                pi = PartInfo(ip_address = self._args.host_ip,
+                              acq_time = UTCTimestampUsec(),
+                              instance_id = "0",
+                              port = self._args.redis_server_port)
+                self.agp[part] = pi
             self.redis_uve_list = []
             try:
                 if type(self._args.redis_uve_list) is str:
@@ -2100,6 +2107,7 @@ class OpServer(object):
 
     def start_uve_server(self):
         self._uve_server.run()
+
     #end start_uve_server
 
     def start_webserver(self):
@@ -2199,6 +2207,10 @@ class OpServer(object):
 
 def main(args_str=' '.join(sys.argv[1:])):
     opserver = OpServer(args_str)
+
+    opserver._uvedbcache.start()
+    opserver._uvedbstream.start()
+
     gevs = [ 
         gevent.spawn(opserver.start_webserver),
         gevent.spawn(opserver.cpu_info_logger),
@@ -2218,6 +2230,10 @@ def main(args_str=' '.join(sys.argv[1:])):
         gevs.append(sp2)
 
     gevent.joinall(gevs)
+
+    opserver._uvedbstream.kill()
+    opserver._uvedbstream.join()
+    opserver._uvedbcache.join()
 
 if __name__ == '__main__':
     main()

@@ -28,7 +28,7 @@ for file in local_sources:
 
 sdist_depends = [setup_sources_rules, local_sources_rules]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_gen = env.Command('dist', 'setup.py',
+sdist_gen = env.Command('dist/alarm_xmpp_connectivity-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
