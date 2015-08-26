@@ -341,9 +341,11 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(intf_unit, "name").text = str(network_id)
                 family = etree.SubElement(intf_unit, "family")
                 inet = etree.SubElement(family, "inet")
-                for gateway in gateways:
+                for (irb_ip, gateway) in gateways:
                     addr = etree.SubElement(inet, "address")
-                    etree.SubElement(addr, "name").text = gateway
+                    etree.SubElement(addr, "name").text = irb_ip
+                    if len(gateway) and gateway != '0.0.0.0':
+                        etree.SubElement(addr, "virtual-gateway-address").text = gateway
 
             lo_intf = etree.SubElement(interfaces_config, "interface")
             etree.SubElement(lo_intf, "name").text = "lo0"
