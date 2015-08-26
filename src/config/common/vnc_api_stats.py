@@ -16,10 +16,16 @@ def log_api_stats(func):
                 obj_type=resource_type.replace('-', '_'))
             response = func(api_server_obj, resource_type, *args, **kwargs)
             statistics.response_size = len(str(response))
+            statistics.response_code = bottle.response.status_code
             return response
-        except Exception, err_response:
-            statistics.response_size = len(err_response.body)
-            statistics.response_code = err_response.status_code
+        except Exception as err_response:
+            if isinstance(err_response, bottle.HTTPError):
+                statistics.response_size = len(err_response.body)
+                statistics.response_code = err_response.status_code
+            else:
+                statistics.response_size = 0
+                # 520 Unknown Error
+                statistics.response_code = 520
             raise
         finally:
             # Collect api stats and send to analytics
@@ -36,7 +42,6 @@ class VncApiStatistics(object):
 
     def collect(self):
         self.time_finish = datetime.now()
-        self.response_code = bottle.response.status_code
         domain_name = bottle.request.headers.get('X-Domain-Name', 'None')
         if domain_name.lower() == 'none':
             domain_name = 'default-domain'
