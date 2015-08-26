@@ -106,23 +106,40 @@ def _OpResultGet(dct, p1, p2, match=None):
     ret = None
     try:
         res = dct.xpath(p1, p2)
-
+        is_flat = False
         #import pdb; pdb.set_trace()
         if isinstance(res, list):
-            if len(res) != 1:
-                raise Exception('Inconsistency')
-            res = res[0][0]
+            if not isinstance(res[0], list):
+                is_flat = True
+            else:
+                if not isinstance(res[0][0], dict):
+                    is_flat = True
+                else:
+                    if "@type" not in res[0][0]:
+                        is_flat = True
+                    else:
+                        if len(res) != 1:
+                            raise Exception('Inconsistency')
+                        res = res[0][0]
 
-        if res['@type'] in ["list"]:
-            ret = _OpResultListParse(res['list'], match)
-        elif res['@type'] in ["struct"]:
-            sname = _OpResult_get_list_name(res)
-            ret = _OpResultFlatten(res)
-            #ret = res[sname]
+        if isinstance(res, dict):
+            if "@type" in res:
+                if res['@type'] in ["list"]:
+                    ret = _OpResultListParse(res['list'], match)
+                elif res['@type'] in ["struct"]:
+                    sname = _OpResult_get_list_name(res)
+                    ret = _OpResultFlatten(res)
+                else:
+                    if (match is not None):
+                        raise Exception('Match is invalid for non-list')
+                    ret = res['#text']
+            else:
+                is_flat = True
         else:
-            if (match is not None):
-                raise Exception('Match is invalid for non-list')
-            ret = res['#text']
+            is_flat = True
+
+        if is_flat:
+            ret = res
     except Exception as e:
         print e
     finally:
