@@ -1169,6 +1169,28 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             parent_id=vn_uuids,
             filters={'display_name':'%s-ri-5' %(self.id())})
         self.assertThat(len(ret_list['routing-instances']), Equals(1))
+
+        logger.info("Querying VNs by obj_uuids for children+backref fields.")
+        flexmock(self._api_server).should_call('_list_collection').once()
+        ret_objs = self._vnc_lib.resource_list('virtual-network',
+            detail=True, obj_uuids=vn_uuids, fields=['routing_instances',
+            'virtual_machine_interface_back_refs'])
+
+        ret_ri_uuids = []
+        ret_vmi_uuids = []
+        for vn_obj in ret_objs:
+            ri_children = getattr(vn_obj, 'routing_instances',
+                'RI children absent')
+            self.assertNotEqual(ri_children, 'RI children absent')
+            ret_ri_uuids.extend([ri['uuid'] for ri in ri_children])
+            vmi_back_refs = getattr(vn_obj,
+                'virtual_machine_interface_back_refs',
+                'VMI backrefs absent')
+            self.assertNotEqual(ri_children, 'VMI backrefs absent')
+            ret_vmi_uuids.extend([vmi['uuid'] for vmi in vmi_back_refs])
+
+        self.assertThat(set(ri_uuids), Equals(set(ret_ri_uuids)))
+        self.assertThat(set(vmi_uuids), Equals(set(ret_vmi_uuids)))
     # end test_list_bulk_collection
 
     def test_list_lib_api(self):
