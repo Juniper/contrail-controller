@@ -215,6 +215,8 @@ public:
     size_t get_open_fail();
     size_t get_stream_feature_fail();
     size_t get_handshake_failure();
+    size_t get_sm_connect_attempts();
+    size_t get_sm_keepalive_count();
 
     static const char *kAuthTypeNil;
     static const char *kAuthTypeTls;

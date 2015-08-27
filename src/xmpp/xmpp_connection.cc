@@ -487,6 +487,14 @@ size_t XmppConnection::get_handshake_failure() {
     return error_stats_.handshake_fail;
 }
 
+size_t XmppConnection::get_sm_connect_attempts() {
+    return state_machine_->get_connect_attempts();
+}
+
+size_t XmppConnection::get_sm_keepalive_count() {
+    return state_machine_->get_keepalive_count();
+}
+
 void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
     XmppStanza::XmppMessage *minfo = XmppDecode(msg);
 
