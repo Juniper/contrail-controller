@@ -112,7 +112,11 @@ public:
 
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }
-    int get_connect_attempts() { return attempts_; }
+    int get_connect_attempts() const { return attempts_; }
+
+    void keepalive_count_inc() { keepalive_count_++; }
+    void keepalive_count_clear() { keepalive_count_ = 0; }
+    int get_keepalive_count() const { return keepalive_count_; }
 
     int hold_time() const { return hold_time_; }
     virtual int hold_time_msecs() const { return hold_time_ * 1000; }
@@ -151,7 +155,8 @@ private:
     Timer *open_timer_;
     Timer *hold_timer_;
     int hold_time_;
-    int attempts_;
+    uint32_t attempts_;
+    uint32_t keepalive_count_;
     bool deleted_;
     bool in_dequeue_;
     bool is_active_;

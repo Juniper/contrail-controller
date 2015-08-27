@@ -210,6 +210,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
     Active(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Xmpp Active State)");
+        state_machine->keepalive_count_clear();
         bool flap = (state_machine->get_state() == ESTABLISHED);
         state_machine->set_state(ACTIVE);
         if (flap) {
@@ -701,7 +702,6 @@ struct XmppStreamEstablished :
     XmppStreamEstablished(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(XMPP Established)");
-        state_machine->connect_attempts_clear();
         XmppConnection *connection = state_machine->connection();
         state_machine->StartHoldTimer();
         state_machine->set_state(ESTABLISHED);
@@ -733,6 +733,10 @@ struct XmppStreamEstablished :
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         if (event.session != state_machine->session()) {
             return discard_event();
+        }
+        state_machine->keepalive_count_inc();
+        if (state_machine->get_keepalive_count() == 3) {
+            state_machine->connect_attempts_clear();
         }
         state_machine->StartHoldTimer();
         return discard_event();
@@ -867,6 +871,7 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active)
           TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
       hold_time_(GetConfiguredHoldTime()),
       attempts_(0),
+      keepalive_count_(0),
       deleted_(false),
       in_dequeue_(false),
       is_active_(active),
@@ -1165,7 +1170,7 @@ void XmppStateMachine::AssignSession() {
 const int XmppStateMachine::kConnectInterval;
 
 int XmppStateMachine::GetConnectTime() const {
-    int backoff = min(attempts_, 6);
+    int backoff = attempts_ > 6 ? 6 : attempts_;
     return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
 }
 
