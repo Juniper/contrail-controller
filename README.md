@@ -1,6 +1,8 @@
 contrail-controller
 ===================
 
+[![Join the chat at https://gitter.im/Juniper/contrail-controller](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Juniper/contrail-controller?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 # Contrail Virtual Network Controller
 
 This software is licensed under the Apache License, Version 2.0 (the "License");
