@@ -306,6 +306,19 @@ public:
             boost::bind(&XmppStateMachine::OpenTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }
+
+    virtual int hold_time_msecs() const {
+        if (hold_time_msecs_)
+            return hold_time_msecs_;
+        return XmppStateMachine::hold_time_msecs();
+    }
+
+    static void set_hold_time_msecs(int hold_time_msecs) {
+        hold_time_msecs_ = hold_time_msecs;
+    }
+
+private:
+    static int hold_time_msecs_;
 };
 
 class XmppLifetimeManagerTest : public XmppLifetimeManager {
