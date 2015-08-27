@@ -297,6 +297,7 @@ class PhysicalRouterDM(DBBaseDM):
                 vn_dict[vn_id].append(li.name)
             else:
                 vn_dict[vn_id] = [li.name]
+        return vn_dict
     #end
 
     def push_config(self):
