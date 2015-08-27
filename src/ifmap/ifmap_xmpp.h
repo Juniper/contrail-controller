@@ -34,8 +34,9 @@ struct ChannelEventInfo {
     std::string name;
 };
 
-class IFMapXmppChannel { 
+class IFMapXmppChannel {
 public:
+    static const std::string NoFqnSet;
     class IFMapSender;
     IFMapXmppChannel(XmppChannel *, IFMapServer *, IFMapChannelManager *);
     virtual ~IFMapXmppChannel();

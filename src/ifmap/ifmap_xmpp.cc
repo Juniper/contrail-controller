@@ -29,6 +29,8 @@
 #include "xmpp/xmpp_channel.h"
 #include "xmpp/xmpp_server.h"
 
+const std::string IFMapXmppChannel::NoFqnSet = "NoFqnSet";
+
 // There are 3 task interactions:
 // "xmpp::StateMachine" gives all the channel triggers.
 // "db::DBTable" does all the work related to those triggers - except Ready
@@ -185,14 +187,18 @@ bool IFMapXmppChannel::MustProcessChannelNotReady() {
 }
 
 const std::string& IFMapXmppChannel::FQName() const {
-    return ifmap_client_->identifier();
+    if (ifmap_client_) {
+        return ifmap_client_->identifier();
+    } else {
+        return IFMapXmppChannel::NoFqnSet;
+    }
 }
 
 void IFMapXmppChannel::ProcessVrSubscribe(const std::string &identifier) {
     // If we have already received a vr-subscribe on this channel...
     if (client_added_) {
         ifmap_channel_manager_->incr_dupicate_vrsub_messages();
-        IFMAP_XMPP_WARN(IFMapDuplicateVrSub, channel_name());
+        IFMAP_XMPP_WARN(IFMapDuplicateVrSub, channel_name(), FQName());
         return;
     }
 
@@ -200,14 +206,16 @@ void IFMapXmppChannel::ProcessVrSubscribe(const std::string &identifier) {
     bool add_client = true;
     ifmap_server_->ProcessClientWork(add_client, ifmap_client_);
     client_added_ = true;
-    IFMAP_XMPP_DEBUG(IFMapXmppVrSubUnsub, "VrSubscribe", channel_name());
+    IFMAP_XMPP_DEBUG(IFMapXmppVrSubUnsub, "VrSubscribe", channel_name(),
+                     FQName());
 }
 
 void IFMapXmppChannel::ProcessVmSubscribe(const std::string &vm_uuid) {
     if (!client_added_) {
         // If we didnt receive the vr-subscribe for this vm...
         ifmap_channel_manager_->incr_vmsub_novrsub_messages();
-        IFMAP_XMPP_WARN(IFMapNoVrSub, "VmSubscribe", channel_name(), vm_uuid);
+        IFMAP_XMPP_WARN(IFMapNoVrSub, "VmSubscribe", channel_name(), FQName(),
+                        vm_uuid);
         return;
     }
 
@@ -217,11 +225,11 @@ void IFMapXmppChannel::ProcessVmSubscribe(const std::string &vm_uuid) {
         ifmap_server_->ProcessVmSubscribe(ifmap_client_->identifier(), vm_uuid,
                                           subscribe, ifmap_client_->HasVms());
         IFMAP_XMPP_DEBUG(IFMapXmppVmSubUnsub, "VmSubscribe", channel_name(),
-                         vm_uuid);
+                         FQName(), vm_uuid);
     } else {
         // If we have already received a subscribe for this vm
         ifmap_channel_manager_->incr_dupicate_vmsub_messages();
-        IFMAP_XMPP_WARN(IFMapDuplicateVmSub, channel_name(), vm_uuid);
+        IFMAP_XMPP_WARN(IFMapDuplicateVmSub, channel_name(), FQName(), vm_uuid);
     }
 }
 
@@ -229,7 +237,8 @@ void IFMapXmppChannel::ProcessVmUnsubscribe(const std::string &vm_uuid) {
     // If we didnt receive the vr-sub for this vm, ignore the request
     if (!client_added_) {
         ifmap_channel_manager_->incr_vmunsub_novrsub_messages();
-        IFMAP_XMPP_WARN(IFMapNoVrSub, "VmUnsubscribe", channel_name(), vm_uuid);
+        IFMAP_XMPP_WARN(IFMapNoVrSub, "VmUnsubscribe", channel_name(), FQName(),
+                        vm_uuid);
         return;
     }
 
@@ -239,11 +248,11 @@ void IFMapXmppChannel::ProcessVmUnsubscribe(const std::string &vm_uuid) {
         ifmap_server_->ProcessVmSubscribe(ifmap_client_->identifier(), vm_uuid,
                                           subscribe, ifmap_client_->HasVms());
         IFMAP_XMPP_DEBUG(IFMapXmppVmSubUnsub, "VmUnsubscribe", channel_name(),
-                         vm_uuid);
+                         FQName(), vm_uuid);
     } else {
         // If we didnt receive the subscribe for this vm, ignore the unsubscribe
         ifmap_channel_manager_->incr_vmunsub_novmsub_messages();
-        IFMAP_XMPP_WARN(IFMapNoVmSub, channel_name(), vm_uuid);
+        IFMAP_XMPP_WARN(IFMapNoVmSub, channel_name(), FQName(), vm_uuid);
     }
 }
 
@@ -391,12 +400,13 @@ void IFMapChannelManager::ProcessChannelReady(XmppChannel *channel) {
     IFMapXmppChannel *ifmap_chnl = FindChannel(channel);
     if (ifmap_chnl == NULL) {
         IFMAP_XMPP_DEBUG(IFMapXmppChannelEvent, "Create",
-                         channel->connection()->ToUVEKey());
+            channel->connection()->ToUVEKey(), IFMapXmppChannel::NoFqnSet);
         CreateIFMapXmppChannel(channel);
         IFMapManager *ifmap_manager = ifmap_server_->get_ifmap_manager();
         if (ifmap_manager && !ifmap_manager->GetEndOfRibComputed()) {
             IFMAP_XMPP_DEBUG(IFMapXmppChannelEvent, "Close",
-                             channel->connection()->ToUVEKey());
+                             channel->connection()->ToUVEKey(),
+                             IFMapXmppChannel::NoFqnSet);
             channel->Close();
         }
     } else {
@@ -409,12 +419,13 @@ void IFMapChannelManager::ProcessChannelNotReady(XmppChannel *channel) {
     if (ifmap_chnl) {
         // If we have received subscriptions and ifmap_server knows about the
         // client for this channel, ask ifmap_server to cleanup.
+        std::string fq_name = ifmap_chnl->FQName();
         if (ifmap_chnl->MustProcessChannelNotReady()) {
             bool add_client = false;
             ifmap_server_->ProcessClientWork(add_client, ifmap_chnl->Sender());
         }
         IFMAP_XMPP_DEBUG(IFMapXmppChannelEvent, "Destroy",
-                         channel->connection()->ToUVEKey());
+                         channel->connection()->ToUVEKey(), fq_name);
         DeleteIFMapXmppChannel(ifmap_chnl);
     } else {
         incr_invalid_channel_not_ready_messages();
