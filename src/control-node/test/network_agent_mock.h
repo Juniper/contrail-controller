@@ -457,6 +457,8 @@ public:
 
     bool ProcessRequest(Request *request);
 
+    size_t get_sm_connect_attempts();
+    size_t get_sm_keepalive_count();
     size_t get_connect_error();
     size_t get_session_close();
     uint32_t flap_count();

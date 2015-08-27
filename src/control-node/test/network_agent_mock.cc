@@ -879,6 +879,18 @@ void NetworkAgentMock::SessionUp() {
         connection->SetAdminState(false);
 }
 
+size_t NetworkAgentMock::get_sm_connect_attempts() {
+    XmppConnection *connection =
+        client_->FindConnection("network-control@contrailsystems.com");
+    return (connection ? connection->get_sm_connect_attempts() : 0);
+}
+
+size_t NetworkAgentMock::get_sm_keepalive_count() {
+    XmppConnection *connection =
+        client_->FindConnection("network-control@contrailsystems.com");
+    return (connection ? connection->get_sm_keepalive_count() : 0);
+}
+
 size_t NetworkAgentMock::get_connect_error() {
     XmppConnection *connection =
         client_->FindConnection("network-control@contrailsystems.com");
