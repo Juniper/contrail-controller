@@ -449,3 +449,40 @@ class SvcMonitorTest(unittest.TestCase):
 
         svc_monitor.timer_callback(self._svc_monitor)
         ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('Deleting vn'))
+
+    def test_svc_monitor_restart_vm_create(self):
+        def db_read(obj_type, uuids):
+            obj = {}
+            obj['uuid'] = uuids[0]
+            if obj_type == 'service_template':
+                obj['fq_name'] = 'default-domain:fake-template'
+                return (True, [obj])
+            elif obj_type == 'service_instance':
+                obj['fq_name'] = 'default-domain:default-project:fake-instance'
+                return (True, [obj])
+            else:
+                return (False, None)
+
+        def db_list(obj_type):
+            if obj_type == 'service_template':
+                fq_name = 'default-domain:fake-template'
+                return (True, [([fq_name], obj_type)])
+            elif obj_type == 'service_instance':
+                fq_name = 'default-domain:default-project:fake-instance'
+                return (True, [([fq_name], obj_type)])
+            else:
+                return (False, None)
+
+        config_db.DBBaseSM._cassandra.reset()
+        config_db.DBBaseSM._cassandra.list = db_list
+        config_db.DBBaseSM._cassandra.read = db_read
+        self._svc_monitor._create_service_instance = mock.MagicMock()
+
+        st_obj = self.add_st('fake-template', 'fake-template')
+        si_obj = self.add_si('fake-instance', 'fake-instance', st_obj)
+        si = config_db.ServiceInstanceSM.get('fake-instance')
+        st = config_db.ServiceTemplateSM.get('fake-template')
+        st.virtualization_type = 'virtual-machine'
+        st.params = {'service_type': 'firewall'}
+        self._svc_monitor.post_init(self.vnc_mock, self.args)
+        self._svc_monitor._create_service_instance.assert_called_with(si)
