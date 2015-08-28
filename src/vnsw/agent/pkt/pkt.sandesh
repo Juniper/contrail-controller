@@ -117,6 +117,17 @@ struct SandeshFlowData {
     49: optional u16 underlay_source_port;
 }
 
+struct LinkLocalFlowInfo {
+    1: u32 fd;
+    2: u32 flow_index;
+    3: string source_addr;
+    4: string dest_addr;
+    5: u32 protocol;
+    6: u16 source_port;
+    7: u16 dest_port;
+    8: string timestamp;
+}
+
 request sandesh FetchFlowRecord {
     1: i32 nh;
     2: string sip;
@@ -144,9 +155,16 @@ request sandesh FetchAllFlowRecords {
 request sandesh DeleteAllFlowRecords {
 }
 
+request sandesh FetchLinkLocalFlowInfo {
+}
+
 response sandesh FlowRecordsResp {
     1: list<SandeshFlowData> flow_list;
     2: string flow_key (link="NextFlowRecordsSet");
+}
+
+response sandesh LinkLocalFlowInfoResp {
+    1: list<LinkLocalFlowInfo> linklocal_flow_list;
 }
 
 trace sandesh TapErr {
