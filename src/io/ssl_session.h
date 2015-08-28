@@ -23,12 +23,6 @@ public:
 
     virtual Socket *socket() const;
 
-    // Override to trigger handshake
-    virtual bool Connected(Endpoint remote);
-
-    // Override to trigger handshake
-    virtual void Accepted();
-
     // Trigger delayed SslHandShake
     void TriggerSslHandShake(SslHandShakeCallbackHandler);
 
@@ -65,11 +59,7 @@ protected:
 
 private:
     class SslReader;
-    friend class Sslserver;
-    static void AcceptHandShakeHandler(TcpSessionPtr session,
-                                       const boost::system::error_code& error);
-    static void ConnectHandShakeHandler(TcpSessionPtr session, Endpoint remote,
-                                        const boost::system::error_code& error);
+    friend class SslServer;
 
     // SslSession do actual ssl socket read for data in this context with
     // session mutex held, to avoid concurrent read and write operations

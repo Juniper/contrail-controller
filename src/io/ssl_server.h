@@ -30,11 +30,24 @@ protected:
 private:
     friend class SslSession;
 
+    static void AcceptHandShakeHandler(TcpServerPtr server,
+                                       TcpSessionPtr session,
+                                       const boost::system::error_code& error);
+    static void ConnectHandShakeHandler(TcpServerPtr server,
+                                        TcpSessionPtr session,
+                                        const boost::system::error_code& error);
+
     // suppress AllocSession method using tcp socket, not valid for
     // ssl server.
     TcpSession *AllocSession(Socket *socket) { return NULL; }
 
     TcpSession *AllocSession(bool server_session);
+
+    // override accept complete handler to trigger handshake
+    virtual void AcceptHandlerComplete(TcpSessionPtr &session);
+
+    // override connect complete handler to trigger handshake
+    void ConnectHandlerComplete(TcpSessionPtr &session);
 
     Socket *accept_socket() const;
     void set_accept_socket();

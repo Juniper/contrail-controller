@@ -343,6 +343,17 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
     }
 
     session->SessionEstablished(remote, TcpSession::PASSIVE);
+    AcceptHandlerComplete(session);
+
+done:
+    if (need_close) {
+        session->CloseInternal(ec, false, false);
+    }
+    AsyncAccept();
+}
+
+void TcpServer::AcceptHandlerComplete(TcpSessionPtr &session) {
+    tcp::endpoint remote = session->remote_endpoint();
     {
         tbb::mutex::scoped_lock lock(mutex_);
         if (AcceptSession(session.get())) {
@@ -357,18 +368,13 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
                                      "Rejected session from "
                                          << remote.address().to_string()
                                          << ":" << remote.port());
-            need_close = true;
-            goto done;
+            boost::system::error_code ec;
+            session->CloseInternal(ec, false, false);
+            return;
         }
     }
 
     session->Accepted();
-
-done:
-    if (need_close) {
-        session->CloseInternal(ec, false, false);
-    }
-    AsyncAccept();
 }
 
 TcpSession *TcpServer::GetSession(Endpoint remote) {
@@ -389,10 +395,14 @@ void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
         return;
     }
 
+    ConnectHandlerComplete(session);
+}
+
+void TcpServer::ConnectHandlerComplete(TcpSessionPtr &session) {
     boost::system::error_code ec;
     Endpoint remote = session->socket()->remote_endpoint(ec);
     if (ec) {
-        TCP_SERVER_LOG_INFO(server, TCP_DIR_OUT,
+        TCP_SERVER_LOG_INFO(this, TCP_DIR_OUT,
                             "Connect getsockaddr: " << ec.message());
         session->ConnectFailed();
         return;
@@ -408,7 +418,6 @@ void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
     if (!session->Connected(remote)) {
         tbb::mutex::scoped_lock lock(mutex_);
         RemoveSessionFromMap(remote, session.get());
-        return;
     }
 }
 
