@@ -305,6 +305,11 @@ request sandesh ShowRtGroupPeerReq {
     1: string search_string;
 }
 
+struct ShowEvpnMcastLeaf {
+    1: string address;
+    2: string replicator;
+}
+
 struct ShowEvpnTable {
     1: string name (link="ShowRouteReq");
     2: u64 mac_routes;
@@ -312,6 +317,9 @@ struct ShowEvpnTable {
     4: u64 im_routes;
     5: bool deleted;
     6: string deleted_at;
+    7: optional list<string> regular_nves;
+    8: optional list<string> ar_replicators;
+    9: optional list<ShowEvpnMcastLeaf> ar_leafs;
 }
 
 response sandesh ShowEvpnTableResp {

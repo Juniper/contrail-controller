@@ -1,10 +1,12 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -58,12 +60,55 @@ public:
 };
 
 class BgpXmppEvpnMcastTestBase : public ::testing::Test {
-protected:
+public:
+    void ValidateShowEvpnTableResponse(Sandesh *sandesh,
+        const vector<string> &regular_nves,
+        const vector<string> &ar_replicators,
+        const vector<string> &ar_leaf_addrs,
+        const vector<string> &ar_leaf_replicators) {
+        ShowEvpnTableResp *resp = dynamic_cast<ShowEvpnTableResp *>(sandesh);
+        EXPECT_TRUE(resp != NULL);
+        EXPECT_EQ(1, resp->get_tables().size());
+        const ShowEvpnTable &sevt = resp->get_tables()[0];
+        cout << "*****************************************************" << endl;
+        cout << sevt.log() << endl;
+        cout << "*****************************************************" << endl;
+        if (regular_nves != sevt.get_regular_nves())
+            return;
+        if (ar_replicators != sevt.get_ar_replicators())
+            return;
+        if (ar_leaf_addrs.size() != sevt.get_ar_leafs().size())
+            return;
+        if (ar_leaf_replicators.size() != sevt.get_ar_leafs().size())
+            return;
+        for (size_t idx = 0; idx < sevt.get_ar_leafs().size(); ++idx) {
+            if (ar_leaf_addrs[idx] !=
+                sevt.get_ar_leafs()[idx].get_address())
+                return;
+            if (ar_leaf_replicators[idx] !=
+                sevt.get_ar_leafs()[idx].get_replicator())
+                return;
 
+        }
+        validate_done_ = true;
+    }
+
+    bool CheckShowEvpnTableResponse(const string &name) {
+        ShowEvpnTableReq *show_req = new ShowEvpnTableReq;
+        show_req->set_search_string(name);
+        show_req->HandleRequest();
+        show_req->Release();
+        return validate_done_;
+    }
+
+protected:
     static const int kAgentCount = 4;
     static const int kMxCount = 4;
     static const int kTsnCount = 2;
     static const int kTorCount = 4;
+
+    typedef set<test::NetworkAgentMock *> VrouterSet;
+    typedef map<test::NetworkAgentMock *, string> VrouterToNhAddrMap;
 
     BgpXmppEvpnMcastTestBase()
         : thread_(&evm_),
@@ -71,6 +116,7 @@ protected:
           xs_y_(NULL),
           single_server_(false),
           vxlan_(false),
+          validate_done_(false),
           tag_(0) {
         EXPECT_TRUE(kAgentCount < 10);
         EXPECT_TRUE(kMxCount < 10);
@@ -481,6 +527,7 @@ protected:
             mx_set_.insert(mx);
             string nh_addr = string("192.168.1.2") + integerToString(idx);
             vrouter_map_.insert(make_pair(mx, nh_addr));
+            mx_address_list_.push_back(nh_addr);
             TASK_UTIL_EXPECT_TRUE(mx->IsEstablished());
         }
     }
@@ -612,6 +659,7 @@ protected:
             tor_replicator_address_list_.push_back(tsn_address);
             string nh_addr = string("192.168.1.3") + integerToString(idx);
             vrouter_map_.insert(make_pair(tor, nh_addr));
+            tor_address_list_.push_back(nh_addr);
         }
     }
 
@@ -811,9 +859,6 @@ protected:
         VerifyTsnsOlistCommon(false, false, false, false, false);
     }
 
-    typedef set<test::NetworkAgentMock *> VrouterSet;
-    typedef map<test::NetworkAgentMock *, string> VrouterToNhAddrMap;
-
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -831,12 +876,15 @@ protected:
     VrouterSet tor_set_;
     VrouterSet tsn_set_;
     VrouterToNhAddrMap vrouter_map_;
+    vector<string> mx_address_list_;
+    vector<string> tor_address_list_;
     vector<string> tor_replicator_address_list_;
     vector<string> tsn_address_list_;
     test::RouteParams mx_params_;
     test::RouteParams tsn_params_;
     bool single_server_;
     bool vxlan_;
+    bool validate_done_;
     int tag_;
 };
 
@@ -1489,6 +1537,42 @@ TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication6) {
     UnsubscribeTors();
     UnsubscribeMxs();
     UnsubscribeTsns();
+}
+
+TEST_P(BgpXmppEvpnArMcastTest, ArIntrospect) {
+    Configure();
+    CreateTsns();
+    CreateTors();
+    CreateMxs();
+    SubscribeTsns();
+    SubscribeTors();
+    SubscribeMxs();
+
+    AddAllTsnsBroadcastMacRoute();
+    AddAllTorsBroadcastMacRoute();
+    AddAllMxsBroadcastMacRoute();
+    VerifyAllTsnsAllOlist();
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = bs_x_.get();
+    sandesh_context.xmpp_peer_manager = bgp_channel_manager_x_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    vector<string> regular_nves = mx_address_list_;
+    vector<string> ar_replicators = tsn_address_list_;
+    vector<string> ar_leaf_addrs = tor_address_list_;
+    vector<string> ar_leaf_replicators = tor_replicator_address_list_;
+    Sandesh::set_response_callback(boost::bind(
+        &BgpXmppEvpnMcastTestBase::ValidateShowEvpnTableResponse,
+        this, _1, regular_nves, ar_replicators,
+        ar_leaf_addrs, ar_leaf_replicators));
+    TASK_UTIL_EXPECT_TRUE(CheckShowEvpnTableResponse("blue.evpn.0"));
+
+    DelAllTsnsBroadcastMacRoute();
+    DelAllTorsBroadcastMacRoute();
+    DelAllMxsBroadcastMacRoute();
+    UnsubscribeTsns();
+    UnsubscribeTors();
+    UnsubscribeMxs();
 }
 
 INSTANTIATE_TEST_CASE_P(Default, BgpXmppEvpnMcastTest,
