@@ -104,12 +104,17 @@ struct UVETypeInfo {
     4: u32                        count
 }
 
+struct UVEKeyCount {
+    1: string                   key
+    2: u32                      count
+}
+
 objectlog sandesh AlarmgenUpdate {
     1: string             name (key="ObjectGeneratorInfo")
     3: u32                partition
     4: string             table
-    5: list<UVEKeyInfo>   keys    (tags="partition,.key")
-    6: list<UVETypeInfo>  notifs  (tags="partition,table,.collector,.generator,.type")
+    5: list<UVEKeyCount>  o    (tags="partition,.key")
+    6: list<UVETypeInfo>  i    (tags="partition,table,.collector,.generator,.type")
 }
 
 struct AlarmgenStats {

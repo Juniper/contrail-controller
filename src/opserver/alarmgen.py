@@ -44,7 +44,7 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
     AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
-    UVETablePerfReq, UVETablePerfResp, UVETableInfo
+    UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVEKeyCount
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
@@ -282,6 +282,7 @@ class Controller(object):
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 
         self._workers = {}
+        self._uvestats = {}
         self._uveq = {}
         self._uveqf = {}
 
@@ -657,6 +658,15 @@ class Controller(object):
             if tab not in self.tab_perf:
                 self.tab_perf[tab] = AGTabStats()
 
+            if part in self._uvestats:
+                # Record stats on UVE Keys being processed
+                if not tab in self._uvestats[part]:
+                    self._uvestats[part][tab] = {}
+                if uv in self._uvestats[part][tab]:
+                    self._uvestats[part][tab][uv] += 1
+                else:
+                    self._uvestats[part][tab][uv] = 1
+
             uve_name = uv.split(':',1)[1]
             prevt = UTCTimestampUsec() 
             filters = {}
@@ -944,6 +954,7 @@ class Controller(object):
                         cdisc)
                 ph.start()
                 self._workers[partno] = ph
+                self._uvestats[partno] = {}
                 tout = 600
                 idx = 0
                 while idx < tout:
@@ -970,6 +981,7 @@ class Controller(object):
                 res,db = ph.get(False)
                 self._logger.error("Returned " + str(res))
                 del self._workers[partno]
+                del self._uvestats[partno]
                 self._uveqf[partno] = True
 
                 tout = 600
@@ -1018,13 +1030,15 @@ class Controller(object):
         n_updates = 0
         for pk,pc in self._workers.iteritems():
             s_partitions.add(pk)
-            din, dout = pc.stats()
+            din = pc.stats()
+            dout = copy.deepcopy(self._uvestats[pk])
+            self._uvestats[pk] = {}
             for ktab,tab in dout.iteritems():
                 au_keys = []
                 for uk,uc in tab.iteritems():
                     s_keys.add(uk)
                     n_updates += uc
-                    ukc = UVEKeyInfo()
+                    ukc = UVEKeyCount()
                     ukc.key = uk
                     ukc.count = uc
                     au_keys.append(ukc)
@@ -1034,10 +1048,10 @@ class Controller(object):
                         self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
-                        keys = au_keys,
-                        notifs = None,
+                        o = au_keys,
+                        i = None,
                         sandesh=self._sandesh)
-                self._logger.debug('send key stats: %s' % (au_obj.log()))
+                self._logger.debug('send output stats: %s' % (au_obj.log()))
                 au_obj.send(sandesh=self._sandesh)
 
             for ktab,tab in din.iteritems():
@@ -1057,10 +1071,10 @@ class Controller(object):
                         self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
-                        keys = None,
-                        notifs = au_notifs,
+                        o = None,
+                        i = au_notifs,
                         sandesh=self._sandesh)
-                self._logger.debug('send notif stats: %s' % (au_obj.log()))
+                self._logger.debug('send input stats: %s' % (au_obj.log()))
                 au_obj.send(sandesh=self._sandesh)
 
         au = AlarmgenStatus()
