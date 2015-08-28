@@ -168,7 +168,7 @@ protected:
             EXPECT_TRUE(HoldTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
-            EXPECT_TRUE(sm_->GetConnectTime() == 0);
+            EXPECT_TRUE(sm_->get_connect_attempts() != 0);
             break;
         default:
             ASSERT_TRUE(false);

@@ -592,6 +592,57 @@ TEST_P(BgpXmppBasicParamTest, NoSelfBgpConfiguration2) {
     DestroyAgents();
 }
 
+TEST_P(BgpXmppBasicParamTest, ClientConnectionBackoff) {
+    XmppStateMachineTest::set_hold_time_msecs(300);
+    Unconfigure();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(bs_x_->HasSelfConfiguration());
+
+    CreateAgents();
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    size_t client_conn_attempts_a = agent_a_->get_sm_connect_attempts();
+    size_t client_conn_attempts_b = agent_b_->get_sm_connect_attempts();
+    size_t client_conn_attempts_c = agent_c_->get_sm_connect_attempts();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(
+        agent_a_->get_sm_connect_attempts() > client_conn_attempts_a + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        agent_b_->get_sm_connect_attempts() > client_conn_attempts_b + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        agent_c_->get_sm_connect_attempts() > client_conn_attempts_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->get_sm_keepalive_count() <= 1);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->get_sm_keepalive_count() <= 1);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->get_sm_keepalive_count() <= 1);
+
+    Configure(bgp_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->get_sm_keepalive_count() >= 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->get_sm_keepalive_count() >= 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->get_sm_keepalive_count() >= 3);
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->get_sm_connect_attempts());
+    TASK_UTIL_EXPECT_EQ(0, agent_c_->get_sm_connect_attempts());
+
+    DestroyAgents();
+    XmppStateMachineTest::set_hold_time_msecs(0);
+}
+
 TEST_P(BgpXmppBasicParamTest, ShutdownServer1) {
 
     // Create agents and wait for them to come up.
