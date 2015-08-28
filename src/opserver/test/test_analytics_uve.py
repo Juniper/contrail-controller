@@ -52,8 +52,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.redis_port = AnalyticsUveTest.get_free_port()
         mockredis.start_redis(cls.redis_port)
-        cls.zk_port = AnalyticsUveTest.get_free_port()
-        mockzoo.start_zoo(cls.zk_port)
 
     @classmethod
     def tearDownClass(cls):
@@ -61,7 +59,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             return
 
         mockredis.stop_redis(cls.redis_port)
-        mockzoo.stop_zoo(cls.zk_port)
 
     #@unittest.skip('Skipping non-cassandra test with vizd')
     def test_00_nocassandra(self):
@@ -337,7 +334,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0,
-                             kafka_zk = self.__class__.zk_port))
+                             kafka_zk = True))
         assert vizd_obj.verify_on_setup()
 
         assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
@@ -424,7 +421,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # retrieval of alarms across multiple redis servers.
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
-                             collector_ha_test=True, kafka_zk = self.__class__.zk_port))
+                             collector_ha_test=True, kafka_zk = True))
         assert vizd_obj.verify_on_setup()
         assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
         assert(vizd_obj.set_alarmgen_partition(1,1) == 'true')
@@ -538,7 +535,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info('*** test_08_uve_alarm_filter ***')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
-                collector_ha_test=True, kafka_zk = self.__class__.zk_port))
+                collector_ha_test=True, kafka_zk = True))
         assert vizd_obj.verify_on_setup()
         assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
         assert(vizd_obj.set_alarmgen_partition(1,1) == 'true')

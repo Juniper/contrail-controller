@@ -9,6 +9,7 @@ import subprocess
 from util import retry
 from mockredis import mockredis
 from mockkafka import mockkafka
+from mockzoo import mockzoo
 import redis
 import urllib2
 import copy
@@ -494,9 +495,9 @@ class Redis(object):
 # end class Redis
 
 class Kafka(object):
-    def __init__(self, zk_port):
+    def __init__(self):
         self.port = None
-        self.zk_port = zk_port
+        self.zk_port = None
         self.running = False
     # end __init__
 
@@ -505,6 +506,9 @@ class Kafka(object):
         self.running = True
         if not self.port:
             self.port = AnalyticsFixture.get_free_port()
+        if not self.zk_port:
+            self.zk_port = AnalyticsFixture.get_free_port()
+        mockzoo.start_zoo(self.zk_port)
         mockkafka.start_kafka(self.zk_port, self.port)
 
     # end start
@@ -512,6 +516,7 @@ class Kafka(object):
     def stop(self):
         if self.running:
             mockkafka.stop_kafka(self.port)
+            mockzoo.stop_zoo(self.zk_port)
             self.running =  False
     #end stop
 # end class Kafka
@@ -521,7 +526,7 @@ class AnalyticsFixture(fixtures.Fixture):
     def __init__(self, logger, builddir, redis_port, cassandra_port,
                  ipfix_port = False, sflow_port = False, syslog_port = False,
                  protobuf_port = False, noqed=False, collector_ha_test=False,
-                 redis_password=None, kafka_zk=0,
+                 redis_password=None, kafka_zk=False,
                  cassandra_user=None, cassandra_password=None):
 
         self.builddir = builddir
@@ -550,8 +555,8 @@ class AnalyticsFixture(fixtures.Fixture):
                                  self.redis_password)]
         self.redis_uves[0].start()
 
-        if self.kafka_zk != 0:
-            self.kafka = Kafka(self.kafka_zk)
+        if self.kafka_zk:
+            self.kafka = Kafka()
             self.kafka.start()
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,

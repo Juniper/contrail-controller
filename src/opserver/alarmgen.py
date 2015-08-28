@@ -44,7 +44,7 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
     AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
-    UVETablePerfReq, UVETablePerfResp, UVETableInfo
+    UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVEKeyCount
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
@@ -1024,7 +1024,7 @@ class Controller(object):
                 for uk,uc in tab.iteritems():
                     s_keys.add(uk)
                     n_updates += uc
-                    ukc = UVEKeyInfo()
+                    ukc = UVEKeyCount()
                     ukc.key = uk
                     ukc.count = uc
                     au_keys.append(ukc)
