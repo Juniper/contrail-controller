@@ -1039,26 +1039,26 @@ const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Alarmgen UVE Key Stats',
       'stat_type' : 'AlarmgenUpdate'
-      'stat_attr' : 'keys',
+      'stat_attr' : 'o',
       'obj_table' : 'NONE',
       'attributes': [
           { 'name' : 'partition', 'datatype' : 'int',    'index' : true },
-          { 'name' : 'keys.key',   'datatype' : 'string', 'index' : true },
-          { 'name' : 'keys.count', 'datatype' : 'int',    'index' : false },
+          { 'name' : 'o.key',     'datatype' : 'string', 'index' : true },
+          { 'name' : 'o.count',   'datatype' : 'int',    'index' : false },
         ]
     },
     {
       'display_name' : 'Alarmgen Input Stats',
       'stat_type' : 'AlarmgenUpdate'
-      'stat_attr' : 'notifs',
+      'stat_attr' : 'i',
       'obj_table' : 'NONE',
       'attributes': [
           { 'name' : 'partition', 'datatype' : 'int',    'index' : true },
           { 'name' : 'table',     'datatype' : 'string', 'index' : true },
-          { 'name' : 'notifs.collector', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'notifs.generator', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'notifs.type',      'datatype' : 'string', 'index' : true },
-          { 'name' : 'notifs.count',     'datatype' : 'int',    'index' : false },
+          { 'name' : 'i.collector', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'i.generator', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'i.type',      'datatype' : 'string', 'index' : true },
+          { 'name' : 'i.count',     'datatype' : 'int',    'index' : false },
         ]
     },
     {
