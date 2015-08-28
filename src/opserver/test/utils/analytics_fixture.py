@@ -204,6 +204,9 @@ class AlarmGen(object):
         self._logger = logger
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
                             ':'+ModuleNames[Module.ALARM_GENERATOR]+':0'
+        self.redis_password = None
+        if self.analytics_fixture.redis_uves[0].password:
+           self.redis_password = str(self.analytics_fixture.redis_uves[0].password)
     # end __init__
 
     def get_introspect(self):
@@ -231,7 +234,9 @@ class AlarmGen(object):
         args = ['contrail-alarm-gen',
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
-                '--log_level', 'SYS_DEBUG']
+                '--log_level', 'SYS_DEBUG',
+                '--redis_server_port',
+                str(self.analytics_fixture.redis_uves[0].port)]
         if self.kafka_port:
             args.append('--kafka_broker_list')
             args.append('127.0.0.1:' + str(self.kafka_port))
@@ -242,6 +247,9 @@ class AlarmGen(object):
         args.append(self.primary_collector)
         if self.secondary_collector is not None:
             args.append(self.secondary_collector)
+        if self.redis_password is not None:
+            args.append('--redis_password')
+            args.append(self.redis_password)
 
         self._logger.info('Setting up AlarmGen: %s' % ' '.join(args))
         ports, self._instance = \
@@ -2228,7 +2236,7 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_uve_post
 
     @retry(delay=1, tries=5)
-    def verify_alarm_list(self, table, filts=None, expected_alarms=[]):
+    def verify_alarm_list_include(self, table, filts=None, expected_alarms=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         filters = self._get_filters_string(filts)
         query = table+'s?'+filters
@@ -2239,13 +2247,35 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.error('Failed to get response for %s: %s' % \
                               (query, str(err)))
             assert(False)
-        actual_alarms = [alarm['name'] for alarm in alarms]
+        actual_alarms = [alarm['name'] for alarm in alarms \
+            if alarm['name'] in set(expected_alarms)]
         expected_alarms.sort()
         actual_alarms.sort()
         self.logger.info('Expected Alarms: %s' % (str(expected_alarms)))
         self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
         return actual_alarms == expected_alarms
-    # end verify_alarm_list
+    # end verify_alarm_list_include
+
+    @retry(delay=1, tries=5)
+    def verify_alarm_list_exclude(self, table, filts=None, unexpected_alms=[]):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filters = self._get_filters_string(filts)
+        query = table+'s?'+filters
+        self.logger.info('verify_alarm_list: %s' % (query))
+        try:
+            alarms = vns.get_alarms(query)
+        except Exception as err:
+            self.logger.error('Failed to get response for %s: %s' % \
+                              (query, str(err)))
+            assert(False)
+        actual_alarms = [alarm['name'] for alarm in alarms \
+            if alarm['name'] in set(unexpected_alms)]
+        unexpected_alms.sort()
+        actual_alarms.sort()
+        self.logger.info('UnExpected Alarms: %s' % (str(unexpected_alms)))
+        self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
+        return len(actual_alarms) == 0
+    # end verify_alarm_list_exclude
 
     def _verify_alarms(self, exp_alarms, actual_alarms):
         self.logger.info('Expected Alarms: %s' % (str(exp_alarms)))
@@ -2316,7 +2346,7 @@ class AnalyticsFixture(fixtures.Fixture):
         expected_alarms = expected_alarm_data['alarms']
         try:
             actual_alarms = actual_alarm_data['UVEAlarms']['alarms']
-        except KeyError:
+        except (TypeError,KeyError):
             return False
         return actual_alarms == expected_alarms
     # end verify_alarm_data
@@ -2361,6 +2391,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def process_stop(self, name, instance, log_file, del_log = True):
         self.logger.info('Shutting down %s' % name)
+        bad_term = False
         if instance.poll() == None:
             instance.terminate()
             cnt = 1
@@ -2369,12 +2400,15 @@ class AnalyticsFixture(fixtures.Fixture):
                     break
                 cnt += 1
                 gevent.sleep(1)
+        else:
+            bad_term = True
         if instance.poll() == None:
             self.logger.info('%s FAILED to terminate; will be killed' % name)
             instance.kill()
+            bad_term = True
         (p_out, p_err) = instance.communicate()
         rcode = instance.returncode
-        if rcode != 0:
+        if rcode != 0 or bad_term:
             self.logger.info('%s returned %d' % (name,rcode))
             self.logger.info('%s terminated stdout: %s' % (name, p_out))
             self.logger.info('%s terminated stderr: %s' % (name, p_err))

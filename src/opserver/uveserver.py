@@ -27,11 +27,12 @@ import traceback
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger, redis_password=None):
+    def __init__(self, redis_uve_server, logger, redis_password=None, uvedbcache=None):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_map = {}
         self._logger = logger
         self._redis = None
+        self._uvedbcache = uvedbcache
         self._redis_password = redis_password
         self._uve_reverse_map = {}
         for h,m in UVE_MAP.iteritems():
@@ -221,6 +222,10 @@ class UVEServer(object):
         mfilter = filters.get('mfilt')
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')
+
+        if flat and not sfilter and not mfilter and self._uvedbcache:
+            return self._uvedbcache.get_uve(key, filters, is_alarm)
+
         state = {}
         state[key] = {}
         rsp = {}
