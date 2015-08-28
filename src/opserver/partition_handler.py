@@ -109,7 +109,7 @@ class UveCacheProcessor(gevent.Greenlet):
 
     def _run(self):
         for telem in self._q:
-            elem = json.loads(telem['data'])
+            elem = telem['data']
             if telem['event'] == 'clear':
                 # remove all keys of this partition
                 partno = elem['partition']
@@ -171,12 +171,13 @@ class UveStreamPart(gevent.Greenlet):
         idx=0
         for res in pperes:
             for tk,tv in res.iteritems():
-                msg = {'event': 'sync', 'data':\
-                    json.dumps({'partition':self._partno,
-                        'key':keys[idx], 'type':tk, 'value':json.loads(tv)})}
+                dt = {'partition':self._partno,
+                    'key':keys[idx], 'type':tk, 'value':json.loads(tv)}
                 if self._sse:
+                    msg = {'event': 'sync', 'data':json.dumps(dt)}
                     self._q.put(sse_pack(msg))
                 else:
+                    msg = {'event': 'sync', 'data':dt}
                     self._q.put(msg)
             idx += 1
         
@@ -219,22 +220,22 @@ class UveStreamPart(gevent.Greenlet):
                     idx = 0
                     for elem in elems:
                         if elem["type"] is None:
-                            msg = {'event': 'update', 'data':\
-                                json.dumps({'partition':part,
-                                    'key':elem["key"], 'type':None})}
+                            dt = {'partition':part,
+                                'key':elem["key"], 'type':None}
                         else:
                             vjson = pperes[idx]
                             if vjson is None:
                                 vdata = None
                             else:
                                 vdata = json.loads(vjson)
-                            msg = {'event': 'update', 'data':\
-                                json.dumps({'partition':part,
+                            dt = {'partition':part,
                                     'key':elem["key"], 'type':elem["type"],
-                                    'value':vdata})}
+                                    'value':vdata}
                         if self._sse:
+                            msg = {'event': 'update', 'data':json.dumps(dt)}
                             self._q.put(sse_pack(msg))
                         else:
+                            msg = {'event': 'update', 'data':dt}
                             self._q.put(msg)
                         idx += 1
             except gevent.GreenletExit:
@@ -269,11 +270,13 @@ class UveStreamer(gevent.Greenlet):
     def _run(self):
         inputs = [ self._rfile ]
         outputs = [ ]
-        msg = {'event': 'init', 'data':\
-            json.dumps({'partitions':self._partitions})}
         if self._sse:
+            msg = {'event': 'init', 'data':\
+                json.dumps({'partitions':self._partitions})}
             self._q.put(sse_pack(msg))
         else:
+            msg = {'event': 'init', 'data':\
+                {'partitions':self._partitions}}
             self._q.put(msg)
         while True:
             try:
@@ -303,19 +306,22 @@ class UveStreamer(gevent.Greenlet):
                 break
         for part, pi in self._agp.iteritems():
             self.partition_stop(part)
-        msg = {'event': 'stop', 'data':json.dumps(None)}
         if self._sse:
+            msg = {'event': 'stop', 'data':json.dumps(None)}
             self._q.put(sse_pack(msg))
         else:
+            msg = {'event': 'stop', 'data':None}
             self._q.put(msg)
 
     def partition_start(self, partno, pi):
         self._logger.error("Starting agguve part %d using %s" %( partno, pi))
-        msg = {'event': 'clear', 'data':\
-            json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
         if self._sse:
+            msg = {'event': 'clear', 'data':\
+                json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
             self._q.put(sse_pack(msg))
         else:
+            msg = {'event': 'clear', 'data':\
+                {'partition':partno, 'acq_time':pi.acq_time}}
             self._q.put(msg)
         self._parts[partno] = UveStreamPart(partno, self._logger,
             self._q, pi, self._rpass, self._sse)
