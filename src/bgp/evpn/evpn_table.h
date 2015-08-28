@@ -50,6 +50,7 @@ public:
     void CreateEvpnManager();
     void DestroyEvpnManager();
     EvpnManager *GetEvpnManager();
+    const EvpnManager *GetEvpnManager() const;
     virtual void set_routing_instance(RoutingInstance *rtinstance);
 
     uint64_t mac_route_count() const { return mac_route_count_; }
