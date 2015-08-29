@@ -95,10 +95,10 @@ bool DnsHandler::HandleRequest() {
 
     if (!vmitf->vn() ||
         (pkt_info_->ip_saddr.is_v4() &&
-         !vmitf->vn()->GetIpamData(vmitf->ip_addr(),
+         !vmitf->vn()->GetIpamData(vmitf->primary_ip_addr(),
                                    &ipam_name_, &ipam_type_)) ||
         (pkt_info_->ip_saddr.is_v6() &&
-         !vmitf->vn()->GetIpamData(vmitf->ip6_addr(),
+         !vmitf->vn()->GetIpamData(vmitf->primary_ip6_addr(),
                                    &ipam_name_, &ipam_type_))) {
         DNS_BIND_TRACE(DnsBindError, "Unable to find Ipam data; interface = "
                        << vmitf->name());
