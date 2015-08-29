@@ -138,16 +138,26 @@ class IntrospectUtil(object):
 
 #end class IntrospectUtil
 
-def service_installed(svc):
+def service_installed(svc, initd_svc):
     if distribution == 'debian':
+        if initd_svc:
+            return os.path.exists('/etc/init.d/' + svc)
         cmd = 'initctl show-config ' + svc
     else:
         cmd = 'chkconfig --list ' + svc
     with open(os.devnull, "w") as fnull:
         return not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull)
 
-def service_bootstatus(svc):
+def service_bootstatus(svc, initd_svc):
     if distribution == 'debian':
+        # On ubuntu/debian there does not seem to be an easy way to find
+        # the boot status for init.d services without going through the
+        # /etc/rcX.d level
+        if initd_svc:
+            if glob.glob('/etc/rc*.d/S*' + svc):
+                return ''
+            else:
+                return ' (disabled on boot)'
         cmd = 'initctl show-config ' + svc
         cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
         if cmdout.find('  start on') != -1:
@@ -162,19 +172,25 @@ def service_bootstatus(svc):
             else:
                 return ' (disabled on boot)'
 
-def service_status(svc):
+def service_status(svc, initd_svc):
     cmd = 'service ' + svc + ' status'
-    cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
+    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+    cmdout = p.communicate()[0]
+    if initd_svc:
+        if p.returncode == 0:
+            return 'active'
+        else:
+            return 'inactive'
     if cmdout.find('running') != -1:
         return 'active'
     else:
         return 'inactive'
 
-def check_svc(svc):
+def check_svc(svc, initd_svc=False):
     psvc = svc + ':'
-    if service_installed(svc):
-        bootstatus = service_bootstatus(svc)
-        status = service_status(svc)
+    if service_installed(svc, initd_svc):
+        bootstatus = service_bootstatus(svc, initd_svc)
+        status = service_status(svc, initd_svc)
     else:
         bootstatus = ' (disabled on boot)'
         status='inactive'
@@ -371,7 +387,7 @@ def main():
     parser.add_option('-t', '--timeout', dest='timeout', type="float",
                       default=2,
                       help="timeout in seconds to use for HTTP requests to services")
-    
+
     (options, args) = parser.parse_args()
     if args:
         parser.error("No arguments are permitted")
@@ -405,7 +421,7 @@ def main():
 
     if capi:
         supervisor_status('config', options)
-    
+
     if cwebui:
         supervisor_status('webui', options)
 
