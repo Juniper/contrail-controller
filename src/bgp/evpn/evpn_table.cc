@@ -272,6 +272,10 @@ EvpnManager *EvpnTable::GetEvpnManager() {
     return evpn_manager_;
 }
 
+const EvpnManager *EvpnTable::GetEvpnManager() const {
+    return evpn_manager_;
+}
+
 void EvpnTable::set_routing_instance(RoutingInstance *rtinstance) {
     BgpTable::set_routing_instance(rtinstance);
     CreateEvpnManager();

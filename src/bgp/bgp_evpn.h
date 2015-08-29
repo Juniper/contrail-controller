@@ -21,6 +21,7 @@ class EvpnRoute;
 class EvpnTable;
 class EvpnManagerPartition;
 class EvpnManager;
+class ShowEvpnTable;
 struct UpdateInfo;
 
 //
@@ -221,6 +222,7 @@ public:
 
     virtual UpdateInfo *GetUpdateInfo(EvpnRoute *route);
     DBTablePartition *GetTablePartition(size_t part_id);
+    void FillShowInfo(ShowEvpnTable *sevt) const;
     BgpServer *server();
     const EvpnTable *table() const { return table_; }
 

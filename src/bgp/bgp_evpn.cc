@@ -6,16 +6,19 @@
 
 #include <boost/foreach.hpp>
 
+#include <algorithm>
 #include <string>
 
 #include "base/task_annotations.h"
 #include "base/util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 
+using std::sort;
 using std::string;
 using std::vector;
 
@@ -580,6 +583,38 @@ void EvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
             partition->UpdateMcastNode(node);
         }
     }
+}
+
+//
+// Fill information for introspect command.
+// Note that all IM routes are always in partition 0.
+//
+void EvpnManager::FillShowInfo(ShowEvpnTable *sevt) const {
+    CHECK_CONCURRENCY("db::DBTable");
+
+    vector<string> regular_nves;
+    vector<string> ar_replicators;
+    vector<ShowEvpnMcastLeaf> ar_leafs;
+    BOOST_FOREACH(const EvpnMcastNode *node,
+                  partitions_[0]->remote_mcast_node_list()) {
+        if (node->assisted_replication_leaf()) {
+            ShowEvpnMcastLeaf leaf;
+            leaf.set_address(node->address().to_string());
+            leaf.set_replicator(node->replicator_address().to_string());
+            ar_leafs.push_back(leaf);
+        } else if (node->assisted_replication_supported()) {
+            ar_replicators.push_back(node->address().to_string());
+        } else if (node->edge_replication_not_supported()) {
+            regular_nves.push_back(node->address().to_string());
+        }
+    }
+
+    sort(regular_nves.begin(), regular_nves.end());
+    sort(ar_replicators.begin(), ar_replicators.end());
+    sort(ar_leafs.begin(), ar_leafs.end());
+    sevt->set_regular_nves(regular_nves);
+    sevt->set_ar_replicators(ar_replicators);
+    sevt->set_ar_leafs(ar_leafs);
 }
 
 //
