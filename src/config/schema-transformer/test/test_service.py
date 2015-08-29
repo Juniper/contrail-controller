@@ -87,6 +87,17 @@ class TestPolicy(test_case.STTestCase):
         self.assertEqual(sci.prefix[0], prefix)
 
     @retries(5, hook=retry_exc_handler)
+    def check_service_chain_info(self, fq_name, ri_fq, si, src_ri):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        sci = ri.get_service_chain_information()
+        if sci is None:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('Service chain info not found for %s' % fq_name)
+        self.assertEqual(sci.routing_instance, ri_fq)
+        self.assertEqual(sci.source_routing_instance, src_ri)
+        self.assertEqual(sci.service_instance, si)
+
+    @retries(5, hook=retry_exc_handler)
     def check_service_chain_pbf_rules(self, service_fq_name, vmi_fq_name, macs):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         ri_refs = vmi.get_routing_instance_refs()
@@ -149,6 +160,15 @@ class TestPolicy(test_case.STTestCase):
         if ri_refs:
             print "retrying ... ", test_common.lineno()
             raise Exception('ri_refs still exist for %s' % fq_name)
+
+    @retries(5, hook=retry_exc_handler)
+    def delete_vn(self, fq_name):
+        try:
+            self._vnc_lib.virtual_network_delete(fq_name=fq_name)
+            print 'vn deleted'
+        except RefsExistError:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('virtual network %s still exists' % str(fq_name))
 
     @retries(5, hook=retry_exc_handler)
     def check_vn_is_deleted(self, uuid):
@@ -572,6 +592,61 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy_no_vm
+
+    def test_multi_service_in_policy(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_names = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names, "in-network", auto_policy=False)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
+        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        sc = self.wait_to_get_sc()
+        sc_ri_names = ['service-'+sc[0]+'-default-domain_default-project_' + s for s in service_names]
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_names[2]),
+                                      self.get_ri_name(vn2_obj))
+
+        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[2]),
+                                       prefix='20.0.0.0/24')
+
+        si_name = 'default-domain:default-project:test.test_service.TestPolicy.test_multi_service_in_policys3'
+        self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_names[2]), 
+                       ':'.join(self.get_ri_name(vn2_obj)), si_name, ':'.join(self.get_ri_name(vn1_obj)))
+        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_names[2]), 
+                       ':'.join(self.get_ri_name(vn1_obj)), si_name, ':'.join(self.get_ri_name(vn2_obj)))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj, sc_ri_names[0]))
+
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        self.delete_network_policy(np)
+        self.delete_vn(fq_name=vn1_obj.get_fq_name())
+        self.delete_vn(fq_name=vn2_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end test_multi_service_in_policy
 
     def test_multi_service_policy(self):
         # create  vn1
