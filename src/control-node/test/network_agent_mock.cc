@@ -736,7 +736,7 @@ void NetworkAgentMock::Initialize() {
 NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
                                    int server_port, string local_address,
                                    string server_address, bool xmpp_auth_enabled)
-    : client_(new XmppClient(evm)), impl_(new XmppDocumentMock(hostname)),
+    : impl_(new XmppDocumentMock(hostname)),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
                 boost::bind(&NetworkAgentMock::ProcessRequest, this, _1)),
       server_address_(server_address), local_address_(local_address),
@@ -844,6 +844,7 @@ XmppChannelConfig *NetworkAgentMock::CreateXmppConfig() {
     config->endpoint.port(server_port_);
     config->FromAddr = hostname();
     config->ToAddr = XmppDocumentMock::kControlNodeJID;
+    config->tcp_hold_time = 0;
     return config;
 }
 

@@ -611,6 +611,8 @@ public:
         discovery_client_name_ = name;
     }
 
+    int tcp_hold_time() {return tcp_hold_time_; }
+
     const std::string &host_name() const {return host_name_; }
     const std::string &agent_name() const {
         return agent_name_;
@@ -1050,6 +1052,7 @@ private:
     uint32_t dss_port_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
+    int tcp_hold_time_; //Xmpp Tcp HoldTime
     std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;

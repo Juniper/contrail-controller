@@ -29,6 +29,11 @@ systemlog sandesh ServerBindFailure {
     2: string f1;
 }
 
+systemlog sandesh ServerKeepAliveFailure {
+    1: "Tcp KeepAlive failure: ";
+    2: string f1;
+}
+
 systemlog sandesh XmppAcceptAndCreate {
     1: "Xmpp Accept And Create ";
     2: string f1;

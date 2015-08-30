@@ -118,7 +118,7 @@ public:
     bool xmpp_dns_auth_enabled_2() const {return xmpp_dns_auth_enable_2_;}
     std::string xmpp_dns_server_cert_1() const { return xmpp_dns_server_cert_1_;}
     std::string xmpp_dns_server_cert_2() const { return xmpp_dns_server_cert_2_;}
-
+    const int tcp_hold_time() const {return tcp_hold_time_;}
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     std::string si_netns_command() const {return si_netns_command_;}
     std::string si_docker_command() const {return si_docker_command_;}
@@ -391,6 +391,7 @@ private:
     bool xmpp_dns_auth_enable_2_;
     std::string xmpp_dns_server_cert_1_;
     std::string xmpp_dns_server_cert_2_;
+    int tcp_hold_time_;
     //Simulate EVPN TOR mode moves agent into L2 mode. This mode is required
     //only for testing where MX and bare metal are simulated. VM on the
     //simulated compute node behaves as bare metal.
