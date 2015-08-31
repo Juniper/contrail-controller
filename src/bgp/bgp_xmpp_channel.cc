@@ -331,6 +331,7 @@ public:
           send_ready_(true),
           deleted_at_(0) {
         refcount_ = 0;
+        primary_path_count_ = 0;
     }
 
     virtual ~XmppPeer() {
@@ -399,6 +400,12 @@ public:
 
     virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
+    virtual void UpdatePrimaryPathCount(int count) const {
+        primary_path_count_ += count;
+    }
+    virtual int GetPrimaryPathCount() const {
+         return primary_path_count_;
+    }
 
 private:
     void WriteReadyCb(const boost::system::error_code &ec) {
@@ -417,6 +424,7 @@ private:
     BgpServer *server_;
     BgpXmppChannel *parent_;
     mutable tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> primary_path_count_;
     bool is_deleted_;
     bool send_ready_;
     uint64_t deleted_at_;

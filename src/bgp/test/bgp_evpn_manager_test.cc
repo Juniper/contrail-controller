@@ -121,6 +121,8 @@ public:
         count = 0;
         return count;
     }
+    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual int GetPrimaryPathCount() const { return 0; }
 
 private:
     int index_;
