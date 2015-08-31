@@ -166,6 +166,7 @@ void VNController::DnsXmppServerConnect() {
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
             xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
+            xmpp_cfg_dns->tcp_hold_time = agent_->params()->tcp_hold_time();
             xmpp_dns->AddXmppChannelConfig(xmpp_cfg_dns);
             xmpp_dns->InitClient(client_dns);
 
