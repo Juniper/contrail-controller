@@ -824,7 +824,11 @@ void FlowEntry::GetVrfAssignAcl() {
     //If interface has a VRF assign rule, choose the acl and match the
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
-    const AclDBEntry* acl = intf->vrf_assign_acl();
+    const AclDBEntry* acl = NULL;
+    if (is_flags_set(FlowEntry::NatFlow) == false) {
+        acl = intf->vrf_assign_acl();
+    }
+
     if (acl == NULL) {
         acl = data_.vn_entry.get()->GetAcl();
     }
