@@ -9,7 +9,7 @@ import argparse
 import ConfigParser
 import gen.resource_xsd
 import vnc_quota
-from pysandesh.sandesh_base import Sandesh
+from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 _WEB_HOST = '0.0.0.0'
@@ -64,6 +64,7 @@ def parse_args(args_str):
         'rabbit_max_pending_updates': '4096',
         'cluster_id': '',
         'max_requests': 1024,
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     # ssl options
     secopts = {
@@ -250,6 +251,8 @@ def parse_args(args_str):
     parser.add_argument(
         "--max_requests", type=int,
         help="Maximum number of concurrent requests served by api server")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec.")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:

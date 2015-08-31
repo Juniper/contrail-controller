@@ -151,7 +151,10 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.disable_flow_collection",
             opt::bool_switch(&disable_flow_collection_),
             "Disable flow message collection")
-
+        ("DEFAULT.sandesh_send_rate_limit",
+              opt::value<uint32_t>()->default_value(
+              Sandesh::get_send_rate_limit()),
+              "Sandesh send rate limit in messages/sec")
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
              "Port of Discovery Server")
@@ -310,6 +313,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
     GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
     GetOptValue<int>(var_map, ipfix_port_, "DEFAULT.ipfix_port");
+    GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
+                              "DEFAULT.sandesh_send_rate_limit");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");

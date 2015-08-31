@@ -2746,6 +2746,10 @@ class SchemaTransformer(object):
                 ModuleNames[Module.SCHEMA_TRANSFORMER])
 
         _sandesh = Sandesh()
+        # Reset the sandesh send rate limit value
+        if args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                args.sandesh_send_rate_limit)
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request = \
             self.sandesh_ri_handle_request
@@ -3907,6 +3911,7 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     secopts = {
         'use_certs': False,
@@ -4003,6 +4008,8 @@ def parse_args(args_str):
                         help="Tenant name for keystone admin user")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
