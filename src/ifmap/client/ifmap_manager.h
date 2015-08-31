@@ -54,7 +54,6 @@ public:
     virtual void ResetConnection(const std::string &host,
                                  const std::string &port);
     bool PeerDown();
-    void SetStartStaleEntriesCleanup(bool value);
 
 private:
 

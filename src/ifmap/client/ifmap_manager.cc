@@ -58,10 +58,6 @@ bool IFMapManager::GetEndOfRibComputed() const {
     return channel_->end_of_rib_computed();
 }
 
-void IFMapManager::SetStartStaleEntriesCleanup(bool value) {
-    channel_->set_start_stale_entries_cleanup(value);
-}
-
 void IFMapManager::GetPeerServerInfo(IFMapPeerServerInfoUI &server_info) {
     server_info.set_url(get_host_port());
     server_info.set_connection_status(channel_->get_connection_status());
