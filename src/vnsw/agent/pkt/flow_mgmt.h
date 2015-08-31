@@ -7,7 +7,6 @@
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt_request.h"
 #include "pkt/flow_mgmt_response.h"
-#include <sandesh/common/flow_types.h>
 
 ////////////////////////////////////////////////////////////////////////////
 // Flow Management module is responsible to keep flow action in-sync with
@@ -941,9 +940,8 @@ public:
         uint32_t count_; // Number of times tree modified
         bool ingress_;   // Ingress flow?
         bool local_flow_;
-        bool stats_exported_;
 
-        FlowEntryInfo() : stats_exported_(false) { }
+        FlowEntryInfo() { }
         virtual ~FlowEntryInfo() { assert(tree_.size() == 0); }
     };
 
@@ -982,8 +980,8 @@ public:
     Agent *agent() const { return agent_; }
     FlowTable *flow_table() const { return flow_table_; }
     void AddEvent(FlowEntry *low);
-    void ExportEvent(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
     void DeleteEvent(FlowEntry *flow);
+    void FlowIndexUpdateEvent(FlowEntry *flow);
     void AddEvent(const DBEntry *entry, uint32_t gen_id);
     void ChangeEvent(const DBEntry *entry, uint32_t gen_id);
     void DeleteEvent(const DBEntry *entry, uint32_t gen_id);
@@ -994,11 +992,13 @@ public:
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
     bool HasVrfFlows(uint32_t vrf);
+
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
     // Handle Delete of a flow. Updates FlowMgmtKeyTree for all objects
     void DeleteFlow(FlowEntryPtr &flow);
+    void UpdateFlowIndex(FlowEntryPtr &flow);
 
     // Add a FlowMgmtKey into the FlowMgmtKeyTree for an object
     // The FlowMgmtKeyTree for object is passed as argument
@@ -1013,13 +1013,6 @@ private:
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
     void LogFlow(FlowEntry *flow, const std::string &op);
-    void ExportFlow(FlowEntryPtr &flow, uint64_t diff_bytes, uint64_t diff_pkts);
-    void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
-    void GetFlowSandeshActionParams(const FlowAction &action_info,
-                                    std::string &action_str);
-    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                            int ace_id);

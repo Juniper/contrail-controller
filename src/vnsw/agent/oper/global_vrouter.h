@@ -12,6 +12,7 @@ class VnEntry;
 class VrfEntry;
 class IFMapNode;
 class AgentRouteEncap;
+class AgentUtXmlFlowThreshold;
 
 namespace autogen {
     struct LinklocalServiceEntryType;
@@ -31,6 +32,7 @@ struct LinkLocalDBState : DBState {
 class GlobalVrouter {
 public:
     static const std::string kMetadataService;
+    static const uint32_t kDefaultFlowExportRate;
 
     struct LinkLocalServiceKey {
         Ip4Address linklocal_service_ip;
@@ -68,6 +70,7 @@ public:
     const LinkLocalServicesMap &linklocal_services_map() const {
         return linklocal_services_map_;
     }
+    uint32_t flow_export_rate() const { return flow_export_rate_; }
 
     void GlobalVrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
     bool FindLinkLocalService(const std::string &service_name,
@@ -85,6 +88,7 @@ public:
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
 
     uint64_t PendingFabricDnsRequests() const;
+    friend class AgentUtXmlFlowThreshold;
 private:
     class FabricDnsResolver;
     class LinkLocalRouteManager;
@@ -105,6 +109,7 @@ private:
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
     boost::scoped_ptr<AgentRouteEncap> agent_route_encap_update_walker_;
+    uint32_t flow_export_rate_;
 };
 
 #endif // vnsw_agent_global_router_h_

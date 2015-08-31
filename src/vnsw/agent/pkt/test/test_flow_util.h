@@ -222,7 +222,7 @@ public:
         EXPECT_TRUE(count < 3000);
     };
 
-    const FlowEntry *FlowFetch() {
+    FlowEntry *FlowFetch() {
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
         return fe;
     }

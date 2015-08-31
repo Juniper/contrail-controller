@@ -11,6 +11,8 @@
 #include <test/test_cmn_util.h>
 #include <pkt/test/test_pkt_util.h>
 #include <net/tunnel_encap_type.h>
+#include <pkt/flow_mgmt.h>
+#include <oper/global_vrouter.h>
 #include "test_xml.h"
 #include "test_xml_oper.h"
 #include "test_xml_validate.h"
@@ -24,6 +26,8 @@ using namespace AgentUtXmlUtils;
 AgentUtXmlValidationNode *CreateValidateNode(const string &type,
                                              const string &name, const uuid &id,
                                              const xml_node &node) {
+    if (type == "global-vrouter-config")
+        return new AgentUtXmlGlobalVrouterValidate(name, id, node);
     if (type == "virtual-network" || type == "vn")
         return new AgentUtXmlVnValidate(name, id, node);
     if (type == "virtual-machine" || type == "vm")
@@ -114,6 +118,8 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddConfigEntry("security-group", CreateNode);
     test->AddConfigEntry("instance-ip", CreateNode);
 
+    test->AddValidateEntry("global-vrouter-config", CreateValidateNode);
+
     test->AddValidateEntry("virtual-network", CreateValidateNode);
     test->AddValidateEntry("vn", CreateValidateNode);
     test->AddValidateEntry("vxlan", CreateValidateNode);
@@ -153,6 +159,11 @@ bool AgentUtXmlGlobalVrouter::ReadXml() {
         return false;
     }
     GetStringAttribute(node(), "vxlan-mode", &vxlan_mode_);
+    bool got_attr = GetIntAttribute(node(), "flow-export-rate",
+                                    &flow_export_rate_);
+    if (!got_attr) {
+        flow_export_rate_ = 0;
+    }
     return true;
 }
 
@@ -161,6 +172,9 @@ bool AgentUtXmlGlobalVrouter::ToXml(xml_node *parent) {
     AddXmlNodeWithValue(&n, "name", name());
     if (!vxlan_mode().empty()) {
         AddXmlNodeWithValue(&n, "vxlan-network-identifier-mode", vxlan_mode());
+    }
+    if (flow_export_rate() != 0) {
+        AddXmlNodeWithIntValue(&n, "flow-export-rate", flow_export_rate());
     }
     AddIdPerms(&n);
     return true;
@@ -815,6 +829,42 @@ bool AgentUtXmlNova::Run() {
     NovaIntfAdd(op_delete(), id(), ip, vm_uuid_, vn_uuid_, name(), mac_,
                 vm_name_);
     return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlGlobalVrouterValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlGlobalVrouterValidate::AgentUtXmlGlobalVrouterValidate(const string &name,
+                                           const uuid &id,
+                                           const xml_node &node) :
+    AgentUtXmlValidationNode(name, node), id_(id), flow_export_rate_(-1) {
+}
+
+AgentUtXmlGlobalVrouterValidate::~AgentUtXmlGlobalVrouterValidate() {
+}
+
+bool AgentUtXmlGlobalVrouterValidate::ReadXml() {
+    GetIntAttribute(node(), "flow-export-rate", &flow_export_rate_);
+    return true;
+}
+
+bool AgentUtXmlGlobalVrouterValidate::Validate() {
+    GlobalVrouter *vr = Agent::GetInstance()->oper_db()->global_vrouter();
+
+    if (vr == NULL)
+        return false;
+
+    if (flow_export_rate_ != -1) {
+        uint32_t rate = (uint32_t)(flow_export_rate_);
+        if (vr->flow_export_rate() != rate)
+            return false;
+    }
+
+    return true;
+}
+
+const string AgentUtXmlGlobalVrouterValidate::ToString() {
+    return "global-vrouter-config";
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -20,19 +20,12 @@ public:
         CHANGE_DBENTRY,
         DELETE_DBENTRY,
         RETRY_DELETE_VRF,
-        EXPORT_FLOW
+        UPDATE_FLOW_INDEX
+
     };
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0) {
-            if (event == RETRY_DELETE_VRF)
-                assert(vrf_id_);
-        }
-
-    FlowMgmtRequest(Event event, FlowEntryPtr &flow, uint64_t bytes,
-                    uint64_t packets) :
-        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0),
-        diff_bytes_(bytes), diff_packets_(packets) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
         }
@@ -83,8 +76,6 @@ public:
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
     uint32_t vrf_id() const { return vrf_id_; }
     uint32_t gen_id() const { return gen_id_; }
-    uint64_t diff_bytes() const { return diff_bytes_; }
-    uint64_t diff_packets() const { return diff_packets_; }
 
 private:
     Event event_;
@@ -95,8 +86,6 @@ private:
     const DBEntry *db_entry_;
     uint32_t vrf_id_;
     uint32_t gen_id_;
-    uint64_t diff_bytes_;
-    uint64_t diff_packets_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };

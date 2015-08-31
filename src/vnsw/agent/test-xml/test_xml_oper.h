@@ -24,9 +24,11 @@ public:
     virtual void ToString(std::string *str);
 
     std::string &vxlan_mode() { return vxlan_mode_;}
+    int flow_export_rate() const { return flow_export_rate_; }
 
 private:
     std::string vxlan_mode_;
+    int flow_export_rate_;
 };
 
 class AgentUtXmlVn : public AgentUtXmlConfig {
@@ -232,6 +234,21 @@ private:
     boost::uuids::uuid vn_uuid_;
     boost::uuids::uuid vm_uuid_;
     std::string ip_;
+};
+
+class AgentUtXmlGlobalVrouterValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlGlobalVrouterValidate(const std::string &name,
+                         const boost::uuids::uuid &id,
+                         const pugi::xml_node &node);
+    virtual ~AgentUtXmlGlobalVrouterValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+private:
+    const boost::uuids::uuid id_;
+    int flow_export_rate_;
 };
 
 class AgentUtXmlVnValidate : public AgentUtXmlValidationNode {
