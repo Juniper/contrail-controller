@@ -116,6 +116,10 @@ class DeviceManager(object):
                 ModuleNames[Module.DEVICE_MANAGER])
 
         self._sandesh = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem._DEFAULT_SEND_RATELIMIT = \
+                int(self._args.sandesh_send_rate_limit)
         module = Module.DEVICE_MANAGER
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -377,6 +381,7 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
+        'sandesh_send_rate_limit': None,
     }
     secopts = {
         'use_certs': False,
@@ -472,6 +477,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_send_rate_limit",
+            help="Sandesh send rate limit in messages/sec")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()

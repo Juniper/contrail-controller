@@ -401,6 +401,10 @@ class OpServer(object):
             self._hostname += 'dup'
         self._sandesh = Sandesh()
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem._DEFAULT_SEND_RATELIMIT = \
+                int(self._args.sandesh_send_rate_limit)
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
@@ -706,6 +710,7 @@ class OpServer(object):
             'logging_conf': '',
             'logger_class': None,
             'partitions'        : 5,
+            'sandesh_send_rate_limit': None,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -824,7 +829,8 @@ class OpServer(object):
             help="Cassandra password")
         parser.add_argument("--partitions", type=int,
             help="Number of partitions for hashing UVE keys")
-
+        parser.add_argument("--sandesh_send_rate_limit",
+            help="Sandesh send rate limit in messages/sec")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
