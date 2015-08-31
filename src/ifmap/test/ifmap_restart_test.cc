@@ -134,8 +134,8 @@ protected:
         return tbl->FindNode(name);
     }
 
-    void StaleNodesProcTimeout() {
-        server_.StaleEntriesProcTimeout();
+    void ProcessStaleEntriesTimeout() {
+        server_.ProcessStaleEntriesTimeout();
     }
 
     DB db_;
@@ -206,7 +206,7 @@ TEST_F(IFMapRestartTest, BasicTest) {
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // The nodes had seq-num 2 and all of them should still exist after cleanup
@@ -219,7 +219,7 @@ TEST_F(IFMapRestartTest, BasicTest) {
 
     // Update the channel's seq-num to 3 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(3);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // Nodes had seq-num 2 and all of them should be gone
@@ -281,7 +281,7 @@ TEST_F(IFMapRestartTest, BasicTest1) {
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // The nodes with seq-num 1 should be gone i.e. virtual-network blue
@@ -343,7 +343,7 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     idn1 = TableLookup("domain", "user1");
@@ -419,7 +419,7 @@ TEST_F(IFMapRestartTest, LinkAttr) {
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // Nodes had seq-num 2 and all of them should be gone
@@ -522,7 +522,7 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // Sequence numbers match. Everything should exist.
@@ -541,7 +541,7 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
 
     // Update the channel's seq-num to 3 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(3);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // Only the vn should exist. We should not find the other nodes.
@@ -556,7 +556,7 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
 
     // Update the channel's seq-num to 4 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(4);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // The vn should also be cleaned up.
@@ -655,7 +655,7 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // Sequence numbers match. Everything should exist.
@@ -676,7 +676,7 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
 
     // Update the channel's seq-num to 3 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(3);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // All the nodes should exist
@@ -693,7 +693,7 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
 
     // Update the channel's seq-num to 4 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(4);
-    StaleNodesProcTimeout();
+    ProcessStaleEntriesTimeout();
     task_util::WaitForIdle();
 
     // All the nodes should be cleaned up
