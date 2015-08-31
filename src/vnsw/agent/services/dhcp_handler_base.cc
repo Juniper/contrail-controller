@@ -57,16 +57,20 @@ uint16_t DhcpHandlerBase::AddByteArrayOption(uint32_t option, uint16_t opt_len,
                                              const std::string &input) {
     option_->WriteData(option, 0, NULL, &opt_len);
     std::stringstream value(input);
-    uint8_t byte = 0;
+    bool done = false;
+    uint32_t byte = 0;
     value >> byte;
-    while (!value.bad() && !value.fail()) {
+    while (!value.bad() && !value.fail() && byte <= 0xFF) {
         option_->AppendData(1, &byte, &opt_len);
-        if (value.eof()) break;
+        if (value.eof()) {
+            done = true;
+            break;
+        }
         value >> byte;
     }
 
-    // if atleast one byte is not added, ignore this option
-    if (!option_->GetLen() || !value.eof()) {
+    // if atleast one byte is not added or in case of error, ignore this option
+    if (!option_->GetLen() || !done) {
         DHCP_BASE_TRACE("Invalid DHCP option " << option << " data : " <<
                         input << "is invalid");
         return opt_len - option_->GetLen() - option_->GetFixedLen();

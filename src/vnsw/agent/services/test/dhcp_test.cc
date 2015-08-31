@@ -1536,11 +1536,16 @@ TEST_F(DhcpTest, BoolByteOption) {
             <dhcp-option-value>125</dhcp-option-value>\
          </dhcp-option>\
         <dhcp-option>\
+            <dhcp-option-name>vendor-encapsulated-options</dhcp-option-name>\
+            <dhcp-option-value>97 98 99 300</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
             <dhcp-option-name>interface-id</dhcp-option-name>\
-            <dhcp-option-value>abcd</dhcp-option-value>\
+            <dhcp-option-value>97 98 99 100</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
+    // no vendor encapsulated options as value 300 is invalid
     #define OPTION_CATEGORY_BOOL_BYTE "13 01 01 17 01 7d 5e 04 61 62 63 64"
     DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
                            OPTION_CATEGORY_BOOL_BYTE);
@@ -1595,7 +1600,7 @@ TEST_F(DhcpTest, OptionCodeTest) {
          </dhcp-option>\
         <dhcp-option>\
             <dhcp-option-name>94</dhcp-option-name>\
-            <dhcp-option-value>abcd</dhcp-option-value>\
+            <dhcp-option-value>97 98 99 100</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
@@ -1609,29 +1614,13 @@ TEST_F(DhcpTest, ByteStringOption) {
     char vm_interface_attr[] =
     "<virtual-machine-interface-dhcp-option-list>\
         <dhcp-option>\
-            <dhcp-option-name>slp-service-scope</dhcp-option-name>\
+            <dhcp-option-name>status-code</dhcp-option-name>\
             <dhcp-option-value>10 value</dhcp-option-value>\
-         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>dhcp-vss</dhcp-option-name>\
-            <dhcp-option-value>test value</dhcp-option-value>\
-         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>dhcp-vss</dhcp-option-name>\
-            <dhcp-option-value></dhcp-option-value>\
-         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>dhcp-vss</dhcp-option-name>\
-            <dhcp-option-value>3000 wrongvalue</dhcp-option-value>\
-         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>dhcp-client-identifier</dhcp-option-name>\
-            <dhcp-option-value>20 abcd</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
     // dhcp-vss shouldnt be present as value was wrong
-    #define OPTION_CATEGORY_BYTE_STRING "4f 06 0a 76 61 6c 75 65 3d 05 14 61 62 63 64"
+    #define OPTION_CATEGORY_BYTE_STRING "97 06 0a 76 61 6c 75 65"
     DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
                            OPTION_CATEGORY_BYTE_STRING);
 }
