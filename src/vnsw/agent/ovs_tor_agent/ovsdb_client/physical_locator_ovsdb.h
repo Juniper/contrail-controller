@@ -30,10 +30,14 @@ public:
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Physical Locator";}
     KSyncEntry* UnresolvedReference();
+    bool AcquireCreateRequest(KSyncEntry *creator);
+    void ReleaseCreateRequest(KSyncEntry *creator);
 private:
 
     friend class PhysicalLocatorTable;
     std::string dip_;
+    // KSync Entry trying to create physical locator
+    KSyncEntry *create_req_owner_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalLocatorEntry);
 };
 };  // namespace OVSDB
