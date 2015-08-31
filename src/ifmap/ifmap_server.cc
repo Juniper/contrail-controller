@@ -191,8 +191,6 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&IFMapServer::ClientWorker, this, _1)),
           io_service_(io_service),
-          stale_entries_cleanup_timer_(TimerManager::CreateTimer(*(io_service_),
-                                       "Stale entries cleanup timer")),
           ifmap_manager_(NULL), ifmap_channel_manager_(NULL) {
 }
 
@@ -205,7 +203,6 @@ void IFMapServer::Initialize() {
 }
 
 void IFMapServer::Shutdown() {
-    TimerManager::DeleteTimer(stale_entries_cleanup_timer_);
     vm_uuid_mapper_->Shutdown();
     exporter_->Shutdown();
 }
@@ -373,8 +370,7 @@ bool IFMapServer::ClientNameToIndex(const std::string &id, int *index) {
     return false;
 }
 
-bool IFMapServer::StaleEntriesProcTimeout() {
-    int timeout = kStaleEntriesCleanupTimeout;
+bool IFMapServer::ProcessStaleEntriesTimeout(int timeout) {
     IFMAP_DEBUG(IFMapStaleEntriesCleanupTimerFired, integerToString(timeout),
                 "millisecond stale entries cleanup timer fired");
     SetStartStaleEntriesCleanup(false);
@@ -384,27 +380,6 @@ bool IFMapServer::StaleEntriesProcTimeout() {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(cleaner);
     return false;
-}
-
-void IFMapServer::StartStaleEntriesCleanup() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
-    if (stale_entries_cleanup_timer_->running()) {
-        stale_entries_cleanup_timer_->Cancel();
-    }
-    stale_entries_cleanup_timer_->Start(kStaleEntriesCleanupTimeout,
-        boost::bind(&IFMapServer::StaleEntriesProcTimeout, this), NULL);
-}
-
-bool IFMapServer::StaleEntriesCleanupTimerRunning() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
-    return stale_entries_cleanup_timer_->running();
-}
-
-void IFMapServer::StopStaleEntriesCleanup() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
-    if (stale_entries_cleanup_timer_->running()) {
-        stale_entries_cleanup_timer_->Cancel();
-    }
 }
 
 void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,

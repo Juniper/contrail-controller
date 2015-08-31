@@ -104,13 +104,9 @@ public:
     const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
     bool ClientNameToIndex(const std::string &id, int *index);
-    void StartStaleEntriesCleanup();
-    void StopStaleEntriesCleanup();
-    bool StaleEntriesCleanupTimerRunning();
+    bool ProcessStaleEntriesTimeout(int timeout);
 
 private:
-    static const int kStaleEntriesCleanupTimeout = 10000; // milliseconds
-
     friend class IFMapServerTest;
     friend class IFMapRestartTest;
     friend class ShowIFMapXmppClientInfo;
@@ -131,7 +127,6 @@ private:
     void CleanupUuidMapper(IFMapClient *client);
     void ClientExporterSetup(IFMapClient *client);
     void ClientExporterCleanup(IFMapClient *client);
-    bool StaleEntriesProcTimeout();
     const ClientMap &GetClientMap() const { return client_map_; }
     void SimulateDeleteClient(IFMapClient *client);
 
@@ -146,7 +141,6 @@ private:
     IndexMap index_map_;
     WorkQueue<QueueEntry> work_queue_;
     boost::asio::io_service *io_service_;
-    Timer *stale_entries_cleanup_timer_;
     IFMapManager *ifmap_manager_;
     IFMapChannelManager *ifmap_channel_manager_;
 };
