@@ -190,9 +190,11 @@ bool ControllerRouteWalker::RouteNotifyInternal(DBTablePartBase *partition,
     VrfExport::State *vs = static_cast<VrfExport::State *>
         (bgp_peer->GetVrfExportState(vrf_partition, vrf));
 
-    vs->rt_export_[table_type]->
-      Notify(agent(), bgp_peer->GetBgpXmppPeer(), associate_, table_type,
-             partition, entry);
+    if (vs) {
+        vs->rt_export_[table_type]->
+            Notify(agent(), bgp_peer->GetBgpXmppPeer(), associate_, table_type,
+                   partition, entry);
+    }
     return true;
 }
 
