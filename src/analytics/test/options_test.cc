@@ -82,6 +82,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -124,19 +125,22 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
+    char argv_3[] = "--DEFAULT.sandesh_send_rate_limit=5";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
 
@@ -168,6 +172,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -238,6 +243,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "test_mode=1\n"
         "syslog_port=101\n"
         "disable_flow_collection=1\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[COLLECTOR]\n"
         "port=100\n"
@@ -303,6 +309,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     uint16_t protobuf_port(0);
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3333);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -325,6 +332,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_local=0\n"
         "test_mode=1\n"
         "syslog_port=102\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[COLLECTOR]\n"
         "port=100\n"
@@ -345,7 +353,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 9;
+    int argc = 10;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_collector_config_file.conf";
@@ -356,6 +364,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_6[] = "--DEFAULT.cassandra_server_list=21.20.20.2:200";
     char argv_7[] = "--DEFAULT.cassandra_server_list=31.30.30.3:300";
     char argv_8[] = "--COLLECTOR.protobuf_port=3334";
+    char argv_9[] = "--DEFAULT.sandesh_send_rate_limit=7";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -365,6 +374,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[6] = argv_6;
     argv[7] = argv_7;
     argv[8] = argv_8;
+    argv[9] = argv_9;
 
     options_.Parse(evm_, argc, argv);
 
@@ -402,6 +412,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     uint16_t protobuf_port(0);
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3334);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {

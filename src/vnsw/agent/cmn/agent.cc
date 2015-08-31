@@ -327,6 +327,7 @@ void Agent::InitCollector() {
     Module::type module = static_cast<Module::type>(module_type_);
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
+    Sandesh::set_send_rate_limit(params_->sandesh_send_rate_limit());
     if (params_->collector_server_list().size() != 0) {
         Sandesh::InitGenerator(module_name(),
                 host_name(),

@@ -61,9 +61,13 @@ class Controller(object):
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
         self._instance_id = self._conf.worker_id()
+        # Reset the sandesh send rate limit value
+        if self._conf.sandesh_send_rate_limit() is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._conf.sandesh_send_rate_limit())
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(), 
+                                      self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'])

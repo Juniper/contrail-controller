@@ -76,6 +76,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.ifmap_user(), "dns_user");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -118,6 +119,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.ifmap_user(), "dns_user");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -129,6 +131,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     char argv_3[] = "--DEFAULT.rndc_config_file=test.rndc";
     char argv_4[] = "--DEFAULT.rndc_secret=secret123";
     char argv_5[] = "--DEFAULT.log_property_file=log4cplus.prop";
+    char argv_5[] = "--DEFAULT.sandesh_send_rate_limit=5";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -167,6 +170,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.ifmap_user(), "dns_user");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -231,6 +235,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_local=1\n"
         "test_mode=1\n"
         "log_property_file=log4cplus.prop\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -289,6 +294,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.ifmap_user(), "test-user");
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
     std::remove("./dns_options_test_config_file.conf");
 }
 
@@ -316,6 +322,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_level=SYS_DEBUG\n"
         "log_local=0\n"
         "test_mode=1\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -332,7 +339,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 10;
+    int argc = 11;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=./dns_options_test_config_file.conf";
@@ -344,6 +351,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_7[] = "--DEFAULT.named_config_directory=/etc/contrail/dns/test";
     char argv_8[] = "--DEFAULT.rndc_config_file=new.rndc";
     char argv_9[] = "--DEFAULT.rndc_secret=new-secret-123";
+    char argv_10[] = "--DEFAULT.sandesh_send_rate_limit=7";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -354,6 +362,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[7] = argv_7;
     argv[8] = argv_8;
     argv[9] = argv_9;
+    argv[10] = argv_10;
 
     options_.Parse(evm_, argc, argv);
 
@@ -389,6 +398,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.ifmap_user(), "test-user");
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
     std::remove("./dns_options_test_config_file.conf");
 }
 

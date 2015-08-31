@@ -458,6 +458,11 @@ void AgentParam::ParseDefaultSection() {
     } else {
         subnet_hosts_resolvable_ = true;
     }
+
+    if (!GetValueFromTree<uint32_t>(send_ratelimit_,
+                                    "DEFAULT.sandesh_send_rate_limit")) {
+        send_ratelimit_ = Sandesh::get_send_rate_limit();
+    }
 }
 
 void AgentParam::ParseTaskSection() {
@@ -677,6 +682,8 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<bool>(var_map, subnet_hosts_resolvable_,
                       "DEFAULT.subnet_hosts_resolvable");
+    GetOptValue<uint32_t>(var_map, send_ratelimit_,
+                          "DEFAULT.sandesh_send_rate_limit");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1165,7 +1172,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         subnet_hosts_resolvable_(true),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
-        tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout) {
+        tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
+        send_ratelimit_(sandesh_send_rate_limit()) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1226,6 +1234,10 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Mode in which vrouter is running, option are dpdk or vnic")
         ("DEFAULT.subnet_hosts_resolvable",
           opt::value<bool>()->default_value(true))
+        ("DEFAULT.sandesh_send_rate_limit",
+         opt::value<uint32_t>()->default_value(
+         Sandesh::get_send_rate_limit()),
+         "Sandesh send rate limit in messages/sec")
         ;
     options_.add(generic);
 
