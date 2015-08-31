@@ -100,7 +100,6 @@ class InstallVenv(object):
                                  self.venv])
             else:
                 self.run_command(['virtualenv', '-q', self.venv])
-            print('done.')
         else:
             print("venv already exists...")
             pass
@@ -130,6 +129,15 @@ class InstallVenv(object):
 
         self.pip_install(find_links, '-r', self.requirements,
                          '-r', self.test_requirements, '--pre')
+        if os.environ.get('COVERAGERUN', 'False') == 'True':
+            with open(os.path.sep.join([self.venv, 'lib',
+                        'python2.7', 'site-packages',
+                        'cvrg_prs_strtup.pth']), 'w') as f:
+                f.write('import coverage; ')
+                f.write('print "TG: staring coverage from pth"; ')
+                f.write('coverage.process_startup()\n')
+                f.flush()
+        print('done.')
 
     def parse_args(self, argv):
         """Parses command-line arguments."""

@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import distutils
 import resource
 import socket
 import fixtures
@@ -16,6 +17,8 @@ import os
 import json
 import gevent
 import datetime
+import magic
+import time
 from fcntl import fcntl, F_GETFL, F_SETFL
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
@@ -56,7 +59,7 @@ class Query(object):
             self.filter = filter
 
 class Collector(object):
-    def __init__(self, analytics_fixture, redis_uve, 
+    def __init__(self, analytics_fixture, redis_uve,
                  logger, ipfix_port = False, sflow_port = False,
                  syslog_port = False, protobuf_port = False,
                  kafka = None, is_dup=False,
@@ -131,7 +134,7 @@ class Collector(object):
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
             '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
-            '--REDIS.port', 
+            '--REDIS.port',
             str(self._redis_uve.port),
             '--COLLECTOR.port', str(self.listen_port),
             '--DEFAULT.hostip', '127.0.0.1',
@@ -160,10 +163,10 @@ class Collector(object):
             self.protobuf_port = None
         if self.kafka_port:
             args.append('--DEFAULT.kafka_broker_list')
-            args.append('127.0.0.1:%d' % self.kafka_port)        
+            args.append('127.0.0.1:%d' % self.kafka_port)
             args.append('--DEFAULT.partitions')
             args.append(str(4))
-        self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
+        self._logger.info('Setting up Vizd: %s' % (' '.join(args)))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-collector", ["http","collector"],
@@ -240,7 +243,7 @@ class AlarmGen(object):
         if self.kafka_port:
             args.append('--kafka_broker_list')
             args.append('127.0.0.1:' + str(self.kafka_port))
-        args.append('--redis_uve_list') 
+        args.append('--redis_uve_list')
         for redis_uve in self.analytics_fixture.redis_uves:
             args.append('127.0.0.1:'+str(redis_uve.port))
         args.append('--collectors')
@@ -330,7 +333,7 @@ class OpServer(object):
         if self.analytics_fixture.redis_uves[0].password:
             args.append('--redis_password')
             args.append(self.analytics_fixture.redis_uves[0].password)
-        args.append('--redis_uve_list') 
+        args.append('--redis_uve_list')
         for redis_uve in self.analytics_fixture.redis_uves:
             args.append('127.0.0.1:'+str(redis_uve.port))
         args.append('--collectors')
@@ -379,7 +382,7 @@ class OpServer(object):
 # end class OpServer
 
 class QueryEngine(object):
-    def __init__(self, primary_collector, secondary_collector, 
+    def __init__(self, primary_collector, secondary_collector,
                  analytics_fixture, logger):
         self.primary_collector = primary_collector
         self.secondary_collector = secondary_collector
@@ -393,7 +396,7 @@ class QueryEngine(object):
         self.cassandra_user = self.analytics_fixture.cassandra_user
         self.cassandra_password = self.analytics_fixture.cassandra_password
         if self.analytics_fixture.redis_uves[0].password:
-           self.redis_password = str(self.analytics_fixture.redis_uves[0].password) 
+           self.redis_password = str(self.analytics_fixture.redis_uves[0].password)
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
                             ':'+ModuleNames[Module.QUERY_ENGINE]+':0'
     # end __init__
@@ -559,10 +562,10 @@ class AnalyticsFixture(fixtures.Fixture):
                            sflow_port = self.sflow_port,
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port,
-                           kafka = self.kafka)] 
+                           kafka = self.kafka)]
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
-            return 
+            return
 
         if not self.verify_collector_gen(self.collectors[0]):
             self.logger.error("Collector UVE not in Redis")
@@ -582,22 +585,22 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.logger.error("Secondary Collector did NOT start")
             secondary_collector = self.collectors[1].get_addr()
 
-        self.opserver = OpServer(primary_collector, secondary_collector, 
-                                 self.redis_uves[0].port, 
+        self.opserver = OpServer(primary_collector, secondary_collector,
+                                 self.redis_uves[0].port,
                                  self, self.logger)
         if not self.opserver.start():
             self.logger.error("OpServer did NOT start")
         self.opserver_port = self.opserver.listen_port
-        
-        if self.kafka is not None: 
+
+        if self.kafka is not None:
             self.alarmgen = AlarmGen(primary_collector, secondary_collector,
                                      self.kafka.port, self, self.logger)
             if not self.alarmgen.start():
                 self.logger.error("AlarmGen did NOT start")
 
         if not self.noqed:
-            self.query_engine = QueryEngine(primary_collector, 
-                                        secondary_collector, 
+            self.query_engine = QueryEngine(primary_collector,
+                                        secondary_collector,
                                         self, self.logger)
             if not self.query_engine.start():
                 self.logger.error("QE did NOT start")
@@ -608,9 +611,9 @@ class AnalyticsFixture(fixtures.Fixture):
     # end get_collector
 
     def get_collectors(self):
-        return ['127.0.0.1:'+str(self.collectors[0].listen_port), 
+        return ['127.0.0.1:'+str(self.collectors[0].listen_port),
                 '127.0.0.1:'+str(self.collectors[1].listen_port)]
-    # end get_collectors 
+    # end get_collectors
 
     def get_opserver_port(self):
         return self.opserver.listen_port
@@ -702,7 +705,7 @@ class AnalyticsFixture(fixtures.Fixture):
             return True
         else:
             return False
-      
+
     @retry(delay=2, tries=5)
     def verify_uvetable_alarm(self, table, name, type, is_set = True):
         vag = self.alarmgen.get_introspect()
@@ -839,7 +842,7 @@ class AnalyticsFixture(fixtures.Fixture):
 	    	assert(type(x['MessageTS']) is int)
 	    	assert(type(x['SequenceNum']) is int)
 	    return True
-    
+
     @retry(delay=1, tries=6)
     def verify_message_table_moduleid(self):
         self.logger.info("verify_message_table_moduleid")
@@ -969,7 +972,7 @@ class AnalyticsFixture(fixtures.Fixture):
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
             assert(len(moduleids) == 2 and "contrail-collector" in moduleids and "contrail-analytics-api" in moduleids)  # 1 moduleid: contrail-collector || contrail-analytics-api
-                
+
         return True
 
     @retry(delay=1, tries=1)
@@ -1046,7 +1049,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 if x['ModuleId'] not in moduleids:
                     moduleids.append(x['ModuleId'])
             self.logger.info(str(moduleids))
-            if len(moduleids) == 1: 
+            if len(moduleids) == 1:
                 if moduleids[0] != 'contrail-analytics-api':
                     return False
                 return True
@@ -1077,7 +1080,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         if len(res) == gen_obj.vn_all_rows['rows']:
             return True
-        return False      
+        return False
 
     @retry(delay=1, tries=8)
     def verify_intervn_sum(self, gen_obj):
@@ -1091,7 +1094,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         if len(res) == gen_obj.vn_sum_rows['rows']:
             return True
-        return False 
+        return False
 
     @retry(delay=1, tries=10)
     def verify_flow_samples(self, generator_obj):
@@ -1105,7 +1108,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         if len(res) != generator_obj.num_flow_samples:
             return False
-        
+
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         result = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.egress_flow_start_time),
@@ -1117,9 +1120,9 @@ class AnalyticsFixture(fixtures.Fixture):
 
         return True
     # end verify_flow_samples
- 
+
     def verify_where_query_prefix(self,generator_obj):
-        
+
         self.logger.info('verify where query in FlowSeriesTable')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         vrouter = generator_obj._hostname
@@ -1339,7 +1342,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('verify_flow_series_aggregation_binning')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
 
-        # Helper function for stats aggregation 
+        # Helper function for stats aggregation
         def _aggregate_stats(flow, start_time, end_time):
             stats = {'sum_bytes':0, 'sum_pkts':0}
             for f in flow.samples:
@@ -1349,8 +1352,8 @@ class AnalyticsFixture(fixtures.Fixture):
                     break
                 stats['sum_bytes'] += f.flowdata.diff_bytes
                 stats['sum_pkts'] += f.flowdata.diff_packets
-            return stats 
-        
+            return stats
+
         def _aggregate_flows_stats(flows, start_time, end_time):
             stats = {'sum_bytes':0, 'sum_pkts':0}
             for f in flows:
@@ -1365,7 +1368,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['sum(bytes)', 'sum(packets)', 'flow_count'], 
+            select_fields=['sum(bytes)', 'sum(packets)', 'flow_count'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
@@ -1386,7 +1389,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['sport', 'dport', 'sum(bytes)', 
+            select_fields=['sport', 'dport', 'sum(bytes)',
                            'sum(packets)', 'flow_count'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
@@ -1408,7 +1411,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['sourcevn', 'destvn', 'sum(bytes)', 
+            select_fields=['sourcevn', 'destvn', 'sum(bytes)',
                            'sum(packets)', 'flow_count'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
@@ -1461,7 +1464,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time = t + gms
             if end_time > int(et):
                 end_time = int(et)
-            ts_stats = _aggregate_flows_stats(generator_obj.flows, 
+            ts_stats = _aggregate_flows_stats(generator_obj.flows,
                                               t, end_time)
             exp_result[t] = {'sum(bytes)':ts_stats['sum_bytes'],
                              'sum(packets)':ts_stats['sum_pkts']}
@@ -1533,7 +1536,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'sum(bytes)',
                            'sum(packets)'],
             where_clause='vrouter=%s'% vrouter)
-        ts_stats = _aggregate_flows_stats(generator_obj.flows, 
+        ts_stats = _aggregate_flows_stats(generator_obj.flows,
                                           int(st), int(et))
         exp_result = {int(st):{'sum(bytes)':ts_stats['sum_bytes'],
                                'sum(packets)':ts_stats['sum_pkts']}}
@@ -1547,7 +1550,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 assert(False)
             assert(r['sum(bytes)'] == stats['sum(bytes)'])
             assert(r['sum(packets)'] == stats['sum(packets)'])
-        
+
         # 6. direction_ing + stats
         self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
         res = vns.post_query(
@@ -1567,7 +1570,7 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(res[0]['sum(bytes)'] == exp_sum_bytes)
         assert(res[0]['flow_count'] == generator_obj.flow_cnt)
         assert(res[0]['direction_ing'] == direction_ing)
-        
+
         self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
         result = vns.post_query(
             'FlowSeriesTable',
@@ -1586,7 +1589,7 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(result[0]['sum(bytes)'] == exp_sum_bytes)
         assert(result[0]['flow_count'] == generator_obj.flow_cnt)
         assert(result[0]['direction_ing'] == direction_ing)
-        
+
         # 7. T=<granularity> + tuples
         self.logger.info(
             'Flowseries: [T=<x>, sourcevn, destvn, sport, dport, protocol]')
@@ -1605,11 +1608,11 @@ class AnalyticsFixture(fixtures.Fixture):
         ts = [generator_obj.flow_start_time + (x * gms) \
               for x in range(num_ts)]
         exp_result = {}
-        
+
         exp_result_cnt=0
         for i in generator_obj.flows:
-            exp_result[exp_result_cnt] = {'T':ts[0], 'sourcevn':i.sourcevn, 
-                                  'destvn':i.destvn, 'sport':i.sport,  
+            exp_result[exp_result_cnt] = {'T':ts[0], 'sourcevn':i.sourcevn,
+                                  'destvn':i.destvn, 'sport':i.sport,
                                   'dport':i.dport, 'protocol':i.protocol,}
             exp_result_cnt +=1
 
@@ -1647,7 +1650,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
             'AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        
+
         assert(len(res) == len(flow.samples))
         for f in flow.samples:
             found = 0
@@ -1717,7 +1720,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) == len(flow.samples))
         sorted_res = sorted(res, key=itemgetter('T'))
-        
+
         cnt = 0
         for f in flow.samples:
             assert(sorted_res[cnt]['T'] == f._timestamp)
@@ -1781,7 +1784,7 @@ class AnalyticsFixture(fixtures.Fixture):
                         assert(r['dport'] == flow.dport)
                         found = 1
                         break
-                assert(found) 
+                assert(found)
 
         # 14. T + flow tuple + stats
         self.logger.info('Flowseries: [T, protocol, sport, dport, bytes, packets]')
@@ -1869,7 +1872,7 @@ class AnalyticsFixture(fixtures.Fixture):
         except Exception as err:
             self.logger.error('Exception: %s' % err)
         return not connected
-    # end verify_collector_redis_uve_connection 
+    # end verify_collector_redis_uve_connection
 
     @retry(delay=2, tries=5)
     def verify_opserver_redis_uve_connection(self, opserver, connected=True):
@@ -1907,7 +1910,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('verify source/module list')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         try:
-            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE, 
+            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE,
                                                    SOURCE)
             self.logger.info('src_list: %s' % str(src_list))
             if len(set(src_list).intersection(exp_src_list)) != \
@@ -2418,10 +2421,37 @@ class AnalyticsFixture(fixtures.Fixture):
             subprocess.call(['rm', '-rf', log_file])
         return rcode
 
+    #def add_cps_hook_if_required(self):
+    #    pth = os.path.sep.join([os.path.dirname(os.__file__),
+    #                            'site-packages',
+    #                            'cvrg_prs_strtup.pth'])
+    #    if not os.path.exists(pth):
+    #        with open(pth, 'w') as f:
+    #            f.write('import coverage; coverage.process_startup()\n')
+    #            f.flush()
+
+    def popen(self, args, preexec):
+        env = os.environ.copy()
+        if os.environ.get('COVERAGERUN', 'False') == 'True':
+            f = distutils.spawn.find_executable(args[0])
+            print '[TG]###oo', f
+            with magic.Magic(flags=magic.MAGIC_MIME_ENCODING) as m:
+                print '[TG]###oo++', m.id_filename(f)
+                if m.id_filename(f) != 'binary':
+                    args = ['coverage', 'run', f] + args[1:]
+                    env['COVERAGE_FILE'] = '.coverage.' + str(time.time())
+                    env['COVERAGE_PROCESS_START'] = '.coveragerc'
+                    #self.add_cps_hook_if_required()
+        print '[TG]###', os.environ.get('COVERAGERUN', 'False'), os.getcwd(), env.get('COVERAGE_FILE', 'NOTSET'), ' '.join(args)
+        return subprocess.Popen(args, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                preexec_fn=preexec,
+                                env=env)
+
     def start_with_ephemeral_ports(self, modname, pnames, args, preexec):
 
         pipes = {}
-        for pname in pnames: 
+        for pname in pnames:
             pipe_name = '/tmp/%s.%d.%s_port' % (modname, os.getpid(), pname)
             self.logger.info("Read %s Port from %s" % (pname, pipe_name))
             #import pdb; pdb.set_trace()
@@ -2434,13 +2464,11 @@ class AnalyticsFixture(fixtures.Fixture):
             flags = fcntl(pipein, F_GETFL)
             fcntl(pipein, F_SETFL, flags | os.O_NONBLOCK)
             pipes[pname] = pipein , pipe_name
-            
-        instance = subprocess.Popen(args, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             preexec_fn = preexec)
-      
-        pmap = {} 
-        for k,v in pipes.iteritems(): 
+
+        instance = self.popen(args, preexec)
+
+        pmap = {}
+        for k,v in pipes.iteritems():
             tries = 60
             port = None
             pipein , pipe_name = v
