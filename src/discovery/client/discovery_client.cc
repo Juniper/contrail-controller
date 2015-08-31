@@ -95,15 +95,17 @@ bool DSPublishResponse::HeartBeatTimerExpired() {
     DiscoveryServiceClient::ReEvalPublishCbHandlerMap::iterator it =
         ds_client_->reeval_publish_map_.find(serviceName_);
     if (it != ds_client_->reeval_publish_map_.end()) {
+        // publish is sent periodically
         ds_client_->reevaluate_publish_cb_queue_.Enqueue(
             boost::bind(&DiscoveryServiceClient::ReEvaluatePublish, ds_client_,
                         serviceName_, it->second));
+    } else {
+        stringstream hb;
+        hb.clear();
+        hb << "<cookie>" << cookie_ << "</cookie>" ;
+        ds_client_->SendHeartBeat(serviceName_, hb.str());
     }
 
-    stringstream hb;
-    hb.clear();
-    hb << "<cookie>" << cookie_ << "</cookie>" ;
-    ds_client_->SendHeartBeat(serviceName_, hb.str());
     //
     // Start the timer again, by returning true
     //
