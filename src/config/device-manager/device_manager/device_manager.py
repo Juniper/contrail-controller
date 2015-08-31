@@ -123,6 +123,10 @@ class DeviceManager(object):
         PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
 
         self._sandesh = Sandesh()
+        # Reset the sandesh send rate limit value
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._args.sandesh_send_rate_limit)
         module = Module.DEVICE_MANAGER
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -430,6 +434,7 @@ def parse_args(args_str):
         'push_delay_per_kb': '0.01',
         'push_delay_max': '100',
         'push_delay_enable': 'True',
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     secopts = {
         'use_certs': False,
@@ -525,6 +530,8 @@ def parse_args(args_str):
                         help="max time delay between two successful commits")
     parser.add_argument("--push_delay_enable",
                         help="enable delay between two successful commits")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()

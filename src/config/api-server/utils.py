@@ -9,7 +9,7 @@ import argparse
 import ConfigParser
 import gen.resource_xsd
 import vnc_quota
-from pysandesh.sandesh_base import Sandesh
+from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 _WEB_HOST = '0.0.0.0'
@@ -66,6 +66,7 @@ def parse_args(args_str):
         'cluster_id': '',
         'max_requests': 1024,
         'stale_lock_seconds': '5', # lock but no resource past this => stale
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     # ssl options
     secopts = {
@@ -257,6 +258,8 @@ def parse_args(args_str):
         help="Maximum number of concurrent requests served by api server")
     parser.add_argument("--stale_lock_seconds",
             help="Time after which lock without resource is stale, default 60")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec.")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:

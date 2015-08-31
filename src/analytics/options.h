@@ -57,6 +57,7 @@ public:
     const int sflow_port() const { return sflow_port_; }
     const int ipfix_port() const { return ipfix_port_; }
     const bool test_mode() const { return test_mode_; }
+    const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
 
 private:
     template <typename ValueType>
@@ -119,6 +120,6 @@ private:
     std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> kafka_broker_list_;
     uint16_t partitions_;
-
+    uint32_t sandesh_ratelimit_;
     boost::program_options::options_description config_file_options_;
 };
