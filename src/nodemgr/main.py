@@ -46,7 +46,7 @@ from nodemgr.control_event_manager import ControlEventManager
 from nodemgr.config_event_manager import ConfigEventManager
 from nodemgr.vrouter_event_manager import VrouterEventManager
 from nodemgr.database_event_manager import DatabaseEventManager
-
+from pysandesh.sandesh_base import SandeshSystem
 
 def usage():
     print doc
@@ -69,6 +69,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                'hostip': '127.0.0.1',
                'minimum_diskgb': 256,
                'cassandra_repair_interval': 24,
+               'sandesh_send_rate_limit': \
+                    SandeshSystem.get_sandesh_send_rate_limit(),
               }
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
@@ -114,6 +116,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                         nargs='+',
                         help='Collector addresses in format' +
                              'ip1:port1 ip2:port2')
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
     if (node_type == 'contrail-database'):
         parser.add_argument("--minimum_diskgb",
                             type=int,
@@ -134,6 +138,8 @@ def main(args_str=' '.join(sys.argv[1:])):
     sys.stderr.write("Discovery port: " + str(discovery_port) + "\n")
     collector_addr = _args.collectors
     sys.stderr.write("Collector address: " + str(collector_addr) + "\n")
+    if _args.sandesh_send_rate_limit is not None:
+        SandeshSystem.set_sandesh_send_rate_limit(_args.sandesh_send_rate_limit)
     # done parsing arguments
 
     if not 'SUPERVISOR_SERVER_URL' in os.environ:
