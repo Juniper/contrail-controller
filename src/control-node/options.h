@@ -41,6 +41,7 @@ public:
     const std::string xmpp_server_key() const { return xmpp_server_key_; }
     const bool test_mode() const { return test_mode_; }
     const bool collectors_configured() const { return collectors_configured_; }
+    const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
 
 private:
 
@@ -88,7 +89,7 @@ private:
     std::string xmpp_server_key_;
     bool test_mode_;
     bool collectors_configured_;
-
+    uint32_t sandesh_ratelimit_;
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
 };

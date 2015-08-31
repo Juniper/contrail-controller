@@ -90,6 +90,7 @@ Mibs = LldpTable, ArpTable
             'fast_scan_frequency' : 60,
             'http_server_port'    : 5920,
             'zookeeper'           : '127.0.0.1:2181',
+            'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         }
         ksopts = {
             'auth_host': '127.0.0.1',
@@ -176,6 +177,8 @@ Mibs = LldpTable, ArpTable
             help="where to look for snmp credentials")
         group.add_argument("--api_server",
             help="ip:port of api-server for snmp credentials")
+        group.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec.")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -258,3 +261,5 @@ Mibs = LldpTable, ArpTable
     def http_port(self):
         return self._args.http_server_port
 
+    def sandesh_send_rate_limit(self):
+        return self._args.sandesh_send_rate_limit
