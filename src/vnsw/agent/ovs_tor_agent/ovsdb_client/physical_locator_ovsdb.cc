@@ -14,10 +14,12 @@ using OVSDB::PhysicalLocatorTable;
 using OVSDB::PhysicalLocatorEntry;
 
 PhysicalLocatorEntry::PhysicalLocatorEntry(PhysicalLocatorTable *table,
-        const std::string &dip_str) : OvsdbEntry(table), dip_(dip_str) {
+        const std::string &dip_str) : OvsdbEntry(table), dip_(dip_str),
+    create_req_owner_(NULL) {
 }
 
 PhysicalLocatorEntry::~PhysicalLocatorEntry() {
+    assert(create_req_owner_ == NULL);
 }
 
 bool PhysicalLocatorEntry::IsLess(const KSyncEntry &entry) const {
@@ -28,6 +30,23 @@ bool PhysicalLocatorEntry::IsLess(const KSyncEntry &entry) const {
 
 KSyncEntry *PhysicalLocatorEntry::UnresolvedReference() {
     return NULL;
+}
+
+bool PhysicalLocatorEntry::AcquireCreateRequest(KSyncEntry *creator) {
+    if (create_req_owner_ == NULL) {
+        create_req_owner_ = creator;
+        return true;
+    }
+    return false;
+}
+
+void PhysicalLocatorEntry::ReleaseCreateRequest(KSyncEntry *creator) {
+    assert(create_req_owner_ == creator);
+    if (!IsResolved() && create_req_owner_ != NULL) {
+        // if entry is not resolved before clear Create Request
+        table_->BackRefReEval(this);
+    }
+    create_req_owner_ = NULL;
 }
 
 PhysicalLocatorTable::PhysicalLocatorTable(OvsdbClientIdl *idl) :
@@ -44,9 +63,9 @@ void PhysicalLocatorTable::OvsdbNotify(OvsdbClientIdl::Op op,
     const char *dip_str = ovsdb_wrapper_physical_locator_dst_ip(row);
     PhysicalLocatorEntry key(this, dip_str);
     PhysicalLocatorEntry *entry =
-        static_cast<PhysicalLocatorEntry *>(FindActiveEntry(&key));
+        static_cast<PhysicalLocatorEntry *>(Find(&key));
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        if (entry != NULL) {
+        if (entry != NULL && IsActiveEntry(entry)) {
             OVSDB_TRACE(Trace, "Delete received for Physical Locator " +
                     entry->dip_);
             Delete(entry);
@@ -55,9 +74,13 @@ void PhysicalLocatorTable::OvsdbNotify(OvsdbClientIdl::Op op,
         if (entry == NULL) {
             entry = static_cast<PhysicalLocatorEntry *>(Create(&key));
             entry->ovs_entry_ = row;
-            OVSDB_TRACE(Trace, "Add received for Physical Locator " +
-                    entry->dip_);
+        } else if (!IsActiveEntry(entry)) {
+            entry->ovs_entry_ = row;
+            // Activate entry by triggering change
+            Change(entry);
         }
+        OVSDB_TRACE(Trace, "Add received for Physical Locator " +
+                    entry->dip_);
     } else {
         assert(0);
     }

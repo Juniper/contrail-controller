@@ -82,12 +82,14 @@ bool OvsdbDBEntry::Add() {
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
+        TxnDoneNoMessage();
         return true;
     }
     AddMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        TxnDoneNoMessage();
         return true;
     }
     object->client_idl_->TxnScheduleJsonRpc(msg);
@@ -115,12 +117,14 @@ bool OvsdbDBEntry::Change() {
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
+        TxnDoneNoMessage();
         return true;
     }
     ChangeMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        TxnDoneNoMessage();
         return true;
     }
     object->client_idl_->TxnScheduleJsonRpc(msg);
@@ -143,12 +147,14 @@ bool OvsdbDBEntry::Delete() {
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
+        TxnDoneNoMessage();
         return true;
     }
     DeleteMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         object->client_idl()->DeleteTxn(txn);
+        TxnDoneNoMessage();
         // current transaction deleted trigger post delete
         PostDelete();
         return true;

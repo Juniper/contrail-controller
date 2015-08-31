@@ -21,6 +21,11 @@ class OvsdbEntryBase {
 public:
     virtual void Ack(bool success) = 0;
 
+    // this API is called when the transaction ends up forming an
+    // empty message, to provide success ACK event, this can be
+    // overriden by the derived class to get triggers
+    virtual void TxnDoneNoMessage() {}
+
     KSyncEntry::KSyncEvent ack_event() {return ack_event_;}
 
 protected:
@@ -88,7 +93,7 @@ public:
     OvsdbDBObject *table() { return table_;}
 
     KSyncObject* GetObject();
-    void Ack(bool success);
+    virtual void Ack(bool success);
 
 protected:
     // by default create transaction for all entries
