@@ -77,6 +77,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -113,17 +114,20 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
+    char argv_3[] = "--DEFAULT.sandesh_send_rate_limit=5";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
 
@@ -151,6 +155,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -211,6 +216,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_local=1\n"
         "test_mode=1\n"
         "xmpp_server_port=100\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -265,6 +271,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -287,6 +294,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_local=0\n"
         "test_mode=1\n"
         "xmpp_server_port=100\n"
+        "sandesh_send_rate_limit=5\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -303,7 +311,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 7;
+    int argc = 8;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -312,6 +320,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_4[] = "--DEFAULT.collectors=11.10.10.1:100";
     char argv_5[] = "--DEFAULT.collectors=21.20.20.2:200";
     char argv_6[] = "--DEFAULT.collectors=31.30.30.3:300";
+    char argv_7[] = "--DEFAULT.sandesh_send_rate_limit=7";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -319,6 +328,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[4] = argv_4;
     argv[5] = argv_5;
     argv[6] = argv_6;
+    argv[7] = argv_7;
 
     options_.Parse(evm_, argc, argv);
 
@@ -352,6 +362,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
 }
 
 TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIp) {

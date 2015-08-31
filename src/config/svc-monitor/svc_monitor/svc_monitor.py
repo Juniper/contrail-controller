@@ -34,7 +34,7 @@ from cfgm_common.vnc_kombu import VncKombuClient
 from config_db import *
 from cfgm_common.dependency_tracker import DependencyTracker
 
-from pysandesh.sandesh_base import Sandesh
+from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from sandesh_common.vns.ttypes import Module
@@ -922,6 +922,7 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
+        'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
         }
     secopts = {
         'use_certs': False,
@@ -1051,6 +1052,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec.")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config

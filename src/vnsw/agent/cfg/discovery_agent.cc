@@ -147,6 +147,7 @@ void DiscoveryAgentClient::DiscoverServices() {
                                   ds_client, _1, _2, _3);
                 std::vector<std::string> list;
                 list.clear();
+                Sandesh::set_send_rate_limit(agent->sandesh_send_rate_limit());
                 Sandesh::InitGenerator(agent->module_name(),
                                        agent->host_name(),
                                        node_type_name,
