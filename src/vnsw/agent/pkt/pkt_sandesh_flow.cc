@@ -13,7 +13,7 @@
 
 using boost::system::error_code;
 
-#define SET_SANDESH_FLOW_DATA(data, fe)                                     \
+#define SET_SANDESH_FLOW_DATA(agent, data, fe, info)                               \
     data.set_vrf(fe->data().vrf);                                           \
     data.set_sip(fe->key().src_addr.to_string());                           \
     data.set_dip(fe->key().dst_addr.to_string());                           \
@@ -44,18 +44,26 @@ using boost::system::error_code;
     } else {                                                                \
         data.set_direction("egress");                                       \
     }                                                                       \
-    data.set_stats_bytes(fe->stats().bytes);                                \
-    data.set_stats_packets(fe->stats().packets);                            \
-    data.set_uuid(UuidToString(fe->flow_uuid()));                           \
+    if (info) {                                                             \
+        data.set_stats_bytes(info->bytes());                                \
+        data.set_stats_packets(info->packets());                            \
+        data.set_underlay_source_port(info->underlay_source_port());        \
+        data.set_setup_time(                                                \
+            integerToString(UTCUsecToPTime(info->setup_time())));           \
+        data.set_setup_time_utc(info->setup_time());                        \
+        data.set_uuid(UuidToString(info->flow_uuid()));                     \
+        if (fe->is_flags_set(FlowEntry::LocalFlow)) {                       \
+            data.set_egress_uuid(UuidToString(info->egress_uuid()));        \
+        }                                                                   \
+    }                                                                       \
     if (fe->is_flags_set(FlowEntry::NatFlow)) {                             \
         data.set_nat("enabled");                                            \
     } else {                                                                \
         data.set_nat("disabled");                                           \
     }                                                                       \
     data.set_flow_handle(fe->flow_handle());                                \
-    data.set_interface_idx(fe->stats().intf_in);                            \
-    data.set_setup_time(                                                    \
-                    integerToString(UTCUsecToPTime(fe->stats().setup_time)));       \
+    uint32_t intf_in = fe->InterfaceKeyToIdx(agent, fe->data().intf_in);    \
+    data.set_interface_idx(intf_in);                                        \
     data.set_refcount(fe->GetRefCount());                                   \
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no");          \
     data.set_short_flow(                                                    \
@@ -63,20 +71,17 @@ using boost::system::error_code;
             string("yes (") + GetShortFlowReason(fe->short_flow_reason()) + \
             ")": "no");                                                     \
     data.set_local_flow(fe->is_flags_set(FlowEntry::LocalFlow) ? "yes" : "no");     \
-    if (fe->is_flags_set(FlowEntry::LocalFlow)) {                           \
-        data.set_egress_uuid(UuidToString(fe->egress_uuid()));              \
-    }                                                                       \
     data.set_src_vn(fe->data().source_vn);                                  \
     data.set_dst_vn(fe->data().dest_vn);                                    \
-    data.set_setup_time_utc(fe->stats().setup_time);                        \
     if (fe->is_flags_set(FlowEntry::EcmpFlow) &&                            \
         fe->data().component_nh_idx != CompositeNH::kInvalidComponentNHIdx) { \
         data.set_ecmp_index(fe->data().component_nh_idx);                     \
     }                                                                       \
     data.set_reverse_flow(fe->is_flags_set(FlowEntry::ReverseFlow) ? "yes" : "no"); \
-    Ip4Address fip(fe->stats().fip);                                        \
+    Ip4Address fip(fe->fip());                                              \
     data.set_fip(fip.to_string());                                          \
-    data.set_fip_vm_interface_idx(fe->stats().fip_vm_port_id);              \
+    uint32_t fip_intf_id = fe->InterfaceKeyToIdx(agent, fe->fip_vmi());     \
+    data.set_fip_vm_interface_idx(fip_intf_id);                             \
     SetAclInfo(data, fe);                                                   \
     data.set_nh(fe->key().nh);                                              \
     if (fe->data().nh.get() != NULL) {                                      \
@@ -84,7 +89,6 @@ using boost::system::error_code;
     }                                                                       \
     data.set_peer_vrouter(fe->peer_vrouter());                            \
     data.set_tunnel_type(fe->tunnel_type().ToString());                     \
-    data.set_underlay_source_port(fe->underlay_source_port()); \
     data.set_enable_rpf(fe->data().enable_rpf);\
 
 
@@ -215,12 +219,12 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-PktSandeshFlow::PktSandeshFlow(FlowRecordsResp *obj, std::string resp_ctx,
-                               std::string key) :
+PktSandeshFlow::PktSandeshFlow(Agent *agent, FlowRecordsResp *obj,
+                               std::string resp_ctx, std::string key) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::PktFlowResponder")),
           0), resp_obj_(obj), resp_data_(resp_ctx), 
-    flow_iteration_key_(), key_valid_(false), delete_op_(false) {
-    if (key != Agent::GetInstance()->NullString()) {
+    flow_iteration_key_(), key_valid_(false), delete_op_(false), agent_(agent) {
+    if (key != agent_->NullString()) {
         if (SetFlowKey(key)) {
             key_valid_ = true;
         }
@@ -231,9 +235,9 @@ PktSandeshFlow::~PktSandeshFlow() {
 }
 
 void PktSandeshFlow::SetSandeshFlowData(std::vector<SandeshFlowData> &list,
-                                        FlowEntry *fe) {
+                                        FlowEntry *fe, FlowExportInfo *info) {
     SandeshFlowData data;
-    SET_SANDESH_FLOW_DATA(data, fe);
+    SET_SANDESH_FLOW_DATA(agent_, data, fe, info);
     list.push_back(data);
 }
 
@@ -296,7 +300,7 @@ bool PktSandeshFlow::Run() {
         const_cast<std::vector<SandeshFlowData>&>(resp_obj_->get_flow_list());
     int count = 0;
     bool flow_key_set = false;
-    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
+    FlowTable *flow_obj = agent_->pkt()->flow_table();
 
     if (delete_op_) {
         flow_obj->DeleteAll();
@@ -311,9 +315,11 @@ bool PktSandeshFlow::Run() {
         SendResponse(resp);
         return true;
     }
+    FlowStatsCollector *fec = agent_->flow_stats_collector();
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
-        SetSandeshFlowData(list, fe);
+        FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
+        SetSandeshFlowData(list, fe, info);
         ++it;
         count++;
         if (count == kMaxFlowResponse) {
@@ -334,17 +340,20 @@ bool PktSandeshFlow::Run() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void NextFlowRecordsSet::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
     FlowRecordsResp *resp = new FlowRecordsResp();
     
-    PktSandeshFlow *task = new PktSandeshFlow(resp, context(), get_flow_key());
+    PktSandeshFlow *task = new PktSandeshFlow(agent, resp, context(),
+                                              get_flow_key());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
 
 void FetchAllFlowRecords::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
     FlowRecordsResp *resp = new FlowRecordsResp();
     
-    PktSandeshFlow *task = new PktSandeshFlow(resp, context(), 
+    PktSandeshFlow *task = new PktSandeshFlow(agent, resp, context(),
                                               PktSandeshFlow::start_key);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
@@ -353,7 +362,8 @@ void FetchAllFlowRecords::HandleRequest() const {
 void DeleteAllFlowRecords::HandleRequest() const {
     FlowRecordsResp *resp = new FlowRecordsResp();
 
-    PktSandeshFlow *task = new PktSandeshFlow(resp, context(),
+    PktSandeshFlow *task = new PktSandeshFlow(Agent::GetInstance(), resp,
+                                              context(),
                                               PktSandeshFlow::start_key);
     task->set_delete_op(true);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -362,6 +372,7 @@ void DeleteAllFlowRecords::HandleRequest() const {
 
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
+    Agent *agent = Agent::GetInstance();
     key.nh = get_nh();
     // TODO : IPv6 handling required.
     error_code ec;
@@ -373,14 +384,16 @@ void FetchFlowRecord::HandleRequest() const {
     key.protocol = get_protocol();
 
     FlowTable::FlowEntryMap::iterator it;
-    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
+    FlowTable *flow_obj = agent->pkt()->flow_table();
+    FlowStatsCollector *fec = agent->flow_stats_collector();
     it = flow_obj->flow_entry_map_.find(key);
     SandeshResponse *resp;
     if (it != flow_obj->flow_entry_map_.end()) {
         FlowRecordResp *flow_resp = new FlowRecordResp();
         FlowEntry *fe = it->second;
+        FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
         SandeshFlowData data;
-        SET_SANDESH_FLOW_DATA(data, fe);
+        SET_SANDESH_FLOW_DATA(agent, data, fe, info);
         flow_resp->set_record(data);
         resp = flow_resp;
     } else {

@@ -202,6 +202,9 @@ public:
     // Flow Table request queue events
     void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow);
 
+    // FlowStatsCollector request queue events
+    void NotifyFlowStatsCollector(FlowEntry *fe);
+
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
@@ -223,13 +226,7 @@ private:
     void AddVmFlowInfo(FlowEntry *fe);
     void AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm);
 
-    void SendFlows(FlowEntry *flow, FlowEntry *rflow);
-    void SendFlowInternal(FlowEntry *fe);
-
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
 
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
                      FlowEntry *new_rflow, bool update);

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<test_suite name="vrf">
+<test name="vrouter-basic-1">
+    <!-- Virtual-router with flow-export-rate -->
+    <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="100" />
+    <validate name="vrouter-basic-validate-1">
+        <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="100" />
+    </validate>
+
+    <!-- Change flow-export-rate to 200 -->
+    <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="200" />
+    <validate name="change-flow-export-rate-1">
+        <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="200" />
+    </validate>
+
+    <!-- Remove flow-export-rate attribute. It should be set to default. -->
+    <virtual-router uuid="1" name="a:b:vr1" />
+    <validate name="change-flow-export-rate-2">
+        <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="1000" />
+    </validate>
+</test>
+
+</test_suite>

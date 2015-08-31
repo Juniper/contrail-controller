@@ -70,6 +70,19 @@ TEST_F(TestVrf, vxlan_1) {
     }
 }
 
+TEST_F(TestVrf, vrouter_1) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/vrouter.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

@@ -2079,9 +2079,10 @@ uint32_t GetFlowkeyNH(char *name) {
 }
 
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
+    Agent *agent = Agent::GetInstance();
     VrfEntry *vrf;
     VrfKey vrf_key(input[id].vrf);
-    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
+    vrf = static_cast<VrfEntry *>(agent->vrf_table()->FindActiveEntry(&vrf_key));
     LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->vrf_id());
 
     FlowKey key;
@@ -2094,15 +2095,19 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     key.protocol = IPPROTO_ICMP;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *fe = Agent::GetInstance()->pkt()->flow_table()->Find(key);
+    FlowEntry *fe = agent->pkt()->flow_table()->Find(key);
     if (fe == NULL) {
         LOG(DEBUG, "Flow not found");
         return false;
     }
+    FlowStatsCollector *fec = agent->flow_stats_collector();
+    FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
 
-    LOG(DEBUG, " bytes " << fe->stats().bytes << " pkts " << fe->stats().packets);
-    if (fe->stats().bytes == bytes && fe->stats().packets == pkts) {
-        return true;
+    if (info) {
+        LOG(DEBUG, " bytes " << info->bytes() << " pkts " << info->packets());
+        if (info->bytes() == bytes && info->packets() == pkts) {
+            return true;
+        }
     }
 
     return false;
@@ -2922,9 +2927,9 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 bool FlowStatsMatch(const string &vrf_name, const char *sip,
                     const char *dip, uint8_t proto, uint16_t sport,
                     uint16_t dport, uint64_t pkts, uint64_t bytes, int nh_id) {
-
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    Agent *agent = Agent::GetInstance();
+    FlowTable *table = agent->pkt()->flow_table();
+    VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2943,9 +2948,13 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
     if (fe == NULL) {
         return false;
     }
-    LOG(DEBUG, " bytes " << fe->stats().bytes << " pkts " << fe->stats().packets);
-    if (fe->stats().bytes == bytes && fe->stats().packets == pkts) {
-        return true;
+    FlowStatsCollector *fec = agent->flow_stats_collector();
+    FlowExportInfo *info = fec->FindFlowExportInfo(key);
+    if (info) {
+        LOG(DEBUG, " bytes " << info->bytes() << " pkts " << info->packets());
+        if (info->bytes() == bytes && info->packets() == pkts) {
+            return true;
+        }
     }
 
     return false;

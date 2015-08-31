@@ -115,7 +115,14 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                         r->get_fr_index() << ">");
                 }
             }
+            bool index_changed = false;
+            if ((int)entry->flow_handle() != r->get_fr_index()) {
+                index_changed = true;
+            }
             entry->set_flow_handle(r->get_fr_index(), table);
+            if (index_changed) {
+                table->NotifyFlowStatsCollector(entry);
+            }
             //Tie forward flow and reverse flow
             if (entry->is_flags_set(FlowEntry::NatFlow) ||
                 entry->is_flags_set(FlowEntry::EcmpFlow)) {
