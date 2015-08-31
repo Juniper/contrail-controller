@@ -36,6 +36,9 @@ class SnmpUve(object):
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
         self._instance_id = instance
+        if self._conf.sandesh_send_rate_limit() is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._conf.sandesh_send_rate_limit());
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._conf.collectors(),

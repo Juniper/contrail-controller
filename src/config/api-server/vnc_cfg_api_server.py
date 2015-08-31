@@ -331,6 +331,10 @@ class VncApiServer(VncApiServerGen):
 
         # sandesh init
         self._sandesh = Sandesh()
+        # Reset the sandesh send rate limit  value
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._args.sandesh_send_rate_limit)
         module = Module.API_SERVER
         module_name = ModuleNames[Module.API_SERVER]
         node_type = Module2NodeType[module]
