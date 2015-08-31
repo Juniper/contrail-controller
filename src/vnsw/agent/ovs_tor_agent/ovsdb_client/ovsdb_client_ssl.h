@@ -41,6 +41,8 @@ public:
     // appropriate reason for write message corruption in SSL.
     bool ThrottleInFlightTxnMessages() { return true; }
 
+    const boost::system::error_code &ovsdb_close_reason() const;
+
     ConnectionStateTable *connection_table();
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();

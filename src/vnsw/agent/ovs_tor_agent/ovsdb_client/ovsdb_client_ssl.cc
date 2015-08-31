@@ -201,6 +201,11 @@ int OvsdbClientSslSession::keepalive_interval() {
     return ovs_server->keepalive_interval();
 }
 
+const boost::system::error_code &
+OvsdbClientSslSession::ovsdb_close_reason() const {
+    return close_reason();
+}
+
 ConnectionStateTable *OvsdbClientSslSession::connection_table() {
     OvsdbClientSsl *ovs_server = static_cast<OvsdbClientSsl *>(server());
     return ovs_server->connection_table();
