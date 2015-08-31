@@ -131,6 +131,10 @@ public:
 
     Endpoint local_endpoint() const;
 
+    const boost::system::error_code &close_reason() const {
+        return close_reason_;
+    }
+
     virtual boost::system::error_code SetSocketOptions();
     static bool IsSocketErrorHard(const boost::system::error_code &ec);
     void set_read_on_connect(bool read) { read_on_connect_ = read; }
@@ -188,7 +192,8 @@ protected:
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
             int keepalive_intvl, int keepalive_probes, int tcp_user_timeout_val = 0);
 
-    void CloseInternal(bool call_observer, bool notify_server = true);
+    void CloseInternal(const boost::system::error_code &ec,
+                       bool call_observer, bool notify_server = true);
 
     // Protects session state and buffer queue.
     mutable tbb::mutex mutex_;
@@ -233,6 +238,7 @@ private:
     Endpoint remote_;           // Remote end-point
     Direction direction_;       // direction (active, passive)
     BufferQueue buffer_queue_;
+    boost::system::error_code close_reason_;
     /**************** end protected by mutex_ ****************/
 
     // Protects observer manipulation and invocation. When this lock is
