@@ -24,3 +24,33 @@ message TestMessage {
 message TestMessageSize {
     required bytes tms_data = 1;
 }
+
+message TestMessageAllTypesInner {
+    optional string tmp_inner_string = 1;
+    optional int32 tmp_inner_int32 = 2;
+    optional int64 tmp_inner_int64 = 3;
+    optional uint32 tmp_inner_uint32 = 4;
+    optional uint64 tmp_inner_uint64 = 5;
+    optional double tmp_inner_double = 6;
+    optional float tmp_inner_float = 7;
+    optional bool tmp_inner_bool = 8;
+    optional TestMessageAllTypes.TestMessageAllTypesEnum tmp_inner_enum = 9;
+}
+
+message TestMessageAllTypes {
+    optional string tmp_string = 1;
+    optional int32 tmp_int32 = 2;
+    optional int64 tmp_int64 = 3;
+    optional uint32 tmp_uint32 = 4;
+    optional uint64 tmp_uint64 = 5;
+    optional double tmp_double = 6;
+    optional float tmp_float = 7;
+    optional bool tmp_bool = 8;
+    enum TestMessageAllTypesEnum {
+        GOOD = 1;
+        BAD = 2;
+    }
+    optional TestMessageAllTypesEnum tmp_enum = 9;
+    optional TestMessageAllTypesInner tmp_message = 10;
+    repeated TestMessageAllTypesInner tmp_inner = 11;
+}

@@ -12,7 +12,6 @@
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/dynamic_message.h>
-#include <google/protobuf/stubs/common.h>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -47,6 +46,10 @@ ProtobufReader::ProtobufReader() {
 }
 
 ProtobufReader::~ProtobufReader() {
+}
+
+const Message* ProtobufReader::GetPrototype(const Descriptor *mdesc) {
+    return dmf_.GetPrototype(mdesc);
 }
 
 bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
@@ -87,11 +90,11 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
             parse_failure_cb(msg_type);
         }
         LOG(ERROR, "SelfDescribingMessage: " << msg_type << ": Descriptor " <<
-            " not FOUND");
+            "not FOUND");
         return false;
     }
     // Parse the message.
-    const Message* msg_proto = dmf_.GetPrototype(mdesc);
+    const Message* msg_proto = GetPrototype(mdesc);
     if (msg_proto == NULL) {
         if (!parse_failure_cb.empty()) {
             parse_failure_cb(msg_type);
@@ -106,6 +109,8 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
             parse_failure_cb(msg_type);
         }
         LOG(ERROR, msg_type << ": Parsing FAILED");
+        delete *msg;
+        *msg = NULL;
         return false;
     }
     return true;
@@ -605,7 +610,7 @@ class ProtobufServer::ProtobufServerImpl {
 };
 
 
-static log4cplus::LogLevel Protobuf2log4Level(
+log4cplus::LogLevel protobuf::impl::Protobuf2log4Level(
     google::protobuf::LogLevel glevel) {
     switch (glevel) {
       case google::protobuf::LOGLEVEL_INFO:
@@ -621,7 +626,7 @@ static log4cplus::LogLevel Protobuf2log4Level(
     }
 }
 
-static void ProtobufLibraryLog(google::protobuf::LogLevel level,
+void protobuf::impl::ProtobufLibraryLog(google::protobuf::LogLevel level,
     const char* filename, int line, const std::string& message) {
     if (LoggingDisabled()) {
         return;
@@ -640,7 +645,7 @@ ProtobufServer::ProtobufServer(EventManager *evm,
     uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn) :
     shutdown_libprotobuf_on_delete_(true) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
-    google::protobuf::SetLogHandler(&ProtobufLibraryLog);
+    google::protobuf::SetLogHandler(&protobuf::impl::ProtobufLibraryLog);
     impl_ = new ProtobufServerImpl(evm, udp_server_port, stat_db_fn);
 }
 
