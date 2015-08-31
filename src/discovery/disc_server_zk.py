@@ -175,6 +175,10 @@ class DiscoveryServer():
 
         # sandesh init
         self._sandesh = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem._DEFAULT_SEND_RATELIMIT = \
+                 int(self._args.sandesh_send_rate_limit)
         module = Module.DISCOVERY_SERVICE
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -1014,6 +1018,7 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'worker_id': '0',
+        'sandesh_send_rate_limit': None,
     }
 
     # per service options
@@ -1094,6 +1099,8 @@ def parse_args(args_str):
     parser.add_argument(
         "--worker_id",
         help="Worker Id")
+    parser.add_argument("--sandesh_send_rate_limit",
+        help="Sandesh transmit ratelimit size")
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config

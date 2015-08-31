@@ -221,9 +221,13 @@ class Controller(object):
         if test_logger is not None:
             is_collector = False
         self._sandesh = Sandesh()
+        # Reset the log buffer threshold value of sandesh,default 10
+        if self._conf.sandesh_send_rate_limit() is not None:
+            SandeshSystem._DEFAULT_SEND_RATELIMIT = \
+                int(self._conf.sandesh_send_rate_limit())
         self._sandesh.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(), 
+                                      self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],

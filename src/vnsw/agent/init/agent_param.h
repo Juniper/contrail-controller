@@ -219,6 +219,7 @@ public:
         return physical_interface_mac_addr_;
     }
     std::string agent_base_dir() const { return agent_base_dir_; }
+    uint32_t sandesh_send_rate_limit() { return send_ratelimit_; }
 
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
@@ -412,6 +413,7 @@ private:
     std::string physical_interface_pci_addr_;
     std::string physical_interface_mac_addr_;
     std::string agent_base_dir_;
+    uint32_t send_ratelimit_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

@@ -130,6 +130,7 @@ int main(int argc, char *argv[]) {
     boost::system::error_code ec;
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
+    Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     if (options.discovery_server().empty()) {
         NodeType::type node_type =
             g_vns_constants.Module2NodeType.find(module)->second;
@@ -219,6 +220,7 @@ int main(int argc, char *argv[]) {
         }
 
         //subscribe to collector service if not configured
+        Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
         if (!options.collectors_configured()) {
             Module::type module = Module::DNS;
             NodeType::type node_type =

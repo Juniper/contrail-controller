@@ -461,6 +461,10 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time")) {
         tcp_hold_time_ = 30;
     }
+    if (!GetValueFromTree<uint32_t>(send_ratelimit_,
+                                    "DEFAULT.sandesh_send_rate_limit")) {
+        send_ratelimit_ = 10;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -667,6 +671,8 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<string>(var_map, xmpp_dns_server_cert_2_, "DEFAULT.xmpp_dns_server_cert_2");
 
     GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time");
+    GetOptValue<uint32_t>(var_map, send_ratelimit_,
+                          "DEFAULT.sandesh_send_rate_limit");
 }
 
 
@@ -1154,7 +1160,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         platform_(VROUTER_ON_HOST),
         physical_interface_pci_addr_(""),
         physical_interface_mac_addr_(""),
-        agent_base_dir_() {
+        agent_base_dir_(),
+        send_ratelimit_(sandesh_send_rate_limit()) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1231,6 +1238,10 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
          "Mode in which vrouter is running, option are dpdk or vnic")
+        ("DEFAULT.sandesh_send_rate_limit",
+         opt::value<uint32_t>()->default_value(
+         Sandesh::get_send_rate_limit()),
+         "Sandesh send rate limit in messages/sec")
         ;
     options_.add(generic);
 
