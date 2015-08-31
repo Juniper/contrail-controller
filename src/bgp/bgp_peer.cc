@@ -389,6 +389,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     }
 
     refcount_ = 0;
+    primary_path_count_ = 0;
     sort(configured_families_.begin(), configured_families_.end());
     BOOST_FOREACH(string family, configured_families_) {
         Address::Family fmly = Address::FamilyFromString(family);
@@ -1729,6 +1730,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     nbr.set_local_id(Ip4Address(ntohl(local_bgp_id_)).to_string());
     nbr.set_local_asn(local_as());
     nbr.set_negotiated_hold_time(state_machine_->hold_time());
+    nbr.set_primary_path_count(GetPrimaryPathCount());
     nbr.set_auth_type(AuthenticationData::KeyTypeToString(inuse_authkey_type_));
     if (bsc->test_mode()) {
         nbr.set_auth_keys(auth_data_.KeysToStringDetail());
