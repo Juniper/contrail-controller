@@ -38,7 +38,9 @@ VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
-    StatsTestMock() : util_(), peer_(NULL) {}
+    StatsTestMock() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
+        col_ = agent_->flow_stats_collector();
+    }
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
@@ -127,6 +129,8 @@ public:
     }
     TestUveUtil util_;
     BgpPeer *peer_;
+    Agent* agent_;
+    FlowStatsCollector *col_;
 };
 
 TEST_F(StatsTestMock, FlowStatsTest) {
@@ -871,18 +875,22 @@ TEST_F(StatsTestMock, Underlay_1) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowExportInfo *info = col_->FindFlowExportInfo(FlowEntryPtr(fe));
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(FlowEntryPtr(rfe));
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(),
                  Agent::GetInstance()->router_id().to_string().c_str());
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::INVALID);
-    EXPECT_EQ(fe->underlay_source_port(), 0);
+    EXPECT_EQ(info->underlay_source_port, 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(),
                  Agent::GetInstance()->router_id().to_string().c_str());
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::INVALID);
-    EXPECT_EQ(rfe->underlay_source_port(), 0);
+    EXPECT_EQ(rinfo->underlay_source_port, 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
@@ -910,16 +918,20 @@ TEST_F(StatsTestMock, Underlay_2) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowExportInfo *info = col_->FindFlowExportInfo(FlowEntryPtr(fe));
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(FlowEntryPtr(rfe));
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(), remote_router_ip);
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(fe->underlay_source_port(), 0);
+    EXPECT_EQ(info->underlay_source_port, 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(), remote_router_ip);
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(rfe->underlay_source_port(), 0);
+    EXPECT_EQ(rinfo->underlay_source_port, 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
@@ -950,8 +962,12 @@ TEST_F(StatsTestMock, Underlay_3) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowExportInfo *info = col_->FindFlowExportInfo(FlowEntryPtr(fe));
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(FlowEntryPtr(rfe));
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
 
     //Change the underlay source port
     KSyncSockTypeMap::SetUnderlaySourcePort(fe->flow_handle(), 1234);
@@ -967,11 +983,11 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     //Verify underlay source port for forward flow
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(fe->underlay_source_port(), 1234);
+    EXPECT_EQ(info->underlay_source_port, 1234);
 
     //Verify underlay source port for reverse flow
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(rfe->underlay_source_port(), 5678);
+    EXPECT_EQ(rinfo->underlay_source_port, 5678);
 
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port

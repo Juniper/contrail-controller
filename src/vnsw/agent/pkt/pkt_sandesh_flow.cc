@@ -13,7 +13,7 @@
 
 using boost::system::error_code;
 
-#define SET_SANDESH_FLOW_DATA(data, fe)                                     \
+#define SET_SANDESH_FLOW_DATA(data, fe, info)                               \
     data.set_vrf(fe->data().vrf);                                           \
     data.set_sip(fe->key().src_addr.to_string());                           \
     data.set_dip(fe->key().dst_addr.to_string());                           \
@@ -44,8 +44,14 @@ using boost::system::error_code;
     } else {                                                                \
         data.set_direction("egress");                                       \
     }                                                                       \
-    data.set_stats_bytes(fe->stats().bytes);                                \
-    data.set_stats_packets(fe->stats().packets);                            \
+    if (info) {                                                             \
+        data.set_stats_bytes(info->bytes);                                  \
+        data.set_stats_packets(info->packets);                              \
+        data.set_underlay_source_port(info->underlay_source_port);          \
+        data.set_setup_time(                                                \
+            integerToString(UTCUsecToPTime(info->setup_time)));             \
+        data.set_setup_time_utc(info->setup_time);                          \
+    }                                                                       \
     data.set_uuid(UuidToString(fe->flow_uuid()));                           \
     if (fe->is_flags_set(FlowEntry::NatFlow)) {                             \
         data.set_nat("enabled");                                            \
@@ -53,9 +59,7 @@ using boost::system::error_code;
         data.set_nat("disabled");                                           \
     }                                                                       \
     data.set_flow_handle(fe->flow_handle());                                \
-    data.set_interface_idx(fe->stats().intf_in);                            \
-    data.set_setup_time(                                                    \
-                    integerToString(UTCUsecToPTime(fe->stats().setup_time)));       \
+    data.set_interface_idx(fe->data().intf_in);                            \
     data.set_refcount(fe->GetRefCount());                                   \
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no");          \
     data.set_short_flow(                                                    \
@@ -68,15 +72,14 @@ using boost::system::error_code;
     }                                                                       \
     data.set_src_vn(fe->data().source_vn);                                  \
     data.set_dst_vn(fe->data().dest_vn);                                    \
-    data.set_setup_time_utc(fe->stats().setup_time);                        \
     if (fe->is_flags_set(FlowEntry::EcmpFlow) &&                            \
         fe->data().component_nh_idx != CompositeNH::kInvalidComponentNHIdx) { \
         data.set_ecmp_index(fe->data().component_nh_idx);                     \
     }                                                                       \
     data.set_reverse_flow(fe->is_flags_set(FlowEntry::ReverseFlow) ? "yes" : "no"); \
-    Ip4Address fip(fe->stats().fip);                                        \
+    Ip4Address fip(fe->fip());                                              \
     data.set_fip(fip.to_string());                                          \
-    data.set_fip_vm_interface_idx(fe->stats().fip_vm_port_id);              \
+    data.set_fip_vm_interface_idx(fe->fip_vm_port_id());                    \
     SetAclInfo(data, fe);                                                   \
     data.set_nh(fe->key().nh);                                              \
     if (fe->data().nh.get() != NULL) {                                      \
@@ -84,7 +87,6 @@ using boost::system::error_code;
     }                                                                       \
     data.set_peer_vrouter(fe->peer_vrouter());                            \
     data.set_tunnel_type(fe->tunnel_type().ToString());                     \
-    data.set_underlay_source_port(fe->underlay_source_port()); \
     data.set_enable_rpf(fe->data().enable_rpf);\
 
 
@@ -231,9 +233,9 @@ PktSandeshFlow::~PktSandeshFlow() {
 }
 
 void PktSandeshFlow::SetSandeshFlowData(std::vector<SandeshFlowData> &list,
-                                        FlowEntry *fe) {
+                                        FlowEntry *fe, FlowExportInfo *info) {
     SandeshFlowData data;
-    SET_SANDESH_FLOW_DATA(data, fe);
+    SET_SANDESH_FLOW_DATA(data, fe, info);
     list.push_back(data);
 }
 
@@ -291,12 +293,13 @@ bool PktSandeshFlow::SetFlowKey(string key) {
 }
 
 bool PktSandeshFlow::Run() {
+    Agent *agent = Agent::GetInstance();
     FlowTable::FlowEntryMap::iterator it;
     std::vector<SandeshFlowData>& list =
         const_cast<std::vector<SandeshFlowData>&>(resp_obj_->get_flow_list());
     int count = 0;
     bool flow_key_set = false;
-    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
+    FlowTable *flow_obj = agent->pkt()->flow_table();
 
     if (delete_op_) {
         flow_obj->DeleteAll();
@@ -311,9 +314,11 @@ bool PktSandeshFlow::Run() {
         SendResponse(resp);
         return true;
     }
+    FlowStatsCollector *fec = agent->flow_stats_collector();
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
-        SetSandeshFlowData(list, fe);
+        FlowExportInfo *info = fec->FindFlowExportInfo(FlowEntryPtr(fe));
+        SetSandeshFlowData(list, fe, info);
         ++it;
         count++;
         if (count == kMaxFlowResponse) {
@@ -362,6 +367,7 @@ void DeleteAllFlowRecords::HandleRequest() const {
 
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
+    Agent *agent = Agent::GetInstance();
     key.nh = get_nh();
     // TODO : IPv6 handling required.
     error_code ec;
@@ -373,14 +379,16 @@ void FetchFlowRecord::HandleRequest() const {
     key.protocol = get_protocol();
 
     FlowTable::FlowEntryMap::iterator it;
-    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
+    FlowTable *flow_obj = agent->pkt()->flow_table();
+    FlowStatsCollector *fec = agent->flow_stats_collector();
     it = flow_obj->flow_entry_map_.find(key);
     SandeshResponse *resp;
     if (it != flow_obj->flow_entry_map_.end()) {
         FlowRecordResp *flow_resp = new FlowRecordResp();
         FlowEntry *fe = it->second;
+        FlowExportInfo *info = fec->FindFlowExportInfo(FlowEntryPtr(fe));
         SandeshFlowData data;
-        SET_SANDESH_FLOW_DATA(data, fe);
+        SET_SANDESH_FLOW_DATA(data, fe, info);
         flow_resp->set_record(data);
         resp = flow_resp;
     } else {

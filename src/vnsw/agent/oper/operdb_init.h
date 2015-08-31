@@ -20,6 +20,7 @@ class InstanceManager;
 class NexthopManager;
 class AgentSandeshManager;
 class AgentProfile;
+class Vrouter;
 
 class OperDB {
 public:
@@ -54,6 +55,7 @@ public:
     AgentSandeshManager *agent_sandesh_manager() {
         return agent_sandesh_manager_.get();
     }
+    Vrouter *vrouter() const { return vrouter_.get(); }
 
 private:
     OperDB();
@@ -68,6 +70,7 @@ private:
     std::auto_ptr<NexthopManager> nexthop_manager_;
     std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
     std::auto_ptr<AgentProfile> profile_;
+    std::auto_ptr<Vrouter> vrouter_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

@@ -165,7 +165,6 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow) {
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
-        flow->stats_.setup_time = UTCTimestampUsec();
         agent_->stats()->incr_flow_created();
         ret.first->second->set_on_tree();
         return flow;
@@ -981,17 +980,8 @@ void FlowTable::SendFlowInternal(FlowEntry *fe) {
         return;
     }
     FlowStatsCollector *fec = agent_->flow_stats_collector();
-    uint64_t diff_bytes, diff_packets;
-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
-
-    fe->stats_.teardown_time = UTCTimestampUsec();
-    agent_->pkt()->flow_mgmt_manager()->ExportEvent(fe, diff_bytes,
-                                                    diff_packets);
-    /* Reset stats and teardown_time after these information is exported during
-     * flow delete so that if the flow entry is reused they point to right
-     * values */
-    fe->ResetStats();
-    fe->stats_.teardown_time = 0;
+    /* Calculate diff bytes and teardown time while processing Delete event */
+    fec->ExportOnDelete(fe);
 }
 
 void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow) {

@@ -8,6 +8,7 @@
 #include "base/task.h"
 #include "pkt/flow_table.h"
 #include "pkt/pkt_types.h"
+#include "vrouter/flow_stats/flow_stats_collector.h"
 
 class PktSandeshFlow : public Task {
 public:
@@ -22,7 +23,8 @@ public:
     static std::string GetFlowKey(const FlowKey &key);
     
     virtual bool Run();
-    void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe);
+    void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe,
+                            FlowExportInfo *info);
     void set_delete_op(bool delete_op) {delete_op_ = delete_op;}
 
 protected:

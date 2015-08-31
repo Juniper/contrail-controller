@@ -1,0 +1,1514 @@
+commit 4e3a9f04376889de48c41157e9764734fb6cacf1
+Author: Ashok Singh <ashoksr@juniper.net>
+Date:   Mon Aug 31 00:13:37 2015 -0700
+
+    Export only subset of flows instead of exporting all flows.
+    
+    The subset of flows to be exported are selected from a algorithm. The parameters for the algorithm are (1) configured flow export rate (2) actual flow export rate and (3) sampling threshold. As of today based on timer event, we export certain number of flows. As part of this same timer event we update the actual flow-export rate and  sampling threshold parameters. Each flow which needs to be exported is subjected to the following algorithm to decide whether it needs to exported or dropped.
+    
+    (1) Flow samples greater than or equal to sampling threshold will always be
+    exported, with the byte/packet counts reported as-is.
+    (2) Flow samples smaller than the sampling threshold will be exported
+     probabilistically, with the byte/packets counts adjusted upwards according to
+     the probability.
+    (3) Probability =  diff_bytes/sampling_threshold
+    (4) We generate a random number less than sampling threshold.
+    (5) If the diff_bytes is greater than random number then the flow is dropped
+    (6) Otherwise the flow is exported after normalizing the diff bytes and
+     packets. The normalization is done by dividing diff_bytes and diff_pkts with
+     probability. This normalization is used as heuristictic to account for stats
+     of dropped flows
+    
+    The actual flow-export-rate will be close to the configured configured export rate and whenever there is huge deviations we adjust sampling threshold to bring the actual flow export rate close to configured flow export rate. It is not guaranteed that the actual flow export rate will always be close to configured flow export rate.
+    
+    Change-Id: I66836a998fc6687adac511fab4399b71d801eecd
+    Partial-Bug:1486850
+
+diff --git a/src/vnsw/agent/oper/SConscript b/src/vnsw/agent/oper/SConscript
+index 691e290..26e657e 100644
+--- a/src/vnsw/agent/oper/SConscript
++++ b/src/vnsw/agent/oper/SConscript
+@@ -67,6 +67,7 @@ vnswoperdb = env.Library('vnswoperdb',
+                           'vn.cc',
+                           'vrf.cc',
+                           'vrf_assign.cc',
++                          'vrouter.cc',
+                           'vxlan.cc'
+                          ])
+ subdirs = ['test']
+diff --git a/src/vnsw/agent/oper/operdb_init.cc b/src/vnsw/agent/oper/operdb_init.cc
+index fc67a26..16367ed 100644
+--- a/src/vnsw/agent/oper/operdb_init.cc
++++ b/src/vnsw/agent/oper/operdb_init.cc
+@@ -38,6 +38,7 @@
+ #include <oper/config_manager.h>
+ #include <oper/agent_profile.h>
+ #include <oper/agent_sandesh.h>
++#include <oper/vrouter.h>
+ #include <nexthop_server/nexthop_manager.h>
+ 
+ using boost::assign::map_list_of;
+@@ -185,6 +186,7 @@ void OperDB::CreateDBTables(DB *db) {
+                                              "db.physical_device_vn.0");
+     agent_->set_physical_device_vn_table(dev_vn_table);
+     profile_.reset(new AgentProfile(agent_, true));
++    vrouter_ = std::auto_ptr<Vrouter> (new Vrouter(this));
+ }
+ 
+ void OperDB::Init() {
+@@ -275,6 +277,7 @@ void OperDB::Shutdown() {
+ #endif
+     route_preference_module_->Shutdown();
+     domain_config_->Terminate();
++    vrouter_.reset();
+ }
+ 
+ void OperDB::DeleteRoutes() {
+diff --git a/src/vnsw/agent/oper/operdb_init.h b/src/vnsw/agent/oper/operdb_init.h
+index 90a454a..31280a3 100644
+--- a/src/vnsw/agent/oper/operdb_init.h
++++ b/src/vnsw/agent/oper/operdb_init.h
+@@ -20,6 +20,7 @@ class InstanceManager;
+ class NexthopManager;
+ class AgentSandeshManager;
+ class AgentProfile;
++class Vrouter;
+ 
+ class OperDB {
+ public:
+@@ -54,6 +55,7 @@ public:
+     AgentSandeshManager *agent_sandesh_manager() {
+         return agent_sandesh_manager_.get();
+     }
++    Vrouter *vrouter() const { return vrouter_.get(); }
+ 
+ private:
+     OperDB();
+@@ -68,6 +70,7 @@ private:
+     std::auto_ptr<NexthopManager> nexthop_manager_;
+     std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
+     std::auto_ptr<AgentProfile> profile_;
++    std::auto_ptr<Vrouter> vrouter_;
+     DISALLOW_COPY_AND_ASSIGN(OperDB);
+ };
+ #endif
+diff --git a/src/vnsw/agent/oper/test/test_oper_xml.cc b/src/vnsw/agent/oper/test/test_oper_xml.cc
+index 26d9ee5..432f606 100644
+--- a/src/vnsw/agent/oper/test/test_oper_xml.cc
++++ b/src/vnsw/agent/oper/test/test_oper_xml.cc
+@@ -70,6 +70,19 @@ TEST_F(TestVrf, vxlan_1) {
+     }
+ }
+ 
++TEST_F(TestVrf, vrouter_1) {
++    AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/vrouter.xml");
++    AgentUtXmlOperInit(&test);
++    if (test.Load() == true) {
++        test.ReadXml();
++
++        string str;
++        test.ToString(&str);
++        cout << str << endl;
++        test.Run();
++    }
++}
++
+ int main(int argc, char *argv[]) {
+     GETUSERARGS();
+     client = TestInit(init_file, ksync_init);
+diff --git a/src/vnsw/agent/oper/test/vrouter.xml b/src/vnsw/agent/oper/test/vrouter.xml
+new file mode 100644
+index 0000000..b6e5b95
+--- /dev/null
++++ b/src/vnsw/agent/oper/test/vrouter.xml
+@@ -0,0 +1,23 @@
++<?xml version="1.0"?>
++<test_suite name="vrf">
++<test name="vrouter-basic-1">
++    <!-- Virtual-router with flow-export-rate -->
++    <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="100" />
++    <validate name="vrouter-basic-validate-1">
++        <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="100" />
++    </validate>
++
++    <!-- Change flow-export-rate to 200 -->
++    <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="200" />
++    <validate name="change-flow-export-rate-1">
++        <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="200" />
++    </validate>
++
++    <!-- Remove flow-export-rate attribute. It should be set to default. -->
++    <virtual-router uuid="1" name="a:b:vr1" />
++    <validate name="change-flow-export-rate-2">
++        <virtual-router uuid="1" name="a:b:vr1" flow-export-rate="1000" />
++    </validate>
++</test>
++
++</test_suite>
+diff --git a/src/vnsw/agent/oper/vrouter.cc b/src/vnsw/agent/oper/vrouter.cc
+new file mode 100644
+index 0000000..d0c85af
+--- /dev/null
++++ b/src/vnsw/agent/oper/vrouter.cc
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
++ */
++
++#include <ifmap/ifmap_node.h>
++#include <vnc_cfg_types.h>
++#include <oper/operdb_init.h>
++#include <oper/vrouter.h>
++
++const uint32_t Vrouter::kDefaultFlowExportRate = 1000;
++
++Vrouter::Vrouter(OperDB *oper)
++    : oper_(oper), flow_export_rate_(kDefaultFlowExportRate) {
++    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
++        "virtual-router");
++    assert(cfg_db);
++
++    vrouter_listener_id_ = cfg_db->Register(boost::bind(
++        &Vrouter::VrouterConfig, this, _1, _2));
++}
++
++Vrouter::~Vrouter() {
++    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->db(),
++        "virtual-router");
++    if (cfg_db)
++        cfg_db->Unregister(vrouter_listener_id_);
++}
++
++void Vrouter::VrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe) {
++    IFMapNode *node = static_cast <IFMapNode *> (dbe);
++    if (node->IsDeleted() == false) {
++        autogen::VirtualRouter *cfg = 
++            static_cast<autogen::VirtualRouter *>(node->GetObject());
++        if (cfg->IsPropertySet(autogen::VirtualRouter::FLOW_EXPORT_RATE)) {
++            flow_export_rate_ = cfg->flow_export_rate();
++        } else {
++            flow_export_rate_ = kDefaultFlowExportRate;
++        }
++    } else {
++        flow_export_rate_ = kDefaultFlowExportRate;
++    }
++}
+diff --git a/src/vnsw/agent/oper/vrouter.h b/src/vnsw/agent/oper/vrouter.h
+new file mode 100644
+index 0000000..14e341d
+--- /dev/null
++++ b/src/vnsw/agent/oper/vrouter.h
+@@ -0,0 +1,29 @@
++/*
++ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
++ */
++
++#ifndef vnsw_agent_vrouter_h_
++#define vnsw_agent_vrouter_h_
++
++#include <cmn/agent_cmn.h>
++
++class IFMapNode;
++class AgentUtXmlFlowThreshold;
++
++// Handle Vrouter configuration
++class Vrouter {
++public:
++    static const uint32_t kDefaultFlowExportRate;
++
++    Vrouter(OperDB *oper);
++    ~Vrouter();
++    uint32_t flow_export_rate() const { return flow_export_rate_; }
++    void VrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
++    friend class AgentUtXmlFlowThreshold;
++private:
++    OperDB *oper_;
++    DBTableBase::ListenerId vrouter_listener_id_;
++    uint32_t flow_export_rate_;
++};
++
++#endif // vnsw_agent_vrouter_h_
+diff --git a/src/vnsw/agent/pkt/agent_stats.cc b/src/vnsw/agent/pkt/agent_stats.cc
+index 6baf351..fb2e578 100644
+--- a/src/vnsw/agent/pkt/agent_stats.cc
++++ b/src/vnsw/agent/pkt/agent_stats.cc
+@@ -14,6 +14,7 @@
+ #include <pkt/agent_stats.h>
+ #include <pkt/pkt_init.h>
+ #include <pkt/flow_table.h>
++#include <pkt/flow_mgmt.h>
+ #include <uve/agent_uve_base.h>
+ 
+ AgentStats *AgentStats::singleton_;
+@@ -61,6 +62,8 @@ void AgentStatsReq::HandleRequest() const {
+             stats->flow_drop_due_to_linklocal_limit());
+     flow->set_flow_max_system_flows(agent->flow_table_size());
+     flow->set_flow_max_vm_flows(agent->pkt()->flow_table()->max_vm_flows());
++    flow->set_flow_export_msg_drops(
++        agent->pkt()->flow_mgmt_manager()->flow_export_msg_drops());
+     flow->set_context(context());
+     flow->set_more(true);
+     flow->Response();
+diff --git a/src/vnsw/agent/pkt/flow_entry.cc b/src/vnsw/agent/pkt/flow_entry.cc
+index 9ed510c..51635ab 100644
+--- a/src/vnsw/agent/pkt/flow_entry.cc
++++ b/src/vnsw/agent/pkt/flow_entry.cc
+@@ -382,9 +382,10 @@ AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
+     return rt;
+ }
+ 
+-void FlowEntry::ResetStats() {
++void FlowEntry::ResetFlowInfo() {
+     stats_.bytes = 0;
+     stats_.packets = 0;
++    stats_.teardown_time = 0;
+ }
+ 
+ void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
+@@ -1442,6 +1443,14 @@ uint32_t FlowEntry::reverse_flow_vmport_id() const {
+     return Interface::kInvalidIndex;
+ }
+ 
++bool FlowEntry::IsActionLog() const {
++    uint32_t fe_action = data_.match_p.action_info.action;
++    if (fe_action & (1 << TrafficAction::LOG)) {
++        return true;
++    }
++    return false;
++}
++
+ void FlowEntry::FillFlowInfo(FlowInfo &info) {
+     info.set_flow_index(flow_handle_);
+     if (key_.family == Address::INET) {
+diff --git a/src/vnsw/agent/pkt/flow_entry.h b/src/vnsw/agent/pkt/flow_entry.h
+index 0516ff0..4454701 100644
+--- a/src/vnsw/agent/pkt/flow_entry.h
++++ b/src/vnsw/agent/pkt/flow_entry.h
+@@ -407,7 +407,7 @@ class FlowEntry {
+                       MatchAclParamsList &acl, bool add_implicit_deny,
+                       bool add_implicit_allow, FlowPolicyInfo *info);
+     void ResetPolicy();
+-    void ResetStats();
++    void ResetFlowInfo();
+ 
+     void FillFlowInfo(FlowInfo &info);
+     void GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow);
+@@ -429,6 +429,7 @@ class FlowEntry {
+     void UpdateReflexiveAction();
+     void SetAclFlowSandeshData(const AclDBEntry *acl,
+                                FlowSandeshData &fe_sandesh_data) const;
++    bool IsActionLog() const;
+ 
+ private:
+     friend class FlowTable;
+diff --git a/src/vnsw/agent/pkt/flow_mgmt.cc b/src/vnsw/agent/pkt/flow_mgmt.cc
+index 332a917..13ad781 100644
+--- a/src/vnsw/agent/pkt/flow_mgmt.cc
++++ b/src/vnsw/agent/pkt/flow_mgmt.cc
+@@ -3,6 +3,7 @@
+ #include "pkt/flow_mgmt_request.h"
+ #include "pkt/flow_mgmt_response.h"
+ #include "pkt/flow_mgmt_dbclient.h"
++#include "oper/vrouter.h"
+ const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
+ 
+ /////////////////////////////////////////////////////////////////////////////
+@@ -25,7 +26,10 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent, FlowTable *flow_table) :
+                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
+     response_queue_(agent_->task_scheduler()->GetTaskId(FlowTable::TaskName()),
+                     1, boost::bind(&FlowMgmtManager::ResponseHandler, this,
+-                                   _1)) {
++                                   _1)),
++    flow_export_count_(0), prev_flow_export_rate_compute_time_(0),
++    flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
++    flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0)  {
+ }
+ 
+ void FlowMgmtManager::Init() {
+@@ -84,6 +88,13 @@ void FlowMgmtManager::ExportEvent(FlowEntry *flow, uint64_t diff_bytes,
+     request_queue_.Enqueue(req);
+ }
+ 
++void FlowMgmtManager::UpdateThresholdAndExportRate(uint64_t curr_time) {
++    boost::shared_ptr<FlowMgmtRequest>
++        req(new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW_THRESHOLD,
++                                curr_time));
++    request_queue_.Enqueue(req);
++}
++
+ void FlowMgmtManager::DeleteEvent(FlowEntry *flow) {
+     FlowEntryPtr flow_ptr(flow);
+     boost::shared_ptr<FlowMgmtRequest>
+@@ -231,6 +242,19 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
+ 
+     case FlowMgmtRequest::EXPORT_FLOW: {
+         ExportFlow(req->flow(), req->diff_bytes(), req->diff_packets());
++        FlowEntry *fe = req->flow().get();
++        /* Reset stats and teardown_time after these information is exported
++         * during flow delete so that if the flow entry is reused they point
++        * to right values */
++        if (fe->stats().teardown_time) {
++            FlowMgmtResponse flow_resp(FlowMgmtResponse::RESET_FLOW_INFO, fe);
++            ResponseEnqueue(flow_resp);
++        }
++        break;
++    }
++
++    case FlowMgmtRequest::UPDATE_FLOW_THRESHOLD: {
++        UpdateFlowThreshold(req->time());
+         break;
+     }
+ 
+@@ -334,20 +358,59 @@ void FlowMgmtManager::DispatchFlowMsg(SandeshLevel::type level,
+     FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
+ }
+ 
++/* Flow Export Algorithm
++ * (1) Flow samples greater than or equal to sampling threshold will always be
++ * exported, with the byte/packet counts reported as-is.
++ * (2) Flow samples smaller than the sampling threshold will be exported
++ * probabilistically, with the byte/packets counts adjusted upwards according to
++ * the probability.
++ * (3) Probability =  diff_bytes/sampling_threshold
++ * (4) We generate a random number less than sampling threshold.
++ * (5) If the diff_bytes is greater than random number then the flow is dropped
++ * (6) Otherwise the flow is exported after normalizing the diff bytes and
++ * packets. The normalization is done by dividing diff_bytes and diff_pkts with
++ * probability. This normalization is used as heuristictic to account for stats
++ * of dropped flows */
+ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
+                                  uint64_t diff_pkts) {
+     FlowEntry *flow = fe.get();
++
++    /* Lock is required to ensure that flow is not being modified from
++     * Agent::FlowTable task while it is being accessed for read in
++     * Flow::Management task */
+     tbb::mutex::scoped_lock mutex(flow->mutex());
++    /* We should always try to export flows with Action as LOG regardless of
++     * configured flow-export-rate */
++    if (!flow->IsActionLog() &&
++        !agent_->oper_db()->vrouter()->flow_export_rate()) {
++        flow_export_msg_drops_++;
++        return;
++    }
++
+     FlowMgmtManager::FlowEntryInfo *info = FindFlowEntryInfo(fe);
+     if (info == NULL) {
+         return;
+     }
+-    if ((diff_bytes == 0) && info->stats_exported_) {
++    const FlowStats &stats = flow->stats();
++    if (!stats.teardown_time && (diff_bytes == 0) && info->stats_exported_) {
+         return;
+     }
++    if (!flow->IsActionLog() && (diff_bytes < threshold_)) {
++        double probability = diff_bytes/threshold_;
++        uint32_t num = rand() % threshold_;
++        if (num > diff_bytes) {
++            /* Do not export the flow, if the random number generated is more
++             * than the diff_bytes */
++            flow_export_msg_drops_++;
++            return;
++        }
++        /* Normalize the diff_bytes and diff_packets reported using the
++         * probability value */
++        diff_bytes = diff_bytes/probability;
++        diff_pkts = diff_pkts/probability;
++    }
+     FlowDataIpv4   s_flow;
+     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
+-    const FlowStats &stats = flow->stats();
+ 
+     s_flow.set_flowuuid(to_string(flow->flow_uuid()));
+     s_flow.set_bytes(stats.bytes);
+@@ -370,7 +433,8 @@ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
+     s_flow.set_destvn(flow->data().dest_vn);
+ 
+     if (stats.intf_in != Interface::kInvalidIndex) {
+-        Interface *intf = InterfaceTable::GetInstance()->FindInterface(stats.intf_in);
++        Interface *intf = InterfaceTable::GetInstance()->FindInterface
++            (stats.intf_in);
+         if (intf && intf->type() == Interface::VM_INTERFACE) {
+             VmInterface *vm_port = static_cast<VmInterface *>(intf);
+             const VmEntry *vm = vm_port->vm();
+@@ -443,6 +507,7 @@ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
+         //irrespective of direction.
+         s_flow.set_flowuuid(to_string(flow->egress_uuid()));
+         DispatchFlowMsg(level, s_flow);
++        flow_export_count_ += 2;
+     } else {
+         if (flow->is_flags_set(FlowEntry::IngressDir)) {
+             s_flow.set_direction_ing(1);
+@@ -451,6 +516,64 @@ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
+             s_flow.set_direction_ing(0);
+         }
+         DispatchFlowMsg(level, s_flow);
++        flow_export_count_++;
++    }
++}
++
++void FlowMgmtManager::UpdateFlowThreshold(uint64_t curr_time) {
++    bool export_rate_calculated = false;
++
++    /* If flows are not being exported, no need to update threshold */
++    if (!flow_export_count_) {
++        return;
++    }
++    // Calculate Flow Export rate
++    if (prev_flow_export_rate_compute_time_) {
++        uint64_t diff_secs = 0;
++        uint64_t diff_micro_secs = curr_time -
++            prev_flow_export_rate_compute_time_;
++        if (diff_micro_secs) {
++            diff_secs = diff_micro_secs/1000000;
++        }
++        if (diff_secs) {
++            flow_export_rate_ = flow_export_count_/diff_secs;
++            prev_flow_export_rate_compute_time_ = curr_time;
++            flow_export_count_ = 0;
++            export_rate_calculated = true;
++        }
++    } else {
++        prev_flow_export_rate_compute_time_ = curr_time;
++        flow_export_count_ = 0;
++    }
++
++    uint32_t cfg_rate = agent_->oper_db()->vrouter()->flow_export_rate();
++    /* No need to update threshold when flow_export_rate is NOT calculated
++     * and configured flow export rate has not changed */
++    if (!export_rate_calculated &&
++        (cfg_rate == prev_cfg_flow_export_rate_)) {
++        return;
++    }
++    // Update sampling threshold based on flow_export_rate_
++    if (flow_export_rate_ < cfg_rate/4) {
++        UpdateThreshold((threshold_ / 8));
++    } else if (flow_export_rate_ < cfg_rate/2) {
++        UpdateThreshold((threshold_ / 4));
++    } else if (flow_export_rate_ < cfg_rate/1.25) {
++        UpdateThreshold((threshold_ / 2));
++    } else if (flow_export_rate_ > (cfg_rate * 3)) {
++        UpdateThreshold((threshold_ * 8));
++    } else if (flow_export_rate_ > (cfg_rate * 2)) {
++        UpdateThreshold((threshold_ * 4));
++    } else if (flow_export_rate_ > (cfg_rate * 1.25)) {
++        UpdateThreshold((threshold_ * 3));
++    }
++    prev_cfg_flow_export_rate_ = cfg_rate;
++    LOG(DEBUG, "Export rate " << flow_export_rate_ << " threshold " << threshold_);
++}
++
++void FlowMgmtManager::UpdateThreshold(uint32_t new_value) {
++    if (new_value != 0) {
++        threshold_ = new_value;
+     }
+ }
+ 
+@@ -1413,6 +1536,10 @@ bool FlowMgmtManager::ResponseHandler(const FlowMgmtResponse &resp){
+         break;
+     }
+ 
++    case FlowMgmtResponse::RESET_FLOW_INFO:
++        flow_table_->ResetFlowInfo(resp.flow());
++        break;
++
+     default: {
+         assert(0);
+         break;
+diff --git a/src/vnsw/agent/pkt/flow_mgmt.h b/src/vnsw/agent/pkt/flow_mgmt.h
+index 6c6bfc6..019491c 100644
+--- a/src/vnsw/agent/pkt/flow_mgmt.h
++++ b/src/vnsw/agent/pkt/flow_mgmt.h
+@@ -199,6 +199,8 @@
+ class FlowMgmtManager;
+ class VrfFlowMgmtTree;
+ class FlowMgmtDbClient;
++class AgentUtXmlFlowThreshold;
++class AgentUtXmlFlowThresholdValidate;
+ 
+ ////////////////////////////////////////////////////////////////////////////
+ // Flow Management module maintains following data structures
+@@ -962,6 +964,7 @@ public:
+     typedef std::map<FlowEntryPtr, FlowEntryInfo, FlowEntryRefCmp>
+         FlowEntryTree;
+ 
++    static const uint32_t kDefaultFlowSamplingThreshold = 500;
+     FlowMgmtManager(Agent *agent, FlowTable *flow_table);
+     virtual ~FlowMgmtManager() { }
+ 
+@@ -981,6 +984,9 @@ public:
+ 
+     Agent *agent() const { return agent_; }
+     FlowTable *flow_table() const { return flow_table_; }
++    uint32_t flow_export_count()  const { return flow_export_count_; }
++    void set_flow_export_count(uint32_t val) { flow_export_count_ = val; }
++    uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
+     void AddEvent(FlowEntry *low);
+     void ExportEvent(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
+     void DeleteEvent(FlowEntry *flow);
+@@ -994,6 +1000,10 @@ public:
+                         uint32_t *ingress_flow_count,
+                         uint32_t *egress_flow_count);
+     bool HasVrfFlows(uint32_t vrf);
++    void UpdateThresholdAndExportRate(uint64_t curr_time);
++
++    friend class AgentUtXmlFlowThreshold;
++    friend class AgentUtXmlFlowThresholdValidate;
+ private:
+     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
+     void AddFlow(FlowEntryPtr &flow);
+@@ -1025,6 +1035,8 @@ private:
+                            int ace_id);
+     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
+                                const int last_count);
++    void UpdateFlowThreshold(uint64_t curr_time);
++    void UpdateThreshold(uint32_t new_value);
+ 
+     Agent *agent_;
+     FlowTable *flow_table_;
+@@ -1041,6 +1053,12 @@ private:
+     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
+     WorkQueue<boost::shared_ptr<FlowMgmtRequest> > request_queue_;
+     WorkQueue<FlowMgmtResponse> response_queue_;
++    uint32_t flow_export_count_;
++    uint64_t prev_flow_export_rate_compute_time_;
++    uint32_t flow_export_rate_;
++    uint32_t threshold_;
++    uint64_t flow_export_msg_drops_;
++    uint32_t prev_cfg_flow_export_rate_;
+     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);
+ };
+ 
+diff --git a/src/vnsw/agent/pkt/flow_mgmt_request.h b/src/vnsw/agent/pkt/flow_mgmt_request.h
+index 2dc5a47..0812143 100644
+--- a/src/vnsw/agent/pkt/flow_mgmt_request.h
++++ b/src/vnsw/agent/pkt/flow_mgmt_request.h
+@@ -20,7 +20,8 @@ public:
+         CHANGE_DBENTRY,
+         DELETE_DBENTRY,
+         RETRY_DELETE_VRF,
+-        EXPORT_FLOW
++        EXPORT_FLOW,
++        UPDATE_FLOW_THRESHOLD
+     };
+ 
+     FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
+@@ -37,6 +38,12 @@ public:
+                 assert(vrf_id_);
+         }
+ 
++    FlowMgmtRequest(Event event, uint64_t time) :
++        event_(event), flow_(NULL), db_entry_(NULL), vrf_id_(0), time_(time) {
++            if (event == RETRY_DELETE_VRF)
++                assert(vrf_id_);
++        }
++
+     FlowMgmtRequest(Event event, const DBEntry *db_entry, uint32_t gen_id) :
+         event_(event), flow_(NULL), db_entry_(db_entry), vrf_id_(0),
+         gen_id_(gen_id) {
+@@ -85,6 +92,7 @@ public:
+     uint32_t gen_id() const { return gen_id_; }
+     uint64_t diff_bytes() const { return diff_bytes_; }
+     uint64_t diff_packets() const { return diff_packets_; }
++    uint64_t time() const { return time_; }
+ 
+ private:
+     Event event_;
+@@ -97,6 +105,7 @@ private:
+     uint32_t gen_id_;
+     uint64_t diff_bytes_;
+     uint64_t diff_packets_;
++    uint64_t time_;
+ 
+     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
+ };
+diff --git a/src/vnsw/agent/pkt/flow_mgmt_response.h b/src/vnsw/agent/pkt/flow_mgmt_response.h
+index 5fd93ca..e125c9b 100644
+--- a/src/vnsw/agent/pkt/flow_mgmt_response.h
++++ b/src/vnsw/agent/pkt/flow_mgmt_response.h
+@@ -17,7 +17,8 @@ public:
+         REVALUATE_FLOW,
+         REVALUATE_DBENTRY,
+         DELETE_DBENTRY,
+-        FREE_DBENTRY
++        FREE_DBENTRY,
++        RESET_FLOW_INFO
+     };
+ 
+     FlowMgmtResponse() :
+diff --git a/src/vnsw/agent/pkt/flow_table.cc b/src/vnsw/agent/pkt/flow_table.cc
+index 34db9fe..93c15a5 100644
+--- a/src/vnsw/agent/pkt/flow_table.cc
++++ b/src/vnsw/agent/pkt/flow_table.cc
+@@ -987,11 +987,13 @@ void FlowTable::SendFlowInternal(FlowEntry *fe) {
+     fe->stats_.teardown_time = UTCTimestampUsec();
+     agent_->pkt()->flow_mgmt_manager()->ExportEvent(fe, diff_bytes,
+                                                     diff_packets);
++}
++
++void FlowTable::ResetFlowInfo(FlowEntry *fe) {
+     /* Reset stats and teardown_time after these information is exported during
+      * flow delete so that if the flow entry is reused they point to right
+      * values */
+-    fe->ResetStats();
+-    fe->stats_.teardown_time = 0;
++    fe->ResetFlowInfo();
+ }
+ 
+ void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow) {
+diff --git a/src/vnsw/agent/pkt/flow_table.h b/src/vnsw/agent/pkt/flow_table.h
+index baddd6d..9b1a9cc 100644
+--- a/src/vnsw/agent/pkt/flow_table.h
++++ b/src/vnsw/agent/pkt/flow_table.h
+@@ -198,6 +198,7 @@ public:
+     void DeleteFlow(const FlowEntry *flow);
+ 
+     void UpdateKSync(FlowEntry *flow);
++    void ResetFlowInfo(FlowEntry *fe);
+ 
+     // Flow Table request queue events
+     void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow);
+diff --git a/src/vnsw/agent/pkt/pkt.sandesh b/src/vnsw/agent/pkt/pkt.sandesh
+index 4eb5194..5dfe74b 100644
+--- a/src/vnsw/agent/pkt/pkt.sandesh
++++ b/src/vnsw/agent/pkt/pkt.sandesh
+@@ -29,6 +29,7 @@ response sandesh FlowStatsResp {
+     5: u64 flow_drop_due_to_linklocal_limit;
+     6: u32 flow_max_system_flows;
+     7: u32 flow_max_vm_flows;
++    8: u64 flow_export_msg_drops;
+ }
+ 
+ struct XmppStatsInfo {
+diff --git a/src/vnsw/agent/pkt/test/flow-export.xml b/src/vnsw/agent/pkt/test/flow-export.xml
+new file mode 100644
+index 0000000..e2ac8df
+--- /dev/null
++++ b/src/vnsw/agent/pkt/test/flow-export.xml
+@@ -0,0 +1,85 @@
++<?xml version="1.0"?>
++<test_suite name="pkt-parse">
++<test name="flow-export-1" verbose="0">
++    <virtual-network uuid="1" name="vn1"/>
++    <virtual-machine uuid="1" name="vm1"/>
++    <vrf uuid="1" name="vrf1" />
++    <vmi-vrf uuid="1" name="tap1-vm1" />
++
++    <virtual-machine-interface nova="1"
++     uuid="1" name="tap1" mac="00:00:00:00:01:01" vn-name="vn1" vn-uuid="1"
++     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
++    />
++
++    <validate name="validate-1">
++        <virtual-network name="vn1" uuid="1" present="1" />
++        <virtual-machine-interface name="tap1" uuid="1" present="1" active="1" />
++        <virtual-machine name="vm1" uuid="1" present="1"/>
++    </validate>
++
++    <virtual-machine uuid="2" name="vm2"/>
++    <virtual-machine-interface nova="1"
++     uuid="2" name="tap2" mac="00:00:00:00:01:02" vn-name="vn1" vn-uuid="1"
++     vm-name="vm2" vm-uuid="2" vrf="vrf1" ip="1.1.1.2"
++    />
++    <vmi-vrf uuid="1" name="tap2-vm2" />
++    <validate name="validate-3">
++        <virtual-machine name="vm2" uuid="2" present="1"/>
++        <virtual-machine-interface name="tap2" uuid="2" present="1" active="1" />
++    </validate>
++
++    <packet uuid="1" id="1" name="l2-udp-from-vm" intf="1" fwd_mode="l2"
++     smac="00:00:00:00:01:01" dmac="00:00:00:00:01:02"
++     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
++     type="flow" />
++    <packet uuid="1" id="1" name="l2-udp-from-vm" intf="1" fwd_mode="l3"
++     smac="00:00:00:00:01:01" dmac="00:00:00:00:01:02"
++     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="12"
++     type="flow" />
++    <validate name="validate-3">
++        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
++         dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
++         dvn="vn1" action="pass" rpf_nh="12"/>
++        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
++         dip="1.1.1.2" proto="udp" sport="1" dport="12" svn="vn1"
++         dvn="vn1" action="pass" rpf_nh="12"/>
++    </validate>
++
++    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11"
++     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
++     bytes = "10000" pkts="100" />
++    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11"
++     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="12"
++     bytes = "10000" pkts="100" />
++
++    <validate name="validate-4">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-export name="l2-udp-from-vm-2" count="4" />
++    </validate>
++
++    <virtual-machine-interface delete="1" nova="1"
++     uuid="1" name="tap1" mac="00:00:00:00:01:01" vn-name="vn1" vn-uuid="1"
++     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
++    />
++
++    <virtual-machine-interface delete="1" nova="1"
++     uuid="2" name="tap2" mac="00:00:00:00:01:02" vn-name="vn1" vn-uuid="1"
++     vm-name="vm2" vm-uuid="2" vrf="vrf1" ip="1.1.1.2"
++    />
++
++    <virtual-network delete="1" uuid="1" name="vn1"/>
++    <virtual-machine delete="1" uuid="1" name="vm1"/>
++    <virtual-machine delete="1" uuid="2" name="vm2"/>
++    <vmi-vrf delete="1" uuid="1" name="tap1-vm1" />
++    <vrf delete="1" uuid="1" name="vrf1" />
++    <validate name="validate-5">
++        <virtual-network uuid="1" name="vn1" present="no"/>
++        <virtual-machine uuid="1" name="vm1" present="no"/>
++        <virtual-machine uuid="2" name="vm2" present="no"/>
++        <virtual-machine-interface uuid="1" name="tap1" present="no" />
++        <vrf uuid="1" name="vrf1"  present="no"/>
++    </validate>
++
++</test>
++</test_suite>
+diff --git a/src/vnsw/agent/pkt/test/flow-threshold.xml b/src/vnsw/agent/pkt/test/flow-threshold.xml
+new file mode 100644
+index 0000000..f77729b
+--- /dev/null
++++ b/src/vnsw/agent/pkt/test/flow-threshold.xml
+@@ -0,0 +1,59 @@
++<?xml version="1.0"?>
++<test_suite name="pkt-parse">
++<test name="flow-threshold-1" verbose="0">
++    <flow-threshold name="t1" uuid="1" flow-export-count="2000" 
++     configured-flow-export-rate="1000" threshold="500" />
++
++    <validate name="validate-1">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-threshold name="t1-validate-1" threshold="1500" />
++    </validate>
++
++    <flow-threshold name="t1" uuid="1" flow-export-count="2001" 
++     configured-flow-export-rate="1000" threshold="500" />
++
++    <validate name="validate-2">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-threshold name="t1-validate-2" threshold="2000" />
++    </validate>
++
++    <flow-threshold name="t1" uuid="1" flow-export-count="3001" 
++     configured-flow-export-rate="1000" threshold="500" />
++
++    <validate name="validate-3">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-threshold name="t1-validate-3" threshold="4000" />
++    </validate>
++
++    <flow-threshold name="t1" uuid="1" flow-export-count="200" 
++     configured-flow-export-rate="1000" threshold="500" />
++
++    <validate name="validate-4">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-threshold name="t1-validate-4" threshold="62" />
++    </validate>
++
++    <flow-threshold name="t1" uuid="1" flow-export-count="400" 
++     configured-flow-export-rate="1000" threshold="500" />
++
++    <validate name="validate-5">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-threshold name="t1-validate-5" threshold="125" />
++    </validate>
++
++    <flow-threshold name="t1" uuid="1" flow-export-count="700"
++     configured-flow-export-rate="1000" threshold="500" />
++
++    <validate name="validate-6">
++        <!-- Each of two local flows are exported twice, once in each
++             direction -->
++        <flow-threshold name="t1-validate-6" threshold="250" />
++    </validate>
++
++</test>
++</test_suite>
+diff --git a/src/vnsw/agent/pkt/test/test_xml_packet_ut.cc b/src/vnsw/agent/pkt/test/test_xml_packet_ut.cc
+index 2dd0d89..22a465e 100644
+--- a/src/vnsw/agent/pkt/test/test_xml_packet_ut.cc
++++ b/src/vnsw/agent/pkt/test/test_xml_packet_ut.cc
+@@ -2,6 +2,7 @@
+ #include <iostream>
+ #include <boost/program_options.hpp>
+ #include <testing/gunit.h>
++#include <pkt/flow_mgmt.h>
+ #include <test/test_cmn_util.h>
+ #include "test-xml/test_xml.h"
+ #include "test-xml/test_xml_oper.h"
+@@ -38,6 +39,7 @@ public:
+         EXPECT_EQ(agent_->pkt()->flow_table()->Size(), 0);
+         EXPECT_EQ(agent_->vn_table()->Size(), 0);
+         EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
++        agent_->pkt()->flow_mgmt_manager()->set_flow_export_count(0);
+     }
+ 
+     Agent *agent_;
+@@ -166,6 +168,32 @@ TEST_F(TestPkt, flow_tsn_mode_1) {
+     client->WaitForIdle();
+ }
+ 
++TEST_F(TestPkt, flow_export_1) {
++    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-export.xml");
++    AgentUtXmlOperInit(&test);
++    if (test.Load() == true) {
++        test.ReadXml();
++
++        string str;
++        test.ToString(&str);
++        cout << str << endl;
++        test.Run();
++    }
++}
++
++TEST_F(TestPkt, flow_threshold_1) {
++    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-threshold.xml");
++    AgentUtXmlOperInit(&test);
++    if (test.Load() == true) {
++        test.ReadXml();
++
++        string str;
++        test.ToString(&str);
++        cout << str << endl;
++        test.Run();
++    }
++}
++
+ int main(int argc, char *argv[]) {
+     GETUSERARGS();
+ 
+diff --git a/src/vnsw/agent/test-xml/test_xml.cc b/src/vnsw/agent/test-xml/test_xml.cc
+index f059c83..734a97a 100644
+--- a/src/vnsw/agent/test-xml/test_xml.cc
++++ b/src/vnsw/agent/test-xml/test_xml.cc
+@@ -9,6 +9,8 @@
+ 
+ #include <test/test_cmn_util.h>
+ #include <pkt/test/test_pkt_util.h>
++#include <pkt/flow_mgmt.h>
++#include <oper/vrouter.h>
+ #include "test_xml.h"
+ #include "test_xml_validate.h"
+ #include "test_xml_packet.h"
+@@ -43,6 +45,17 @@ bool GetUintAttribute(const xml_node &node, const string &name,
+     return true;
+ }
+ 
++bool GetIntAttribute(const xml_node &node, const string &name, int *value) {
++    xml_attribute attr = node.attribute(name.c_str());
++    if (!attr) {
++        return false;;
++    }
++
++    *value = attr.as_int();
++
++    return true;
++}
++
+ bool GetBoolAttribute(const xml_node &node, const string &name,
+                       bool *value) {
+     xml_attribute attr = node.attribute(name.c_str());
+@@ -356,6 +369,14 @@ bool AgentUtXmlTestCase::ReadXml() {
+             cfg = new AgentUtXmlTask(node, this);
+         }
+ 
++        if (strcmp(node.name(), "flow-export") == 0) {
++            cfg =  new AgentUtXmlFlowExport(node, this);
++        }
++
++        if (strcmp(node.name(), "flow-threshold") == 0) {
++            cfg =  new AgentUtXmlFlowThreshold(node, this);
++        }
++
+         if (strcmp(node.name(), "validate") == 0) {
+             if (GetStringAttribute(node, "name", &name) == false) {
+                 cout << "Attribute \"name\" not specified for validate."
+@@ -643,3 +664,158 @@ bool AgentUtXmlConfig::AddIdPerms(xml_node *parent) {
+     AddUuid(&n, id());
+     AddXmlNodeWithValue(&n, "enable", "true");
+ }
++
++/////////////////////////////////////////////////////////////////////////////
++//  AgentUtXmlFlowExport routines
++/////////////////////////////////////////////////////////////////////////////
++AgentUtXmlFlowExport::AgentUtXmlFlowExport(const xml_node &node,
++                                           AgentUtXmlTestCase *test_case) :
++    AgentUtXmlNode("flow-export", node, false, test_case) {
++}
++
++AgentUtXmlFlowExport::~AgentUtXmlFlowExport() {
++}
++
++bool AgentUtXmlFlowExport::ReadXml() {
++    if (GetUintAttribute(node(), "nh", &nh_id_) == false) {
++        cout << "Attribute \"nh\" not specified for Flow. Skipping" << endl;
++        return false;
++    }
++
++    if (GetStringAttribute(node(), "sip", &sip_) == false) {
++        cout << "Attribute \"sip\" not specified for Flow. Skipping" << endl;
++        return false;
++    }
++
++    if (GetStringAttribute(node(), "dip", &dip_) == false) {
++        cout << "Attribute \"dip\" not specified for Flow. Skipping" << endl;
++        return false;
++    }
++
++    if (GetStringAttribute(node(), "proto", &proto_) == false &&
++        GetUintAttribute(node(), "proto", &proto_id_) == false) {
++        cout << "Attribute \"proto\" not specified for Flow. Skipping"
++            << endl;
++        return false;
++    }
++
++    if (proto_ == "tcp" || proto_ == "udp") {
++        if (proto_ == "tcp")
++            proto_id_ = 6;
++        else
++            proto_id_ = 17;
++        if (GetUintAttribute(node(), "sport", &sport_) == false) {
++            cout << "Attribute \"sport\" not specified for Flow. Skipping"
++                << endl;
++            return false;
++        }
++
++        if (GetUintAttribute(node(), "dport", &dport_) == false) {
++            cout << "Attribute \"dport\" not specified for Flow. Skipping"
++                << endl; return false;
++        }
++    }
++
++    uint16_t bytes, pkts;
++    if (GetUintAttribute(node(), "bytes", &bytes) == false) {
++        bytes_ = 0;
++    } else {
++        bytes_ = (uint32_t)bytes;
++    }
++    if (GetUintAttribute(node(), "pkts", &pkts) == false) {
++        pkts_ = 0;
++    } else {
++        pkts_ = (uint32_t)pkts;
++    }
++    return true;
++}
++
++bool AgentUtXmlFlowExport::ToXml(xml_node *parent) {
++    return true;
++}
++
++bool AgentUtXmlFlowExport::Run() {
++    FlowEntry *flow = FlowGet(0, sip_, dip_, proto_id_, sport_, dport_,
++                              nh_id_);
++    if (flow == NULL)
++        return false;
++
++    FlowMgmtManager *mgr = Agent::GetInstance()->pkt()->flow_mgmt_manager();
++    mgr->ExportEvent(flow, bytes_, pkts_);
++    TestClient::WaitForIdle();
++}
++
++void AgentUtXmlFlowExport::ToString(string *str) {
++    AgentUtXmlNode::ToString(str);
++    *str += "\n";
++    return;
++}
++
++string AgentUtXmlFlowExport::NodeType() {
++    return "flow-export";
++}
++
++/////////////////////////////////////////////////////////////////////////////
++//  AgentUtXmlFlowThreshold routines
++/////////////////////////////////////////////////////////////////////////////
++AgentUtXmlFlowThreshold::AgentUtXmlFlowThreshold(const xml_node &node,
++                                           AgentUtXmlTestCase *test_case) :
++    AgentUtXmlNode("flow-threshold", node, false, test_case) {
++}
++
++AgentUtXmlFlowThreshold::~AgentUtXmlFlowThreshold() {
++}
++
++bool AgentUtXmlFlowThreshold::ReadXml() {
++    uint16_t flow_export_count, configured_flow_export_rate, threshold;
++    if (GetUintAttribute(node(), "flow-export-count", &flow_export_count) ==
++        false) {
++        cout << "Attribute \"flow-export-count\" not specified for Flow. "
++                "Skipping" << endl;
++        return false;
++    }
++    flow_export_count_ = flow_export_count;
++
++    if (GetUintAttribute(node(), "configured-flow-export-rate",
++                         &configured_flow_export_rate) == false) {
++        configured_flow_export_rate_ = Vrouter::kDefaultFlowExportRate;
++    } else {
++        configured_flow_export_rate_ = configured_flow_export_rate;
++    }
++
++    if (GetUintAttribute(node(), "threshold", &threshold) == false) {
++        threshold_ = FlowMgmtManager::kDefaultFlowSamplingThreshold;
++    } else {
++        threshold_ = threshold;
++    }
++
++    return true;
++}
++
++bool AgentUtXmlFlowThreshold::ToXml(xml_node *parent) {
++    return true;
++}
++
++bool AgentUtXmlFlowThreshold::Run() {
++    Agent *agent = Agent::GetInstance();
++    uint64_t curr_time = UTCTimestampUsec();
++    FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager();
++    mgr->prev_flow_export_rate_compute_time_ = curr_time - 1000000;
++    Vrouter *vr = agent->oper_db()->vrouter();
++    vr->flow_export_rate_ = configured_flow_export_rate_;
++    mgr->flow_export_count_ = flow_export_count_;
++    mgr->threshold_ = threshold_;
++
++    mgr->UpdateThresholdAndExportRate(curr_time);
++    TestClient::WaitForIdle();
++}
++
++void AgentUtXmlFlowThreshold::ToString(string *str) {
++    AgentUtXmlNode::ToString(str);
++    *str += "\n";
++    return;
++}
++
++string AgentUtXmlFlowThreshold::NodeType() {
++    return "flow-threshold";
++}
+diff --git a/src/vnsw/agent/test-xml/test_xml.h b/src/vnsw/agent/test-xml/test_xml.h
+index 5617bbb..be90491 100644
+--- a/src/vnsw/agent/test-xml/test_xml.h
++++ b/src/vnsw/agent/test-xml/test_xml.h
+@@ -21,6 +21,8 @@ bool GetStringAttribute(const pugi::xml_node &node, const std::string &name,
+                         std::string *value);
+ bool GetUintAttribute(const pugi::xml_node &node, const std::string &name,
+                       uint16_t *value);
++bool GetIntAttribute(const pugi::xml_node &node, const std::string &name,
++                     int *value);
+ bool GetBoolAttribute(const pugi::xml_node &node, const std::string &name,
+                       bool *value);
+ void NovaIntfAdd(bool op_delete, const boost::uuids::uuid &id,
+@@ -201,4 +203,47 @@ private:
+     DISALLOW_COPY_AND_ASSIGN(AgentUtXmlConfig);
+ };
+ 
++class AgentUtXmlFlowExport : public AgentUtXmlNode {
++public:
++    AgentUtXmlFlowExport(const pugi::xml_node &node,
++                         AgentUtXmlTestCase *test_case);
++    ~AgentUtXmlFlowExport();
++
++    virtual bool ReadXml();
++    virtual bool ToXml(pugi::xml_node *parent);
++    virtual std::string NodeType();
++    virtual void ToString(std::string *str);
++    virtual bool Run();
++
++
++private:
++    uint16_t nh_id_;
++    std::string sip_;
++    std::string dip_;
++    std::string proto_;
++    uint16_t proto_id_;
++    uint16_t sport_;
++    uint16_t dport_;
++    uint32_t bytes_;
++    uint32_t pkts_;
++};
++
++class AgentUtXmlFlowThreshold : public AgentUtXmlNode {
++public:
++    AgentUtXmlFlowThreshold(const pugi::xml_node &node,
++                            AgentUtXmlTestCase *test_case);
++    ~AgentUtXmlFlowThreshold();
++
++    virtual bool ReadXml();
++    virtual bool ToXml(pugi::xml_node *parent);
++    virtual std::string NodeType();
++    virtual void ToString(std::string *str);
++    virtual bool Run();
++
++private:
++    uint32_t flow_export_count_;
++    uint32_t configured_flow_export_rate_;
++    uint32_t threshold_;
++};
++
+ #endif //vnsw_agent_test_xml_test_xml_h
+diff --git a/src/vnsw/agent/test-xml/test_xml_oper.cc b/src/vnsw/agent/test-xml/test_xml_oper.cc
+index e1d942d..e252355 100644
+--- a/src/vnsw/agent/test-xml/test_xml_oper.cc
++++ b/src/vnsw/agent/test-xml/test_xml_oper.cc
+@@ -11,6 +11,8 @@
+ #include <test/test_cmn_util.h>
+ #include <pkt/test/test_pkt_util.h>
+ #include <net/tunnel_encap_type.h>
++#include <pkt/flow_mgmt.h>
++#include <oper/vrouter.h>
+ #include "test_xml.h"
+ #include "test_xml_oper.h"
+ #include "test_xml_validate.h"
+@@ -24,6 +26,8 @@ using namespace AgentUtXmlUtils;
+ AgentUtXmlValidationNode *CreateValidateNode(const string &type,
+                                              const string &name, const uuid &id,
+                                              const xml_node &node) {
++    if (type == "virtual-router")
++        return new AgentUtXmlVirtualRouterValidate(name, id, node);
+     if (type == "virtual-network" || type == "vn")
+         return new AgentUtXmlVnValidate(name, id, node);
+     if (type == "virtual-machine" || type == "vm")
+@@ -54,6 +58,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
+                            AgentUtXmlTestCase *test_case) {
+     if (type == "global-vrouter-config")
+         return new AgentUtXmlGlobalVrouter(name, id, node, test_case);
++    if (type == "virtual-router")
++        return new AgentUtXmlVirtualRouter(name, id, node, test_case);
+     if (type == "virtual-network" || type == "vn")
+         return new AgentUtXmlVn(name, id, node, test_case);
+     if (type == "virtual-machine" || type == "vm")
+@@ -83,6 +89,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
+ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
+     test->AddConfigEntry("global-vrouter-config", CreateNode);
+ 
++    test->AddConfigEntry("virtual-router", CreateNode);
++
+     test->AddConfigEntry("virtual-network", CreateNode);
+     test->AddConfigEntry("vn", CreateNode);
+ 
+@@ -114,6 +122,8 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
+     test->AddConfigEntry("security-group", CreateNode);
+     test->AddConfigEntry("instance-ip", CreateNode);
+ 
++    test->AddValidateEntry("virtual-router", CreateValidateNode);
++
+     test->AddValidateEntry("virtual-network", CreateValidateNode);
+     test->AddValidateEntry("vn", CreateValidateNode);
+     test->AddValidateEntry("vxlan", CreateValidateNode);
+@@ -177,6 +187,52 @@ string AgentUtXmlGlobalVrouter::NodeType() {
+ }
+ 
+ /////////////////////////////////////////////////////////////////////////////
++//  AgentUtXmlVirtualRouter routines
++/////////////////////////////////////////////////////////////////////////////
++AgentUtXmlVirtualRouter::AgentUtXmlVirtualRouter(const std::string &name,
++                                                 const uuid &id,
++                                                 const xml_node &node,
++                                                 AgentUtXmlTestCase *test_case) :
++    AgentUtXmlConfig(name, id, node, test_case) {
++}
++
++AgentUtXmlVirtualRouter::~AgentUtXmlVirtualRouter() {
++}
++
++bool AgentUtXmlVirtualRouter::ReadXml() {
++    if (AgentUtXmlConfig::ReadXml() == false) {
++        return false;
++    }
++    bool got_attr = GetIntAttribute(node(), "flow-export-rate",
++                                    &flow_export_rate_);
++    if (!got_attr) {
++        flow_export_rate_ = 0;
++    }
++    return true;
++}
++
++bool AgentUtXmlVirtualRouter::ToXml(xml_node *parent) {
++    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
++    AddXmlNodeWithValue(&n, "name", name());
++    if (flow_export_rate() != 0) {
++        AddXmlNodeWithIntValue(&n, "virtual-router-flow-export-rate",
++                               flow_export_rate());
++    }
++    AddIdPerms(&n);
++    return true;
++}
++
++void AgentUtXmlVirtualRouter::ToString(string *str) {
++    AgentUtXmlConfig::ToString(str);
++    *str += "\n";
++    return;
++}
++
++string AgentUtXmlVirtualRouter::NodeType() {
++    return "virtual-router";
++}
++
++/////////////////////////////////////////////////////////////////////////////
+ //  AgentUtXmlVn routines
+ /////////////////////////////////////////////////////////////////////////////
+ AgentUtXmlVn::AgentUtXmlVn(const string &name, const uuid &id,
+@@ -818,6 +874,42 @@ bool AgentUtXmlNova::Run() {
+ }
+ 
+ /////////////////////////////////////////////////////////////////////////////
++//  AgentUtXmlVirtualRouterValidate routines
++/////////////////////////////////////////////////////////////////////////////
++AgentUtXmlVirtualRouterValidate::AgentUtXmlVirtualRouterValidate(const string &name,
++                                           const uuid &id,
++                                           const xml_node &node) :
++    AgentUtXmlValidationNode(name, node), id_(id), flow_export_rate_(-1) {
++}
++
++AgentUtXmlVirtualRouterValidate::~AgentUtXmlVirtualRouterValidate() {
++}
++
++bool AgentUtXmlVirtualRouterValidate::ReadXml() {
++    GetIntAttribute(node(), "flow-export-rate", &flow_export_rate_);
++    return true;
++}
++
++bool AgentUtXmlVirtualRouterValidate::Validate() {
++    Vrouter *vr = Agent::GetInstance()->oper_db()->vrouter();
++
++    if (vr == NULL)
++        return false;
++
++    if (flow_export_rate_ != -1) {
++        uint32_t rate = (uint32_t)(flow_export_rate_);
++        if (vr->flow_export_rate() != rate)
++            return false;
++    }
++
++    return true;
++}
++
++const string AgentUtXmlVirtualRouterValidate::ToString() {
++    return "virtual-router";
++}
++
++/////////////////////////////////////////////////////////////////////////////
+ //  AgentUtXmlVnValidate routines
+ /////////////////////////////////////////////////////////////////////////////
+ AgentUtXmlVnValidate::AgentUtXmlVnValidate(const string &name,
+diff --git a/src/vnsw/agent/test-xml/test_xml_oper.h b/src/vnsw/agent/test-xml/test_xml_oper.h
+index 7eeb796..732545c 100644
+--- a/src/vnsw/agent/test-xml/test_xml_oper.h
++++ b/src/vnsw/agent/test-xml/test_xml_oper.h
+@@ -29,6 +29,25 @@ private:
+     std::string vxlan_mode_;
+ };
+ 
++class AgentUtXmlVirtualRouter : public AgentUtXmlConfig {
++public:
++    AgentUtXmlVirtualRouter(const std::string &name,
++                            const boost::uuids::uuid &uuid,
++                            const pugi::xml_node &node,
++                            AgentUtXmlTestCase *test_case);
++    ~AgentUtXmlVirtualRouter();
++
++    virtual bool ReadXml();
++    virtual bool ToXml(pugi::xml_node *parent);
++    virtual std::string NodeType();
++    virtual void ToString(std::string *str);
++
++    int flow_export_rate() const { return flow_export_rate_; }
++
++private:
++    int flow_export_rate_;
++};
++
+ class AgentUtXmlVn : public AgentUtXmlConfig {
+ public:
+     AgentUtXmlVn(const std::string &name, const boost::uuids::uuid &uuid,
+@@ -234,6 +253,21 @@ private:
+     std::string ip_;
+ };
+ 
++class AgentUtXmlVirtualRouterValidate : public AgentUtXmlValidationNode {
++public:
++    AgentUtXmlVirtualRouterValidate(const std::string &name,
++                         const boost::uuids::uuid &id,
++                         const pugi::xml_node &node);
++    virtual ~AgentUtXmlVirtualRouterValidate();
++
++    virtual bool ReadXml();
++    virtual bool Validate();
++    virtual const std::string ToString();
++private:
++    const boost::uuids::uuid id_;
++    int flow_export_rate_;
++};
++
+ class AgentUtXmlVnValidate : public AgentUtXmlValidationNode {
+ public:
+     AgentUtXmlVnValidate(const std::string &name,
+diff --git a/src/vnsw/agent/test-xml/test_xml_validate.cc b/src/vnsw/agent/test-xml/test_xml_validate.cc
+index 915d116..8960784 100644
+--- a/src/vnsw/agent/test-xml/test_xml_validate.cc
++++ b/src/vnsw/agent/test-xml/test_xml_validate.cc
+@@ -9,6 +9,7 @@
+ 
+ #include <test/test_cmn_util.h>
+ #include <pkt/test/test_pkt_util.h>
++#include <pkt/flow_mgmt.h>
+ #include "test_xml.h"
+ #include "test_xml_validate.h"
+ 
+@@ -97,11 +98,17 @@ bool AgentUtXmlValidate::ReadXml() {
+         string name;
+         AgentUtXmlValidationNode *val = NULL;
+ 
+-        AgentUtXmlTest::AgentUtXmlTestValidateCreateFn fn =
+-            test_case()->test()->GetValidateCreateFn(n.name());
+-        if (CheckValidateNodeWithUuid(n.name(), n, &id, &name) == true) {
+-            if (fn.empty() == false)
+-                val = fn(n.name(), name, id, n);
++        if (strcmp(n.name(), "flow-export") == 0) {
++            val =  new AgentUtXmlFlowExportValidate(n);
++        } else if (strcmp(n.name(), "flow-threshold") == 0) {
++            val =  new AgentUtXmlFlowThresholdValidate(n);
++        } else {
++            AgentUtXmlTest::AgentUtXmlTestValidateCreateFn fn =
++                test_case()->test()->GetValidateCreateFn(n.name());
++            if (CheckValidateNodeWithUuid(n.name(), n, &id, &name) == true) {
++                if (fn.empty() == false)
++                    val = fn(n.name(), name, id, n);
++            }
+         }
+ 
+         if (val != NULL) {
+@@ -190,3 +197,70 @@ bool AgentUtXmlValidationNode::ReadXml() {
+ bool AgentUtXmlValidationNode::Validate() {
+     return true;
+ }
++
++/////////////////////////////////////////////////////////////////////////////
++//  AgentUtXmlFlowExportValidate routines
++/////////////////////////////////////////////////////////////////////////////
++AgentUtXmlFlowExportValidate::AgentUtXmlFlowExportValidate(
++                                                        const xml_node &node) :
++    AgentUtXmlValidationNode("flow-export", node), count_(-1) {
++}
++
++AgentUtXmlFlowExportValidate::~AgentUtXmlFlowExportValidate() {
++}
++
++bool AgentUtXmlFlowExportValidate::ReadXml() {
++    GetIntAttribute(node(), "count", &count_);
++    return true;
++}
++
++bool AgentUtXmlFlowExportValidate::Validate() {
++    Agent *agent = Agent::GetInstance();
++
++    TestClient::WaitForIdle();
++    uint32_t count = (uint32_t)count_;
++    if (agent->pkt()->flow_mgmt_manager()->flow_export_count() != count)
++        return false;
++
++    return true;
++}
++
++const string AgentUtXmlFlowExportValidate::ToString() {
++    return "flow-export";
++}
++
++/////////////////////////////////////////////////////////////////////////////
++//  AgentUtXmlFlowThresholdValidate routines
++/////////////////////////////////////////////////////////////////////////////
++AgentUtXmlFlowThresholdValidate::AgentUtXmlFlowThresholdValidate(
++                                                        const xml_node &node) :
++    AgentUtXmlValidationNode("flow-threshold", node) {
++}
++
++AgentUtXmlFlowThresholdValidate::~AgentUtXmlFlowThresholdValidate() {
++}
++
++bool AgentUtXmlFlowThresholdValidate::ReadXml() {
++    uint16_t threshold;
++    if (GetUintAttribute(node(), "threshold", &threshold) == false) {
++        threshold_ = 0;
++    } else {
++        threshold_ = (uint32_t)threshold;
++    }
++    return true;
++}
++
++bool AgentUtXmlFlowThresholdValidate::Validate() {
++    Agent *agent = Agent::GetInstance();
++
++    TestClient::WaitForIdle();
++    FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager();
++    if (mgr->threshold_ != threshold_)
++        return false;
++
++    return true;
++}
++
++const string AgentUtXmlFlowThresholdValidate::ToString() {
++    return "flow-threshold";
++}
+diff --git a/src/vnsw/agent/test-xml/test_xml_validate.h b/src/vnsw/agent/test-xml/test_xml_validate.h
+index 1a163ae..a2a513f 100644
+--- a/src/vnsw/agent/test-xml/test_xml_validate.h
++++ b/src/vnsw/agent/test-xml/test_xml_validate.h
+@@ -64,4 +64,28 @@ private:
+     uint16_t id_;
+ };
+ 
++class AgentUtXmlFlowExportValidate : public AgentUtXmlValidationNode {
++public:
++    AgentUtXmlFlowExportValidate(const pugi::xml_node &node);
++    virtual ~AgentUtXmlFlowExportValidate();
++
++    virtual bool ReadXml();
++    virtual bool Validate();
++    virtual const std::string ToString();
++private:
++    int count_;
++};
++
++class AgentUtXmlFlowThresholdValidate : public AgentUtXmlValidationNode {
++public:
++    AgentUtXmlFlowThresholdValidate(const pugi::xml_node &node);
++    virtual ~AgentUtXmlFlowThresholdValidate();
++
++    virtual bool ReadXml();
++    virtual bool Validate();
++    virtual const std::string ToString();
++private:
++    uint32_t threshold_;
++};
++
+ #endif //vnsw_agent_test_xml_test_xml_validate_h
+diff --git a/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc b/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc
+index 97dfe55..a861c5e 100644
+--- a/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc
++++ b/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc
+@@ -9,6 +9,7 @@
+ 
+ #include <oper/interface_common.h>
+ #include <oper/mirror_table.h>
++#include <oper/vrouter.h>
+ 
+ #include <ksync/ksync_index.h>
+ #include <ksync/ksync_entry.h>
+@@ -358,6 +359,8 @@ bool FlowStatsCollector::Run() {
+     if (key_updation_reqd) {
+         flow_iteration_key_.Reset();
+     }
++
++    mgr->UpdateThresholdAndExportRate(curr_time);
+     /* Update the flow_timer_interval and flow_count_per_pass_ based on
+      * total flows that we have
+      */

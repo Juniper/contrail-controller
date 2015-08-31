@@ -29,6 +29,25 @@ private:
     std::string vxlan_mode_;
 };
 
+class AgentUtXmlVirtualRouter : public AgentUtXmlConfig {
+public:
+    AgentUtXmlVirtualRouter(const std::string &name,
+                            const boost::uuids::uuid &uuid,
+                            const pugi::xml_node &node,
+                            AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlVirtualRouter();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+
+    int flow_export_rate() const { return flow_export_rate_; }
+
+private:
+    int flow_export_rate_;
+};
+
 class AgentUtXmlVn : public AgentUtXmlConfig {
 public:
     AgentUtXmlVn(const std::string &name, const boost::uuids::uuid &uuid,
@@ -232,6 +251,21 @@ private:
     boost::uuids::uuid vn_uuid_;
     boost::uuids::uuid vm_uuid_;
     std::string ip_;
+};
+
+class AgentUtXmlVirtualRouterValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlVirtualRouterValidate(const std::string &name,
+                         const boost::uuids::uuid &id,
+                         const pugi::xml_node &node);
+    virtual ~AgentUtXmlVirtualRouterValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+private:
+    const boost::uuids::uuid id_;
+    int flow_export_rate_;
 };
 
 class AgentUtXmlVnValidate : public AgentUtXmlValidationNode {

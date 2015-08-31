@@ -38,6 +38,7 @@
 #include <oper/config_manager.h>
 #include <oper/agent_profile.h>
 #include <oper/agent_sandesh.h>
+#include <oper/vrouter.h>
 #include <nexthop_server/nexthop_manager.h>
 
 using boost::assign::map_list_of;
@@ -185,6 +186,7 @@ void OperDB::CreateDBTables(DB *db) {
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
     profile_.reset(new AgentProfile(agent_, true));
+    vrouter_ = std::auto_ptr<Vrouter> (new Vrouter(this));
 }
 
 void OperDB::Init() {
@@ -275,6 +277,7 @@ void OperDB::Shutdown() {
 #endif
     route_preference_module_->Shutdown();
     domain_config_->Terminate();
+    vrouter_.reset();
 }
 
 void OperDB::DeleteRoutes() {

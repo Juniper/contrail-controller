@@ -7,7 +7,6 @@
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt_request.h"
 #include "pkt/flow_mgmt_response.h"
-#include <sandesh/common/flow_types.h>
 
 ////////////////////////////////////////////////////////////////////////////
 // Flow Management module is responsible to keep flow action in-sync with
@@ -994,6 +993,7 @@ public:
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
     bool HasVrfFlows(uint32_t vrf);
+
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
@@ -1013,13 +1013,6 @@ private:
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
     void LogFlow(FlowEntry *flow, const std::string &op);
-    void ExportFlow(FlowEntryPtr &flow, uint64_t diff_bytes, uint64_t diff_pkts);
-    void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
-    void GetFlowSandeshActionParams(const FlowAction &action_info,
-                                    std::string &action_str);
-    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                            int ace_id);

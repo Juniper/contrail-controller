@@ -34,6 +34,8 @@
 
 class FlowTableKSyncEntry;
 class FlowEntry;
+struct FlowExportInfo;
+
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 
 struct FlowKey {
@@ -104,22 +106,6 @@ struct FlowKey {
     uint16_t dst_port;
 };
 
-struct FlowStats {
-    FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), fip(0),
-        fip_vm_port_id(Interface::kInvalidIndex) {}
-
-    uint64_t setup_time;
-    uint64_t teardown_time;
-    uint64_t last_modified_time; //used for aging
-    uint64_t bytes;
-    uint64_t packets;
-    uint32_t intf_in;
-    // Following fields are required for FIP stats accounting
-    uint32_t fip;
-    uint32_t fip_vm_port_id;
-};
-
 typedef std::list<MatchAclParams> MatchAclParamsList;
 // IMPORTANT: Keep this structure assignable. Assignment operator is used in
 // FlowEntry::Copy() on this structure
@@ -188,7 +174,7 @@ struct FlowData {
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         source_plen(0), dest_plen(0), drop_reason(0),
         vrf_assign_evaluated(false), pending_recompute(false),
-        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen) {
+        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen), intf_in(0) {
     }
 
     MacAddress smac;
@@ -226,6 +212,7 @@ struct FlowData {
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
     uint8_t l2_rpf_plen;
+    uint32_t intf_in;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };
@@ -322,7 +309,6 @@ class FlowEntry {
 
     // Flow accessor routines
     int GetRefCount() { return refcount_; }
-    const FlowStats &stats() const { return stats_;}
     const FlowKey &key() const { return key_;}
     FlowData &data() { return data_;}
     const FlowData &data() const { return data_;}
@@ -353,21 +339,15 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    uint32_t fip() const { return fip_; }
+    uint32_t fip_vm_port_id() const { return fip_vm_port_id_; }
     uint32_t reverse_flow_fip() const;
-    uint32_t reverse_flow_vmport_id() const;
+    uint32_t reverse_flow_vm_port_id() const;
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
     const std::string &peer_vrouter() const { return peer_vrouter_; }
     TunnelType tunnel_type() const { return tunnel_type_; }
-    uint16_t underlay_source_port() const { return underlay_source_port_; }
-    void set_underlay_source_port(uint16_t port) {
-        underlay_source_port_ = port;
-    }
-    bool underlay_sport_exported() const { return underlay_sport_exported_; }
-    void set_underlay_sport_exported(bool value) {
-        underlay_sport_exported_ = value;
-    }
 
     uint16_t short_flow_reason() const { return short_flow_reason_; }
     bool set_pending_recompute(bool value);
@@ -407,7 +387,6 @@ class FlowEntry {
                       MatchAclParamsList &acl, bool add_implicit_deny,
                       bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
-    void ResetStats();
 
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow);
@@ -428,7 +407,9 @@ class FlowEntry {
     void SetAclAction(std::vector<AclAction> &acl_action_l) const;
     void UpdateReflexiveAction();
     void SetAclFlowSandeshData(const AclDBEntry *acl,
-                               FlowSandeshData &fe_sandesh_data) const;
+                               FlowSandeshData &fe_sandesh_data,
+                               FlowExportInfo *info) const;
+    bool IsActionLog() const;
 
 private:
     friend class FlowTable;
@@ -444,7 +425,6 @@ private:
 
     FlowKey key_;
     FlowData data_;
-    FlowStats stats_;
     uuid flow_uuid_;
     //egress_uuid is used only during flow-export and applicable only for
     //local-flows
@@ -468,11 +448,11 @@ private:
     std::string peer_vrouter_;
     //Underlay IP protocol type. Used only during flow-export
     TunnelType tunnel_type_;
-    //Underlay source port. 0 for local flows. Used during flow-export
-    uint16_t underlay_source_port_;
-    bool underlay_sport_exported_;
     // Is flow-entry on the tree
     bool on_tree_;
+    // Following fields are required for FIP stats accounting
+    uint32_t fip_;
+    uint32_t fip_vm_port_id_;
     // atomic refcount
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;

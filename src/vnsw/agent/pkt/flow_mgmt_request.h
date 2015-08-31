@@ -6,7 +6,9 @@
 
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt_response.h"
+#include "pkt/flow_export_params.h"
 
+struct FlowExportParams;
 ////////////////////////////////////////////////////////////////////////////
 // Request to the Flow Management module
 ////////////////////////////////////////////////////////////////////////////
@@ -29,10 +31,16 @@ public:
                 assert(vrf_id_);
         }
 
-    FlowMgmtRequest(Event event, FlowEntryPtr &flow, uint64_t bytes,
-                    uint64_t packets) :
+    FlowMgmtRequest(Event event, FlowEntryPtr &flow,
+                    const FlowExportParams &params) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0),
-        diff_bytes_(bytes), diff_packets_(packets) {
+        params_(params) {
+            if (event == RETRY_DELETE_VRF)
+                assert(vrf_id_);
+        }
+
+    FlowMgmtRequest(Event event, FlowEntryPtr &flow, uint64_t time) :
+        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), time_(time) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
         }
@@ -83,8 +91,9 @@ public:
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
     uint32_t vrf_id() const { return vrf_id_; }
     uint32_t gen_id() const { return gen_id_; }
-    uint64_t diff_bytes() const { return diff_bytes_; }
-    uint64_t diff_packets() const { return diff_packets_; }
+
+    const FlowExportParams &params() const { return params_; }
+    uint64_t time() const { return time_; }
 
 private:
     Event event_;
@@ -95,8 +104,8 @@ private:
     const DBEntry *db_entry_;
     uint32_t vrf_id_;
     uint32_t gen_id_;
-    uint64_t diff_bytes_;
-    uint64_t diff_packets_;
+    const FlowExportParams params_;
+    uint64_t time_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };

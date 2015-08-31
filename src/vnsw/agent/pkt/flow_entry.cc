@@ -73,7 +73,6 @@ SecurityGroupList FlowEntry::default_sg_list_;
 FlowEntry::FlowEntry(const FlowKey &k) :
     key_(k),
     data_(),
-    stats_(),
     l3_flow_(true),
     flow_handle_(kInvalidFlowHandle),
     ksync_entry_(NULL),
@@ -84,9 +83,7 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
     peer_vrouter_(),
     tunnel_type_(TunnelType::INVALID),
-    underlay_source_port_(0),
-    underlay_sport_exported_(false),
-    on_tree_(false) {
+    on_tree_(false), fip_(0), fip_vm_port_id_(Interface::kInvalidIndex) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -122,8 +119,8 @@ void FlowEntry::Copy(const FlowEntry *rhs) {
     nw_ace_uuid_ = rhs->nw_ace_uuid_;
     peer_vrouter_ = rhs->peer_vrouter_;
     tunnel_type_ = rhs->tunnel_type_;
-    underlay_source_port_ = rhs->underlay_source_port_;
-    underlay_sport_exported_ = rhs->underlay_sport_exported_;
+    fip_ = rhs->fip_;
+    fip_vm_port_id_ = rhs->fip_vm_port_id_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -154,6 +151,7 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     reset_flags(FlowEntry::ReverseFlow);
     peer_vrouter_ = info->peer_vrouter;
     tunnel_type_ = info->tunnel_type;
+#if 0
     if (stats_.last_modified_time) {
         if (is_flags_set(FlowEntry::NatFlow) != info->nat_done) {
             MakeShortFlow(SHORT_NAT_CHANGE);
@@ -164,6 +162,7 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
         /* For Flow Entry Create take last modified time same as setup time */
         stats_.last_modified_time = stats_.setup_time;
     }
+#endif
 
     if (info->linklocal_flow) {
         set_flags(FlowEntry::LinkLocalFlow);
@@ -225,7 +224,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     } else {
         reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     }
-    stats_.intf_in = pkt->GetAgentHdr().ifindex;
+    data_.intf_in = pkt->GetAgentHdr().ifindex;
 
     if (info->ingress) {
         set_flags(FlowEntry::IngressDir);
@@ -286,9 +285,9 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     set_flags(FlowEntry::ReverseFlow);
     if (ctrl->intf_) {
-        stats_.intf_in = ctrl->intf_->id();
+        data_.intf_in = ctrl->intf_->id();
     } else {
-        stats_.intf_in = Interface::kInvalidIndex;
+        data_.intf_in = Interface::kInvalidIndex;
     }
 
     // Compute reverse flow fields
@@ -382,14 +381,25 @@ AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
     return rt;
 }
 
-void FlowEntry::ResetStats() {
-    stats_.bytes = 0;
-    stats_.packets = 0;
+uint32_t FlowEntry::reverse_flow_fip() const {
+    FlowEntry *rflow = reverse_flow_entry_.get();
+    if (rflow) {
+        return rflow->fip();
+    }
+    return 0;
+}
+
+uint32_t FlowEntry::reverse_flow_vm_port_id() const {
+    FlowEntry *rflow = reverse_flow_entry_.get();
+    if (rflow) {
+        return rflow->fip_vm_port_id();
+    }
+    return Interface::kInvalidIndex;
 }
 
 void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
-    stats_.fip = fip;
-    stats_.fip_vm_port_id = id;
+    fip_ = fip;
+    fip_vm_port_id_ = id;
 }
 
 bool FlowEntry::set_pending_recompute(bool value) {
@@ -1426,20 +1436,12 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const {
     SetAclListAclAction(vrf_assign_acl_l, acl_action_l, acl_type);
 }
 
-uint32_t FlowEntry::reverse_flow_fip() const {
-    FlowEntry *rflow = reverse_flow_entry_.get();
-    if (rflow) {
-        return rflow->stats().fip;
+bool FlowEntry::IsActionLog() const {
+    uint32_t fe_action = data_.match_p.action_info.action;
+    if (fe_action & (1 << TrafficAction::LOG)) {
+        return true;
     }
-    return 0;
-}
-
-uint32_t FlowEntry::reverse_flow_vmport_id() const {
-    FlowEntry *rflow = reverse_flow_entry_.get();
-    if (rflow) {
-        return rflow->stats().fip_vm_port_id;
-    }
-    return Interface::kInvalidIndex;
+    return false;
 }
 
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
@@ -1569,9 +1571,8 @@ static void SetAclListAceId(const AclDBEntry *acl,
     }
 }
 
-
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
-        FlowSandeshData &fe_sandesh_data) const {
+        FlowSandeshData &fe_sandesh_data, FlowExportInfo *info) const {
     fe_sandesh_data.set_vrf(integerToString(data_.vrf));
     fe_sandesh_data.set_src(key_.src_addr.to_string());
     fe_sandesh_data.set_dst(key_.dst_addr.to_string());
@@ -1604,16 +1605,18 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         v.push_back(*it);
     }
     fe_sandesh_data.set_dest_sg_id_l(v);
-    fe_sandesh_data.set_bytes(integerToString(stats_.bytes));
-    fe_sandesh_data.set_packets(integerToString(stats_.packets));
-    fe_sandesh_data.set_setup_time(
-            integerToString(UTCUsecToPTime(stats_.setup_time)));
-    fe_sandesh_data.set_setup_time_utc(stats_.setup_time);
-    if (stats_.teardown_time) {
-        fe_sandesh_data.set_teardown_time(
-                integerToString(UTCUsecToPTime(stats_.teardown_time)));
-    } else {
-        fe_sandesh_data.set_teardown_time("");
+    if (info) {
+        fe_sandesh_data.set_bytes(integerToString(info->bytes));
+        fe_sandesh_data.set_packets(integerToString(info->packets));
+        fe_sandesh_data.set_setup_time(
+            integerToString(UTCUsecToPTime(info->setup_time)));
+        fe_sandesh_data.set_setup_time_utc(info->setup_time);
+        if (info->teardown_time) {
+            fe_sandesh_data.set_teardown_time(
+                integerToString(UTCUsecToPTime(info->teardown_time)));
+        } else {
+            fe_sandesh_data.set_teardown_time("");
+        }
     }
     fe_sandesh_data.set_current_time(integerToString(
                 UTCUsecToPTime(UTCTimestampUsec())));
