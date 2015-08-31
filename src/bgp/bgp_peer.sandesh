@@ -63,6 +63,7 @@ struct BgpNeighborResp {
     39: optional list<string> negotiated_address_families;
     40: optional u32 configured_hold_time;
     41: u32 negotiated_hold_time;
+    46: u32 primary_path_count;
     23: optional u64 flap_count;
     24: optional string flap_time;
     37: optional list<BgpNeighborRoutingInstance> routing_instances;
@@ -90,14 +91,6 @@ response sandesh ShowBgpNeighborSummaryResp {
 
 request sandesh ShowBgpNeighborSummaryReq {
     1: string search_string;
-}
-
-request sandesh ClearBgpNeighborReq {
-    1: string name;
-}
-
-response sandesh ClearBgpNeighborResp {
-    1: bool success;
 }
 
 struct ShowRoutePathBrief {
