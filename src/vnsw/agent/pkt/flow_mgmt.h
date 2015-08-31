@@ -199,6 +199,8 @@
 class FlowMgmtManager;
 class VrfFlowMgmtTree;
 class FlowMgmtDbClient;
+class AgentUtXmlFlowThreshold;
+class AgentUtXmlFlowThresholdValidate;
 
 ////////////////////////////////////////////////////////////////////////////
 // Flow Management module maintains following data structures
@@ -962,6 +964,7 @@ public:
     typedef std::map<FlowEntryPtr, FlowEntryInfo, FlowEntryRefCmp>
         FlowEntryTree;
 
+    static const uint32_t kDefaultFlowSamplingThreshold = 500;
     FlowMgmtManager(Agent *agent, FlowTable *flow_table);
     virtual ~FlowMgmtManager() { }
 
@@ -981,6 +984,9 @@ public:
 
     Agent *agent() const { return agent_; }
     FlowTable *flow_table() const { return flow_table_; }
+    uint32_t flow_export_count()  const { return flow_export_count_; }
+    void set_flow_export_count(uint32_t val) { flow_export_count_ = val; }
+    uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
     void AddEvent(FlowEntry *low);
     void ExportEvent(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
     void DeleteEvent(FlowEntry *flow);
@@ -994,6 +1000,10 @@ public:
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
     bool HasVrfFlows(uint32_t vrf);
+    void UpdateThresholdAndExportRate(uint64_t curr_time);
+
+    friend class AgentUtXmlFlowThreshold;
+    friend class AgentUtXmlFlowThresholdValidate;
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
@@ -1025,6 +1035,8 @@ private:
                            int ace_id);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
                                const int last_count);
+    void UpdateFlowThreshold(uint64_t curr_time);
+    void UpdateThreshold(uint32_t new_value);
 
     Agent *agent_;
     FlowTable *flow_table_;
@@ -1041,6 +1053,12 @@ private:
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
     WorkQueue<boost::shared_ptr<FlowMgmtRequest> > request_queue_;
     WorkQueue<FlowMgmtResponse> response_queue_;
+    uint32_t flow_export_count_;
+    uint64_t prev_flow_export_rate_compute_time_;
+    uint32_t flow_export_rate_;
+    uint32_t threshold_;
+    uint64_t flow_export_msg_drops_;
+    uint32_t prev_cfg_flow_export_rate_;
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);
 };
 

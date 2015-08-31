@@ -2,6 +2,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <testing/gunit.h>
+#include <pkt/flow_mgmt.h>
 #include <test/test_cmn_util.h>
 #include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
@@ -38,6 +39,7 @@ public:
         EXPECT_EQ(agent_->pkt()->flow_table()->Size(), 0);
         EXPECT_EQ(agent_->vn_table()->Size(), 0);
         EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
+        agent_->pkt()->flow_mgmt_manager()->set_flow_export_count(0);
     }
 
     Agent *agent_;
@@ -164,6 +166,32 @@ TEST_F(TestPkt, flow_tsn_mode_1) {
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
+}
+
+TEST_F(TestPkt, flow_export_1) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-export.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
+TEST_F(TestPkt, flow_threshold_1) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-threshold.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
 }
 
 int main(int argc, char *argv[]) {

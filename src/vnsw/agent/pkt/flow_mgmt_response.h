@@ -17,7 +17,8 @@ public:
         REVALUATE_FLOW,
         REVALUATE_DBENTRY,
         DELETE_DBENTRY,
-        FREE_DBENTRY
+        FREE_DBENTRY,
+        RESET_FLOW_INFO
     };
 
     FlowMgmtResponse() :

@@ -987,11 +987,13 @@ void FlowTable::SendFlowInternal(FlowEntry *fe) {
     fe->stats_.teardown_time = UTCTimestampUsec();
     agent_->pkt()->flow_mgmt_manager()->ExportEvent(fe, diff_bytes,
                                                     diff_packets);
+}
+
+void FlowTable::ResetFlowInfo(FlowEntry *fe) {
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */
-    fe->ResetStats();
-    fe->stats_.teardown_time = 0;
+    fe->ResetFlowInfo();
 }
 
 void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow) {

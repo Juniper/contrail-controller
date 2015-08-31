@@ -11,6 +11,8 @@
 #include <test/test_cmn_util.h>
 #include <pkt/test/test_pkt_util.h>
 #include <net/tunnel_encap_type.h>
+#include <pkt/flow_mgmt.h>
+#include <oper/vrouter.h>
 #include "test_xml.h"
 #include "test_xml_oper.h"
 #include "test_xml_validate.h"
@@ -24,6 +26,8 @@ using namespace AgentUtXmlUtils;
 AgentUtXmlValidationNode *CreateValidateNode(const string &type,
                                              const string &name, const uuid &id,
                                              const xml_node &node) {
+    if (type == "virtual-router")
+        return new AgentUtXmlVirtualRouterValidate(name, id, node);
     if (type == "virtual-network" || type == "vn")
         return new AgentUtXmlVnValidate(name, id, node);
     if (type == "virtual-machine" || type == "vm")
@@ -54,6 +58,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
                            AgentUtXmlTestCase *test_case) {
     if (type == "global-vrouter-config")
         return new AgentUtXmlGlobalVrouter(name, id, node, test_case);
+    if (type == "virtual-router")
+        return new AgentUtXmlVirtualRouter(name, id, node, test_case);
     if (type == "virtual-network" || type == "vn")
         return new AgentUtXmlVn(name, id, node, test_case);
     if (type == "virtual-machine" || type == "vm")
@@ -82,6 +88,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
 
 void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddConfigEntry("global-vrouter-config", CreateNode);
+
+    test->AddConfigEntry("virtual-router", CreateNode);
 
     test->AddConfigEntry("virtual-network", CreateNode);
     test->AddConfigEntry("vn", CreateNode);
@@ -113,6 +121,8 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddConfigEntry("sg", CreateNode);
     test->AddConfigEntry("security-group", CreateNode);
     test->AddConfigEntry("instance-ip", CreateNode);
+
+    test->AddValidateEntry("virtual-router", CreateValidateNode);
 
     test->AddValidateEntry("virtual-network", CreateValidateNode);
     test->AddValidateEntry("vn", CreateValidateNode);
@@ -174,6 +184,52 @@ void AgentUtXmlGlobalVrouter::ToString(string *str) {
 
 string AgentUtXmlGlobalVrouter::NodeType() {
     return "global-vrouter-config";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlVirtualRouter routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlVirtualRouter::AgentUtXmlVirtualRouter(const std::string &name,
+                                                 const uuid &id,
+                                                 const xml_node &node,
+                                                 AgentUtXmlTestCase *test_case) :
+    AgentUtXmlConfig(name, id, node, test_case) {
+}
+
+AgentUtXmlVirtualRouter::~AgentUtXmlVirtualRouter() {
+}
+
+bool AgentUtXmlVirtualRouter::ReadXml() {
+    if (AgentUtXmlConfig::ReadXml() == false) {
+        return false;
+    }
+    bool got_attr = GetIntAttribute(node(), "flow-export-rate",
+                                    &flow_export_rate_);
+    if (!got_attr) {
+        flow_export_rate_ = 0;
+    }
+    return true;
+}
+
+bool AgentUtXmlVirtualRouter::ToXml(xml_node *parent) {
+    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
+    AddXmlNodeWithValue(&n, "name", name());
+    if (flow_export_rate() != 0) {
+        AddXmlNodeWithIntValue(&n, "virtual-router-flow-export-rate",
+                               flow_export_rate());
+    }
+    AddIdPerms(&n);
+    return true;
+}
+
+void AgentUtXmlVirtualRouter::ToString(string *str) {
+    AgentUtXmlConfig::ToString(str);
+    *str += "\n";
+    return;
+}
+
+string AgentUtXmlVirtualRouter::NodeType() {
+    return "virtual-router";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -815,6 +871,42 @@ bool AgentUtXmlNova::Run() {
     NovaIntfAdd(op_delete(), id(), ip, vm_uuid_, vn_uuid_, name(), mac_,
                 vm_name_);
     return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlVirtualRouterValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlVirtualRouterValidate::AgentUtXmlVirtualRouterValidate(const string &name,
+                                           const uuid &id,
+                                           const xml_node &node) :
+    AgentUtXmlValidationNode(name, node), id_(id), flow_export_rate_(-1) {
+}
+
+AgentUtXmlVirtualRouterValidate::~AgentUtXmlVirtualRouterValidate() {
+}
+
+bool AgentUtXmlVirtualRouterValidate::ReadXml() {
+    GetIntAttribute(node(), "flow-export-rate", &flow_export_rate_);
+    return true;
+}
+
+bool AgentUtXmlVirtualRouterValidate::Validate() {
+    Vrouter *vr = Agent::GetInstance()->oper_db()->vrouter();
+
+    if (vr == NULL)
+        return false;
+
+    if (flow_export_rate_ != -1) {
+        uint32_t rate = (uint32_t)(flow_export_rate_);
+        if (vr->flow_export_rate() != rate)
+            return false;
+    }
+
+    return true;
+}
+
+const string AgentUtXmlVirtualRouterValidate::ToString() {
+    return "virtual-router";
 }
 
 /////////////////////////////////////////////////////////////////////////////

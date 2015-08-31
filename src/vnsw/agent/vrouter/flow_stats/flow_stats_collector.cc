@@ -9,6 +9,7 @@
 
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
+#include <oper/vrouter.h>
 
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
@@ -358,6 +359,8 @@ bool FlowStatsCollector::Run() {
     if (key_updation_reqd) {
         flow_iteration_key_.Reset();
     }
+
+    mgr->UpdateThresholdAndExportRate(curr_time);
     /* Update the flow_timer_interval and flow_count_per_pass_ based on
      * total flows that we have
      */

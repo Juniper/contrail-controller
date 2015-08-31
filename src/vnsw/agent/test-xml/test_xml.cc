@@ -9,6 +9,8 @@
 
 #include <test/test_cmn_util.h>
 #include <pkt/test/test_pkt_util.h>
+#include <pkt/flow_mgmt.h>
+#include <oper/vrouter.h>
 #include "test_xml.h"
 #include "test_xml_validate.h"
 #include "test_xml_packet.h"
@@ -39,6 +41,17 @@ bool GetUintAttribute(const xml_node &node, const string &name,
     }
 
     *value = attr.as_uint();
+
+    return true;
+}
+
+bool GetIntAttribute(const xml_node &node, const string &name, int *value) {
+    xml_attribute attr = node.attribute(name.c_str());
+    if (!attr) {
+        return false;;
+    }
+
+    *value = attr.as_int();
 
     return true;
 }
@@ -356,6 +369,14 @@ bool AgentUtXmlTestCase::ReadXml() {
             cfg = new AgentUtXmlTask(node, this);
         }
 
+        if (strcmp(node.name(), "flow-export") == 0) {
+            cfg =  new AgentUtXmlFlowExport(node, this);
+        }
+
+        if (strcmp(node.name(), "flow-threshold") == 0) {
+            cfg =  new AgentUtXmlFlowThreshold(node, this);
+        }
+
         if (strcmp(node.name(), "validate") == 0) {
             if (GetStringAttribute(node, "name", &name) == false) {
                 cout << "Attribute \"name\" not specified for validate."
@@ -642,4 +663,159 @@ bool AgentUtXmlConfig::AddIdPerms(xml_node *parent) {
     AddPermissions(&n);
     AddUuid(&n, id());
     AddXmlNodeWithValue(&n, "enable", "true");
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlFlowExport routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlFlowExport::AgentUtXmlFlowExport(const xml_node &node,
+                                           AgentUtXmlTestCase *test_case) :
+    AgentUtXmlNode("flow-export", node, false, test_case) {
+}
+
+AgentUtXmlFlowExport::~AgentUtXmlFlowExport() {
+}
+
+bool AgentUtXmlFlowExport::ReadXml() {
+    if (GetUintAttribute(node(), "nh", &nh_id_) == false) {
+        cout << "Attribute \"nh\" not specified for Flow. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "sip", &sip_) == false) {
+        cout << "Attribute \"sip\" not specified for Flow. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "dip", &dip_) == false) {
+        cout << "Attribute \"dip\" not specified for Flow. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "proto", &proto_) == false &&
+        GetUintAttribute(node(), "proto", &proto_id_) == false) {
+        cout << "Attribute \"proto\" not specified for Flow. Skipping"
+            << endl;
+        return false;
+    }
+
+    if (proto_ == "tcp" || proto_ == "udp") {
+        if (proto_ == "tcp")
+            proto_id_ = 6;
+        else
+            proto_id_ = 17;
+        if (GetUintAttribute(node(), "sport", &sport_) == false) {
+            cout << "Attribute \"sport\" not specified for Flow. Skipping"
+                << endl;
+            return false;
+        }
+
+        if (GetUintAttribute(node(), "dport", &dport_) == false) {
+            cout << "Attribute \"dport\" not specified for Flow. Skipping"
+                << endl; return false;
+        }
+    }
+
+    uint16_t bytes, pkts;
+    if (GetUintAttribute(node(), "bytes", &bytes) == false) {
+        bytes_ = 0;
+    } else {
+        bytes_ = (uint32_t)bytes;
+    }
+    if (GetUintAttribute(node(), "pkts", &pkts) == false) {
+        pkts_ = 0;
+    } else {
+        pkts_ = (uint32_t)pkts;
+    }
+    return true;
+}
+
+bool AgentUtXmlFlowExport::ToXml(xml_node *parent) {
+    return true;
+}
+
+bool AgentUtXmlFlowExport::Run() {
+    FlowEntry *flow = FlowGet(0, sip_, dip_, proto_id_, sport_, dport_,
+                              nh_id_);
+    if (flow == NULL)
+        return false;
+
+    FlowMgmtManager *mgr = Agent::GetInstance()->pkt()->flow_mgmt_manager();
+    mgr->ExportEvent(flow, bytes_, pkts_);
+    TestClient::WaitForIdle();
+}
+
+void AgentUtXmlFlowExport::ToString(string *str) {
+    AgentUtXmlNode::ToString(str);
+    *str += "\n";
+    return;
+}
+
+string AgentUtXmlFlowExport::NodeType() {
+    return "flow-export";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlFlowThreshold routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlFlowThreshold::AgentUtXmlFlowThreshold(const xml_node &node,
+                                           AgentUtXmlTestCase *test_case) :
+    AgentUtXmlNode("flow-threshold", node, false, test_case) {
+}
+
+AgentUtXmlFlowThreshold::~AgentUtXmlFlowThreshold() {
+}
+
+bool AgentUtXmlFlowThreshold::ReadXml() {
+    uint16_t flow_export_count, configured_flow_export_rate, threshold;
+    if (GetUintAttribute(node(), "flow-export-count", &flow_export_count) ==
+        false) {
+        cout << "Attribute \"flow-export-count\" not specified for Flow. "
+                "Skipping" << endl;
+        return false;
+    }
+    flow_export_count_ = flow_export_count;
+
+    if (GetUintAttribute(node(), "configured-flow-export-rate",
+                         &configured_flow_export_rate) == false) {
+        configured_flow_export_rate_ = Vrouter::kDefaultFlowExportRate;
+    } else {
+        configured_flow_export_rate_ = configured_flow_export_rate;
+    }
+
+    if (GetUintAttribute(node(), "threshold", &threshold) == false) {
+        threshold_ = FlowMgmtManager::kDefaultFlowSamplingThreshold;
+    } else {
+        threshold_ = threshold;
+    }
+
+    return true;
+}
+
+bool AgentUtXmlFlowThreshold::ToXml(xml_node *parent) {
+    return true;
+}
+
+bool AgentUtXmlFlowThreshold::Run() {
+    Agent *agent = Agent::GetInstance();
+    uint64_t curr_time = UTCTimestampUsec();
+    FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager();
+    mgr->prev_flow_export_rate_compute_time_ = curr_time - 1000000;
+    Vrouter *vr = agent->oper_db()->vrouter();
+    vr->flow_export_rate_ = configured_flow_export_rate_;
+    mgr->flow_export_count_ = flow_export_count_;
+    mgr->threshold_ = threshold_;
+
+    mgr->UpdateThresholdAndExportRate(curr_time);
+    TestClient::WaitForIdle();
+}
+
+void AgentUtXmlFlowThreshold::ToString(string *str) {
+    AgentUtXmlNode::ToString(str);
+    *str += "\n";
+    return;
+}
+
+string AgentUtXmlFlowThreshold::NodeType() {
+    return "flow-threshold";
 }

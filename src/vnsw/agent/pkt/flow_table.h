@@ -198,6 +198,7 @@ public:
     void DeleteFlow(const FlowEntry *flow);
 
     void UpdateKSync(FlowEntry *flow);
+    void ResetFlowInfo(FlowEntry *fe);
 
     // Flow Table request queue events
     void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow);

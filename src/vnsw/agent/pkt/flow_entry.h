@@ -407,7 +407,7 @@ class FlowEntry {
                       MatchAclParamsList &acl, bool add_implicit_deny,
                       bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
-    void ResetStats();
+    void ResetFlowInfo();
 
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow);
@@ -429,6 +429,7 @@ class FlowEntry {
     void UpdateReflexiveAction();
     void SetAclFlowSandeshData(const AclDBEntry *acl,
                                FlowSandeshData &fe_sandesh_data) const;
+    bool IsActionLog() const;
 
 private:
     friend class FlowTable;

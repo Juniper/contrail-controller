@@ -382,9 +382,10 @@ AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
     return rt;
 }
 
-void FlowEntry::ResetStats() {
+void FlowEntry::ResetFlowInfo() {
     stats_.bytes = 0;
     stats_.packets = 0;
+    stats_.teardown_time = 0;
 }
 
 void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
@@ -1440,6 +1441,14 @@ uint32_t FlowEntry::reverse_flow_vmport_id() const {
         return rflow->stats().fip_vm_port_id;
     }
     return Interface::kInvalidIndex;
+}
+
+bool FlowEntry::IsActionLog() const {
+    uint32_t fe_action = data_.match_p.action_info.action;
+    if (fe_action & (1 << TrafficAction::LOG)) {
+        return true;
+    }
+    return false;
 }
 
 void FlowEntry::FillFlowInfo(FlowInfo &info) {

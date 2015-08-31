@@ -20,7 +20,8 @@ public:
         CHANGE_DBENTRY,
         DELETE_DBENTRY,
         RETRY_DELETE_VRF,
-        EXPORT_FLOW
+        EXPORT_FLOW,
+        UPDATE_FLOW_THRESHOLD
     };
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
@@ -33,6 +34,12 @@ public:
                     uint64_t packets) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0),
         diff_bytes_(bytes), diff_packets_(packets) {
+            if (event == RETRY_DELETE_VRF)
+                assert(vrf_id_);
+        }
+
+    FlowMgmtRequest(Event event, uint64_t time) :
+        event_(event), flow_(NULL), db_entry_(NULL), vrf_id_(0), time_(time) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
         }
@@ -85,6 +92,7 @@ public:
     uint32_t gen_id() const { return gen_id_; }
     uint64_t diff_bytes() const { return diff_bytes_; }
     uint64_t diff_packets() const { return diff_packets_; }
+    uint64_t time() const { return time_; }
 
 private:
     Event event_;
@@ -97,6 +105,7 @@ private:
     uint32_t gen_id_;
     uint64_t diff_bytes_;
     uint64_t diff_packets_;
+    uint64_t time_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };

@@ -3,6 +3,7 @@
 #include "pkt/flow_mgmt_request.h"
 #include "pkt/flow_mgmt_response.h"
 #include "pkt/flow_mgmt_dbclient.h"
+#include "oper/vrouter.h"
 const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
 
 /////////////////////////////////////////////////////////////////////////////
@@ -25,7 +26,10 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent, FlowTable *flow_table) :
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
     response_queue_(agent_->task_scheduler()->GetTaskId(FlowTable::TaskName()),
                     1, boost::bind(&FlowMgmtManager::ResponseHandler, this,
-                                   _1)) {
+                                   _1)),
+    flow_export_count_(0), prev_flow_export_rate_compute_time_(0),
+    flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
+    flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0)  {
 }
 
 void FlowMgmtManager::Init() {
@@ -81,6 +85,13 @@ void FlowMgmtManager::ExportEvent(FlowEntry *flow, uint64_t diff_bytes,
     boost::shared_ptr<FlowMgmtRequest>
         req(new FlowMgmtRequest(FlowMgmtRequest::EXPORT_FLOW, flow_ptr,
                                 diff_bytes, diff_pkts));
+    request_queue_.Enqueue(req);
+}
+
+void FlowMgmtManager::UpdateThresholdAndExportRate(uint64_t curr_time) {
+    boost::shared_ptr<FlowMgmtRequest>
+        req(new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW_THRESHOLD,
+                                curr_time));
     request_queue_.Enqueue(req);
 }
 
@@ -231,6 +242,19 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
 
     case FlowMgmtRequest::EXPORT_FLOW: {
         ExportFlow(req->flow(), req->diff_bytes(), req->diff_packets());
+        FlowEntry *fe = req->flow().get();
+        /* Reset stats and teardown_time after these information is exported
+         * during flow delete so that if the flow entry is reused they point
+        * to right values */
+        if (fe->stats().teardown_time) {
+            FlowMgmtResponse flow_resp(FlowMgmtResponse::RESET_FLOW_INFO, fe);
+            ResponseEnqueue(flow_resp);
+        }
+        break;
+    }
+
+    case FlowMgmtRequest::UPDATE_FLOW_THRESHOLD: {
+        UpdateFlowThreshold(req->time());
         break;
     }
 
@@ -334,20 +358,59 @@ void FlowMgmtManager::DispatchFlowMsg(SandeshLevel::type level,
     FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
 }
 
+/* Flow Export Algorithm
+ * (1) Flow samples greater than or equal to sampling threshold will always be
+ * exported, with the byte/packet counts reported as-is.
+ * (2) Flow samples smaller than the sampling threshold will be exported
+ * probabilistically, with the byte/packets counts adjusted upwards according to
+ * the probability.
+ * (3) Probability =  diff_bytes/sampling_threshold
+ * (4) We generate a random number less than sampling threshold.
+ * (5) If the diff_bytes is greater than random number then the flow is dropped
+ * (6) Otherwise the flow is exported after normalizing the diff bytes and
+ * packets. The normalization is done by dividing diff_bytes and diff_pkts with
+ * probability. This normalization is used as heuristictic to account for stats
+ * of dropped flows */
 void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
                                  uint64_t diff_pkts) {
     FlowEntry *flow = fe.get();
+
+    /* Lock is required to ensure that flow is not being modified from
+     * Agent::FlowTable task while it is being accessed for read in
+     * Flow::Management task */
     tbb::mutex::scoped_lock mutex(flow->mutex());
+    /* We should always try to export flows with Action as LOG regardless of
+     * configured flow-export-rate */
+    if (!flow->IsActionLog() &&
+        !agent_->oper_db()->vrouter()->flow_export_rate()) {
+        flow_export_msg_drops_++;
+        return;
+    }
+
     FlowMgmtManager::FlowEntryInfo *info = FindFlowEntryInfo(fe);
     if (info == NULL) {
         return;
     }
-    if ((diff_bytes == 0) && info->stats_exported_) {
+    const FlowStats &stats = flow->stats();
+    if (!stats.teardown_time && (diff_bytes == 0) && info->stats_exported_) {
         return;
+    }
+    if (!flow->IsActionLog() && (diff_bytes < threshold_)) {
+        double probability = diff_bytes/threshold_;
+        uint32_t num = rand() % threshold_;
+        if (num > diff_bytes) {
+            /* Do not export the flow, if the random number generated is more
+             * than the diff_bytes */
+            flow_export_msg_drops_++;
+            return;
+        }
+        /* Normalize the diff_bytes and diff_packets reported using the
+         * probability value */
+        diff_bytes = diff_bytes/probability;
+        diff_pkts = diff_pkts/probability;
     }
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
-    const FlowStats &stats = flow->stats();
 
     s_flow.set_flowuuid(to_string(flow->flow_uuid()));
     s_flow.set_bytes(stats.bytes);
@@ -370,7 +433,8 @@ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
     s_flow.set_destvn(flow->data().dest_vn);
 
     if (stats.intf_in != Interface::kInvalidIndex) {
-        Interface *intf = InterfaceTable::GetInstance()->FindInterface(stats.intf_in);
+        Interface *intf = InterfaceTable::GetInstance()->FindInterface
+            (stats.intf_in);
         if (intf && intf->type() == Interface::VM_INTERFACE) {
             VmInterface *vm_port = static_cast<VmInterface *>(intf);
             const VmEntry *vm = vm_port->vm();
@@ -443,6 +507,7 @@ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
         //irrespective of direction.
         s_flow.set_flowuuid(to_string(flow->egress_uuid()));
         DispatchFlowMsg(level, s_flow);
+        flow_export_count_ += 2;
     } else {
         if (flow->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
@@ -451,6 +516,64 @@ void FlowMgmtManager::ExportFlow(FlowEntryPtr &fe, uint64_t diff_bytes,
             s_flow.set_direction_ing(0);
         }
         DispatchFlowMsg(level, s_flow);
+        flow_export_count_++;
+    }
+}
+
+void FlowMgmtManager::UpdateFlowThreshold(uint64_t curr_time) {
+    bool export_rate_calculated = false;
+
+    /* If flows are not being exported, no need to update threshold */
+    if (!flow_export_count_) {
+        return;
+    }
+    // Calculate Flow Export rate
+    if (prev_flow_export_rate_compute_time_) {
+        uint64_t diff_secs = 0;
+        uint64_t diff_micro_secs = curr_time -
+            prev_flow_export_rate_compute_time_;
+        if (diff_micro_secs) {
+            diff_secs = diff_micro_secs/1000000;
+        }
+        if (diff_secs) {
+            flow_export_rate_ = flow_export_count_/diff_secs;
+            prev_flow_export_rate_compute_time_ = curr_time;
+            flow_export_count_ = 0;
+            export_rate_calculated = true;
+        }
+    } else {
+        prev_flow_export_rate_compute_time_ = curr_time;
+        flow_export_count_ = 0;
+    }
+
+    uint32_t cfg_rate = agent_->oper_db()->vrouter()->flow_export_rate();
+    /* No need to update threshold when flow_export_rate is NOT calculated
+     * and configured flow export rate has not changed */
+    if (!export_rate_calculated &&
+        (cfg_rate == prev_cfg_flow_export_rate_)) {
+        return;
+    }
+    // Update sampling threshold based on flow_export_rate_
+    if (flow_export_rate_ < cfg_rate/4) {
+        UpdateThreshold((threshold_ / 8));
+    } else if (flow_export_rate_ < cfg_rate/2) {
+        UpdateThreshold((threshold_ / 4));
+    } else if (flow_export_rate_ < cfg_rate/1.25) {
+        UpdateThreshold((threshold_ / 2));
+    } else if (flow_export_rate_ > (cfg_rate * 3)) {
+        UpdateThreshold((threshold_ * 8));
+    } else if (flow_export_rate_ > (cfg_rate * 2)) {
+        UpdateThreshold((threshold_ * 4));
+    } else if (flow_export_rate_ > (cfg_rate * 1.25)) {
+        UpdateThreshold((threshold_ * 3));
+    }
+    prev_cfg_flow_export_rate_ = cfg_rate;
+    LOG(DEBUG, "Export rate " << flow_export_rate_ << " threshold " << threshold_);
+}
+
+void FlowMgmtManager::UpdateThreshold(uint32_t new_value) {
+    if (new_value != 0) {
+        threshold_ = new_value;
     }
 }
 
@@ -1412,6 +1535,10 @@ bool FlowMgmtManager::ResponseHandler(const FlowMgmtResponse &resp){
         flow_mgmt_dbclient_->ResponseHandler(resp.db_entry(), resp.gen_id());
         break;
     }
+
+    case FlowMgmtResponse::RESET_FLOW_INFO:
+        flow_table_->ResetFlowInfo(resp.flow());
+        break;
 
     default: {
         assert(0);
