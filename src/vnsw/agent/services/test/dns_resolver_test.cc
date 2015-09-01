@@ -318,6 +318,37 @@ public:
         Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
     }
 
+    void SendDnsParseRespError(int numQues, DnsItem *items, int numAuth, DnsItem *auth,
+                               int numAdd, DnsItem *add) {
+        uint16_t len = 1024;
+        uint8_t *buf  = new uint8_t[len];
+        memset(buf, 0, len);
+
+        dnshdr *dns = (dnshdr *) buf;
+        BindUtil::BuildDnsHeader(dns, g_xid, DNS_QUERY_RESPONSE, 
+                                 DNS_OPCODE_QUERY, 0, 0, 0, 0);
+        dns->ques_rrcount = htons(numQues);
+        dns->ans_rrcount = htons(numQues);
+        dns->auth_rrcount = htons(numAuth);
+        dns->add_rrcount = htons(numAdd);
+        len = sizeof(dnshdr);
+        uint8_t *ptr = (uint8_t *) (dns + 1);
+        for (int i = 0; i < numQues; i++)
+            ptr = BindUtil::AddQuestionSection(ptr, items[i].name, 
+                                               items[i].type, items[i].eclass, 
+                                               len);
+        for (int i = 0; i < (numQues-1); i++)
+            ptr = BindUtil::AddAnswerSection(ptr, items[i], len);
+
+        for (int i = 0; i < (numAuth-1); i++)
+            ptr = BindUtil::AddAnswerSection(ptr, auth[i], len);
+
+        for (int i = 0; i < numAdd; i++)
+            ptr = BindUtil::AddAnswerSection(ptr, add[i], len);
+
+        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
+    }
+
 private:
     DBTableBase::ListenerId rid_;
     uint32_t itf_id_;
@@ -383,7 +414,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     client->WaitForIdle();
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
 
-    //both good DNS responses
+    //both good DNS query responses
     while (!Agent::GetInstance()->GetDnsProto()->IsDnsQueryInProgress(g_xid))
         g_xid++;
     usleep(1000);
@@ -398,7 +429,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
 
-    //both good response
+    //both good DNS query responses
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 5, a_items);
     g_xid++;
     usleep(1000);
@@ -410,7 +441,8 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_CONDITION(stats.resolved < 2);
     CHECK_STATS(stats, 4, 2, 2, 0, 0, 0);
 
-    //first bad response
+    //first response - no dmain name (DNS_ERR_NO_SUCH_NAME)
+    //DNS client gets the second valid resolved response
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 5, ptr_items);
     g_xid++;
     usleep(1000);
@@ -424,7 +456,8 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_CONDITION(stats.resolved < 2);
     CHECK_STATS(stats, 5, 3, 2, 0, 0, 0);
 
-    //second bad response
+    //second bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
+    //DNS client gets the first valid resolved response
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 5, ptr_items);
     g_xid++;
     usleep(1000);
@@ -436,7 +469,8 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     SendDnsResp(5, ptr_items, 5, auth_items, 0, add_items, true);
     CHECK_STATS(stats, 6, 4, 2, 0, 0, 0);
 
-    //both bad response
+    //both bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
+    //DNS client gets no-domain-name second response
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 3, a_items);
     g_xid++;
     usleep(1000);
@@ -445,7 +479,20 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     g_xid++;
     SendDnsResp(5, cname_items, 0, NULL, 0, NULL, true);
     CHECK_CONDITION(stats.resolved < 4);
+    // check fail stats incremented
     CHECK_STATS(stats, 7, 4, 2, 0, 1, 0);
+
+    //both bad response, parse failure 
+    //DNS client receives no response.
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 3, ptr_items);
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsParseRespError(3, ptr_items, 3, auth_items, 3, add_items);
+    g_xid++;
+    SendDnsParseRespError(3, ptr_items, 3, auth_items, 3, add_items);
+    CHECK_CONDITION(stats.resolved < 4);
+    CHECK_STATS(stats, 8, 4, 2, 0, 1, 0);
 
     // Unsupported case
     dns_flags flags = default_flags;
@@ -456,7 +503,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.unsupported < 1);
-    CHECK_STATS(stats, 8, 4, 2, 1, 1, 0);
+    CHECK_STATS(stats, 9, 4, 2, 1, 1, 0);
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0);
