@@ -55,6 +55,10 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
     }
 };
 
+UnicastMacRemoteEntry::~UnicastMacRemoteEntry() {
+    assert(pl_create_ref_.get() == NULL);
+}
+
 void UnicastMacRemoteEntry::NotifyAdd(struct ovsdb_idl_row *row) {
     if (ovs_entry() == NULL || ovs_entry() == row) {
         // this is the first idl row to use let the base infra
@@ -202,6 +206,8 @@ bool UnicastMacRemoteEntry::IsLess(const KSyncEntry &entry) const {
 }
 
 KSyncEntry *UnicastMacRemoteEntry::UnresolvedReference() {
+    assert(pl_create_ref_.get() == NULL);
+
     LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
     LogicalSwitchEntry key(l_table, logical_switch_name_.c_str());
     LogicalSwitchEntry *l_switch =
@@ -209,6 +215,24 @@ KSyncEntry *UnicastMacRemoteEntry::UnresolvedReference() {
     if (!l_switch->IsResolved()) {
         return l_switch;
     }
+
+    if (!dest_ip_.empty()) {
+        // check if physical locator is available
+        PhysicalLocatorTable *pl_table =
+            table_->client_idl()->physical_locator_table();
+        PhysicalLocatorEntry pl_key(pl_table, dest_ip_);
+        PhysicalLocatorEntry *pl_entry =
+            static_cast<PhysicalLocatorEntry *>(pl_table->GetReference(&pl_key));
+        if (!pl_entry->IsResolved()) {
+            if (stale() || !pl_entry->AcquireCreateRequest(this)) {
+                // failed to Acquire Create Request, wait for physical locator
+                // we dont Acquire Create request for stale entry
+                return pl_entry;
+            }
+            pl_create_ref_ = pl_entry;
+        }
+    }
+
     return NULL;
 }
 
@@ -226,6 +250,15 @@ const std::string &UnicastMacRemoteEntry::dest_ip() const {
 
 bool UnicastMacRemoteEntry::self_exported_route() const {
     return self_exported_route_;
+}
+
+void UnicastMacRemoteEntry::Ack(bool success) {
+    ReleaseLocatorCreateReference();
+    OvsdbDBEntry::Ack(success);
+}
+
+void UnicastMacRemoteEntry::TxnDoneNoMessage() {
+    ReleaseLocatorCreateReference();
 }
 
 void UnicastMacRemoteEntry::SendTrace(Trace event) const {
@@ -258,6 +291,17 @@ void UnicastMacRemoteEntry::DeleteDupEntries(struct ovsdb_idl_txn *txn) {
     OvsdbDupIdlList::iterator it = dup_list_.begin();
     for (; it != dup_list_.end(); it++) {
         ovsdb_wrapper_delete_ucast_mac_remote(*it);
+    }
+}
+
+void UnicastMacRemoteEntry::ReleaseLocatorCreateReference() {
+    // on Ack Release the physical locator create ref, if present
+    if (pl_create_ref_.get() != NULL) {
+        // release creator reference on txn complete
+        PhysicalLocatorEntry *pl_entry =
+            static_cast<PhysicalLocatorEntry *>(pl_create_ref_.get());
+        pl_entry->ReleaseCreateRequest(this);
+        pl_create_ref_ = NULL;
     }
 }
 

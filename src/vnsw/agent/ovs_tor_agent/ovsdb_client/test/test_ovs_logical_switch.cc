@@ -126,6 +126,58 @@ TEST_F(OvsBaseTest, PhysicalDeviceVnWithNullDevice) {
     WAIT_FOR(100, 10000, (VnGet(1) == NULL));
 }
 
+TEST_F(OvsBaseTest, PhysicalLocatorCreateWait) {
+    DBRequest device_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    device_req.key.reset(new PhysicalDeviceKey(MakeUuid(1)));
+    device_req.data.reset(new PhysicalDeviceData(agent_, "test-router",
+                                                 "test-router", "",
+                                                 Ip4Address::from_string("1.1.1.1"),
+                                                 Ip4Address::from_string("2.2.2.2"),
+                                                 "OVS", NULL));
+    agent_->physical_device_table()->Enqueue(&device_req);
+    VnAddReq(1, "vn1");
+    WAIT_FOR(100, 10000, (VnGet(1) != NULL));
+    VnAddReq(2, "vn2");
+    WAIT_FOR(100, 10000, (VnGet(2) != NULL));
+
+    uint64_t txn_failures = tcp_session_->client_idl()->stats().txn_failed;
+    // hold Db task to execute both logical switch  add requests in
+    // single db task run
+    TestTaskHold *hold =
+        new TestTaskHold(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
+    AddPhysicalDeviceVn(agent_, 1, 1, false);
+    AddPhysicalDeviceVn(agent_, 1, 2, false);
+
+    delete hold;
+    hold = NULL;
+    client->WaitForIdle();
+
+    LogicalSwitchTable *ls_table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key1(ls_table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry key2(ls_table, UuidToString(MakeUuid(2)));
+    LogicalSwitchEntry *entry;
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key1))) != NULL &&
+                entry->GetState() == KSyncEntry::IN_SYNC));
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key2))) != NULL &&
+                entry->GetState() == KSyncEntry::IN_SYNC));
+
+    // there should not be any more transaction failures
+    EXPECT_EQ(txn_failures, tcp_session_->client_idl()->stats().txn_failed);
+
+    DelPhysicalDeviceVn(agent_, 1, 1, true);
+    DelPhysicalDeviceVn(agent_, 1, 2, true);
+    VnDelReq(1);
+    VnDelReq(2);
+
+    DBRequest del_dev_req(DBRequest::DB_ENTRY_DELETE);
+    del_dev_req.key.reset(new PhysicalDeviceVnKey(MakeUuid(1),
+                                                  MakeUuid(1)));
+    agent_->physical_device_table()->Enqueue(&del_dev_req);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     // override with true to initialize ovsdb server and client
