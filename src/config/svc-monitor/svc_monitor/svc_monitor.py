@@ -738,6 +738,8 @@ class SvcMonitor(object):
                 self.netns_manager.create_service(st, si)
             elif st.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.create_service(st, si)
+            elif st.virtualization_type == 'physical-device':
+                self.pm_manager.create_service(st,si)
             else:
                 self.logger.log_error("Unknown virt type: %s" %
                     st.virtualization_type)
@@ -757,6 +759,8 @@ class SvcMonitor(object):
                 self.netns_manager.delete_service(vm)
             elif vm.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.delete_service(vm)
+            elif vm.virtualization_type == 'physical-device':
+                self.pm_manager.delete_service(vm)
         except Exception:
             cgitb_error_log(self)
 
@@ -779,7 +783,8 @@ class SvcMonitor(object):
             status = self.netns_manager.check_service(si)
         elif st.virtualization_type == 'vrouter-instance':
             status = self.vrouter_manager.check_service(si)
-
+        elif st.virtualization_type == 'physical-device':
+            status = self.pm_manager.check_service(si)
         return status
 
     def _delete_interface_route_table(self, irt_uuid):
@@ -1119,3 +1124,4 @@ def server_main():
 
 if __name__ == '__main__':
     server_main()
+
