@@ -8,7 +8,6 @@
 #include "loadbalancer_properties.h"
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
-#include <cfg/cfg_listener.h>
 
 class LoadbalancerData : public AgentData {
   public:
@@ -89,30 +88,6 @@ static void PropertiesAddHealthmonitor(
     properties->healthmonitors()->insert(
         std::make_pair(IdPermsGetUuid(healthmon->id_perms()),
                        healthmon->properties()));
-}
-
-void Loadbalancer::CalculateProperties(DBGraph *graph, Properties *properties) {
-    autogen::LoadbalancerPool *pool =
-            static_cast<autogen::LoadbalancerPool *>(node_->GetObject());
-    properties->set_pool_properties(pool->properties());
-    properties->set_custom_attributes(pool->custom_attributes());
-
-    for (DBGraphVertex::adjacency_iterator iter = node_->begin(graph);
-         iter != node_->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-
-        const char *adjtype = adj->table()->Typename();
-        if (strcmp(adjtype, "virtual-ip") == 0) {
-            autogen::VirtualIp *vip =
-                    static_cast<autogen::VirtualIp *>(adj->GetObject());
-            properties->set_vip_uuid(IdPermsGetUuid(vip->id_perms()));
-            properties->set_vip_properties(vip->properties());
-        } else if (strcmp(adjtype, "loadbalancer-member") == 0) {
-            PropertiesAddMember(adj, properties);
-        } else if (strcmp(adjtype, "loadbalancer-healthmonitor") == 0) {
-            PropertiesAddHealthmonitor(adj, properties);
-        }
-    }
 }
 
 bool Loadbalancer::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
@@ -218,20 +193,25 @@ DBEntry *LoadbalancerTable::Add(const DBRequest *request) {
     loadbalancer->SetKey(request->key.get());
     LoadbalancerData *data =
             static_cast<LoadbalancerData *>(request->data.get());
-    loadbalancer->set_node(data->node());
     assert(dependency_manager_);
     loadbalancer->SetIFMapNodeState(
             dependency_manager_->SetState(data->node()));
     dependency_manager_->SetObject(data->node(), loadbalancer);
 
+    assert(graph_);
+    LoadbalancerProperties properties;
+    CalculateProperties(graph_, data->node(), &properties);
+    loadbalancer->set_properties(properties);
     return loadbalancer;
 }
 
 bool LoadbalancerTable::Delete(DBEntry *entry, const DBRequest *request) {
     Loadbalancer *loadbalancer  = static_cast<Loadbalancer *>(entry);
     assert(dependency_manager_);
-    dependency_manager_->SetObject(loadbalancer->node(), NULL);
-    loadbalancer->SetIFMapNodeState(NULL);
+    if (loadbalancer->ifmap_node()) {
+        dependency_manager_->SetObject(loadbalancer->ifmap_node(), NULL);
+        loadbalancer->SetIFMapNodeState(NULL);
+    }
     return true;
 }
 
@@ -240,11 +220,17 @@ bool LoadbalancerTable::OnChange(DBEntry *entry, const DBRequest *request) {
 
     LoadbalancerData *data = static_cast<LoadbalancerData *>(
         request->data.get());
+
+    loadbalancer->SetKey(request->key.get());
     if (data->node() == NULL) {
         loadbalancer->set_properties(data->properties());
-        return true;
+    } else {
+        assert(graph_);
+        LoadbalancerProperties properties;
+        CalculateProperties(graph_, data->node(), &properties);
+        loadbalancer->set_properties(properties);
     }
-    return false;
+    return true;
 }
 
 void LoadbalancerTable::Initialize(
@@ -266,53 +252,96 @@ bool LoadbalancerTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
-bool LoadbalancerTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
-    boost::uuids::uuid id;
-    if (agent() && agent()->cfg_listener()) {
-        agent()->cfg_listener()->GetCfgDBStateUuid(node, id);
-    } else {
-        IFNodeToUuid(node, id);
-    }
-    if (boost::uuids::nil_uuid() == id)
-        return false;
+bool LoadbalancerTable::IFNodeToReq(IFMapNode *node, DBRequest &request,
+        const boost::uuids::uuid &id) {
 
+
+    assert(!id.is_nil());
     request.key.reset(new LoadbalancerKey(id));
 
-    if (!node->IsDeleted()) {
-        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    if (request.oper == DBRequest::DB_ENTRY_DELETE || node->IsDeleted()) {
+        request.oper = DBRequest::DB_ENTRY_DELETE;
+        return true;
+    }
+
+    request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
+    const LoadbalancerProperties *current = NULL;
+    LoadbalancerProperties properties;
+    assert(graph_);
+    CalculateProperties(graph_, node, &properties);
+    Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(state->object());
+    if (!loadbalancer || loadbalancer->uuid() != id) {
         request.data.reset(new LoadbalancerData(node));
     } else {
-        request.oper = DBRequest::DB_ENTRY_DELETE;
+        current = loadbalancer->properties();
+        if (current) {
+            if (properties.CompareTo(*current) == 0)
+                return false;
+        }
+
+        LOG(DEBUG, "loadbalancer property change "
+                            << properties.DiffString(current));
+        request.data.reset(new LoadbalancerData(properties));
     }
     return true;
 }
 
-void LoadbalancerTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
-    if (entry == NULL)
-        return;
+void LoadbalancerTable::CalculateProperties(DBGraph *graph, IFMapNode
+        *node, LoadbalancerProperties *properties) {
+    autogen::LoadbalancerPool *pool =
+            static_cast<autogen::LoadbalancerPool *>(node->GetObject());
+    properties->set_pool_properties(pool->properties());
+    properties->set_custom_attributes(pool->custom_attributes());
 
-    Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
-    /*
-     * Do not enqueue an ADD_CHANGE operation after the DELETE generated
-     * by IFNodeToReq.
-     */
-    if (loadbalancer->node()->IsDeleted()) {
-        return;
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+
+        const char *adjtype = adj->table()->Typename();
+        if (strcmp(adjtype, "virtual-ip") == 0) {
+            autogen::VirtualIp *vip =
+                    static_cast<autogen::VirtualIp *>(adj->GetObject());
+            properties->set_vip_uuid(IdPermsGetUuid(vip->id_perms()));
+            properties->set_vip_properties(vip->properties());
+        } else if (strcmp(adjtype, "loadbalancer-member") == 0) {
+            PropertiesAddMember(adj, properties);
+        } else if (strcmp(adjtype, "loadbalancer-healthmonitor") == 0) {
+            PropertiesAddHealthmonitor(adj, properties);
+        }
+    }
+}
+
+void LoadbalancerTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
+
+    DBRequest req;
+    boost::uuids::uuid new_uuid;
+    IFNodeToUuid(node, new_uuid);
+    IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
+    boost::uuids::uuid old_uuid = state->uuid();
+
+    if (!node->IsDeleted()) {
+        if (entry) {
+            if ((old_uuid != new_uuid)) {
+                if (old_uuid != boost::uuids::nil_uuid()) {
+                    req.oper = DBRequest::DB_ENTRY_DELETE;
+                    if (IFNodeToReq(node, req, old_uuid) == true) {
+                        assert(req.oper == DBRequest::DB_ENTRY_DELETE);
+                        Enqueue(&req);
+                    }
+                }
+            }
+        }
+        state->set_uuid(new_uuid);
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    } else {
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        new_uuid = old_uuid;
     }
 
-    assert(graph_);
-    LoadbalancerProperties properties;
-    loadbalancer->CalculateProperties(graph_, &properties);
-
-    const LoadbalancerProperties *current = loadbalancer->properties();
-    if (current == NULL || properties.CompareTo(*current) != 0) {
-        LOG(DEBUG, "loadbalancer property change "
-            << properties.DiffString(current));
-        DBRequest request;
-        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        request.key = loadbalancer->GetDBRequestKey();
-        request.data.reset(new LoadbalancerData(properties));
-        Enqueue(&request);
+    if (IFNodeToReq(node, req, new_uuid) == true) {
+        Enqueue(&req);
     }
 }
 

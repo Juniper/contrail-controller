@@ -168,7 +168,8 @@ public:
      */
     virtual void Clear();
 
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req) {
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &uuid) {
         assert(0);
         return false;
     }
@@ -204,7 +205,8 @@ public:
         return true;
     }
     virtual void Process(DBRequest &req);
-    virtual bool ProcessConfig(IFMapNode *node, DBRequest &req) {
+    virtual bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u) {
         assert(0);
         return false;
     }

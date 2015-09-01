@@ -12,6 +12,7 @@
 #include "oper/sg.h"
 #include "oper/interface_common.h"
 #include "oper/vrf.h"
+#include "oper/vm.h"
 #include "oper/physical_device.h"
 #include "filter/acl.h"
 
@@ -216,7 +217,10 @@ bool IFMapDependencyManager::ProcessChangeList() {
         if (loc == event_map_.end()) {
             continue;
         }
-        loc->second(state->node(), state->object());
+
+        if (state->notify() == true) {
+            loc->second(state->node(), state->object());
+        }
     }
     change_list_.clear();
     return true;
@@ -234,13 +238,45 @@ void IFMapDependencyManager::PropogateNodeChange(IFMapNode *node) {
     tracker_->NodeEvent(node, false);
     trigger_->Set();
 }
+
+void IFMapDependencyManager::PropogateNodeAndLinkChange(IFMapNode *node) {
+
+    tracker_->NodeEvent(node);
+
+    for (DBGraphVertex::edge_iterator iter = node->edge_list_begin(graph_);
+                                iter != node->edge_list_end(graph_); ++iter) {
+        IFMapLink *link = static_cast<IFMapLink *>(iter.operator->());
+        IFMapNode *target = static_cast<IFMapNode *>(iter.target());
+        tracker_->LinkEvent(link->metadata(), node, target);
+    }
+
+    trigger_->Set();
+}
                                           
 void IFMapDependencyManager::LinkObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
     IFMapLink *link = static_cast<IFMapLink *>(db_entry);
     IFMapNode *left = link->LeftNode(database_);
     IFMapNode *right = link->RightNode(database_);
-    if (tracker_->LinkEvent(link->metadata(), left, right)) {
+    bool set = false;
+    if (left) {
+        EventMap::iterator loc = event_map_.find(left->table()->Typename());
+        if (loc != event_map_.end()) {
+            ChangeListAdd(left);
+            set = true;
+        }
+    }
+
+    if (right) {
+        EventMap::iterator loc = event_map_.find(right->table()->Typename());
+        if (loc != event_map_.end()) {
+            ChangeListAdd(right);
+            set = true;
+        }
+    }
+
+    set |= tracker_->LinkEvent(link->metadata(), left, right);
+    if (set) {
         trigger_->Set();
     }
 }
@@ -291,11 +327,19 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
     if (old_entry)
         state->clear_object();
 
-    if (entry)
+    if (entry) {
         state->set_object(entry);
+        tracker_->NodeEvent(node);
+        trigger_->Set();
+    }
+}
 
-    tracker_->NodeEvent(node);
-    trigger_->Set();
+void IFMapDependencyManager::SetNotify(IFMapNode *node, bool notify_flag) {
+
+    IFMapNodeState *state = IFMapNodeGet(node);
+    assert(state);
+
+    state->set_notify(notify_flag);
 }
 
 IFMapDependencyManager::IFMapNodePtr
@@ -500,6 +544,13 @@ static void RegisterConfigHandler(IFMapDependencyManager *dep,
 }
 
 void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
+
+    RegisterConfigHandler(this, "virtual-machine",
+                          agent ? agent->vm_table() : NULL);
+
+    RegisterConfigHandler(this, "access-control-list",
+                          agent ? agent->acl_table() : NULL);
+
     ////////////////////////////////////////////////////////////////////////
     // VN <----> RI
     //    <----> ACL
@@ -674,3 +725,5 @@ void IFMapNodePolicyReq::HandleRequest() const {
     resp->Response();
     return;
 }
+
+

@@ -8,7 +8,6 @@
 
 #include <ifmap/ifmap_node.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
 #include <oper/vn.h>
 #include <oper/ifmap_dependency_manager.h>
@@ -226,7 +225,8 @@ bool PhysicalDeviceVnTable::DeleteConfigEntry(const boost::uuids::uuid &vmi,
     return del_entry;
 }
 
-bool PhysicalDeviceVnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool PhysicalDeviceVnTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
     return false;
 }
 
