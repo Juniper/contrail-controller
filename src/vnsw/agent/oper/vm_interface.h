@@ -607,17 +607,18 @@ private:
                      bool old_ipv6_active, const Ip6Address &old_v6_addr,
                      const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                      bool old_dhcp_enable, bool old_layer3_forwarding,
-                     bool force_update);
+                     bool force_update, const Ip4Address &old_dhcp_addr);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
                   const Ip6Address &old_v6_addr, const Ip4Address &subnet,
-                  const uint8_t old_subnet_plen);
+                  const uint8_t old_subnet_plen,
+                  const Ip4Address &old_dhcp_addr);
     void DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
-                  int old_ethernet_tag);
+                  int old_ethernet_tag, const Ip4Address &old_dhcp_addr);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
@@ -764,6 +765,7 @@ private:
     boost::uuids::uuid logical_interface_;
     Ip4Address nova_ip_addr_;
     Ip6Address nova_ip6_addr_;
+    Ip4Address dhcp_addr_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

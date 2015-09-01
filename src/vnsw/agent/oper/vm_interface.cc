@@ -65,7 +65,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
-    logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_() {
+    logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
+    dhcp_addr_(0) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -95,7 +96,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vrf_assign_acl_(NULL), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
-    nova_ip_addr_(0), nova_ip6_addr_(){
+    nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -1116,6 +1117,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     int old_ethernet_tag = ethernet_tag_;
     bool old_dhcp_enable = dhcp_enable_;
     bool old_layer3_forwarding = layer3_forwarding_;
+    Ip4Address old_dhcp_addr = dhcp_addr_;
 
     if (data) {
         ret = data->OnResync(table, this, &force_update);
@@ -1150,7 +1152,8 @@ bool VmInterface::Resync(const InterfaceTable *table,
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
                 old_addr, old_ethernet_tag, old_need_linklocal_ip,
                 old_ipv6_active, old_v6_addr, old_subnet, old_subnet_plen,
-                old_dhcp_enable, old_layer3_forwarding, force_update);
+                old_dhcp_enable, old_layer3_forwarding, force_update,
+                old_dhcp_addr);
 
     return ret;
 }
@@ -1177,10 +1180,16 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            bool old_ipv6_active,
                            const Ip6Address &old_v6_addr,
                            const Ip4Address &old_subnet,
-                           const uint8_t old_subnet_plen) {
+                           const uint8_t old_subnet_plen,
+                           const Ip4Address &old_dhcp_addr) {
     UpdateL3NextHop(old_ipv4_active, old_ipv6_active);
     UpdateL3TunnelId(force_update, policy_change);
     if (ipv4_active_) {
+        if (do_dhcp_relay_) {
+            UpdateIpv4InterfaceRoute(old_ipv4_active, force_update,
+                                     policy_change,
+                                     old_vrf, old_dhcp_addr);
+        }
         UpdateIpv4InstanceIp(force_update, policy_change, false, old_ethernet_tag);
         UpdateMetadataRoute(old_ipv4_active, old_vrf);
         UpdateFloatingIp(force_update, policy_change, false);
@@ -1203,10 +1212,14 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip6Address &old_v6_addr,
                            const Ip4Address &old_subnet,
                            const uint8_t old_subnet_plen,
-                           int old_ethernet_tag) {
+                           int old_ethernet_tag,
+                           const Ip4Address &old_dhcp_addr) {
     if (old_ipv4_active) {
         DeleteIpv4InstanceIp(false, old_ethernet_tag, old_vrf);
         DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf);
+        if (old_dhcp_addr != Ip4Address(0)) {
+            DeleteIpv4InterfaceRoute(old_vrf, old_dhcp_addr);
+        }
     }
     if (old_ipv6_active) {
         DeleteIpv6InstanceIp(false, old_ethernet_tag, old_vrf);
@@ -1360,7 +1373,8 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               uint8_t old_subnet_plen,
                               bool old_dhcp_enable,
                               bool old_layer3_forwarding,
-                              bool force_update) {
+                              bool force_update,
+                              const Ip4Address &old_dhcp_addr) {
     ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
@@ -1388,11 +1402,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     if ((ipv4_active_ || ipv6_active_) && layer3_forwarding_) {
         UpdateL3(old_ipv4_active, old_vrf, old_addr, old_ethernet_tag, force_update,
                  policy_change, old_ipv6_active, old_v6_addr,
-                 old_subnet, old_subnet_plen);
+                 old_subnet, old_subnet_plen, old_dhcp_addr);
     } else if ((old_ipv4_active || old_ipv6_active)) {
         DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip, 
                  old_ipv6_active, old_v6_addr,
-                 old_subnet, old_subnet_plen, old_ethernet_tag);
+                 old_subnet, old_subnet_plen, old_ethernet_tag, old_dhcp_addr);
     }
 
     // Add/Del/Update L2 
@@ -1449,6 +1463,7 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
         // IP Address not know. Get DHCP Snoop entry.
         // Also sets the config_seen_ flag for DHCP Snoop entry
         addr = table->GetDhcpSnoopEntry(name_);
+        dhcp_addr_ = addr;
     }
 
     // Retain the old if new IP could not be got
