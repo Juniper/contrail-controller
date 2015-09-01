@@ -289,6 +289,10 @@ class ZookeeperClient(object):
         if not self._logger:
             return
         level = kwargs.get('level', 'info')
+        if isinstance(level, int):
+            from pysandesh.sandesh_logger import SandeshLogger
+            level = SandeshLogger.get_py_logger_level(level)
+
         log_method = getattr(self._logger, level, self._logger.info)
         log_method(msg)
     # end syslog
