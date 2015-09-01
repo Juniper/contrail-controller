@@ -27,8 +27,14 @@
 
 using namespace boost::asio;
 
+SandeshTraceBufferPtr ControllerDiscoveryTraceBuf(SandeshTraceBufferCreate(
+    "ControllerDiscovery", 5000));
+SandeshTraceBufferPtr ControllerInfoTraceBuf(SandeshTraceBufferCreate(
+    "ControllerInfo", 5000));
+SandeshTraceBufferPtr ControllerRouteWalkerTraceBuf(SandeshTraceBufferCreate(
+    "ControllerRouteWalker", 5000));
 SandeshTraceBufferPtr ControllerTraceBuf(SandeshTraceBufferCreate(
-    "Controller", 1000));
+    "Controller", 5000));
 
 ControllerDiscoveryData::ControllerDiscoveryData(std::vector<DSResponse> resp) :
     ControllerWorkQueueData(), discovery_response_(resp) {
@@ -57,7 +63,7 @@ void VNController::XmppServerConnect() {
             AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
             if (ch) {
                 // Channel is created, do not disturb
-                CONTROLLER_TRACE(DiscoveryConnection, 
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                     "XMPP Server is already present, ignore discovery response",
                     count, ch->GetXmppServer(), "");
                 count++;
@@ -132,7 +138,7 @@ void VNController::DnsXmppServerConnect() {
             AgentDnsXmppChannel *ch = agent_->dns_xmpp_channel(count);
             if (ch) {
                 // Channel is up and running, do not disturb
-                CONTROLLER_TRACE(DiscoveryConnection,
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
                     "DNS Server is already present, ignore discovery response",
                     count, ch->GetXmppServer(), "");
                 count++;
@@ -364,7 +370,7 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
         DSResponse dr = *iter;
         count ++;
 
-        CONTROLLER_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
+        CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
             count, dr.ep.address().to_string(), integerToString(dr.ep.port()));
         agent_->set_controller_ifmap_discovery_xmpp_server(
             dr.ep.address().to_string(), count);
@@ -375,12 +381,12 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
         if (chnl) { 
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
-                CONTROLLER_TRACE(DiscoveryConnection, 
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                     "XMPP Server is READY and running, ignore", count,
                     chnl->GetXmppServer(), "");
                 continue;
             } else { 
-                CONTROLLER_TRACE(DiscoveryConnection, 
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                     "XMPP Server is NOT_READY, ignore", count,
                     chnl->GetXmppServer(), "");
                 continue;
@@ -392,7 +398,8 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
 
                 if (agent_->controller_ifmap_xmpp_server(xs_idx).empty()) {
 
-                    CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel",
+                    CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                                               "Set Xmpp Channel",
                         xs_idx, dr.ep.address().to_string(), 
                         integerToString(dr.ep.port())); 
 
@@ -406,13 +413,13 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
                     if (AgentXmppServerExists(
                         agent_->controller_ifmap_xmpp_server(xs_idx), resp)) {
 
-                        CONTROLLER_TRACE(DiscoveryConnection,
+                        CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
                             "Retain Xmpp Channel ", xs_idx,
                              agent_->controller_ifmap_xmpp_server(xs_idx), "");
                         continue;
                     }
 
-                    CONTROLLER_TRACE(DiscoveryConnection, 
+                    CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                         "ReSet Xmpp Channel ", xs_idx, 
                         agent_->controller_ifmap_xmpp_server(xs_idx),
                         dr.ep.address().to_string());
@@ -478,7 +485,8 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
         DSResponse dr = *iter;
         count++;
 
-        CONTROLLER_TRACE(DiscoveryConnection, "DNS Discovery Server Response", count,
+        CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                                   "DNS Discovery Server Response", count,
             dr.ep.address().to_string(), integerToString(dr.ep.port()));
         agent_->set_dns_discovery_server(dr.ep.address().to_string(), count);
         agent_->set_dns_discovery_port(dr.ep.port(), count);
@@ -487,12 +495,12 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
         if (chnl) { 
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
-                CONTROLLER_TRACE(DiscoveryConnection, 
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                     "DNS Server is READY and running, ignore", count,
                     chnl->GetXmppServer(), "");
                 continue;
             } else { 
-                CONTROLLER_TRACE(DiscoveryConnection, 
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                     "DNS Server is NOT_READY, ignore", count,
                     chnl->GetXmppServer(), "");
                 continue;
@@ -504,7 +512,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
 
                 if (agent_->dns_server(xs_idx).empty()) {
 
-                    CONTROLLER_TRACE(DiscoveryConnection, 
+                    CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
                         "Set Dns Xmpp Channel ", xs_idx,
                         dr.ep.address().to_string(), integerToString(dr.ep.port()));
 
@@ -517,13 +525,13 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                     if (AgentXmppServerExists(
                         agent_->dns_server(xs_idx), resp)) {
 
-                        CONTROLLER_TRACE(DiscoveryConnection,
+                        CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
                             "Retain Dns Xmpp Channel ", xs_idx,
                             agent_->dns_server(xs_idx), "");
                         continue;
                     }
 
-                    CONTROLLER_TRACE(DiscoveryConnection,   
+                    CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,   
                         "ReSet Dns Xmpp Channel ", xs_idx,
                         agent_->dns_server(xs_idx),
                         dr.ep.address().to_string());

@@ -160,7 +160,25 @@ private:
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
 };
 
+extern SandeshTraceBufferPtr ControllerInfoTraceBuf;
+extern SandeshTraceBufferPtr ControllerDiscoveryTraceBuf;
+extern SandeshTraceBufferPtr ControllerRouteWalkerTraceBuf;
 extern SandeshTraceBufferPtr ControllerTraceBuf;
+
+#define CONTROLLER_INFO_TRACE(obj, ...)\
+do {\
+    AgentXmpp##obj::TraceMsg(ControllerInfoTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while(0);\
+
+#define CONTROLLER_ROUTE_WALKER_TRACE(obj, ...)\
+do {\
+    AgentXmpp##obj::TraceMsg(ControllerRouteWalkerTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while(0);\
+
+#define CONTROLLER_DISCOVERY_TRACE(obj, ...)\
+do {\
+    AgentXmpp##obj::TraceMsg(ControllerDiscoveryTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while(0);\
 
 #define CONTROLLER_TRACE(obj, ...)\
 do {\
