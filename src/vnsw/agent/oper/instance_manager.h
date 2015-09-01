@@ -77,6 +77,7 @@ class InstanceManager {
     void SetStaleTimerInterval(int minutes);
     int StaleTimerInterval() { return stale_timer_interval_;}
     void SetNamespaceStorePath(std::string path);
+    void SetNetNSCmd(const std::string &netns_cmd);
 
  private:
     friend class InstanceManagerTest;

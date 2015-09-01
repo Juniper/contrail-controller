@@ -206,6 +206,16 @@ void InstanceManager::Initialize(DB *database, AgentSignal *signal,
 
 }
 
+void InstanceManager::SetNetNSCmd(const std::string &netns_cmd) {
+    ServiceInstance::Properties prop;
+    prop.virtualization_type =
+        ServiceInstance::ServiceInstance::NetworkNamespace;
+    NetNSInstanceAdapter *adapter = static_cast<NetNSInstanceAdapter
+        *>(FindApplicableAdapter(prop));
+    if (adapter)
+        adapter->set_cmd(netns_cmd);
+}
+
 void InstanceManager::SetStaleTimerInterval(int minutes) {
     stale_timer_interval_ = minutes * 60 * 1000;
 }
@@ -365,8 +375,12 @@ void InstanceManager::StateClear() {
     DBTablePartition *partition = static_cast<DBTablePartition *>(
         agent_->service_instance_table()->GetTablePartition(0));
 
+    if (!partition)
+        return;
+
     DBEntryBase *next = NULL;
     for (DBEntryBase *entry = partition->GetFirst(); entry; entry = next) {
+        next = partition->GetNext(entry);
         DBState *state =
             entry->GetState(agent_->service_instance_table(), si_listener_);
         if (state != NULL) {
@@ -374,7 +388,6 @@ void InstanceManager::StateClear() {
             delete state;
             ClearLastCmdType(static_cast<ServiceInstance *>(entry));
         }
-        next = partition->GetNext(entry);
     }
 }
 

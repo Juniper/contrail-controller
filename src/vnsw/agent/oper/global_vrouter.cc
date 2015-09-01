@@ -11,6 +11,7 @@
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
 #include <ifmap/ifmap_link.h>
+#include <ifmap/ifmap_node.h>
 
 #include <oper/operdb_init.h>
 #include <oper/peer.h>
@@ -385,10 +386,22 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
                            *(oper->agent()->event_manager()->io_service()))),
       agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
       forwarding_mode_(Agent::L2_L3) {
+
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
+              "global-vrouter-config");
+    assert(cfg_db);
+
+    global_vrouter_listener_id_ = cfg_db->Register(boost::bind(
+                &GlobalVrouter::GlobalVrouterConfig, this, _1, _2));
 }
 
 GlobalVrouter::~GlobalVrouter() {
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->db(),
+              "global-vrouter-config");
+    if (cfg_db)
+        cfg_db->Unregister(global_vrouter_listener_id_);
 }
+
 
 uint64_t GlobalVrouter::PendingFabricDnsRequests() const {
     return fabric_dns_resolver_.get()->PendingRequests();
@@ -399,7 +412,9 @@ void GlobalVrouter::CreateDBClients() {
 }
 
 // Handle incoming global vrouter configuration
-void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
+void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
+        DBEntryBase *dbe) {
+    IFMapNode *node = static_cast <IFMapNode *> (dbe);
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
     bool resync_vm_interface = false;
