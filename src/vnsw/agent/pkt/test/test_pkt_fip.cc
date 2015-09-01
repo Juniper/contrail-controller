@@ -89,7 +89,7 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid, bool fip =
             ret = false;
         }
 
-        strcpy(vnet_addr[id], vnet[id]->ip_addr().to_string().c_str());
+        strcpy(vnet_addr[id], vnet[id]->primary_ip_addr().to_string().c_str());
     }
     return ret;
 }
@@ -1263,7 +1263,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
 TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     //Leak a route from default-project:vn3:vn3 to default-project:vn2:vn2
     vnet_table[2]->AddLocalVmRouteReq(NULL, "default-project:vn2:vn2",
-                                      vnet[5]->ip_addr(), 32,
+                                      vnet[5]->primary_ip_addr(), 32,
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
                                       vnet[5]->label(), SecurityGroupList(), 0,
@@ -1282,7 +1282,8 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                 "default-project:vn3",
                                 vnet[1]->flow_key_nh()->id(),
                                 vnet[5]->flow_key_nh()->id()));
-    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2", vnet[5]->ip_addr(), 32, NULL);
+    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2",
+                             vnet[5]->primary_ip_addr(), 32, NULL);
     client->WaitForIdle();
 }
 
