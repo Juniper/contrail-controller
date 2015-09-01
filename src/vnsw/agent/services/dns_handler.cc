@@ -582,10 +582,15 @@ bool DnsHandler::HandleBindResponse() {
             dns_proto->DelVmRequest(handler->rkey_);
             delete handler;
         } else if (!dns_proto->IsDnsHandlerInUse(handler)) {
-            /* Send last invalid response to requesting VM */
-            handler->Resolve(flags, ques, ans, auth, add);
-            DNS_BIND_TRACE(DnsBindTrace,
-                           "Send invalid BIND response: xid = " << xid);
+            if (flags.ret) {
+                /* Send last invalid response to requesting VM */
+                handler->Resolve(flags, ques, ans, auth, add);
+                DNS_BIND_TRACE(DnsBindTrace,
+                               "Send invalid BIND response: xid = " << xid);
+            } else {
+                DNS_BIND_TRACE(DnsBindTrace,
+                               "No response sent: xid = " << xid);
+            }
             /* Delete Request on last invalid Response from named Server */
             dns_proto->DelVmRequest(handler->rkey_);
             delete handler;
