@@ -26,7 +26,13 @@ class ProtobufReader {
         uint64_t *timestamp, ::google::protobuf::Message **msg,
         ParseFailureCallback cb);
 
+ protected:
+    virtual const ::google::protobuf::Message* GetPrototype(
+        const ::google::protobuf::Descriptor *mdesc);
+
  private:
+    friend class ProtobufReaderTest;
+
     tbb::mutex mutex_;
     ::google::protobuf::DescriptorPool dpool_;
     ::google::protobuf::DynamicMessageFactory dmf_;
@@ -36,6 +42,12 @@ void ProcessProtobufMessage(const ::google::protobuf::Message& message,
     const uint64_t &timestamp,
     const boost::asio::ip::udp::endpoint &remote_endpoint,
     StatWalker::StatTableInsertFn stat_db_callback);
+
+void ProtobufLibraryLog(::google::protobuf::LogLevel level,
+    const char* filename, int line, const std::string& message);
+
+log4cplus::LogLevel Protobuf2log4Level(
+    ::google::protobuf::LogLevel glevel);
 
 }  // namespace impl
 }  // namespace protobuf
