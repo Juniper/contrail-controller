@@ -45,6 +45,7 @@ sources = [
     'svc_monitor/tests/test_vrouter_instance_manager.py',
     'svc_monitor/tests/test_virtual_machine_manager.py',
     'svc_monitor/tests/test_dep_track.py',
+    'svc_monitor/tests/test_ha_proxy.py',
     'svc_monitor/tests/test_snat.py',
     'svc_monitor/tests/test_snat_agent.py',
     'svc_monitor/tests/test_loadbalancer_agent.py',

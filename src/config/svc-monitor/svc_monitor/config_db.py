@@ -31,6 +31,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.params = obj.get('loadbalancer_pool_properties', None)
         self.provider = obj.get('loadbalancer_pool_provider', None)
         self.members = set([lm['uuid'] for lm in obj.get('loadbalancer_members', [])])

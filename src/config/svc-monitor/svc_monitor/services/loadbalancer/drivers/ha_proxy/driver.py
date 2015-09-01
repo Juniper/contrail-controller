@@ -6,9 +6,11 @@ import uuid
 
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
 
-from vnc_api.vnc_api import ServiceInstance, ServiceInstanceType
+from vnc_api.vnc_api import ServiceTemplate, ServiceInstance, ServiceInstanceType
 from vnc_api.vnc_api import ServiceScaleOutType, ServiceInstanceInterfaceType
 from vnc_api.vnc_api import NoIdError, RefsExistError
+
+from svc_monitor.config_db import *
 
 LOADBALANCER_SERVICE_TEMPLATE = [
     'default-domain',
@@ -25,39 +27,29 @@ class OpencontrailLoadbalancerDriver(
         self._lb_template = None
         self.db = db
 
+    def get_lb_template(self):
+        st = ServiceTemplateSM.get(self._lb_template)
+        template_obj = ServiceTemplate(st.name, parent_type = 'domain',
+                                       fq_name = st.fq_name)
+        template_obj.uuid = st.uuid
+        return template_obj
+    #end
+
     def _get_template(self):
         if self._lb_template is not None:
             return
-        self._lb_template = self._api.service_template_read(
-                fq_name=LOADBALANCER_SERVICE_TEMPLATE)
 
-    def _get_virtual_ip_interface(self, vip):
-        vmi_list = vip.get_virtual_machine_interface_refs()
-        if vmi_list is None:
-            return None
-        try:
-            vmi = self._api.virtual_machine_interface_read(
-                id=vmi_list[0]['uuid'])
-        except NoIdError as ex:
-            msg = ("In _get_virtual_ip_interface: VMI %s not found %s" % 
-                   (vmi_list[0]['uuid'], str(ex)))
-            self._svc_manager.logger.log_error(msg)
-            return None
-        return vmi
+        for st in ServiceTemplateSM.values():
+            if st.fq_name == LOADBALANCER_SERVICE_TEMPLATE:
+                self._lb_template = st.uuid
+                return
 
     def _get_interface_address(self, vmi):
-        ip_refs = vmi.get_instance_ip_back_refs()
-        if ip_refs is None:
+        iip = vmi.instance_ip
+        instance_ip = InstanceIpSM.get(iip)
+        if instance_ip is None:
             return None
-
-        try:
-            iip = self._api.instance_ip_read(id=ip_refs[0]['uuid'])
-        except NoIdError as ex:
-            msg = ("In _get_interface_address: IIP %s not found %s" % 
-                  (ip_refs[0]['uuid'], str(ex)))
-            self._svc_manager.logger.log_error(msg)
-            return None
-        return iip.get_instance_ip_address()
+        return instance_ip.address
 
     def _calculate_instance_properties(self, pool, vip):
         """ ServiceInstance settings
@@ -67,32 +59,30 @@ class OpencontrailLoadbalancerDriver(
         props = ServiceInstanceType()
         if_list = []
 
-        vmi = self._get_virtual_ip_interface(vip)
+        # Calculate the Right Interface from virtual ip property
+        vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
         if not vmi:
             return None
-
-        vnet_refs = vmi.get_virtual_network_refs()
-        if vnet_refs is None:
-            return None
-        right_virtual_network = ':'.join(vnet_refs[0]['to'])
-
         right_ip_address = self._get_interface_address(vmi)
         if right_ip_address is None:
             return None
+
+        vip_vn = VirtualNetworkSM.get(vmi.virtual_network)
+        if vip_vn is None:
+            return None
+        right_virtual_network = ':'.join(vip_vn.fq_name)
+
         right_if = ServiceInstanceInterfaceType(
             virtual_network=right_virtual_network,
             ip_address=right_ip_address)
         if_list.append(right_if)
 
-        pool_attrs = pool.get_loadbalancer_pool_properties()
-        backnet_id = self._api.kv_retrieve(pool_attrs.subnet_id).split()[0]
-        if backnet_id != vnet_refs[0]['uuid']:
-            try:
-                vnet = self._api.virtual_network_read(id=backnet_id)
-            except NoIdError as ex:
-                self._svc_manager.logger.log_error(str(ex))
-                return None
-            left_virtual_network = ':'.join(vnet.get_fq_name())
+        # Calculate the Left Interface from Pool property
+        pool_attrs = pool.params
+        pool_vn_id = self._api.kv_retrieve(pool_attrs['subnet_id']).split()[0]
+        if pool_vn_id != vip_vn.uuid:
+            pool_vn = VirtualNetworkSM.get(pool_vn_id)
+            left_virtual_network = ':'.join(pool_vn.fq_name)
             left_if = ServiceInstanceInterfaceType(
                 virtual_network=left_virtual_network)
             if_list.append(left_if)
@@ -105,23 +95,22 @@ class OpencontrailLoadbalancerDriver(
 
         return props
 
-    def _service_instance_update_props(self, si_obj, nprops):
+    def _service_instance_update_props(self, si, nprops):
         fields = [
             'right_virtual_network',
             'right_ip_address',
             'left_virtual_network'
         ]
 
-        current = si_obj.get_service_instance_properties()
+        current = si.params
         update = False
 
         for field in fields:
-            if getattr(current, field) != getattr(nprops, field):
-                update = True
-                break
-
-        si_obj.set_service_instance_properties(nprops)
-        return update
+            if current[field] != getattr(nprops, field):
+                si_obj = self._api.service_instance_read(fq_name=fq_name)
+                si_obj.set_service_instance_properties(nprops)
+                return si_obj
+        return None
 
     def _update_loadbalancer_instance(self, pool_id, vip_id):
         """ Update the loadbalancer service instance.
@@ -129,72 +118,66 @@ class OpencontrailLoadbalancerDriver(
         Prerequisites:
         pool and vip must be known.
         """
-        try:
-            pool = self._api.loadbalancer_pool_read(id=pool_id)
-        except NoIdError:
+        pool = LoadbalancerPoolSM.get(pool_id)
+        if pool is None:
             msg = ('Unable to retrieve pool %s' % pool_id)
             self._svc_manager.logger.log_error(msg)
             return
 
-        try:
-            vip = self._api.virtual_ip_read(id=vip_id)
-        except NoIdError:
-            msg = ('Unable to retrieve virtual-ip %s' % vip_id)
+        vip = VirtualIpSM.get(vip_id)
+        if vip is None:
+            msg = ('Unable to retrieve virtual ip %s' % vip_id)
             self._svc_manager.logger.log_error(msg)
             return
 
-        fq_name = pool.get_fq_name()[:-1]
+        fq_name = pool.fq_name[:-1]
         fq_name.append(pool_id)
 
+        si_refs = pool.service_instance
+        si_obj = ServiceInstanceSM.get(si_refs)
         props = self._calculate_instance_properties(pool, vip)
         if props is None:
             try:
-                self._api.service_instance_delete(fq_name=fq_name)
+                self._api.service_instance_delete(id=si_refs)
+                ServiceInstanceSM.delete(si_refs)
             except RefsExistError as ex:
                 self._svc_manager.logger.log_error(str(ex))
             return
 
-        self._get_template()
-
-        try:
-            si_obj = self._api.service_instance_read(fq_name=fq_name)
-            update = self._service_instance_update_props(si_obj, props)
-            if update:
-                self._api.service_instance_update(si_obj)
-
-        except NoIdError:
-            proj_obj = self._api.project_read(fq_name=fq_name[:-1])
-            si_obj = ServiceInstance(name=fq_name[-1], parent_obj=proj_obj,
-                                     service_instance_properties=props)
-            si_obj.set_service_template(self._lb_template)
+        if si_obj:
+            update_obj = self._service_instance_update_props(si_obj, props)
+            if update_obj:
+                self._api.service_instance_update(update_obj)
+        else:
+            si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
+			     fq_name=fq_name, service_instance_properties=props)
+            si_obj.set_service_template(self.get_lb_template())
             self._api.service_instance_create(si_obj)
+            ServiceInstanceSM.locate(si_obj.uuid)
 
-        si_refs = pool.get_service_instance_refs()
-        if si_refs is None or si_refs[0]['uuid'] != si_obj.uuid:
-            pool.set_service_instance(si_obj)
-            self._api.loadbalancer_pool_update(pool)
-        self.db.pool_driver_info_insert(pool_id, {'service_instance': si_obj.uuid})
+        if si_refs is None or si_refs != si_obj.uuid:
+            self._api.ref_update('loadbalancer-pool', pool.uuid,
+	      'service_instance_refs', si_obj.uuid, None, 'ADD')
+        self.db.pool_driver_info_insert(pool_id,
+                                        {'service_instance': si_obj.uuid})
 
     def _clear_loadbalancer_instance(self, tenant_id, pool_id):
         driver_data = self.db.pool_driver_info_get(pool_id)
         if driver_data is None:
             return
         si_id = driver_data['service_instance']
-        try:
-            si_obj = self._api.service_instance_read(id=si_id)
-        except NoIdError as ex:
-            self._svc_manager.logger.log_error(str(ex))
+        si = ServiceInstanceSM.get(si_id)
+        if si is None:
             return
 
-        pool_back_refs = si_obj.get_loadbalancer_pool_back_refs()
-        for pool_back_ref in pool_back_refs or []:
-            pool_obj = self._api.loadbalancer_pool_read(
-                id=pool_back_ref['uuid'])
-            pool_obj.del_service_instance(si_obj)
-            self._api.loadbalancer_pool_update(pool_obj)
-
+        pool_id = si.loadbalancer_pool
+        pool = LoadbalancerPoolSM.get(pool_id)
+        if pool:
+            self._api.ref_update('loadbalancer-pool', pool_id,
+                  'service_instance_refs', si_id, None, 'DELETE')
         try:
             self._api.service_instance_delete(id=si_id)
+            ServiceInstanceSM.delete(si_id)
         except RefsExistError as ex:
             self._svc_manager.logger.log_error(str(ex))
         self.db.pool_remove(pool_id, ['service_instance'])
@@ -276,13 +259,13 @@ class OpencontrailLoadbalancerDriver(
     def delete_member(self, member):
         pass
 
-    def update_pool_health_monitor(self, 
+    def update_pool_health_monitor(self,
                                    old_health_monitor,
                                    health_monitor,
                                    pool_id):
         pass
 
-    def create_pool_health_monitor(self, 
+    def create_pool_health_monitor(self,
                                    health_monitor,
                                    pool_id):
         """Driver may call the code below in order to update the status.

@@ -18,7 +18,7 @@ class LoadbalancerAgent(Agent):
                                                 cassandra, config_section)
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
-        self._cassandra = self._svc_mon._cassandra
+        self._cassandra = cassandra
         self._pool_driver = {}
         self._args = config_section
         self._loadbalancer_driver = {}
