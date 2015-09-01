@@ -134,6 +134,7 @@ private:
     uint32_t table_label_;
     uint32_t vxlan_id_;
     uint32_t rt_table_delete_bmap_;
+    IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
@@ -186,8 +187,10 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfTable *GetInstance() {return vrf_table_;};
 
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    bool ProcessConfig(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
 
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);

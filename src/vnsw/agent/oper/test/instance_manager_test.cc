@@ -2,6 +2,8 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+
+#include "base/os.h"
 #include "oper/instance_manager.h"
 
 #include <cstdlib>
@@ -9,7 +11,8 @@
 #include <boost/uuid/random_generator.hpp>
 
 #include "base/logging.h"
-#include "base/os.h"
+#include "testing/gunit.h"
+#include <test/test_cmn_util.h>
 #include "base/test/task_test_util.h"
 #include "cfg/cfg_init.h"
 #include "db/db_graph.h"
@@ -23,7 +26,6 @@
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using namespace std;
 class Agent;
@@ -55,51 +57,28 @@ public:
 protected:
     static const int kTimeoutSeconds = 15;
 
-    InstanceManagerTest()
-          : agent_(new Agent),
-            agent_config_(new AgentConfig(agent_.get())) {
-        agent_->set_cfg(agent_config_.get());
-        oper_db_.reset(new OperDB(agent_.get()));
-        agent_->set_oper_db(oper_db_.get());
-        stringstream ss;
-        boost::filesystem::path curr_dir(boost::filesystem::current_path());
-        ss << curr_dir.string() << "/" << getpid() << "/";
-        agent_->oper_db()-> instance_manager()->loadbalancer_config_path_ = ss.str();
+    InstanceManagerTest() {
     }
 
     ~InstanceManagerTest() {
     }
 
     virtual void TearDown() {
+        IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(agent_->db(),
+                    agent_->cfg()->cfg_graph());
+        cl->StaleTimeout(1);
         task_util::WaitForIdle();
-
-        agent_->oper_db()->Shutdown();
-        agent_->cfg()->Shutdown();
-        task_util::WaitForIdle();
-
-        DB *database = agent_->db();
-        db_util::Clear(database);
-        task_util::WaitForIdle();
-
-        /**
-         * The factory create method for ifmap link table takes the
-         * graph as a boost::bind() argument; failure to cleanup the registry
-         * implies creating the table using a stale graph pointer.
-         */
-        DB::ClearFactoryRegistry();
+        delete cl;
     }
 
 
     virtual void SetUp() {
-        DB *db = agent_->db();
-        agent_config_->CreateDBTables(db);
-        oper_db_->CreateDBTables(db);
-        agent_config_->RegisterDBClients(db);
-        oper_db_->RegisterDBClients();
-        agent_config_->Init();
-        // Different test cases initialize the instance_manager with
-        // different parameters so we avoid called OperDB::Init().
-        oper_db_->dependency_manager()->Initialize(agent_.get());
+        agent_ = Agent::GetInstance();
+        stringstream ss;
+        boost::filesystem::path curr_dir(boost::filesystem::current_path());
+        ss << curr_dir.string() << "/" << getpid() << "/";
+        agent_->oper_db()-> instance_manager()->loadbalancer_config_path_ = ss.str();
+
     }
 
 
@@ -114,7 +93,9 @@ protected:
             return boost::uuids::nil_uuid();
         }
         DBRequest request;
-        si_table->IFNodeToReq(node, request);
+        boost::uuids::uuid si_uuid;
+        si_table->IFNodeToUuid(node, si_uuid);
+        si_table->IFNodeToReq(node, request, si_uuid);
         si_table->Enqueue(&request);
         task_util::WaitForIdle();
 
@@ -203,10 +184,6 @@ protected:
        AddLoadbalancerMember(pool_name, "127.0.0.1", 80);
        AddLoadbalancerMember(pool_name, "127.0.0.2", 80);
 
-        DBRequest request;
-        agent_->loadbalancer_table()->IFNodeToReq(node, request);
-        agent_->loadbalancer_table()->Enqueue(&request);
-
        task_util::WaitForIdle();
         autogen::LoadbalancerPool *lb_object =
                 static_cast<autogen::LoadbalancerPool *>(node->GetObject());
@@ -218,6 +195,11 @@ protected:
 
     void DeleteServiceInstance(const string &name) {
         ifmap_test_util::IFMapMsgNodeDelete(agent_->db(), "service-instance", name);
+    }
+
+    void DeleteLoadBalancer(const string &name) {
+        ifmap_test_util::IFMapMsgNodeDelete(agent_->db(),
+                "loadbalancer-pool", name);
     }
 
     void MarkServiceInstanceAsDeleted(boost::uuids::uuid id) {
@@ -299,6 +281,7 @@ protected:
         prop.ip_addr_inside = "10.0.0.1";
         prop.ip_addr_outside = "10.0.0.2";
         prop.ip_prefix_len_inside = 24;
+        prop.gw_ip = "10.0.0.254";
         if (usable) {
             prop.ip_prefix_len_outside = 24;
         }
@@ -315,14 +298,11 @@ protected:
         return agent_->oper_db()->instance_manager()->loadbalancer_config_path_;
     }
 protected:
-    std::auto_ptr<Agent> agent_;
-    std::auto_ptr<AgentConfig> agent_config_;
-    std::auto_ptr<OperDB> oper_db_;
+    Agent *agent_;
 };
 
 TEST_F(InstanceManagerTest, ExecTrue) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(),
-            agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
     boost::uuids::uuid id = AddServiceInstance("exec-true");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -340,12 +320,19 @@ TEST_F(InstanceManagerTest, ExecTrue) {
     EXPECT_EQ(InstanceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
 
-    MarkServiceInstanceAsDeleted(id);
+    DeleteServiceInstance("exec-true");
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
+            kTimeoutSeconds);
     task_util::WaitForIdle();
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                                  "service-instance");
+    IFMapNode *node = table->FindNode("exec-true");
+    ASSERT_TRUE(node == NULL);
 }
 
 TEST_F(InstanceManagerTest, ExecFalse) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/false", "/bin/false", 1, 10);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/false");
     boost::uuids::uuid id = AddServiceInstance("exec-false");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -362,12 +349,20 @@ TEST_F(InstanceManagerTest, ExecFalse) {
     EXPECT_EQ(InstanceState::Error, ns_state->status_type());
     EXPECT_NE(0, ns_state->status());
 
-    MarkServiceInstanceAsDeleted(id);
+    DeleteServiceInstance("exec-false");
     task_util::WaitForIdle();
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
+            kTimeoutSeconds);
+    task_util::WaitForIdle();
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                                  "service-instance");
+    IFMapNode *node = table->FindNode("exec-false");
+    ASSERT_TRUE(node == NULL);
 }
 
 TEST_F(InstanceManagerTest, Update) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -393,12 +388,22 @@ TEST_F(InstanceManagerTest, Update) {
 
     EXPECT_TRUE(IsUpdateCommand(ns_state));
 
-    MarkServiceInstanceAsDeleted(id);
+    DeleteServiceInstance("exec-update");
     task_util::WaitForIdle();
+
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
+            kTimeoutSeconds);
+    task_util::WaitForIdle();
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                                  "service-instance");
+    IFMapNode *node = table->FindNode("exec-update");
+    ASSERT_TRUE(node == NULL);
+
 }
 
 TEST_F(InstanceManagerTest, UpdateProperties) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -427,18 +432,28 @@ TEST_F(InstanceManagerTest, UpdateProperties) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Starting),
             kTimeoutSeconds);
 
-    MarkServiceInstanceAsDeleted(id);
+    DeleteServiceInstance("exec-update");
     task_util::WaitForIdle();
+
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
+            kTimeoutSeconds);
+    task_util::WaitForIdle();
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                                  "service-instance");
+    IFMapNode *node = table->FindNode("exec-update");
+    ASSERT_TRUE(node == NULL);
 }
 
 /**
  * Timeout test works by not plugin in the signal manager and receiving
  * SIGCHLD rather than by executing a sleep.
  */
+
+#if 0
 TEST_F(InstanceManagerTest, Timeout) {
 
-    agent_->oper_db()->instance_manager()->Initialize(
-        agent_->db(), NULL, "/bin/true", "/bin/true", 1, 1);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/tr");
     boost::uuids::uuid id = AddServiceInstance("exec-timeout");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -458,9 +473,11 @@ TEST_F(InstanceManagerTest, Timeout) {
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
+#endif
+
 TEST_F(InstanceManagerTest, TaskQueue) {
     static const int kNumUpdate = 5;
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), NULL, "/bin/true", "/bin/true", 10, 1);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
     boost::uuids::uuid id = AddServiceInstance("exec-queue");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -481,19 +498,27 @@ TEST_F(InstanceManagerTest, TaskQueue) {
         EXPECT_EQ(i + 2, queue->Size());
     }
 
-    for (int i = 0; i != kNumUpdate; i++) {
-        TriggerSigChild(ns_state->pid(), 0);
-        task_util::WaitForIdle();
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Started),
+            kTimeoutSeconds);
 
-        EXPECT_EQ(kNumUpdate - i, queue->Size());
-    }
+    EXPECT_EQ(InstanceState::Started, ns_state->status_type());
+    EXPECT_EQ(0, ns_state->status());
 
-    MarkServiceInstanceAsDeleted(id);
+    DeleteServiceInstance("exec-queue");
     task_util::WaitForIdle();
-}
 
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
+            kTimeoutSeconds);
+    task_util::WaitForIdle();
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                                  "service-instance");
+    IFMapNode *node = table->FindNode("exec-queue");
+    ASSERT_TRUE(node == NULL);
+}
 TEST_F(InstanceManagerTest, Usable) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
     boost::uuids::uuid id = AddServiceInstance("exec-usable");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -522,12 +547,20 @@ TEST_F(InstanceManagerTest, Usable) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
 
-    MarkServiceInstanceAsDeleted(id);
+    DeleteServiceInstance("exec-usable");
     task_util::WaitForIdle();
-}
 
+    task_util::WaitForCondition(agent_->event_manager(),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
+            kTimeoutSeconds);
+    task_util::WaitForIdle();
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                                  "service-instance");
+    IFMapNode *node = table->FindNode("exec-usable");
+    ASSERT_TRUE(node == NULL);
+}
 TEST_F(InstanceManagerTest, LoadbalancerConfig) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
 
     boost::uuids::random_generator gen;
     std::string pool_name(UuidToString(gen()));
@@ -550,7 +583,8 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
         boost::filesystem::last_write_time(pathgen.str());
     EXPECT_TRUE(boost::filesystem::exists(config));
 
-    lbid = AddLoadbalancer(UuidToString(gen()));
+    std::string pool2_name(UuidToString(gen()));
+    lbid = AddLoadbalancer(pool2_name);
     pathgen.str("");
     pathgen.clear();
     pathgen << loadbalancer_config_path() << lbid
@@ -569,12 +603,16 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
     std::time_t new_time =
         boost::filesystem::last_write_time(pathgen.str());
     EXPECT_TRUE(old_time <= new_time);
+
+    DeleteLoadBalancer(pool_name);
+    DeleteLoadBalancer(pool2_name);
+    DeleteServiceInstance("/bin/true");
+    task_util::WaitForIdle();
 }
 
 TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(),
-            agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
 
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
     boost::uuids::random_generator gen;
     std::string vm_uuid = UuidToString(gen());
     std::string lb_uuid = UuidToString(gen());
@@ -612,12 +650,20 @@ TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
         LOG(ERROR, "Error : " << error.message() << "in removing directory");
     }
 }
-
-
 int main(int argc, char **argv) {
-    LoggingInit();
-    ::testing::InitGoogleTest(&argc, argv);
+   GETUSERARGS();
 
-    int result = RUN_ALL_TESTS();
-    return result;
+   //Asio is disabled below to take control of event manager in the
+   //tests
+    client = TestInit(init_file, ksync_init, false, false, false, 30000,
+            1000, false);
+    usleep(100000);
+    client->WaitForIdle();
+
+    int ret = RUN_ALL_TESTS();
+    TestShutdown();
+    client->WaitForIdle();
+    delete client;
+    return ret;
+
 }

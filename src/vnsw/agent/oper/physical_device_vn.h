@@ -128,7 +128,8 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
     virtual bool Resync(DBEntry *entry, const DBRequest *req);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
