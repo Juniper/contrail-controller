@@ -240,6 +240,8 @@ public:
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
     void FillRegisteredTable(const IPeer *peer, std::vector<std::string> *list);
     size_t GetMembershipCount() const { return peer_rib_set_.size(); }
+    int current_jobs_count() const { return current_jobs_count_; }
+    int total_jobs_count() const { return total_jobs_count_; }
 
 private:
     friend class BgpServerUnitTest;
@@ -290,6 +292,10 @@ private:
     static int membership_task_id_;
 
     BgpServer *server_;
+
+    // Counters that track number of ongoing and total work items.
+    int        current_jobs_count_;
+    int        total_jobs_count_;
     WorkQueue<IPeerRibEvent *> *event_queue_;
     PeerRibSet peer_rib_set_;
     RibPeerMap rib_peer_map_;
