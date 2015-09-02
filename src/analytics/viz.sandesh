@@ -1265,7 +1265,22 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'flow_rate.max_flow_deletes_per_second', 'datatype' : 'int', 'index' : false },
           { 'name' : 'flow_rate.min_flow_deletes_per_second', 'datatype' : 'int', 'index' : false }
         ]
-    }
+    },
+    {
+      'display_name' : 'Analytics API Statistics',
+      'stat_type' : 'AnalyticsApiStats',
+      'stat_attr' : 'api_stats',
+      'obj_table' : 'NONE',
+      'attributes' : [
+          { 'name' : 'api_stats.operation_type', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'api_stats.remote_ip', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'api_stats.object_type', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'api_stats.request_url', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'api_stats.response_time_in_usec', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'api_stats.response_size', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'api_stats.node', 'datatype' : 'string', 'index' : false },
+        ]
+    },
     {
       'display_name' : 'Api Server Statistics',
       'stat_type' : 'VncApiStatsLog',

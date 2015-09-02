@@ -48,7 +48,7 @@ class StatQuerier(object):
             'start_time': 'now-10m',
             'end_time': 'now',
             'select' : [],
-            'where' : [],
+            'where' : ['Source=*'],
             'sort': []
         }
 
