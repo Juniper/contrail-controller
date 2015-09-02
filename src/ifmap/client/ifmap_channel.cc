@@ -129,6 +129,8 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
       response_state_(NONE), sequence_number_(0), recv_msg_cnt_(0),
       sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN),
       connection_status_change_at_(UTCTimestampUsec()),
+      stale_entries_cleanup_timer_(TimerManager::CreateTimer(
+          *(manager->io_service()), "Stale entries cleanup timer")),
       end_of_rib_timer_(TimerManager::CreateTimer(*(manager->io_service()),
                                                   "End of rib timer")) {
 
@@ -142,6 +144,11 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
     }
     string auth_str = username_ + ":" + password_;
     b64_auth_str_ = base64_encode(auth_str);
+}
+
+IFMapChannel::~IFMapChannel() {
+    TimerManager::DeleteTimer(stale_entries_cleanup_timer_);
+    TimerManager::DeleteTimer(end_of_rib_timer_);
 }
 
 void IFMapChannel::set_connection_status(ConnectionStatus status) {
@@ -238,11 +245,18 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
 
 void IFMapChannel::ReconnectPreparation() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+
     // The stale entries cleanup timer could be running if connection was reset
     // in the near past. Stop the timer since we dont want to clean our database
     // in this case.
     set_start_stale_entries_cleanup(false);
-    manager_->ifmap_server()->StopStaleEntriesCleanup();
+    StopStaleEntriesCleanupTimer();
+
+    // The end of rib timer could be running if the initial connection was
+    // reset in the near past. Stop the timer since we dont want to prematurely
+    // declare that end of rib has been computed.
+    StopEndOfRibTimer();
+
     io_strand_.post(
         boost::bind(&IFMapChannel::ReconnectPreparationInMainThr, this));
 }
@@ -606,13 +620,12 @@ int IFMapChannel::ReadPollResponse() {
             if (start_stale_entries_cleanup()) {
                 // If this is a reconnection, keep re-arming the stale entries
                 // cleanup timer as long as we keep receiving SearchResults.
-                manager_->ifmap_server()->StartStaleEntriesCleanup();
-            } else {
-                // When the daemon is coming up, as long as we are receiving
-                // SearchResults, we have not received the entire db.
-                if (!end_of_rib_computed()) {
-                    StartEndOfRibTimer();
-                }
+                StartStaleEntriesCleanupTimer();
+            }
+            // When the daemon is coming up, as long as we are receiving
+            // SearchResults, we have not received the entire db.
+            if (!end_of_rib_computed()) {
+                StartEndOfRibTimer();
             }
         }
         string poll_string = reply_str.substr(pos);
@@ -636,7 +649,54 @@ int IFMapChannel::ReadPollResponse() {
     return 0;
 }
 
-bool IFMapChannel::EndOfRibProcTimeout() {
+void IFMapChannel::StartStaleEntriesCleanupTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (stale_entries_cleanup_timer_->running()) {
+        stale_entries_cleanup_timer_->Cancel();
+    }
+    stale_entries_cleanup_timer_->Start(kStaleEntriesCleanupTimeout,
+        boost::bind(&IFMapChannel::ProcessStaleEntriesTimeout, this), NULL);
+}
+
+void IFMapChannel::StopStaleEntriesCleanupTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (stale_entries_cleanup_timer_->running()) {
+        stale_entries_cleanup_timer_->Cancel();
+    }
+}
+
+// Called in the context of the main thread.
+bool IFMapChannel::ProcessStaleEntriesTimeout() {
+    int timeout = kStaleEntriesCleanupTimeout;
+    IFMAP_PEER_DEBUG(IFMapServerConnection, integerToString(timeout),
+                     "millisecond stale cleanup timer fired");
+    set_start_stale_entries_cleanup(false);
+    return manager_->ifmap_server()->ProcessStaleEntriesTimeout();
+}
+
+bool IFMapChannel::StaleEntriesCleanupTimerRunning() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    return stale_entries_cleanup_timer_->running();
+}
+
+void IFMapChannel::StartEndOfRibTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (end_of_rib_timer_->running()) {
+        end_of_rib_timer_->Cancel();
+    }
+    end_of_rib_timer_->Start(kEndOfRibTimeout,
+        boost::bind(&IFMapChannel::ProcessEndOfRibTimeout, this), NULL);
+}
+
+void IFMapChannel::StopEndOfRibTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    if (end_of_rib_timer_->running()) {
+        end_of_rib_timer_->Cancel();
+    }
+}
+
+// Called in the context of the main thread.
+bool IFMapChannel::ProcessEndOfRibTimeout() {
     int timeout = kEndOfRibTimeout;
     IFMAP_PEER_DEBUG(IFMapServerConnection, integerToString(timeout),
                      "millisecond end of rib timer fired");
@@ -645,15 +705,8 @@ bool IFMapChannel::EndOfRibProcTimeout() {
     return false;
 }
 
-void IFMapChannel::StartEndOfRibTimer() {
-    if (end_of_rib_timer_->running()) {
-        end_of_rib_timer_->Cancel();
-    }
-    end_of_rib_timer_->Start(kEndOfRibTimeout,
-        boost::bind(&IFMapChannel::EndOfRibProcTimeout, this), NULL);
-}
-
 bool IFMapChannel::EndOfRibTimerRunning() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
     return end_of_rib_timer_->running();
 }
 
@@ -913,7 +966,7 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     server_conn_info.set_start_stale_entries_cleanup(
         channel->start_stale_entries_cleanup());
     server_conn_info.set_stale_entries_cleanup_timer_running(
-        sctx->ifmap_server()->StaleEntriesCleanupTimerRunning());
+        channel->StaleEntriesCleanupTimerRunning());
 
     server_stats.set_rx_msgs(channel->get_recv_msg_cnt());
     server_stats.set_tx_msgs(channel->get_sent_msg_cnt());
