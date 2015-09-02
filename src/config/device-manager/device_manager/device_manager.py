@@ -63,7 +63,7 @@ class DeviceManager(object):
             'physical_router': [],
         },
         'physical_interface': {
-            'self': ['physical_router', 'logical_interface'],
+            'self': ['physical_router', 'physical_interface', 'logical_interface'],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
             'physical_interface': ['physical_router'],
