@@ -49,7 +49,7 @@ class SNATAgent(Agent):
                              si_obj.name)
         vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
         try:
-            self._cassandra.fq_name_to_uuid('virtual-network', vn_fq_name)
+            self._cassandra.fq_name_to_uuid('virtual_network', [vn_fq_name])
         except NoIdError:
             self._create_snat_vn(si_obj, vn_name)
 
@@ -139,7 +139,7 @@ class SNATAgent(Agent):
         except NoIdError:
             return
 
-        (ok, result) = DBBaseSM()._cassandra.read('route-table', rt_uuid)
+        (ok, result) = DBBaseSM()._cassandra.read('route_table', [rt_uuid])
         if not ok:
             return
 
