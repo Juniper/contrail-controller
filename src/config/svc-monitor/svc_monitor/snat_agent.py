@@ -86,10 +86,7 @@ class SNATAgent(Agent):
              for uuid in vmi_uuids]
 
     def _virtual_network_read(self, net_uuid):
-        (ok, result) = DBBaseSM()._cassandra.read('virtual-network', net_uuid)
-        if not ok:
-            return
-        return VirtualNetwork.from_dict(**result[0])
+        return DBBaseSM().read_vnc_obj(obj_type="virtual_network", uuid=net_uuid)
 
     def _add_route_table(self, net_uuid, rt_obj):
         net_obj = self._virtual_network_read(net_uuid)
@@ -134,16 +131,10 @@ class SNATAgent(Agent):
         rt_name = 'rt_' + router_obj.uuid
         rt_fq_name = project_obj.fq_name + [rt_name]
         try:
-            rt_uuid = self._cassandra.fq_name_to_uuid('route-table',
-                                                      rt_fq_name)
-        except NoIdError:
+            return DBBaseSM().read_vnc_obj(
+                obj_type="route_table", fq_name=rt_fq_name)
+        except vnc_exc.NoIdError:
             return
-
-        (ok, result) = DBBaseSM()._cassandra.read('route-table', rt_uuid)
-        if not ok:
-            return
-
-        return RouteTable.from_dict(**result[0])
 
     def _add_snat_instance(self, router_obj):
         try:
