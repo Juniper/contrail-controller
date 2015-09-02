@@ -142,7 +142,7 @@ class PhysicalRouterConfig(object):
      fip_map: contrail instance ip to floating-ip map, used for snat & floating ip support
      network_id : this is used for configuraing irb interfaces
     '''
-    def add_routing_instance(self, ri_name, import_targets, export_targets,
+    def add_routing_instance(self, ri_name, is_l2, import_targets, export_targets,
                              prefixes=[], gateways=[], router_external=False, 
                              interfaces=[], vni=None, fip_map=None, network_id=None):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
@@ -159,7 +159,7 @@ class PhysicalRouterConfig(object):
         ri = etree.SubElement(ri_config, "instance")
         etree.SubElement(ri, "name").text = ri_name
         ri_opt = None
-        if router_external:
+        if router_external and is_l2 == False:
             ri_opt = etree.SubElement(ri, "routing-options")
             static_config = etree.SubElement(ri_opt, "static")
             route_config = etree.SubElement(static_config, "route")
@@ -170,14 +170,7 @@ class PhysicalRouterConfig(object):
         etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
         etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
 
-        if vni is None or router_external:
-            etree.SubElement(ri, "instance-type").text = "vrf"
-            etree.SubElement(ri, "vrf-table-label")  #only for l3
-            if fip_map is None:
-                for interface in interfaces:
-                    if_element = etree.SubElement(ri, "interface")
-                    etree.SubElement(if_element, "name").text = interface
-
+        if router_external and not is_l2:
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
             if prefixes and fip_map is None:
@@ -186,6 +179,17 @@ class PhysicalRouterConfig(object):
                     route_config = etree.SubElement(static_config, "route")
                     etree.SubElement(route_config, "name").text = prefix
                     etree.SubElement(route_config, "discard")
+                    self.add_to_global_ri_opts(prefix)
+
+        if not is_l2:
+            etree.SubElement(ri, "instance-type").text = "vrf"
+            etree.SubElement(ri, "vrf-table-label")  #only for l3
+            if fip_map is None:
+                for interface in interfaces:
+                    if_element = etree.SubElement(ri, "interface")
+                    etree.SubElement(if_element, "name").text = interface
+            if ri_opt is None:
+                ri_opt = etree.SubElement(ri, "routing-options")
             auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
             ri_opt.append(etree.fromstring(auto_export))
         else:
@@ -451,6 +455,15 @@ class PhysicalRouterConfig(object):
             self.global_routing_options_config = etree.Element("routing-options")
             etree.SubElement(self.global_routing_options_config, "router-id").text = bgp_params['address']
     #end set_global_routing_options
+
+    def add_to_global_ri_opts(self, prefix):
+        if self.global_routing_options_config is None: 
+            self.global_routing_options_config = etree.Element("routing-options")
+        static_config = etree.SubElement(self.global_routing_options_config, "static")
+        route_config = etree.SubElement(static_config, "route")
+        etree.SubElement(route_config, "name").text = prefix
+        etree.SubElement(route_config, "discard")
+    #end add_to_global_ri_opts
 
     def is_family_configured(self, params, family_name):
         if params is None or params.get('address_families') is None:
