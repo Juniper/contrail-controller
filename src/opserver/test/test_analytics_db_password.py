@@ -57,6 +57,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
         mockredis.stop_redis(cls.redis_port)
+        mockredis.stop_redis(cls.redis_password_port, password='contrail')
         pass
 
     def test_00_verify_database_purge_with_percentage_input(self):

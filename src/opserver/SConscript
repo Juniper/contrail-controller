@@ -198,23 +198,8 @@ testr_str = 'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + \
             ' python setup.py run_tests %s 2>&1 |' \
             ' tee %s.log"'
 
-OpEnv.Append(ENV = {'BUILDTOP': Dir(OpEnv['TOP']).abspath})
-
-if OpEnv['OPT'] == 'coverage':
-    test_cmd = OpEnv.Command('coveragetest.log', sdist_gen + sandesh_pkgs,
-            testr_str % ('--coverage', 'coveragetest'))
-    clean_coverage_cmd = OpEnv.Command('clean_coverage', '', clean_coverage)
-    OpEnv.AlwaysBuild(clean_coverage_cmd)
-    OpEnv.Depends(test_cmd, clean_coverage_cmd[0].name)
-    run_coverage_cmd = OpEnv.Command('run_coverage', '', run_coverage)
-    OpEnv.Depends(run_coverage_cmd, test_cmd[0].name)
-    OpEnv.Depends(run_coverage_cmd, 'analytics-test')
-    OpEnv.Depends(run_coverage_cmd, 'qe-test')
-    OpEnv.Depends(run_coverage_cmd, 'gendb_test_suite')
-    OpEnv.AlwaysBuild(run_coverage_cmd)
-else:
-    test_cmd = OpEnv.Command('test.log', sdist_gen + sandesh_pkgs,
-            testr_str % ('', 'test'))
+OpEnv.Append(ENV = {'BUILDTOP': Dir(OpEnv['TOP']).abspath,
+                    'COVERAGERUN': str(OpEnv['OPT'] == 'coverage')})
 
 test_depends = [
         '/config/common/dist/cfgm_common-0.1dev.tar.gz',
@@ -234,7 +219,27 @@ test_depends = [
         '/opserver/plugins/alarm_vrouter_interface/dist/alarm_vrouter_interface-0.1dev.tar.gz',
         '/opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz',
                ]
-OpEnv.Depends(test_cmd, [OpEnv['TOP']+x for x in test_depends])
+
+if OpEnv['OPT'] == 'coverage':
+    run_test_cmd = OpEnv.Command('coveragetest.log', sdist_gen + sandesh_pkgs,
+            testr_str % ('--coverage', 'coveragetest'))
+    OpEnv.Depends(run_test_cmd, [OpEnv['TOP']+x for x in test_depends])
+    OpEnv.Depends(run_test_cmd, sdist_depends)
+    clean_coverage_cmd = OpEnv.Command('clean_coverage', '', clean_coverage)
+    OpEnv.AlwaysBuild(clean_coverage_cmd)
+    run_coverage_cmd = OpEnv.Command('run_coverage', '', run_coverage)
+    OpEnv.Depends(run_coverage_cmd, run_test_cmd[0].name)
+    OpEnv.Depends(run_coverage_cmd, 'analytics-test')
+    OpEnv.Depends(run_coverage_cmd, 'qe-test')
+    OpEnv.Depends(run_coverage_cmd, 'gendb_test_suite')
+    OpEnv.Depends(run_test_cmd, clean_coverage_cmd[0].name)
+    OpEnv.AlwaysBuild(run_coverage_cmd)
+    test_cmd = run_coverage_cmd
+else:
+    test_cmd = OpEnv.Command('test.log', sdist_gen + sandesh_pkgs,
+            testr_str % ('', 'test'))
+    OpEnv.Depends(test_cmd, [OpEnv['TOP']+x for x in test_depends])
+    OpEnv.Depends(test_cmd, sdist_depends)
 
 OpEnv.Alias('tests', test_cmd)
 OpEnv.Alias('controller/src/opserver:test', test_cmd)
