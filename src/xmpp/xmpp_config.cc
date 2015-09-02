@@ -11,13 +11,11 @@ using namespace boost::asio::ip;
 using namespace boost::property_tree;
 using namespace std;
 
-int const XmppChannelConfig::default_server_port = 5269;
-int const XmppChannelConfig::default_client_port = 5222;
-
 XmppChannelConfig::XmppChannelConfig(bool isClient) : 
      ToAddr(""), FromAddr(""), NodeAddr(""), logUVE(false), auth_enabled(false),
      path_to_server_cert(""), path_to_pvt_key(""),
-     isClient_(isClient) {
+     tcp_hold_time(XmppChannelConfig::kTcpHoldTime),
+     isClient_(isClient)  {
 }
 
 int XmppChannelConfig::CompareTo(const XmppChannelConfig &rhs) const {

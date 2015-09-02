@@ -25,8 +25,6 @@ public:
     size_t GetSessionQueueSize() const;
     virtual LifetimeActor *deleter() = 0;
 
-    static const int kTcpHoldTime = 30; //in secs
-
 private:
     bool DequeueSession(TcpSessionPtr tcp_session);
     void WorkQueueExitCallback(bool done);

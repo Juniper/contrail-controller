@@ -96,7 +96,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
       server_addr_(server_addr),
       log_uve_(false),
       auth_enabled_(false),
-      tcp_hold_time_(XmppConnectionManager::kTcpHoldTime),
+      tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -110,7 +110,7 @@ XmppServer::XmppServer(EventManager *evm)
       deleter_(new DeleteActor(this)), 
       log_uve_(false),
       auth_enabled_(false),
-      tcp_hold_time_(XmppConnectionManager::kTcpHoldTime),
+      tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
