@@ -158,7 +158,7 @@ class SnatAgentTest(unittest.TestCase):
         # will return the private virtual network, and will return
         # an error when trying to read the service snat VN
         def db_read_side_effect(obj_type, uuids):
-            if obj_type != 'virtual-network':
+            if obj_type != 'virtual_network':
                 return (False, None)
             if 'private1-uuid' in uuids:
                 return (True, [{'fq_name': ['default-domain',
@@ -204,7 +204,7 @@ class SnatAgentTest(unittest.TestCase):
 
         # check that the correct private network is read
         self.cassandra.read.assert_called_with(
-            'virtual-network', 'private1-uuid')
+            'virtual_network', ['private1-uuid'])
 
         # check that the snat service network is created
         left = ('default-domain:demo:snat-si-left_snat_' +
@@ -258,7 +258,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_dict['virtual_network_back_refs'] = [{'uuid': 'private1-uuid'}]
 
         def db_read_side_effect(obj_type, uuids):
-            if obj_type == 'route-table':
+            if obj_type == 'route_table':
                 return (True, [rt_dict])
             if 'private1-uuid' in uuids:
                 return (True, [{'fq_name': ['default-domain',
@@ -320,7 +320,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_dict = self.obj_to_dict(rt_obj)
 
         def db_read_side_effect(obj_type, uuids):
-            if obj_type == 'route-table':
+            if obj_type == 'route_table':
                 return (True, [rt_dict])
             if 'private2-uuid' in uuids:
                 return (True, [{'fq_name': ['default-domain',
@@ -427,7 +427,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_dict['virtual_network_back_refs'] = [{'uuid': 'private1-uuid'}]
 
         def db_read_side_effect(obj_type, uuids):
-            if obj_type == 'route-table':
+            if obj_type == 'route_table':
                 return (True, [rt_dict])
             if 'private2-uuid' in uuids:
                 return (True, [{'fq_name': ['default-domain',
@@ -445,8 +445,8 @@ class SnatAgentTest(unittest.TestCase):
         self.snat_agent.update_snat_instance(router)
 
         # check that the correct private network is read
-        self.cassandra.read.assert_called_with('virtual-network',
-            'private2-uuid')
+        self.cassandra.read.assert_called_with('virtual_network',
+            ['private2-uuid'])
 
         # check that the route table is applied to the network
         rt_name = 'rt_' + ROUTER_1['uuid']
@@ -482,7 +482,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_obj = self.vnc_lib.route_table_create.mock_calls[0][1][0]
 
         def db_read_side_effect(obj_type, uuids):
-            if obj_type == 'route-table':
+            if obj_type == 'route_table':
                 return (True, [self.obj_to_dict(rt_obj)])
             if 'private1-uuid' in uuids:
                 return (True, [{'fq_name': ['default-domain',
@@ -501,7 +501,7 @@ class SnatAgentTest(unittest.TestCase):
 
         # check that the correct private network is read
         self.cassandra.read.assert_called_with(
-            'virtual-network', 'private1-uuid')
+            'virtual_network', ['private1-uuid'])
 
         # check that the route table is applied to the network
         self.vnc_lib.virtual_network_update.assert_called_with(
