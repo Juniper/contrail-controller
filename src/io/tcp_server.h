@@ -85,6 +85,7 @@ public:
                                  const std::string &md5_password);
 
 protected:
+    typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
 
     // Create a session object.
@@ -112,6 +113,10 @@ protected:
 
     Endpoint LocalEndpoint() const;
 
+    virtual void AcceptHandlerComplete(TcpSessionPtr &session);
+    virtual void ConnectHandlerComplete(TcpSessionPtr &session);
+
+
 private:
     friend class TcpSession;
     friend class TcpMessageWriter;
@@ -119,7 +124,6 @@ private:
     friend void intrusive_ptr_add_ref(TcpServer *server);
     friend void intrusive_ptr_release(TcpServer *server);
 
-    typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
     struct TcpSessionPtrCmp {
         bool operator()(const TcpSessionPtr &lhs,
                         const TcpSessionPtr &rhs) const {
