@@ -16,6 +16,7 @@ import socket
 import time
 import copy
 import traceback
+import signal
 try:
     from collections import OrderedDict
 except ImportError:
@@ -1172,7 +1173,7 @@ class Controller(object):
         else:
             self._libpart.update_cluster_list(newlist)
 
-    def run(self):
+    def run_cpu_mon(self):
         alarmgen_cpu_info = CpuInfoData()
         while True:
             before = time.time()
@@ -1214,6 +1215,41 @@ class Controller(object):
             else:
                 self._logger.error("Periodic collection took %s sec" % duration)
 
+    def run(self):
+        self.gevs = [ gevent.spawn(self.run_cpu_mon),
+                      gevent.spawn(self.run_uve_processing)]
+
+        if self.disc:
+            sp1 = ServicePoller(self._logger, CollectorTrace,
+                                self.disc,
+                                COLLECTOR_DISCOVERY_SERVICE_NAME,
+                                self.disc_cb_coll, self._sandesh)
+
+            sp1.start()
+            self.gevs.append(sp1)
+
+            sp2 = ServicePoller(self._logger, AlarmgenTrace,
+                                self.disc, ALARM_GENERATOR_SERVICE_NAME,
+                                self.disc_cb_ag, self._sandesh)
+            sp2.start()
+            self.gevs.append(sp2)
+
+        try:
+            gevent.joinall(self.gevs)
+        except KeyboardInterrupt:
+            print 'Exiting on ^C'
+        except:
+            raise
+        finally:
+            self.stop()
+
+    def stop(self):
+        gevent.killall(self.gevs)
+
+    def sigterm_handler(self):
+        self.stop()
+        exit()
+
 def setup_controller(argv):
     config = CfgParser(argv)
     config.parse()
@@ -1221,24 +1257,8 @@ def setup_controller(argv):
 
 def main(args=None):
     controller = setup_controller(args or ' '.join(sys.argv[1:]))
-    gevs = [ 
-        gevent.spawn(controller.run), gevent.spawn(controller.run_uve_processing)]
-
-    if controller.disc:
-        sp1 = ServicePoller(controller._logger, CollectorTrace, controller.disc, \
-            COLLECTOR_DISCOVERY_SERVICE_NAME, controller.disc_cb_coll, \
-            controller._sandesh)
-
-        sp1.start()
-        gevs.append(sp1)
-
-        sp2 = ServicePoller(controller._logger, AlarmgenTrace, controller.disc, \
-            ALARM_GENERATOR_SERVICE_NAME, controller.disc_cb_ag, \
-            controller._sandesh)
-        sp2.start()
-        gevs.append(sp2)
-
-    gevent.joinall(gevs)
+    gevent.hub.signal(signal.SIGTERM, controller.sigterm_handler)
+    controller.run()
 
 if __name__ == '__main__':
     main()

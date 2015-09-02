@@ -256,7 +256,7 @@ class AlarmGen(object):
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-alarm-gen", ["http"],
-                         args, None)
+                         args, None, True)
         self.http_port = ports["http"]
         return self.verify_setup()
     # end start
@@ -270,7 +270,7 @@ class AlarmGen(object):
         if self._instance is not None:
             rcode = self.analytics_fixture.process_stop(
                 "contrail-alarm-gen:%s" % str(self.http_port),
-                self._instance, self._log_file)
+                self._instance, self._log_file, is_py=True)
             #assert(rcode == 0)
             self._instance = None
     # end stop
@@ -351,7 +351,7 @@ class OpServer(object):
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-analytics-api", ["http"],
-                         args, None)
+                         args, None, True)
         self.http_port = ports["http"]
         return self.verify_setup()
     # end start
@@ -365,7 +365,7 @@ class OpServer(object):
         if self._instance is not None:
             rcode = self.analytics_fixture.process_stop(
                 "contrail-analytics-api:%s" % str(self.listen_port),
-                self._instance, self._log_file)
+                self._instance, self._log_file, is_py=True)
             #assert(rcode == 0)
             self._instance = None
     # end stop
@@ -2423,40 +2423,65 @@ class AnalyticsFixture(fixtures.Fixture):
         sock.close()
         return u_port
 
-    def process_stop(self, name, instance, log_file, del_log = True):
-        self.logger.info('Shutting down %s' % name)
-        bad_term = False
-        if instance.poll() == None:
-            instance.terminate()
-            cnt = 1
-            while cnt < 10:
-                if instance.poll() != None:
-                    break
-                cnt += 1
-                gevent.sleep(1)
+    def run_py_daemon(self, args):
+            if args[0] == 'contrail-analytics-api':
+                from opserver.opserver import main
+                cmd = main
+            elif args[0] == 'contrail-alarm-gen':
+                from opserver.alarmgen import main
+                cmd = main
+            else:
+                cmd = None
+            if callable(cmd):
+                instance = gevent.spawn(cmd, ' '.join(args[1:]))
+                instance.poll = lambda: None
+                return instance
+            raise NotImplementedError("%s is not mapped" % cmd[0])
+
+    def process_stop(self, name, instance, log_file,
+                     del_log=True, is_py=False):
+        if is_py:
+            gevent.kill(instance)
+            rcode = 0
         else:
-            bad_term = True
-        if instance.poll() == None:
-            self.logger.info('%s FAILED to terminate; will be killed' % name)
-            instance.kill()
-            bad_term = True
-        (p_out, p_err) = instance.communicate()
-        rcode = instance.returncode
-        if rcode != 0 or bad_term:
-            self.logger.info('%s returned %d' % (name,rcode))
-            self.logger.info('%s terminated stdout: %s' % (name, p_out))
-            self.logger.info('%s terminated stderr: %s' % (name, p_err))
-            with open(log_file, 'r') as fin:
-                self.logger.info(fin.read())
+            self.logger.info('Shutting down %s' % name)
+            bad_term = False
+            if instance.poll() == None:
+                instance.terminate()
+                cnt = 1
+                while cnt < 10:
+                    if instance.poll() != None:
+                        break
+                    cnt += 1
+                    gevent.sleep(1)
+            else:
+                bad_term = True
+            if instance.poll() == None:
+                self.logger.info('%s FAILED to terminate; will be killed' % name)
+                instance.kill()
+                bad_term = True
+            (p_out, p_err) = instance.communicate()
+            rcode = instance.returncode
+            if rcode != 0 or bad_term:
+                self.logger.info('%s returned %d' % (name,rcode))
+                self.logger.info('%s terminated stdout: %s' % (name, p_out))
+                self.logger.info('%s terminated stderr: %s' % (name, p_err))
+                with open(log_file, 'r') as fin:
+                    self.logger.info(fin.read())
         if del_log:
             subprocess.call(['rm', '-rf', log_file])
         return rcode
 
-    def start_with_ephemeral_ports(self, modname, pnames, args, preexec):
+    def start_with_ephemeral_ports(self, modname, pnames, args, preexec,
+            is_py=False):
 
         pipes = {}
         for pname in pnames: 
-            pipe_name = '/tmp/%s.%d.%s_port' % (modname, os.getpid(), pname)
+            if is_py:
+                pid = os.getppid()
+            else:
+                pid = os.getpid()
+            pipe_name = '/tmp/%s.%d.%s_port' % (modname, pid, pname)
             self.logger.info("Read %s Port from %s" % (pname, pipe_name))
             #import pdb; pdb.set_trace()
             try:
@@ -2469,7 +2494,10 @@ class AnalyticsFixture(fixtures.Fixture):
             fcntl(pipein, F_SETFL, flags | os.O_NONBLOCK)
             pipes[pname] = pipein , pipe_name
             
-        instance = subprocess.Popen(args, stdout=subprocess.PIPE,
+        if is_py:
+            instance = self.run_py_daemon(args)
+        else:
+            instance = subprocess.Popen(args, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
                              preexec_fn = preexec)
       
