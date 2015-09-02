@@ -13,6 +13,12 @@ class CpuInfoData(object):
 
     def __init__(self):
         self._process = psutil.Process(os.getpid())
+        if not hasattr(self._process, 'get_memory_info'):
+            self._process.get_memory_info = self._process.memory_info
+        if not hasattr(self._process, 'get_cpu_percent'):
+            self._process.get_cpu_percent = self._process.cpu_percent
+        if not hasattr(psutil, 'NUM_CPUS'):
+            psutil.NUM_CPUS = psutil.cpu_count()
         self._num_cpu = 0
     #end __init__
 

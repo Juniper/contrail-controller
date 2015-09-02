@@ -264,8 +264,12 @@ class UveStreamer(gevent.Greenlet):
         self._partitions = partitions
         self._rpass = rpass
         self._sse = True
+        self._ccb = None
         if self._rfile is None:
             self._sse = False
+
+    def set_cleanup_callback(self, cb):
+        self._ccb = cb
 
     def _run(self):
         inputs = [ self._rfile ]
@@ -304,6 +308,7 @@ class UveStreamer(gevent.Greenlet):
                 self._agp = newagp
             except gevent.GreenletExit:
                 break
+        self._logger.error('TG: cleaning up')
         for part, pi in self._agp.iteritems():
             self.partition_stop(part)
         if self._sse:
@@ -312,6 +317,8 @@ class UveStreamer(gevent.Greenlet):
         else:
             msg = {'event': 'stop', 'data':None}
             self._q.put(msg)
+        if callable(self._ccb):
+            self._ccb(self) #remove myself
 
     def partition_start(self, partno, pi):
         self._logger.error("Starting agguve part %d using %s" %( partno, pi))

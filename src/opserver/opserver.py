@@ -27,6 +27,7 @@ import redis
 import base64
 import socket
 import struct
+import signal
 import errno
 import copy
 import datetime
@@ -95,6 +96,19 @@ class LinkObject(object):
     # end __init__
 # end class LinkObject
 
+class ContrailGeventServer(bottle.GeventServer):
+    def run(self, handler):
+        from gevent import wsgi as wsgi_fast, pywsgi, monkey, local
+        if self.options.get('monkey', True):
+            import threading
+            if not threading.local is local.local: monkey.patch_all()
+        wsgi = wsgi_fast if self.options.get('fast') else pywsgi
+        self.srv = wsgi.WSGIServer((self.host, self.port), handler)
+        self.srv.serve_forever()
+    def stop(self):
+        if hasattr(self, 'srv'):
+            self.srv.stop()
+            gevent.sleep(0)
 
 def obj_to_dict(obj):
     # Non-null fields in object get converted to json fields
@@ -403,6 +417,7 @@ class OpServer(object):
     # end
 
     def __init__(self, args_str=' '.join(sys.argv[1:])):
+        self.gevs = []
         self._args = None
         self._parse_args(args_str)
         print args_str
@@ -413,6 +428,7 @@ class OpServer(object):
         self._homepage_links.append(LinkObject('analytics', '/analytics'))
 
         super(OpServer, self).__init__()
+        self._webserver = None
         module = Module.OPSERVER
         self._moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -655,7 +671,7 @@ class OpServer(object):
 
         # start gevent to monitor disk usage and automatically purge
         if (self._args.auto_db_purge):
-            gevent.spawn(self._auto_purge)
+            self.gevs.append(gevent.spawn(self._auto_purge))
 
     # end __init__
 
@@ -907,6 +923,9 @@ class OpServer(object):
         return json_body
     # end homepage_http_get
 
+    def cleanup_uve_streamer(self, gv):
+        self.gevs.remove(gv)
+
     def uve_stream(self):
         bottle.response.set_header('Content-Type', 'text/event-stream')
         bottle.response.set_header('Cache-Control', 'no-cache')
@@ -916,6 +935,8 @@ class OpServer(object):
         body = gevent.queue.Queue()
         ph = UveStreamer(self._logger, body, rfile, self.get_agp,
             self._args.partitions, self._args.redis_password)
+        ph.set_cleanup_callback(self.cleanup_uve_streamer)
+        self.gevs.append(ph)
         ph.start()
         return body
 
@@ -1813,7 +1834,8 @@ class OpServer(object):
             resp = self._analytics_db.set_analytics_db_purge_status(purge_id,
                             purge_cutoff)
             if (resp == None):
-                gevent.spawn(self.db_purge_operation, purge_cutoff, purge_id)
+                self.gevs.append(gevent.spawn(self.db_purge_operation,
+                                              purge_cutoff, purge_id))
                 response = {'status': 'started', 'purge_id': purge_id}
                 return bottle.HTTPResponse(json.dumps(response), 200,
                                    {'Content-type': 'application/json'})
@@ -2047,11 +2069,18 @@ class OpServer(object):
 
     #end start_uve_server
 
+    def stop_webserver(self):
+        if self._webserver:
+            self._webserver.stop()
+            self._webserver = None
+
     def start_webserver(self):
         pipe_start_app = bottle.app()
         try:
-            bottle.run(app=pipe_start_app, host=self._args.rest_api_ip,
-                   port=self._args.rest_api_port, server='gevent')
+            self._webserver = ContrailGeventServer(
+                                   host=self._args.rest_api_ip,
+                                   port=self._args.rest_api_port)
+            bottle.run(app=pipe_start_app, server=self._webserver)
         except Exception as e:
             self._logger.error("Exception: %s" % e)
             sys.exit()
@@ -2142,35 +2171,62 @@ class OpServer(object):
     def get_agp(self):
         return self.agp
 
+    def run(self):
+        self._uvedbcache.start()
+        self._uvedbstream.start()
+
+        self.gevs += [
+            self._uvedbcache,
+            self._uvedbstream,
+            gevent.spawn(self.start_webserver),
+            gevent.spawn(self.cpu_info_logger),
+            gevent.spawn(self.start_uve_server),
+            ]
+
+        if self.disc:
+            sp = ServicePoller(self._logger, CollectorTrace, self.disc,\
+                               COLLECTOR_DISCOVERY_SERVICE_NAME, \
+                               self.disc_cb, self._sandesh)
+            sp.start()
+            self.gevs.append(sp)
+
+            sp2 = ServicePoller(self._logger, CollectorTrace, \
+                                self.disc, ALARM_PARTITION_SERVICE_NAME, \
+                                self.disc_agp, self._sandesh)
+            sp2.start()
+            self.gevs.append(sp2)
+
+        try:
+            gevent.joinall(self.gevs)
+        except KeyboardInterrupt:
+            self._logger.error('Exiting on ^C')
+        except gevent.GreenletExit:
+            self._logger.error('Exiting on gevent-kill')
+        except:
+            raise
+        finally:
+            self._logger.error('stopping everything')
+            self.stop()
+
+    def stop(self):
+        self._sandesh._client._connection.set_admin_state(down=True)
+        self._sandesh.uninit()
+        self.stop_webserver()
+        for gv in self.gevs:
+            gv.kill()
+            gv.join()
+
+    def sigterm_handler(self):
+        self.stop()
+        exit()
+
 def main(args_str=' '.join(sys.argv[1:])):
     opserver = OpServer(args_str)
+    gevent.hub.signal(signal.SIGTERM, opserver.sigterm_handler)
+    gv = gevent.getcurrent()
+    gv._main_obj = opserver
+    opserver.run()
 
-    opserver._uvedbcache.start()
-    opserver._uvedbstream.start()
-
-    gevs = [ 
-        gevent.spawn(opserver.start_webserver),
-        gevent.spawn(opserver.cpu_info_logger),
-        gevent.spawn(opserver.start_uve_server)]
-
-    if opserver.disc:
-        sp = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
-                           COLLECTOR_DISCOVERY_SERVICE_NAME, opserver.disc_cb, \
-                           opserver._sandesh)
-        sp.start()
-        gevs.append(sp)
-
-        sp2 = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
-                            ALARM_PARTITION_SERVICE_NAME, opserver.disc_agp, \
-                            opserver._sandesh)
-        sp2.start()
-        gevs.append(sp2)
-
-    gevent.joinall(gevs)
-
-    opserver._uvedbstream.kill()
-    opserver._uvedbstream.join()
-    opserver._uvedbcache.join()
 
 if __name__ == '__main__':
     main()
