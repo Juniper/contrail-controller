@@ -179,7 +179,7 @@ class DBBase(object):
             raise NoIdError('')
         obj_type = obj_type or self.obj_type
         if uuid is None:
-            if isinstance(fq_name, str):
+            if isinstance(fq_name, basestring):
                 fq_name = fq_name.split(':')
             uuid = self._cassandra.fq_name_to_uuid(obj_type, fq_name)
         obj_dict = self.read_obj(uuid, obj_type)

@@ -1,0 +1,11 @@
+MANIFEST.in
+setup.py
+schema_transformer.egg-info/PKG-INFO
+schema_transformer.egg-info/SOURCES.txt
+schema_transformer.egg-info/dependency_links.txt
+schema_transformer.egg-info/entry_points.txt
+schema_transformer.egg-info/not-zip-safe
+schema_transformer.egg-info/requires.txt
+schema_transformer.egg-info/top_level.txt
+test/test_case.py
+test/test_service.py

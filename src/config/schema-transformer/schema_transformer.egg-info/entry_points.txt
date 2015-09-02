@@ -1,0 +1,4 @@
+[console_scripts]
+ifmap-view = schema_transformer.ifmap_view:main
+contrail-schema = schema_transformer.to_bgp:server_main
+
