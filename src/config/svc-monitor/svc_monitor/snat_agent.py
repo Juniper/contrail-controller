@@ -86,7 +86,7 @@ class SNATAgent(Agent):
              for uuid in vmi_uuids]
 
     def _virtual_network_read(self, net_uuid):
-        (ok, result) = DBBaseSM()._cassandra.read('virtual-network', net_uuid)
+        (ok, result) = DBBaseSM()._cassandra.read('virtual_network', [net_uuid])
         if not ok:
             return
         return VirtualNetwork.from_dict(**result[0])
@@ -139,7 +139,7 @@ class SNATAgent(Agent):
         except NoIdError:
             return
 
-        (ok, result) = DBBaseSM()._cassandra.read('route-table', rt_uuid)
+        (ok, result) = DBBaseSM()._cassandra.read('route_table', [rt_uuid])
         if not ok:
             return
 
