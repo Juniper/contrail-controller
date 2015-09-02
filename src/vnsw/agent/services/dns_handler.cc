@@ -332,10 +332,14 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
             action_ = DnsHandler::DNS_QUERY;
             while (count < MAX_XMPP_SERVERS) {
                 if (!agent()->dns_server(count).empty()) {
-                    uint16_t xid = dns_proto->GetTransId();
-                    if (SendDnsQuery(count, xid) == true) {
-                        dns_proto->AddDnsQueryIndex(xid, count);
-                        query_success = true;
+                    AgentDnsXmppChannel *dns_xc = agent_->dns_xmpp_channel(count);
+                    if (dns_xc && dns_xc->GetXmppChannel() &&
+                        (dns_xc->GetXmppChannel()->GetPeerState() == xmps::READY)) {
+                        uint16_t xid = dns_proto->GetTransId();
+                        if (SendDnsQuery(count, xid) == true) {
+                            dns_proto->AddDnsQueryIndex(xid, count);
+                            query_success = true;
+                        }
                     }
                 }
                 count++;
