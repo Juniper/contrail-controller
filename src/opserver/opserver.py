@@ -322,6 +322,31 @@ class OpStateServer(object):
 
 # end class OpStateServer
 
+class AnalyticsApiStatistics(object):
+    def __init__(self, sandesh, obj_type):
+        self.obj_type = obj_type
+        self.time_start = UTCTimestampUsec()
+        self.api_stats = None
+        self.sandesh = sandesh
+
+    def collect(self, resp_size):
+        time_finish = UTCTimestampUsec()
+
+        # Create api stats object
+        self.api_stats = AnalyticsApiSample(
+            operation_type=bottle.request.method,
+            remote_ip=bottle.request.headers.get('Host'),
+            request_url=bottle.request.url,
+            object_type=self.obj_type,
+            response_time_in_usec=(time_finish - self.time_start),
+            response_size=resp_size,
+            node=self.sandesh.source_id())
+
+    def sendwith(self):
+        stats_log = AnalyticsApiStats(api_stats=self.api_stats,
+            sandesh=self.sandesh)
+        stats_log.send(sandesh=self.sandesh)
+
 class OpServer(object):
 
     """
@@ -1288,20 +1313,21 @@ class OpServer(object):
             (code, msg) = result
             abort(code, msg)
         uve_type = bottle.request.url.rsplit('/', 1)[1]
-        try:
+        uve_tbl = uve_type
+        if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
-        except Exception as e:
-            yield bottle.HTTPError(_ERRORS[errno.EINVAL], 
-                                   'Invalid table name')
+
+        try:
+            req = bottle.request.json
+            filters = OpServer._uve_http_post_filter_set(req)
+        except Exception as err:
+            yield bottle.HTTPError(_ERRORS[errno.EBADMSG], err)
         else:
-            try:
-                req = bottle.request.json
-                filters = OpServer._uve_http_post_filter_set(req)
-            except Exception as err:
-                yield bottle.HTTPError(_ERRORS[errno.EBADMSG], err)
+            stats = AnalyticsApiStatistics(self._sandesh, uve_type)
             bottle.response.set_header('Content-Type', 'application/json')
             yield u'{"value": ['
             first = True
+            num = 0
             for key in filters['kfilt']:
                 if key.find('*') != -1:
                     for gen in self._uve_server.multi_uve_get(uve_tbl, True,
@@ -1312,6 +1338,9 @@ class OpServer(object):
                             first = False
                         else:
                             yield u', ' + json.dumps(gen)
+                        num += 1
+                    stats.collect(num)
+                    stats.sendwith()
                     yield u']}'
                     return
             first = True
@@ -1319,6 +1348,7 @@ class OpServer(object):
                 uve_name = uve_tbl + ':' + key
                 _, rsp = self._uve_server.get_uve(uve_name, True, filters,
                                                is_alarm=is_alarm)
+                num += 1
                 if rsp != {}:
                     data = {'name': key, 'value': rsp}
                     if first:
@@ -1326,6 +1356,8 @@ class OpServer(object):
                         first = False
                     else:
                         yield u', ' + json.dumps(data)
+            stats.collect(num)
+            stats.sendwith()
             yield u']}'
     # end _uve_alarm_http_post
 
@@ -1346,10 +1378,11 @@ class OpServer(object):
             filters = OpServer._uve_filter_set(req)
         except Exception as e:
             yield bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
-        
         flat = False
         if 'flat' in req.keys() or any(filters.values()):
             flat = True
+
+        stats = AnalyticsApiStatistics(self._sandesh, uve_type)
 
         uve_name = uve_tbl + ':' + name
         if name.find('*') != -1:
@@ -1358,6 +1391,7 @@ class OpServer(object):
             first = True
             if filters['kfilt'] is None:
                 filters['kfilt'] = [name]
+            num = 0
             for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
                                                       filters, is_alarm):
                 if first:
@@ -1365,10 +1399,15 @@ class OpServer(object):
                     first = False
                 else:
                     yield u', ' + json.dumps(gen)
+                num += 1
+            stats.collect(num)
+            stats.sendwith()
             yield u']}'
         else:
             _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
                                            is_alarm=is_alarm)
+            stats.collect(1)
+            stats.sendwith()
             yield json.dumps(rsp)
     # end _uve_alarm_http_get
 
