@@ -403,17 +403,24 @@ bool DnsHandler::SendDnsQuery(int8_t idx, uint16_t xid) {
         dns_proto->AddDnsQuery(xid, this);
     }
 
-    pkt = new uint8_t[BindResolver::max_pkt_size];
-    len = BindUtil::BuildDnsQuery(pkt, xid,
-          ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
-    if (BindResolver::Resolver()->DnsSend(pkt, idx, len)) {
-        DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to named server : " <<
-                       agent()->dns_server(idx) <<
-                       "; xid =" << xid << " " << DnsItemsToString(items_));
-        timer_[idx]->Cancel();
-        timer_[idx]->Start(dns_proto->timeout(),
+    if (!agent()->dns_server(idx).empty()) {
+        AgentDnsXmppChannel *dns_xc = agent_->dns_xmpp_channel(idx);
+        if (dns_xc && dns_xc->GetXmppChannel() &&
+            (dns_xc->GetXmppChannel()->GetPeerState() == xmps::READY)) {
+
+            pkt = new uint8_t[BindResolver::max_pkt_size];
+            len = BindUtil::BuildDnsQuery(pkt, xid,
+                ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
+            if (BindResolver::Resolver()->DnsSend(pkt, idx, len)) {
+                DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to named server : " <<
+                           agent()->dns_server(idx) <<
+                           "; xid =" << xid << " " << DnsItemsToString(items_));
+                timer_[idx]->Cancel();
+                timer_[idx]->Start(dns_proto->timeout(),
                       boost::bind(&DnsHandler::TimerExpiry, this, xid));
-        return true;
+                return true;
+            }
+        }
     } 
 cleanup:
     dns_proto->IncrStatsDrop();
