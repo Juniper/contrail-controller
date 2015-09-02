@@ -27,6 +27,7 @@ import redis
 import base64
 import socket
 import struct
+import signal
 import errno
 import copy
 import datetime
@@ -866,6 +867,9 @@ class OpServer(object):
         return json_body
     # end homepage_http_get
 
+    def cleanup_uve_streamer(self, gv):
+        self.gevs.remove(gv)
+
     def uve_stream(self):
         bottle.response.set_header('Content-Type', 'text/event-stream')
         bottle.response.set_header('Cache-Control', 'no-cache')
@@ -875,6 +879,8 @@ class OpServer(object):
         body = gevent.queue.Queue()
         ph = UveStreamer(self._logger, body, rfile, self.get_agp,
             self._args.partitions, self._args.redis_password)
+        ph.set_cleanup_callback(self.cleanup_uve_streamer)
+        self.gevs.append(ph)
         ph.start()
         return body
 
@@ -2087,35 +2093,55 @@ class OpServer(object):
     def get_agp(self):
         return self.agp
 
+    def run(self):
+        self._uvedbcache.start()
+        self._uvedbstream.start()
+
+        self.gevs = [
+            gevent.spawn(self.start_webserver),
+            gevent.spawn(self.cpu_info_logger),
+            gevent.spawn(self.start_uve_server)]
+
+        self.gevs.append(self._sandesh._gev_httpd)
+
+        if self.disc:
+            sp = ServicePoller(self._logger, CollectorTrace, self.disc,\
+                               COLLECTOR_DISCOVERY_SERVICE_NAME, \
+                               self.disc_cb, self._sandesh)
+            sp.start()
+            self.gevs.append(sp)
+
+            sp2 = ServicePoller(self._logger, CollectorTrace, \
+                                self.disc, ALARM_PARTITION_SERVICE_NAME, \
+                                self.disc_agp, self._sandesh)
+            sp2.start()
+            self.gevs.append(sp2)
+
+        try:
+            gevent.joinall(self.gevs)
+        except KeyboardInterrupt:
+            print 'Exiting on ^C'
+        except:
+            raise
+        finally:
+            self.stop()
+            self._uvedbstream.kill()
+            self._uvedbstream.join()
+            self._uvedbcache.kill()
+            self._uvedbcache.join()
+
+    def stop(self):
+        gevent.killall(self.gevs)
+
+    def sigterm_handler(self):
+        self.stop()
+        exit()
+
 def main(args_str=' '.join(sys.argv[1:])):
     opserver = OpServer(args_str)
+    gevent.hub.signal(signal.SIGTERM, opserver.sigterm_handler)
+    opserver.run()
 
-    opserver._uvedbcache.start()
-    opserver._uvedbstream.start()
-
-    gevs = [ 
-        gevent.spawn(opserver.start_webserver),
-        gevent.spawn(opserver.cpu_info_logger),
-        gevent.spawn(opserver.start_uve_server)]
-
-    if opserver.disc:
-        sp = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
-                           COLLECTOR_DISCOVERY_SERVICE_NAME, opserver.disc_cb, \
-                           opserver._sandesh)
-        sp.start()
-        gevs.append(sp)
-
-        sp2 = ServicePoller(opserver._logger, CollectorTrace, opserver.disc, \
-                            ALARM_PARTITION_SERVICE_NAME, opserver.disc_agp, \
-                            opserver._sandesh)
-        sp2.start()
-        gevs.append(sp2)
-
-    gevent.joinall(gevs)
-
-    opserver._uvedbstream.kill()
-    opserver._uvedbstream.join()
-    opserver._uvedbcache.join()
 
 if __name__ == '__main__':
     main()
