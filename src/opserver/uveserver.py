@@ -223,8 +223,9 @@ class UVEServer(object):
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')
 
-        if flat and not sfilter and not mfilter and self._uvedbcache:
-            return self._uvedbcache.get_uve(key, filters, is_alarm)
+        # TODO: Disable due to https://issues.apache.org/jira/browse/KAFKA-172
+        #if flat and not sfilter and not mfilter and self._uvedbcache:
+        #    return self._uvedbcache.get_uve(key, filters, is_alarm)
 
         state = {}
         state[key] = {}
