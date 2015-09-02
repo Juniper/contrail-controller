@@ -144,6 +144,8 @@ public:
     virtual const std::string GetStateName() const = 0;
     virtual void UpdateRefCount(int count) const = 0;
     virtual tbb::atomic<int> GetRefCount() const = 0;
+    virtual void UpdatePrimaryPathCount(int count) const = 0;
+    virtual int GetPrimaryPathCount() const = 0;
 };
 
 #endif  // SRC_BGP_IPEER_H_
