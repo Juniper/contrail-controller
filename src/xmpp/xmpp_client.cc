@@ -48,7 +48,7 @@ XmppClient::XmppClient(EventManager *evm)
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       auth_enabled_(false),
-      tcp_hold_time_(XmppConnectionManager::kTcpHoldTime) {
+      tcp_hold_time_(XmppChannelConfig::kTcpHoldTime) {
 }
 
 XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
@@ -60,10 +60,6 @@ XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
       deleter_(new DeleteActor(this)),
       auth_enabled_(config->auth_enabled),
       tcp_hold_time_(config->tcp_hold_time) {
-
-    if ((config->tcp_hold_time == 0) || (config->tcp_hold_time > 30)) {
-        tcp_hold_time_ = XmppConnectionManager::kTcpHoldTime;
-    } 
 
     if (config->auth_enabled) {
 
