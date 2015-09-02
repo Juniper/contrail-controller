@@ -452,7 +452,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         vn_obj.clear_pending_updates()
         return vn_obj
     # end create_virtual_network
-    def create_network_policy(self, vn1, vn2, service_list=None, service_mode=None, service_type=None, action_type='simple-action'):
+    def create_network_policy(self, vn1, vn2, service_list=None, 
+                              service_mode=None, service_type=None, action_type='simple-action', auto_policy=True):
         addr1 = AddressType(virtual_network=vn1.get_fq_name_str())
         addr2 = AddressType(virtual_network=vn2.get_fq_name_str())
         port = PortType(-1, 0)
@@ -476,7 +477,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                     if_list = [ServiceInstanceInterfaceType(virtual_network=vn1.get_fq_name_str()),
                                ServiceInstanceInterfaceType(virtual_network=vn2.get_fq_name_str())]
                     si_props = ServiceInstanceType(
-                        auto_policy=True, interface_list=if_list,
+                        auto_policy=auto_policy, interface_list=if_list,
                         scale_out=scale_out)
                 else:
                     if_list = [ServiceInstanceInterfaceType(),
@@ -503,7 +504,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                                action_list=action_list)
         pentry = PolicyEntriesType([prule])
         np = NetworkPolicy(str(uuid.uuid4()), network_policy_entries=pentry)
-        if service_mode == 'in-network':
+        if service_mode == 'in-network' and auto_policy == True:
             return np
         self._vnc_lib.network_policy_create(np)
         return np

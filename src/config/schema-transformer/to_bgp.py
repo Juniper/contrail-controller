@@ -2310,10 +2310,7 @@ class VirtualMachineInterfaceST(DBBaseST):
             policy = NetworkPolicyST.get(policy_name)
             if policy is None:
                 continue
-            policy_rule_entries = policy.obj.get_network_policy_entries()
-            if policy_rule_entries is None:
-                continue
-            for prule in policy_rule_entries.policy_rule:
+            for prule in policy.rules or []:
                 if (prule.action_list is None or
                     si_name not in prule.action_list.apply_service or []):
                     continue
