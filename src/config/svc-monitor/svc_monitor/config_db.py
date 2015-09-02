@@ -403,7 +403,7 @@ class ServiceTemplateSM(DBBaseSM):
         self.uuid = uuid
         self.service_instances = set()
         self.virtualization_type = 'virtual-machine'
-        self.service_appliance_sets = set()
+        self.service_appliance_sets = None
         self.update(obj_dict)
     # end __init__
 
@@ -427,7 +427,7 @@ class ServiceTemplateSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('service_instance', {})
-        self.update_multiple_refs('service_appliance_set', {})
+        self.update_single_ref('service_appliance_set', {})
         del cls._dict[uuid]
     # end delete
 # end class ServiceTemplateSM
