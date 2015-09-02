@@ -50,5 +50,5 @@ struct VncApiStats {
 }
 
 objectlog sandesh VncApiStatsLog {
-    1: VncApiStats api_stats (tags=".operation_type, .user, .useragent, .remote_ip, .domain_name, .project_name, .object_type, .response_time_in_usec, .response_size, .response_code")
+    1: VncApiStats api_stats (tags=".operation_type,.user,.useragent,.remote_ip,.domain_name,.project_name,.object_type,.response_time_in_usec,.response_size,.response_code")
 }
