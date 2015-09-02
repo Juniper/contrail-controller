@@ -179,6 +179,40 @@ uint16_t DhcpHandlerBase::AddShortArrayOption(uint32_t option, uint16_t opt_len,
     return opt_len;
 }
 
+// Check for exceptions in handling IP options
+bool DhcpHandlerBase::IsValidIpOption(uint32_t option, const std::string &ipstr,
+                                      bool is_v4) {
+    if (is_v4) {
+        if (option == DHCP_OPTION_DNS) {
+            return IsValidDnsOption(option, ipstr);
+        }
+    } else {
+        if (option == DHCPV6_OPTION_DNS_SERVERS) {
+            return IsValidDnsOption(option, ipstr);
+        }
+    }
+
+    return true;
+}
+
+bool DhcpHandlerBase::IsValidDnsOption(uint32_t option,
+                                       const std::string &ipstr) {
+    boost::system::error_code ec;
+    IpAddress ip = IpAddress::from_string(ipstr, ec);
+    if (!ec.value()) {
+        // when DNS server is present in DHCP option, disable vrouter
+        // proxying for DNS requests from VMs.
+        dns_enable_ = false;
+        if (ip.is_unspecified()) {
+            // Do not send the option when DNS servers have 0.0.0.0 or ::
+            // Set option flag so that they are not added later
+            set_flag(option);
+            return false;
+        }
+    }
+    return true;
+}
+
 // Add option taking number of Ipv4 addresses
 uint16_t DhcpHandlerBase::AddIpv4Option(uint32_t option, uint16_t opt_len,
                                         const std::string &input,
@@ -190,20 +224,8 @@ uint16_t DhcpHandlerBase::AddIpv4Option(uint32_t option, uint16_t opt_len,
     while (value.good()) {
         std::string ipstr;
         value >> ipstr;
-        if (option == DHCP_OPTION_DNS) {
-            boost::system::error_code ec;
-            uint32_t ip = Ip4Address::from_string(ipstr, ec).to_ulong();
-            if (!ec.value()) {
-                // when DNS server is present in DHCP option, disable vrouter
-                // proxying for DNS requests from VMs.
-                dns_enable_ = false;
-                if (!ip) {
-                    // Do not send the option when DNS servers have 0.0.0.0.
-                    // Set option flag here so that they are not added later
-                    set_flag(option);
-                    return opt_len - option_->GetLen() - option_->GetFixedLen();
-                }
-            }
+        if (!IsValidIpOption(option, ipstr, true)) {
+            return opt_len - option_->GetLen() - option_->GetFixedLen();
         }
         opt_len = AddIP(opt_len, ipstr);
     }
@@ -247,20 +269,8 @@ uint16_t DhcpHandlerBase::AddIpv6Option(uint32_t option, uint16_t opt_len,
     while (value.good()) {
         std::string ipstr;
         value >> ipstr;
-        if (option == DHCPV6_OPTION_DNS_SERVERS) {
-            boost::system::error_code ec;
-            Ip6Address ip = Ip6Address::from_string(ipstr, ec);
-            if (!ec.value()) {
-                // when DNS server is present in DHCP option, disable vrouter
-                // proxying for DNS requests from VMs.
-                dns_enable_ = false;
-                if (ip.is_unspecified()) {
-                    // Do not send the option when DNS servers have ::
-                    // Set option flag here so that they are not added later
-                    set_flag(option);
-                    return opt_len - option_->GetLen() - option_->GetFixedLen();
-                }
-            }
+        if (!IsValidIpOption(option, ipstr, false)) {
+            return opt_len - option_->GetLen() - option_->GetFixedLen();
         }
         opt_len = AddIP(opt_len, ipstr);
         if (!list) break;
@@ -498,6 +508,14 @@ uint16_t DhcpHandlerBase::AddDhcpOptions(
         DhcpOptionCategory category = OptionCategory(option);
         option_->SetNextOptionPtr(opt_len);
 
+        // if dhcp_option_value_bytes is set, use that for supported categories
+        std::string &opt_value = options[i].dhcp_option_value;
+        if (!options[i].dhcp_option_value_bytes.empty() &&
+            CanOverrideWithBytes(category)) {
+            category = ByteArray;
+            opt_value = options[i].dhcp_option_value_bytes;
+        }
+
         switch(category) {
             case None:
                 break;
@@ -513,8 +531,7 @@ uint16_t DhcpHandlerBase::AddDhcpOptions(
                 break;
 
             case ByteArray:
-                opt_len = AddByteArrayOption(option, opt_len,
-                                             options[i].dhcp_option_value);
+                opt_len = AddByteArrayOption(option, opt_len, opt_value);
                 break;
 
             case ByteString:
@@ -684,4 +701,16 @@ void DhcpHandlerBase::FindDomainName(const IpAddress &vm_addr) {
     }
 
     config_.domain_name_ = vdns_type_.domain_name;
+}
+
+bool DhcpHandlerBase::CanOverrideWithBytes(DhcpOptionCategory category) {
+    if (category == ByteArray ||
+        category == ByteString ||
+        category == String ||
+        category == NameCompression ||
+        category == NameCompressionArray ||
+        category == ByteNameCompression)
+        return true;
+
+    return false;
 }
