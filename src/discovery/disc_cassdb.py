@@ -188,7 +188,8 @@ class DiscoveryCassandraClient(object):
         else:
             col_name = ('client', )
             try:
-                data = self._disco_cf.get_range(column_start=col_name, column_finish=col_name)
+                data = self._disco_cf.get_range(column_start=col_name,
+                   column_finish = col_name, column_count = disc_consts.MAX_COL)
             except pycassa.NotFoundException:
                 return None
 
