@@ -107,6 +107,25 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     alloc_count_.fetch_and_increment();
 }
 
+FlowEntry::~FlowEntry() {
+    if (is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) &&
+        (linklocal_src_port_fd_ == PktFlowInfo::kLinkLocalInvalidFd ||
+         !linklocal_src_port_)) {
+        LOG(DEBUG, "Linklocal Flow Inconsistency fd = " <<
+            linklocal_src_port_fd_ << " port = " << linklocal_src_port_ <<
+            " flow index = " << flow_handle_ << " source = " <<
+            key_.src_addr.to_string() << " dest = " <<
+            key_.dst_addr.to_string() << " protocol = " << key_.protocol <<
+            " sport = " << key_.src_port << " dport = " << key_.dst_port);
+    }
+    if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
+        close(linklocal_src_port_fd_);
+        Agent::GetInstance()->pkt()->flow_table()->
+            DelLinkLocalFlowInfo(linklocal_src_port_fd_);
+    }
+    alloc_count_.fetch_and_decrement();
+}
+
 void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
     const AgentPath *path = NULL;
     if (rt) {
@@ -925,6 +944,22 @@ void FlowEntry::GetPolicyInfo() {
     GetPolicyInfo(data_.vn_entry.get());
 }
 
+void FlowTable::AddLinkLocalFlowInfo(int fd, uint32_t index, const FlowKey &key,
+                                     const uint64_t timestamp) {
+    LinkLocalFlowInfoMap::iterator it = linklocal_flow_info_map_.find(fd);
+    if (it == linklocal_flow_info_map_.end()) {
+        linklocal_flow_info_map_.insert(
+          LinkLocalFlowInfoPair(fd, LinkLocalFlowInfo(index, key, timestamp)));
+    } else {
+        it->second.flow_index = index;
+        it->second.flow_key = key;
+    }
+}
+
+void FlowTable::DelLinkLocalFlowInfo(int fd) {
+    linklocal_flow_info_map_.erase(fd);
+}
+
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     flow->reset_flags(FlowEntry::ReverseFlow);
     /* reverse flow may not be aviable always, eg: Flow Audit */
@@ -1419,15 +1454,18 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         flow_handle_ = pkt->GetAgentHdr().cmd_param;
     }
 
-    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
-        return;
-    }
     if (info->linklocal_bind_local_port) {
         linklocal_src_port_ = info->nat_sport;
         linklocal_src_port_fd_ = info->linklocal_src_port_fd;
+        Agent::GetInstance()->pkt()->flow_table()->AddLinkLocalFlowInfo(
+            linklocal_src_port_fd_, flow_handle_, key_, stats_.setup_time);
         set_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     } else {
         reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
+    }
+
+    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
+        return;
     }
     stats_.intf_in = pkt->GetAgentHdr().ifindex;
 
