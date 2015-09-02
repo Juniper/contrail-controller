@@ -299,7 +299,94 @@ class PhysicalRouterDM(DBBaseDM):
                 vn_dict[vn_id] = [li.name]
         return vn_dict
     #end
+    def config_pnf_logical_interface(self):
+        """
+        Check if the Physical Interface connects to a SA
+        if so, the Physical Interface will connects to another Pysical Interface
+        Get this Physical Interface and read the virtual_machine_interface of it,
+        For each virtual_machine_interface, we allocate vlan and allocate logical interface id.
+        """
+        pnf_dict = {}
+        # make it fake for now
+        # sholud save to the database, the allocation
+        self.vlan_dict = {}
+        self.li_dict = {}
+        for pi_uuid in self.physical_interfaces:
+            pi = PhysicalInterfaceDM.get(pi_uuid)
+            if pi is None:
+                continue
+            if pi.physical_interfaces is not None:
+                 for pi_pi_uuid in pi.physical_interfaces:
+                    pi_pi = PhysicalInterfaceDM.get(pi_pi_uuid)
+                    for pi_vmi_uuid in pi_pi.virtual_machine_interfaces:
+                        pi_vmi = VirtualMachineInterfaceDM.get(pi_vmi_uuid)
+                        if pi_vmi is None or \
+                                pi_vmi.service_instance_id is None or \
+                                pi_vmi.service_interface_type is None:
+                            continue
+                        li_dict = self.config_manager.add_logical_interface(
+                            pi_vmi, pi, self.vlan_dict, self.li_dict)
+                        if pi_vmi.service_instance_id in pnf_dict.keys():
+                            pnf_dict[pi_vmi.service_instance_id][
+                                pi_vmi.service_interface_type].append(li_dict)
+                        else:
+                            pnf_dict[pi_vmi.service_instance_id] = {
+                                "left": [], "right": []}
+                            pnf_dict[pi_vmi.service_instance_id][
+                                pi_vmi.service_interface_type].append(li_dict)
 
+        return pnf_dict
+
+
+    def compute_pnf_static_route(self,ri_obj,pnf_dict):
+        """
+        Compute all the static route for the pnfs on the device
+        Args:
+            ri_obj: The routing instance need to added the static routes
+            pnf_dict: The pnf mapping dict
+        Returns:
+            static_routes: a static route list
+                [
+                    "service_chain_address":{
+                        "next-hop":"ip_address",
+                        "preference": int #use for the load balance
+                    }
+                ]
+        """
+        prefrence = 0
+        static_routes = {}
+       
+        for vmi_uuid in ri_obj.virtual_machine_interfaces:
+            # found the service chain address
+            # Check if this vmi is a PNF vmi
+            vmi = VirtualMachineInterfaceDM(vmi_uuid)
+           
+            preference = 0
+            if vmi is not None:
+                if vmi.service_instance_id is not None:
+                    li_list = []
+                    if vmi.service_interface_type == 'left':
+                        li_list = pnf_dict[vmi.service_instance_id]['right']
+                    elif vmi.service_interface_type == 'right':
+                        li_list = pnf_dict[vmi.service_instance_id]['left']
+
+                    for li in li_list:
+                        static_entry = {
+                            "next-hop": li['ip'].split('/')[0]
+                        }
+                        if preference > 0:
+                            static_entry[
+                                "preference"] = preference
+                        preference += 1
+                        if ri_obj.service_chain_address in static_routes.keys():
+                            static_routes[ri_obj.service_chain_address].append(
+                                static_entry)
+                        else:
+                            static_routes[
+                                ri_obj.service_chain_address] = []
+                            static_routes[ri_obj.service_chain_address].append(
+                                static_entry)
+        return static_routes
     def push_config(self):
         self.config_manager.reset_bgp_config()
         bgp_router = BgpRouterDM.get(self.bgp_router)
@@ -322,6 +409,7 @@ class PhysicalRouterDM(DBBaseDM):
         vn_dict = self.get_vn_li_map()
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()))
         vn_irb_ip_map = self.get_vn_irb_ip_map()
+        pnf_dict = self.config_pnf_logical_interface()
 
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
@@ -334,7 +422,8 @@ class PhysicalRouterDM(DBBaseDM):
                 ri_obj = RoutingInstanceDM.get(ri_id)
                 if ri_obj is None:
                     continue
-                if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
+                if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]\
+                    or ri_obj.service_chain_address is not None:
                     vrf_name_l2 = vn_obj.get_vrf_name(vrf_type='l2')
                     vrf_name_l3 = vn_obj.get_vrf_name(vrf_type='l3')
                     export_set = copy.copy(ri_obj.export_targets)
@@ -363,6 +452,29 @@ class PhysicalRouterDM(DBBaseDM):
                                                              interfaces,
                                                              vn_obj.vxlan_vni,
                                                              None, vn_obj.vn_network_id)
+                    # for PNF
+                    elif ri_obj.service_chain_address is not None:
+                        pnf_inters = set()
+                        static_routes = {}
+                        static_routes = self.compute_pnf_static_route(ri_obj,pnf_dict)
+                        if_type = ""
+                        for vmi in ri_obj.virtual_machine_interfaces:
+                            vmi_obj = VirtualMachineInterfaceDM.get(vmi)
+                            if vmi_obj.service_instance_id is not None:
+                               if_type=vmi_obj.service_interface_type
+                               pnf_li_inters = pnf_dict[vmi_obj.service_instance_id][vmi_obj.service_interface_type]
+                               for pnf_li in pnf_li_inters:
+                                   pnf_inters.add(pnf_li['name'])
+                       
+                        if pnf_inters:
+                           vrf_name = ri_obj.uuid + '-' + if_type
+                           vrf_interfaces = pnf_inters
+                           self.config_manager.add_routing_instance(vrf_name,
+                                                                 import_set,
+                                                                 export_set,
+                                                                 interfaces = vrf_interfaces,
+                                                                 static_routes=static_routes,
+                                                                 no_vrf_table_label = True)
                     else:
                         self.config_manager.add_routing_instance(vrf_name_l3,
                                                              import_set,
@@ -517,6 +629,8 @@ class PhysicalInterfaceDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.virtual_machine_interfaces = set()
+        self.physical_interfaces = set()
         self.update(obj_dict)
         pr = PhysicalRouterDM.get(self.physical_router)
         if pr:
@@ -529,6 +643,9 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        self.name = obj.get('fq_name')[-1]
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('physical_interface', obj)
     # end update
 
     @classmethod
@@ -666,12 +783,31 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.floating_ip = None
         self.instance_ip = None
         self.logical_interface = None
+        self.physical_interface = None
+        self.service_interface_type = None
+        self.service_instance_id = None
+        self.service_instance = None
         self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+
+        ref_obj = obj.get("service_instance_back_refs")
+        
+        if ref_obj:
+            self.service_instance_id = ref_obj[0]['attr'][
+                'instance_id'] if 'instance_id' in ref_obj[0]['attr'].keys() else None
+            if isinstance(self.service_instance_id,(str,unicode)):
+                temp = self.service_instance_id.replace('-','')
+                self.service_instance_id = int(temp,16)
+            self.service_interface_type = ref_obj[0]['attr'][
+                'interface_type'] if 'interface_type' in ref_obj[0]['attr'].keys() else None
+            self.service_instance = ref_obj[0]['uuid']
+
+        self.update_single_ref('physical_interface', obj)
+
         self.device_owner = obj.get("virtual_machine_interface_device_owner")
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
@@ -814,6 +950,8 @@ class RoutingInstanceDM(DBBaseDM):
         self.import_targets = set()
         self.export_targets = set()
         self.routing_instances = set()
+        self.service_chain_address = None
+        self.virtual_machine_interfaces = set()
         self.update(obj_dict)
         vn = VirtualNetworkDM.get(self.virtual_network)
         if vn:
@@ -838,6 +976,10 @@ class RoutingInstanceDM(DBBaseDM):
                 self.import_targets.add(rt_name)
                 self.export_targets.add(rt_name)
         self.update_multiple_refs('routing_instance', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        service_chain_information = obj.get('service_chain_information')
+        self.service_chain_address = service_chain_information[
+            'service_chain_address'] if service_chain_information is not None else None
 
     # end update
 
@@ -942,3 +1084,4 @@ class DMCassandraDB(VncCassandraClient):
     # end get_db_info
 
 #end
+
