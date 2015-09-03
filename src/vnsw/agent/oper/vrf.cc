@@ -26,6 +26,7 @@
 #include <controller/controller_vrf_export.h>
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
+#include <oper/config_manager.h>
 #include <oper/agent_route_resync.h>
 
 using namespace std;
