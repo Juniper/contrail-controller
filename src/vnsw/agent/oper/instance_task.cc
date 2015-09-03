@@ -107,10 +107,16 @@ pid_t InstanceTask::Run() {
 
     start_time_ = time(NULL);
 
-    boost::system::error_code ec;
-    errors_.assign(::dup(err[0]), ec);
+    int fd = ::dup(err[0]);
     close(err[0]);
+    if (fd == -1) {
+        is_running_ = false;
+        return -1;
+    }
+    boost::system::error_code ec;
+    errors_.assign(fd, ec);
     if (ec) {
+        close(fd);
         is_running_ = false;
         return -1;
     }
