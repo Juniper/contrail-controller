@@ -446,7 +446,7 @@ class VirtualNetworkST(DBBaseST):
     def allocate_service_chain_ip(self, sc_name):
         sc_ip_address = self._cassandra.get_service_chain_ip(sc_name)
         if sc_ip_address:
-            return
+            return sc_ip_address
         try:
             sc_ip_address = self._vnc_lib.virtual_network_ip_alloc(
                 self.obj, count=1)[0]
@@ -582,11 +582,7 @@ class VirtualNetworkST(DBBaseST):
         return rinst
     # end locate_routing_instance
 
-    def delete_routing_instance(self, ri, old_ri_list=None):
-        if old_ri_list:
-            for ri2 in old_ri_list.values():
-                if ri.get_fq_name_str() in ri2.connections:
-                    ri2.delete_connection(ri)
+    def delete_routing_instance(self, ri):
         for vn in self._dict.values():
             for ri2 in vn.rinst.values():
                 if ri.get_fq_name_str() in ri2.connections:
@@ -1720,14 +1716,6 @@ class RoutingInstanceST(object):
         DBBaseST._vnc_lib.routing_instance_update(self.obj)
     # end delete_connection
 
-    def delete_connection_fq_name(self, ri2_fq_name_str):
-        self.connections.discard(ri2_fq_name_str)
-        rinst1_obj = self.read_vnc_obj(self.obj.uuid)
-        rinst2_obj = self.read_vnc_obj(fq_name=ri2_fq_name_str)
-        rinst1_obj.del_routing_instance(rinst2_obj)
-        DBBaseST._vnc_lib.routing_instance_update(rinst1_obj)
-    # end delete_connection_fq_name
-
     def add_service_info(self, remote_vn, service_instance=None,
                          service_chain_address=None, source_ri=None):
         service_info = self.obj.get_service_chain_information(
@@ -2047,7 +2035,6 @@ class ServiceChain(DBBaseST):
         self.partially_created = True
         vn1_obj = VirtualNetworkST.locate(self.left_vn)
         vn2_obj = VirtualNetworkST.locate(self.right_vn)
-        #sc_ip_address = vn1_obj.allocate_service_chain_ip(sc_name)
         if not vn1_obj or not vn2_obj:
             self.log_error("vn1_obj or vn2_obj is None")
             return
