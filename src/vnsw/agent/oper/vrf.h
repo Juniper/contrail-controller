@@ -15,6 +15,7 @@ class LifetimeActor;
 class LifetimeManager;
 class ComponentNHData;
 class AgentRouteWalker;
+class AgentRouteResync;
 
 struct VrfKey : public AgentKey {
     VrfKey(const string &name) : AgentKey(), name_(name) { };
@@ -54,7 +55,7 @@ public:
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
     static const uint32_t kDeleteTimeout = 900 * 1000;
 
-    VrfEntry(const string &name, uint32_t flags);
+    VrfEntry(const string &name, uint32_t flags, Agent *agent);
     virtual ~VrfEntry();
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -115,6 +116,7 @@ public:
     bool RouteTableDeleted(uint8_t table_type) const;
     void SetRouteTableDeleted(uint8_t table_type);
     void DeleteRouteTables();
+    void ResyncRoutes();
 
 private:
     friend class VrfTable;
@@ -132,6 +134,7 @@ private:
     uint32_t table_label_;
     uint32_t vxlan_id_;
     uint32_t rt_table_delete_bmap_;
+    boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
