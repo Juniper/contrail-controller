@@ -844,7 +844,6 @@ XmppChannelConfig *NetworkAgentMock::CreateXmppConfig() {
     config->endpoint.port(server_port_);
     config->FromAddr = hostname();
     config->ToAddr = XmppDocumentMock::kControlNodeJID;
-    config->tcp_hold_time = 0;
     return config;
 }
 
