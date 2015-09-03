@@ -1,6 +1,16 @@
 import json
 import os
 
+def validate_custom_attributes(config, section):
+    return {}
+
+try:
+    from haproxy_validator import validate_custom_attributes as validator
+    from haproxy_validator import custom_attributes_dict
+except ImportError:
+    validator = validate_custom_attributes
+    custom_attributes_dict = {}
+
 PROTO_TCP = 'TCP'
 PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
@@ -45,6 +55,15 @@ def build_config(conf_file):
     return filename
 
 def _set_global_config(config, sock_path):
+    global_custom_attributes = validator(config, 'global')
+    maxconn = global_custom_attributes.pop('maxconn', None) \
+        if 'maxconn' in global_custom_attributes else 65000
+    ssl_ciphers = global_custom_attributes.pop('ssl_ciphers', None) \
+        if 'ssl_ciphers' in global_custom_attributes else \
+            'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:' \
+            'ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:' \
+            'RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS'
+
     conf = [
         'global',
         'daemon',
@@ -53,30 +72,45 @@ def _set_global_config(config, sock_path):
         'log /dev/log local0',
         'log /dev/log local1 notice',
         'tune.ssl.default-dh-param 2048',
-        'ssl-default-bind-ciphers ECDH+AESGCM:' \
-        'DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:' \
-        'DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:' \
-        'RSA+3DES:!aNULL:!MD5:!DSS',
-        'ulimit-n 200000',
-        'maxconn 65000'
+        'ssl-default-bind-ciphers %s' % ssl_ciphers,
+        'ulimit-n 200000', 
+        'maxconn %d' % maxconn
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
+    for key, value in global_custom_attributes.iteritems():
+        cmd = custom_attributes_dict['global'][key]['cmd']
+        conf.append(cmd % value)
+
     return ("\n\t".join(conf))
 
 def _set_defaults(config):
+    default_custom_attributes = validator(config, 'default')
+    client_timeout = default_custom_attributes.pop('client_timeout', None) \
+        if 'client_timeout' in default_custom_attributes else 300000
+    server_timeout = default_custom_attributes.pop('server_timeout', None) \
+        if 'server_timeout' in default_custom_attributes else 300000
+    connect_timeout = default_custom_attributes.pop('connect_timeout', None) \
+        if 'connect_timeout' in default_custom_attributes else 5000
+
     conf = [
         'defaults',
         'log global',
         'retries 3',
         'option redispatch',
-        'timeout connect 5000',
-        'timeout client 300000',
-        'timeout server 300000',
+        'timeout connect %d' % connect_timeout,
+        'timeout client %d' % client_timeout,
+        'timeout server %d' % server_timeout,
     ]
+
+    for key, value in default_custom_attributes.iteritems():
+        cmd = custom_attributes_dict['default'][key]['cmd']
+        conf.append(cmd % value)
+    
     return ("\n\t".join(conf))
 
 def _set_frontend(config):
     port = config['vip']['port']
+    vip_custom_attributes = validator(config, 'vip')
     ssl = ''
     if config['vip']['protocol'] == PROTO_HTTPS:
         ssl = 'ssl crt %s no-sslv3' % config['ssl-crt']
@@ -92,9 +126,15 @@ def _set_frontend(config):
     if config['vip']['protocol'] == PROTO_HTTP or \
             config['vip']['protocol'] == PROTO_HTTPS:
         conf.append('option forwardfor')
+
+    for key, value in vip_custom_attributes.iteritems():
+        cmd = custom_attributes_dict['vip'][key]['cmd']
+        conf.append(cmd % value)
+
     return ("\n\t".join(conf))
 
 def _set_backend(config):
+    pool_custom_attributes = validator(config, 'pool')
     conf = [
         'backend %s' % config['pool']['id'],
         'mode %s' % PROTO_MAP[config['pool']['protocol']],
@@ -102,6 +142,10 @@ def _set_backend(config):
     ]
     if config['pool']['protocol'] == PROTO_HTTP:
         conf.append('option forwardfor')
+
+    for key, value in pool_custom_attributes.iteritems():
+        cmd = custom_attributes_dict['pool'][key]['cmd']
+        conf.append(cmd % value)
 
     server_suffix, monitor_conf = _set_health_monitor(config)
     conf.extend(monitor_conf)
@@ -116,6 +160,10 @@ def _set_backend(config):
         if (config['vip']['persistence-type'] == PERSISTENCE_HTTP_COOKIE):
             server += ' cookie %d' % config['members'].index(member)
         conf.append(server)
+
+    for key, value in pool_custom_attributes.iteritems():
+        cmd = custom_attributes_dict['pool'][key]['cmd']
+        conf.append(cmd % value)
 
     return ("\n\t".join(conf))
 
