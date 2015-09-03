@@ -26,6 +26,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
 #include <oper/config_manager.h>
+#include <oper/agent_route_resync.h>
 
 using namespace std;
 using namespace autogen;
@@ -55,13 +56,14 @@ class VrfEntry::DeleteActor : public LifetimeActor {
     VrfEntryRef table_;
 };
 
-VrfEntry::VrfEntry(const string &name, uint32_t flags) : 
+VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) : 
         name_(name), id_(kInvalidIndex), flags_(flags),
         walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
         rt_table_db_(), delete_timeout_timer_(NULL),
         table_label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
-        rt_table_delete_bmap_(0) {
+        rt_table_delete_bmap_(0),
+        route_resync_walker_(new AgentRouteResync(agent)) {
 }
 
 VrfEntry::~VrfEntry() {
@@ -355,10 +357,13 @@ void VrfEntry::CancelDeleteTimer() {
     delete_timeout_timer_->Cancel();
 }
 
+void VrfEntry::ResyncRoutes() {
+    route_resync_walker_.get()->UpdateRoutesInVrf(this);
+}
 
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
-    VrfEntry *vrf = new VrfEntry(key->name_, 0);
+    VrfEntry *vrf = new VrfEntry(key->name_, 0, agent());
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vrf));
 }
 
@@ -372,7 +377,7 @@ VrfTable::~VrfTable() {
 DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     VrfData *data = static_cast<VrfData *>(req->data.get());
-    VrfEntry *vrf = new VrfEntry(key->name_, data->flags_);
+    VrfEntry *vrf = new VrfEntry(key->name_, data->flags_, agent());
 
     // Add VRF into name based tree
     if (FindVrfFromName(key->name_)) {
@@ -396,6 +401,7 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
     if (vn != vrf->vn_.get()) {
         vrf->vn_.reset(vn);
+        vrf->ResyncRoutes();
         ret = true;
     }
 
