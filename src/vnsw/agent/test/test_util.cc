@@ -1969,7 +1969,7 @@ void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_a
                   "virtual-network-network-ipam");
     if (vdns_name) {
         AddLinkString(buff, len, "network-ipam", ipam_name,
-                      "virtual-DNS", vdns_name);
+                      "virtual-DNS", vdns_name, "virtual-DNS");
     }
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
