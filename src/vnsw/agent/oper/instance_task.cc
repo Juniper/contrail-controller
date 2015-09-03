@@ -107,12 +107,16 @@ pid_t InstanceTask::Run() {
 
     start_time_ = time(NULL);
 
-    boost::system::error_code ec;
-    errors_.assign(::dup(err[0]), ec);
+    int fd = ::dup(err[0]);
     close(err[0]);
+    if (fd == -1) {
+        return is_running_ = false;
+    }
+    boost::system::error_code ec;
+    errors_.assign(fd, ec);
     if (ec) {
-        is_running_ = false;
-        return -1;
+        close(fd);
+        return is_running_ = false;
     }
 
     bzero(rx_buff_, sizeof(rx_buff_));
