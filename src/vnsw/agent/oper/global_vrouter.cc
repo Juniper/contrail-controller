@@ -457,7 +457,7 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         //mpls or vice versa.
         //Update all routes irrespectively as this will handle change of
         //priority between MPLS-UDP to MPLS-GRE and vice versa.
-        agent_route_resync_walker_.get()->Update();
+        ResyncRoutes();
         resync_vm_interface = true;
     }
 
@@ -725,6 +725,10 @@ bool GlobalVrouter::IsLinkLocalAddressInUse(const Ip4Address &ip) const {
             return true;
     }
     return false;
+}
+
+void GlobalVrouter::ResyncRoutes() {
+    agent_route_resync_walker_.get()->Update();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

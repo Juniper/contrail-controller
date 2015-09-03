@@ -87,6 +87,7 @@ public:
     Agent::ForwardingMode forwarding_mode() const {return forwarding_mode_;}
 
     uint64_t PendingFabricDnsRequests() const;
+    void ResyncRoutes();
 
 private:
     class FabricDnsResolver;

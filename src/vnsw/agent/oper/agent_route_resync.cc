@@ -29,3 +29,7 @@ bool AgentRouteResync::RouteWalkNotify(DBTablePartBase *partition,
 void AgentRouteResync::Update() {
     StartVrfWalk(); 
 }
+
+void AgentRouteResync::UpdateRoutesInVrf(VrfEntry *vrf) {
+    StartRouteWalk(vrf); 
+}
