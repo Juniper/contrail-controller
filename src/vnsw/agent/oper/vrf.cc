@@ -26,6 +26,7 @@
 #include <controller/controller_vrf_export.h>
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
+#include <oper/global_vrouter.h>
 
 using namespace std;
 using namespace autogen;
@@ -346,7 +347,6 @@ void VrfEntry::CancelDeleteTimer() {
     delete_timeout_timer_->Cancel();
 }
 
-
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_, 0);
@@ -387,6 +387,7 @@ bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
     if (vn != vrf->vn_.get()) {
         vrf->vn_.reset(vn);
+        agent()->oper_db()->global_vrouter()->ResyncRoutes();
         ret = true;
     }
 
