@@ -104,6 +104,8 @@ protected:
                               const std::string &input);
     uint16_t AddShortArrayOption(uint32_t option, uint16_t opt_len,
                                  const std::string &input, bool array);
+    bool IsValidIpOption(uint32_t option, const std::string &ipstr, bool is_v4);
+    bool IsValidDnsOption(uint32_t option, const std::string &ipstr);
     uint16_t AddIpv4Option(uint32_t option, uint16_t opt_len,
                            const std::string &input, uint8_t min_count,
                            uint8_t max_count, uint8_t multiples);
@@ -125,6 +127,7 @@ protected:
                             std::vector<autogen::DhcpOptionType> &options,
                             DhcpOptionLevel level);
     void FindDomainName(const IpAddress &vm_addr);
+    bool CanOverrideWithBytes(DhcpOptionCategory category);
 
     virtual void DhcpTrace(const std::string &msg) const = 0;
 

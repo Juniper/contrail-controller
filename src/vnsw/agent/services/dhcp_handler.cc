@@ -216,7 +216,7 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_NIS_DOMAIN, DhcpHandler::String)
         (DHCP_OPTION_NIS_SERVERS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_NTP_SERVERS, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_VENDOR_SPECIFIC_INFO, DhcpHandler::ByteArray)
+        (DHCP_OPTION_VENDOR_SPECIFIC_INFO, DhcpHandler::String)
         (DHCP_OPTION_NETBIOS_OVER_TCP_NS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_NETBIOS_OVER_TCP_NODE_TYPE, DhcpHandler::Byte)
@@ -233,8 +233,8 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_MAX_DHCP_MSG_SIZE, DhcpHandler::Uint16bit)
         (DHCP_OPTION_RENEW_TIME_VALUE, DhcpHandler::Uint32bit)
         (DHCP_OPTION_REBIND_TIME_VALUE, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_CLASS_ID, DhcpHandler::ByteArray)
-        (DHCP_OPTION_CLIENT_ID, DhcpHandler::ByteArray)
+        (DHCP_OPTION_CLASS_ID, DhcpHandler::String)
+        (DHCP_OPTION_CLIENT_ID, DhcpHandler::ByteString)
         (DHCP_OPTION_NETWARE_IP_DOMAIN_NAME, DhcpHandler::String)
         (DHCP_OPTION_NETWARE_IP_INFO, DhcpHandler::ByteArray)  // send encoded data
         (DHCP_OPTION_NIS_PLUS_DOMAIN, DhcpHandler::String)
@@ -252,7 +252,7 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_STREETTALK_DA_SERVER, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_USER_CLASS_INFO, DhcpHandler::ByteArray)  // send encoded data
         (DHCP_OPTION_SLP_DIRECTORY_AGENT, DhcpHandler::ByteOneIPPlus)
-        (DHCP_OPTION_SLP_SERVICE_SCOPE, DhcpHandler::ByteArray)
+        (DHCP_OPTION_SLP_SERVICE_SCOPE, DhcpHandler::ByteString)
         (DHCP_OPTION_RAPID_COMMIT, DhcpHandler::NoData)
         // (DHCP_OPTION_CLIENT_FQDN, DhcpHandler::ByteArray)   // sent by clients
         (DHCP_OPTION_STORAGE_NS, DhcpHandler::ByteArray)       // send encoded data
@@ -267,7 +267,7 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_CLIENT_SYSARCH_TYPE, DhcpHandler::Uint16bit)
         (DHCP_OPTION_CLIENT_NW_INTERFACE_ID, DhcpHandler::ByteArray)
         (DHCP_OPTION_LDAP, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_CLIENT_MACHINE_ID, DhcpHandler::ByteArray)
+        (DHCP_OPTION_CLIENT_MACHINE_ID, DhcpHandler::String)
         (DHCP_OPTION_OPENGROUP_USER_AUTH, DhcpHandler::String)
         (DHCP_OPTION_GEOCONF_CIVIC, DhcpHandler::ByteArray)    // send encoded data
         (DHCP_OPTION_IEEE_1003_1_TZ, DhcpHandler::String)
@@ -286,13 +286,13 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_VENDOR_ID_VENDOR_CLASS, DhcpHandler::ByteArray)     // send encoded data
         (DHCP_OPTION_VENDOR_ID_VENDOR_SPECIFIC, DhcpHandler::ByteArray)  // send encoded data
         (DHCP_OPTION_TFTP_SERVER, DhcpHandler::OneIPv4Plus)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_129, DhcpHandler::ByteArray)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_130, DhcpHandler::ByteArray)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_131, DhcpHandler::ByteArray)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_132, DhcpHandler::ByteArray)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_133, DhcpHandler::ByteArray)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_134, DhcpHandler::ByteArray)
-        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_135, DhcpHandler::ByteArray)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_129, DhcpHandler::String)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_130, DhcpHandler::String)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_131, DhcpHandler::String)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_132, DhcpHandler::String)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_133, DhcpHandler::String)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_134, DhcpHandler::String)
+        (DHCP_OPTION_PXE_VENDOR_SPECIFIC_135, DhcpHandler::String)
         (DHCP_OPTION_PANA_AUTH_AGENT, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_LOST_SERVER, DhcpHandler::ByteArray)         // send encoded data
         (DHCP_OPTION_CAPWAP_AC_ADDRESS, DhcpHandler::OneIPv4Plus)
@@ -319,7 +319,7 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_6RD, DhcpHandler::ByteArray)               // send encoded data
         (DHCP_OPTION_SUBNET_ALLOCATION, DhcpHandler::ByteArray)
         (DHCP_OPTION_V4_ACCESS_DOMAIN, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_VSS, DhcpHandler::ByteArray)
+        (DHCP_OPTION_VSS, DhcpHandler::ByteString)
         (DHCP_OPTION_PAD, DhcpHandler::None)
         (DHCP_OPTION_END, DhcpHandler::None);
 
