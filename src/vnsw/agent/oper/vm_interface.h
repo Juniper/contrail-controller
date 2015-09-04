@@ -328,6 +328,12 @@ public:
                         VrfEntry *old_vrf, uint32_t old_ethernet_tag) const;
         void Activate(VmInterface *interface, bool force_update, bool l2,
                       int old_ethernet_tag) const;
+        bool installed() const {
+            if (l2_installed_ || installed_) {
+                return true;
+            }
+            return false;
+        }
 
         const IpAddress ip_;
         bool ecmp_;
