@@ -48,7 +48,7 @@ class AddrMgmtSubnetInvalid(AddrMgmtError):
         return "Virtual-Network(%s) has invalid subnet(%s)" %\
             (self.vn_fq_name, self.subnet_name)
     # end __str__
-# end AddrMgmtSubnetUndefined
+# end AddrMgmtSubnetInvalid
 
 
 class AddrMgmtSubnetExhausted(AddrMgmtError):
@@ -63,90 +63,6 @@ class AddrMgmtSubnetExhausted(AddrMgmtError):
             (self.vn_fq_name, self.subnet_val)
     # end __str__
 # end AddrMgmtSubnetExhausted
-
-
-class AddrMgmtInvalidIpAddr(AddrMgmtError):
-
-    def __init__(self, subnet_val, alloc_pool):
-        self.subnet_val = subnet_val
-        self.alloc_pool = alloc_pool
-    # end __init__
-
-    def __str__(self):
-        return "subnet(%s) has Invalid Ip address in Allocation Pool(%s)" %\
-            (self.subnet_val, self.alloc_pool)
-    # end __str__
-# end AddrMgmtInvalidIpAddr
-
-
-class AddrMgmtOutofBoundAllocPool(AddrMgmtError):
-
-    def __init__(self, subnet_val, alloc_pool):
-        self.subnet_val = subnet_val
-        self.alloc_pool = alloc_pool
-    # end __init__
-
-    def __str__(self):
-        return "subnet(%s) allocation pool (%s) is out of cidr" %\
-            (self.subnet_val, self.alloc_pool)
-    # end __str__
-# end AddrMgmtOutofBoundAllocPool
-
-
-class AddrMgmtInvalidAllocPool(AddrMgmtError):
-
-    def __init__(self, subnet_val, alloc_pool):
-        self.subnet_val = subnet_val
-        self.alloc_pool = alloc_pool
-    # end __init__
-
-    def __str__(self):
-        return "subnet(%s) has Invalid Allocation Pool(%s)" %\
-            (self.subnet_val, self.alloc_pool)
-    # end __str__
-# end AddrMgmtInvalidAllocPool
-
-
-class AddrMgmtInvalidGatewayIp(AddrMgmtError):
-
-    def __init__(self, subnet_val, gateway_ip):
-        self.subnet_val = subnet_val
-        self.gw_ip = gateway_ip
-    # end __init__
-
-    def __str__(self):
-        return "subnet(%s) has Invalid Gateway ip address(%s)" %\
-            (self.subnet_val, self.gw_ip)
-    # end __str__
-# end AddrMgmtInvalidGatewayIp
-
-
-class AddrMgmtInvalidServiceNodeIp(AddrMgmtError):
-
-    def __init__(self, subnet_val, service_address):
-        self.subnet_val = subnet_val
-        self.service_address = service_address
-    # end __init__
-
-    def __str__(self):
-        return "subnet(%s) has Invalid Service Node ip address(%s)" %\
-            (self.subnet_val, self.service_address)
-    # end __str__
-# end AddrMgmtInvalidServiceNodeIp
-
-
-class AddrMgmtInvalidDnsNameServer(AddrMgmtError):
-
-    def __init__(self, subnet_val, name_server):
-        self.subnet_val = subnet_val
-        self.gw_ip = name_server
-    # end __init__
-
-    def __str__(self):
-        return "subnet(%s) has Invalid DNS Nameserver(%s)" %\
-            (self.subnet_val, self.name_server)
-    # end __str__
-# end AddrMgmtInvalidGatewayIp
 
 
 # Class to manage a single subnet
@@ -176,24 +92,9 @@ class Subnet(object):
 
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
-        # check allocation-pool
-        for ip_pool in alloc_pool_list or []:
-            try:
-                start_ip = IPAddress(ip_pool['start'])
-                end_ip = IPAddress(ip_pool['end'])
-            except AddrFormatError:
-                raise AddrMgmtInvalidIpAddr(name, ip_pool)
-            if (start_ip not in network or end_ip not in network):
-                raise AddrMgmtOutofBoundAllocPool(name, ip_pool)
-            if (end_ip < start_ip):
-                raise AddrMgmtInvalidAllocPool(name, ip_pool)
         # check gw
         if gw:
-            try:
-                gw_ip = IPAddress(gw)
-            except AddrFormatError:
-                raise AddrMgmtInvalidGatewayIp(name, gw_ip)
-
+            gw_ip = IPAddress(gw)
         else:
             # reserve a gateway ip in subnet
             if addr_from_start:
@@ -203,24 +104,13 @@ class Subnet(object):
 
         # check service_address
         if service_address:
-            try:
-                service_node_address = IPAddress(service_address)
-            except AddrFormatError:
-                raise AddrMgmtInvalidServiceNodeIp(name, service_node_address)
-
+            service_node_address = IPAddress(service_address)
         else:
             # reserve a service address ip in subnet
             if addr_from_start:
                 service_node_address = IPAddress(network.first + 2)
             else:
                 service_node_address = IPAddress(network.last - 2)
-
-        # check dns_nameservers
-        for nameserver in dns_nameservers or []:
-            try:
-                ip_addr = IPAddress(nameserver)
-            except AddrFormatError:
-                raise AddrMgmtInvalidDnsServer(name, nameserver)
 
         # Exclude host and broadcast
         exclude = [IPAddress(network.first), network.broadcast]
@@ -744,10 +634,6 @@ class AddrMgmt(object):
         if not existing_subnets:
             return True, ""
         requested_subnets = self._vn_to_subnets(req_vn_dict)
-        if requested_subnets is None:
-            # subnets not modified in request
-            return True, ""
-
         delete_set = set(existing_subnets) - set(requested_subnets)
 
         if len(delete_set):

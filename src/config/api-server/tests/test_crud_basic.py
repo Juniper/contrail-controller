@@ -1079,6 +1079,26 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             FloatingIpPoolTestFixtureGen(self._vnc_lib, 'floating-ip-pool',
                                          parent_fixt=vn_fixt))
 
+        logger.info("Simulating http_post_collection_fail for FloatingIp")
+        vnc_db_client = self._api_server.get_db_connection()
+
+        def fake_dbe_create(*args, **kwargs):
+            return (False, "dbe_create returns exception")
+
+        with test_common.patch(
+                vnc_db_client, 'dbe_create', fake_dbe_create):
+            try:
+                fip_fixt = self.useFixture(
+                    FloatingIpTestFixtureGen(
+                        self._vnc_lib, 'fip1', parent_fixt=fip_pool_fixt,
+                        project_refs=[project_fixt.getObj()]))
+                # Should never reach here,
+                # FloatingIp should generate exception
+                self.assertEqual(1, 0)
+            except NoIdError:
+                logger.info("Expecting NoIdError exception")
+                pass
+
         logger.info("Creating auto-alloc floating-ip")
         fip_fixt = self.useFixture(
             FloatingIpTestFixtureGen(

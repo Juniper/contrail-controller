@@ -141,8 +141,6 @@ class FloatingIpServer(FloatingIpServerGen):
     def http_delete_fail(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address", None)
-        if req_ip is None:
-            return True, ""
         try:
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip,
                                        alloc_id=obj_dict['uuid'])
@@ -481,7 +479,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             except (ValueError, netaddr.core.AddrFormatError) as e:
                  return (False, "Route target must be of the format "
                          "'target:<asn>:<number>' or 'target:<ip>:number'")
-            if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
+            if int(asn) == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
                  return (False, "Configured route target must use ASN that is "
                          "different from global ASN or route target value must"
                          " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
