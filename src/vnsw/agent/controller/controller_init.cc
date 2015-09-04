@@ -30,6 +30,10 @@ using namespace boost::asio;
 
 SandeshTraceBufferPtr ControllerTraceBuf(SandeshTraceBufferCreate(
     "Controller", 1000));
+SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf(SandeshTraceBufferCreate(
+    "ControllerRxRouteXmppMessage", 5000));
+SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf(SandeshTraceBufferCreate(
+    "ControllerRxConfigXmppMessage", 5000));
 
 ControllerDiscoveryData::ControllerDiscoveryData(std::vector<DSResponse> resp) :
     ControllerWorkQueueData(), discovery_response_(resp) {
@@ -108,6 +112,9 @@ void VNController::XmppServerConnect() {
             XmppChannel *channel = client->
                 FindChannel(XmppInit::kControlNodeJID);
             assert(channel);
+            channel->RegisterRxMessageTraceCallback(
+                             boost::bind(&VNController::XmppMessageTrace,
+                                         this, _1, _2, _3, _4, _5));
             bgp_peer->RegisterXmppChannel(channel);
 
             bgp_peer->UpdateConnectionInfo(channel->GetPeerState());
@@ -740,4 +747,21 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
 
 void VNController::Enqueue(ControllerWorkQueueDataType data) {
     work_queue_.Enqueue(data);
+}
+
+bool VNController::XmppMessageTrace(const std::string &to_address,
+                                    int port, int size,
+                                    const std::string &msg,
+                                    const XmppStanza::XmppMessage *xmppmsg) {
+    const std::string &to = xmppmsg->to;
+    if (to.find(XmppInit::kBgpPeer) != string::npos) {
+        CONTROLLER_RX_ROUTE_MESSAGE_TRACE(Message, to_address,
+                                           port, size, msg);
+        return true;
+    } else if (to.find(XmppInit::kConfigPeer) != string::npos) {
+        CONTROLLER_RX_CONFIG_MESSAGE_TRACE(Message, to_address,
+                                           port, size, msg);
+        return true;
+    }
+    return false;
 }
