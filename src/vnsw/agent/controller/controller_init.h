@@ -140,6 +140,10 @@ public:
     Agent *agent() {return agent_;}
     void Enqueue(ControllerWorkQueueDataType data);
     void DeleteAgentXmppChannel(AgentXmppChannel *ch);
+    bool XmppMessageTrace(const std::string &to_address,
+                          int port, int size,
+                          const std::string &msg,
+                          const XmppStanza::XmppMessage *xmpp_msg);
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -164,6 +168,20 @@ extern SandeshTraceBufferPtr ControllerInfoTraceBuf;
 extern SandeshTraceBufferPtr ControllerDiscoveryTraceBuf;
 extern SandeshTraceBufferPtr ControllerRouteWalkerTraceBuf;
 extern SandeshTraceBufferPtr ControllerTraceBuf;
+extern SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf;
+extern SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf;
+
+#define CONTROLLER_RX_ROUTE_MESSAGE_TRACE(obj, ...)\
+do {\
+    AgentXmpp##obj::TraceMsg(ControllerRxRouteMessageTraceBuf, __FILE__, \
+                             __LINE__, __VA_ARGS__);\
+} while(0);\
+
+#define CONTROLLER_RX_CONFIG_MESSAGE_TRACE(obj, ...)\
+do {\
+    AgentXmpp##obj::TraceMsg(ControllerRxConfigMessageTraceBuf, __FILE__, \
+                             __LINE__, __VA_ARGS__);\
+} while(0);\
 
 #define CONTROLLER_INFO_TRACE(obj, ...)\
 do {\

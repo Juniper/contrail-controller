@@ -80,6 +80,9 @@ public:
     virtual string LastFlap() const {
         return "";
     }
+    virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
+        return;
+    }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {
