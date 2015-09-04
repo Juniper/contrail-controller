@@ -16,6 +16,7 @@ public:
     virtual ~AgentRouteResync() { }
 
     void Update();
+    void UpdateRoutesInVrf(VrfEntry *vrf);
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
 
 private:
