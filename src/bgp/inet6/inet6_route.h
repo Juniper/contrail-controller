@@ -24,6 +24,7 @@ public:
     }
     int CompareTo(const Inet6Prefix &rhs) const;
 
+    Ip6Address addr() const { return ip6_addr_; }
     Ip6Address ip6_addr() const { return ip6_addr_; }
 
     const Ip6Address::bytes_type ToBytes() const {

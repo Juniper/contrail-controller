@@ -990,7 +990,7 @@ protected:
     boost::scoped_ptr<BgpServer> bgp_server_;
     BgpConfigParser parser_;
     RoutingInstanceMgr *ri_mgr_;
-    ServiceChainMgr *service_chain_mgr_;
+    ServiceChainMgr<ServiceChainInet> *service_chain_mgr_;
     vector<BgpPeerMock *> peers_;
     bool service_is_transparent_;
     bool connected_rt_is_inetvpn_;

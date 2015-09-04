@@ -22,6 +22,7 @@ public:
     }
     int CompareTo(const Ip4Prefix &rhs) const;
 
+    Ip4Address addr() const { return ip4_addr_; }
     Ip4Address ip4_addr() const { return ip4_addr_; }
 
     int prefixlen() const { return prefixlen_; }
