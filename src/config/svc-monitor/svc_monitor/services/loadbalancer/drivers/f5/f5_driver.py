@@ -13,10 +13,7 @@ from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
 from f5.bigip import bigip as f5_bigip
-from f5.common import constants as f5const
-from f5.bigip import exceptions as f5ex
 from f5.bigip import bigip_interfaces
-from f5.bigip.bigip_interfaces import strip_folder_and_prefix
 
 from svc_monitor.config_db import *
 
@@ -978,7 +975,10 @@ class OpencontrailF5LoadbalancerDriver(
     # end release_resource
 
     def locate_resources(self, pool, add_change=True):
-        pool_in_db = self.db.pool_driver_info_get(pool)
+        pool_in_db = None
+        pool_db_read = self.db.pool_driver_info_get(pool)
+        if pool_db_read and 'f5' in pool_db_read:
+            pool_in_db = pool_db_read['f5']
         if not add_change:
             return (pool_in_db, None)
 
@@ -1052,7 +1052,6 @@ class OpencontrailF5LoadbalancerDriver(
                 ports_created = self._create_port(pool_obj.parent_uuid, pool_subnet_id, name, 1)
                 pool_vlan_id = self.allocate_vlan(name)
                 ifl = self.create_ifl_on_mx(self.mx_physical_router, self.mx_physical_interface, pool_vlan_id)
-          
                 # Link the ifl and VMI
                 for port in ports_created.values() or []:
                     vmi = port
@@ -1108,7 +1107,6 @@ class OpencontrailF5LoadbalancerDriver(
                 ports_created = self._create_port(vip_obj.parent_uuid, vip_subnet_id, name, 1)
                 vip_vlan_id = self.allocate_vlan(name)
                 ifl = self.create_ifl_on_mx(self.mx_physical_router, self.mx_physical_interface, vip_vlan_id)
-          
                 # Link the ifl and VMI
                 for port in ports_created.values() or []:
                     vmi = port
@@ -1260,13 +1258,13 @@ class OpencontrailF5LoadbalancerDriver(
                 self.create_service(new_pool_svc)
             elif new_pool_svc is None:
                 self.delete_service(old_pool_svc)
-                self.db.pool_remove(pool['id'])
+                self.db.pool_remove(pool['id'], ['f5'])
                 return
             elif old_pool_svc and old_pool_svc != new_pool_svc:
                 self.update_service(old_pool_svc, new_pool_svc)
             else:
                 return
-            self.db.pool_driver_info_insert(pool['id'], new_pool_svc)
+            self.db.pool_driver_info_insert(pool['id'], {'f5': new_pool_svc})
         except Exception as e:
             string_buf = StringIO()
             cgitb.Hook(
@@ -1288,13 +1286,13 @@ class OpencontrailF5LoadbalancerDriver(
                 self.create_service(new_pool_svc)
             elif new_pool_svc is None:
                 self.delete_service(old_pool_svc)
-                self.db.pool_remove(pool['id'])
+                self.db.pool_remove(pool['id'], ['f5'])
                 return
             elif old_pool_svc != new_pool_svc:
                 self.update_service(old_pool_svc, new_pool_svc)
             else:
                 return
-            self.db.pool_driver_info_insert(pool['id'], new_pool_svc)
+            self.db.pool_driver_info_insert(pool['id'], {'f5': new_pool_svc})
         except Exception as e:
             string_buf = StringIO()
             cgitb.Hook(
@@ -1308,7 +1306,7 @@ class OpencontrailF5LoadbalancerDriver(
         old_pool_svc, new_pool_svc = self.locate_resources(pool['id'], False)
         if old_pool_svc:
             self.delete_service(old_pool_svc)
-            self.db.pool_remove(pool['id'])
+            self.db.pool_remove(pool['id'], ['f5'])
     # end  delete_pool
 
     def stats(self, pool_id):
