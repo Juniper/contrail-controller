@@ -2321,6 +2321,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def process_stop(self, name, instance, log_file, del_log = True):
         self.logger.info('Shutting down %s' % name)
+        bad_term = False
         if instance.poll() == None:
             instance.terminate()
             cnt = 1
@@ -2329,12 +2330,15 @@ class AnalyticsFixture(fixtures.Fixture):
                     break
                 cnt += 1
                 gevent.sleep(1)
+        else:
+            bad_term = True
         if instance.poll() == None:
             self.logger.info('%s FAILED to terminate; will be killed' % name)
             instance.kill()
+            bad_term = True
         (p_out, p_err) = instance.communicate()
         rcode = instance.returncode
-        if rcode != 0:
+        if rcode != 0 or bad_term:
             self.logger.info('%s returned %d' % (name,rcode))
             self.logger.info('%s terminated stdout: %s' % (name, p_out))
             self.logger.info('%s terminated stderr: %s' % (name, p_err))
