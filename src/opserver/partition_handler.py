@@ -109,7 +109,7 @@ class UveCacheProcessor(gevent.Greenlet):
 
     def _run(self):
         for telem in self._q:
-            elem = json.loads(telem['data'])
+            elem = telem['data']
             if telem['event'] == 'clear':
                 # remove all keys of this partition
                 partno = elem['partition']
@@ -171,12 +171,13 @@ class UveStreamPart(gevent.Greenlet):
         idx=0
         for res in pperes:
             for tk,tv in res.iteritems():
-                msg = {'event': 'sync', 'data':\
-                    json.dumps({'partition':self._partno,
-                        'key':keys[idx], 'type':tk, 'value':json.loads(tv)})}
+                dt = {'partition':self._partno,
+                    'key':keys[idx], 'type':tk, 'value':json.loads(tv)}
                 if self._sse:
+                    msg = {'event': 'sync', 'data':json.dumps(dt)}
                     self._q.put(sse_pack(msg))
                 else:
+                    msg = {'event': 'sync', 'data':dt}
                     self._q.put(msg)
             idx += 1
         
@@ -219,22 +220,22 @@ class UveStreamPart(gevent.Greenlet):
                     idx = 0
                     for elem in elems:
                         if elem["type"] is None:
-                            msg = {'event': 'update', 'data':\
-                                json.dumps({'partition':part,
-                                    'key':elem["key"], 'type':None})}
+                            dt = {'partition':part,
+                                'key':elem["key"], 'type':None}
                         else:
                             vjson = pperes[idx]
                             if vjson is None:
                                 vdata = None
                             else:
                                 vdata = json.loads(vjson)
-                            msg = {'event': 'update', 'data':\
-                                json.dumps({'partition':part,
+                            dt = {'partition':part,
                                     'key':elem["key"], 'type':elem["type"],
-                                    'value':vdata})}
+                                    'value':vdata}
                         if self._sse:
+                            msg = {'event': 'update', 'data':json.dumps(dt)}
                             self._q.put(sse_pack(msg))
                         else:
+                            msg = {'event': 'update', 'data':dt}
                             self._q.put(msg)
                         idx += 1
             except gevent.GreenletExit:
@@ -269,11 +270,13 @@ class UveStreamer(gevent.Greenlet):
     def _run(self):
         inputs = [ self._rfile ]
         outputs = [ ]
-        msg = {'event': 'init', 'data':\
-            json.dumps({'partitions':self._partitions})}
         if self._sse:
+            msg = {'event': 'init', 'data':\
+                json.dumps({'partitions':self._partitions})}
             self._q.put(sse_pack(msg))
         else:
+            msg = {'event': 'init', 'data':\
+                {'partitions':self._partitions}}
             self._q.put(msg)
         while True:
             try:
@@ -303,19 +306,22 @@ class UveStreamer(gevent.Greenlet):
                 break
         for part, pi in self._agp.iteritems():
             self.partition_stop(part)
-        msg = {'event': 'stop', 'data':json.dumps(None)}
         if self._sse:
+            msg = {'event': 'stop', 'data':json.dumps(None)}
             self._q.put(sse_pack(msg))
         else:
+            msg = {'event': 'stop', 'data':None}
             self._q.put(msg)
 
     def partition_start(self, partno, pi):
         self._logger.error("Starting agguve part %d using %s" %( partno, pi))
-        msg = {'event': 'clear', 'data':\
-            json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
         if self._sse:
+            msg = {'event': 'clear', 'data':\
+                json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
             self._q.put(sse_pack(msg))
         else:
+            msg = {'event': 'clear', 'data':\
+                {'partition':partno, 'acq_time':pi.acq_time}}
             self._q.put(msg)
         self._parts[partno] = UveStreamPart(partno, self._logger,
             self._q, pi, self._rpass, self._sse)
@@ -432,7 +438,6 @@ class UveStreamProc(PartitionHandler):
             uve_topic, logger, False)
         self._uvedb = {}
         self._uvein = {}
-        self._uveout = {}
         self._callback = callback
         self._partno = partition
         self._host_ip = host_ip
@@ -541,17 +546,14 @@ class UveStreamProc(PartitionHandler):
         return self._uvedb
 
     def stats(self):
-        ''' Return the UVEKey-Count stats collected over 
-            the last time period for this partition, and 
-            the incoming UVE Notifs as well.
+        ''' Return the UVE incoming stats collected over 
+            the last time period for this partition 
             Also, the stats should be cleared to prepare
             for the next period of collection.
         '''
-        ret_out = copy.deepcopy(self._uveout)
         ret_in  = copy.deepcopy(self._uvein)
-        self._uveout = {}
         self._uvein = {}
-        return ret_in, ret_out
+        return ret_in
 
     def msg_handler(self, mlist):
         self.resource_check(mlist)
@@ -633,14 +635,6 @@ class UveStreamProc(PartitionHandler):
                             uuid.uuid1(self._ip_code)
                 chg[uv["key"]] = { uv["type"] : uv["value"] }
 
-                # Record stats on UVE Keys being processed
-                if not self._uveout.has_key(tab):
-                    self._uveout[tab] = {}
-                if self._uveout[tab].has_key(uv["key"]):
-                    self._uveout[tab][uv["key"]] += 1
-                else:
-                    self._uveout[tab][uv["key"]] = 1
-
                 # Record stats on the input UVE Notifications
                 if not self._uvein.has_key(tab):
                     self._uvein[tab] = {}
@@ -659,14 +653,6 @@ class UveStreamProc(PartitionHandler):
                     for rkey in self._uvedb[coll][gen][tab].keys():
                         uk = tab + ":" + rkey
 
-                        if not self._uveout.has_key(tab):
-                            self._uveout[tab] = {}
-
-                        if self._uveout[tab].has_key(uk):
-                            self._uveout[tab][uk] += 1
-                        else:
-                            self._uveout[tab][uk] = 1
-                
                         # when a generator is delelted, we need to 
                         # notify for *ALL* its UVEs
                         chg[uk] = None
