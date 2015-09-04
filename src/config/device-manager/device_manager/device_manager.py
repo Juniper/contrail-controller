@@ -63,9 +63,13 @@ class DeviceManager(object):
             'physical_router': [],
         },
         'physical_interface': {
-            'self': ['physical_router', 'logical_interface'],
+            'self': ['physical_router', 'physical_interface','logical_interface'],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
+            'physical_interface': ['physical_router'],
+            'virtual_machine_interface':[
+                'physical_interface'
+            ],
         },
         'logical_interface': {
             'self': ['physical_router', 'physical_interface',
@@ -76,7 +80,7 @@ class DeviceManager(object):
             'physical_router': ['virtual_machine_interface']
         },
         'virtual_machine_interface': {
-            'self': ['logical_interface', 'virtual_network', 'floating_ip', 'instance_ip'],
+            'self': ['logical_interface', 'physical_interface', 'virtual_network', 'floating_ip', 'instance_ip'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface'],
             'floating_ip': ['virtual_network'],
@@ -198,11 +202,12 @@ class DeviceManager(object):
         for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
             li_set = pr.logical_interfaces
+            vmi_set = set()
             for pi_id in pr.physical_interfaces:
                 pi = PhysicalInterfaceDM.locate(pi_id)
                 if pi:
                     li_set |= pi.logical_interfaces
-            vmi_set = set()
+                    vmi_set |= pi.virtual_machine_interfaces
             for li_id in li_set:
                 li = LogicalInterfaceDM.locate(li_id)
                 if li and li.virtual_machine_interface:
@@ -511,3 +516,4 @@ def server_main():
 
 if __name__ == '__main__':
     server_main()
+
