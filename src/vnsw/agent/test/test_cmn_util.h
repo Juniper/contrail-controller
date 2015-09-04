@@ -401,6 +401,8 @@ public:
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
 
+    virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
+    }
     virtual std::string LastStateName() const {
         return "";
     }

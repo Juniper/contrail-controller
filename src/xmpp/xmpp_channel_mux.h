@@ -22,6 +22,7 @@ public:
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb);
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);
+    virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb);
     size_t ReceiverCount() const;
     std::vector<std::string> GetReceiverList() const;
 
@@ -53,6 +54,9 @@ public:
 
     virtual const XmppConnection *connection() const { return connection_; }
     virtual XmppConnection *connection() { return connection_; }
+    bool RxMessageTrace(const std::string &to_address, int port, int msg_size,
+                        const std::string &msg,
+                        const XmppStanza::XmppMessage *xmpp_msg);
 
 protected:
     friend class XmppChannelMuxMock;
@@ -69,6 +73,7 @@ private:
     SendReadyCb cb_;
     XmppConnection *connection_;
     tbb::mutex mutex_;
+    RxMessageTraceCb rx_message_trace_cb_;
 };
 
 #endif // __XMPP_CHANNEL_MUX_H__
