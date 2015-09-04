@@ -15,7 +15,6 @@
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
-#include <cfg/cfg_listener.h>
 #include <cmn/agent.h>
 #include <init/agent_param.h>
 #include <oper/operdb_init.h>
@@ -34,6 +33,7 @@
 #include <oper/oper_dhcp_options.h>
 #include <oper/inet_unicast_route.h>
 #include <oper/physical_device_vn.h>
+#include <oper/ifmap_dependency_manager.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -156,8 +156,8 @@ bool AuditList(List &list, Iterator old_first, Iterator old_last,
 // Build one Floating IP entry for a virtual-machine-interface
 static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                                 IFMapNode *node) {
-    CfgListener *cfg_listener = agent->cfg_listener();
-    if (cfg_listener->SkipNode(node)) {
+    ConfigManager *cfg_manager= agent->config_manager();
+    if (cfg_manager->SkipNode(node)) {
         return;
     }
 
@@ -171,7 +171,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
     for (DBGraphVertex::adjacency_iterator fip_iter = node->begin(fip_graph);
          fip_iter != node->end(fip_graph); ++fip_iter) {
         IFMapNode *pool_node = static_cast<IFMapNode *>(fip_iter.operator->());
-        if (cfg_listener->SkipNode
+        if (cfg_manager->SkipNode
             (pool_node, agent->cfg()->cfg_floatingip_pool_table())) {
             continue;
         }
@@ -186,7 +186,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
 
             IFMapNode *vn_node = 
                 static_cast<IFMapNode *>(pool_iter.operator->());
-            if (cfg_listener->SkipNode
+            if (cfg_manager->SkipNode
                 (vn_node, agent->cfg()->cfg_vn_table())) {
                 continue;
             }
@@ -210,7 +210,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
 
                 IFMapNode *vrf_node = 
                     static_cast<IFMapNode *>(vn_iter.operator->());
-                if (cfg_listener->SkipNode
+                if (cfg_manager->SkipNode
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
                     continue;
                 }
@@ -343,7 +343,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
                                        VmInterfaceConfigData *data,
                                        IFMapNode *node) {
 
-    CfgListener *cfg_listener = agent->cfg_listener();
+    ConfigManager *cfg_manager= agent->config_manager();
     VirtualMachineInterfaceRoutingInstance *entry = 
         static_cast<VirtualMachineInterfaceRoutingInstance*>(node->GetObject());
     assert(entry);
@@ -364,7 +364,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
          iter != node->end(graph); ++iter) {
 
         IFMapNode *vrf_node = static_cast<IFMapNode *>(iter.operator->());
-        if (cfg_listener->SkipNode
+        if (cfg_manager->SkipNode
             (vrf_node, agent->cfg()->cfg_vrf_table())) {
             continue;
         }
@@ -629,8 +629,8 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
                                        IFMapNode *logical_node,
                                        IFMapNode *parent_vmi_node) {
     if (logical_node) {
-        IFMapNode *physical_node = agent->cfg_listener()->
-            FindAdjacentIFMapNode(agent, logical_node, "physical-interface");
+        IFMapNode *physical_node = agent->config_manager()->
+            FindAdjacentIFMapNode(logical_node, "physical-interface");
         agent->interface_table()->
            LogicalInterfaceIFNodeToUuid(logical_node, data->logical_interface_);
         // Find phyiscal-interface for the VMI
@@ -638,8 +638,8 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
         if (physical_node) {
             data->physical_interface_ = physical_node->name();
             // Find vrouter for the physical interface
-            prouter_node = agent->cfg_listener()->
-                FindAdjacentIFMapNode(agent, physical_node, "physical-router");
+            prouter_node = agent->config_manager()->
+                FindAdjacentIFMapNode(physical_node, "physical-router");
         }
         if (prouter_node == NULL)
             return NULL;
@@ -821,20 +821,23 @@ bool InterfaceTable::VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
 
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
-bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
+extern IFMapNode *vn_test_node;
+extern IFMapNode *vmi_test_node;
+
+bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
+
     // Get interface UUID
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
-    assert(cfg);
-    uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
 
+    assert(cfg);
     // Handle object delete
     if (node->IsDeleted()) {
         return false;
     }
 
+    assert(!u.is_nil());
     // Get the entry from Interface Config table
     CfgIntTable *cfg_table = agent_->interface_config_table();
     CfgIntKey cfg_key(u);
@@ -858,7 +861,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent_->cfg_listener()->SkipNode(adj_node)) {
+        if (agent_->config_manager()->SkipNode(adj_node)) {
             continue;
         }
 
@@ -893,6 +896,14 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
 
         if (adj_node->table() == agent_->cfg()->cfg_subnet_table()) {
             BuildResolveRoute(data, adj_node);
+        }
+
+        if (adj_node->table() == agent_->cfg()->cfg_logical_port_table()) {
+            li_node = adj_node;
+        }
+
+        if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
+            parent_vmi_node = adj_node;
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_logical_port_table()) {
@@ -944,20 +955,25 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
     return true;
 }
 
-bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
-    // Get interface UUID
-    VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
-        (node->GetObject());
-    assert(cfg);
-    uuid u;
-    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
-        return false;
+bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req,
+        const boost::uuids::uuid &u) {
 
     // Handle object delete
-    if (node->IsDeleted()) {
+    if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         DelPhysicalDeviceVnEntry(u);
         return DeleteVmi(this, u, &req);
     }
+
+    IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
+    IFMapNodeState *state = dep->IFMapNodeGet(node);
+    IFMapDependencyManager::IFMapNodePtr vm_node_ref;
+    if (!state) {
+        vm_node_ref = dep->SetState(node);
+        state = dep->IFMapNodeGet(node);
+    }
+
+    if (state->uuid().is_nil())
+        state->set_uuid(u);
 
     agent()->config_manager()->AddVmiNode(node);
     return false;
@@ -1061,10 +1077,13 @@ bool VmInterface::OnChange(VmInterfaceData *data) {
 void VmInterface::PostAdd() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     DBRequest req;
-    if (ifmap_node() == NULL)
+    IFMapNode *node = ifmap_node();
+    if (node == NULL)
         return;
 
-    if (table->IFNodeToReq(ifmap_node(), req) == true) {
+    boost::uuids::uuid u;
+    table->IFNodeToUuid(node, u);
+    if (table->IFNodeToReq(ifmap_node(), req, u) == true) {
         table->Process(req);
     }
 }

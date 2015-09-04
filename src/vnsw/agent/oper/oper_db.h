@@ -21,6 +21,7 @@
 #include <cmn/agent_db.h>
 #include <operdb_init.h>
 #include <ifmap_dependency_manager.h>
+#include <ifmap/ifmap_node.h>
 
 struct AgentOperDBKey : public AgentKey {
     AgentOperDBKey() : AgentKey() { }
@@ -112,11 +113,38 @@ public:
 
     // Default callback handler from IFMap Dependency tracker. We invoke
     // IFNodeToReq to keep all IFMap handling at one place
+
     virtual void ConfigEventHandler(IFMapNode *node, DBEntry *entry) {
         DBRequest req;
-        if (IFNodeToReq(node, req) == true) {
+        IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
+        boost::uuids::uuid new_uuid;
+        IFNodeToUuid(node, new_uuid);
+        IFMapNodeState *state = dep->IFMapNodeGet(node);
+        boost::uuids::uuid old_uuid = state->uuid();
+
+        if (!node->IsDeleted()) {
+            if (entry) {
+                if ((old_uuid != new_uuid)) {
+                    if (old_uuid != boost::uuids::nil_uuid()) {
+                        req.oper = DBRequest::DB_ENTRY_DELETE;
+                        if (IFNodeToReq(node, req, old_uuid) == true) {
+                            assert(req.oper == DBRequest::DB_ENTRY_DELETE);
+                            Enqueue(&req);
+                        }
+                    }
+                }
+            }
+            state->set_uuid(new_uuid);
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        } else {
+            req.oper = DBRequest::DB_ENTRY_DELETE;
+            new_uuid = old_uuid;
+        }
+
+        if (IFNodeToReq(node, req, new_uuid) == true) {
             Enqueue(&req);
         }
+
         return;
     }
 

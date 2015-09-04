@@ -70,7 +70,7 @@ public:
         return linklocal_services_map_;
     }
 
-    void GlobalVrouterConfig(IFMapNode *node);
+    void GlobalVrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
     bool FindLinkLocalService(const std::string &service_name,
                               Ip4Address *service_ip, uint16_t *service_port,
                               Ip4Address *fabric_ip, uint16_t *fabric_port) const;
@@ -103,6 +103,7 @@ private:
                                 const LinkLocalServicesMap::iterator &new_it);
 
     OperDB *oper_;
+    DBTableBase::ListenerId global_vrouter_listener_id_;
     LinkLocalServicesMap linklocal_services_map_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;

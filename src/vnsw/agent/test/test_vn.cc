@@ -827,42 +827,6 @@ TEST_F(CfgTest, UnknownBroadcastEnableDisable_2) {
     client->WaitForIdle();
 }
 
-TEST_F(CfgTest, CfgDBStateUuid) {
-    client->WaitForIdle();
-    // Add VN with UUID
-    AddVn("vn1", 1);
-    client->WaitForIdle();
-
-    VnEntry *vn = VnGet(1);
-    ASSERT_TRUE(vn != NULL);
-
-    //Get the config table
-    IFMapTable *table =
-        IFMapTable::FindTable(Agent::GetInstance()->db(),"virtual-network");
-    ASSERT_TRUE(table != NULL);
-
-    //Get the config node
-    IFMapNode *node = table->FindNode("vn1");
-    ASSERT_TRUE(node != NULL);
-
-    boost::uuids::uuid id;
-    EXPECT_TRUE(Agent::GetInstance()->cfg()->cfg_listener()->
-        GetCfgDBStateUuid(node, id));
-    EXPECT_EQ(id, MakeUuid(1));
-    client->WaitForIdle();
-
-    //Ensure that Oper exists
-    ASSERT_TRUE(VnFind(1));
-
-    DelVn("vn1");
-    client->WaitForIdle();
-
-    vn = VnGet(1);
-    ASSERT_TRUE(vn == NULL);
-
-    //Ensure that Oper also does not exists
-    ASSERT_FALSE(VnFind(1));
-}
 
 TEST_F(CfgTest, CfgUuidNullDelete) {
     client->WaitForIdle();
@@ -881,11 +845,6 @@ TEST_F(CfgTest, CfgUuidNullDelete) {
     //Get the config node
     IFMapNode *node = table->FindNode("vn1");
     ASSERT_TRUE(node != NULL);
-
-    boost::uuids::uuid id;
-    EXPECT_TRUE(Agent::GetInstance()->cfg()->cfg_listener()->
-        GetCfgDBStateUuid(node, id));
-    EXPECT_EQ(id, MakeUuid(1));
 
     //Ensure that Oper exists
     ASSERT_TRUE(VnFind(1));
@@ -920,11 +879,6 @@ TEST_F(CfgTest, CfgUuidChange) {
     IFMapNode *node = table->FindNode("vn1");
     ASSERT_TRUE(node != NULL);
 
-    boost::uuids::uuid id;
-    EXPECT_TRUE(Agent::GetInstance()->cfg()->cfg_listener()->
-        GetCfgDBStateUuid(node, id));
-    EXPECT_EQ(id, MakeUuid(1));
-
     //Ensure that Oper exists
     ASSERT_TRUE(VnFind(1));
 
@@ -938,17 +892,17 @@ TEST_F(CfgTest, CfgUuidChange) {
     //Ensure that Oper exists
     ASSERT_TRUE(VnFind(2));
 
-    //Ensure that Oper exists
-    ASSERT_TRUE(VnFind(1));
+    //Ensure that Oper does not exists
+    ASSERT_FALSE(VnFind(1));
 
     DelVn("vn1");
     client->WaitForIdle();
 
     node = table->FindNode("vn1");
-    ASSERT_TRUE(node != NULL);
+    ASSERT_FALSE(node);
 
-    //Ensure that Oper exists for only 1
-    ASSERT_TRUE(VnFind(1));
+    //Ensure that Oper deleted
+    ASSERT_FALSE(VnFind(1));
     ASSERT_FALSE(VnFind(2));
 
 }

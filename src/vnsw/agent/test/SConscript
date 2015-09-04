@@ -25,10 +25,12 @@ env.Append(LIBPATH = [
         '../../../base/test',
         '../../../db/test',
 ])
+
 env.Append(LIBS = [
         'dbtest',
         'task_test',
         ])
+
 
 if sys.platform.startswith('freebsd'):
     platform_dependent = 'freebsd/test_util_tap.cc'
@@ -109,7 +111,6 @@ test_xmppcs_bcast_non_hv = AgentEnv.MakeTestCmd(env,'test_xmppcs_bcast_non_hv',
 test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', agent_suite)
 test_service_chain_cfg = AgentEnv.MakeTestCmd(env, 'test_service_chain_cfg',
                                               flaky_agent_suite)
-test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', flaky_agent_suite)
 test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock', flaky_agent_suite)
 test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
                                                  'test_global_vrouter_config',
