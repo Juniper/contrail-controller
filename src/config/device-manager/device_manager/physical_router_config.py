@@ -114,7 +114,74 @@ class PhysicalRouterConfig(object):
                     self.commit_stats['last_commit_time'] = datetime.datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')
                     self.commit_stats['last_commit_duration'] = str(time.time() - start_time)
     # end send_config
+    """
+        Add logical interface configuraion for a PNF
+        support ipv4 only
+    """
+    def add_logical_interface(self, vmi, pi, vlan_ids, li_ids):
 
+        if not self.logical_interface_config:
+            self.logical_interface_config = etree.Element('interfaces')
+        #allocate the vlan id and
+        #pdb.set_trace()
+        if vmi.service_instance_id in vlan_ids.keys():
+            vlan = vlan_ids[vmi.service_instance_id][vmi.service_interface_type] + 1
+        else:
+            vlan = 2
+            vlan_ids[vmi.service_instance_id] = {"left":1,"right":1}
+            vlan_ids[vmi.service_instance_id][vmi.service_interface_type] = vlan
+        if pi.uuid in li_ids.keys():
+            li_id = li_ids[pi.uuid] + 1
+        else:
+            li_id = 2
+            li_ids[pi.uuid] = li_id
+        #pdb.set_trace()
+        #We peek the lower 22 bit of the uuid
+        binary_instance_id = bin(vmi.service_instance_id)[-22:]
+        #Add additonal 0 to it
+        for i in range(0,22-len(binary_instance_id)):
+            binary_instance_id = '0'+ binary_instance_id
+
+        binary_ip = ""
+        if vmi.service_interface_type == "left":
+            binary_ip = "00000000{instance_id}01".format(instance_id = binary_instance_id);
+        if vmi.service_interface_type == "right":
+            binary_ip = "00000000{instance_id}10".format(instance_id = binary_instance_id);
+        #convert the binary code to a IP address
+        readable_ip = ""
+        for i in range (0,4):
+            start = 8 * i
+            end = start + 8
+            group = binary_ip[start:end]
+            readable_ip += str(int(group,2))
+            if i is not 3:
+                readable_ip += '.'
+        ip = readable_ip + "/30"
+        ##########################
+        # Configuration template #
+        ##########################
+        li_config=etree.fromstring("""
+            <interface>
+                <name>{physical_interface_name}</name>
+                <unit>
+                    <name>{logical_interface_id}</name>
+                    <vlan-id>{vlan_id}</vlan-id>
+                    <family>
+                        <inet>
+                            <address>{ip}</address>
+                        </inet>
+                    </family>
+                </unit>
+            </interface>
+        """.format(
+                physical_interface_name=pi.name,
+                logical_interface_id=li_id,
+                vlan_id=vlan,
+                ip = ip
+            )
+        )
+        self.logical_interface_config.append(li_config)
+        return {"name":pi.name +'.'+ str(li_id),"ip":ip}
     def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets, bgp_router_ips):
         self.tunnel_config = etree.Element("routing-options")
         dynamic_tunnels = etree.SubElement(self.tunnel_config, "dynamic-tunnels")
@@ -133,6 +200,8 @@ class PhysicalRouterConfig(object):
 
     '''
      ri_name: routing instance name to be configured on mx
+     is_l2:  a flag used to indicate routing instance type, i.e : l2 or l3
+     is_l2_l3: VN forwarding mode is of type 'l2_l3' or not
      import/export targets: routing instance import, export targets
      prefixes: for l3 public vrf static routes, bug#1395938 
      gateways: for l2 evpn, bug#1395944 
@@ -142,9 +211,10 @@ class PhysicalRouterConfig(object):
      fip_map: contrail instance ip to floating-ip map, used for snat & floating ip support
      network_id : this is used for configuraing irb interfaces
     '''
-    def add_routing_instance(self, ri_name, import_targets, export_targets,
+    def add_routing_instance(self, ri_name, is_l2, is_l2_l3, import_targets, export_targets,
                              prefixes=[], gateways=[], router_external=False, 
-                             interfaces=[], vni=None, fip_map=None, network_id=None):
+                             interfaces=[], vni=None, fip_map=None, network_id=None,
+                             static_routes={}, no_vrf_table_label = False):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
                                         'prefixes': prefixes,
@@ -159,7 +229,7 @@ class PhysicalRouterConfig(object):
         ri = etree.SubElement(ri_config, "instance")
         etree.SubElement(ri, "name").text = ri_name
         ri_opt = None
-        if router_external:
+        if router_external and is_l2 == False:
             ri_opt = etree.SubElement(ri, "routing-options")
             static_config = etree.SubElement(ri_opt, "static")
             route_config = etree.SubElement(static_config, "route")
@@ -170,13 +240,7 @@ class PhysicalRouterConfig(object):
         etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
         etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
 
-        if vni is None or router_external:
-            etree.SubElement(ri, "instance-type").text = "vrf"
-            etree.SubElement(ri, "vrf-table-label")  #only for l3
-            if fip_map is None:
-                for interface in interfaces:
-                    if_element = etree.SubElement(ri, "interface")
-                    etree.SubElement(if_element, "name").text = interface
+        if not is_l2:
 
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
@@ -186,6 +250,33 @@ class PhysicalRouterConfig(object):
                     route_config = etree.SubElement(static_config, "route")
                     etree.SubElement(route_config, "name").text = prefix
                     etree.SubElement(route_config, "discard")
+                    if router_external:
+                         self.add_to_global_ri_opts(prefix)
+            etree.SubElement(ri, "instance-type").text = "vrf"
+            if not no_vrf_table_label:
+                etree.SubElement(ri, "vrf-table-label")  #only for l3
+            if fip_map is None:
+                for interface in interfaces:
+                    if_element = etree.SubElement(ri, "interface")
+                    etree.SubElement(if_element, "name").text = interface
+            if ri_opt is None:
+                ri_opt = etree.SubElement(ri, "routing-options")
+            if static_routes:
+                static_config = etree.SubElement(ri_opt, "static")
+            for dest,next_hops in static_routes.items():
+                route_config = etree.SubElement(static_config, "route")
+                etree.SubElement(route_config, "name").text = dest
+                for next_hop in next_hops:
+                    next_hop_str = next_hop.get("next-hop")
+                    preference = next_hop.get("preference")
+                    if not next_hop_str:
+                        continue
+                    if preference:
+                        qualified = etree.SubElement(route_config, "qualified-next-hop")
+                        qualified.text = next_hop_str
+                        etree.SubElement(qualified,"preference").text = preference
+                    else:
+                        etree.SubElement(route_config, "next-hop").text = next_hop_str
             auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
             ri_opt.append(etree.fromstring(auto_export))
         else:
@@ -314,7 +405,7 @@ class PhysicalRouterConfig(object):
         bd_config = None
         interfaces_config = self.interfaces_config
         proto_config = self.proto_config
-        if (router_external==False and vni is not None and 
+        if (is_l2 and vni is not None and 
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             etree.SubElement(ri, "vtep-source-interface").text = "lo0.0"
             bd_config = etree.SubElement(ri, "bridge-domains")
@@ -326,26 +417,28 @@ class PhysicalRouterConfig(object):
             for interface in interfaces:
                 if_element = etree.SubElement(bd, "interface")
                 etree.SubElement(if_element, "name").text = interface
-            etree.SubElement(bd, "routing-interface").text = "irb." + str(network_id) #network_id is unique, hence irb
+            if is_l2_l3:
+                etree.SubElement(bd, "routing-interface").text = "irb." + str(network_id) #network_id is unique, hence irb
             evpn_proto_config = etree.SubElement(ri, "protocols")
             evpn = etree.SubElement(evpn_proto_config, "evpn")
             etree.SubElement(evpn, "encapsulation").text = "vxlan"
             etree.SubElement(evpn, "extended-vni-list").text = "all"
 
             interfaces_config = self.interfaces_config or etree.Element("interfaces")
-            irb_intf = etree.SubElement(interfaces_config, "interface")
-            etree.SubElement(irb_intf, "name").text = "irb"
-            etree.SubElement(irb_intf, "gratuitous-arp-reply")
-            if gateways is not None:
-                intf_unit = etree.SubElement(irb_intf, "unit")
-                etree.SubElement(intf_unit, "name").text = str(network_id)
-                family = etree.SubElement(intf_unit, "family")
-                inet = etree.SubElement(family, "inet")
-                for (irb_ip, gateway) in gateways:
-                    addr = etree.SubElement(inet, "address")
-                    etree.SubElement(addr, "name").text = irb_ip
-                    if len(gateway) and gateway != '0.0.0.0':
-                        etree.SubElement(addr, "virtual-gateway-address").text = gateway
+            if is_l2_l3:
+                irb_intf = etree.SubElement(interfaces_config, "interface")
+                etree.SubElement(irb_intf, "name").text = "irb"
+                etree.SubElement(irb_intf, "gratuitous-arp-reply")
+                if gateways is not None:
+                    intf_unit = etree.SubElement(irb_intf, "unit")
+                    etree.SubElement(intf_unit, "name").text = str(network_id)
+                    family = etree.SubElement(intf_unit, "family")
+                    inet = etree.SubElement(family, "inet")
+                    for (irb_ip, gateway) in gateways:
+                        addr = etree.SubElement(inet, "address")
+                        etree.SubElement(addr, "name").text = irb_ip
+                        if len(gateway) and gateway != '0.0.0.0':
+                            etree.SubElement(addr, "virtual-gateway-address").text = gateway
 
             lo_intf = etree.SubElement(interfaces_config, "interface")
             etree.SubElement(lo_intf, "name").text = "lo0"
@@ -451,7 +544,16 @@ class PhysicalRouterConfig(object):
             self.global_routing_options_config = etree.Element("routing-options")
             etree.SubElement(self.global_routing_options_config, "router-id").text = bgp_params['address']
     #end set_global_routing_options
-
+   
+    def add_to_global_ri_opts(self,prefix):
+        if self.global_routing_options_config is None:
+           self.global_routing_options_config = etree.Element("routing-options")
+        static_config = etree.SubElement(self.global_routing_options_config,"static")
+        route_config = etree.SubElement(static_config, "route")
+        etree.SubElement(route_config,"name").text = prefix
+        etree.SubElement(route_config,"discard")
+    #end add_to_global_ri_opts 
+   
     def is_family_configured(self, params, family_name):
         if params is None or params.get('address_families') is None:
             return False
@@ -518,6 +620,7 @@ class PhysicalRouterConfig(object):
     # end _get_bgp_config_xml
 
     def reset_bgp_config(self):
+        self.logical_interface_config = None
         self.routing_instances = {}
         self.bgp_params = None
         self.ri_config = None
@@ -627,8 +730,11 @@ class PhysicalRouterConfig(object):
             config_list.append(self.global_routing_options_config)
         if self.proto_config is not None:
             config_list.append(self.proto_config)
+        if self.logical_interface_config is not None:
+            config_list.append(self.logical_interface_config)
         self.send_netconf(config_list)
         self.bgp_config_sent = True
     # end send_bgp_config
 
 # end PhycalRouterConfig
+
