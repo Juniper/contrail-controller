@@ -92,3 +92,16 @@ uve sandesh QueryPerfInfoTrace {
     1: QueryPerfInfo               data
 }
 
+struct AnalyticsApiSample {
+    1: string operation_type // (GET, POST)
+    3: string remote_ip
+    5: string object_type
+    6: string request_url
+    8: u64 response_time_in_usec
+    9: u64 response_size
+    10: string node (key="ObjectCollectorInfo")
+}
+
+objectlog sandesh AnalyticsApiStats {
+    1: AnalyticsApiSample api_stats (tags=".operation_type,.remote_ip,.object_type,.response_time_in_usec,.response_size")
+}
