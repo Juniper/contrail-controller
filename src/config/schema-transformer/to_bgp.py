@@ -2529,6 +2529,10 @@ class VirtualMachineST(DictST):
     def get_service_mode(self):
         if self.service_instance is None:
             return None
+
+        if hasattr(self, 'service_mode'):
+            return self.service_mode
+
         try:
             si_obj = _vnc_lib.service_instance_read(
                 fq_name_str=self.service_instance)
@@ -2547,8 +2551,9 @@ class VirtualMachineST(DictST):
             _sandesh._logger.error("NoIdError while reading service template "
                                    + st_refs[0]['uuid'])
             return None
-        smode = st_obj.get_service_template_properties().get_service_mode()
-        return smode or 'transparent'
+
+        self.service_mode = st_obj.get_service_template_properties().get_service_mode() or 'transparent'
+        return self.service_mode
     # end get_service_mode
 # end VirtualMachineST
 
@@ -2834,6 +2839,15 @@ class SchemaTransformer(object):
         vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
         for vmi in vmi_list:
             VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+
+        gevent.sleep(0.001)
+        vm_list = _vnc_lib.virtual_machines_list(detail=True)
+        for vm in vm_list:
+            si_refs = vm.get_service_instance_refs()
+            if si_refs:
+                si_fq_name_str = ':'.join(si_refs[0]['to'])
+                VirtualMachineST.locate(vm.get_fq_name_str(), 
+                   si_fq_name_str)
     # end reinit
 
     def cleanup(self):
