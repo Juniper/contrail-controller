@@ -4,7 +4,6 @@
 
 #include "bgp/bgp_condition_listener.h"
 
-
 #include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
@@ -14,6 +13,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/inet6/inet6_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
@@ -27,8 +27,12 @@
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
-using namespace std;
-using namespace pugi;
+using std::auto_ptr;
+using std::make_pair;
+using std::map;
+using std::multimap;
+using std::string;
+using std::vector;
 
 class TestMatchState : public ConditionMatchState {
 public:
@@ -51,31 +55,31 @@ private:
     bool del_seen_;
 };
 
+template <typename PrefixT, typename RouteT>
 class TestConditionMatch : public ConditionMatch {
 public:
-    typedef std::map<Ip4Prefix, BgpRoute *> MatchList;
-    TestConditionMatch(Ip4Prefix &prefix, bool hold_db_state) 
-        : prefix_(prefix), hold_db_state_(hold_db_state) {
+    typedef map<PrefixT, BgpRoute *> MatchList;
+    TestConditionMatch(Address::Family family, const PrefixT &prefix,
+                       bool hold_db_state)
+        : family_(family), prefix_(prefix), hold_db_state_(hold_db_state) {
     }
 
-    bool Match(BgpServer *server, BgpTable *table, 
+    bool Match(BgpServer *server, BgpTable *table,
                BgpRoute *route, bool deleted) {
-        InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
+        RouteT *ip_route = dynamic_cast<RouteT *>(route);
 
-        BgpConditionListener *listener =
-            server->condition_listener(Address::INET);
-        TestMatchState *state = 
-            static_cast<TestMatchState *>(listener->GetMatchState(table, route,
-                                                                  this));
+        BgpConditionListener *listener = server->condition_listener(family_);
+        TestMatchState *state = static_cast<TestMatchState *>(
+            listener->GetMatchState(table, route, this));
 
         // Some random match on key of the route
-        if (prefix_.prefixlen() < inet_route->GetPrefix().prefixlen()) {
+        if (prefix_.prefixlen() < ip_route->GetPrefix().prefixlen()) {
             tbb::mutex::scoped_lock lock(mutex_);
             if (deleted) {
                 if (state) {
                     assert(state->del_seen() != true);
                     if (!hold_db_state_) {
-                        assert(match_list_.erase(inet_route->GetPrefix()));
+                        assert(match_list_.erase(ip_route->GetPrefix()));
                         listener->RemoveMatchState(table, route, this);
                         delete state;
                     } else {
@@ -84,8 +88,7 @@ public:
                 }
             } else {
                 if (state == NULL) {
-                    match_list_.insert(std::make_pair(inet_route->GetPrefix(), 
-                                                      route));
+                    match_list_.insert(make_pair(ip_route->GetPrefix(), route));
                     state = new TestMatchState();
                     listener->SetMatchState(table, route, this, state);
                 } else {
@@ -111,40 +114,122 @@ public:
         return match_list_.size();
     }
 
-    BgpRoute *lookup_matched_routes(const Ip4Prefix &prefix) {
+    BgpRoute *lookup_matched_routes(const PrefixT &prefix) {
         tbb::mutex::scoped_lock lock(mutex_);
-        MatchList::iterator it = match_list_.find(prefix);;
+        typename MatchList::iterator it = match_list_.find(prefix);;
         if (it == match_list_.end()) {
             return NULL;
         }
         return it->second;
     }
 
-    void remove_matched_route(const Ip4Prefix &prefix) {
+    void remove_matched_route(const PrefixT &prefix) {
         tbb::mutex::scoped_lock lock(mutex_);
-        MatchList::iterator it = match_list_.find(prefix);;
+        typename MatchList::iterator it = match_list_.find(prefix);;
         assert(it != match_list_.end());
         match_list_.erase(it);
     }
 
 private:
+    Address::Family family_;
     tbb::mutex mutex_;
     MatchList match_list_;
-    Ip4Prefix prefix_;
+    PrefixT prefix_;
     bool hold_db_state_;
 };
 
+//
+// Template structure to pass to fixture class template. Needed because
+// gtest fixture class template can accept only one template parameter.
+//
+template <typename T1, typename T2, typename T3>
+struct TypeDefinition {
+  typedef T1 TableT;
+  typedef T2 PrefixT;
+  typedef T3 RouteT;
+  typedef TestConditionMatch<PrefixT, RouteT> ConditionMatchT;
+};
+
+// TypeDefinitions that we want to test.
+typedef TypeDefinition<InetTable, Ip4Prefix, InetRoute> InetDefinition;
+typedef TypeDefinition<Inet6Table, Inet6Prefix, Inet6Route> Inet6Definition;
+
+//
+// Fixture class template - will be instantiated later for each TypeDefinition.
+//
+template <typename T>
 class BgpConditionListenerTest : public ::testing::Test {
 protected:
+    typedef typename T::TableT TableT;
+    typedef typename T::PrefixT PrefixT;
+    typedef typename T::RouteT RouteT;
+    typedef typename T::ConditionMatchT ConditionMatchT;
+
     BgpConditionListenerTest()
         : evm_(new EventManager()),
           bgp_server_(new BgpServer(evm_.get())),
-          listener_(bgp_server_->condition_listener(Address::INET)) {
+          family_(GetFamily()),
+          ipv6_prefix_("cafe::"),
+          listener_(bgp_server_->condition_listener(GetFamily())) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
     }
+
     ~BgpConditionListenerTest() {
+    }
+
+    Address::Family GetFamily() const {
+        assert(false);
+        return Address::UNSPEC;
+    }
+
+    string GetTableName(const string &instance) const {
+        if (family_ == Address::INET) {
+            return instance + ".inet.0";
+        }
+        if (family_ == Address::INET6) {
+            return instance + ".inet6.0";
+        }
+        assert(false);
+        return "";
+    }
+
+    string BuildHostAddress(const string &ipv4_addr) const {
+        if (family_ == Address::INET) {
+            return ipv4_addr + "/32";
+        }
+        if (family_ == Address::INET6) {
+            return ipv6_prefix_ + ipv4_addr + "/128";
+        }
+        assert(false);
+        return "";
+    }
+
+    string BuildHostAddress(const string &ipv4_prefix,
+                            uint8_t byte3, uint8_t byte4) const {
+        if (family_ == Address::INET) {
+            return ipv4_prefix + "." + integerToString(byte3) + "." +
+                integerToString(byte4) + "/32";
+        }
+        if (family_ == Address::INET6) {
+            return ipv6_prefix_ + ipv4_prefix + "." +
+                integerToString(byte3) + "." + integerToString(byte4) + "/128";
+        }
+        assert(false);
+        return "";
+    }
+
+    string BuildPrefix(const string &ipv4_prefix, uint8_t ipv4_plen) const {
+        if (family_ == Address::INET) {
+            return ipv4_prefix + "/" + integerToString(ipv4_plen);
+        }
+        if (family_ == Address::INET6) {
+            return ipv6_prefix_ + ipv4_prefix + "/" +
+                integerToString(96 + ipv4_plen);
+        }
+        assert(false);
+        return "";
     }
 
     virtual void SetUp() {
@@ -175,15 +260,15 @@ protected:
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
-    void AddInetRoute(const string &instance_name, const string &prefix, 
-                      int localpref=0) {
+    void AddRoute(const string &instance_name, const string &prefix,
+                  int localpref = 0) {
         boost::system::error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        request.key.reset(new InetTable::RequestKey(nlri, NULL));
+        request.key.reset(new typename TableT::RequestKey(nlri, NULL));
 
         BgpAttrSpec attr_spec;
 
@@ -195,79 +280,51 @@ protected:
 
         request.data.reset(new BgpTable::RequestData(attr, 0, 0));
         BgpTable *table = static_cast<BgpTable *>(
-            bgp_server_->database()->FindTable(instance_name + ".inet.0"));
+            bgp_server_->database()->FindTable(GetTableName(instance_name)));
         ASSERT_TRUE(table != NULL);
         table->Enqueue(&request);
         task_util::WaitForIdle();
-        routes_added_.insert(std::make_pair(instance_name, prefix));
     }
 
-    void DeleteInetRoute(const string &instance_name, const string &prefix) {
+    void DeleteRoute(const string &instance_name, const string &prefix) {
         boost::system::error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_DELETE;
-        request.key.reset(new InetTable::RequestKey(nlri, NULL));
+        request.key.reset(new typename TableT::RequestKey(nlri, NULL));
 
         BgpTable *table = static_cast<BgpTable *>(
-            bgp_server_->database()->FindTable(instance_name + ".inet.0"));
+            bgp_server_->database()->FindTable(GetTableName(instance_name)));
         ASSERT_TRUE(table != NULL);
 
         table->Enqueue(&request);
         task_util::WaitForIdle();
-        RouteMap::iterator it = routes_added_.find(instance_name);
-        for(; it != routes_added_.end() && it->first == instance_name; it++) {
-            if (it->second == prefix) {
-                break;
-            }
-        }
-        if (it != routes_added_.end())
-            routes_added_.erase(it);
-    }
-
-    BgpRoute *InetRouteLookup(const string &instance_name, 
-                              const string &prefix) {
-        BgpTable *table = static_cast<BgpTable *>(
-            bgp_server_->database()->FindTable(instance_name + ".inet.0"));
-        TASK_UTIL_EXPECT_TRUE(table != NULL);
-        if (table == NULL) {
-            return NULL;
-        }
-        boost::system::error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
-        TASK_UTIL_EXPECT_FALSE(error != 0);
-        InetTable::RequestKey key(nlri, NULL);
-        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
-        return rt;
     }
 
     void AddRoutingInstance(string name) {
-        stringstream target;
+        string target = string("target:64496:") + integerToString(100);
         RoutingInstanceMgr *rtmgr = bgp_server_->routing_instance_mgr();
-        target << "target:64496:" << 100;
         ifmap_test_util::IFMapMsgLink(&config_db_,
                                       "routing-instance", name,
-                                      "route-target", target.str(),
+                                      "route-target", target,
                                       "instance-target");
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
                             rtmgr->GetRoutingInstance(name));
     }
 
     void RemoveRoutingInstance(string name) {
-        //
         // Cache a copy of the export route-targets before the instance is
-        // deleted
-        //
+        // deleted.
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
         const RoutingInstance::RouteTargetList
             target_list(rti->GetExportList());
-        BOOST_FOREACH(RouteTarget tgt, target_list) {
+        BOOST_FOREACH(RouteTarget target, target_list) {
             ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                             "routing-instance", name,
-                                            "route-target", tgt.ToString(),
+                                            "route-target", target.ToString(),
                                             "instance-target");
         }
 
@@ -275,14 +332,14 @@ protected:
                 bgp_server_->routing_instance_mgr()->GetRoutingInstance(name));
     }
 
-    void AddMatchCondition(string name, std::string match, 
+    void AddMatchCondition(string name, string match,
                            bool hold_db_state = false) {
         ConcurrencyScope scope("bgp::Config");
-        Ip4Prefix prefix = Ip4Prefix::FromString(match);
-        match_.reset(new TestConditionMatch(prefix, hold_db_state));
+        PrefixT prefix = PrefixT::FromString(match);
+        match_.reset(new ConditionMatchT(family_, prefix, hold_db_state));
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
-        BgpTable *table = rti->GetTable(Address::INET);
+        BgpTable *table = rti->GetTable(family_);
         assert(table);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
@@ -295,42 +352,40 @@ protected:
     TestMatchState *GetMatchState(string name, const string &prefix) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
-        BgpTable *table = rti->GetTable(Address::INET);
+        BgpTable *table = rti->GetTable(family_);
         assert(table);
 
         boost::system::error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
-        TestConditionMatch *match = 
-            static_cast<TestConditionMatch *>(match_.get());
+        ConditionMatchT *match =
+            static_cast<ConditionMatchT *>(match_.get());
         BgpRoute *route = match->lookup_matched_routes(nlri);
         assert(route);
 
-        TestMatchState *state = 
-            static_cast<TestMatchState *>(listener_->GetMatchState(table, route,
-                                                              match_.get()));
+        TestMatchState *state = static_cast<TestMatchState *>(
+            listener_->GetMatchState(table, route, match_.get()));
         return state;
     }
 
     void RemoveMatchState(string name, const string &prefix) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
-        BgpTable *table = rti->GetTable(Address::INET);
+        BgpTable *table = rti->GetTable(family_);
         assert(table);
 
         boost::system::error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
-        TestConditionMatch *match = 
-            static_cast<TestConditionMatch *>(match_.get());
+        ConditionMatchT *match =
+            static_cast<ConditionMatchT *>(match_.get());
         BgpRoute *route = match->lookup_matched_routes(nlri);
         assert(route);
 
-        TestMatchState *state = 
-            static_cast<TestMatchState *>(listener_->GetMatchState(table, route,
-                                                              match_.get()));
+        TestMatchState *state = static_cast<TestMatchState *>(
+            listener_->GetMatchState(table, route, match_.get()));
         assert(state);
 
         listener_->RemoveMatchState(table, route, match_.get());
@@ -348,10 +403,10 @@ protected:
         ConcurrencyScope scope("bgp::Config");
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
-        BgpTable *table = rti->GetTable(Address::INET);
+        BgpTable *table = rti->GetTable(family_);
         assert(table);
 
-        BgpConditionListener::RequestDoneCb callback = 
+        BgpConditionListener::RequestDoneCb callback =
             boost::bind(&BgpConditionListenerTest::DeleteDone, this, _1, _2);
         listener_->RemoveMatchCondition(table, match_.get(), callback);
         task_util::WaitForIdle();
@@ -361,179 +416,199 @@ protected:
     DB config_db_;
     DBGraph config_graph_;
     boost::scoped_ptr<BgpServer> bgp_server_;
+    Address::Family family_;
+    string ipv6_prefix_;
     BgpConditionListener *listener_;
     ConditionMatchPtr match_;
-    typedef std::multimap<std::string, std::string> RouteMap;
-    RouteMap routes_added_;
 };
 
-TEST_F(BgpConditionListenerTest, Basic) {
-    AddRoutingInstance("blue");
+// Specialization of GetFamily for INET.
+template<>
+Address::Family BgpConditionListenerTest<InetDefinition>::GetFamily() const {
+    return Address::INET;
+}
+
+// Specialization of GetFamily for INET6.
+template<>
+Address::Family BgpConditionListenerTest<Inet6Definition>::GetFamily() const {
+    return Address::INET6;
+}
+
+// Instantiate fixture class template for each TypeDefinition.
+typedef ::testing::Types <InetDefinition, Inet6Definition> TypeDefinitionList;
+TYPED_TEST_CASE(BgpConditionListenerTest, TypeDefinitionList);
+
+TYPED_TEST(BgpConditionListenerTest, Basic) {
+    typedef typename TypeParam::ConditionMatchT ConditionMatchT;
+
+    this->AddRoutingInstance("blue");
     task_util::WaitForIdle();
 
-    AddMatchCondition("blue", "192.168.1.0/24");
+    this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
-    AddInetRoute("blue", "192.168.1.2/32");
-    AddInetRoute("blue", "192.168.1.3/32");
-    AddInetRoute("blue", "192.168.1.4/32");
+    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
 
-    TestConditionMatch *match = 
-        static_cast<TestConditionMatch *>(match_.get());
+    ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 3));
 
-    RemoveMatchCondition("blue");
+    this->RemoveMatchCondition("blue");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    DeleteInetRoute("blue", "192.168.1.2/32");
-    DeleteInetRoute("blue", "192.168.1.3/32");
-    DeleteInetRoute("blue", "192.168.1.4/32");
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
 }
 
-TEST_F(BgpConditionListenerTest, AddWalk) {
-    AddRoutingInstance("blue");
+TYPED_TEST(BgpConditionListenerTest, AddWalk) {
+    typedef typename TypeParam::ConditionMatchT ConditionMatchT;
+
+    this->AddRoutingInstance("blue");
     task_util::WaitForIdle();
 
     // Add the match condition on table with existing routes
-    AddInetRoute("blue", "192.168.1.2/32");
-    AddInetRoute("blue", "192.168.1.3/32");
-    AddInetRoute("blue", "192.168.1.4/32");
-    AddInetRoute("blue", "192.168.0.0/16");
+    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    AddRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 
-    AddMatchCondition("blue", "192.168.1.0/24");
+    this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
 
-    TestConditionMatch *match = 
-        static_cast<TestConditionMatch *>(match_.get());
+    ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 3));
 
-    DeleteInetRoute("blue", "192.168.1.2/32");
-    DeleteInetRoute("blue", "192.168.1.3/32");
-    DeleteInetRoute("blue", "192.168.1.4/32");
-    DeleteInetRoute("blue", "192.168.0.0/16");
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    DeleteRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    RemoveMatchCondition("blue");
+    this->RemoveMatchCondition("blue");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    AddInetRoute("blue", "192.168.1.2/32");
-    AddInetRoute("blue", "192.168.1.3/32");
-    AddInetRoute("blue", "192.168.1.4/32");
+    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    DeleteInetRoute("blue", "192.168.1.2/32");
-    DeleteInetRoute("blue", "192.168.1.3/32");
-    DeleteInetRoute("blue", "192.168.1.4/32");
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 }
 
 
-TEST_F(BgpConditionListenerTest, DelWalk) {
-    AddRoutingInstance("blue");
+TYPED_TEST(BgpConditionListenerTest, DelWalk) {
+    typedef typename TypeParam::ConditionMatchT ConditionMatchT;
+
+    this->AddRoutingInstance("blue");
     task_util::WaitForIdle();
 
     // Add the match condition on table with existing routes
-    AddInetRoute("blue", "192.168.1.2/32");
-    AddInetRoute("blue", "192.168.1.3/32");
-    AddInetRoute("blue", "192.168.1.4/32");
-    AddInetRoute("blue", "192.168.0.0/16");
+    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    AddRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 
-    AddMatchCondition("blue", "192.168.1.0/24");
+    this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
 
-    TestConditionMatch *match = 
-        static_cast<TestConditionMatch *>(match_.get());
+    ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 3));
 
     // Remove the match condition with matched routes in the table
-    RemoveMatchCondition("blue");
+    this->RemoveMatchCondition("blue");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    DeleteInetRoute("blue", "192.168.1.2/32");
-    DeleteInetRoute("blue", "192.168.1.3/32");
-    DeleteInetRoute("blue", "192.168.1.4/32");
-    DeleteInetRoute("blue", "192.168.0.0/16");
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    DeleteRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 }
 
-TEST_F(BgpConditionListenerTest, Stress) {
-    AddRoutingInstance("blue");
+TYPED_TEST(BgpConditionListenerTest, Stress) {
+    typedef typename TypeParam::ConditionMatchT ConditionMatchT;
+
+    this->AddRoutingInstance("blue");
     task_util::WaitForIdle();
 
-    for (int i = 0; i < 1024; i++) {
-        ostringstream route;
-        route << "192.168." << (i/256) << "." << (i%256) << "/32";
-        AddInetRoute("blue", route.str());
+    for (int idx = 0; idx < 1024; ++idx) {
+        AddRoute("blue",
+            this->BuildHostAddress("192.168", idx / 256, idx % 256));
     }
-    AddMatchCondition("blue", "192.168.0.0/16");
+    this->AddMatchCondition("blue", this->BuildPrefix("192.168.0.0", 24));
     task_util::WaitForIdle();
 
-    TestConditionMatch *match = 
-        static_cast<TestConditionMatch *>(match_.get());
+    ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_EQ(match->matched_routes_size(), 1024);
 
-    RemoveMatchCondition("blue");
+    this->RemoveMatchCondition("blue");
 
-    TASK_UTIL_EXPECT_EQ(match->matched_routes_size(), 0);
-    for (RouteMap::iterator it = routes_added_.begin(), next; 
-         it != routes_added_.end(); it = next) {
-        next = it;
-        next++;
-        DeleteInetRoute(it->first, it->second);
+    TASK_UTIL_EXPECT_EQ(0, match->matched_routes_size());
+    for (int idx = 0; idx < 1024; ++idx) {
+        DeleteRoute("blue",
+            this->BuildHostAddress("192.168", idx / 256, idx % 256));
     }
     task_util::WaitForIdle();
 }
 
-TEST_F(BgpConditionListenerTest, State) {
-    AddRoutingInstance("blue");
+TYPED_TEST(BgpConditionListenerTest, State) {
+    typedef typename TypeParam::ConditionMatchT ConditionMatchT;
+
+    this->AddRoutingInstance("blue");
     task_util::WaitForIdle();
 
-    AddMatchCondition("blue", "192.168.1.0/24", true);
+    this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24), true);
     task_util::WaitForIdle();
-    AddInetRoute("blue", "192.168.1.1/32");
+    AddRoute("blue", this->BuildHostAddress("192.168.1.1"));
 
-    TestConditionMatch *match = 
-        static_cast<TestConditionMatch *>(match_.get());
+    ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 1));
 
-    DeleteInetRoute("blue", "192.168.1.1/32");
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.1"));
     TASK_UTIL_EXPECT_FALSE(match->matched_routes_empty());
 
 
-    RemoveMatchState("blue", "192.168.1.1/32");
+    RemoveMatchState("blue", this->BuildHostAddress("192.168.1.1"));
 
-    RemoveMatchCondition("blue");
+    this->RemoveMatchCondition("blue");
     task_util::WaitForIdle();
 }
 
-TEST_F(BgpConditionListenerTest, ChangeNotify) {
-    AddRoutingInstance("blue");
+TYPED_TEST(BgpConditionListenerTest, ChangeNotify) {
+    typedef typename TypeParam::ConditionMatchT ConditionMatchT;
+
+    this->AddRoutingInstance("blue");
     task_util::WaitForIdle();
 
-    AddMatchCondition("blue", "192.168.1.0/24");
+    this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
-    AddInetRoute("blue", "192.168.1.1/32");
+    AddRoute("blue", this->BuildHostAddress("192.168.1.1"));
 
-    TestConditionMatch *match = 
-        static_cast<TestConditionMatch *>(match_.get());
+    ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 1));
 
-    AddInetRoute("blue", "192.168.1.1/32", 01);
-    AddInetRoute("blue", "192.168.1.1/32", 02);
-    AddInetRoute("blue", "192.168.1.1/32", 03);
-    AddInetRoute("blue", "192.168.1.1/32", 04);
+    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 100);
+    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 200);
+    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 300);
+    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 400);
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 1));
 
-    TestMatchState *state = GetMatchState("blue", "192.168.1.1/32");
     // Module saw the route 5 times
+    TestMatchState *state =
+        this->GetMatchState("blue", this->BuildHostAddress("192.168.1.1"));
     TASK_UTIL_EXPECT_EQ(5, state->seen());
 
-    DeleteInetRoute("blue", "192.168.1.1/32");
+    DeleteRoute("blue", this->BuildHostAddress("192.168.1.1"));
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    RemoveMatchCondition("blue");
+    this->RemoveMatchCondition("blue");
     task_util::WaitForIdle();
 }
 
