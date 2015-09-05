@@ -977,9 +977,14 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         break;
     }
-    case Interface::INET:
+    case Interface::INET: {
         data.set_type("vhost");
+        const InetInterface *intf = static_cast<const InetInterface*>(this);
+        if(intf->xconnect()) {
+           data.set_physical_interface(intf->xconnect()->name());
+        }
         break;
+     }
     case Interface::PACKET:
         data.set_type("pkt");
         break;
