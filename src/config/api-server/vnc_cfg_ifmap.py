@@ -1169,12 +1169,13 @@ class VncZkClient(object):
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
 
         self._sandesh = sandesh_hdl
+        self._reconnect_zk_greenlet = None
         while True:
             try:
                 self._zk_client = ZookeeperClient(client_name, zk_server_ip,
                                                   self._sandesh)
-                # set the lost callback to stub function untill resync is done
-                self._zk_client.set_lost_cb(lambda x=None:x)
+                # set the lost callback to always reconnect
+                self._zk_client.set_lost_cb(self.reconnect_zk)
                 break
             except gevent.event.Timeout as e:
                 pass
@@ -1184,6 +1185,16 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True);
         self._subnet_allocators = {}
     # end __init__
+
+    def _reconnect_zk(self):
+        self._zk_client.connect()
+        self._reconnect_zk_greenlet = None
+    # end
+
+    def reconnect_zk(self):
+        if self._reconnect_zk_greenlet is None:
+            self._reconnect_zk_greenlet = gevent.spawn(self._reconnect_zk)
+    # end
 
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start, should_persist,
@@ -1377,7 +1388,6 @@ class VncDbClient(object):
         msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
         self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         self._db_resync_done.set()
-        self._zk_db._zk_client.set_lost_cb()
     # end db_resync
 
     def wait_for_resync_done(self):
