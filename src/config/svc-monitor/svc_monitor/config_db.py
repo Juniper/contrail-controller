@@ -321,6 +321,7 @@ class ServiceInstanceSM(DBBaseSM):
         self.service_template = None
         self.loadbalancer_pool = None
         self.virtual_machines = set()
+        self.virtual_machine_interfaces = set()
         self.params = None
         self.state = 'init'
         self.launch_count = 0
@@ -351,12 +352,13 @@ class ServiceInstanceSM(DBBaseSM):
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_multiple_refs('virtual_machine', obj)
+        self.update_multiple_refs('virtual_machine_interface',obj)
         self.id_perms = obj.get('id_perms', None)
         if not self.params:
             return
         self.vr_id = self.params.get('virtual_router_id', None)
         self.ha_mode = self.params.get('ha_mode', None)
-        if self.ha_mode != 'active-standby': 
+        if self.ha_mode != 'active-standby':
             scale_out = self.params.get('scale_out', None)
             if scale_out:
                 self.max_instances = scale_out.get('max_instances', 1)
@@ -404,6 +406,7 @@ class ServiceTemplateSM(DBBaseSM):
         self.uuid = uuid
         self.service_instances = set()
         self.virtualization_type = 'virtual-machine'
+        self.service_appliance_set = None
         self.update(obj_dict)
     # end __init__
 
@@ -417,6 +420,7 @@ class ServiceTemplateSM(DBBaseSM):
             self.virtualization_type = self.params.get(
                 'service_virtualization_type') or 'virtual-machine'
         self.update_multiple_refs('service_instance', obj)
+        self.update_single_ref('service_appliance_set', obj)
         self.id_perms = obj.get('id_perms', None)
     # end update
 
@@ -426,6 +430,7 @@ class ServiceTemplateSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('service_instance', {})
+        self.update_single_ref('service_appliance_set', {})
         del cls._dict[uuid]
     # end delete
 # end class ServiceTemplateSM
@@ -750,6 +755,7 @@ class ServiceApplianceSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.service_appliance_set = None
+        self.physical_interfaces = set()
         self.kvpairs = []
         self.update(obj_dict)
     # end __init__
@@ -765,6 +771,7 @@ class ServiceApplianceSM(DBBaseSM):
         self.user_credential = obj.get('service_appliance_user_credentials', None)
         self.ip_address = obj.get('service_appliance_ip_address', None)
         self.service_appliance_set = self.get_parent_uuid(obj)
+        self.update_multiple_refs('physical_interface', obj)
         if self.service_appliance_set:
             parent = ServiceApplianceSetSM.get(self.service_appliance_set)
             parent.service_appliances.add(self.uuid)
@@ -780,6 +787,7 @@ class ServiceApplianceSM(DBBaseSM):
             parent = ServiceApplianceSetSM.get(obj.service_appliance_set)
         if parent:
             parent.service_appliances.discard(obj.uuid)
+        self.update_multiple_refs('physical_interface', {})
         del cls._dict[uuid]
     # end delete
 # end ServiceApplianceSM
@@ -791,6 +799,7 @@ class ServiceApplianceSetSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.service_appliances = set()
+        self.service_template = None
         self.kvpairs = []
         self.ha_mode = "standalone"
         self.update(obj_dict)
@@ -805,6 +814,7 @@ class ServiceApplianceSetSM(DBBaseSM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.driver = obj.get('service_appliance_driver', None)
+        self.update_single_ref("service_template", obj)
         kvpairs = obj.get('service_appliance_set_properties', None)
         if kvpairs:
             self.kvpairs = kvpairs.get('key_value_pair', [])

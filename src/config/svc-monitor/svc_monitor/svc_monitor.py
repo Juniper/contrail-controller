@@ -334,6 +334,13 @@ class SvcMonitor(object):
             self.vrouter_scheduler, self._nova_client,
             self._agent_manager, self._args)
 
+        # load PNF instance manager
+        self.ps_manager = importutils.import_object(
+            'svc_monitor.physical_service_manager.PhysicalServiceManager',
+            self._vnc_lib, self._cassandra, self.logger,
+            self.vrouter_scheduler, self._nova_client,
+            self._agent_manager, self._args)
+
         # load a loadbalancer agent
         self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib,
                                                     self._cassandra, self._args)
@@ -738,6 +745,8 @@ class SvcMonitor(object):
                 self.netns_manager.create_service(st, si)
             elif st.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.create_service(st, si)
+            elif st.virtualization_type == 'physical-device':
+                self.ps_manager.create_service(st,si)
             else:
                 self.logger.log_error("Unknown virt type: %s" %
                     st.virtualization_type)
@@ -757,6 +766,8 @@ class SvcMonitor(object):
                 self.netns_manager.delete_service(vm)
             elif vm.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.delete_service(vm)
+            elif vm.virtualization_type == 'physical-device':
+                self.ps_manager.delete_service(vm)
         except Exception:
             cgitb_error_log(self)
 
@@ -779,7 +790,8 @@ class SvcMonitor(object):
             status = self.netns_manager.check_service(si)
         elif st.virtualization_type == 'vrouter-instance':
             status = self.vrouter_manager.check_service(si)
-
+        elif st.virtualization_type == 'physical-device':
+            status = self.ps_manager.check_service(si)
         return status
 
     def _delete_interface_route_table(self, irt_uuid):
