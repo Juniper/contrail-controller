@@ -466,11 +466,20 @@ class OpServer(object):
             self._args.partitions, self._args.redis_password)
         self._uvedbcache = UveCacheProcessor(self._logger, body, self._args.partitions)
 
-        self._uve_server = UVEServer(('127.0.0.1',
+        # TODO: For now, use DBCache during systemless test only
+        if self._args.disc_server_ip:
+            self._uve_server = UVEServer(('127.0.0.1',
+                                      self._args.redis_server_port),
+                                     self._logger,
+                                     self._args.redis_password,
+                                     None)
+        else:
+            self._uve_server = UVEServer(('127.0.0.1',
                                       self._args.redis_server_port),
                                      self._logger,
                                      self._args.redis_password,
                                      self._uvedbcache)
+
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:

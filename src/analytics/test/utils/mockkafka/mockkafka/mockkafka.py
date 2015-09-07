@@ -96,8 +96,16 @@ def stop_kafka(broker_listen_port):
     logging.info('Killing kafka in %s' % (kafkabase + basefile))
     output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-stop.sh")
 
-    logging.info('Killed kafka for %d' % broker_listen_port)
-    #output,_ = call_command_("rm -rf " + kafkabase)
+    logging.info('Killed kafka for %d : server.log' % broker_listen_port)
+    with open(kafkabase + basefile + "/logs/server.log", 'r') as fin:
+        logging.info(fin.read())
+    logging.info('Killed kafka for %d : controller.log' % broker_listen_port)
+    with open(kafkabase + basefile + "/logs/controller.log", 'r') as fin:
+        logging.info(fin.read())
+    logging.info('Killed kafka for %d : kafkaServer.out' % broker_listen_port)
+    with open(kafkabase + basefile + "/logs/kafkaServer.out", 'r') as fin:
+        logging.info(fin.read())
+    output,_ = call_command_("rm -rf " + kafkabase)
 
 def replace_string_(filePath, findreplace):
     "replaces all findStr by repStr in file filePath"
