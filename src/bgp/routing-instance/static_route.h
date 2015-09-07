@@ -10,9 +10,29 @@
 
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
+#include "bgp/inet6/inet6_route.h"
 
-class StaticRoute;
+class InetVpnRoute;
+class Inet6VpnRoute;
 class StaticRouteConfig;
+
+template <typename T> class StaticRoute;
+
+template <typename T1, typename T2, typename T3, typename T4>
+struct StaticRouteBase {
+  typedef T1 RouteT;
+  typedef T2 VpnRouteT;
+  typedef T3 PrefixT;
+  typedef T4 AddressT;
+};
+
+class StaticRouteInet : public StaticRouteBase<
+    InetRoute, InetVpnRoute, Ip4Prefix, Ip4Address> {
+};
+
+class StaticRouteInet6 : public StaticRouteBase<
+    Inet6Route, Inet6VpnRoute, Inet6Prefix, Ip6Address> {
+};
 
 typedef ConditionMatchPtr StaticRoutePtr;
 
@@ -37,20 +57,31 @@ private:
     DISALLOW_COPY_AND_ASSIGN(StaticRouteRequest);
 };
 
+template <typename T>
 class StaticRouteMgr {
 public:
+    typedef typename T::RouteT RouteT;
+    typedef typename T::VpnRouteT VpnRouteT;
+    typedef typename T::PrefixT PrefixT;
+    typedef typename T::AddressT AddressT;
+    typedef StaticRoute<T> StaticRouteT;
+
     // Map of Static Route prefix to the StaticRoute match object
-    typedef std::map<Ip4Prefix, StaticRoutePtr> StaticRouteMap;
+    typedef std::map<PrefixT, StaticRoutePtr> StaticRouteMap;
+
 
     explicit StaticRouteMgr(RoutingInstance *instance);
     ~StaticRouteMgr();
+
+    Address::Family GetFamily() const;
+    AddressT GetAddress(IpAddress addr) const;
 
     // Config
     void ProcessStaticRouteConfig();
     void UpdateStaticRouteConfig();
     void FlushStaticRouteConfig();
     void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
-    void RemoveStaticRoutePrefix(const Ip4Prefix &static_route);
+    void RemoveStaticRoutePrefix(const PrefixT &static_route);
     void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
 
     // Work Queue

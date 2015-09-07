@@ -25,6 +25,7 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
+#include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/static_route_types.h"
@@ -51,8 +52,14 @@ private:
     DISALLOW_COPY_AND_ASSIGN(StaticRouteState);
 };
 
+template <typename T>
 class StaticRoute : public ConditionMatch {
 public:
+    typedef typename T::RouteT RouteT;
+    typedef typename T::VpnRouteT VpnRouteT;
+    typedef typename T::PrefixT PrefixT;
+    typedef typename T::AddressT AddressT;
+
     // List of Route targets
     typedef set<RouteTarget> RouteTargetList;
 
@@ -66,13 +73,16 @@ public:
         RTargetChange = 2
     };
 
-    StaticRoute(RoutingInstance *rtinstance, const Ip4Prefix &static_route,
+    StaticRoute(RoutingInstance *rtinstance, const PrefixT &static_route,
                 const vector<string> &rtargets, IpAddress nexthop);
+    Address::Family GetFamily() const;
+    AddressT GetAddress(IpAddress addr) const;
 
     // Compare config and return whether cfg has updated
     CompareResult CompareStaticRouteCfg(const StaticRouteConfig &cfg);
+    void FillShowInfo(StaticRouteInfo *info) const;
 
-    const Ip4Prefix &static_route_prefix() const {
+    const PrefixT &static_route_prefix() const {
         return static_route_prefix_;
     }
 
@@ -81,11 +91,7 @@ public:
     }
 
     BgpTable *bgp_table() const {
-        return routing_instance_->GetTable(Address::INET);
-    }
-
-    const IpAddress &nexthop() const {
-        return nexthop_;
+        return routing_instance_->GetTable(this->GetFamily());
     }
 
     BgpRoute *nexthop_route() const {
@@ -164,10 +170,8 @@ public:
 private:
     // Helper function to match
     bool is_nexthop_route(BgpRoute *route) {
-        InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
-        if (nexthop() == inet_route->GetPrefix().ip4_addr())
-            return true;
-        return false;
+        RouteT *ip_route = dynamic_cast<RouteT *>(route);
+        return (nexthop_ == ip_route->GetPrefix().addr());
     }
 
     ExtCommunityPtr ExtCommunityRouteTargetList(const BgpAttr *attr) const {
@@ -189,7 +193,7 @@ private:
     }
 
     RoutingInstance *routing_instance_;
-    Ip4Prefix static_route_prefix_;
+    PrefixT static_route_prefix_;
     IpAddress nexthop_;
     BgpRoute *nexthop_route_;
     NexthopPathIdList nexthop_path_ids_;
@@ -200,7 +204,8 @@ private:
 };
 
 
-StaticRoute::StaticRoute(RoutingInstance *rtinst, const Ip4Prefix &static_route,
+template <typename T>
+StaticRoute<T>::StaticRoute(RoutingInstance *rtinst, const PrefixT &static_route,
     const vector<string> &rtargets, IpAddress nexthop)
     : routing_instance_(rtinst),
       static_route_prefix_(static_route),
@@ -217,10 +222,34 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst, const Ip4Prefix &static_route,
     }
 }
 
+template <>
+Address::Family StaticRoute<StaticRouteInet>::GetFamily() const {
+    return Address::INET;
+}
+
+template <>
+Address::Family StaticRoute<StaticRouteInet6>::GetFamily() const {
+    return Address::INET6;
+}
+
+template <>
+Ip4Address StaticRoute<StaticRouteInet>::GetAddress(IpAddress addr) const {
+    assert(addr.is_v4());
+    return addr.to_v4();
+}
+
+template <>
+Ip6Address StaticRoute<StaticRouteInet6>::GetAddress(IpAddress addr) const {
+    assert(addr.is_v6());
+    return addr.to_v6();
+}
+
 // Compare config and return whether cfg has updated
-StaticRoute::CompareResult 
-StaticRoute::CompareStaticRouteCfg(const StaticRouteConfig &cfg) {
-    Ip4Prefix prefix(cfg.address.to_v4(), cfg.prefix_length);
+template <typename T>
+typename StaticRoute<T>::CompareResult StaticRoute<T>::CompareStaticRouteCfg(
+    const StaticRouteConfig &cfg) {
+    AddressT address = this->GetAddress(cfg.address);
+    PrefixT prefix(address, cfg.prefix_length);
     if (static_route_prefix_ != prefix) {
         return PrefixChange;
     }
@@ -241,10 +270,33 @@ StaticRoute::CompareStaticRouteCfg(const StaticRouteConfig &cfg) {
     return NoChange;
 }
 
+template <typename T>
+void StaticRoute<T>::FillShowInfo(StaticRouteInfo *info) const {
+    BgpTable *table = bgp_table();
+    RouteT rt_key(static_route_prefix_);
+    BgpRoute *route = static_cast<BgpRoute *>(table->Find(&rt_key));
+
+    info->set_prefix(static_route_prefix_.ToString());
+    info->set_static_rt(route ? true : false);
+    info->set_nexthop(nexthop_.to_string());
+    if (nexthop_route_) {
+        ShowRouteBrief show_route;
+        nexthop_route_->FillRouteInfo(table, &show_route);
+        info->set_nexthop_rt(show_route);
+    }
+
+    vector<string> route_target_list;
+    for (RouteTargetList::const_iterator it = rtarget_list_.begin();
+        it != rtarget_list_.end(); ++it) {
+        route_target_list.push_back(it->ToString());
+    }
+    info->set_route_target_list(route_target_list);
+}
+
 // Match function called from BgpConditionListener
 // Concurrency : db::DBTable
-bool 
-StaticRoute::Match(BgpServer *server, BgpTable *table, 
+template <typename T>
+bool StaticRoute<T>::Match(BgpServer *server, BgpTable *table,
                    BgpRoute *route, bool deleted) {
     CHECK_CONCURRENCY("db::DBTable");
     StaticRouteRequest::RequestType type;
@@ -258,7 +310,7 @@ StaticRoute::Match(BgpServer *server, BgpTable *table,
         return false;
     }
 
-    BgpConditionListener *listener = server->condition_listener(Address::INET);
+    BgpConditionListener *listener = server->condition_listener(GetFamily());
     StaticRouteState *state = static_cast<StaticRouteState *>
         (listener->GetMatchState(table, route, this));
     if (!deleted) {
@@ -294,9 +346,10 @@ StaticRoute::Match(BgpServer *server, BgpTable *table,
 }
 
 // RemoveStaticRoute
-void StaticRoute::RemoveStaticRoute() {
+template <typename T>
+void StaticRoute<T>::RemoveStaticRoute() {
     CHECK_CONCURRENCY("bgp::StaticRoute");
-    InetRoute rt_key(static_route_prefix());
+    RouteT rt_key(static_route_prefix());
     DBTablePartition *partition =
        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
     BgpRoute *static_route =
@@ -320,10 +373,10 @@ void StaticRoute::RemoveStaticRoute() {
 }
 
 // UpdateStaticRoute
-void
-StaticRoute::UpdateStaticRoute() {
+template <typename T>
+void StaticRoute<T>::UpdateStaticRoute() {
     CHECK_CONCURRENCY("bgp::Config");
-    InetRoute rt_key(static_route_prefix());
+    RouteT rt_key(static_route_prefix());
     DBTablePartition *partition =
        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
     BgpRoute *static_route =
@@ -361,18 +414,18 @@ StaticRoute::UpdateStaticRoute() {
 }
 
 // AddStaticRoute
-void
-StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
+template <typename T>
+void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
     CHECK_CONCURRENCY("bgp::StaticRoute");
 
-    InetRoute rt_key(static_route_prefix());
+    RouteT rt_key(static_route_prefix());
     DBTablePartition *partition =
        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
     BgpRoute *static_route =
         static_cast<BgpRoute *>(partition->Find(&rt_key));
 
     if (static_route == NULL) {
-        static_route = new InetRoute(static_route_prefix());
+        static_route = new RouteT(static_route_prefix());
         partition->Add(static_route);
     } else {
         static_route->ClearDelete();
@@ -419,8 +472,8 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
                 static_cast<const BgpSecondaryPath *>(nexthop_route_path);
             const RoutingInstance *ri = spath->src_table()->routing_instance();
             if (ri->IsDefaultRoutingInstance()) {
-                const InetVpnRoute *vpn_route =
-                    static_cast<const InetVpnRoute *>(spath->src_rt());
+                const VpnRouteT *vpn_route =
+                    static_cast<const VpnRouteT *>(spath->src_rt());
                 new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(),
                     vpn_route->GetPrefix().route_distinguisher());
             }
@@ -474,8 +527,9 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
     }
 }
 
-void StaticRoute::NotifyRoute() {
-    InetRoute rt_key(static_route_prefix());
+template <typename T>
+void StaticRoute<T>::NotifyRoute() {
+    RouteT rt_key(static_route_prefix());
     DBTablePartition *partition =
        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
     BgpRoute *static_route = static_cast<BgpRoute *>(partition->Find(&rt_key));
@@ -484,19 +538,24 @@ void StaticRoute::NotifyRoute() {
     partition->Notify(static_route);
 }
 
-bool StaticRoute::IsPending() const {
-    InetRoute rt_key(static_route_prefix());
+template <typename T>
+bool StaticRoute<T>::IsPending() const {
+    RouteT rt_key(static_route_prefix());
     DBTablePartition *partition =
        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
     const BgpRoute *route = static_cast<BgpRoute *>(partition->Find(&rt_key));
     return (!route || !route->FindPath(BgpPath::StaticRoute));
 }
 
-int StaticRouteMgr::static_route_task_id_ = -1;
+template <>
+int StaticRouteMgr<StaticRouteInet>::static_route_task_id_ = -1;
+template <>
+int StaticRouteMgr<StaticRouteInet6>::static_route_task_id_ = -1;
 
-StaticRouteMgr::StaticRouteMgr(RoutingInstance *instance)
+template <typename T>
+StaticRouteMgr<T>::StaticRouteMgr(RoutingInstance *instance)
     : instance_(instance),
-      listener_(instance_->server()->condition_listener(Address::INET)),
+      listener_(instance_->server()->condition_listener(GetFamily())),
       resolve_trigger_(new TaskTrigger(
           boost::bind(&StaticRouteMgr::ResolvePendingStaticRouteConfig, this),
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
@@ -510,15 +569,39 @@ StaticRouteMgr::StaticRouteMgr(RoutingInstance *instance)
          boost::bind(&StaticRouteMgr::StaticRouteEventCallback, this, _1));
 }
 
-void StaticRouteMgr::EnqueueStaticRouteReq(StaticRouteRequest *req) {
+template <>
+Address::Family StaticRouteMgr<StaticRouteInet>::GetFamily() const {
+    return Address::INET;
+}
+
+template <>
+Address::Family StaticRouteMgr<StaticRouteInet6>::GetFamily() const {
+    return Address::INET6;
+}
+
+template <>
+Ip4Address StaticRouteMgr<StaticRouteInet>::GetAddress(IpAddress addr) const {
+    assert(addr.is_v4());
+    return addr.to_v4();
+}
+
+template <>
+Ip6Address StaticRouteMgr<StaticRouteInet6>::GetAddress(IpAddress addr) const {
+    assert(addr.is_v6());
+    return addr.to_v6();
+}
+
+template <typename T>
+void StaticRouteMgr<T>::EnqueueStaticRouteReq(StaticRouteRequest *req) {
     static_route_queue_->Enqueue(req);
 }
 
-bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
+template <typename T>
+bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
     CHECK_CONCURRENCY("bgp::StaticRoute");
     BgpTable *table = req->table_;
     BgpRoute *route = req->rt_;
-    StaticRoute *info = static_cast<StaticRoute *>(req->info_.get());
+    StaticRouteT *info = static_cast<StaticRouteT *>(req->info_.get());
 
     StaticRouteState *state = NULL;
     if (route) {
@@ -536,7 +619,7 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
             }
 
             // Store the old path list
-            StaticRoute::NexthopPathIdList path_ids;
+            typename StaticRouteT::NexthopPathIdList path_ids;
             path_ids.swap(*(info->NexthopPathIds()));
 
             // Populate the Nexthop PathID
@@ -596,29 +679,31 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
     return true;
 }
 
-void 
-StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
+template <typename T>
+void StaticRouteMgr<T>::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
     CHECK_CONCURRENCY("bgp::Config");
-    Ip4Prefix prefix(cfg.address.to_v4(), cfg.prefix_length);
+    AddressT address = this->GetAddress(cfg.address);
+    PrefixT prefix(address, cfg.prefix_length);
 
     // Verify whether the entry already exists
-    StaticRouteMap::iterator it = static_route_map_.find(prefix);
+    typename StaticRouteMap::iterator it = static_route_map_.find(prefix);
     if (it != static_route_map_.end()) {
         // Wait for the delete complete cb
         if (it->second->deleted()) return;
 
-        StaticRoute *match =
-            static_cast<StaticRoute *>(it->second.get());
+        StaticRouteT *match =
+            static_cast<StaticRouteT *>(it->second.get());
         // Check whether the config has got updated
-        StaticRoute::CompareResult change = match->CompareStaticRouteCfg(cfg);
+        typename StaticRouteT::CompareResult change =
+            match->CompareStaticRouteCfg(cfg);
 
         // StaticRoutePrefix is the key,, it can't change
-        assert(change != StaticRoute::PrefixChange);
+        assert(change != StaticRouteT::PrefixChange);
 
         // No change..
-        if (change == StaticRoute::NoChange) return;
+        if (change == StaticRouteT::NoChange) return;
 
-        if (change == StaticRoute::RTargetChange) {
+        if (change == StaticRouteT::RTargetChange) {
             // Update the route target in ExtCommunity attribute if the
             // route is already added
             match->UpdateRtargetList(cfg.route_target);
@@ -636,9 +721,8 @@ StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
         return;
     }
 
-    StaticRoute *match =  
-        new StaticRoute(routing_instance(), prefix, cfg.route_target,
-                        cfg.nexthop);
+    StaticRouteT *match = new StaticRouteT(
+        routing_instance(), prefix, cfg.route_target, cfg.nexthop);
     StaticRoutePtr static_route_match = StaticRoutePtr(match);
 
     if (static_route_map_.empty())
@@ -649,7 +733,8 @@ StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
                                 BgpConditionListener::RequestDoneCb());
 }
 
-void StaticRouteMgr::StopStaticRouteDone(BgpTable *table,
+template <typename T>
+void StaticRouteMgr<T>::StopStaticRouteDone(BgpTable *table,
                                              ConditionMatch *info) {
     // Post the RequestDone event to StaticRoute task to take Action
     StaticRouteRequest *req =
@@ -660,9 +745,10 @@ void StaticRouteMgr::StopStaticRouteDone(BgpTable *table,
     return;
 }
 
-void StaticRouteMgr::RemoveStaticRoutePrefix(const Ip4Prefix &static_route) {
+template <typename T>
+void StaticRouteMgr<T>::RemoveStaticRoutePrefix(const PrefixT &static_route) {
     CHECK_CONCURRENCY("bgp::Config");
-    StaticRouteMap::iterator it = static_route_map_.find(static_route);
+    typename StaticRouteMap::iterator it = static_route_map_.find(static_route);
     if (it == static_route_map_.end()) return;
 
     if (it->second->deleted()) return;
@@ -670,11 +756,12 @@ void StaticRouteMgr::RemoveStaticRoutePrefix(const Ip4Prefix &static_route) {
     BgpConditionListener::RequestDoneCb callback =
         boost::bind(&StaticRouteMgr::StopStaticRouteDone, this, _1, _2);
 
-    StaticRoute *match = static_cast<StaticRoute *>(it->second.get());
+    StaticRouteT *match = static_cast<StaticRouteT *>(it->second.get());
     listener_->RemoveMatchCondition(match->bgp_table(), match, callback);
 }
 
-void StaticRouteMgr::ProcessStaticRouteConfig() {
+template <typename T>
+void StaticRouteMgr<T>::ProcessStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
     const BgpInstanceConfig::StaticRouteList &list =
         routing_instance()->config()->static_routes();
@@ -684,25 +771,28 @@ void StaticRouteMgr::ProcessStaticRouteConfig() {
     }
 }
 
-bool StaticRouteMgr::ResolvePendingStaticRouteConfig() {
+template <typename T>
+bool StaticRouteMgr<T>::ResolvePendingStaticRouteConfig() {
     ProcessStaticRouteConfig();
     return true;
 }
 
-StaticRouteMgr::~StaticRouteMgr() {
+template <typename T>
+StaticRouteMgr<T>::~StaticRouteMgr() {
     if (static_route_queue_)
         delete static_route_queue_;
 }
 
 bool CompareStaticRouteConfig(const StaticRouteConfig &lhs,
                               const StaticRouteConfig &rhs) {
-    Ip4Prefix lhs_static_route_prefix(lhs.address.to_v4(), lhs.prefix_length);
-    Ip4Prefix rhs_static_route_prefix(rhs.address.to_v4(), rhs.prefix_length);
-    return (lhs_static_route_prefix < rhs_static_route_prefix); 
+    BOOL_KEY_COMPARE(lhs.address, rhs.address);
+    BOOL_KEY_COMPARE(lhs.prefix_length, rhs.prefix_length);
+    return false;
 }
 
 
-void StaticRouteMgr::UpdateStaticRouteConfig() {
+template <typename T>
+void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
     typedef BgpInstanceConfig::StaticRouteList StaticRouteList;
     StaticRouteList static_route_list =
@@ -713,12 +803,13 @@ void StaticRouteMgr::UpdateStaticRouteConfig() {
 
     StaticRouteList::const_iterator static_route_cfg_it = 
             static_route_list.begin();
-    StaticRouteMap::iterator oper_it = static_route_map_.begin();
+    typename StaticRouteMap::iterator oper_it = static_route_map_.begin();
 
     while ((static_route_cfg_it != static_route_list.end()) &&
            (oper_it != static_route_map_.end())) {
-        Ip4Prefix static_route_prefix(static_route_cfg_it->address.to_v4(),
-                                      static_route_cfg_it->prefix_length);
+        AddressT address = this->GetAddress(static_route_cfg_it->address);
+        PrefixT static_route_prefix(
+            address, static_route_cfg_it->prefix_length);
         if (static_route_prefix < oper_it->first) {
             LocateStaticRoutePrefix(*static_route_cfg_it);
             static_route_cfg_it++;
@@ -741,36 +832,40 @@ void StaticRouteMgr::UpdateStaticRouteConfig() {
     }
 }
 
-void StaticRouteMgr::FlushStaticRouteConfig() {
+template <typename T>
+void StaticRouteMgr<T>::FlushStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
-    for (StaticRouteMap::iterator it = static_route_map_.begin();
+    for (typename StaticRouteMap::iterator it = static_route_map_.begin();
          it != static_route_map_.end(); it++) {
         RemoveStaticRoutePrefix(it->first);
     }
 }
 
-void StaticRouteMgr::NotifyAllRoutes() {
+template <typename T>
+void StaticRouteMgr<T>::NotifyAllRoutes() {
     CHECK_CONCURRENCY("bgp::Config");
-    for (StaticRouteMap::iterator it = static_route_map_.begin();
+    for (typename StaticRouteMap::iterator it = static_route_map_.begin();
          it != static_route_map_.end(); ++it) {
-        StaticRoute *static_route =
-             static_cast<StaticRoute *>(it->second.get());
+        StaticRouteT *static_route =
+             static_cast<StaticRouteT *>(it->second.get());
         static_route->NotifyRoute();
     }
 }
 
-uint32_t StaticRouteMgr::GetRouteCount() const {
+template <typename T>
+uint32_t StaticRouteMgr<T>::GetRouteCount() const {
     CHECK_CONCURRENCY("bgp::Config");
     return static_route_map_.size();
 }
 
-uint32_t StaticRouteMgr::GetDownRouteCount() const {
+template <typename T>
+uint32_t StaticRouteMgr<T>::GetDownRouteCount() const {
     CHECK_CONCURRENCY("bgp::Config");
     uint32_t count = 0;
-    for (StaticRouteMap::const_iterator it = static_route_map_.begin();
+    for (typename StaticRouteMap::const_iterator it = static_route_map_.begin();
          it != static_route_map_.end(); ++it) {
-        const StaticRoute *static_route =
-             static_cast<const StaticRoute *>(it->second.get());
+        const StaticRouteT *static_route =
+             static_cast<const StaticRouteT *>(it->second.get());
         if (static_route->IsPending())
             count++;
     }
@@ -788,38 +883,13 @@ public:
 
         StaticRouteEntriesInfo info;
         info.set_ri_name(ri->name());
-        for (StaticRouteMgr::StaticRouteMap::const_iterator it =
+        for (StaticRouteMgr<StaticRouteInet>::StaticRouteMap::const_iterator it =
              ri->static_route_mgr()->static_route_map().begin();
              it != ri->static_route_mgr()->static_route_map().end(); it++) {
-            StaticRoute *match =
-                static_cast<StaticRoute *>(it->second.get());
+            StaticRoute<StaticRouteInet> *match =
+                static_cast<StaticRoute<StaticRouteInet> *>(it->second.get());
             StaticRouteInfo static_info;
-            static_info.set_prefix(match->static_route_prefix().ToString());
-            BgpTable *bgptable = match->bgp_table();
-            InetRoute rt_key(match->static_route_prefix());
-            BgpRoute *static_rt =
-                static_cast<BgpRoute *>(bgptable->Find(&rt_key));
-            if (static_rt) {
-                static_info.set_static_rt(true);
-            } else {
-                static_info.set_static_rt(false);
-            }
-
-            static_info.set_nexthop(match->nexthop().to_string());
-            if (match->nexthop_route()) {
-                ShowRouteBrief show_route;
-                match->nexthop_route()->FillRouteInfo(bgptable, &show_route);
-                static_info.set_nexthop_rt(show_route);
-            }
-
-            vector<string> route_target_list;
-            for (StaticRoute::RouteTargetList::const_iterator rtit =
-                 match->rtarget_list().begin();
-                 rtit != match->rtarget_list().end(); ++rtit) {
-                route_target_list.push_back(rtit->ToString());
-            }
-            static_info.set_route_target_list(route_target_list);
-
+            match->FillShowInfo(&static_info);
             info.static_route_list.push_back(static_info);
         }
         list->push_back(info);
@@ -864,3 +934,13 @@ void ShowStaticRouteReq::HandleRequest() const {
     ps.stages_ = list_of(s1);
     RequestPipeline rp(ps);
 }
+
+template StaticRouteMgr<StaticRouteInet>::StaticRouteMgr(
+    RoutingInstance *rtinstance);
+template StaticRouteMgr<StaticRouteInet>::~StaticRouteMgr();
+template void StaticRouteMgr<StaticRouteInet>::ProcessStaticRouteConfig();
+template void StaticRouteMgr<StaticRouteInet>::UpdateStaticRouteConfig();
+template void StaticRouteMgr<StaticRouteInet>::FlushStaticRouteConfig();
+template void StaticRouteMgr<StaticRouteInet>::NotifyAllRoutes();
+template uint32_t StaticRouteMgr<StaticRouteInet>::GetRouteCount() const;
+template uint32_t StaticRouteMgr<StaticRouteInet>::GetDownRouteCount() const;

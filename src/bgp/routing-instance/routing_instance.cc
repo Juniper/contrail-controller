@@ -897,7 +897,7 @@ void RoutingInstance::set_index(int index) {
     index_ = index;
     if (!is_default_) {
         rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index));
-        static_route_mgr_.reset(new StaticRouteMgr(this));
+        static_route_mgr_.reset(new StaticRouteMgr<StaticRouteInet>(this));
     }
 }
 
