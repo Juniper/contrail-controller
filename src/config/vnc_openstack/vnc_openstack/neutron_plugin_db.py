@@ -1938,8 +1938,13 @@ class DBInterface(object):
         if dhcp_options_list and dhcp_options_list.dhcp_option:
             dhcp_options = []
             for dhcp_option in dhcp_options_list.dhcp_option:
-                pair = {"opt_value": dhcp_option.dhcp_option_value,
-                        "opt_name": dhcp_option.dhcp_option_name}
+                # if dhcp_option_value_bytes is set, consider that value
+                if dhcp_option.dhcp_option_value_bytes:
+                    pair = {"opt_value": dhcp_option.dhcp_option_value_bytes,
+                            "opt_name": dhcp_option.dhcp_option_name}
+                else:
+                    pair = {"opt_value": dhcp_option.dhcp_option_value,
+                            "opt_name": dhcp_option.dhcp_option_name}
                 dhcp_options.append(pair)
             port_q_dict['extra_dhcp_opts'] = dhcp_options
 
