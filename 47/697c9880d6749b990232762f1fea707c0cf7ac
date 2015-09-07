@@ -1,0 +1,8 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Sylvain Afchain <safchain@redhat.com>
+Code-Review+2: Sylvain Afchain <safchain@redhat.com>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Mon, 07 Sep 2015 08:58:18 -0700
+Reviewed-on: https://review.opencontrail.org/13506
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
