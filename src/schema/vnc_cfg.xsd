@@ -1631,6 +1631,33 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('physical-interface-connection',
           'physical-interface', 'physical-interface', ['ref']) -->
 
+<!-- SubnetPools -->
+<xsd:complexType name="SubnetPoolType">
+    <xsd:all>
+        <xsd:element name="default-prefix-len" type="xsd:integer"/>
+        <xsd:element name="max-prefix-len" type="xsd:integer"/>
+        <xsd:element name="min-prefix-len" type="xsd:integer"/>
+        <xsd:element name="ip-version" type="IpAddressFamilyType"/>
+        <xsd:element name="shared" type="xsd:boolean" default='false'/>
+        <xsd:element name="prefixes" type="SubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="subnet-pool" type="ifmap:IdentityType"/>
+<xsd:element name="project-subnet-pool"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-subnet-pool',
+          'project', 'subnet-pool', ['has']) -->
+
+<xsd:element name="subnet-pool-data" type="SubnetPoolType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('subnet-pool-data', 'subnet-pool') -->
+
+<xsd:element name="virtual-network-subnet-pool"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-subnet-pool',
+          'virtual-network', 'subnet-pool', ['ref']) -->
+
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
 
