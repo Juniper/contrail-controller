@@ -678,7 +678,8 @@ def parse_args(args_str):
         'log_local': True,
         'log_level': 'SYS_NOTICE',
         'log_category': '',
-        'log_file': Sandesh._DEFAULT_LOG_FILE
+        'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
 
     if args.conf_file:
@@ -713,6 +714,8 @@ def parse_args(args_str):
                         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
                         help="Filename for the logs to be written to")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+                        help="Sandesh send rate limit in messages/sec")
 
     args = parser.parse_args(remaining_argv)
     return args
@@ -742,6 +745,9 @@ def main(args_str=None):
         _disc = client.DiscoveryClient(args.disc_server_ip,
                                        args.disc_server_port,
                                        module_name)
+        if args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                args.sandesh_send_rate_limit)
         sandesh_global.init_generator(
             module_name,
             socket.gethostname(),
