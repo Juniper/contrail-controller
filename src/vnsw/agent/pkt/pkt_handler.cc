@@ -188,58 +188,15 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     return INVALID;
 }
 
-static PktHandler::PktModuleName AgentHdrToModule(const AgentHdr &hdr) {
-    PktHandler::PktModuleName module = PktHandler::INVALID;
-
-    switch (hdr.cmd) {
-    case AgentHdr::TRAP_RESOLVE:
-    case AgentHdr::TRAP_ARP:
-        module = PktHandler::ARP;
-        break;
-
-    case AgentHdr::TRAP_TOR_CONTROL_PKT:
-    case AgentHdr::TRAP_L3_PROTOCOLS:
-        module = PktHandler::DHCP;
-        break;
-
-    case AgentHdr::TRAP_NEXTHOP:
-        module = PktHandler::DNS;
-        break;
-    case AgentHdr::TRAP_ZERO_TTL:
-    case AgentHdr::TRAP_DIAG:
-        module = PktHandler::DIAG;
-        break;
-
-    case AgentHdr::TRAP_ICMP_ERROR:
-    case AgentHdr::TRAP_HANDLE_DF:
-        module = PktHandler::ICMP_ERROR;
-        break;
-
-    case AgentHdr::TRAP_FLOW_MISS:
-    case AgentHdr::TRAP_ECMP_RESOLVE:
-        module = PktHandler::FLOW;
-        break;
-
-    case AgentHdr::TRAP_L2_PROTOCOL:
-    case AgentHdr::TRAP_SOURCE_MISMATCH:
-        assert(0);
-        break;
-
-    case AgentHdr::TX_SWITCH:
-    case AgentHdr::TX_ROUTE:
-    default:
-        break;
-    }
-
-    return module;
-}
-
 void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(buff));
-    PktModuleName mod = AgentHdrToModule(hdr);
-    pkt_info->agent_hdr = hdr;
+    PktModuleName mod = INVALID;
+    mod = ParsePacket(hdr, pkt_info.get(), pkt_info->packet_buffer()->data());
+    pkt_info->packet_buffer()->set_module(mod);
+    pkt_info->module = mod;
     stats_.PktRcvd(mod);
     if (mod == INVALID) {
+        AddPktTrace(mod, PktTrace::In, pkt_info.get());
         agent_->stats()->incr_pkt_dropped();
         return;
     }
@@ -924,6 +881,10 @@ PktInfo::~PktInfo() {
 
 const AgentHdr &PktInfo::GetAgentHdr() const {
     return agent_hdr;
+}
+
+void PktInfo::reset_packet_buffer() {
+    packet_buffer_.reset();
 }
 
 void PktInfo::AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,

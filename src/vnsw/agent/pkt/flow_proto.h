@@ -27,6 +27,18 @@ public:
     void Init() {}
     void Shutdown() {}
 
+    bool Validate(PktInfo *msg) {
+        if (msg->l3_forwarding && msg->ip == NULL && msg->ip6 == NULL &&
+            msg->type != PktType::MESSAGE) {
+            FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
+                       msg->agent_hdr.ifindex, msg->agent_hdr.vrf,
+                       msg->ether_type, 0, "Flow : Non-IP packet. Dropping",
+                       msg->l3_forwarding);
+            return false;
+        }
+        return true;
+    }
+
     FlowHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                    boost::asio::io_service &io) {
         return new FlowHandler(agent(), info, io);
