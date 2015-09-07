@@ -82,3 +82,16 @@ objectlog sandesh QueryPerfInfo {
     10: QueryStats                 query_stats (tags="table,name:.qid,.rows,.time")
 }
 
+struct AnalyticsApiSample {
+    1: string operation_type // (GET, POST)
+    3: string remote_ip
+    5: string object_type
+    6: string request_url
+    8: u64 response_time_in_usec
+    9: u64 response_size
+    10: string node (key="ObjectCollectorInfo")
+}
+
+objectlog sandesh AnalyticsApiStats {
+    1: AnalyticsApiSample api_stats (tags=".operation_type,.remote_ip,.object_type")
+}
