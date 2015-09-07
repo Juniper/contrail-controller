@@ -23,6 +23,30 @@ class VMObjMatcher(object):
             return False
         return True
 
+
+class VMIObjMatcher(object):
+    """
+    Object for assert_called_with to check if vmi object is created properly
+    """
+
+    def __init__(self, sec_group):
+        self.sec_group = sec_group
+
+    def _get_sg_refs(self, obj):
+        return getattr(obj, "security_group_refs", None)
+
+    def __eq__(self, obj):
+        sg_refs = self._get_sg_refs(obj)
+        if not self.sec_group and not sg_refs:
+            return True
+        elif self.sec_group and sg_refs:
+            uuids = [x['uuid'] for x in sg_refs]
+            if len(self.sec_group) == len(sg_refs) and \
+                    set(self.sec_group) == set(uuids):
+                return True
+        return False
+
+
 class VRObjMatcher(object):
     """
     Object for assert_called_with to check if vr object is created properly

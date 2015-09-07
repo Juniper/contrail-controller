@@ -21,7 +21,6 @@ class SnatInstanceManager(unittest.TestCase):
 
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
-        self.mocked_vnc.virtual_machine_interface_create = test_utils.vmi_create
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
@@ -68,6 +67,28 @@ class SnatInstanceManager(unittest.TestCase):
         self.netns_manager.create_service(st, si)
         self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(2))
+        self.mocked_vnc.virtual_machine_interface_create.assert_any_call(
+            test_utils.VMIObjMatcher(sec_group=["fake-domain:fake-project:default"]))
+        self.assertEqual(si.vn_info[1]['net-id'], 'fake-domain:fake-project:fake-vn-uuid')
+
+    def test_snat_network_nat_create(self):
+        test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:public-vn')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:fake-vn-uuid')
+
+        st = test_utils.create_test_st(name='snat-template',
+            service_mode='in-network-nat',
+            service_type='source-nat',
+            virt_type='network-namespace',
+            intf_list=[['right', True], ['left', True]])
+        si = test_utils.create_test_si(name='snat-instance', count=2,
+            intf_list=['public-vn', 'fake-vn-uuid'])
+
+        self.netns_manager.create_service(st, si)
+        self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(1))
+        self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(2))
+        self.mocked_vnc.virtual_machine_interface_create.assert_any_call(
+            test_utils.VMIObjMatcher(sec_group=None))
         self.assertEqual(si.vn_info[1]['net-id'], 'fake-domain:fake-project:fake-vn-uuid')
 
     def test_snat_instance_delete(self):
