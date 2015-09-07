@@ -40,3 +40,5 @@ DatabaseEnv.Alias("src/analytics/database:database", sdist_gen)
 DatabaseEnv.Alias("contrail-database", sdist_gen)
 
 DatabaseEnv['DATABASE_PKG'] = sdist_gen
+
+DatabaseEnv.SConscript('utils/SConscript', exports='AnalyticsEnv', duplicate = 0)
