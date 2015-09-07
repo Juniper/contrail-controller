@@ -1638,5 +1638,5 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
-
+<xsd:include schemaLocation='openstack/subnetpool.xsd'/>
 </xsd:schema>

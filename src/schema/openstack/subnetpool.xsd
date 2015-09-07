@@ -1,0 +1,39 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xsd:targetNamespace="http://www.contrailsystems.com/loadbalancer.xsd">
+
+<xsd:complexType name="SubnetPoolType">
+    <xsd:all>
+        <xsd:element name="default-prefix-len" type="xsd:integer"/>
+        <xsd:element name="max-prefix-len" type="xsd:integer"/>
+        <xsd:element name="min-prefix-len" type="xsd:integer"/>
+        <xsd:element name="ip-version" type="IpAddressFamilyType"/>
+        <xsd:element name="prefixes" type="SubnetType" maxOccurs="unbounded"/>
+        <xsd:element name="default-quota" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="subnet-pool" type="ifmap:IdentityType"/>
+<xsd:element name="project-subnet-pool"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-subnet-pool',
+          'project', 'subnet-pool', ['has']) -->
+
+<xsd:element name="subnet-pool-data" type="SubnetPoolType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('subnet-pool-data', 'subnet-pool') -->
+
+<xsd:element name="subnet-pool-is-shared" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('subnet-pool-is-shared', ['backend']);
+     Property('subnet-pool-is-shared', 'subnet-pool') -->
+
+<xsd:element name="virtual-network-subnet-pool"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-subnet-pool',
+          'virtual-network', 'subnet-pool', ['ref']) -->
+
+</xsd:schema>
