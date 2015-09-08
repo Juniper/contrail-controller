@@ -97,6 +97,9 @@ protected:
     // by default create transaction for all entries
     virtual bool IsNoTxnEntry() { return false; }
 
+    // by default dont use bulk txn
+    virtual bool UseBulkTxn() { return false; }
+
     OvsdbDBObject *table_;
     struct ovsdb_idl_row *ovs_entry_;
 

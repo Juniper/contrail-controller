@@ -65,7 +65,7 @@ void ovsdb_wrapper_idl_callback(void *idl_base, int op,
 
 void ovsdb_wrapper_idl_txn_ack(void *idl_base, struct ovsdb_idl_txn *txn) {
     OvsdbClientIdl *client_idl = (OvsdbClientIdl *) idl_base;
-    OvsdbEntryBase *entry = client_idl->pending_txn_[txn];
+    OvsdbEntryList &entry_list = client_idl->pending_txn_[txn];
     bool success = ovsdb_wrapper_is_txn_success(txn);
     if (!success) {
         // increment stats.
@@ -74,14 +74,21 @@ void ovsdb_wrapper_idl_txn_ack(void *idl_base, struct ovsdb_idl_txn *txn) {
                 std::string(ovsdb_wrapper_txn_get_error(txn)));
         // we don't handle the case where txn fails, when entry is not present
         // case of unicast_mac_remote entry.
-        assert(entry != NULL);
+        assert(!entry_list.empty());
     } else {
         // increment stats.
         client_idl->stats_.txn_succeeded++;
     }
-    client_idl->DeleteTxn(txn);
-    if (entry)
+
+    // trigger ack for all the entries encode in this txn
+    OvsdbEntryList::iterator it;
+    for (it = entry_list.begin(); it != entry_list.end(); ++it) {
+        OvsdbEntryBase *entry = *it;
         entry->Ack(success);
+    }
+
+    // Donot Access entry_list ref after transaction delete
+    client_idl->DeleteTxn(txn);
 
     // if there are pending txn messages to be scheduled, pick one and schedule
     if (!client_idl->pending_send_msgs_.empty()) {
@@ -139,7 +146,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Keep Alive Timer",
                 TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)),
-    monitor_request_id_(NULL), stats_() {
+    monitor_request_id_(NULL), bulk_txn_(NULL), stats_() {
     refcount_ = 0;
     vtep_global_= ovsdb_wrapper_vteprec_global_first(idl_);
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
@@ -280,17 +287,100 @@ struct ovsdb_idl_txn *OvsdbClientIdl::CreateTxn(OvsdbEntryBase *entry,
         // Don't create new transactions for deleted idl.
         return NULL;
     }
-    struct ovsdb_idl_txn *txn =  ovsdb_wrapper_idl_txn_create(idl_);
-    pending_txn_[txn] = entry;
+
+    // while encode a non bulk entry send the previous bulk entry to ensure
+    // sanity of txns
+    if (bulk_txn_ != NULL) {
+        // reset bulk_txn_ and bulk_entries_ before triggering EncodeSendTxn
+        // to let the transaction send go through
+        pending_txn_[bulk_txn_] = bulk_entries_;
+        bulk_entries_.clear();
+        struct ovsdb_idl_txn *bulk_txn = bulk_txn_;
+        bulk_txn_ = NULL;
+        EncodeSendTxn(bulk_txn, NULL);
+    }
+
+    struct ovsdb_idl_txn *txn = ovsdb_wrapper_idl_txn_create(idl_);
+    OvsdbEntryList entry_list;
     if (entry != NULL) {
+        entry_list.insert(entry);
         // if entry is available store the ack_event in entry
         entry->ack_event_ = ack_event;
     }
+    pending_txn_[txn] = entry_list;
     return txn;
+}
+
+struct ovsdb_idl_txn *OvsdbClientIdl::CreateBulkTxn(OvsdbEntryBase *entry,
+                                            KSyncEntry::KSyncEvent ack_event) {
+    if (deleted_) {
+        // Don't create new transactions for deleted idl.
+        return NULL;
+    }
+
+    if (bulk_txn_ == NULL) {
+        // if bulk txn is not available create one
+        bulk_txn_ = ovsdb_wrapper_idl_txn_create(idl_);
+    }
+
+    struct ovsdb_idl_txn *bulk_txn = bulk_txn_;
+
+    // bulk txn can be done only for entries
+    assert(entry != NULL);
+    bulk_entries_.insert(entry);
+    entry->ack_event_ = ack_event;
+
+    // try creating bulk transaction only if pending txn are there
+    if (pending_txn_.empty() || bulk_entries_.size() == OVSDBEntriesInBulkTxn) {
+        // once done bunch entries add the txn to pending txn list and
+        // reset bulk_txn_ to let EncodeSendTxn proceed with bulk txn
+        pending_txn_[bulk_txn_] = bulk_entries_;
+        bulk_txn_ = NULL;
+        bulk_entries_.clear();
+    }
+    return bulk_txn;
+}
+
+bool OvsdbClientIdl::EncodeSendTxn(struct ovsdb_idl_txn *txn,
+                                   OvsdbEntryBase *skip_entry) {
+    // return false to wait for bulk txn to complete
+    if (txn == bulk_txn_) {
+        return false;
+    }
+
+    struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
+    if (msg == NULL) {
+        // if it was a bulk transaction trigger Ack for previously
+        // held entries, that are waiting for Ack
+        OvsdbEntryList &entry_list = pending_txn_[txn];
+        OvsdbEntryList::iterator it;
+        for (it = entry_list.begin(); it != entry_list.end(); ++it) {
+            OvsdbEntryBase *entry = *it;
+            if (entry != skip_entry) {
+                entry->Ack(true);
+            } else {
+                entry->TxnDoneNoMessage();
+            }
+        }
+        DeleteTxn(txn);
+        return true;
+    }
+    TxnScheduleJsonRpc(msg);
+    return false;
 }
 
 void OvsdbClientIdl::DeleteTxn(struct ovsdb_idl_txn *txn) {
     pending_txn_.erase(txn);
+    // third party code and handle only one txn at a time,
+    // if there is a pending bulk entry encode and send before
+    // destroying the current txn
+    if (bulk_txn_ != NULL) {
+        pending_txn_[bulk_txn_] = bulk_entries_;
+        bulk_entries_.clear();
+        struct ovsdb_idl_txn *bulk_txn = bulk_txn_;
+        bulk_txn_ = NULL;
+        EncodeSendTxn(bulk_txn, NULL);
+    }
     ovsdb_wrapper_idl_txn_destroy(txn);
 }
 
@@ -428,11 +518,15 @@ void OvsdbClientIdl::TriggerDeletion() {
     // trigger txn failure for pending transcations
     PendingTxnMap::iterator it = pending_txn_.begin();
     while (it != pending_txn_.end()) {
-        OvsdbEntryBase *entry = it->second;
-        DeleteTxn(it->first);
-        // Ack failure, if entry is available.
-        if (entry)
+        OvsdbEntryList &entry_list = it->second;
+        // Ack failure, if any entry is available.
+        OvsdbEntryList::iterator entry_it;
+        for (entry_it = entry_list.begin(); entry_it != entry_list.end();
+             ++entry_it) {
+            OvsdbEntryBase *entry = *entry_it;
             entry->Ack(false);
+        }
+        DeleteTxn(it->first);
         it = pending_txn_.begin();
     }
 
