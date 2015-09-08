@@ -41,8 +41,11 @@ class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RTargetGroupMgr;
 class SchedulingGroupManager;
-class ServiceChainMgr;
+class ServiceChainInet;
+class ServiceChainInet6;
 class StaticRouteMgr;
+
+template <typename T> class ServiceChainMgr;
 
 class BgpServer {
 public:
@@ -89,7 +92,7 @@ public:
         assert(false);
         return NULL;
     }
-    ServiceChainMgr *service_chain_mgr() {
+    ServiceChainMgr<ServiceChainInet> *service_chain_mgr() {
         return service_chain_mgr_.get();
     }
     RoutePathReplicator *replicator(Address::Family family) {
@@ -241,7 +244,7 @@ private:
     boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> evpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> inet6vpn_replicator_;
-    boost::scoped_ptr<ServiceChainMgr> service_chain_mgr_;
+    boost::scoped_ptr<ServiceChainMgr<ServiceChainInet> > service_chain_mgr_;
 
     // configuration
     boost::scoped_ptr<BgpConfigManager> config_mgr_;

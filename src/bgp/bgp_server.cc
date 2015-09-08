@@ -274,7 +274,7 @@ BgpServer::BgpServer(EventManager *evm)
       ermvpn_replicator_(new RoutePathReplicator(this, Address::ERMVPN)),
       evpn_replicator_(new RoutePathReplicator(this, Address::EVPN)),
       inet6vpn_replicator_(new RoutePathReplicator(this, Address::INET6VPN)),
-      service_chain_mgr_(new ServiceChainMgr(this)),
+      service_chain_mgr_(new ServiceChainMgr<ServiceChainInet>(this)),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     num_up_peer_ = 0;
