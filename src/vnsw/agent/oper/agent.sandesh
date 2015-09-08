@@ -35,6 +35,7 @@ struct FloatingIpSandeshList {
    1: string ip_addr;
    2: string vrf_name (link="VrfListReq"); // VRF name
    3: string installed;
+   4: string fixed_ip;
 }
 
 struct StaticRouteSandesh {

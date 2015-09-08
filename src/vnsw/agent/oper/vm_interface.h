@@ -105,7 +105,7 @@ public:
         FloatingIp();
         FloatingIp(const FloatingIp &rhs);
         FloatingIp(const IpAddress &addr, const std::string &vrf,
-                   const boost::uuids::uuid &vn_uuid);
+                   const boost::uuids::uuid &vn_uuid, const IpAddress &ip);
         virtual ~FloatingIp();
 
         bool operator() (const FloatingIp &lhs, const FloatingIp &rhs) const;
@@ -116,6 +116,7 @@ public:
         void L2DeActivate(VmInterface *interface) const;
         void DeActivate(VmInterface *interface, bool l2) const;
         void Activate(VmInterface *interface, bool force_update, bool l2) const;
+        const IpAddress GetFixedIp(const VmInterface *) const;
 
         IpAddress floating_ip_;
         mutable VnEntryRef vn_;
@@ -124,6 +125,9 @@ public:
         boost::uuids::uuid vn_uuid_;
         mutable bool l2_installed_;
         mutable int ethernet_tag_;
+        mutable IpAddress fixed_ip_;
+        mutable bool force_l3_update_;
+        mutable bool force_l2_update_;
     };
     typedef std::set<FloatingIp, FloatingIp> FloatingIpSet;
 

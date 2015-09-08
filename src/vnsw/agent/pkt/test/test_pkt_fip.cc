@@ -14,6 +14,8 @@
 void RouterIdDepInit(Agent *agent) {
 }
 
+Agent *agent_;
+
 class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -28,7 +30,6 @@ public:
         WAIT_FOR(1000, 100, (0U == agent_->pkt()->flow_table()->Size()));
     }
 
-    Agent *agent_;
 };
 
 struct PortInfo input1[] = {
@@ -211,6 +212,9 @@ static void Setup() {
     int ret = true;
     hash_id = 1;
 
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "XmppChannel");
     client->Reset();
     if (VmPortSetup(input1, 2, 1) != true) {
         ret = false;
@@ -262,6 +266,17 @@ static void Setup() {
             "default-project:vn3");
     client->WaitForIdle();
 
+    AddInstanceIp("instance_fixed_ip", 8, "1.1.1.10");
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
+    AddLink("floating-ip", "fip_fixed_ip", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip_fixed_ip");
+    client->WaitForIdle();
+
     EXPECT_TRUE(vnet[1]->HasFloatingIp(Address::INET));
     if (vnet[1]->HasFloatingIp(Address::INET) == false) {
         ret = false;
@@ -286,7 +301,7 @@ static void Setup() {
     /* Add remote VN route to VN1 */
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -294,7 +309,8 @@ static void Setup() {
 
     /* Add Local VM route in vrf1 from default-project:vn2:vn2 */
     addr = Ip4Address::from_string("2.1.1.10");
-    vnet_table[2]->AddLocalVmRouteReq(NULL, "default-project:vn2:vn2", addr, 32,
+    vnet_table[2]->AddLocalVmRouteReq(agent_->local_peer(),
+                                      "default-project:vn2:vn2", addr, 32,
                                       vnet[3]->GetUuid(),
                                       vnet[3]->vn()->GetName(),
                                       vnet[3]->label(),
@@ -305,7 +321,7 @@ static void Setup() {
 
     /* Add Remote /24 route of vrf3 to default-project:vn2:vn2 */
     addr = Ip4Address::from_string("20.1.1.0");
-    Inet4TunnelRouteAdd(NULL, "default-project:vn2:vn2", addr, 24, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 24, gw,
                         TunnelType::AllType(), 8, "vn3",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -314,7 +330,7 @@ static void Setup() {
     /* Add Remote VM route in vrf1 from default-project:vn2:vn2 */
     addr = Ip4Address::from_string("2.1.1.11");
     gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -346,9 +362,20 @@ void Teardown() {
 
     DeleteRoute("default-project:vn2:vn2", "20.1.1.0", 24);
 
-    DeleteRoute("default-project:vn2:vn2", "2.1.1.10", 32);
+    DeleteRoute("default-project:vn2:vn2", "2.1.1.10", 32, agent_->local_peer());
 
     DeleteRoute("vrf1", "1.1.1.10", 32);
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    DelInstanceIp("instance_fixed_ip");
+
+    DelLink("floating-ip", "fip_fixed_ip", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_fixed_ip");
+    DelFloatingIp("fip_fixed_ip");
     client->WaitForIdle();
 
     // Delete floating-ip
@@ -374,6 +401,8 @@ void Teardown() {
     DeleteVmportEnv(input1, 2, true, 1);
     DelNode("routing-instance", "vrf1");
     DelNode("access-control-list", "acl1");
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_);
     client->WaitForIdle();
 }
 
@@ -1037,7 +1066,7 @@ TEST_F(FlowTest, NonNat2Nat) {
         (FlowStatsCollector::FlowAgeTime);
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1085,7 +1114,7 @@ TEST_F(FlowTest, NonNat2Nat) {
     Agent::GetInstance()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
     WAIT_FOR(1000, 100,
@@ -1262,7 +1291,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
 //which was leaked due to policy
 TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     //Leak a route from default-project:vn3:vn3 to default-project:vn2:vn2
-    vnet_table[2]->AddLocalVmRouteReq(NULL, "default-project:vn2:vn2",
+    vnet_table[2]->AddLocalVmRouteReq(agent_->local_peer(), "default-project:vn2:vn2",
                                       vnet[5]->primary_ip_addr(), 32,
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
@@ -1282,7 +1311,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                 "default-project:vn3",
                                 vnet[1]->flow_key_nh()->id(),
                                 vnet[5]->flow_key_nh()->id()));
-    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2",
+    vnet_table[2]->DeleteReq(bgp_peer_, "default-project:vn2:vn2",
                              vnet[5]->primary_ip_addr(), 32, NULL);
     client->WaitForIdle();
 }
@@ -1290,7 +1319,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
 TEST_F(FlowTest, Fip_preference_over_policy) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1300,7 +1329,7 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
 
     //client->EnqueueFlowFlush();
     //client->WaitForIdle();
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
@@ -1311,11 +1340,11 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
 TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
                         SecurityGroupList(), PathPreference());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr1, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr1, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1324,25 +1353,25 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
                         SecurityGroupList(), PathPreference());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr1, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr1, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1351,25 +1380,25 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
                         SecurityGroupList(), PathPreference());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr1, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr1, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1381,7 +1410,7 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
     FlowEntry *fe = FlowGet(vnet[1]->id(), "2.1.1.1", "2.1.1.100", 1, 0, 0,
             vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
@@ -1389,14 +1418,14 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1407,7 +1436,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("vrf1")->vrf_id());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 
     // since policy leaked route should be prefered deleteing the route should
@@ -1430,7 +1459,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
 
     uint32_t old_vrf_id = fe->data().vrf;
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1466,14 +1495,14 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
                              default_route, 0, NULL);
     client->WaitForIdle();
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 30, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 30, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1484,7 +1513,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("vrf1")->vrf_id());
 
-    Inet4TunnelRouteAdd(NULL, "default-project:vn2:vn2", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1495,8 +1524,8 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 30, NULL);
-    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 30, NULL);
+    vnet_table[2]->DeleteReq(bgp_peer_, "default-project:vn2:vn2", addr, 32, NULL);
     client->WaitForIdle();
     WAIT_FOR(1000, 3000, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
@@ -1504,7 +1533,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
 TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    Inet4TunnelRouteAdd(NULL, "default-project:vn2:vn2", addr, 32, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1515,7 +1544,7 @@ TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
 
-    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 30, gw,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 30, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1524,8 +1553,8 @@ TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == false);
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 30, NULL);
-    vnet_table[2]->DeleteReq(NULL, "default-project:vn2:vn2", addr, 32, NULL);
+    vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 30, NULL);
+    vnet_table[2]->DeleteReq(bgp_peer_, "default-project:vn2:vn2", addr, 32, NULL);
     client->WaitForIdle();
     WAIT_FOR(1000, 3000, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
@@ -1604,12 +1633,110 @@ TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT) {
              fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 }
 
+TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT_with_fixed_ip) {
+    AddLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.99", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "2.1.1.99",
+                            IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+
+    // both Source and Destination NAT should be set
+    EXPECT_TRUE(fe->key().src_addr != rfe->key().dst_addr);
+    EXPECT_TRUE(fe->key().dst_addr != rfe->key().src_addr);
+
+    DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) &&
+             fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
+}
+
+TEST_F(FlowTest, fixed_ip_fip_snat) {
+    TxIpPacket(vnet[1]->id(), "1.1.1.10", vnet_addr[3], 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
+                                "1.1.1.10", vnet_addr[3], 1, 0, 0, 1,
+                                vnet[3]->vrf()->GetName().c_str(),
+                                "2.1.1.101", vnet_addr[3], 0, 0,
+                                "default-project:vn2", "default-project:vn2",
+                                vnet[1]->flow_key_nh()->id(),
+                                vnet[3]->flow_key_nh()->id()));
+}
+
+TEST_F(FlowTest, fixed_ip_fip_dnat) {
+    TxIpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.101", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
+                                vnet_addr[3], "2.1.1.101", 1, 0, 0, 1,
+                                vnet[1]->vrf()->GetName().c_str(),
+                                vnet_addr[3], "1.1.1.10", 0, 0,
+                                "default-project:vn2", "default-project:vn2",
+                                vnet[3]->flow_key_nh()->id(),
+                                vnet[1]->flow_key_nh()->id()));
+}
+
+TEST_F(FlowTest, fip_fixed_ip_change_1) {
+    agent_->flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
+    TxIpPacket(vnet[1]->id(), "1.1.1.10", vnet_addr[3], 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
+                        vnet_addr[3], 1, 0, 0) != NULL);
+
+    AddInstanceIp("instance_fixed_ip2", 9, "1.1.1.11");
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.11");
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
+                            vnet_addr[3], 1, 0, 0);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    DelInstanceIp("instance_fixed_ip2");
+    AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
+    client->WaitForIdle();
+    agent_->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+}
+
+TEST_F(FlowTest, fip_fixed_ip_change_2) {
+
+    agent_->flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
+    TxIpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.101", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
+                        vnet_addr[3], 1, 0, 0) != NULL);
+
+    AddInstanceIp("instance_fixed_ip2", 9, "1.1.1.11");
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.11");
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
+                            vnet_addr[3], 1, 0, 0);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    DelInstanceIp("instance_fixed_ip2");
+    AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
+    client->WaitForIdle();
+    agent_->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     //client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
     client = TestInit(init_file, ksync_init, true, true, true,
                       AgentParam::kAgentStatsInterval,
                       AgentParam::kFlowStatsInterval, true, false);
+    agent_ = Agent::GetInstance();
     Setup();
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();

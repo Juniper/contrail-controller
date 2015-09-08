@@ -846,9 +846,12 @@ class RouteFlowUpdate {
 public:
     // DBSTate to hold old values for SG-List and NH
     struct State : DBState {
+        typedef std::map<InterfaceConstRef, IpAddress> FixedIpMap;
+        typedef std::pair<InterfaceConstRef, IpAddress> FixedIpEntry;
         SecurityGroupList sg_l_;
         const NextHop* active_nh_;
         const NextHop* local_nh_;
+        FixedIpMap fixed_ip_map_;
     };
 
     RouteFlowUpdate(AgentRouteTable *table);
@@ -876,6 +879,9 @@ public:
         = 0;
     virtual void NhChange(AgentRoute *entry, const NextHop *active_nh,
                           const NextHop *local_nh) = 0;
+    virtual void FixedIpChange(const AgentRoute *entry, const Interface *intf,
+                               const IpAddress &old_fixed_ip) {};
+    void HandleTrackingIpChange(const AgentRoute *rt, State *state);
 protected:
     DBTableBase::ListenerId id_;
     AgentRouteTable *rt_table_;
@@ -907,6 +913,8 @@ public:
 
     bool SgUpdate(FlowEntry *fe, FlowTable *table, RouteFlowKey &key,
                   const SecurityGroupList &sg_list);
+    bool FixedIpUpdate(FlowEntry *fe, FlowTable *table, RouteFlowKey &key,
+                       const Interface *intf, const IpAddress &old_fixed_ip);
 
     virtual void TraceMsg(AgentRoute *route, const AgentPath *path,
                           SecurityGroupList &sg_list);
@@ -915,6 +923,8 @@ public:
     virtual void SgChange(AgentRoute *entry, SecurityGroupList &sg_list);
     virtual void NhChange(AgentRoute *entry, const NextHop *active_nh,
                           const NextHop *local_nh);
+    virtual void  FixedIpChange(const AgentRoute *entry, const Interface* intf,
+                                const IpAddress&);
 private:
     DISALLOW_COPY_AND_ASSIGN(InetRouteFlowUpdate);
 };

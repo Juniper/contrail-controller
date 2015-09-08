@@ -234,9 +234,14 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     LOG(DEBUG, "Error decoding Floating IP address " 
                         << fip->address());
                 } else {
+                    IpAddress fixed_ip_addr =
+                        IpAddress::from_string(fip->fixed_ip_address(), ec);
+                    if (ec.value() != 0) {
+                        fixed_ip_addr = Ip4Address(0);
+                    }
                     data->floating_ip_list_.list_.insert
                         (VmInterface::FloatingIp(addr, vrf_node->name(),
-                                                 vn_uuid));
+                                                 vn_uuid, fixed_ip_addr));
                     if (addr.is_v4()) {
                         data->floating_ip_list_.v4_count_++;
                     } else {
@@ -3320,21 +3325,26 @@ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
 VmInterface::FloatingIp::FloatingIp() : 
     ListEntry(), floating_ip_(), vn_(NULL),
     vrf_(NULL, this), vrf_name_(""), vn_uuid_(), l2_installed_(false),
-    ethernet_tag_(0) {
+    ethernet_tag_(0), fixed_ip_(), force_l3_update_(false),
+    force_l2_update_(false) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_),
     floating_ip_(rhs.floating_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
     vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
-    l2_installed_(rhs.l2_installed_), ethernet_tag_(rhs.ethernet_tag_) {
+    l2_installed_(rhs.l2_installed_), ethernet_tag_(rhs.ethernet_tag_),
+    fixed_ip_(rhs.fixed_ip_), force_l3_update_(rhs.force_l3_update_),
+    force_l2_update_(rhs.force_l2_update_) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     const std::string &vrf,
-                                    const boost::uuids::uuid &vn_uuid) :
+                                    const boost::uuids::uuid &vn_uuid,
+                                    const IpAddress &fixed_ip) :
     ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this), vrf_name_(vrf),
-    vn_uuid_(vn_uuid), l2_installed_(false), ethernet_tag_(0) {
+    vn_uuid_(vn_uuid), l2_installed_(false), ethernet_tag_(0),
+    fixed_ip_(fixed_ip), force_l3_update_(false), force_l2_update_(false){
 }
 
 VmInterface::FloatingIp::~FloatingIp() {
@@ -3357,8 +3367,9 @@ bool VmInterface::FloatingIp::IsLess(const FloatingIp *rhs) const {
 void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
                                          bool force_update) const {
     // Add route if not installed or if force requested
-    if (installed_ && force_update == false)
+    if (installed_ && force_update == false && force_l3_update_ == false) {
         return;
+    }
 
     InterfaceTable *table =
         static_cast<InterfaceTable *>(interface->get_table());
@@ -3366,7 +3377,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     if (floating_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(), 32,
                         vn_->GetName(), true, interface->ecmp(), Ip4Address(0),
-                        interface->primary_ip_addr());
+                        GetFixedIp(interface));
         if (table->update_floatingip_cb().empty() == false) {
             table->update_floatingip_cb()(interface, vn_.get(),
                                           floating_ip_.to_v4(), false);
@@ -3374,11 +3385,12 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     } else if (floating_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
                             vn_->GetName(), true, false, Ip6Address(),
-                            interface->primary_ip_addr());
+                            GetFixedIp(interface));
         //TODO:: callback for DNS handling
     }
 
     installed_ = true;
+    force_l3_update_ = false;
 }
 
 void VmInterface::FloatingIp::L3DeActivate(VmInterface *interface) const {
@@ -3403,14 +3415,16 @@ void VmInterface::FloatingIp::L3DeActivate(VmInterface *interface) const {
 void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
                                          bool force_update) const {
     // Add route if not installed or if force requested
-    if (l2_installed_ && force_update == false)
+    if (l2_installed_ && force_update == false &&
+            force_l2_update_ == false) {
         return;
+    }
 
     SecurityGroupList sg_id_list;
     interface->CopySgIdList(&sg_id_list);
 
     PathPreference path_preference;
-    interface->SetPathPreference(&path_preference, false, interface->primary_ip_addr());
+    interface->SetPathPreference(&path_preference, false, GetFixedIp(interface));
 
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
@@ -3422,6 +3436,7 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
                                 floating_ip_, ethernet_tag_, vn_->GetName(),
                                 path_preference);
     l2_installed_ = true;
+    force_l2_update_ = false;
 }
 
 void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface) const {
@@ -3468,6 +3483,18 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface, bool l2) const{
         vrf_ = NULL;
 }
 
+const IpAddress
+VmInterface::FloatingIp::GetFixedIp(const VmInterface *interface) const {
+    if (fixed_ip_.to_v4() == Ip4Address(0)) {
+        if (floating_ip_.is_v4() == true) {
+            return interface->primary_ip_addr();
+        } else {
+            return interface->primary_ip6_addr();
+        }
+    }
+    return fixed_ip_;
+}
+
 void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
     std::pair<FloatingIpSet::iterator, bool> ret = list_.insert(*rhs);
     if (ret.second) {
@@ -3481,7 +3508,11 @@ void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
 
 void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
                                          const FloatingIp *rhs) {
-    // Nothing to do 
+    if (lhs->fixed_ip_ != rhs->fixed_ip_) {
+        lhs->fixed_ip_ = rhs->fixed_ip_;
+        lhs->force_l3_update_ = true;
+        lhs->force_l2_update_ = true;
+    }
 }
 
 void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
