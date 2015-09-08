@@ -18,6 +18,7 @@
 #include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
+#include "controller/controller_route_walker.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "vrouter/ksync/ksync_init.h"
@@ -147,9 +148,9 @@ protected:
                                         ((bgp_peer == NULL) ? NULL :
                                          (new ControllerVmRoute(bgp_peer))));
         client->WaitForIdle();
-        while (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) == true) {
-            client->WaitForIdle();
-        }
+        //while (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) == true) {
+        //    client->WaitForIdle();
+        //}
     }
 
     std::string vrf_name_;
@@ -1089,6 +1090,50 @@ TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    bgp_peer.reset();
+}
+
+TEST_F(RouteTest, notify_walk_on_deleted_vrf_with_no_state_but_listener_id) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Add a peer and keep a reference of same.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    DBTableBase::ListenerId bgp_peer_id =
+        bgp_peer_ptr->GetVrfExportListenerId();
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+
+    //Take VRF reference and delete VRF.
+    VrfEntryRef vrf_ref = VrfGet("vrf1");
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+    EXPECT_TRUE(rt != NULL);
+    DBState *state = new DBState();
+    rt->SetState(rt->get_table(), DBEntryBase::ListenerId(100), state);
+
+    bgp_peer_ptr->PeerNotifyRoutes();
+    client->WaitForIdle();
+    bgp_peer_ptr->SetVrfListenerId(100);
+    bgp_peer_ptr->route_walker()->RouteWalkNotify(rt->get_table_partition(),
+                                                  rt);
+    client->WaitForIdle();
+    bgp_peer_ptr->SetVrfListenerId(bgp_peer_id);
+
+    rt->ClearState(rt->get_table(), DBEntryBase::ListenerId(100));
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelVrf("vrf1");
+    client->WaitForIdle();
+    //Release VRF reference
+    vrf_ref.reset();
     client->WaitForIdle();
     bgp_peer.reset();
 }
