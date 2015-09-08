@@ -730,7 +730,7 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
                 last = store.end();
             xmpp_data->items.splice(xmpp_data->items.begin(), store, first, last);
 
-            uint8_t *data = new uint8_t[DnsAgentXmpp::max_dns_xmpp_msg_len];
+            uint8_t data[DnsAgentXmpp::max_dns_xmpp_msg_len];
             xid_ = agent()->GetDnsProto()->GetTransId();
             std::size_t len = 0;
             if ((len = DnsAgentXmpp::DnsAgentXmppEncode(channel->GetXmppChannel(), 
@@ -739,8 +739,6 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
                                                         data)) > 0) {
                 channel->SendMsg(data, len);
             }
-            else 
-                delete [] data;
 
             done.splice(done.end(), xmpp_data->items, xmpp_data->items.begin(),
                         xmpp_data->items.end());
