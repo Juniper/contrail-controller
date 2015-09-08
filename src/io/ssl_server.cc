@@ -83,7 +83,7 @@ void SslServer::AcceptHandShakeHandler(TcpServerPtr server,
                               << error.value() << " category: "
                               << error.category().name()
                               << " message: " << error.message());
-        ssl_session->CloseInternal(error, false);
+        ssl_session->CloseInternal(error, false, false);
     }
 }
 
@@ -116,7 +116,7 @@ void SslServer::ConnectHandShakeHandler(TcpServerPtr server,
     } else {
         // report connect failure and close the session
         ssl_session->SetSslHandShakeFailure();
-        ssl_session->CloseInternal(error, false);
+        ssl_session->CloseInternal(error, false, false);
         TCP_SESSION_LOG_ERROR(ssl_session, TCP_DIR_OUT,
                               "SSL Handshake failed due to error: "
                               << error.value() << " category: "
