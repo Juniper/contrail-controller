@@ -1132,7 +1132,8 @@ void DeleteRoute(const char *vrf, const char *ip) {
     WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
 }
 
-void DeleteRoute(const char *vrf, const char *ip, uint8_t plen, Peer *peer) {
+void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
+                 const Peer *peer) {
     Ip4Address addr = Ip4Address::from_string(ip);
     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(peer,
                                             vrf, addr, plen, NULL);
@@ -1751,10 +1752,14 @@ void AddSg(const char *name, int id, int sg_id) {
     AddNode("security-group", name, id, buff);
 }
 
-void AddFloatingIp(const char *name, int id, const char *addr) {
+void AddFloatingIp(const char *name, int id, const char *addr,
+                   const char *fixed_ip) {
     char buff[128];
 
-    sprintf(buff, "<floating-ip-address>%s</floating-ip-address>", addr);
+    sprintf(buff, "<floating-ip-address>%s</floating-ip-address>"\
+                  "<floating-ip-fixed-ip-address>%s"\
+                  "</floating-ip-fixed-ip-address>",\
+                  addr, fixed_ip);
     AddNode("floating-ip", name, id, buff);
 }
 

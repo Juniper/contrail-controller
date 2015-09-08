@@ -159,7 +159,6 @@ bool FlowTable::RequestHandler(const FlowTableRequest &req) {
 /////////////////////////////////////////////////////////////////////////////
 FlowEntry *FlowTable::Find(const FlowKey &key) {
     FlowEntryMap::iterator it;
-
     it = flow_entry_map_.find(key);
     if (it != flow_entry_map_.end()) {
         return it->second;
@@ -812,6 +811,48 @@ bool FlowTable::RevaluateSgList(FlowEntry *flow, const AgentRoute *rt,
 
 }
 
+bool FlowTable::RevaluateFixedIp(FlowEntry *flow, const AgentRoute *rt) {
+    bool changed = false;
+    
+    if (flow->is_flags_set(FlowEntry::NatFlow) == false) {
+        return changed;
+    }
+
+    if (flow->is_flags_set(FlowEntry::IngressDir) == false) {
+        return changed;
+    }
+
+    FlowEntry *rev_flow = flow->reverse_flow_entry();
+    if (!rev_flow) {
+        return changed;
+    }
+
+    if (flow->data().intf_entry == NULL) {
+        return changed;
+    }
+
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(
+                                     flow->data().intf_entry.get());
+    if (vm_intf == NULL) {
+        return changed;
+    }
+
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    if (!path) {
+        return changed;
+    }
+
+    IpAddress new_fixed_ip = path->GetFixedIp();
+
+    //Check if the fixed IP the flow is using has changed
+    //if yes delete the flow
+    if (flow->key().src_addr != new_fixed_ip) {
+        return true;
+    }
+    
+    return changed;
+}
+
 // Revaluate RPF-NH for a flow.
 bool FlowTable::RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt) {
     const InetUnicastRouteEntry *inet =
@@ -875,6 +916,11 @@ void FlowTable::RevaluateRoute(FlowEntry *flow, const AgentRoute *route) {
     // Revaluate RPF-NH for the flow
     if (RevaluateRpfNH(flow, route)) {
         rpf_changed = true;
+    }
+
+    if (RevaluateFixedIp(flow, route)) {
+        DeleteMessage(flow);
+        return;
     }
 
     // If there is change in SG, Resync the flow

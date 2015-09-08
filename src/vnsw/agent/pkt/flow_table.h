@@ -238,12 +238,12 @@ private:
     void AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm);
 
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
                      FlowEntry *new_rflow, bool update);
     void Add(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
              FlowEntry *new_rflow, bool update);
     bool RequestHandler(const FlowTableRequest &req);
+    bool RevaluateFixedIp(FlowEntry *flow, const AgentRoute *rt); 
     Agent *agent_;
     FlowEntryMap flow_entry_map_;
 

@@ -750,7 +750,6 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         // No matching floating ip for destination-ip
         return;
     }
-
     in->vn_ = NULL;
     if (nat_done == false) {
         UpdateRoute(&in->rt_, it->vrf_.get(), pkt->ip_saddr, pkt->smac,
@@ -765,7 +764,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     // Translate the Dest-IP
     if (nat_done == false)
         nat_ip_saddr = pkt->ip_saddr;
-    nat_ip_daddr = vm_port->ip_addr();
+    nat_ip_daddr = it->fixed_ip_;
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
     nat_vrf = dest_vrf;
@@ -800,6 +799,10 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {
+            continue;
+        }
+
+        if (pkt->ip_saddr != it->fixed_ip_) {
             continue;
         }
 

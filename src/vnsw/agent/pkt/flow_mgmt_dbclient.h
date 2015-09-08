@@ -69,12 +69,16 @@ public:
     };
 
     struct RouteFlowHandlerState : public FlowMgmtState {
+        typedef std::map<InterfaceConstRef, IpAddress> FixedIpMap;
+        typedef std::pair<InterfaceConstRef, IpAddress> FixedIpEntry;
+
         RouteFlowHandlerState() : sg_l_(), active_nh_(NULL), local_nh_(NULL) { }
         virtual ~RouteFlowHandlerState() { }
 
         SecurityGroupList sg_l_;
         const NextHop* active_nh_;
         const NextHop* local_nh_;
+        FixedIpMap fixed_ip_map_;
     };
 
     struct NhFlowHandlerState : public FlowMgmtState {
@@ -119,6 +123,7 @@ private:
     void FreeRouteState(AgentRoute *route, uint32_t gen_id);
     void RouteNotify(VrfFlowHandlerState *vrf_state, Agent::RouteTableType type,
                      DBTablePartBase *partition, DBEntryBase *e);
+    bool FixedIpChange(const AgentRoute *route, RouteFlowHandlerState *state);
 
     Agent *agent_;
     FlowMgmtManager *mgr_;

@@ -424,6 +424,45 @@ void FlowMgmtDbClient::FreeRouteState(AgentRoute *route, uint32_t gen_id) {
     delete state;
 }
 
+bool FlowMgmtDbClient::FixedIpChange(const AgentRoute *rt,
+                                     RouteFlowHandlerState *state) {
+    bool changed = true;
+    RouteFlowHandlerState::FixedIpMap new_map;
+
+    for(Route::PathList::const_iterator it = rt->GetPathList().begin();
+            it != rt->GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+            continue;
+        }
+
+        if (path->nexthop() == NULL ||
+                path->nexthop()->GetType() != NextHop::INTERFACE) {
+            continue;
+        }
+
+        const InterfaceNH *nh = static_cast<InterfaceNH *>(path->nexthop());
+        InterfaceConstRef intf = nh->GetInterface();
+
+        IpAddress new_fixed_ip = path->GetFixedIp();
+        if (new_fixed_ip == Ip4Address(0)) {
+            continue;
+        }
+
+        new_map.insert(RouteFlowHandlerState::FixedIpEntry(intf, new_fixed_ip));
+
+        RouteFlowHandlerState::FixedIpMap::const_iterator fipit =
+            state->fixed_ip_map_.find(intf);
+        if (fipit != state->fixed_ip_map_.end()) {
+            if (new_fixed_ip != fipit->second) {
+                changed = true;
+            }
+        }
+    }
+    state->fixed_ip_map_ = new_map;
+    return changed;
+}
+
 void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
                                    Agent::RouteTableType type,
                                    DBTablePartBase *partition, DBEntryBase *e) {
@@ -464,6 +503,10 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     // Handle SG change
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
+        changed = true;
+    }
+
+    if (FixedIpChange(route, state)) {
         changed = true;
     }
 

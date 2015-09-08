@@ -195,9 +195,11 @@ static void ConfigDel(int id) {
 }
 
 static void FloatingIpAdd(VmInterface::FloatingIpList &list, const char *addr,
-                          const char *vrf) {
+                          const char *vrf, const char *track_ip) {
     IpAddress ip = Ip4Address::from_string(addr);
-    list.list_.insert(VmInterface::FloatingIp(ip.to_v4(), vrf, MakeUuid(1)));
+    IpAddress tracking_ip = Ip4Address::from_string(track_ip);
+    list.list_.insert(VmInterface::FloatingIp(ip.to_v4(), vrf, MakeUuid(1),
+                                              tracking_ip));
 }
 
 struct AnalyzerInfo {
@@ -968,7 +970,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
     VmInterface::FloatingIpList list;
-    FloatingIpAdd(list, "2.2.2.2", "vrf2");
+    FloatingIpAdd(list, "2.2.2.2", "vrf2", "1.1.1.1");
     // Floating IP on invalid VRF
     //FloatingIpAdd(list, "2.2.2.2", "vrf-x");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
@@ -985,6 +987,8 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
         RouteGet("vrf1", Ip4Address::from_string("2.2.2.2"), 32);
     if (rt) {
         EXPECT_STREQ(rt->GetActivePath()->dest_vn_name().c_str(), "vn2");
+        EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                    Ip4Address::from_string("1.1.1.1"));
     }
 
     DoInterfaceSandesh("");
@@ -1035,7 +1039,7 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
     VmInterface::FloatingIpList list;
-    FloatingIpAdd(list, "2.2.2.2", "vrf2");
+    FloatingIpAdd(list, "2.2.2.2", "vrf2", "1.1.1.1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
 
     client->WaitForIdle();
@@ -1117,7 +1121,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
 
     VmInterface::FloatingIpList list;
-    FloatingIpAdd(list, "2.2.2.2", "vrf2");
+    FloatingIpAdd(list, "2.2.2.2", "vrf2", "1.1.1.1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
@@ -1128,9 +1132,9 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
 
     // Add 2 more floating-ip
     VmInterface::FloatingIpList list1;
-    FloatingIpAdd(list1, "2.2.2.2", "vrf2");
-    FloatingIpAdd(list1, "3.3.3.3", "vrf3");
-    FloatingIpAdd(list1, "4.4.4.4", "vrf4");
+    FloatingIpAdd(list1, "2.2.2.2", "vrf2", "1.1.1.1");
+    FloatingIpAdd(list1, "3.3.3.3", "vrf3", "1.1.1.1");
+    FloatingIpAdd(list1, "4.4.4.4", "vrf4", "1.1.1.1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list1, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 3));
@@ -1141,8 +1145,8 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list2;
-    FloatingIpAdd(list2, "3.3.3.3", "vrf3");
-    FloatingIpAdd(list2, "4.4.4.4", "vrf4");
+    FloatingIpAdd(list2, "3.3.3.3", "vrf3", "1.1.1.1");
+    FloatingIpAdd(list2, "4.4.4.4", "vrf4", "1.1.1.1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list2, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 2));
@@ -1153,8 +1157,8 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list3;
-    FloatingIpAdd(list3, "2.2.2.2", "vrf2");
-    FloatingIpAdd(list3, "3.3.3.3", "vrf3");
+    FloatingIpAdd(list3, "2.2.2.2", "vrf2", "1.1.1.1");
+    FloatingIpAdd(list3, "3.3.3.3", "vrf3", "1.1.1.1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list3, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 2));
@@ -1165,7 +1169,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list4;
-    FloatingIpAdd(list4, "2.2.2.2", "vrf2");
+    FloatingIpAdd(list4, "2.2.2.2", "vrf2", "1.1.1.1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list4, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
@@ -1219,7 +1223,7 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
             "default-project:vn2:vn2");
     //Add floating IP for vnet1
     AddFloatingIpPool("fip-pool1", 1);
-    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddFloatingIp("fip1", 1, "2.1.1.100", "1.1.1.10");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
@@ -1277,7 +1281,7 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_2) {
     client->WaitForIdle();
     //Add floating IP for vnet1
     AddFloatingIpPool("fip-pool1", 1);
-    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddFloatingIp("fip1", 1, "2.1.1.100", "1.1.1.10");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
@@ -1321,7 +1325,7 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_2) {
             "default-project:vn2:vn2");
     //Add floating IP for vnet1
     AddFloatingIpPool("fip-pool1", 1);
-    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddFloatingIp("fip1", 1, "2.1.1.100", "1.1.1.10");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
@@ -1351,6 +1355,83 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_2) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));
+}
+
+//Add and delete of floating-ip dependent on secondary IP
+TEST_F(IntfTest, FloatingIpFixedIpAddChange) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    client->Reset();
+
+    AddInstanceIp("instance2", input1[0].vm_id, "1.1.1.10");
+    AddLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance2");
+    AddInstanceIp("instance3", input1[0].vm_id, "1.1.1.11");
+    AddLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance3");
+    client->WaitForIdle();
+
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    //Add floating IP for vnet1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100", "1.1.1.10");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet8", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(VmPortFloatingIpCount(8, 1));
+    InetUnicastRouteEntry *rt =
+        RouteGet("default-project:vn2:vn2", floating_ip, 32);
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+            Ip4Address::from_string("1.1.1.10"));
+    client->WaitForIdle();
+
+    AddFloatingIp("fip1", 1, "2.1.1.100", "1.1.1.11");
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+            Ip4Address::from_string("1.1.1.11"));
+    client->WaitForIdle();
+
+    //Clean up
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet8", "floating-ip", "fip1");
+    DelVrf("default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance2");
+    DelLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance3");
+    DelInstanceIp("instance2");
+    DelInstanceIp("instance3");
+    DeleteVmportEnv(input1, 1, true, 1);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
 }
 
 //Delete the config node for interface, and verify interface NH are deleted
