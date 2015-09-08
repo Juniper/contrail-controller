@@ -17,6 +17,7 @@
 #include "../db_handler.h"
 #include "cdb_if_mock.h"
 #include "../vizd_table_desc.h"
+#include "sandesh/common/flow_types.h"
 
 using ::testing::Return;
 using ::testing::Field;
@@ -492,192 +493,280 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     hdr.set_Module("VizdTest");
     hdr.set_Source("127.0.0.1");
     std::string messagetype("");
-    std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"struct\" identifier=\"1\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">555788e0-513c-4351-8711-3fc481cf2eb4</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn1</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:demo:vn0</destvn><destip type=\"i32\" identifier=\"6\">-1062731267</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">5201</sport><dport type=\"i16\" identifier=\"9\">-24590</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-9287-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee7-d616-4e59-b8f7-96f896487c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">0</bytes><packets type=\"i64\" identifier=\"24\">0</packets><diff_bytes type=\"i64\" identifier=\"26\">0</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">0</diff_packets></FlowDataIpv4></flowdata></FlowDataIpv4Object>";
+    std::vector<std::pair<std::string, std::vector<FlowDataIpv4> > > flow_msgs;
 
-    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
-        builder_->Create(
-            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
-            xmlmessage.size()));
-    msg->SetHeader(hdr);
+    // Flow sandesh with single flow sample
+    {
+        std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"struct\" identifier=\"1\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">555788e0-513c-4351-8711-3fc481cf2eb4</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn1</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:demo:vn0</destvn><destip type=\"i32\" identifier=\"6\">-1062731267</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">5201</sport><dport type=\"i16\" identifier=\"9\">-24590</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-9287-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee7-d616-4e59-b8f7-96f896487c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">0</bytes><packets type=\"i64\" identifier=\"24\">0</packets><diff_bytes type=\"i64\" identifier=\"26\">0</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">0</diff_packets></FlowDataIpv4></flowdata></FlowDataIpv4Object>";
 
-    std::string flowu_str = "555788e0-513c-4351-8711-3fc481cf2eb4";
-    boost::uuids::uuid flowu = StringToUuid(flowu_str);
+        std::vector<FlowDataIpv4> flowdata_list;
+        FlowDataIpv4 flow_data1;
+        flow_data1.set_flowuuid("555788e0-513c-4351-8711-3fc481cf2eb4");
+        flow_data1.set_direction_ing(0);
+        flow_data1.set_sourcevn("default-domain:demo:vn1");
+        flow_data1.set_sourceip(-1062731011);
+        flow_data1.set_destvn("default-domain:demo:vn0");
+        flow_data1.set_destip(-1062731267);
+        flow_data1.set_protocol(6);
+        flow_data1.set_sport(5201);
+        flow_data1.set_dport(-24590);
+        flow_data1.set_diff_bytes(0);
+        flow_data1.set_diff_packets(0);
+        flowdata_list.push_back(flow_data1);
+        flow_msgs.push_back(std::make_pair(xmlmessage, flowdata_list));
+    }
 
-      {
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back(flowu);
+    // Flow sandesh with list of flow samples
+    {
+        std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"list\" identifier=\"1\"><list type=\"struct\" size=\"2\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">511788e0-513f-4351-8711-3fc481cf2efa</flowuuid><direction_ing type=\"byte\" identifier=\"2\">1</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:contrail:vn0</sourcevn><sourceip type=\"i32\" identifier=\"4\">168430081</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:contrail:vn1</destvn><destip type=\"i32\" identifier=\"6\">-1062731263</destip><protocol type=\"byte\" identifier=\"7\">17</protocol><sport type=\"i16\" identifier=\"8\">12345</sport><dport type=\"i16\" identifier=\"9\">8087</dport><vm type=\"string\" identifier=\"12\">04430130-6641-1b89-9287-39d71f351206</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee6-d616-4e59-b8f7-96e896587c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">1024</bytes><packets type=\"i64\" identifier=\"24\">4</packets><diff_bytes type=\"i64\" identifier=\"26\">256</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">1</diff_packets></FlowDataIpv4><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">525538ef-513f-435f-871f-3fc482cf2ebf</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn0</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:contrail:vn0</destvn><destip type=\"i32\" identifier=\"6\">168430082</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">11221</sport><dport type=\"i16\" identifier=\"9\">8086</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-3456-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee3-d613-4e53-b8f3-96f896487c93</reverse_uuid><bytes type=\"i64\" identifier=\"23\">512</bytes><packets type=\"i64\" identifier=\"24\">2</packets><diff_bytes type=\"i64\" identifier=\"26\">512</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">2</diff_packets></FlowDataIpv4></list></flowdata></FlowDataIpv4Object>";
 
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE),
-                            Field(&GenDb::ColList::rowkey_, rowkey)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
+        std::vector<FlowDataIpv4> flowdata_list;
+        FlowDataIpv4 flow_data1;
+        flow_data1.set_flowuuid("511788e0-513f-4351-8711-3fc481cf2efa");
+        flow_data1.set_direction_ing(1);
+        flow_data1.set_sourcevn("default-domain:contrail:vn0");
+        flow_data1.set_sourceip(168430081);
+        flow_data1.set_destvn("default-domain:contrail:vn1");
+        flow_data1.set_destip(-1062731263);
+        flow_data1.set_protocol(17);
+        flow_data1.set_sport(12345);
+        flow_data1.set_dport(8087);
+        flow_data1.set_diff_bytes(256);
+        flow_data1.set_diff_packets(1);
+        flowdata_list.push_back(flow_data1);
 
-    GenDb::DbDataValueVec ocolvalue;
-    ocolvalue.push_back((uint64_t)0); //bytes
-    ocolvalue.push_back((uint64_t)0); //pkts
-    ocolvalue.push_back((uint8_t)0); //dir
-    ocolvalue.push_back(flowu); //flowuuid
-    ocolvalue.push_back(hdr.get_Source()); //vrouter
-    ocolvalue.push_back("default-domain:demo:vn1"); //svn
-    ocolvalue.push_back("default-domain:demo:vn0"); //dvn
-    ocolvalue.push_back((uint32_t)-1062731011); //sip
-    ocolvalue.push_back((uint32_t)-1062731267); //dip
-    ocolvalue.push_back((uint8_t)6); //prot
-    ocolvalue.push_back((uint16_t)5201); //sport
-    ocolvalue.push_back((uint16_t)-24590); //dport
-    ocolvalue.push_back(""); //json
+        FlowDataIpv4 flow_data2;
+        flow_data2.set_flowuuid("525538ef-513f-435f-871f-3fc482cf2ebf");
+        flow_data2.set_direction_ing(0);
+        flow_data2.set_sourcevn("default-domain:demo:vn0");
+        flow_data2.set_sourceip(-1062731011);
+        flow_data2.set_destvn("default-domain:contrail:vn0");
+        flow_data2.set_destip(168430082);
+        flow_data2.set_protocol(6);
+        flow_data2.set_sport(11221);
+        flow_data2.set_dport(8086);
+        flow_data2.set_diff_bytes(512);
+        flow_data2.set_diff_packets(2);
+        flowdata_list.push_back(flow_data2);
+        flow_msgs.push_back(std::make_pair(xmlmessage, flowdata_list));
+    }
 
-    int ttl = ttl_map.find(DbHandler::FLOWDATA_TTL)->second;
+    std::vector<std::pair<std::string, std::vector<FlowDataIpv4> > >::
+        const_iterator fit;
+    for (fit = flow_msgs.begin(); fit != flow_msgs.end(); fit++) {
+        std::auto_ptr<SandeshXMLMessageTest> msg(
+            dynamic_cast<SandeshXMLMessageTest *>(
+                builder_->Create(reinterpret_cast<const uint8_t *>(
+                    fit->first.c_str()), fit->first.size())));
+        msg->SetHeader(hdr);
+        std::vector<FlowDataIpv4>::const_iterator dit;
+        for (dit = fit->second.begin(); dit != fit->second.end(); dit++) {
+            boost::uuids::uuid flowu = StringToUuid(dit->get_flowuuid());
 
-      {
-        GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back("default-domain:demo:vn1");
-        colname->push_back((uint32_t)-1062731011);
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-        colname->push_back(flowu);
-        GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec(ocolvalue));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol> 
-            (GenDb::NewCol(colname, colvalue, ttl));
+            // set expectations for FLOW_TABLE
+            {
+                GenDb::DbDataValueVec rowkey;
+                rowkey.push_back(flowu);
 
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        uint8_t partition_no = 0;
-        rowkey.push_back(partition_no);
-        rowkey.push_back((uint8_t)0); //direction
+                EXPECT_CALL(*dbif_mock(),
+                    Db_AddColumnProxy(
+                        Pointee(
+                            AllOf(Field(&GenDb::ColList::cfname_,
+                                        g_viz_constants.FLOW_TABLE),
+                                Field(&GenDb::ColList::rowkey_, rowkey)))))
+                    .Times(1)
+                    .WillOnce(Return(true));
+            }
 
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_SVN_SIP),
-                            Field(&GenDb::ColList::rowkey_, rowkey),
-                            Field(&GenDb::ColList::columns_,
-                                expected_vector)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
-      {
-        GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back("default-domain:demo:vn0");
-        colname->push_back((uint32_t)-1062731267);
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-        colname->push_back(flowu);
-        GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec(ocolvalue));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue, ttl));
+            int ttl = ttl_map.find(DbHandler::FLOWDATA_TTL)->second;
+            GenDb::DbDataValueVec ocolvalue;
+            ocolvalue.push_back((uint64_t)dit->get_diff_bytes());
+            ocolvalue.push_back((uint64_t)dit->get_diff_packets());
+            ocolvalue.push_back((uint8_t)0); // short flow
+            ocolvalue.push_back(flowu);
+            ocolvalue.push_back(hdr.get_Source()); // vrouter
+            ocolvalue.push_back(dit->get_sourcevn());
+            ocolvalue.push_back(dit->get_destvn());
+            ocolvalue.push_back((uint32_t)dit->get_sourceip());
+            ocolvalue.push_back((uint32_t)dit->get_destip());
+            ocolvalue.push_back((uint8_t)dit->get_protocol());
+            ocolvalue.push_back((uint16_t)dit->get_sport());
+            ocolvalue.push_back((uint16_t)dit->get_dport());
+            ocolvalue.push_back(""); // json
 
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        uint8_t partition_no = 0;
-        rowkey.push_back(partition_no);
-        rowkey.push_back((uint8_t)0); //direction
+            // set expectations for FLOW_TABLE_SVN_SIP
+            {
+                GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
+                colname->reserve(4);
+                colname->push_back(dit->get_sourcevn());
+                colname->push_back((uint32_t)dit->get_sourceip());
+                colname->push_back((uint32_t)(hdr.get_Timestamp() &
+                                              g_viz_constants.RowTimeInMask));
+                colname->push_back(flowu);
+                GenDb::DbDataValueVec *colvalue(
+                    new GenDb::DbDataValueVec(ocolvalue));
+                boost::ptr_vector<GenDb::NewCol> expected_vector =
+                    boost::assign::ptr_list_of<GenDb::NewCol>
+                    (GenDb::NewCol(colname, colvalue, ttl));
 
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_DVN_DIP),
-                            Field(&GenDb::ColList::rowkey_, rowkey),
-                            Field(&GenDb::ColList::columns_,
-                                expected_vector)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
-      {
-        GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back((uint8_t)6);
-        colname->push_back((uint16_t)5201);
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-        colname->push_back(flowu);
-        GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec(ocolvalue));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue, ttl));
+                GenDb::DbDataValueVec rowkey;
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                                            g_viz_constants.RowTimeInBits));
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+                rowkey.push_back((uint8_t)dit->get_direction_ing());
 
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        uint8_t partition_no = 0;
-        rowkey.push_back(partition_no);
-        rowkey.push_back((uint8_t)0); //direction
+                EXPECT_CALL(*dbif_mock(),
+                    Db_AddColumnProxy(
+                        Pointee(
+                            AllOf(Field(&GenDb::ColList::cfname_,
+                                        g_viz_constants.FLOW_TABLE_SVN_SIP),
+                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::columns_,
+                                      expected_vector)))))
+                    .Times(1)
+                    .WillOnce(Return(true));
+            }
 
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_PROT_SP),
-                            Field(&GenDb::ColList::rowkey_, rowkey),
-                            Field(&GenDb::ColList::columns_,
-                                expected_vector)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
+            // set expectations for FLOW_TABLE_DVN_DIP
+            {
+                GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
+                colname->reserve(4);
+                colname->push_back(dit->get_destvn());
+                colname->push_back((uint32_t)dit->get_destip());
+                colname->push_back((uint32_t)(hdr.get_Timestamp() &
+                                              g_viz_constants.RowTimeInMask));
+                colname->push_back(flowu);
+                GenDb::DbDataValueVec *colvalue(
+                    new GenDb::DbDataValueVec(ocolvalue));
+                boost::ptr_vector<GenDb::NewCol> expected_vector =
+                    boost::assign::ptr_list_of<GenDb::NewCol>
+                    (GenDb::NewCol(colname, colvalue, ttl));
 
-      {
-        GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back((uint8_t)6);
-        colname->push_back((uint16_t)-24590);
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-        colname->push_back(flowu);
-        GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec(ocolvalue));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue, ttl));
+                GenDb::DbDataValueVec rowkey;
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                                            g_viz_constants.RowTimeInBits));
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+                rowkey.push_back((uint8_t)dit->get_direction_ing());
 
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        uint8_t partition_no = 0;
-        rowkey.push_back(partition_no);
-        rowkey.push_back((uint8_t)0); //direction
+                EXPECT_CALL(*dbif_mock(),
+                    Db_AddColumnProxy(
+                        Pointee(
+                            AllOf(Field(&GenDb::ColList::cfname_,
+                                        g_viz_constants.FLOW_TABLE_DVN_DIP),
+                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::columns_,
+                                      expected_vector)))))
+                    .Times(1)
+                    .WillOnce(Return(true));
+            }
 
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_PROT_DP),
-                            Field(&GenDb::ColList::rowkey_, rowkey),
-                            Field(&GenDb::ColList::columns_,
-                                expected_vector)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
+            // set expectations for FLOW_TABLE_PROT_SP
+            {
+                GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
+                colname->reserve(4);
+                colname->push_back((uint8_t)dit->get_protocol());
+                colname->push_back((uint16_t)dit->get_sport());
+                colname->push_back((uint32_t)(hdr.get_Timestamp() &
+                                              g_viz_constants.RowTimeInMask));
+                colname->push_back(flowu);
+                GenDb::DbDataValueVec *colvalue(
+                    new GenDb::DbDataValueVec(ocolvalue));
+                boost::ptr_vector<GenDb::NewCol> expected_vector =
+                    boost::assign::ptr_list_of<GenDb::NewCol>
+                    (GenDb::NewCol(colname, colvalue, ttl));
 
-      {
-        GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back(hdr.get_Source()); //vrouter
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-        colname->push_back(flowu);
-        GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec(ocolvalue));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue, ttl));
+                GenDb::DbDataValueVec rowkey;
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                                            g_viz_constants.RowTimeInBits));
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+                rowkey.push_back((uint8_t)dit->get_direction_ing());
 
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        uint8_t partition_no = 0;
-        rowkey.push_back(partition_no);
-        rowkey.push_back((uint8_t)0); //direction
+                EXPECT_CALL(*dbif_mock(),
+                    Db_AddColumnProxy(
+                        Pointee(
+                            AllOf(Field(&GenDb::ColList::cfname_,
+                                        g_viz_constants.FLOW_TABLE_PROT_SP),
+                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::columns_,
+                                      expected_vector)))))
+                    .Times(1)
+                    .WillOnce(Return(true));
+            }
 
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_VROUTER),
-                            Field(&GenDb::ColList::rowkey_, rowkey),
-                            Field(&GenDb::ColList::columns_,
-                                expected_vector)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
+            // set expectations for FLOW_TABLE_PROT_DP
+            {
+                GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
+                colname->reserve(4);
+                colname->push_back((uint8_t)dit->get_protocol());
+                colname->push_back((uint16_t)dit->get_dport());
+                colname->push_back((uint32_t)(hdr.get_Timestamp() &
+                                              g_viz_constants.RowTimeInMask));
+                colname->push_back(flowu);
+                GenDb::DbDataValueVec *colvalue(
+                    new GenDb::DbDataValueVec(ocolvalue));
+                boost::ptr_vector<GenDb::NewCol> expected_vector =
+                    boost::assign::ptr_list_of<GenDb::NewCol>
+                    (GenDb::NewCol(colname, colvalue, ttl));
 
-    db_handler()->FlowTableInsert(msg->GetMessageNode(),
-        msg->GetHeader());
-    delete msg;
+                GenDb::DbDataValueVec rowkey;
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                                            g_viz_constants.RowTimeInBits));
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+                rowkey.push_back((uint8_t)dit->get_direction_ing());
+
+                EXPECT_CALL(*dbif_mock(),
+                    Db_AddColumnProxy(
+                        Pointee(
+                            AllOf(Field(&GenDb::ColList::cfname_,
+                                        g_viz_constants.FLOW_TABLE_PROT_DP),
+                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::columns_,
+                                      expected_vector)))))
+                    .Times(1)
+                    .WillOnce(Return(true));
+            }
+
+            // set expectations for FLOW_TABLE_VROUTER
+            {
+                GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
+                colname->reserve(4);
+                colname->push_back(hdr.get_Source()); //vrouter
+                colname->push_back((uint32_t)(hdr.get_Timestamp() &
+                                              g_viz_constants.RowTimeInMask));
+                colname->push_back(flowu);
+                GenDb::DbDataValueVec *colvalue(
+                    new GenDb::DbDataValueVec(ocolvalue));
+                boost::ptr_vector<GenDb::NewCol> expected_vector =
+                    boost::assign::ptr_list_of<GenDb::NewCol>
+                    (GenDb::NewCol(colname, colvalue, ttl));
+
+                GenDb::DbDataValueVec rowkey;
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                                            g_viz_constants.RowTimeInBits));
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+                rowkey.push_back((uint8_t)dit->get_direction_ing());
+
+                EXPECT_CALL(*dbif_mock(),
+                    Db_AddColumnProxy(
+                        Pointee(
+                            AllOf(Field(&GenDb::ColList::cfname_,
+                                        g_viz_constants.FLOW_TABLE_VROUTER),
+                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::columns_,
+                                      expected_vector)))))
+                    .Times(1)
+                    .WillOnce(Return(true));
+            }
+        }
+
+        db_handler()->FlowTableInsert(msg->GetMessageNode(),
+                                      msg->GetHeader());
+    }
 }
 
 class UUIDRandomGenTest : public ::testing::Test {
