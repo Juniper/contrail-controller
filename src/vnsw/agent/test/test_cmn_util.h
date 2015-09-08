@@ -209,7 +209,7 @@ void AsioRun();
 void AsioStop();
 void AddVm(const char *name, int id);
 void DelVm(const char *name);
-void AddVrf(const char *name, int id = 0);
+void AddVrf(const char *name, int id = 0, bool default_ri = true);
 void DelVrf(const char *name);
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
 void AddL2L3Vn(const char *name, int id);
