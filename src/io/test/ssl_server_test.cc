@@ -63,7 +63,8 @@ public:
         ssl_handshake_count_(0) {
         boost::asio::ssl::context *ctx = context();
         boost::system::error_code ec;
-        ctx->set_verify_mode(boost::asio::ssl::context::verify_none, ec);
+        ctx->set_verify_mode((boost::asio::ssl::verify_peer |
+                              boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
         assert(ec.value() == 0);
         ctx->use_certificate_chain_file
             ("controller/src/ifmap/client/test/newcert.pem", ec);
@@ -82,9 +83,6 @@ public:
     void set_verify_fail_certs() {
         boost::asio::ssl::context *ctx = context();
         boost::system::error_code ec;
-        ctx->set_verify_mode((boost::asio::ssl::verify_peer |
-                              boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
-        assert(ec.value() == 0);
         ctx->load_verify_file("controller/src/ifmap/client/test/newcert.pem",
                               ec);
         assert(ec.value() == 0);
@@ -373,10 +371,10 @@ TEST_F(SslEchoServerTest, HandshakeFailure) {
 
     SetUpImmedidate();
     SslClient *client = new SslClient(evm_.get());
+    SslClient *client_fail = new SslClient(evm_.get());
 
     // set context to verify certs to fail handshake
-    client->set_verify_fail_certs();
-    server_->set_verify_fail_certs();
+    client_fail->set_verify_fail_certs();
 
     task_util::WaitForIdle();
     server_->Initialize(0);
@@ -385,27 +383,45 @@ TEST_F(SslEchoServerTest, HandshakeFailure) {
 
     connect_success_ = connect_fail_ = connect_abort_ = 0;
     ClientSession *session = static_cast<ClientSession *>(client->CreateSession());
+    ClientSession *session_fail = static_cast<ClientSession *>(client_fail->CreateSession());
     session->set_observer(boost::bind(&SslEchoServerTest::OnEvent, this, _1, _2));
+    session_fail->set_observer(boost::bind(&SslEchoServerTest::OnEvent, this, _1, _2));
     boost::asio::ip::tcp::endpoint endpoint;
     boost::system::error_code ec;
     endpoint.address(boost::asio::ip::address::from_string("127.0.0.1", ec));
     endpoint.port(server_->GetPort());
     client->Connect(session, endpoint);
     task_util::WaitForIdle();
+    StartConnectTimer(session, 10);
+    TASK_UTIL_EXPECT_TRUE(session->IsEstablished());
     TASK_UTIL_EXPECT_FALSE(session->IsClosed());
-    TASK_UTIL_EXPECT_EQ(0, connect_success_);
+    TASK_UTIL_EXPECT_EQ(1, connect_success_);
+    TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
+    TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
+    // wait for on connect message to come back from echo server.
+    TASK_UTIL_EXPECT_EQ(session->len(), 14);
+
+    client_fail->Connect(session_fail, endpoint);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, connect_success_);
     TASK_UTIL_EXPECT_EQ(connect_fail_, 1);
     TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
 
     session->Close();
+    session_fail->Close();
+    client_fail->DeleteSession(session_fail);
     client->DeleteSession(session);
+    task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(0, server_->GetSessionCount());
+    TASK_UTIL_EXPECT_EQ(1, server_->GetSessionCount());
     TASK_UTIL_EXPECT_FALSE(server_->HasSessions());
 
+    client_fail->Shutdown();
     client->Shutdown();
     task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(client_fail);
     TcpServerManager::DeleteServer(client);
+    client_fail = NULL;
     client = NULL;
 }
 
