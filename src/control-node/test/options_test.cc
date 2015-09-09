@@ -71,7 +71,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
-    EXPECT_EQ(options_.ifmap_server_url(), "");
+    EXPECT_EQ(options_.ifmap_server_url(), "https://127.0.0.1:8443");
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
@@ -107,7 +107,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.ifmap_server_url(), "");
+    EXPECT_EQ(options_.ifmap_server_url(), "https://127.0.0.1:8443");
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
@@ -145,7 +145,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.ifmap_server_url(), "");
+    EXPECT_EQ(options_.ifmap_server_url(), "https://127.0.0.1:8443");
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
@@ -183,7 +183,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.ifmap_server_url(), "");
+    EXPECT_EQ(options_.ifmap_server_url(), "https://127.0.0.1:8443");
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");

@@ -137,7 +137,7 @@ void Options::Initialize(EventManager &evm,
                                                      "dns_user_passwd"),
              "IFMAP server password")
         ("IFMAP.server_url",
-             opt::value<string>()->default_value(ifmap_server_url_),
+             opt::value<string>()->default_value("https://127.0.0.1:8443"),
              "IFMAP server URL")
         ("IFMAP.user", opt::value<string>()->default_value("dns_user"),
              "IFMAP server username")
