@@ -21,6 +21,7 @@ class HAProxyTest(unittest.TestCase):
         self.vnc_lib.global_system_config_read.return_value = mocked_gsc
         def no_id_side_effect(fq_name):
             raise NoIdError("xxx")
+        # Return NoIdError while si is read for first time
         self.vnc_lib.service_instance_read = \
             mock.Mock(side_effect=no_id_side_effect)
         self.vnc_lib.kv_retrieve.return_value = "fake-pool-vn 40.1.1.0/24"
@@ -28,14 +29,25 @@ class HAProxyTest(unittest.TestCase):
         self.vnc_lib.service_appliance_set_read = \
             mock.Mock(side_effect=no_id_side_effect)
 
+        self._store_si = {}
+        def read_si(obj_type, uuid):
+            return (True, [self.obj_to_dict(self._store_si[uuid[0]])])
+
         def store_si_create(obj):
-            si_dict = self.obj_to_dict(obj)
-            si_dict['uuid'] = 'pool-si'
             config_db.ServiceInstanceSM._cassandra.read = \
-                mock.Mock(return_value=(True, [si_dict]))
+                mock.Mock(side_effect=read_si)
             obj.uuid = 'pool-si'
+            self._store_si[obj.uuid] = obj
+
+
+        def update_si_side_effect(obj):
+            self._store_si[obj.uuid] = obj
+
         self.vnc_lib.service_instance_create = \
             mock.Mock(side_effect=store_si_create)
+
+        self.vnc_lib.service_instance_update = \
+            mock.Mock(side_effect=update_si_side_effect)
 
         self._db = {}
         def read_db(id):
@@ -145,6 +157,7 @@ OpencontrailLoadbalancerDriver")
         config_db.VirtualMachineInterfaceSM.reset()
         config_db.VirtualNetworkSM.reset()
         config_db.ProjectSM.reset()
+        del self._store_si
     # end tearDown
 
     def create_pool(self, uuid, fq_name_str, project=None, vip=None, hm=None):
@@ -271,7 +284,7 @@ OpencontrailLoadbalancerDriver")
         return iip
     # end create_iip
 
-    def create_vip(self, vip, project):
+    def create_vip(self, vip, project, vn, vmi, ip_addr):
         vip_obj = {}
         vip_obj['fq_name'] = vip.split(':')
         vip_obj['uuid'] = vip
@@ -285,10 +298,10 @@ OpencontrailLoadbalancerDriver")
                                             'connection_limit': '-1',
                                             'persistence_type': None,
                                             'persistence_cookie_name': None,
-                                            'address': '1.1.1.1'}
-        network = self.create_vn("fake-vip-vn", "fake-vip-vn", project)
-        vmi = self.create_vmi("vmi", "vmi", project, network)
-        iip = self.create_iip("iip", "iip", "1.1.1.1", network, vmi)
+                                            'address': ip_addr}
+        network = self.create_vn(vn, vn, project)
+        vmi = self.create_vmi(vmi, vmi, project, network)
+        iip = self.create_iip(ip_addr, ip_addr, ip_addr, network, vmi)
         vip_vnc = VirtualIp.from_dict(**vip_obj)
         vip_vnc.set_virtual_machine_interface(vmi)
         vip_obj = self.obj_to_dict(vip_vnc)
@@ -298,9 +311,8 @@ OpencontrailLoadbalancerDriver")
     # end create_vip
 
     def test_add_delete_pool_with_members_vip(self):
-        self._pool_si = {}
         project = self.create_project("fake-project", "project")
-        vip = self.create_vip('vip', project)
+        vip = self.create_vip('vip', project, 'fake-vip-vn', 'vmi', '1.1.1.1')
         pool = self.create_pool("test-lb-pool",
                "default-domain:admin:test-lb-pool", project, vip)
         self.create_pool_members("test-lb-pool", 5)
@@ -334,4 +346,80 @@ OpencontrailLoadbalancerDriver")
         self.assertEqual(len(self._si_pool), 0)
         self.assertEqual(len(config_db.ServiceInstanceSM._dict.keys()), 0)
     # end test_add_delete_pool_with_members_vip
+    #
+    # In this test, update the vip on the pool
+    # Create a pool and vip
+    # Create a new vip and link it to the pool
+    # Expected result is the service instance is updated with new interface list
+    #
+    def test_update_vip(self):
+        project = self.create_project("fake-project", "project")
+        vip = self.create_vip('vip', project, 'fake-vip-vn', 'vmi', '1.1.1.1')
+        pool = self.create_pool("test-lb-pool",
+               "default-domain:admin:test-lb-pool", project, vip)
+        self.create_pool_members("test-lb-pool", 5)
+        pool.add()
+        self.assertEqual(len(self._db), 1)
+        self.assertTrue('test-lb-pool' in self._db)
+        self.assertEqual(self._db['test-lb-pool']['service_instance'],
+                         'pool-si')
+        self.assertEqual(len(self._si_pool), 1)
+        si_uuid = self._si_pool['test-lb-pool']
+        self.assertEqual(si_uuid, 'pool-si')
+
+        si = config_db.ServiceInstanceSM.get(si_uuid)
+        self.assertEqual(si.service_template, 'haproxy-st')
+        self.assertEqual(si.params['scale_out']['max_instances'], 2)
+        self.assertEqual(si.params['scale_out']['auto_scale'], False)
+        self.assertEqual(si.params['ha_mode'], 'active-standby')
+        self.assertEqual(si.params['interface_list'][0]['ip_address'],
+                         '1.1.1.1')
+        self.assertEqual(si.params['interface_list'][0]['virtual_network'],
+                         'default-domain:fake-project:fake-vip-vn')
+        self.assertEqual(si.params['interface_list'][1]['ip_address'], None)
+        self.assertEqual(si.params['interface_list'][1]['virtual_network'],
+                         'default-domain:fake-project:fake-pool-vn')
+
+        # Create a new vip
+        vip_new = self.create_vip('vip-new', project, 'fake-vip-vn-new', 'vmi-new', '99.1.1.1')
+        pool = config_db.LoadbalancerPoolSM.get('test-lb-pool')
+        # Link it to the pool created before
+        pool.virtual_ip = vip_new.uuid
+        vip_new.loadbalancer_pool = pool.uuid
+
+        def read_si_side_effect(id):
+            return self._store_si[id]
+        # Return the stored SI data
+        self.vnc_lib.service_instance_read = \
+            mock.Mock(side_effect=read_si_side_effect)
+
+        pool.add()
+        self.assertEqual(len(self._db), 1)
+        self.assertTrue('test-lb-pool' in self._db)
+        self.assertEqual(self._db['test-lb-pool']['service_instance'],
+                         'pool-si')
+        self.assertEqual(len(self._si_pool), 1)
+        si_uuid = self._si_pool['test-lb-pool']
+        self.assertEqual(si_uuid, 'pool-si')
+
+        si = config_db.ServiceInstanceSM.get(si_uuid)
+        self.assertEqual(si.service_template, 'haproxy-st')
+        self.assertEqual(si.params['scale_out']['max_instances'], 2)
+        self.assertEqual(si.params['scale_out']['auto_scale'], False)
+        self.assertEqual(si.params['ha_mode'], 'active-standby')
+        self.assertEqual(si.params['interface_list'][0]['ip_address'],
+                         '99.1.1.1')
+        self.assertEqual(si.params['interface_list'][0]['virtual_network'],
+                         'default-domain:fake-project:fake-vip-vn-new')
+        self.assertEqual(si.params['interface_list'][1]['ip_address'], None)
+        self.assertEqual(si.params['interface_list'][1]['virtual_network'],
+                         'default-domain:fake-project:fake-pool-vn')
+        # Cleanup
+        for i in range(5):
+            config_db.LoadbalancerMemberSM.delete('member_'+str(i))
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
+        config_db.VirtualIpSM.delete('vip')
+        self.assertEqual(len(self._si_pool), 0)
+        self.assertEqual(len(config_db.ServiceInstanceSM._dict.keys()), 0)
+    # end test_update_vip
 #end HAProxyTest(unittest.TestCase):
