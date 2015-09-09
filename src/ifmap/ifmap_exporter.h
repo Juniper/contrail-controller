@@ -94,6 +94,8 @@ private:
 
     void TableStateClear(DBTable *table, DBTable::ListenerId tsid);
     bool ConfigChanged(IFMapNode *node);
+    void DeleteStateIfAppropriate(DBTable *table, DBEntryBase *entry,
+                                  IFMapState *state);
 
     IFMapUpdateQueue *queue();
     IFMapUpdateSender *sender();
