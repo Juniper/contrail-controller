@@ -411,6 +411,15 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 if ip_addr != ip_addr_list[idx]:
                     print 'Allocation failed, expected v4 IP Address:', ip_addr_list[idx]
 
+            # Find out number of allocated ips from given VN/subnet to test
+            # vn_subnet_ip_count_http_post()
+            data = {"subnet_list" : ["11.1.1.0/24"]}
+            url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
+            rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+            ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
+            total_ip_addr = len(ip_addr_list)
+            self.assertEqual(ret_ip_count, total_ip_addr)
+
             # Delete 2 VMs (With First and Last IP), associated Ports
             # and instanace IPs,
             # recreate them to make sure that we get same ips again.
