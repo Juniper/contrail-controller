@@ -73,6 +73,8 @@
         <xsd:element name='protocol' type='LoadbalancerProtocolType'/>
         <xsd:element name='loadbalancer-method' type='LoadbalancerMethodType'/>
         <xsd:element name='subnet-id' type='UuidStringType'/>
+        <xsd:element name='name' type='xsd:string'/>
+        <xsd:element name='session-persistence' type='SessionPersistenceType'/>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -171,6 +173,60 @@
         <xsd:element name='subnet-id' type='UuidStringType'/>
         <xsd:element name='persistence-cookie-name' type='xsd:string'/>
         <xsd:element name='persistence-type' type='SessionPersistenceType'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name="loadbalancer-listener" type="ifmap:IdentityType"/>
+<xsd:element name="project-loadbalancer-listener"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-loadbalancer-listener',
+          'project', 'loadbalancer-listener', ['has']) -->
+
+<xsd:element name="loadbalancer-listener-loadbalancer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-listener-loadbalancer',
+          'loadbalancer-listener', 'loadbalancer', ['ref']) -->
+
+<xsd:element name="loadbalancer-listener-loadbalancer-pool"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-listener-loadbalancer-pool',
+          'loadbalancer-listener', 'loadbalancer-pool', ['ref']) -->
+
+<xsd:element name="loadbalancer-listener-properties" type="LoadbalancerListenerType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-listener-properties', 'loadbalancer-listener') -->
+
+<xsd:complexType name='LoadbalancerListenerType'>
+    <xsd:sequence>
+        <xsd:element name='protocol' type='LoadbalancerProtocolType'/>
+        <xsd:element name='protocol-port' type='xsd:integer'/>
+        <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name="loadbalancer" type="ifmap:IdentityType"/>
+<xsd:element name="project-loadbalancer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-loadbalancer',
+          'project', 'loadbalancer', ['has']) -->
+
+<xsd:element name="loadbalancer-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-virtual-machine-interface',
+          'loadbalancer', 'virtual-machine-interface', ['ref']) -->
+
+<xsd:element name="loadbalancer-properties" type="LoadbalancerType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-properties', 'loadbalancer') -->
+
+<xsd:complexType name='LoadbalancerType'>
+    <xsd:sequence>
+        <xsd:element name='status' type='xsd:string'/>
+        <xsd:element name='provisioning-status' type='xsd:string'/>
+        <xsd:element name='operating-status' type='xsd:string'/>
+        <xsd:element name='vip-subnet-id' type='UuidStringType'/>
+        <xsd:element name='vip-address' type='IpAddressType'/>
+        <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
     </xsd:sequence>
 </xsd:complexType>
 
