@@ -621,6 +621,16 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
     string client_id = boost::asio::ip::host_name(error) + ":" + 
                        subscriber_name_;
     pugi->AddChildNode("client", client_id);
+    pugi->ReadNode(serviceName); //Reset parent
+
+    //Retrieve ip address
+    ip::udp::resolver resolver(*evm_->io_service());
+    ip::udp::resolver::query query(ip::udp::v4(), ip::host_name(error), "");
+    ip::udp::resolver::iterator endpoint_iter = resolver.resolve(query, error);
+    if (!error) {
+        ip::udp::endpoint ep = *endpoint_iter++;
+        pugi->AddChildNode("remote-addr", ep.address().to_string());
+    }
         
     stringstream ss; 
     impl->PrintDoc(ss);
