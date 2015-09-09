@@ -333,6 +333,16 @@ void IFMapExporter::ProcessAdjacentNode(IFMapNode *node, const BitSet &add_set,
     }
 }
 
+void IFMapExporter::DeleteStateIfAppropriate(DBTable *table, DBEntryBase *entry,
+                                             IFMapState *state) {
+    if (state->CanDelete()) {
+        assert(state->advertised().empty());
+        assert(state->interest().empty());
+        entry->ClearState(table, TableListenerId(table));
+        delete state;
+    }
+}
+
 // Propagate changes to all the interested peers.
 //
 // Update order:
@@ -399,8 +409,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
             // enqueue delete.
             EnqueueDelete(node, state);
             if (state->update_list().empty()) {
-                entry->ClearState(table, tinfo->id());
-                delete state;
+                DeleteStateIfAppropriate(table, entry, state);
             }
         }
     }
@@ -511,8 +520,7 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         // enqueue update.
         EnqueueDelete(link, state);
         if (state->update_list().empty()) {
-            entry->ClearState(table, tinfo->id());
-            delete state;            
+            DeleteStateIfAppropriate(table, entry, state);
         }
 
         MaybeNotifyOnLinkDelete(left, s_left);
@@ -542,12 +550,11 @@ void IFMapExporter::StateUpdateOnDequeue(IFMapUpdate *update,
     } else {
         state->AdvertisedOr(dequeue_set);
     }
+
     if (update->advertise().empty()) {
         state->Remove(update);
-        if (state->CanDelete()) {
-            assert(state->advertised().empty());
-            db_entry->ClearState(table, TableListenerId(table));
-            delete state;
+        if (update->IsDelete()) {
+            DeleteStateIfAppropriate(table, db_entry, state);
         }
         delete update;
     }
