@@ -504,9 +504,9 @@ class SchemaTransformer(object):
 def parse_args(args_str):
     '''
     Eg. python to_bgp.py --rabbit_server localhost
-                         -- rabbit_port 5672
-                         -- rabbit_user guest
-                         -- rabbit_password guest
+                         --rabbit_port 5672
+                         --rabbit_user guest
+                         --rabbit_password guest
                          --cassandra_server_list 10.1.2.3:9160
                          --api_server_ip 10.1.2.3
                          --api_server_port 8082
@@ -578,8 +578,8 @@ def parse_args(args_str):
         'admin_tenant_name': 'default-domain'
     }
     cassandraopts = {
-        'cassandra_user'     : None,
-        'cassandra_password' : None,
+        'cassandra_user': None,
+        'cassandra_password': None,
     }
 
     if args.conf_file:
@@ -681,6 +681,28 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
+    parser.add_argument(
+        "--rabbit_server",
+        help="Rabbitmq server address")
+    parser.add_argument(
+        "--rabbit_port",
+        help="Rabbitmq server port")
+    parser.add_argument(
+        "--rabbit_user",
+        help="Username for rabbit")
+    parser.add_argument(
+        "--rabbit_vhost",
+        help="vhost for rabbit")
+    parser.add_argument(
+        "--rabbit_password",
+        help="password for rabbit")
+    parser.add_argument(
+        "--rabbit_ha_mode",
+        action='store_true',
+        help="True if the rabbitmq cluster is mirroring all queue")
+
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
