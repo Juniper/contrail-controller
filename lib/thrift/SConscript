@@ -7,7 +7,7 @@ vpath = '#/third_party/thrift-0.8.0'
 
 env = DefaultEnvironment()
 
-config_opts = '--prefix=' + str(Dir('#/build')) + ' ' + '--disable-dependency-tracking ' + '--with-boost=' + str(Dir('#/build')) + ' ' + '--without-csharp --without-java --without-erlang --without-python ' + '--without-perl --without-php --without-ruby --without-haskell  --without-go'
+config_opts = '--prefix=' + str(Dir('#/build')) + ' ' + '--disable-dependency-tracking ' + '--with-boost=' + str(Dir('#/build')) + ' ' + '--without-csharp --without-java --without-erlang --without-python ' + '--without-perl --without-php --without-ruby --without-haskell  --without-go --without-tests'
 
 if not sys.platform.startswith('freebsd'):
     cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
