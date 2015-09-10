@@ -69,7 +69,7 @@ class VncKombuClientBase(object):
 
         with self._conn_lock:
             msg = "RabbitMQ connection down"
-            self._logger(msg, level=SandeshLevel.SYS_ERR)
+            self._logger(msg, level=SandeshLevel.SYS_NOTICE)
             self._update_sandesh_status(ConnectionStatus.DOWN)
             self._conn_state = ConnectionStatus.DOWN
 

@@ -41,7 +41,8 @@ class IndexAllocator(object):
             idx_end_addr = self._alloc_list[alloc_idx]['end']
             next_start_addr = self._alloc_list[alloc_idx+1]['start']
             if next_start_addr <= idx_end_addr:
-                raise Exception()
+                raise Exception(
+                    'Allocation Lists Overlapping: %s' %(alloc_list))
             size += idx_end_addr - idx_start_addr + 1
         size += self._alloc_list[alloc_count-1]['end'] - self._alloc_list[alloc_count-1]['start'] + 1
 
@@ -74,7 +75,8 @@ class IndexAllocator(object):
                 if size < 0:
                    return alloc['end']+size + 1
 
-        raise Exception()
+        raise ResourceExhaustionError(
+            'Cannot get zk index from bit %s' %(idx))
     # end _get_zk_index
 
     def _get_bit_from_zk_index(self, idx):
