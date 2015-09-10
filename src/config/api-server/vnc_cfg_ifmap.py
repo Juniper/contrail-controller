@@ -1752,10 +1752,13 @@ class VncDbClient(object):
     @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_ids, obj_dict):
         method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.delete(method_name,
-                                                           obj_ids['uuid'])
+        try:
+            (ok, cassandra_result) = self._cassandra_db.delete(method_name,
+                                                               obj_ids['uuid'])
+        except NoIdError:
+            return (True, '')
 
-        # publish to ifmap via redis
+        # publish to ifmap via message bus (rabbitmq)
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
 
         # finally remove mapping in zk
