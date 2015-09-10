@@ -165,6 +165,8 @@ private:
         const std::pair<std::string,DbHandler::Var>& stag,
         uint32_t t1, const boost::uuids::uuid& unm,
         const std::string& jsonline, int ttl);
+    bool FlowSampleAdd(const pugi::xml_node& flowdata,
+        const SandeshHeader& header);
     int GetTtl(TtlType type) {
         return GetTtlFromMap(ttl_map_, type);
     }

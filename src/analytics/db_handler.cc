@@ -1215,14 +1215,14 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
 }
 
 /*
- * process the flow message and insert into appropriate tables
+ * process the flow sample and insert into the appropriate tables
  */
-bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
-    const SandeshHeader& header) {
+bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
+                              const SandeshHeader& header) {
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
     FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
-    pugi::xml_node &mnode = const_cast<pugi::xml_node &>(parent);
+    pugi::xml_node &mnode = const_cast<pugi::xml_node &>(flow_sample);
     if (!mnode.traverse(flow_msg_walker)) {
         VIZD_ASSERT(0);
     }
@@ -1237,25 +1237,27 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
         flow_entry_values[FlowRecordFields::FLOWREC_TEARDOWN_TIME]);
     if (setup_time.which() != GenDb::DB_VALUE_BLANK &&
         teardown_time.which() != GenDb::DB_VALUE_BLANK) {
-        flow_entry_values[FlowRecordFields::FLOWREC_SHORT_FLOW] = static_cast<uint8_t>(1);
+        flow_entry_values[FlowRecordFields::FLOWREC_SHORT_FLOW] =
+            static_cast<uint8_t>(1);
     } else {
-        flow_entry_values[FlowRecordFields::FLOWREC_SHORT_FLOW] = static_cast<uint8_t>(0);
+        flow_entry_values[FlowRecordFields::FLOWREC_SHORT_FLOW] =
+            static_cast<uint8_t>(0);
     }
     // Calculate T1 and T2 values from timestamp
     uint64_t timestamp(header.get_Timestamp());
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
-    // Parittion no
+    // Partition no
     uint8_t partition_no = 0;
     // Populate Flow Record Table
     if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_)) {
         DB_LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
-    // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     GenDb::DbDataValue &diff_bytes(
         flow_entry_values[FlowRecordFields::FLOWREC_DIFF_BYTES]);
     GenDb::DbDataValue &diff_packets(
         flow_entry_values[FlowRecordFields::FLOWREC_DIFF_PACKETS]);
+    // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     // FLOWREC_DIFF_PACKETS are present
     if (diff_bytes.which() != GenDb::DB_VALUE_BLANK &&
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
@@ -1263,6 +1265,26 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
                 dbif_.get(), ttl_map_)) {
            DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
+    }
+    return true;
+}
+
+/*
+ * process the flow sandesh message
+ */
+bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
+    const SandeshHeader& header) {
+    pugi::xml_node flowdata(parent.child("flowdata"));
+    // Flow sandesh message may contain a list of flow samples or
+    // a single flow sample
+    if (strcmp(flowdata.attribute("type").value(), "list") == 0) {
+        pugi::xml_node flow_list = flowdata.child("list");
+        for (pugi::xml_node fsample = flow_list.first_child(); fsample;
+            fsample = fsample.next_sibling()) {
+            FlowSampleAdd(fsample, header);
+        }
+    } else {
+        FlowSampleAdd(flowdata.first_child(), header);
     }
     return true;
 }
