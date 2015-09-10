@@ -63,11 +63,11 @@ class VncPermissions(object):
 
     # retreive user/role from incoming request
     def get_user_roles(self, request):
-        user = None
+        user = []
         env = request.headers.environ
         if 'HTTP_X_USER' in env:
             user = env['HTTP_X_USER']
-        roles = None
+        roles = []
         if 'HTTP_X_ROLE' in env:
             roles = env['HTTP_X_ROLE'].split(',')
         return (user, roles)
