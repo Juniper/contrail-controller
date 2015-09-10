@@ -439,10 +439,12 @@ ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
 
 void NamespaceManager::RegisterSvcInstance(NamespaceTask *task,
                                            ServiceInstance *svc_instance) {
+    tbb::mutex::scoped_lock lock(mutex_);
     task_svc_instances_.insert(std::make_pair(task, svc_instance));
 }
 
 ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
+    tbb::mutex::scoped_lock lock(mutex_);
     for (std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
                     task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
@@ -457,6 +459,7 @@ ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
 }
 
 void NamespaceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
+    tbb::mutex::scoped_lock lock(mutex_);
     std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
         task_svc_instances_.begin();
     while(iter != task_svc_instances_.end()) {
@@ -534,7 +537,8 @@ void NamespaceManager::OnError(NamespaceTask *task,
 }
 
 void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
-                                 NamespaceState *state) {
+                                 NamespaceState *state,
+                                 bool terminate) {
     std::stringstream cmd_str;
 
     if (netns_cmd_.length() == 0) {
@@ -566,7 +570,9 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
             agent_->event_manager());
     Enqueue(task, props.instance_id);
 
-    RegisterSvcInstance(task, svc_instance);
+    if (!terminate) {
+        RegisterSvcInstance(task, svc_instance);
+    }
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
@@ -638,7 +644,7 @@ void NamespaceManager::EventObserver(
         UnregisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
-                StopNetNS(svc_instance, state);
+                StopNetNS(svc_instance, state, true);
             }
 
             ClearState(svc_instance);
@@ -655,7 +661,7 @@ void NamespaceManager::EventObserver(
         LOG(DEBUG, "NetNS event notification for uuid: " << svc_instance->ToString()
             << (usable ? " usable" : " not usable"));
         if (!usable && GetLastCmdType(svc_instance) == Start) {
-            StopNetNS(svc_instance, state);
+            StopNetNS(svc_instance, state, false);
             SetLastCmdType(svc_instance, Stop);
         } else if (usable) {
             if (GetLastCmdType(svc_instance) == Start && state->properties().CompareTo(

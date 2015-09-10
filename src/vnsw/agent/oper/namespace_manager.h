@@ -8,6 +8,7 @@
 #include <queue>
 #include <boost/asio.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <tbb/mutex.h>
 #include "db/db_table.h"
 #include "cmn/agent_signal.h"
 #include "cmn/agent_cmn.h"
@@ -93,7 +94,8 @@ class NamespaceManager {
     void InitSigHandler(AgentSignal *signal);
     void StartNetNS(ServiceInstance *svc_instance, NamespaceState *state,
                     bool update);
-    void StopNetNS(ServiceInstance *svc_instance, NamespaceState *state);
+    void StopNetNS(ServiceInstance *svc_instance, NamespaceState *state,
+                   bool terminate);
     void StopStaleNetNS(ServiceInstance::Properties &props);
     void OnError(NamespaceTask *task, const std::string errors);
     void RegisterSvcInstance(NamespaceTask *task,
@@ -142,6 +144,8 @@ class NamespaceManager {
     std::string netns_cmd_;
     int netns_timeout_;
     WorkQueue<NamespaceManagerChildEvent> work_queue_;
+
+    tbb::mutex mutex_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
