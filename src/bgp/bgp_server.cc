@@ -19,11 +19,11 @@
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
-#include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/static_route.h"
 #include "io/event_manager.h"
 
@@ -225,8 +225,9 @@ bool BgpServer::IsReadyForDeletion() {
         return false;
     }
 
-    // Check if the Service Chain Manager Work Queue is empty.
-    if (!service_chain_mgr_->IsQueueEmpty()) {
+    // Check if the Service Chain Manager Work Queues are empty.
+    if (!inet_service_chain_mgr_->IsQueueEmpty() ||
+        !inet6_service_chain_mgr_->IsQueueEmpty()) {
         return false;
     }
 
@@ -274,7 +275,10 @@ BgpServer::BgpServer(EventManager *evm)
       ermvpn_replicator_(new RoutePathReplicator(this, Address::ERMVPN)),
       evpn_replicator_(new RoutePathReplicator(this, Address::EVPN)),
       inet6vpn_replicator_(new RoutePathReplicator(this, Address::INET6VPN)),
-      service_chain_mgr_(new ServiceChainMgr<ServiceChainInet>(this)),
+      inet_service_chain_mgr_(
+          BgpObjectFactory::Create<IServiceChainMgr, Address::INET>(this)),
+      inet6_service_chain_mgr_(
+          BgpObjectFactory::Create<IServiceChainMgr, Address::INET6>(this)),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     num_up_peer_ = 0;
@@ -391,13 +395,17 @@ uint32_t BgpServer::get_output_queue_depth() const {
 }
 
 uint32_t BgpServer::num_service_chains() const {
-    return service_chain_mgr_->PendingQueueSize() +
-        service_chain_mgr_->ResolvedQueueSize();
+    return inet_service_chain_mgr_->PendingQueueSize() +
+        inet_service_chain_mgr_->ResolvedQueueSize() +
+        inet6_service_chain_mgr_->PendingQueueSize() +
+        inet6_service_chain_mgr_->ResolvedQueueSize();
 }
 
 uint32_t BgpServer::num_down_service_chains() const {
-    return service_chain_mgr_->PendingQueueSize() +
-        service_chain_mgr_->GetDownServiceChainCount();
+    return inet_service_chain_mgr_->PendingQueueSize() +
+        inet_service_chain_mgr_->GetDownServiceChainCount() +
+        inet6_service_chain_mgr_->PendingQueueSize() +
+        inet6_service_chain_mgr_->GetDownServiceChainCount();
 }
 
 uint32_t BgpServer::num_static_routes() const {

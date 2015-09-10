@@ -14,12 +14,12 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/rtarget_group.h"
-#include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/static_route.h"
 #include "db/db_table.h"
 
@@ -383,7 +383,7 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
     rtinstance->ClearRouteTarget();
 
-    server()->service_chain_mgr()->StopServiceChain(rtinstance);
+    server()->service_chain_mgr(Address::INET)->StopServiceChain(rtinstance);
 
     // Remove Static Route config
     if (rtinstance->static_route_mgr())
@@ -511,10 +511,10 @@ void RoutingInstance::ProcessConfig() {
 
     // Service Chain
     if (!config_->service_chain_list().empty()) {
-        const ServiceChainConfig &cfg =
-                config_->service_chain_list().front();
+        const ServiceChainConfig &cfg = config_->service_chain_list().front();
         if (cfg.routing_instance != "") {
-            server_->service_chain_mgr()->LocateServiceChain(this, cfg);
+            server_->service_chain_mgr(
+                Address::INET)->LocateServiceChain(this, cfg);
         }
     }
 
@@ -595,11 +595,11 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
 
     // Service chain update.
     if (!config_->service_chain_list().empty()) {
-        const ServiceChainConfig &cfg =
-                config_->service_chain_list().front();
-        server_->service_chain_mgr()->LocateServiceChain(this, cfg);
+        const ServiceChainConfig &cfg = config_->service_chain_list().front();
+        server_->service_chain_mgr(
+            Address::INET)->LocateServiceChain(this, cfg);
     } else {
-        server_->service_chain_mgr()->StopServiceChain(this);
+        server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
     }
 
     // Static route update.
@@ -628,7 +628,7 @@ void RoutingInstance::Shutdown() {
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     ClearRouteTarget();
-    server_->service_chain_mgr()->StopServiceChain(this);
+    server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
 
     if (static_route_mgr())
         static_route_mgr()->FlushStaticRouteConfig();

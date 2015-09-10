@@ -51,3 +51,9 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, McastTreeManager, McastTreeManager);
 
 #include "bgp/bgp_message_builder.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpMessageBuilder, BgpMessageBuilder);
+
+#include "bgp/routing-instance/service_chaining.h"
+FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
+    Address::INET, ServiceChainMgrInet);
+FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
+    Address::INET6, ServiceChainMgrInet6);

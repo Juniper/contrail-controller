@@ -3,7 +3,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/routing-instance/service_chaining.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/static_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
@@ -203,8 +203,8 @@ protected:
         LOG(DEBUG, "Created MX at port: " << mx_->session_manager()->GetPort());
 
         if (aggregate_enable_) {
-            cn1_->service_chain_mgr()->set_aggregate_host_route(true);
-            cn2_->service_chain_mgr()->set_aggregate_host_route(true);
+            EnableServiceChainAggregation(cn1_.get());
+            EnableServiceChainAggregation(cn2_.get());
         }
 
         bgp_channel_manager_cn1_.reset(
@@ -486,12 +486,26 @@ protected:
         mx_->Configure(config);
     }
 
+    bool IsServiceChainQEmpty(BgpServerTest *server) {
+        return server->service_chain_mgr(Address::INET)->IsQueueEmpty();
+    }
+
     void DisableServiceChainQ(BgpServerTest *server) {
-        server->service_chain_mgr()->DisableQueue();
+        server->service_chain_mgr(Address::INET)->DisableQueue();
     }
 
     void EnableServiceChainQ(BgpServerTest *server) {
-        server->service_chain_mgr()->EnableQueue();
+        server->service_chain_mgr(Address::INET)->EnableQueue();
+    }
+
+    void DisableServiceChainAggregation(BgpServerTest *server) {
+        IServiceChainMgr *imgr = server->service_chain_mgr(Address::INET);
+        imgr->set_aggregate_host_route(false);
+    }
+
+    void EnableServiceChainAggregation(BgpServerTest *server) {
+        IServiceChainMgr *imgr = server->service_chain_mgr(Address::INET);
+        imgr->set_aggregate_host_route(true);
     }
 
     int RouteCount(BgpServerTest *server, const string &instance_name) const {
@@ -964,8 +978,8 @@ TEST_P(ServiceIntergrationParamTest, Basic) {
     AddConnectedRoute();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> path_list;
     if (mx_push_connected_) {
@@ -1018,8 +1032,8 @@ TEST_P(ServiceIntergrationParamTest, ECMP) {
     AddConnectedRoute(true);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> path_list;
     if (mx_push_connected_) { 
@@ -1082,8 +1096,8 @@ TEST_P(ServiceIntergrationParamTest, ExtRoute) {
     AddConnectedRoute(true);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> path_list;
 
@@ -1134,8 +1148,8 @@ TEST_P(ServiceIntergrationParamTest, SiteOfOrigin) {
     AddConnectedRoute(true);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> path_list;
 
@@ -1197,8 +1211,8 @@ TEST_P(ServiceIntergrationParamTest, RouteTarget) {
     AddConnectedRoute(true);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Check for Replicated
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "red", "10.1.1.0/24"),
@@ -1237,8 +1251,8 @@ TEST_P(ServiceIntergrationParamTest, OriginVn) {
     AddConnectedRoute(true);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Check for Replicated
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "red", "192.168.1.1/32"),
@@ -1307,8 +1321,8 @@ TEST_P(ServiceIntergrationParamTest2, MultipleInNetwork) {
     }
 
     // Wait for everything to be processed.
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Verify service chain routes are replicated to bgp.l3vpn.0.
     // Note that agents are registered to blue-i1 with instance id 1.
@@ -1363,8 +1377,8 @@ TEST_P(ServiceIntergrationParamTest2, MultipleInNetworkECMP) {
     }
 
     // Wait for everything to be processed.
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Verify service chain routes are replicated to bgp.l3vpn.0.
     // Note that agents are registered to blue-i1 with instance id 1.
@@ -1429,8 +1443,8 @@ TEST_P(ServiceIntergrationParamTest2, MultipleInNetworkUnsubscribeSubscribe) {
     }
 
     // Wait for everything to be processed.
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Verify service chain routes are replicated to bgp.l3vpn.0.
     // Note that agents are registered to blue-i1 with instance id 1.
@@ -1535,8 +1549,8 @@ TEST_P(ServiceIntergrationParamTest3, BidirectionalChain) {
     AddTableConnectedRoute(red_conn_table, false, "1.1.2.1/32", "66.66.66.66");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> pl_blue;
     PathVerify verify_blue1(
@@ -1620,8 +1634,8 @@ TEST_P(ServiceIntergrationParamTest3, BidirectionalChainWithTransitNetwork) {
     AddTableConnectedRoute(red_conn_table, false, "1.1.2.1/32", "66.66.66.66");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> pl_blue;
     PathVerify verify_blue1(
@@ -1788,8 +1802,8 @@ TEST_P(ServiceIntergrationParamTest4, DISABLED_SvcStaticRoute) {
     AddConnectedRoute(true);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     vector<PathVerify> path_list;
     if (mx_push_connected_) {
@@ -1872,8 +1886,8 @@ TEST_F(ServiceChainTest, StaticRouteMultipleL3Intf) {
     agent_b_2_->AddRoute(connected_table_, "1.1.2.3/32", nexthops);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Check for aggregated route
     vector<PathVerify> path_list;
@@ -1938,8 +1952,8 @@ TEST_F(ServiceChainTest, DISABLED_StaticRouteMultipleL3Intf) {
     agent_b_2_->AddRoute(connected_table_, "1.1.2.3/32", nexthops);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
-    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn1_.get()));
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty(cn2_.get()));
 
     // Check for aggregated route
     vector<PathVerify> path_list;
