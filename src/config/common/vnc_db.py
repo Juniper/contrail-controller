@@ -110,9 +110,10 @@ class DBBase(object):
 
     def add_to_parent(self, obj):
         if isinstance(obj, dict):
-            self.parent_type = obj.get('parent_type')
+            parent_type = obj.get('parent_type')
         else:
-            self.parent_type = obj.get_parent_type()
+            parent_type = obj.parent_type
+        self.parent_type = parent_type.replace('-', '_')
         if self._indexed_by_name:
             if isinstance(obj, dict):
                 fq_name = obj_dict.get('fq_name', [])
@@ -129,6 +130,7 @@ class DBBase(object):
                 self.parent_key = obj.get_parent_uuid
         if not self.parent_type or not self.parent_key:
             return
+        self.add_ref(self.parent_type, self.parent_key)
         p_obj = self.get_obj_type_map()[self.parent_type].get(self.parent_key)
         if p_obj is not None:
             p_obj.add_ref(self.obj_type, self.get_key())
@@ -208,10 +210,11 @@ class DBBase(object):
         setattr(self, ref_type+'s', new_refs)
     # end update_multiple_refs
 
-    def read_obj(self, uuid, obj_type=None):
-        ok, objs = self._cassandra.read(obj_type or self.obj_type, [uuid])
+    @classmethod
+    def read_obj(cls, uuid, obj_type=None):
+        ok, objs = cls._cassandra.read(obj_type or cls.obj_type, [uuid])
         if not ok:
-            self._logger.error(
+            cls._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
             raise NoIdError(uuid)
         return objs[0]
@@ -222,16 +225,17 @@ class DBBase(object):
         cls = obj_type_to_vnc_class(obj_type, __name__)
         return cls.from_dict(**obj_dict)
 
-    def read_vnc_obj(self, uuid=None, fq_name=None, obj_type=None):
+    @classmethod
+    def read_vnc_obj(cls, uuid=None, fq_name=None, obj_type=None):
         if uuid is None and fq_name is None:
             raise NoIdError('')
-        obj_type = obj_type or self.obj_type
+        obj_type = obj_type or cls.obj_type
         if uuid is None:
             if isinstance(fq_name, basestring):
                 fq_name = fq_name.split(':')
-            uuid = self._cassandra.fq_name_to_uuid(obj_type, fq_name)
-        obj_dict = self.read_obj(uuid, obj_type)
-        obj = self.vnc_obj_from_dict(obj_type, obj_dict)
+            uuid = cls._cassandra.fq_name_to_uuid(obj_type, fq_name)
+        obj_dict = cls.read_obj(uuid, obj_type)
+        obj = cls.vnc_obj_from_dict(obj_type, obj_dict)
         obj.clear_pending_updates()
         return obj
     # end read_vnc_obj
