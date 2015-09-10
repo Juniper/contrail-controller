@@ -58,6 +58,9 @@ import bottle
 bottle.BaseRequest.MEMFILE_MAX = 1024000
 
 import utils
+import context
+from context import get_request, get_context, set_context
+from context import ApiContext
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
 
@@ -282,17 +285,21 @@ class VncApiServer(object):
                 ref_type, _, _ = resource_class.ref_field_types[ref_name]
                 ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref['to'])
                 (ok, status) = self._permissions.check_perms_link(
-                    bottle.request, ref_uuid)
+                    get_request(), ref_uuid)
                 if not ok:
                     (code, err_msg) = status
-                    bottle.abort(code, err_msg)
+                    raise cfgm_common.exceptions.HttpError(code, err_msg)
     # end _validate_perms_in_request
 
+    # http_resource_<oper> - handlers invoked from
+    # a. bottle route (on-the-wire) OR
+    # b. internal requests
+    # using normalized get_request() from ApiContext
     @log_api_stats
     def http_resource_create(self, resource_type):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
-        obj_dict = bottle.request.json[resource_type]
+        obj_dict = get_request().json[resource_type]
         self._post_validate(obj_type, obj_dict=obj_dict)
         fq_name = obj_dict['fq_name']
 
@@ -305,30 +312,31 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = 'In pre_%s_create an extension had error for %s' \
                       %(obj_type, obj_dict)
-            err_msg += str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         # properties validator
         ok, result = self._validate_props_in_request(r_class, obj_dict)
         if not ok:
             result = 'Bad property in create: ' + result
-            bottle.abort(400, result)
+            raise cfgm_common.exceptions.HttpError(400, result)
 
         # references validator
         ok, result = self._validate_refs_in_request(r_class, obj_dict)
         if not ok:
             result = 'Bad reference in create: ' + result
-            bottle.abort(400, result)
+            raise cfgm_common.exceptions.HttpError(400, result)
 
         # common handling for all resource create
         (ok, result) = self._post_common(
-            bottle.request, resource_type, obj_dict)
+            get_request(), resource_type, obj_dict)
         if not ok:
             (code, msg) = result
             fq_name_str = ':'.join(obj_dict.get('fq_name', []))
             self.config_object_error(None, fq_name_str, obj_type, 'http_post', msg)
-            bottle.abort(code, msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
+        uuid_in_req = result
         name = obj_dict['fq_name'][-1]
         fq_name = obj_dict['fq_name']
 
@@ -345,72 +353,92 @@ class VncApiServer(object):
             try:
                 parent_uuid = self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)
                 (ok, status) = self._permissions.check_perms_write(
-                    bottle.request, parent_uuid)
+                    get_request(), parent_uuid)
                 if not ok:
                     (code, err_msg) = status
-                    bottle.abort(code, err_msg)
-                self._permissions.set_user_role(bottle.request, obj_dict)
+                    raise cfgm_common.exceptions.HttpError(code, err_msg)
+                self._permissions.set_user_role(get_request(), obj_dict)
             except NoIdError:
                 err_msg = 'Parent ' + pformat(parent_fq_name) + ' type ' + parent_type + ' does not exist'
                 fq_name_str = ':'.join(parent_fq_name)
                 self.config_object_error(None, fq_name_str, obj_type, 'http_post', err_msg)
-                bottle.abort(400, err_msg)
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         # Validate perms on references
         try:
             self._validate_perms_in_request(r_class, obj_type, obj_dict)
         except NoIdError:
-            bottle.abort(400, 'Unknown reference in resource create %s.' %(obj_dict))
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Unknown reference in resource create %s.' %(obj_dict))
 
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
-        # Alloc and Store id-mappings before creating entry on pubsub store.
-        # Else a subscriber can ask for an id mapping before we have stored it
-        uuid_requested = result
-        (ok, result) = db_conn.dbe_alloc(resource_type, obj_dict, uuid_requested)
-        if not ok:
+        obj_ids = {}
+        def undo_create(result):
             (code, msg) = result
-            fq_name_str = ':'.join(obj_dict['fq_name'])
-            self.config_object_error(None, fq_name_str, obj_type, 'http_post', result)
-            bottle.abort(code, msg)
-        cleanup_on_failure.append((db_conn.dbe_release, [obj_type, fq_name]))
-
-        obj_ids = result
-
-        env = bottle.request.headers.environ
-        tenant_name = env.get(hdr_server_tenant(), 'default-project')
-
-        # type-specific hook
-        try:
-            (ok, result) = r_class.http_post_collection(tenant_name, obj_dict, db_conn)
-        except Exception as e:
-            ok = False
-            result = (500, str(e))
-        if not ok:
-            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
-                fail_cleanup_callable(*cleanup_args)
-            (code, msg) = result
+            get_context().invoke_undo(code, msg)
+            failed_stage = get_context().get_state()
             fq_name_str = ':'.join(fq_name)
-            self.config_object_error(None, fq_name_str, obj_type, 'http_post', msg)
-            bottle.abort(code, msg)
+            self.config_object_error(
+                None, fq_name_str, obj_type, failed_stage, msg)
+        # end undo_create
 
-        callable = getattr(r_class, 'http_post_collection_fail', None)
-        if callable:
-            cleanup_on_failure.append((callable, [tenant_name, obj_dict, db_conn]))
+        def stateful_create():
+            # Alloc and Store id-mappings before creating entry on pubsub store.
+            # Else a subscriber can ask for an id mapping before we have stored it
+            (ok, result) = db_conn.dbe_alloc(resource_type, obj_dict, uuid_in_req)
+            if not ok:
+                return (ok, result)
+            get_context().push_undo(db_conn.dbe_release, obj_type, fq_name)
 
-        try:
+            obj_ids.update(result)
+
+            env = get_request().headers.environ
+            tenant_name = env.get(hdr_server_tenant(), 'default-project')
+
+            get_context().set_state('PRE_DBE_CREATE')
+            # type-specific hook
+            (ok, result) = r_class.pre_dbe_create(
+                tenant_name, obj_dict, db_conn)
+            if not ok:
+                return (ok, result)
+            callable = getattr(r_class, 'http_post_collection_fail', None)
+            if callable:
+                cleanup_on_failure.append((callable, [tenant_name, obj_dict, db_conn]))
+
+            get_context().set_state('DBE_CREATE')
             (ok, result) = \
-                 db_conn.dbe_create(resource_type, obj_ids, obj_dict)
+                     db_conn.dbe_create(resource_type, obj_ids, obj_dict)
+            if not ok:
+                return (ok, result)
+
+            get_context().set_state('POST_DBE_CREATE')
+            # type-specific hook
+            try:
+                ok, err_msg = r_class.post_dbe_create(tenant_name, obj_dict, db_conn)
+            except Exception as e:
+                ok = False
+                err_msg = '%s:%s post_dbe_create had an exception: ' \
+                          %(obj_type, obj_ids['uuid'])
+                err_msg += cfgm_common.utils.detailed_traceback()
+
+            if not ok:
+                # Create is done, log to system, no point in informing user
+                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+
+            return True, ''
+        # end stateful_create
+
+        try:
+            ok, result = stateful_create()
         except Exception as e:
             ok = False
-            result = str(e)
-
+            err_msg = cfgm_common.utils.detailed_traceback()
+            result = (500, err_msg)
         if not ok:
-            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
-                fail_cleanup_callable(*cleanup_args)
-            fq_name_str = ':'.join(fq_name)
-            self.config_object_error(None, fq_name_str, obj_type, 'http_post', result)
-            bottle.abort(404, result)
+            undo_create(result)
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         rsp_body = {}
         rsp_body['name'] = name
@@ -431,7 +459,7 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = 'In post_%s_create an extension had error for %s' \
                       %(obj_type, obj_dict)
-            err_msg += str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         return {resource_type: rsp_body}
@@ -447,27 +475,24 @@ class VncApiServer(object):
         except Exception as e:
             pass
 
-        etag = bottle.request.headers.get('If-None-Match')
+        etag = get_request().headers.get('If-None-Match')
         db_conn = self._db_conn
         try:
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
-                bottle.abort(
+                raise cfgm_common.exceptions.HttpError(
                     404, 'No %s object found for id %s' %(resource_type, id))
             fq_name = db_conn.uuid_to_fq_name(id)
         except NoIdError as e:
-            bottle.abort(404, str(e))
+            raise cfgm_common.exceptions.HttpError(404, str(e))
 
         # common handling for all resource get
-        (ok, result) = self._get_common(bottle.request, id)
+        (ok, result) = self._get_common(get_request(), id)
         if not ok:
             (code, msg) = result
             self.config_object_error(
                 id, None, obj_type, 'http_get', msg)
-            bottle.abort(code, msg)
-
-        # type-specific hook
-        r_class.http_get(id)
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         db_conn = self._db_conn
         if etag:
@@ -477,7 +502,7 @@ class VncApiServer(object):
                 # Not present in DB
                 self.config_object_error(
                     id, None, obj_type, 'http_get', result)
-                bottle.abort(404, result)
+                raise cfgm_common.exceptions.HttpError(404, result)
 
             is_latest = result
             if is_latest:
@@ -489,13 +514,13 @@ class VncApiServer(object):
         obj_ids = {'uuid': id}
 
         # Generate field list for db layer
-        if 'fields' in bottle.request.query:
-            obj_fields = bottle.request.query.fields.split(',')
+        if 'fields' in get_request().query:
+            obj_fields = get_request().query.fields.split(',')
         else: # default props + children + refs + backrefs
             obj_fields = list(r_class.prop_fields) + list(r_class.ref_fields)
-            if 'exclude_back_refs' not in bottle.request.query:
+            if 'exclude_back_refs' not in get_request().query:
                 obj_fields = obj_fields + list(r_class.backref_fields)
-            if 'exclude_children' not in bottle.request.query:
+            if 'exclude_children' not in get_request().query:
                 obj_fields = obj_fields + list(r_class.children_fields)
 
         try:
@@ -504,16 +529,16 @@ class VncApiServer(object):
                 self.config_object_error(id, None, obj_type, 'http_get', result)
         except NoIdError as e:
             # Not present in DB
-            bottle.abort(404, str(e))
+            raise cfgm_common.exceptions.HttpError(404, str(e))
         if not ok:
-            bottle.abort(500, result)
+            raise cfgm_common.exceptions.HttpError(500, result)
 
         # check visibility
         if (not result['id_perms'].get('user_visible', True) and
             not self.is_admin_request()):
             result = 'This object is not visible by users: %s' % id
             self.config_object_error(id, None, obj_type, 'http_get', result)
-            bottle.abort(404, result)
+            raise cfgm_common.exceptions.HttpError(404, result)
 
         rsp_body = {}
         rsp_body['uuid'] = id
@@ -535,7 +560,7 @@ class VncApiServer(object):
     def http_resource_update(self, resource_type, id):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
-        obj_dict = bottle.request.json[resource_type]
+        obj_dict = get_request().json[resource_type]
         try:
             self._extension_mgrs['resourceApi'].map_method(
                 'pre_%s_update' %(obj_type), id, obj_dict)
@@ -545,70 +570,90 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = 'In pre_%s_update an extension had error for %s' \
                       %(obj_type, obj_dict)
-            err_msg += str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         db_conn = self._db_conn
         try:
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
-                bottle.abort(
+                raise cfgm_common.exceptions.HttpError(
                     404, 'No %s object found for id %s' %(resource_type, id))
             fq_name = db_conn.uuid_to_fq_name(id)
         except NoIdError as e:
-            bottle.abort(404, str(e))
+            raise cfgm_common.exceptions.HttpError(404, str(e))
 
         # properties validator
         ok, result = self._validate_props_in_request(r_class, obj_dict)
         if not ok:
             result = 'Bad property in update: ' + result
-            bottle.abort(400, result)
+            raise cfgm_common.exceptions.HttpError(400, result)
 
         # references validator
         ok, result = self._validate_refs_in_request(r_class, obj_dict)
         if not ok:
             result = 'Bad reference in update: ' + result
-            bottle.abort(400, result)
+            raise cfgm_common.exceptions.HttpError(400, result)
 
         # common handling for all resource put
         (ok, result) = self._put_common(
-            bottle.request, obj_type, id, fq_name, obj_dict)
+            get_request(), obj_type, id, fq_name, obj_dict)
         if not ok:
             (code, msg) = result
             self.config_object_error(id, None, obj_type, 'http_put', msg)
-            bottle.abort(code, msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         # Validate perms on references
         try:
             self._validate_perms_in_request(r_class, obj_type, obj_dict)
         except NoIdError:
-            bottle.abort(400,
+            raise cfgm_common.exceptions.HttpError(400,
                 'Unknown reference in resource update %s %s.'
                 %(obj_type, obj_dict))
 
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
-        # type-specific hook
-        (ok, put_result) = r_class.http_put(id, fq_name, obj_dict, self._db_conn)
-        if not ok:
-            (code, msg) = put_result
-            self.config_object_error(id, None, obj_type, 'http_put', msg)
-            bottle.abort(code, msg)
-        callable = getattr(r_class, 'http_put_fail', None)
-        if callable:
-            cleanup_on_failure.append((callable, [id, fq_name, obj_dict, self._db_conn]))
-
         obj_ids = {'uuid': id}
-        try:
+        def undo_update(result):
+            (code, msg) = result
+            get_context().invoke_undo(code, msg)
+            failed_stage = get_context().get_state()
+            self.config_object_error(
+                id, None, obj_type, failed_stage, msg)
+        # end undo_update
+
+        def stateful_update():
+            get_context().set_state('PRE_DBE_UPDATE')
+            # type-specific hook
+            (ok, result) = r_class.pre_dbe_update(
+                id, fq_name, obj_dict, self._db_conn)
+            if not ok:
+                return (ok, result)
+
+            get_context().set_state('DBE_UPDATE')
             (ok, result) = db_conn.dbe_update(resource_type, obj_ids, obj_dict)
+            if not ok:
+                return (ok, result)
+
+            get_context().set_state('POST_DBE_UPDATE')
+            # type-specific hook
+            (ok, result) = r_class.post_dbe_update(id, fq_name, obj_dict, self._db_conn)
+            if not ok:
+                return (ok, result)
+
+            return (ok, result)
+        # end stateful_update
+
+        try:
+            ok, result = stateful_update()
         except Exception as e:
             ok = False
-            result = str(e)
+            err_msg = cfgm_common.utils.detailed_traceback()
+            result = (500, err_msg)
         if not ok:
-            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
-                    fail_cleanup_callable(*cleanup_args)
-            self.config_object_error(id, None, obj_type, 'http_put', result)
-            bottle.abort(404, result)
+            undo_update(result)
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         rsp_body = {}
         rsp_body['uuid'] = id
@@ -623,7 +668,7 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = 'In post_%s_update an extension had error for %s' \
                       %(obj_type, obj_dict)
-            err_msg += str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         return {resource_type: rsp_body}
@@ -638,11 +683,12 @@ class VncApiServer(object):
         try:
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
-                bottle.abort(
+                raise cfgm_common.exceptions.HttpError(
                     404, 'No %s object found for id %s' %(resource_type, id))
             _ = db_conn.uuid_to_fq_name(id)
         except NoIdError:
-            bottle.abort(404, 'ID %s does not exist' %(id))
+            raise cfgm_common.exceptions.HttpError(
+                404, 'ID %s does not exist' %(id))
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
@@ -653,7 +699,7 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = 'In pre_%s_delete an extension had error for %s' \
                       %(obj_type, id)
-            err_msg += str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         # read in obj from db (accepting error) to get details of it
@@ -664,7 +710,7 @@ class VncApiServer(object):
             (read_ok, read_result) = db_conn.dbe_read(
                 resource_type, obj_ids, obj_fields)
         except NoIdError as e:
-            bottle.abort(404, str(e))
+            raise cfgm_common.exceptions.HttpError(404, str(e))
         if not read_ok:
             self.config_object_error(
                 id, None, obj_type, 'http_delete', read_result)
@@ -673,11 +719,11 @@ class VncApiServer(object):
         # common handling for all resource delete
         parent_type = read_result.get('parent_type')
         (ok, del_result) = self._delete_common(
-            bottle.request, obj_type, id, parent_type)
+            get_request(), obj_type, id, parent_type)
         if not ok:
             (code, msg) = del_result
             self.config_object_error(id, None, obj_type, 'http_delete', msg)
-            bottle.abort(code, msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         fq_name = read_result['fq_name']
         ifmap_id = imid.get_ifmap_id_from_fq_name(resource_type, fq_name)
@@ -685,9 +731,6 @@ class VncApiServer(object):
         if parent_type:
             parent_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(parent_type, fq_name[:-1])
             obj_ids['parent_imid'] = parent_imid
-
-        # State modification starts from here. Ensure that cleanup is done for all state changes
-        cleanup_on_failure = []
 
         # type-specific hook
         r_class = self.get_resource_class(resource_type)
@@ -711,7 +754,7 @@ class VncApiServer(object):
                     exist_hrefs)
                 self.config_object_error(
                     id, None, obj_type, 'http_delete', err_msg)
-                bottle.abort(409, err_msg)
+                raise cfgm_common.exceptions.HttpError(409, err_msg)
 
         for backref_field in r_class.backref_fields:
             _, _, is_derived = r_class.backref_field_types[backref_field]
@@ -724,38 +767,71 @@ class VncApiServer(object):
                     exist_hrefs)
                 self.config_object_error(
                     id, None, obj_type, 'http_delete', err_msg)
-                bottle.abort(409, err_msg)
+                raise cfgm_common.exceptions.HttpError(409, err_msg)
 
-        # Delete default children first
-        for child_field in r_class.children_fields:
-            child_type, is_derived = r_class.children_field_types[child_field]
-            if is_derived:
-                continue
-            cr_class = self.get_resource_class(child_type)
-            if not cr_class.generate_default_instance:
-                continue
-            self.delete_default_children(child_type, read_result)
+        # State modification starts from here. Ensure that cleanup is done for all state changes
+        cleanup_on_failure = []
 
-        (ok, del_result) = r_class.http_delete(id, read_result, db_conn)
-        if not ok:
-            (code, msg) = del_result
-            self.config_object_error(id, None, obj_type, 'http_delete', msg)
-            bottle.abort(code, msg)
-        callable = getattr(r_class, 'http_delete_fail', None)
-        if callable:
-            cleanup_on_failure.append((callable, [id, read_result, db_conn]))
+        def undo_delete(result):
+            (code, msg) = result
+            get_context().invoke_undo(code, msg)
+            failed_stage = get_context().get_state()
+            self.config_object_error(
+                id, None, obj_type, failed_stage, msg)
+        # end undo_delete
 
-        try:
+        def stateful_delete():
+            get_context().set_state('PRE_DBE_DELETE')
+            # Delete default children first
+            for child_field in r_class.children_fields:
+                child_type, is_derived = r_class.children_field_types[child_field]
+                if is_derived:
+                    continue
+                cr_class = self.get_resource_class(child_type)
+                if not cr_class.generate_default_instance:
+                    continue
+                self.delete_default_children(child_type, read_result)
+
+            (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
+            if not ok:
+                return (ok, del_result)
+            callable = getattr(r_class, 'http_delete_fail', None)
+            if callable:
+                cleanup_on_failure.append((callable, [id, read_result, db_conn]))
+
+            get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(
                 resource_type, obj_ids, read_result)
+            if not ok:
+                return (ok, del_result)
+
+            # type-specific hook
+            get_context().set_state('POST_DBE_DELETE')
+            try:
+                ok, err_msg = r_class.post_dbe_delete(id, read_result, db_conn)
+            except Exception as e:
+                ok = False
+                err_msg = '%s:%s post_dbe_delete had an exception: ' \
+                          %(obj_type, id)
+                err_msg += cfgm_common.utils.detailed_traceback()
+
+            if not ok:
+                # Delete is done, log to system, no point in informing user
+                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+
+            return (True, '')
+        # end stateful_delete
+
+        try:
+            ok, result = stateful_delete()
         except Exception as e:
             ok = False
-            del_result = str(e)
+            err_msg = cfgm_common.utils.detailed_traceback()
+            result = (500, err_msg)
         if not ok:
-            for fail_cleanup_callable, cleanup_args in cleanup_on_failure:
-                fail_cleanup_callable(*cleanup_args)
-            self.config_object_error(id, None, obj_type, 'http_delete', del_result)
-            bottle.abort(409, del_result)
+            undo_delete(result)
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
@@ -766,7 +842,7 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = 'In pre_%s_delete an extension had error for %s' \
                       %(obj_type, id)
-            err_msg += str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
     # end http_resource_delete
 
@@ -776,49 +852,49 @@ class VncApiServer(object):
         obj_type = resource_type.replace('-', '_')
         db_conn = self._db_conn
 
-        env = bottle.request.headers.environ
+        env = get_request().headers.environ
         tenant_name = env.get(hdr_server_tenant(), 'default-project')
         parent_uuids = None
         back_ref_uuids = None
         obj_uuids = None
-        if (('parent_fq_name_str' in bottle.request.query) and
-            ('parent_type' in bottle.request.query)):
-            parent_fq_name = bottle.request.query.parent_fq_name_str.split(':')
-            parent_type = bottle.request.query.parent_type
+        if (('parent_fq_name_str' in get_request().query) and
+            ('parent_type' in get_request().query)):
+            parent_fq_name = get_request().query.parent_fq_name_str.split(':')
+            parent_type = get_request().query.parent_type
             parent_uuids = [self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)]
-        elif 'parent_id' in bottle.request.query:
-            parent_ids = bottle.request.query.parent_id.split(',')
+        elif 'parent_id' in get_request().query:
+            parent_ids = get_request().query.parent_id.split(',')
             parent_uuids = [str(uuid.UUID(p_uuid)) for p_uuid in parent_ids]
-        if 'back_ref_id' in bottle.request.query:
-            back_ref_ids = bottle.request.query.back_ref_id.split(',')
+        if 'back_ref_id' in get_request().query:
+            back_ref_ids = get_request().query.back_ref_id.split(',')
             back_ref_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in back_ref_ids]
-        if 'obj_uuids' in bottle.request.query:
-            obj_uuids = bottle.request.query.obj_uuids.split(',')
+        if 'obj_uuids' in get_request().query:
+            obj_uuids = get_request().query.obj_uuids.split(',')
 
         # common handling for all resource get
-        (ok, result) = self._get_common(bottle.request, parent_uuids)
+        (ok, result) = self._get_common(get_request(), parent_uuids)
         if not ok:
             (code, msg) = result
             self.config_object_error(
                 None, None, '%ss' %(resource_type), 'http_get_collection', msg)
-            bottle.abort(code, msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
-        if 'count' in bottle.request.query:
-            is_count = 'true' in bottle.request.query.count.lower()
+        if 'count' in get_request().query:
+            is_count = 'true' in get_request().query.count.lower()
         else:
             is_count = False
 
-        if 'detail' in bottle.request.query:
-            is_detail = 'true' in bottle.request.query.detail.lower()
+        if 'detail' in get_request().query:
+            is_detail = 'true' in get_request().query.detail.lower()
         else:
             is_detail = False
 
-        if 'fields' in bottle.request.query:
-            req_fields = bottle.request.query.fields.split(',')
+        if 'fields' in get_request().query:
+            req_fields = get_request().query.fields.split(',')
         else:
             req_fields = []
 
-        filter_params = bottle.request.query.filters
+        filter_params = get_request().query.filters
         if filter_params:
             try:
                 ff_key_vals = filter_params.split(',')
@@ -826,7 +902,8 @@ class VncApiServer(object):
                 ff_values = [ff.split('==')[1] for ff in ff_key_vals]
                 filters = {'field_names': ff_names, 'field_values': ff_values}
             except Exception as e:
-                abort(400, 'Invalid filter ' + filter_params)
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'Invalid filter ' + filter_params)
         else:
             filters = None
 
@@ -834,6 +911,93 @@ class VncApiServer(object):
             parent_uuids, back_ref_uuids, obj_uuids, is_count, is_detail,
             filters, req_fields)
     # end http_resource_list
+
+    # internal_request_<oper> - handlers of internally generated requests
+    # that save-ctx, generate-ctx and restore-ctx
+    def internal_request_create(self, resource_type, obj_json):
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/%ss' %(resource_type),
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': 'admin'})
+            json_as_dict = {'%s' %(resource_type): obj_json}
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                json_as_dict, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            self.http_resource_create(resource_type)
+            return True, ""
+        finally:
+            set_context(orig_context)
+    # end internal_request_create
+
+    def internal_request_update(self, resource_type, obj_uuid, obj_json):
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/%ss' %(resource_type),
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': 'admin'})
+            json_as_dict = {'%s' %(resource_type): obj_json}
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                json_as_dict, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            self.http_resource_update(resource_type, obj_uuid)
+            return True, ""
+        finally:
+            set_context(orig_context)
+    # end internal_request_update
+
+    def internal_request_delete(self, resource_type, obj_uuid):
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': 'admin'})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                None, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            self.http_resource_delete(resource_type, obj_uuid)
+            return True, ""
+        finally:
+            set_context(orig_context)
+    # end internal_request_delete
+
+    def internal_request_ref_update(self,
+        obj_type, obj_uuid, operation, ref_type, ref_uuid, attr=None):
+        req_dict = {'type': obj_type,
+                    'uuid': obj_uuid,
+                    'operation': operation,
+                    'ref-type': ref_type,
+                    'ref-uuid': ref_uuid,
+                    'attr': attr}
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/ref-update',
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': 'admin'})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                req_dict, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            self.ref_update_http_post()
+            return True, ""
+        finally:
+            set_context(orig_context)
+    # end internal_request_ref_update
 
     def create_default_children(self, resource_type, parent_obj):
         r_class = self.get_resource_class(resource_type)
@@ -958,9 +1122,15 @@ class VncApiServer(object):
 
         self._resource_classes = {}
         for resource_type in gen.vnc_api_server_gen.all_resource_types:
-            class_name = '%sServerGen' %(cfgm_common.utils.CamelCase(resource_type))
-            self.set_resource_class(resource_type,
-                cfgm_common.utils.str_to_class(class_name, __name__))
+            camel_name = cfgm_common.utils.CamelCase(resource_type)
+            r_class_name = '%sServer' %(camel_name)
+            common_class = cfgm_common.utils.str_to_class(camel_name, __name__)
+            # Create Placeholder classes derived from Resource, <Type> so
+            # r_class methods can be invoked in CRUD methods without
+            # checking for None
+            r_class = type(r_class_name,
+                (vnc_cfg_types.Resource, common_class, object), {})
+            self.set_resource_class(resource_type, r_class)
 
         self._args = None
         if not args_str:
@@ -1088,7 +1258,7 @@ class VncApiServer(object):
         # Register for VN delete request. Disallow delete of system default VN
         self.route('/virtual-network/<id>', 'DELETE', self.virtual_network_http_delete)
 
-        bottle.route('/documentation/<filename:path>',
+        self.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
         self._homepage_links.insert(
             0, LinkObject('documentation', self._base_url,
@@ -1096,14 +1266,14 @@ class VncApiServer(object):
                           'documentation'))
 
         # APIs to reserve/free block of IP address from a VN/Subnet
-        bottle.route('/virtual-network/<id>/ip-alloc',
+        self.route('/virtual-network/<id>/ip-alloc',
                      'POST', self.vn_ip_alloc_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/ip-alloc',
                        'virtual-network-ip-alloc'))
 
-        bottle.route('/virtual-network/<id>/ip-free',
+        self.route('/virtual-network/<id>/ip-free',
                      'POST', self.vn_ip_free_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
@@ -1111,7 +1281,7 @@ class VncApiServer(object):
                        'virtual-network-ip-free'))
 
         # APIs to find out number of ip instances from given VN subnet
-        bottle.route('/virtual-network/<id>/subnet-ip-count',
+        self.route('/virtual-network/<id>/subnet-ip-count',
                      'POST', self.vn_subnet_ip_count_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
@@ -1119,8 +1289,8 @@ class VncApiServer(object):
                        'virtual-network-subnet-ip-count'))
 
         # Enable/Disable multi tenancy
-        bottle.route('/multi-tenancy', 'GET', self.mt_http_get)
-        bottle.route('/multi-tenancy', 'PUT', self.mt_http_put)
+        self.route('/multi-tenancy', 'GET', self.mt_http_get)
+        self.route('/multi-tenancy', 'PUT', self.mt_http_put)
 
         # Initialize discovery client
         self._disc = None
@@ -1250,19 +1420,19 @@ class VncApiServer(object):
 
     @ignore_exceptions
     def _generate_rest_api_request_trace(self):
-        method = bottle.request.method.upper()
+        method = get_request().method.upper()
         if method == 'GET':
             return None
 
-        req_id = bottle.request.headers.get('X-Request-Id',
+        req_id = get_request().headers.get('X-Request-Id',
                                             'req-%s' %(str(uuid.uuid4())))
         gevent.getcurrent().trace_request_id = req_id
-        url = bottle.request.url
+        url = get_request().url
         if method == 'DELETE':
             req_data = ''
         else:
             try:
-                req_data = json.dumps(bottle.request.json)
+                req_data = json.dumps(get_request().json)
             except Exception as e:
                 req_data = '%s: Invalid request body' %(e)
         rest_trace = RestApiTrace(request_id=req_id)
@@ -1285,24 +1455,27 @@ class VncApiServer(object):
     # Public Methods
     def route(self, uri, method, handler):
         def handler_trap_exception(*args, **kwargs):
+            set_context(ApiContext(external_req=bottle.request))
             trace = None
             try:
-                self._extensions_transform_request(bottle.request)
-                self._extensions_validate_request(bottle.request)
+                self._extensions_transform_request(get_request())
+                self._extensions_validate_request(get_request())
 
                 trace = self._generate_rest_api_request_trace()
                 response = handler(*args, **kwargs)
                 self._generate_rest_api_response_trace(trace, response)
 
-                self._extensions_transform_response(bottle.request, response)
+                self._extensions_transform_response(get_request(), response)
 
                 return response
             except Exception as e:
                 if trace:
                     trace.trace_msg(name='RestApiTraceBuf',
                         sandesh=self._sandesh)
-                # don't log details of bottle.abort i.e handled error cases
-                if not isinstance(e, bottle.HTTPError):
+                # don't log details of cfgm_common.exceptions.HttpError i.e handled error cases
+                if isinstance(e, cfgm_common.exceptions.HttpError):
+                    bottle.abort(e.status_code, e.content)
+                else:
                     string_buf = StringIO()
                     cgitb.Hook(
                         file=string_buf,
@@ -1310,8 +1483,7 @@ class VncApiServer(object):
                         ).handle(sys.exc_info())
                     err_msg = mask_password(string_buf.getvalue())
                     self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
-
-                raise
+                    raise
 
         bottle.route(uri, method, handler_trap_exception)
     # end route
@@ -1348,7 +1520,7 @@ class VncApiServer(object):
     # end get_pipe_start_app
 
     def is_admin_request(self):
-        env = bottle.request.headers.environ
+        env = get_request().headers.environ
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles = env[field].split(',')
@@ -1362,21 +1534,26 @@ class VncApiServer(object):
         try:
             obj_type = db_conn.uuid_to_obj_type(id)
             if obj_type != 'virtual_network':
-                bottle.abort(404, 'No virtual-network object found for id %s' %(id))
+                raise cfgm_common.exceptions.HttpError(
+                    404, 'No virtual-network object found for id %s' %(id))
             vn_name = db_conn.uuid_to_fq_name(id)
         except NoIdError:
-            bottle.abort(404, 'ID %s does not exist' %(id))
+            raise cfgm_common.exceptions.HttpError(
+                404, 'ID %s does not exist' %(id))
         if vn_name == cfgm_common.IP_FABRIC_VN_FQ_NAME or \
            vn_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME:
-            bottle.abort(409, 'Can not delete system created default virtual-network %s' %(id))
+            raise cfgm_common.exceptions.HttpError(
+                409,
+                'Can not delete system created default virtual-network '+id)
         super(VncApiServer, self).virtual_network_http_delete(id)
    # end
 
     def homepage_http_get(self):
+        set_context(ApiContext(external_req=bottle.request))
         json_body = {}
         json_links = []
         # strip trailing '/' in url
-        url = bottle.request.url[:-1]
+        url = get_request().url[:-1]
         for link in self._homepage_links:
             # strip trailing '/' in url
             json_links.append(
@@ -1404,51 +1581,54 @@ class VncApiServer(object):
     # end documentation_http_get
 
     def ref_update_http_post(self):
-        self._post_common(bottle.request, None, None)
+        self._post_common(get_request(), None, None)
         # grab fields
-        obj_type = bottle.request.json.get('type')
-        obj_uuid = bottle.request.json.get('uuid')
-        ref_type = bottle.request.json.get('ref-type')
-        operation = bottle.request.json.get('operation')
-        ref_uuid = bottle.request.json.get('ref-uuid')
-        ref_fq_name = bottle.request.json.get('ref-fq-name')
-        attr = bottle.request.json.get('attr')
+        obj_type = get_request().json.get('type')
+        obj_uuid = get_request().json.get('uuid')
+        ref_type = get_request().json.get('ref-type')
+        operation = get_request().json.get('operation')
+        ref_uuid = get_request().json.get('ref-uuid')
+        ref_fq_name = get_request().json.get('ref-fq-name')
+        attr = get_request().json.get('attr')
 
         # validate fields
         if None in (obj_type, obj_uuid, ref_type, operation):
             err_msg = 'Bad Request: type/uuid/ref-type/operation is null: '
             err_msg += '%s, %s, %s, %s.' \
                         %(obj_type, obj_uuid, ref_type, operation)
-            bottle.abort(400, err_msg)
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         if operation.upper() not in ['ADD', 'DELETE']:
             err_msg = 'Bad Request: operation should be add or delete: %s' \
                       %(operation)
-            bottle.abort(400, err_msg)
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         if not ref_uuid and not ref_fq_name:
-            err_msg = 'Bad Request: Either ref-uuid or ref-fq-name must be specified'
-            bottle.abort(400, err_msg)
+            err_msg = 'Bad Request: ref-uuid or ref-fq-name must be specified'
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         ref_type = ref_type.replace('-', '_')
         if not ref_uuid:
             try:
                 ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref_fq_name)
             except NoIdError:
-                bottle.abort(404, 'Name ' + pformat(ref_fq_name) + ' not found')
+                raise cfgm_common.exceptions.HttpError(
+                    404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
         # To invoke type specific hook and extension manager
         try:
-            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, bottle.request.json)
+            (read_ok, read_result) = self._db_conn.dbe_read(
+                                         obj_type, get_request().json)
         except NoIdError:
-            bottle.abort(404, 'Object Not Found: ' + obj_uuid)
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: '+obj_uuid)
         except Exception as e:
             read_ok = False
             read_result = cfgm_common.utils.detailed_traceback()
 
         if not read_ok:
             self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
-            bottle.abort(500, read_result)
+            raise cfgm_common.exceptions.HttpError(500, read_result)
 
         obj_dict = read_result
 
@@ -1465,7 +1645,9 @@ class VncApiServer(object):
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             except NoIdError:
-                bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
+                raise cfgm_common.exceptions.HttpError(
+                    404, 'UUID ' + obj_uuid + ' not found')
+
             if operation == 'ADD':
                 if ref_type+'_refs' not in obj_dict:
                     obj_dict[ref_type+'_refs'] = []
@@ -1476,16 +1658,20 @@ class VncApiServer(object):
                         obj_dict[ref_type+'_refs'].remove(old_ref)
                         break
 
-            (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
+            (ok, put_result) = r_class.pre_dbe_update(
+                obj_uuid, fq_name, obj_dict, self._db_conn)
             if not ok:
                 (code, msg) = put_result
                 self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
-                bottle.abort(code, msg)
+                raise cfgm_common.exceptions.HttpError(code, msg)
+        # end if r_class
+
         obj_type = obj_type.replace('-', '_')
         try:
             id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
         except NoIdError:
-            bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
+            raise cfgm_common.exceptions.HttpError(
+                404, 'uuid ' + obj_uuid + ' not found')
 
         # invoke the extension
         try:
@@ -1500,7 +1686,7 @@ class VncApiServer(object):
         apiConfig.identifier_name=':'.join(fq_name)
         apiConfig.identifier_uuid = obj_uuid
         apiConfig.operation = 'ref-update'
-        apiConfig.body = str(bottle.request.json)
+        apiConfig.body = str(get_request().json)
 
         self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
@@ -1510,44 +1696,46 @@ class VncApiServer(object):
     # end ref_update_id_http_post
 
     def fq_name_to_id_http_post(self):
-        self._post_common(bottle.request, None, None)
-        obj_type = bottle.request.json['type'].replace('-', '_')
-        fq_name = bottle.request.json['fq_name']
+        self._post_common(get_request(), None, None)
+        obj_type = get_request().json['type'].replace('-', '_')
+        fq_name = get_request().json['fq_name']
 
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
-            bottle.abort(404, 'Name ' + pformat(fq_name) + ' not found')
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Name ' + pformat(fq_name) + ' not found')
 
         return {'uuid': id}
     # end fq_name_to_id_http_post
 
     def id_to_fq_name_http_post(self):
-        self._post_common(bottle.request, None, None)
+        self._post_common(get_request(), None, None)
         try:
-            obj_uuid = bottle.request.json['uuid']
+            obj_uuid = get_request().json['uuid']
             fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
         except NoIdError:
-            bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
+            raise cfgm_common.exceptions.HttpError(
+               404, 'UUID ' + obj_uuid + ' not found')
 
         obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         return {'fq_name': fq_name, 'type': obj_type}
     # end id_to_fq_name_http_post
 
     def ifmap_to_id_http_post(self):
-        self._post_common(bottle.request, None, None)
-        uuid = self._db_conn.ifmap_id_to_uuid(bottle.request.json['ifmap_id'])
+        self._post_common(get_request(), None, None)
+        uuid = self._db_conn.ifmap_id_to_uuid(get_request().json['ifmap_id'])
         return {'uuid': uuid}
     # end ifmap_to_id_http_post
 
     # Enables a user-agent to store and retrieve key-val pair
     # TODO this should be done only for special/quantum plugin
     def useragent_kv_http_post(self):
-        self._post_common(bottle.request, None, None)
+        self._post_common(get_request(), None, None)
 
-        oper = bottle.request.json['operation']
-        key = bottle.request.json['key']
-        val = bottle.request.json.get('value', '')
+        oper = get_request().json['operation']
+        key = get_request().json['key']
+        val = get_request().json.get('value', '')
 
         # TODO move values to common
         if oper == 'STORE':
@@ -1557,11 +1745,13 @@ class VncApiServer(object):
                 result = self._db_conn.useragent_kv_retrieve(key)
                 return {'value': result}
             except NoUserAgentKey:
-                bottle.abort(404, "Unknown User-Agent key " + key)
+                raise cfgm_common.exceptions.HttpError(
+                    404, "Unknown User-Agent key " + key)
         elif oper == 'DELETE':
             result = self._db_conn.useragent_kv_delete(key)
         else:
-            bottle.abort(404, "Invalid Operation " + oper)
+            raise cfgm_common.exceptions.HttpError(
+                404, "Invalid Operation " + oper)
 
     # end useragent_kv_http_post
 
@@ -1606,43 +1796,45 @@ class VncApiServer(object):
 
     def set_resource_class(self, resource_type, resource_class):
         obj_type = resource_type.replace('-', '_')
+        resource_class.server = self
         self._resource_classes[obj_type]  = resource_class
     # end set_resource_class
 
     def list_bulk_collection_http_post(self):
         """ List collection when requested ids don't fit in query params."""
 
-        res_type = bottle.request.json.get('type') # e.g. virtual-network
+        res_type = get_request().json.get('type') # e.g. virtual-network
         if not res_type:
-            bottle.abort(400, "Bad Request, no 'type' in POST body")
+            raise cfgm_common.exceptions.HttpError(
+                400, "Bad Request, no 'type' in POST body")
 
         obj_class = self.get_resource_class(res_type)
         if not obj_class:
-            bottle.abort(400,
+            raise cfgm_common.exceptions.HttpError(400,
                    "Bad Request, Unknown type %s in POST body" %(res_type))
 
         try:
-            parent_ids = bottle.request.json['parent_id'].split(',')
+            parent_ids = get_request().json['parent_id'].split(',')
             parent_uuids = [str(uuid.UUID(p_uuid)) for p_uuid in parent_ids]
         except KeyError:
             parent_uuids = None
 
         try:
-            back_ref_ids = bottle.request.json['back_ref_id'].split(',')
+            back_ref_ids = get_request().json['back_ref_id'].split(',')
             back_ref_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in back_ref_ids]
         except KeyError:
             back_ref_uuids = None
 
         try:
-            obj_ids = bottle.request.json['obj_uuids'].split(',')
+            obj_ids = get_request().json['obj_uuids'].split(',')
             obj_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in obj_ids]
         except KeyError:
             obj_uuids = None
 
-        is_count = bottle.request.json.get('count', False)
-        is_detail = bottle.request.json.get('detail', False)
+        is_count = get_request().json.get('count', False)
+        is_detail = get_request().json.get('detail', False)
 
-        filter_params = bottle.request.json.get('filters', {})
+        filter_params = get_request().json.get('filters', {})
         if filter_params:
             try:
                ff_key_vals = filter_params.split(',')
@@ -1650,11 +1842,12 @@ class VncApiServer(object):
                ff_values = [ff.split('==')[1] for ff in ff_key_vals]
                filters = {'field_names': ff_names, 'field_values': ff_values}
             except Exception as e:
-               bottle.abort(400, 'Invalid filter ' + filter_params)
+               raise cfgm_common.exceptions.HttpError(
+                   400, 'Invalid filter ' + filter_params)
         else:
             filters = None
 
-        req_fields = bottle.request.json.get('fields', [])
+        req_fields = get_request().json.get('fields', [])
         if req_fields:
             req_fields = req_fields.split(',')
 
@@ -1731,7 +1924,8 @@ class VncApiServer(object):
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections, sandesh=self._sandesh)
         except Exception as e:
-            self.config_log("Exception in extension load: %s" %(str(e)),
+            err_msg = cfgm_common.utils.detailed_traceback()
+            self.config_log("Exception in extension load: %s" %(err_msg),
                 level=SandeshLevel.SYS_ERR)
     # end _load_extensions
 
@@ -1824,21 +2018,29 @@ class VncApiServer(object):
         def_domain = self._create_singleton_entry(Domain())
         ip_fab_vn = self._create_singleton_entry(
             VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1]))
-        self._create_singleton_entry(RoutingInstance('__default__', ip_fab_vn))
+        self._create_singleton_entry(
+            RoutingInstance('__default__', ip_fab_vn,
+                routing_instance_is_default=True))
         link_local_vn = self._create_singleton_entry(
             VirtualNetwork(cfgm_common.LINK_LOCAL_VN_FQ_NAME[-1]))
         self._create_singleton_entry(
-            RoutingInstance('__link_local__', link_local_vn))
+            RoutingInstance('__link_local__', link_local_vn,
+                routing_instance_is_default=True))
 
         self._db_conn.db_resync()
         try:
             self._extension_mgrs['resync'].map(self._resync_domains_projects)
-        except Exception as e:
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
             pass
+        except Exception as e:
+            err_msg = cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
     # end _db_init_entries
 
     def _resync_domains_projects(self, ext):
-        ext.obj.resync_domains_projects()
+        if hasattr(ext.obj, 'resync_domains_projects'):
+            ext.obj.resync_domains_projects()
     # end _resync_domains_projects
 
     def _create_singleton_entry(self, singleton_obj):
@@ -1890,7 +2092,7 @@ class VncApiServer(object):
         if not ok:
             self.config_object_error(None, None, '%ss' %(obj_type),
                                      'dbe_list', result)
-            bottle.abort(404, result)
+            raise cfgm_common.exceptions.HttpError(404, result)
 
         # If only counting, return early
         if is_count:
@@ -1908,7 +2110,7 @@ class VncApiServer(object):
                 (ok, result) = self._db_conn.dbe_read_multi(
                                     obj_type, obj_ids_list, obj_fields)
                 if not ok:
-                    bottle.abort(404, result)
+                    raise cfgm_common.exceptions.HttpError(404, result)
                 for obj_result in result:
                     if obj_result['id_perms'].get('user_visible', True):
                         obj_dict = {}
@@ -1957,7 +2159,7 @@ class VncApiServer(object):
                                 obj_type, obj_ids_list, obj_fields)
 
             if not ok:
-                bottle.abort(404, result)
+                raise cfgm_common.exceptions.HttpError(404, result)
 
             for obj_result in result:
                 obj_dict = {}
@@ -1984,7 +2186,7 @@ class VncApiServer(object):
     def generate_url(self, obj_type, obj_uuid):
         obj_uri_type = obj_type.replace('_', '-')
         try:
-            url_parts = bottle.request.urlparts
+            url_parts = get_request().urlparts
             return '%s://%s/%s/%s'\
                 % (url_parts.scheme, url_parts.netloc, obj_uri_type, obj_uuid)
         except Exception as e:
@@ -2013,19 +2215,19 @@ class VncApiServer(object):
     # end config_log
 
     def _set_api_audit_info(self, apiConfig):
-        apiConfig.url = bottle.request.url
-        apiConfig.remote_ip = bottle.request.headers.get('Host')
-        useragent = bottle.request.headers.get('X-Contrail-Useragent')
+        apiConfig.url = get_request().url
+        apiConfig.remote_ip = get_request().headers.get('Host')
+        useragent = get_request().headers.get('X-Contrail-Useragent')
         if not useragent:
-            useragent = bottle.request.headers.get('User-Agent')
+            useragent = get_request().headers.get('User-Agent')
         apiConfig.useragent = useragent
-        apiConfig.user = bottle.request.headers.get('X-User-Name')
-        apiConfig.project = bottle.request.headers.get('X-Project-Name')
-        apiConfig.domain = bottle.request.headers.get('X-Domain-Name', 'None')
+        apiConfig.user = get_request().headers.get('X-User-Name')
+        apiConfig.project = get_request().headers.get('X-Project-Name')
+        apiConfig.domain = get_request().headers.get('X-Domain-Name', 'None')
         if apiConfig.domain.lower() == 'none':
             apiConfig.domain = 'default-domain'
-        if int(bottle.request.headers.get('Content-Length', 0)) > 0:
-            apiConfig.body = str(bottle.request.json)
+        if int(get_request().headers.get('Content-Length', 0)) > 0:
+            apiConfig.body = str(get_request().json)
     # end _set_api_audit_info
 
     # uuid is parent's for collections
@@ -2154,20 +2356,21 @@ class VncApiServer(object):
         def _check_field_present(fname):
             fval = obj_dict.get(fname)
             if not fval:
-                bottle.abort(400, "Bad Request, no %s in POST body" %(fname))
+                raise cfgm_common.exceptions.HttpError(
+                    400, "Bad Request, no %s in POST body" %(fname))
             return fval
         fq_name = _check_field_present('fq_name')
 
         # well-formed name checks
         if illegal_xml_chars_RE.search(fq_name[-1]):
-            bottle.abort(400,
+            raise cfgm_common.exceptions.HttpError(400,
                 "Bad Request, name has illegal xml characters")
         if obj_type[:].replace('-','_') == 'route_target':
             invalid_chars = self._INVALID_NAME_CHARS - set(':')
         else:
             invalid_chars = self._INVALID_NAME_CHARS
         if any((c in invalid_chars) for c in fq_name[-1]):
-            bottle.abort(400,
+            raise cfgm_common.exceptions.HttpError(400,
                 "Bad Request, name has one of invalid chars %s"
                 %(invalid_chars))
     # end _http_post_validate
@@ -2193,7 +2396,7 @@ class VncApiServer(object):
         try:
             obj_uuid = self._db_conn.fq_name_to_uuid(
                 obj_type, obj_dict['fq_name'])
-            bottle.abort(
+            raise cfgm_common.exceptions.HttpError(
                 409, '' + pformat(obj_dict['fq_name']) +
                 ' already exists with uuid: ' + obj_uuid)
         except NoIdError:
@@ -2223,7 +2426,7 @@ class VncApiServer(object):
                 bottle.abort(400, 'Invalid UUID format: ' + uuid_in_req)
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
-                bottle.abort(
+                raise cfgm_common.exceptions.HttpError(
                     409, uuid_in_req + ' already exists with fq_name: ' +
                     pformat(fq_name))
             except NoIdError:
@@ -2248,19 +2451,20 @@ class VncApiServer(object):
         try:
             vn_fq_name = self._db_conn.uuid_to_fq_name(id)
         except NoIdError:
-            bottle.abort(404, 'Virtual Network ' + id + ' not found!')
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Virtual Network ' + id + ' not found!')
 
         # expected format {"subnet_list" : "2.1.1.0/24", "count" : 4}
-        req_dict = bottle.request.json
+        req_dict = get_request().json
         count = req_dict['count'] if 'count' in req_dict else 1
         subnet = req_dict['subnet'] if 'subnet' in req_dict else None
         try:
             result = vnc_cfg_types.VirtualNetworkServer.ip_alloc(
                 vn_fq_name, subnet, count)
         except vnc_addr_mgmt.AddrMgmtSubnetUndefined as e:
-            bottle.abort(404, str(e))
+            raise cfgm_common.exceptions.HttpError(404, str(e))
         except vnc_addr_mgmt.AddrMgmtSubnetExhausted as e:
-            bottle.abort(409, str(e))
+            raise cfgm_common.exceptions.HttpError(409, str(e))
 
         return result
     # end vn_ip_alloc_http_post
@@ -2270,7 +2474,8 @@ class VncApiServer(object):
         try:
             vn_fq_name = self._db_conn.uuid_to_fq_name(id)
         except NoIdError:
-            bottle.abort(404, 'Virtual Network ' + id + ' not found!')
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Virtual Network ' + id + ' not found!')
 
         """
           {
@@ -2279,7 +2484,7 @@ class VncApiServer(object):
           }
         """
 
-        req_dict = bottle.request.json
+        req_dict = get_request().json
         ip_list = req_dict['ip_addr'] if 'ip_addr' in req_dict else []
         subnet = req_dict['subnet'] if 'subnet' in req_dict else None
         result = vnc_cfg_types.VirtualNetworkServer.ip_free(
@@ -2292,19 +2497,20 @@ class VncApiServer(object):
         try:
             vn_fq_name = self._db_conn.uuid_to_fq_name(id)
         except NoIdError:
-            bottle.abort(404, 'Virtual Network ' + id + ' not found!')
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Virtual Network ' + id + ' not found!')
 
         # expected format {"subnet_list" : ["2.1.1.0/24", "1.1.1.0/24"]
-        req_dict = bottle.request.json
+        req_dict = get_request().json
         try:
             (ok, result) = self._db_conn.dbe_read('virtual-network', {'uuid': id})
         except NoIdError as e:
-            bottle.abort(404, str(e))
+            raise cfgm_common.exceptions.HttpError(404, str(e))
         except Exception as e:
             ok = False
             result = cfgm_common.utils.detailed_traceback()
         if not ok:
-            bottle.abort(500, result)
+            raise cfgm_common.exceptions.HttpError(500, result)
 
         obj_dict = result
         subnet_list = req_dict[
@@ -2325,14 +2531,14 @@ class VncApiServer(object):
     # end
 
     def mt_http_put(self):
-        multi_tenancy = bottle.request.json['enabled']
-        user_token = bottle.request.get_header('X-Auth-Token')
+        multi_tenancy = get_request().json['enabled']
+        user_token = get_request().get_header('X-Auth-Token')
         if user_token is None:
-            bottle.abort(403, " Permission denied")
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         data = self._auth_svc.verify_signed_token(user_token)
         if data is None:
-            bottle.abort(403, " Permission denied")
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         pipe_start_app = self.get_pipe_start_app()
         try:
