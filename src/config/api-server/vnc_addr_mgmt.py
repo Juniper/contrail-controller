@@ -905,10 +905,10 @@ class AddrMgmt(object):
             try:
                 ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                                               value=alloc_id)
-            except Exception as e:
+            except cfgm_common.exceptions.ResourceExhaustionError as e:
                 # ignore exception if it not a last subnet
-                self.config_log("Error: %s in ip_alloc_req" %(str(e)),
-                                level=SandeshLevel.SYS_ERR)
+                self.config_log("In ip_alloc_req: %s" %(str(e)),
+                                level=SandeshLevel.SYS_DEBUG)
                 if current_count < subnet_count:
                     continue
                 else:
