@@ -853,7 +853,7 @@ class TestPolicy(test_case.STTestCase):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
         gevent.sleep(2)
 
         # check if vn is deleted
@@ -965,7 +965,7 @@ class TestPolicy(test_case.STTestCase):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
 
         #check if all ri's  are deleted
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj))
@@ -1000,7 +1000,7 @@ class TestPolicy(test_case.STTestCase):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port)
 
         #check service chain state
         sc = self.wait_to_get_sc()
@@ -1437,7 +1437,7 @@ class TestPolicy(test_case.STTestCase):
             gevent.sleep(2)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
-        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
+        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000000')
 
         # create router1
         r1_name = self.id() + 'router1'
@@ -1455,7 +1455,7 @@ class TestPolicy(test_case.STTestCase):
         lr = LogicalRouter(lr_name)
         lr.add_virtual_machine_interface(vmi)
         self._vnc_lib.logical_router_create(lr)
-        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000002')
+        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000001')
 
         #update global system config but dont change asn value for equality path
         gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
@@ -1463,9 +1463,9 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.global_system_config_update(gs)
 
         # check route targets
-        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
+        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000000')
         self.check_bgp_asn(router1.get_fq_name(), 64512)
-        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000002')
+        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000001')
 
         #update ASN value
         gs = self._vnc_lib.global_system_config_read(fq_name=[u'default-global-system-config'])
@@ -1473,9 +1473,9 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.global_system_config_update(gs)
 
         # check new route targets
-        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:50000:8000001')
+        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:50000:8000000')
         self.check_bgp_asn(router1.get_fq_name(), 50000)
-        self.check_lr_asn(lr.get_fq_name(), 'target:50000:8000002')
+        self.check_lr_asn(lr.get_fq_name(), 'target:50000:8000001')
 
     #end test_asn
 
