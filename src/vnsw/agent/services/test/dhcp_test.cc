@@ -743,6 +743,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
             <dhcp-option>\
                 <dhcp-option-name>6</dhcp-option-name>\
                 <dhcp-option-value>1.2.3.4</dhcp-option-value>\
+                <dhcp-option-value-bytes>2 2 2 2</dhcp-option-value-bytes>\
             </dhcp-option>\
             <dhcp-option>\
                 <dhcp-option-name>15</dhcp-option-name>\
@@ -1536,11 +1537,16 @@ TEST_F(DhcpTest, BoolByteOption) {
             <dhcp-option-value>125</dhcp-option-value>\
          </dhcp-option>\
         <dhcp-option>\
+            <dhcp-option-name>vendor-encapsulated-options</dhcp-option-name>\
+            <dhcp-option-value-bytes>97 98 99 300</dhcp-option-value-bytes>\
+         </dhcp-option>\
+        <dhcp-option>\
             <dhcp-option-name>interface-id</dhcp-option-name>\
-            <dhcp-option-value>abcd</dhcp-option-value>\
+            <dhcp-option-value>97 98 99 100</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
+    // no vendor encapsulated options as value 300 is invalid
     #define OPTION_CATEGORY_BOOL_BYTE "13 01 01 17 01 7d 5e 04 61 62 63 64"
     DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
                            OPTION_CATEGORY_BOOL_BYTE);
@@ -1580,6 +1586,39 @@ TEST_F(DhcpTest, BoolByteOptionError) {
                            OPTION_CATEGORY_BOOL_BYTE_ERROR);
 }
 
+// Check that option value in bytes overrides value
+TEST_F(DhcpTest, BytesValueOverrideTest) {
+    // options that take byte array, Byte String,
+    // String, NameCompression as value - override with value in bytes
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>tftp-server-name</dhcp-option-name>\
+            <dhcp-option-value>host.juniper.net</dhcp-option-value>\
+            <dhcp-option-value-bytes>01 20 100 200</dhcp-option-value-bytes>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>user-class</dhcp-option-name>\
+            <dhcp-option-value>10 11 12</dhcp-option-value>\
+            <dhcp-option-value-bytes>5 6 7 8</dhcp-option-value-bytes>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-service-scope</dhcp-option-name>\
+            <dhcp-option-value>10 abcd</dhcp-option-value>\
+            <dhcp-option-value-bytes>12 121 01</dhcp-option-value-bytes>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>domain-search</dhcp-option-name>\
+            <dhcp-option-value>test.com juniper.net</dhcp-option-value>\
+            <dhcp-option-value-bytes>50 20 68 02 </dhcp-option-value-bytes>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_BYTES_OVERRIDE "42 04 01 14 64 c8 4d 04 05 06 07 08 4f 03 0c 79 01 77 04 32 14 44 02"
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_BYTES_OVERRIDE);
+}
+
 // Check dhcp options - use option code as dhcp-option-name
 TEST_F(DhcpTest, OptionCodeTest) {
     // options that take bool value, byte value and byte array
@@ -1595,7 +1634,7 @@ TEST_F(DhcpTest, OptionCodeTest) {
          </dhcp-option>\
         <dhcp-option>\
             <dhcp-option-name>94</dhcp-option-name>\
-            <dhcp-option-value>abcd</dhcp-option-value>\
+            <dhcp-option-value>97 98 99 100</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
@@ -1609,7 +1648,7 @@ TEST_F(DhcpTest, ByteStringOption) {
     char vm_interface_attr[] =
     "<virtual-machine-interface-dhcp-option-list>\
         <dhcp-option>\
-            <dhcp-option-name>slp-service-scope</dhcp-option-name>\
+            <dhcp-option-name>status-code</dhcp-option-name>\
             <dhcp-option-value>10 value</dhcp-option-value>\
          </dhcp-option>\
         <dhcp-option>\
@@ -1623,7 +1662,7 @@ TEST_F(DhcpTest, ByteStringOption) {
         <dhcp-option>\
             <dhcp-option-name>dhcp-vss</dhcp-option-name>\
             <dhcp-option-value>3000 wrongvalue</dhcp-option-value>\
-         </dhcp-option>\
+        </dhcp-option>\
         <dhcp-option>\
             <dhcp-option-name>dhcp-client-identifier</dhcp-option-name>\
             <dhcp-option-value>20 abcd</dhcp-option-value>\
@@ -1631,7 +1670,7 @@ TEST_F(DhcpTest, ByteStringOption) {
      </virtual-machine-interface-dhcp-option-list>";
 
     // dhcp-vss shouldnt be present as value was wrong
-    #define OPTION_CATEGORY_BYTE_STRING "4f 06 0a 76 61 6c 75 65 3d 05 14 61 62 63 64"
+    #define OPTION_CATEGORY_BYTE_STRING "97 06 0a 76 61 6c 75 65 3d 05 14 61 62 63 64"
     DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
                            OPTION_CATEGORY_BYTE_STRING);
 }

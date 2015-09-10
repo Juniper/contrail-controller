@@ -264,6 +264,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="dhcp-option-name" type="xsd:string"/>
         <xsd:element name="dhcp-option-value" type="xsd:string"/>
+        <!-- Encoded DHCP option value (decimal), to be copied byte by byte -->
+        <xsd:element name="dhcp-option-value-bytes" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType> 
 
