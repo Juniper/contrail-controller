@@ -59,6 +59,9 @@ _zookeeper_client = None
 class SchemaTransformer(object):
 
     _REACTION_MAP = {
+        'routing_instance': {
+            'self': ['virtual_network'],
+        },
         'virtual_machine_interface': {
             'self': ['virtual_machine', 'virtual_network'],
             'virtual_network': ['virtual_machine'],
@@ -68,6 +71,7 @@ class SchemaTransformer(object):
         },
         'virtual_network': {
             'self': ['network_policy'],
+            'routing_instance': ['network_policy'],
             'network_policy': [],
             'virtual_machine_interface': [],
             'route_table': [],
@@ -86,7 +90,7 @@ class SchemaTransformer(object):
             'self': ['virtual_network', 'network_policy'],
             'service_instance': ['virtual_network'],
             'network_policy': ['virtual_network'],
-            'virtual_network': ['network_policy']
+            'virtual_network': ['virtual_network', 'network_policy']
         },
         'security_group': {
             'self': ['security_group'],
@@ -208,6 +212,10 @@ class SchemaTransformer(object):
                 obj_dict = oper_info['obj_dict']
                 obj_fq_name = ':'.join(obj_dict['fq_name'])
                 obj = obj_class.locate(obj_fq_name)
+                if obj is None:
+                    self.config_log('%s id %s fq_name %s not found' % (obj_type, obj_id, obj_fq_name),
+                                    level=SandeshLevel.SYS_INFO)
+                    return
                 dependency_tracker = DependencyTracker(
                     DBBaseST.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
@@ -220,8 +228,15 @@ class SchemaTransformer(object):
                         DBBaseST.get_obj_type_map(), self._REACTION_MAP)
                     old_dt.evaluate(obj_type, obj)
                 else:
-                    obj = obj_class.locate(obj_id)
-                obj.update()
+                    self.config_log('%s id %s not found' % (obj_type, obj_id),
+                                    level=SandeshLevel.SYS_INFO)
+                    return
+                try:
+                    obj.update()
+                except NoIdError:
+                    self.config_log('%s id %s update caused NoIdError' % (obj_type, obj_id),
+                                    level=SandeshLevel.SYS_INFO)
+                    return
                 dependency_tracker = DependencyTracker(
                     DBBaseST.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
@@ -253,30 +268,34 @@ class SchemaTransformer(object):
                                 obj_type, obj_id))
                 return
 
+            if not dependency_tracker:
+                return
+
+            for res_type, res_id_list in dependency_tracker.resources.items():
+                if not res_id_list:
+                    continue
+                cls = DBBaseST.get_obj_type_map().get(res_type)
+                if cls is None:
+                    continue
+                for res_id in res_id_list:
+                    res_obj = cls.get(res_id)
+                    if res_obj is not None:
+                        res_obj.evaluate()
+
+            for vn_id in dependency_tracker.resources.get('virtual_network', []):
+                vn = VirtualNetworkST.get(vn_id)
+                if vn is not None:
+                    vn.uve_send()
+            # end for vn_id
         except Exception:
             string_buf = cStringIO.StringIO()
             cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-            self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+            try:
+                with open(self._args.trace_file, 'a') as err_file:
+                    err_file.write(string_buf.getvalue())
+            except IOError:
+                self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
-        if not dependency_tracker:
-            return
-
-        for res_type, res_id_list in dependency_tracker.resources.items():
-            if not res_id_list:
-                continue
-            cls = DBBaseST.get_obj_type_map().get(res_type)
-            if cls is None:
-                continue
-            for res_id in res_id_list:
-                res_obj = cls.get(res_id)
-                if res_obj is not None:
-                    res_obj.evaluate()
-
-        for vn_id in dependency_tracker.resources.get('virtual_network', []):
-            vn = VirtualNetworkST.get(vn_id)
-            if vn is not None:
-                vn.uve_send()
-        # end for vn_id
 
     # end _vnc_subscribe_callback
 
@@ -299,15 +318,15 @@ class SchemaTransformer(object):
             else:
                 # if the RI was for a service chain and service chain no
                 # longer exists, delete the RI
-                sc_id = VirtualNetworkST._get_service_id_from_ri(ri.name)
+                sc_id = RoutingInstanceST._get_service_id_from_ri(ri.get_fq_name_str())
                 if sc_id and sc_id not in ServiceChain:
                     delete = True
                 else:
                     ri_dict[ri.get_fq_name_str()] = ri
             if delete:
                 try:
-                    ri_obj = RoutingInstanceST(ri)
-                    ri_obj.delete()
+                    ri_obj = RoutingInstanceST(ri.get_fq_name_str(), ri)
+                    ri_obj.delete_obj()
                 except NoIdError:
                     pass
                 except Exception as e:
@@ -361,8 +380,9 @@ class SchemaTransformer(object):
             rt_name = rt.get_fq_name_str()
             RouteTargetST.locate(rt_name, RouteTarget(rt_name))
         for vn in vn_list:
-            VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
-                                    ri_dict)
+            VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
+        for ri_name, ri_obj in ri_dict.items():
+            RoutingInstanceST.locate(ri_name, ri_obj)
 
         for policy in NetworkPolicyST.list_vnc_obj():
             NetworkPolicyST.locate(policy.get_fq_name_str(), policy)

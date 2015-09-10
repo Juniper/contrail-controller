@@ -869,7 +869,7 @@ class FakeExtensionManager(object):
 
         classes = self._entry_pt_to_classes[ep_name]
         self._ep_name = ep_name
-        for cls in classes:
+        for cls in classes or []:
             ext_obj = FakeExtensionManager.FakeExtObj(
                 ep_name, cls, **kwargs) 
             self._ext_objs.append(ext_obj)
