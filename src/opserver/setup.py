@@ -46,7 +46,9 @@ setup(
         'redis',
         'xmltodict',
         'prettytable',
-        'psutil>=0.4.1'
+        'psutil',
+        'bottle',
+        'pykafka'
     ],
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
