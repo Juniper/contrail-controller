@@ -601,12 +601,19 @@ class DiscoveryServer():
 
         if subs:
             plist = dict((entry['service_id'],entry) for entry in pubs_active)
+            plist_all = dict((entry['service_id'],entry) for entry in pubs)
+            policy = self.get_service_config(service_type, 'policy')
             for service_id, expired in subs:
                 # expired True if service was marked for deletion by LB command
                 # previously published service is gone
+                # force renew for fixed policy since some service may have flapped
+                entry2 = plist_all.get(service_id, None)
                 entry = plist.get(service_id, None)
-                if entry is None or expired:
+                if entry is None or expired or policy == 'fixed':
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
+                    # delete fixed policy server if expired
+                    if policy == 'fixed' and entry is None and entry2:
+                        self._db_conn.delete_service(entry2)
                     continue
                 result = entry['info']
                 self._db_conn.insert_client(
