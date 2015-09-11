@@ -3119,6 +3119,11 @@ class SchemaTransformer(object):
             vm.delete_interface(vmi_name)
     # end delete_virtual_machine_interface_virtual_machine
 
+    def delete_project_virtual_machine_interface(self, idents, meta):
+        vmi_name = idents['virtual-machine-interface']
+        VirtualMachineInterfaceST.delete(vmi_name)
+    # end delete_project_virtual_machine_interface
+
     def add_virtual_machine_service_instance(self, idents, meta):
         vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
