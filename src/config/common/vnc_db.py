@@ -141,7 +141,7 @@ class DBBase(object):
         if p_obj is not None:
             p_obj.delete_ref(self.obj_type, self.get_key())
 
-    def _get_ref_key(self, ref):
+    def _get_ref_key(self, ref, ref_type=None):
         if self._indexed_by_name:
             key = ':'.join(ref['to'])
         else:
@@ -161,7 +161,7 @@ class DBBase(object):
                     getattr(obj, ref_type+'_back_refs', None))
 
         if refs:
-            new_key = self._get_ref_key(refs[0])
+            new_key = self._get_ref_key(refs[0], ref_type)
         else:
             new_key = None
         old_key = getattr(self, ref_type, None)
@@ -180,7 +180,7 @@ class DBBase(object):
         refs = obj.get(ref_type+'s')
         new_refs = set()
         for ref in refs or []:
-            new_key = self._get_ref_key(ref)
+            new_key = self._get_ref_key(ref, ref_type)
             new_refs.add(new_key)
         setattr(self, ref_type+'s', new_refs)
     # end
@@ -194,7 +194,7 @@ class DBBase(object):
 
         new_refs = set()
         for ref in refs or []:
-            new_key = self._get_ref_key(ref)
+            new_key = self._get_ref_key(ref, ref_type)
             new_refs.add(new_key)
         old_refs = getattr(self, ref_type+'s')
         for ref_key in old_refs - new_refs:

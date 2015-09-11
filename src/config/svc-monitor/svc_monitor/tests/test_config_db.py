@@ -154,7 +154,7 @@ class ConfigDBTest(unittest.TestCase):
         self.assertIsNotNone(proj)
         self.assertEqual(len(proj.virtual_networks), 1)
         self.assertTrue('network' in proj.virtual_networks)
-        self.assertEqual(net.parent_id, 'project')
+        self.assertEqual(net.parent_key, 'project')
         config_db.VirtualNetworkSM.delete('network')
         config_db.ProjectSM.delete('project')
     # end test_add_delete_network
@@ -176,7 +176,7 @@ class ConfigDBTest(unittest.TestCase):
         self.assertTrue('vmi' in net.virtual_machine_interfaces)
         self.assertEqual(len(proj.virtual_networks), 1)
         self.assertTrue('network' in proj.virtual_networks)
-        self.assertEqual(net.parent_id, 'project')
+        self.assertEqual(net.parent_key, 'project')
         self.assertEqual(vmi.virtual_network, 'network')
 
         config_db.VirtualMachineInterfaceSM.delete('vmi')
@@ -307,6 +307,7 @@ class ConfigDBTest(unittest.TestCase):
 
         config_db.HealthMonitorSM.delete('hm')
         config_db.LoadbalancerMemberSM.delete('member')
+        config_db.VirtualIpSM.delete('vip')
         config_db.LoadbalancerPoolSM.delete('pool')
         config_db.ServiceApplianceSetSM.delete('sas')
         config_db.ProjectSM.delete('project')
