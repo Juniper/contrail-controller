@@ -470,6 +470,7 @@ int main(int argc, char *argv[]) {
 
     RegisterSandeshShowXmppExtensions(&sandesh_context);
 
+    Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     if (sandesh_generator_init) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;

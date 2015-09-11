@@ -63,7 +63,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             'partitions'        : 5,
             'zk_list'           : None,
             'redis_uve_list'    : ['127.0.0.1:6379'],
-            'alarmgen_list'     : ['127.0.0.1:0']
+            'alarmgen_list'     : ['127.0.0.1:0'],
+            'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
         }
 
         redis_opts = {
@@ -147,6 +148,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
         parser.add_argument("--alarmgen_list",
             help="List of alarmgens in ip:inst format. For internal use only",
             nargs="+")
+        parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -218,3 +221,6 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
     def redis_server_port(self):
         return self._args.redis_server_port
+
+    def sandesh_send_rate_limit(self):
+        return self._args.sandesh_send_rate_limit
