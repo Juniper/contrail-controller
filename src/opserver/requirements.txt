@@ -1,9 +1,9 @@
 lxml
-gevent==1.1a2
-geventhttpclient==1.0a
+gevent
+geventhttpclient
 redis
 xmltodict
 prettytable
 psutil>=0.4.1
 bottle==0.12.8
-
+pykafka

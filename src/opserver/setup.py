@@ -5,6 +5,12 @@
 import os
 import re
 from setuptools import setup, find_packages, Command
+from pip.req import parse_requirements
+
+
+requirements = parse_requirements(
+    os.path.join(os.path.dirname(os.path.abspath(__file__),
+                 'requirements.txt')))
 
 
 class RunTestsCommand(Command):
@@ -39,15 +45,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     long_description="VNC Analytics API Implementation",
-    install_requires=[
-        'lxml',
-        'gevent',
-        'geventhttpclient',
-        'redis',
-        'xmltodict',
-        'prettytable',
-        'psutil>=0.4.1'
-    ],
+    install_requires=[str(r.req) for r in reqs]
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
