@@ -268,35 +268,38 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 vizd_obj.collectors[0].get_redis_uve(),
                                 exp_genlist)
 
-        # stop Opserver , AlarmGen and QE 
-        vizd_obj.opserver.stop()
+        # stop QE 
         vizd_obj.query_engine.stop()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent',
+                       'contrail-analytics-api']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
 
         # verify the generator list in redis
         exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
+                       vizd_obj.opserver.get_generator_id(),
                        vr_agent.get_generator_id()]
         assert vizd_obj.verify_generator_list_in_redis(\
                                 vizd_obj.collectors[0].get_redis_uve(),
                                 exp_genlist)
-        # start Opserver and QE with collectors[1] as the primary and
+
+        # start a python generator and QE with collectors[1] as the primary and
         # collectors[0] as the secondary. On generator startup, verify 
-        # that it connects to the secondary collector, if the 
+        # that they connect to the secondary collector, if the 
         # connection to the primary fails
-        vizd_obj.opserver.set_primary_collector(
-                            vizd_obj.collectors[1].get_addr())
-        vizd_obj.opserver.set_secondary_collector(
-                            vizd_obj.collectors[0].get_addr())
-        vizd_obj.opserver.start()
+        vr2_collectors = [vizd_obj.collectors[1].get_addr(), 
+                          vizd_obj.collectors[0].get_addr()]
+        vr2_agent = self.useFixture(
+            GeneratorFixture("contrail-snmp-collector", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert vr2_agent.verify_on_setup()
         vizd_obj.query_engine.set_primary_collector(
                             vizd_obj.collectors[1].get_addr())
         vizd_obj.query_engine.set_secondary_collector(
                             vizd_obj.collectors[0].get_addr())
         vizd_obj.query_engine.start()
         exp_genlist = ['contrail-collector', 'contrail-vrouter-agent',
-                       'contrail-analytics-api',
+                       'contrail-analytics-api', 'contrail-snmp-collector',
                        'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
@@ -313,7 +316,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                              num_vm_ifs=5, msg_count=5) 
         vizd_obj.collectors[1].start()
         exp_genlist = ['contrail-collector', 'contrail-vrouter-agent',
-                       'contrail-analytics-api',
+                       'contrail-analytics-api', 'contrail-snmp-collector',
                        'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[1],
                                               exp_genlist)
@@ -337,11 +340,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                              kafka_zk = True))
         assert vizd_obj.verify_on_setup()
 
-        assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
-        assert(vizd_obj.verify_alarmgen_partition(0,'true'))
-        assert(vizd_obj.set_alarmgen_partition(1,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(2,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(3,1) == 'true')
         assert(vizd_obj.verify_uvetable_alarm("ObjectCollectorInfo",
             "ObjectCollectorInfo:" + socket.gethostname(), "ProcessStatus"))
         # setup generator for sending Vrouter build_info
@@ -392,7 +390,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             down=True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter2", "PartialSysinfoCompute", is_set = False))
-
+         
         # Verify that we can give up partition ownership 
         assert(vizd_obj.set_alarmgen_partition(0,0) == 'true')
         assert(vizd_obj.verify_alarmgen_partition(0,'false'))
@@ -423,10 +421,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             AnalyticsFixture(logging, builddir, -1, 0,
                              collector_ha_test=True, kafka_zk = True))
         assert vizd_obj.verify_on_setup()
-        assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(1,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(2,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(3,1) == 'true')
 
         # create alarm-generator and attach it to the first collector.
         collectors = [vizd_obj.collectors[0].get_addr(), 
@@ -537,10 +531,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             AnalyticsFixture(logging, builddir, -1, 0,
                 collector_ha_test=True, kafka_zk = True))
         assert vizd_obj.verify_on_setup()
-        assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(1,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(2,1) == 'true')
-        assert(vizd_obj.set_alarmgen_partition(3,1) == 'true')
 
         collectors = [vizd_obj.collectors[0].get_addr(),
                       vizd_obj.collectors[1].get_addr()]

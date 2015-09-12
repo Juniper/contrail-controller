@@ -259,16 +259,28 @@ class AlarmGen(object):
                          "contrail-alarm-gen", ["http"],
                          args, None)
         self.http_port = ports["http"]
+        assert(self.analytics_fixture.set_alarmgen_partition(0,1) == 'true')
+        assert(self.analytics_fixture.set_alarmgen_partition(1,1) == 'true')
+        assert(self.analytics_fixture.set_alarmgen_partition(2,1) == 'true')
+        assert(self.analytics_fixture.set_alarmgen_partition(3,1) == 'true')
         return self.verify_setup()
     # end start
 
     def verify_setup(self):
         if not self.http_port:
             return False
+        assert(self.analytics_fixture.verify_alarmgen_partition(0,'true'))
+        assert(self.analytics_fixture.verify_alarmgen_partition(1,'true'))
+        assert(self.analytics_fixture.verify_alarmgen_partition(2,'true'))
+        assert(self.analytics_fixture.verify_alarmgen_partition(3,'true'))
         return True
 
     def stop(self):
         if self._instance is not None:
+            self.analytics_fixture.set_alarmgen_partition(0,0)
+            self.analytics_fixture.set_alarmgen_partition(1,0)
+            self.analytics_fixture.set_alarmgen_partition(2,0)
+            self.analytics_fixture.set_alarmgen_partition(3,0)            
             rcode = self.analytics_fixture.process_stop(
                 "contrail-alarm-gen:%s" % str(self.http_port),
                 self._instance, self._log_file)
