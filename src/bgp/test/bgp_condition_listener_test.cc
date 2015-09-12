@@ -446,9 +446,9 @@ TYPED_TEST(BgpConditionListenerTest, Basic) {
 
     this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
-    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
 
     ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 3));
@@ -457,9 +457,9 @@ TYPED_TEST(BgpConditionListenerTest, Basic) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
 }
 
 TYPED_TEST(BgpConditionListenerTest, AddWalk) {
@@ -469,10 +469,10 @@ TYPED_TEST(BgpConditionListenerTest, AddWalk) {
     task_util::WaitForIdle();
 
     // Add the match condition on table with existing routes
-    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
-    AddRoute("blue", this->BuildPrefix("192.168.0.0", 16));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->AddRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 
     this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
@@ -480,10 +480,10 @@ TYPED_TEST(BgpConditionListenerTest, AddWalk) {
     ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 3));
 
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
-    DeleteRoute("blue", this->BuildPrefix("192.168.0.0", 16));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->DeleteRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
@@ -491,14 +491,14 @@ TYPED_TEST(BgpConditionListenerTest, AddWalk) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 }
 
@@ -510,10 +510,10 @@ TYPED_TEST(BgpConditionListenerTest, DelWalk) {
     task_util::WaitForIdle();
 
     // Add the match condition on table with existing routes
-    AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
-    AddRoute("blue", this->BuildPrefix("192.168.0.0", 16));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->AddRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 
     this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
@@ -526,10 +526,10 @@ TYPED_TEST(BgpConditionListenerTest, DelWalk) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
-    DeleteRoute("blue", this->BuildPrefix("192.168.0.0", 16));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.2"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.3"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.4"));
+    this->DeleteRoute("blue", this->BuildPrefix("192.168.0.0", 16));
 }
 
 TYPED_TEST(BgpConditionListenerTest, Stress) {
@@ -539,7 +539,7 @@ TYPED_TEST(BgpConditionListenerTest, Stress) {
     task_util::WaitForIdle();
 
     for (int idx = 0; idx < 1024; ++idx) {
-        AddRoute("blue",
+        this->AddRoute("blue",
             this->BuildHostAddress("192.168", idx / 256, idx % 256));
     }
     this->AddMatchCondition("blue", this->BuildPrefix("192.168.0.0", 24));
@@ -552,7 +552,7 @@ TYPED_TEST(BgpConditionListenerTest, Stress) {
 
     TASK_UTIL_EXPECT_EQ(0, match->matched_routes_size());
     for (int idx = 0; idx < 1024; ++idx) {
-        DeleteRoute("blue",
+        this->DeleteRoute("blue",
             this->BuildHostAddress("192.168", idx / 256, idx % 256));
     }
     task_util::WaitForIdle();
@@ -566,16 +566,16 @@ TYPED_TEST(BgpConditionListenerTest, State) {
 
     this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24), true);
     task_util::WaitForIdle();
-    AddRoute("blue", this->BuildHostAddress("192.168.1.1"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.1"));
 
     ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 1));
 
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.1"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.1"));
     TASK_UTIL_EXPECT_FALSE(match->matched_routes_empty());
 
 
-    RemoveMatchState("blue", this->BuildHostAddress("192.168.1.1"));
+    this->RemoveMatchState("blue", this->BuildHostAddress("192.168.1.1"));
 
     this->RemoveMatchCondition("blue");
     task_util::WaitForIdle();
@@ -589,15 +589,15 @@ TYPED_TEST(BgpConditionListenerTest, ChangeNotify) {
 
     this->AddMatchCondition("blue", this->BuildPrefix("192.168.1.0", 24));
     task_util::WaitForIdle();
-    AddRoute("blue", this->BuildHostAddress("192.168.1.1"));
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.1"));
 
     ConditionMatchT *match = static_cast<ConditionMatchT *>(this->match_.get());
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 1));
 
-    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 100);
-    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 200);
-    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 300);
-    AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 400);
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 100);
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 200);
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 300);
+    this->AddRoute("blue", this->BuildHostAddress("192.168.1.1"), 400);
     TASK_UTIL_EXPECT_TRUE((match->matched_routes_size() == 1));
 
     // Module saw the route 5 times
@@ -605,7 +605,7 @@ TYPED_TEST(BgpConditionListenerTest, ChangeNotify) {
         this->GetMatchState("blue", this->BuildHostAddress("192.168.1.1"));
     TASK_UTIL_EXPECT_EQ(5, state->seen());
 
-    DeleteRoute("blue", this->BuildHostAddress("192.168.1.1"));
+    this->DeleteRoute("blue", this->BuildHostAddress("192.168.1.1"));
     TASK_UTIL_EXPECT_TRUE(match->matched_routes_empty());
 
     this->RemoveMatchCondition("blue");
