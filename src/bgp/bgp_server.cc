@@ -508,12 +508,14 @@ void BgpServer::NotifyIdentifierUpdate(Ip4Address old_identifier) {
     }
 }
 
-void BgpServer::InsertStaticRouteMgr(StaticRouteMgr *srt_manager) {
+void BgpServer::InsertStaticRouteMgr(
+    StaticRouteMgr<StaticRouteInet> *srt_manager) {
     CHECK_CONCURRENCY("bgp::Config");
     srt_manager_list_.insert(srt_manager);
 }
 
-void BgpServer::RemoveStaticRouteMgr(StaticRouteMgr *srt_manager) {
+void BgpServer::RemoveStaticRouteMgr(
+    StaticRouteMgr<StaticRouteInet> *srt_manager) {
     CHECK_CONCURRENCY("bgp::StaticRoute");
     srt_manager_list_.erase(srt_manager);
 }
@@ -522,7 +524,7 @@ void BgpServer::NotifyAllStaticRoutes() {
     CHECK_CONCURRENCY("bgp::Config");
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
-        StaticRouteMgr *srt_manager = *it;
+        StaticRouteMgr<StaticRouteInet> *srt_manager = *it;
         srt_manager->NotifyAllRoutes();
     }
 }
@@ -532,7 +534,7 @@ uint32_t BgpServer::GetStaticRouteCount() const {
     uint32_t count = 0;
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
-        StaticRouteMgr *srt_manager = *it;
+        StaticRouteMgr<StaticRouteInet> *srt_manager = *it;
         count += srt_manager->GetRouteCount();
     }
     return count;
@@ -543,7 +545,7 @@ uint32_t BgpServer::GetDownStaticRouteCount() const {
     uint32_t count = 0;
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
-        StaticRouteMgr *srt_manager = *it;
+        StaticRouteMgr<StaticRouteInet> *srt_manager = *it;
         count += srt_manager->GetDownRouteCount();
     }
     return count;

@@ -43,16 +43,18 @@ class RTargetGroupMgr;
 class SchedulingGroupManager;
 class ServiceChainInet;
 class ServiceChainInet6;
-class StaticRouteMgr;
+class StaticRouteInet;
+class StaticRouteInet6;
 
 template <typename T> class ServiceChainMgr;
+template <typename T> class StaticRouteMgr;
 
 class BgpServer {
 public:
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
-    typedef std::set<StaticRouteMgr *> StaticRouteMgrList;
+    typedef std::set<StaticRouteMgr<StaticRouteInet> *> StaticRouteMgrList;
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
 
@@ -182,8 +184,8 @@ public:
     void UnregisterIdentifierUpdateCallback(int listener);
     void NotifyIdentifierUpdate(Ip4Address old_identifier);
 
-    void InsertStaticRouteMgr(StaticRouteMgr *srt_manager);
-    void RemoveStaticRouteMgr(StaticRouteMgr *srt_manager);
+    void InsertStaticRouteMgr(StaticRouteMgr<StaticRouteInet> *srt_manager);
+    void RemoveStaticRouteMgr(StaticRouteMgr<StaticRouteInet> *srt_manager);
     void NotifyAllStaticRoutes();
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;

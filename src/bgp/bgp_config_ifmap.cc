@@ -579,14 +579,17 @@ static void SetStaticRouteConfig(BgpInstanceConfig *rti,
                   config->static_route_entries()) {
         StaticRouteConfig item;
         Ip4Address address;
-        Ip4PrefixParse(route.prefix, &address, &item.prefix_length);
+        boost::system::error_code ec =
+            Ip4PrefixParse(route.prefix, &address, &item.prefix_length);
+        if (ec != 0)
+            continue;
         item.address = address;
-        boost::system::error_code err;
-        item.nexthop = IpAddress::from_string(route.next_hop, err);
+        item.nexthop = IpAddress::from_string(route.next_hop, ec);
+        if (ec != 0)
+            continue;
         item.route_target = route.route_target;
         list.push_back(item);
     }
-    
     rti->swap_static_routes(&list);
 }
 
