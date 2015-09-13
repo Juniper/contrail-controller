@@ -2946,6 +2946,7 @@ TEST_F(IntfTest, MultipleIp) {
     EXPECT_TRUE(evpn_rt != NULL);
     EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
     EXPECT_TRUE(RouteFind("vrf1", secondary_ip, 32));
+    EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 2);
 
     DelLink("virtual-machine-interface", input1[0].name,
             "instance-ip", "instance2");
@@ -2957,10 +2958,11 @@ TEST_F(IntfTest, MultipleIp) {
     EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
     EXPECT_TRUE(RouteFind("vrf1", ip, 32));
 
-    //Verify secondary IP route is node found since link is deleted
+    //Verify secondary IP route is not found since link is deleted
     evpn_rt = EvpnRouteGet("vrf1", mac, secondary_ip, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
     EXPECT_FALSE(RouteFind("vrf1", secondary_ip, 32));
+    EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 1);
 
     DelInstanceIp("instance2");
     DeleteVmportEnv(input1, 1, true, 1);
@@ -3010,6 +3012,7 @@ TEST_F(IntfTest, MultipleIp1) {
     EXPECT_TRUE(evpn_rt != NULL);
     EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
     EXPECT_TRUE(RouteFindV6("vrf1", secondary_ip, 128));
+    EXPECT_TRUE(vm_intf->instance_ipv6_list().list_.size() == 2);
 
     DelLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance2");
@@ -3025,6 +3028,7 @@ TEST_F(IntfTest, MultipleIp1) {
     evpn_rt = EvpnRouteGet("vrf1", mac, secondary_ip, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
     EXPECT_FALSE(RouteFindV6("vrf1", secondary_ip, 128));
+    EXPECT_TRUE(vm_intf->instance_ipv6_list().list_.size() == 1);
 
     DelInstanceIp("instance2");
     DeleteVmportEnv(input, 1, 1, 1, NULL, NULL, false, true);
@@ -3079,6 +3083,7 @@ TEST_F(IntfTest, MultipleIp2) {
     evpn_rt = EvpnRouteGet("vrf1", mac, secondary_ip, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
     EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 2);
 
     //Make the VN as layer2 only
     //EVPN route should be added with IP set to 0
@@ -3133,6 +3138,7 @@ TEST_F(IntfTest, MultipleIp2) {
     EXPECT_TRUE(evpn_rt != NULL);
     EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
     EXPECT_TRUE(RouteFind("vrf1", secondary_ip, 32));
+    EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 2);
 
     DelInstanceIp("instance2");
     DelLink("virtual-machine-interface", input1[0].name,

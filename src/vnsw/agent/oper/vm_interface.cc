@@ -4207,6 +4207,9 @@ void VmInterface::UpdateIpv4InstanceIp(bool force_update, bool policy_change,
         InstanceIpSet::iterator prev = it++;
         if (prev->del_pending_) {
             prev->DeActivate(this, l2, vrf(), old_ethernet_tag);
+            if (prev->installed() == false) {
+                instance_ipv4_list_.list_.erase(prev);
+            }
         } else {
             prev->Activate(this, force_update||policy_change, l2,
                            old_ethernet_tag);
@@ -4220,6 +4223,9 @@ void VmInterface::DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
     while (it != instance_ipv4_list_.list_.end()) {
         InstanceIpSet::iterator prev = it++;
         prev->DeActivate(this, l2, old_vrf_entry, old_ethernet_tag);
+        if (prev->del_pending_ && prev->installed() == false) {
+            instance_ipv4_list_.list_.erase(prev);
+        }
     }
 }
 
@@ -4235,6 +4241,9 @@ void VmInterface::UpdateIpv6InstanceIp(bool force_update, bool policy_change,
         InstanceIpSet::iterator prev = it++;
         if (prev->del_pending_) {
             prev->DeActivate(this, l2, vrf(), old_ethernet_tag);
+            if (prev->installed() == false) {
+                instance_ipv6_list_.list_.erase(prev);
+            }
         } else {
             prev->Activate(this, force_update||policy_change, l2,
                            old_ethernet_tag);
@@ -4248,5 +4257,8 @@ void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
     while (it != instance_ipv6_list_.list_.end()) {
         InstanceIpSet::iterator prev = it++;
         prev->DeActivate(this, l2, old_vrf_entry, old_ethernet_tag);
+        if (prev->del_pending_ && prev->installed() == false) {
+            instance_ipv6_list_.list_.erase(prev);
+        }
     }
 }
