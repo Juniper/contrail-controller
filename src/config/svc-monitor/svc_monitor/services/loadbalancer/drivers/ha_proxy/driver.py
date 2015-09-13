@@ -96,21 +96,26 @@ class OpencontrailLoadbalancerDriver(
         return props
 
     def _service_instance_update_props(self, si, nprops):
-        fields = [
-            'right_virtual_network',
-            'right_ip_address',
-            'left_virtual_network'
-        ]
-
-        current = si.params
+        old_ifs = si.params.get('interface_list', [])
+        new_ifs = nprops.get_interface_list()
         update = False
-
-        for field in fields:
-            if current[field] != getattr(nprops, field):
-                si_obj = self._api.service_instance_read(fq_name=fq_name)
-                si_obj.set_service_instance_properties(nprops)
-                return si_obj
-        return None
+        if len(new_ifs) != len(old_ifs):
+            update = True
+        else:
+            for index, new_if in enumerate(new_ifs):
+                if new_if.get_ip_address() != old_ifs[index]['ip_address']:
+                    update = True
+                    break
+                if new_if.get_virtual_network() != \
+                   old_ifs[index]['virtual_network']:
+                    update = True
+                    break
+        if update:
+            si_obj = ServiceInstance(name=si.name, parent_type='project')
+            si_obj.uuid = si.uuid
+            si_obj.set_service_instance_properties(nprops)
+            self._api.service_instance_update(si_obj)
+            si.update()
 
     def _update_loadbalancer_instance(self, pool_id, vip_id):
         """ Update the loadbalancer service instance.
@@ -145,19 +150,17 @@ class OpencontrailLoadbalancerDriver(
             return
 
         if si_obj:
-            update_obj = self._service_instance_update_props(si_obj, props)
-            if update_obj:
-                self._api.service_instance_update(update_obj)
+            self._service_instance_update_props(si_obj, props)
         else:
             si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
-			     fq_name=fq_name, service_instance_properties=props)
+                fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
             self._api.service_instance_create(si_obj)
             ServiceInstanceSM.locate(si_obj.uuid)
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer-pool', pool.uuid,
-	      'service_instance_refs', si_obj.uuid, None, 'ADD')
+                'service_instance_refs', si_obj.uuid, None, 'ADD')
         self.db.pool_driver_info_insert(pool_id,
                                         {'service_instance': si_obj.uuid})
 
