@@ -5,7 +5,7 @@
 define nh_entry_format
     set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(((NextHop*)0)->node_))
     printf "%p    type=%-4d    flags=%-4d    ref=%-4d    valid=%-4d    policy=%-4d\n", $__nh, $__nh->type_,\
-           $__nh->flags, $__nh->refcount_->rep->value, $__nh->valid_, $__nh->policy_
+           $__nh->flags, $__nh->refcount_->my_storage->my_value, $__nh->valid_, $__nh->policy_
 end
 
 define dump_nh_entries
@@ -14,12 +14,36 @@ end
 
 define intf_entry_format
    set $__intf = (Interface *)((size_t)($Xnode) - (size_t)&(((Interface*)0)->node_))
-   printf "%p    %-20s    flags=%-4d   ref=%-4d\n", $__intf, $__intf->name_._M_dataplus._M_p,\
-           $__intf->flags, $__intf->refcount_->rep->value
+   if $__intf.type_ == 4
+       set $__vmi = (VmInterface *)($__intf)
+       printf "%p    %-20s    flags=%-4d   ref=%-4d ip=%-10x vn=%p\n", $__vmi, $__vmi->name_._M_dataplus._M_p,\
+           $__vmi->flags, $__vmi->refcount_->my_storage->my_value, $__vmi->ip_addr_.addr_.s_addr, $__vmi->vn_.px
+   else
+       printf "%p    %-20s    flags=%-4d   ref=%-4d\n", $__intf, $__intf->name_._M_dataplus._M_p,\
+           $__intf->flags, $__intf->refcount_->my_storage->my_value
+   end
 end
 
 define dump_intf_entries
    pdb_table_entries Agent::singleton_.intf_table_ intf_entry_format
+end
+
+define li_debug_format
+   set $__intf = (Interface *)((size_t)($Xnode) - (size_t)&(((Interface*)0)->node_))
+   if $__intf.type_ == 3
+       set $__li = $__intf
+       printf "LI %p %s %p\n", $__li, $__li->name_._M_dataplus._M_p, $__li->vm_interface_.px
+   end
+   if $__intf.type_ == 4
+       printf "Got VMI %p\n", $__intf
+       print $__intf->logical_interface_
+   end
+end
+
+define li_debug
+   set $__li = 0
+   set $__vmi = 0
+   pdb_table_entries Agent::singleton_.intf_table_ li_debug_format
 end
 
 define mpls_entry_format
@@ -52,11 +76,11 @@ end
 
 define l2_route_entry_format
     set $__rt = (BridgeRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
-    set $__mac = $__rt->mac_.addr_
+    set $__mac = $__rt->mac_
     printf "%p  %02x:%02x:%02x:%02x:%02x:%02x\t\t flags=%d\n", $__rt,\
-                 ($__mac.ether_addr_octet[0]), ($__mac.ether_addr_octet[1]),\
-                 ($__mac.ether_addr_octet[2]), ($__mac.ether_addr_octet[3]),\
-                 ($__mac.ether_addr_octet[4]), ($__mac.ether_addr_octet[5]),\
+                 ($__mac.addr_.ether_addr_octet[0]), ($__mac.addr_.ether_addr_octet[1]),\
+                 ($__mac.addr_.ether_addr_octet[2]), ($__mac.addr_.ether_addr_octet[3]),\
+                 ($__mac.addr_.ether_addr_octet[4]), ($__mac.addr_.ether_addr_octet[5]),\
                   $__rt->flags
 end
 
@@ -124,7 +148,7 @@ end
 define vrf_entry_format
     set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(((VrfEntry *)0)->node_))
     printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p evpn_db=%p bridge_db=%p v6_rt_db=%p\n", $__vrf,\
-           $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->rep->value,\
+           $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->my_storage->my_value,\
            $__vrf->flags, $__vrf->rt_table_db_[Agent::INET4_UNICAST], $__vrf->rt_table_db_[Agent::INET4_MULTICAST], \
            $__vrf->rt_table_db_[Agent::EVPN], $__vrf->rt_table_db_[Agent::BRIDGE], $__vrf->rt_table_db_[Agent::INET6_UNICAST],
 end
@@ -135,8 +159,8 @@ end
 
 define vn_entry_format
     set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(((VnEntry*)0)->node_))
-    printf "%p    %-20s  %-20s\n", $__vn, $__vn->name_._M_dataplus._M_p,\
-                                   $__vn->uuid_->data
+    set $__data = $__vn->uuid_->data
+    printf "%p    %-20s %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", $__vn, $__vn->name_._M_dataplus._M_p, $__data[0], $__data[1], $__data[2], $__data[3], $__data[4], $__data[5], $__data[6], $__data[7], $__data[8], $__data[9], $__data[10], $__data[11], $__data[12], $__data[13], $__data[14], $__data[15]
 end
 
 define dump_vn_entries
@@ -145,7 +169,8 @@ end
 
 define vm_entry_format
     set $__vm = (VmEntry *)((size_t)($Xnode) - (size_t)&((VmEntry*)0)->node_)
-    printf "%p    %-20s\n", $__vm, $__vm->uuid_->data
+    set $__data = $__vm->uuid_->data
+    printf "%p    %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", $__vm, $__data[0], $__data[1], $__data[2], $__data[3], $__data[4], $__data[5], $__data[6], $__data[7], $__data[8], $__data[9], $__data[10], $__data[11], $__data[12], $__data[13], $__data[14], $__data[15]
 end
 
 define dump_vm_entries
@@ -179,7 +204,7 @@ end
 define vrf_assign_entry_format
     set $__va = (VrfAssign *) ((size_t)($Xnode) - (size_t)&(VrfAssign::node_))
     printf "%p    flags=%-4d    ref=%-4d    type=%-4d    tag=%-4d\n", \
-        $__va, $__va->flags, $__va->refcount_->rep->value, $__va->type, $__va->vlan_tag_
+        $__va, $__va->flags, $__va->refcount_->my_storage->my_value, $__va->type, $__va->vlan_tag_
 end
 
 define dump_vrf_assign_entries
@@ -189,7 +214,7 @@ end
 define acl_entry_format
     set $__acl = (AclDBEntry *)((size_t)($Xnode) - (size_t)&(AclDBEntry::node_))
     printf "%p     %s     ref=%d\n", $__acl, $__acl->name_._M_dataplus._M_p, \
-                                     $__acl->refcount_->rep->value
+                                     $__acl->refcount_->my_storage->my_value
 end
 
 define dump_acl_entries
@@ -231,10 +256,39 @@ end
 
 define dump_ifmap_link_entries
     pdb_table_entries $arg0 iflink_entry_format
+end
 
 document dump_ifmap_entries
      Prints name of all IFMAP nodes in given table
      Syntax: pdb_ifmap_entries <table>: Prints all entries in IFMAP table
+end
+
+define dump_flow_tree
+    set $__flow_table = Agent::singleton_->pkt_->flow_table_.px
+    print $__flow_table->flow_entry_map_
+end
+
+document dump_flow_tree
+     Prints flow tree
+     Syntax: dump_flow_tree
+end
+
+define dump_proto_list
+    print /x Agent::singleton_->pkt_->pkt_handler_.px->proto_list_
+end
+
+document dump_proto_list
+     Prints list of Proto entries
+     Syntax: dump_proto_list
+end
+
+define dump_ksync_sock
+    print KSyncSock::sock_table_
+end
+
+document dump_ksync_sock
+     Prints list of ksync socket structures
+     Syntax: dump_ksync_sock
 end
 
 define pwait_tree
