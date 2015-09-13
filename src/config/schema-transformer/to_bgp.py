@@ -126,6 +126,10 @@ class SchemaTransformer(object):
                 ModuleNames[Module.SCHEMA_TRANSFORMER])
 
         self._sandesh = Sandesh()
+        # Reset the sandesh send rate limit value
+        if args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                args.sandesh_send_rate_limit)
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request = \
             self.sandesh_ri_handle_request
@@ -537,6 +541,7 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     secopts = {
         'use_certs': False,
@@ -650,7 +655,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
-
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()

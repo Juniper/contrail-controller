@@ -177,6 +177,9 @@ class DiscoveryServer():
 
         # sandesh init
         self._sandesh = Sandesh()
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._args.sandesh_send_rate_limit)
         module = Module.DISCOVERY_SERVICE
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -1047,6 +1050,7 @@ def parse_args(args_str):
         'worker_id': '0',
         'logging_conf': '',
         'logger_class': None,
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
 
     # per service options
@@ -1153,6 +1157,8 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
 
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
