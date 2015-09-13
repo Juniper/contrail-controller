@@ -843,6 +843,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             } else {
                 entry.set_installed("N");
             }
+            entry.set_fixed_ip(ip.fixed_ip_.to_string());
             fip_list.push_back(entry);
             it++;
         }

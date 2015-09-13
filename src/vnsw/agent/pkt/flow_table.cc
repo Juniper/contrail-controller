@@ -2132,6 +2132,42 @@ void RouteFlowUpdate::WalkDone(DBTableBase *partition, RouteFlowUpdate *info) {
     delete info;
 }
 
+void RouteFlowUpdate::HandleTrackingIpChange(const AgentRoute *rt,
+                                             RouteFlowUpdate::State *state) {
+    State::FixedIpMap new_map;
+
+    for(Route::PathList::const_iterator it = rt->GetPathList().begin();
+            it != rt->GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+            continue;
+        }
+
+        if (path->nexthop()->GetType() != NextHop::INTERFACE) {
+            continue;
+        }
+
+        const InterfaceNH *nh = static_cast<InterfaceNH *>(path->nexthop());
+        InterfaceConstRef intf = nh->GetInterface();
+
+        IpAddress new_fixed_ip = path->GetFixedIp();
+        if (new_fixed_ip == Ip4Address(0)) {
+            continue;
+        }
+
+        new_map.insert(State::FixedIpEntry(intf, new_fixed_ip));
+
+        State::FixedIpMap::const_iterator it =
+            state->fixed_ip_map_.find(intf);
+        if (it != state->fixed_ip_map_.end()) {
+            if (new_fixed_ip != it->second) {
+                FixedIpChange(rt, intf.get(), it->second);
+            }
+        }
+    }
+    state->fixed_ip_map_ = new_map;
+}
+
 void RouteFlowUpdate::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
     if (route->is_multicast()) {
@@ -2167,6 +2203,8 @@ void RouteFlowUpdate::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         SgChange(route, new_sg_l);
         state->sg_l_ = new_sg_l;
     }
+
+    HandleTrackingIpChange(route, state);
 
     //Trigger RPF NH sync, if active nexthop changes
     const NextHop *active_nh = route->GetActiveNextHop();
@@ -2293,6 +2331,51 @@ void InetRouteFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
     RouteFlowKey key(route->vrf()->vrf_id(), route->addr(), route->plen());
     agent->pkt()->flow_table()->ResyncRpfNH(key, route);
 }
+
+bool InetRouteFlowUpdate::FixedIpUpdate(FlowEntry *fe, FlowTable *table,
+                                        RouteFlowKey &key,
+                                        const Interface *intf,
+                                        const IpAddress &old_fixed_ip) {
+    if (fe->l3_flow() == false) {
+        return true;
+    }
+
+    FlowEntry *rev_flow = fe->reverse_flow_entry();
+    if (!rev_flow) {
+        return true;
+    }
+
+    if (fe->key().src_addr != old_fixed_ip &&
+        rev_flow->key().src_addr != old_fixed_ip) {
+        return true;
+    }
+
+    if (fe->data().intf_entry != intf &&
+        rev_flow->data().intf_entry != intf) {
+        return true;
+    }
+
+
+    if (fe->set_pending_recompute(true)) {
+        table->agent()->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
+                new FlowTaskMsg(fe));
+    }
+    return true;
+}
+
+void InetRouteFlowUpdate::FixedIpChange(const AgentRoute *entry,
+                                        const Interface *intf,
+                                        const IpAddress &old_fixed_ip) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    const InetUnicastRouteEntry *route =
+        static_cast<const InetUnicastRouteEntry *>(entry);
+    RouteFlowKey key(route->vrf()->vrf_id(), route->addr(), route->plen());
+    FlowTable *table = agent->pkt()->flow_table();
+    table->IterateFlowInfoEntries(key,
+            boost::bind(&InetRouteFlowUpdate::FixedIpUpdate, this, _1, table,
+            key, intf, old_fixed_ip));
+}
+
 
 ////////////////////////////////////////////////////////////////////////////
 // BridgeEntryFlowUpdate class responsible to keep flow in-sync with Inet route

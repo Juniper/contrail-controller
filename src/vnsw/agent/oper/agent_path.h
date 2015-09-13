@@ -245,6 +245,9 @@ public:
     bool arp_valid() const { return arp_valid_;}
     void set_arp_valid(bool valid) { arp_valid_ = valid;}
     bool CopyArpData();
+    const IpAddress& GetFixedIp() const {
+        return path_preference_.dependent_ip();
+    }
 
 private:
     const Peer *peer_;
