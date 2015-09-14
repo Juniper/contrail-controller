@@ -77,8 +77,13 @@ bool OvsdbDBEntry::Add() {
         return true;
     }
 
-    struct ovsdb_idl_txn *txn =
-        object->client_idl_->CreateTxn(this, KSyncEntry::ADD_ACK);
+    struct ovsdb_idl_txn *txn;
+    if (UseBulkTxn()) {
+        txn = object->client_idl_->CreateBulkTxn(this, KSyncEntry::ADD_ACK);
+    } else {
+        txn = object->client_idl_->CreateTxn(this, KSyncEntry::ADD_ACK);
+    }
+
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
@@ -86,14 +91,7 @@ bool OvsdbDBEntry::Add() {
         return true;
     }
     AddMsg(txn);
-    struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
-    if (msg == NULL) {
-        object->client_idl()->DeleteTxn(txn);
-        TxnDoneNoMessage();
-        return true;
-    }
-    object->client_idl_->TxnScheduleJsonRpc(msg);
-    return false;
+    return object->client_idl_->EncodeSendTxn(txn, this);
 }
 
 bool OvsdbDBEntry::Change() {
@@ -112,8 +110,13 @@ bool OvsdbDBEntry::Change() {
         return true;
     }
 
-    struct ovsdb_idl_txn *txn =
-        object->client_idl_->CreateTxn(this, KSyncEntry::CHANGE_ACK);
+    struct ovsdb_idl_txn *txn;
+    if (UseBulkTxn()) {
+        txn = object->client_idl_->CreateBulkTxn(this, KSyncEntry::CHANGE_ACK);
+    } else {
+        txn = object->client_idl_->CreateTxn(this, KSyncEntry::CHANGE_ACK);
+    }
+
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
@@ -121,14 +124,7 @@ bool OvsdbDBEntry::Change() {
         return true;
     }
     ChangeMsg(txn);
-    struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
-    if (msg == NULL) {
-        object->client_idl()->DeleteTxn(txn);
-        TxnDoneNoMessage();
-        return true;
-    }
-    object->client_idl_->TxnScheduleJsonRpc(msg);
-    return false;
+    return object->client_idl_->EncodeSendTxn(txn, this);
 }
 
 bool OvsdbDBEntry::Delete() {
@@ -142,8 +138,12 @@ bool OvsdbDBEntry::Delete() {
     }
 
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
-    struct ovsdb_idl_txn *txn =
-        object->client_idl_->CreateTxn(this, KSyncEntry::DEL_ACK);
+    struct ovsdb_idl_txn *txn;
+    if (UseBulkTxn()) {
+        txn = object->client_idl_->CreateBulkTxn(this, KSyncEntry::DEL_ACK);
+    } else {
+        txn = object->client_idl_->CreateTxn(this, KSyncEntry::DEL_ACK);
+    }
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
@@ -151,18 +151,14 @@ bool OvsdbDBEntry::Delete() {
         return true;
     }
     DeleteMsg(txn);
-    struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
-    if (msg == NULL) {
-        object->client_idl()->DeleteTxn(txn);
-        TxnDoneNoMessage();
-        // current transaction deleted trigger post delete
+    bool ret = object->client_idl_->EncodeSendTxn(txn, this);
+    // trigger post delete if we are not waiting for Ack
+    // otherwise trigger post delete on Ack
+    if (ret) {
+        // current transaction send completed trigger post delete
         PostDelete();
-        return true;
     }
-    object->client_idl_->TxnScheduleJsonRpc(msg);
-    // current transaction send completed trigger post delete
-    PostDelete();
-    return false;
+    return ret;
 }
 
 bool OvsdbDBEntry::IsDataResolved() {
@@ -201,6 +197,13 @@ KSyncObject *OvsdbDBEntry::GetObject() {
 
 void OvsdbDBEntry::Ack(bool success) {
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+
+    // trigger post delete for Del Ack
+    if (ack_event_ == KSyncEntry::DEL_ACK) {
+        // current transaction send completed trigger post delete
+        PostDelete();
+    }
+
     if (success) {
         if (IsDelAckWaiting())
             object->NotifyEvent(this, KSyncEntry::DEL_ACK);

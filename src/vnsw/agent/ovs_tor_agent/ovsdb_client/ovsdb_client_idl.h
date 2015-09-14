@@ -52,6 +52,7 @@ class ConnectionStateTable;
 
 class OvsdbClientIdl;
 typedef boost::intrusive_ptr<OvsdbClientIdl> OvsdbClientIdlPtr;
+typedef std::set<OvsdbEntryBase *> OvsdbEntryList;
 
 class OvsdbClientIdl {
 public:
@@ -69,7 +70,8 @@ public:
         OvsdbSessionEchoWait     // Echo Req sent waiting for reply
     };
 
-    static const std::size_t OVSDBMaxInFlightPendingTxn = 100;
+    static const std::size_t OVSDBMaxInFlightPendingTxn = 25;
+    static const std::size_t OVSDBEntriesInBulkTxn = 4;
 
     enum Op {
         OVSDB_DEL = 0,
@@ -104,7 +106,7 @@ public:
     };
 
     typedef boost::function<void(OvsdbClientIdl::Op, struct ovsdb_idl_row *)> NotifyCB;
-    typedef std::map<struct ovsdb_idl_txn *, OvsdbEntryBase *> PendingTxnMap;
+    typedef std::map<struct ovsdb_idl_txn *, OvsdbEntryList> PendingTxnMap;
     typedef std::queue<struct jsonrpc_msg *> ThrottledTxnMsgs;
 
     OvsdbClientIdl(OvsdbClientSession *session, Agent *agent, OvsPeerManager *manager);
@@ -125,6 +127,13 @@ public:
     // Create a OVSDB transaction to start encoding an update
     struct ovsdb_idl_txn *CreateTxn(OvsdbEntryBase *entry,
             KSyncEntry::KSyncEvent ack_event = KSyncEntry::ADD_ACK);
+    // Create a Bulk OVSDB transaction to start encoding a bulk update
+    struct ovsdb_idl_txn *CreateBulkTxn(OvsdbEntryBase *entry,
+            KSyncEntry::KSyncEvent ack_event = KSyncEntry::ADD_ACK);
+
+    // encode and send a transaction
+    bool EncodeSendTxn(struct ovsdb_idl_txn *txn, OvsdbEntryBase *skip_entry);
+
     // Delete the OVSDB transaction
     void DeleteTxn(struct ovsdb_idl_txn *txn);
     void Register(EntryType type, NotifyCB cb) {callback_[type] = cb;}
@@ -198,6 +207,11 @@ private:
     // request, reset to NULL once response if feed to idl for processing
     // as it free the json for monitor request id
     struct json *monitor_request_id_;
+
+    // pointer to current buildup of bulk transaction
+    struct ovsdb_idl_txn *bulk_txn_;
+    // list of entries added to bulk txn
+    OvsdbEntryList bulk_entries_;
 
     // transaction stats per IDL
     TxnStats stats_;

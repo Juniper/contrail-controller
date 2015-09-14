@@ -93,6 +93,9 @@ public:
     // transaction complete
     void TxnDoneNoMessage();
 
+    // use bulk txn
+    virtual bool UseBulkTxn() { return true; }
+
 private:
     friend class UnicastMacRemoteTable;
     friend class VrfOvsdbObject;
