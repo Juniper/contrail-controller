@@ -46,6 +46,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
 
     def test_vrouter_instance_create(self):
         test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:mgmt-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:left-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:right-vn')
