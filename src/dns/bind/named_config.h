@@ -66,8 +66,10 @@ public:
                 const std::string& named_config_file,
                 const std::string& named_log_file,
                 const std::string& rndc_config_file,
-                const std::string& rndc_secret) :
+                const std::string& rndc_secret,
+                const std::string& named_max_cache_size) :
         file_(), named_log_file_(named_log_file), rndc_secret_(rndc_secret),
+        named_max_cache_size_(named_max_cache_size),
         reset_flag_(false), all_zone_files_(false) {
             named_config_dir_ = named_config_dir + "/";
             named_config_file_ = named_config_dir_ + named_config_file;
@@ -80,7 +82,8 @@ public:
                      const std::string& named_config_file,
                      const std::string& named_log_file,
                      const std::string& rndc_config_file,
-                     const std::string& rndc_secret);
+                     const std::string& rndc_secret,
+                     const std::string& named_max_cache_size);
     static void Shutdown();
     void Reset();
     virtual void AddView(const VirtualDnsConfig *vdns);
@@ -125,6 +128,7 @@ protected:
     std::string named_log_file_;
     std::string rndc_config_file_;
     std::string rndc_secret_;
+    std::string named_max_cache_size_;
     std::string default_forwarders_;
     bool reset_flag_;
     bool all_zone_files_;

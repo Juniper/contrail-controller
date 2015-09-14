@@ -86,6 +86,9 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.rndc_secret",
              opt::value<string>()->default_value("xvysmOR8lnUQRBcunkC6vg=="),
              "RNDC secret")
+        ("DEFAULT.named_max_cache_size",
+             opt::value<string>()->default_value("100M"),
+             "Maximum cache size, in bytes, used by contrail-named (per view)")
 
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
              "IP address of DNS Server")
@@ -229,6 +232,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, named_log_file_, "DEFAULT.named_log_file");
     GetOptValue<string>(var_map, rndc_config_file_, "DEFAULT.rndc_config_file");
     GetOptValue<string>(var_map, rndc_secret_, "DEFAULT.rndc_secret");
+    GetOptValue<string>(var_map, named_max_cache_size_,
+                        "DEFAULT.named_max_cache_size");
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
