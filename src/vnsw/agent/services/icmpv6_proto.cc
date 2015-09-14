@@ -56,6 +56,14 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
         return;
 
     if (vn->layer3_forwarding()) {
+        if (vrf->GetState(vrf->get_table_partition()->parent(),
+                          vrf_table_listener_id_))
+            return;
+
+        DBState *state = new DBState();
+        vrf->SetState(vrf->get_table_partition()->parent(),
+                      vrf_table_listener_id_, state);
+
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
         static_cast<InetUnicastAgentRouteTable *>
@@ -81,6 +89,14 @@ void Icmpv6Proto::VrfNotify(DBEntryBase *entry) {
         return;
 
     if (entry->IsDeleted()) {
+        DBState *state = vrf->GetState(vrf->get_table_partition()->parent(),
+                                       vrf_table_listener_id_);
+        if (!state)
+            return;
+        vrf->ClearState(vrf->get_table_partition()->parent(),
+                        vrf_table_listener_id_);
+        delete state;
+
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
         // enqueue delete request on fabric VRF
