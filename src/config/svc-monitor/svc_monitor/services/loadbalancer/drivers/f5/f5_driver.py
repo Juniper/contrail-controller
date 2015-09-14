@@ -231,6 +231,7 @@ class OpencontrailF5LoadbalancerDriver(
                             bigip.pool.set_lb_method(name=new_pool_info['id'],
                               lb_method=new_pool_info['params']['loadbalancer_method'],
                               folder=new_pool_info['tenant_id'])
+                            self._update_session_persistance(bigip, new_pool_info)
 
                 if key == 'description' or key == 'name':
                     # update the pool description
@@ -299,7 +300,7 @@ class OpencontrailF5LoadbalancerDriver(
                                                   folder=new_pool_info['tenant_id'],
                                                   no_checks=True)
                             # check admin state
-                            if new_pool_info['members'][member]['admin_state']:
+                            if new_pool_info['members'][member]['admin_state'] == 'true':
                                 bigip.pool.enable_member(name=new_pool_info['id'],
                                                     ip_address=ip_address,
                                                     port=int(new_pool_info['members'][member]['protocol_port']),
@@ -333,12 +334,15 @@ class OpencontrailF5LoadbalancerDriver(
                         for member in common_members:
                             # Update the members
                             for member_property in new_pool_info['members'][member].keys():
+                                if new_pool_info['members'][member][member_property] == \
+                                   old_pool_info['members'][member][member_property]:
+                                    continue
                                 if member_property == 'admin_state':
                                     ip_address = new_pool_info['members'][member]['address']
                                     if self.global_routed_mode:
                                         ip_address = ip_address + "%0"
                                     # check admin state
-                                    if new_pool_info['members'][member]['admin_state']:
+                                    if new_pool_info['members'][member]['admin_state'] == 'true':
                                         bigip.pool.enable_member(name=new_pool_info['id'],
                                                     ip_address=ip_address,
                                                     port=int(new_pool_info['members'][member]['protocol_port']),
@@ -372,7 +376,7 @@ class OpencontrailF5LoadbalancerDriver(
                                             continue
                                         # Update the vip params
                                         if vip_property == 'admin_state':
-                                            if new_pool_info['vip']['params']['admin_state']:
+                                            if new_pool_info['vip']['params']['admin_state'] == 'true':
                                                 bigip_vs.enable_virtual_server(name=new_pool_info['virtual_ip'], 
                                                                         folder=new_pool_info['tenant_id'])
                                             else:
@@ -625,7 +629,7 @@ class OpencontrailF5LoadbalancerDriver(
         bigip_vs = bigip.virtual_server
         rule_name = 'http_throttle_' + pool_info['virtual_ip']
 
-        if pool_info['vip']['params']['connection_limit'] > 0:
+        if int(pool_info['vip']['params']['connection_limit']) > 0:
             # spec says you need to do this for HTTP
             # and HTTPS, but unless you can decrypt
             # you can't measure HTTP rps for HTTPs... Duh..
