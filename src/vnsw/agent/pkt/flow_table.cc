@@ -2143,7 +2143,8 @@ void RouteFlowUpdate::HandleTrackingIpChange(const AgentRoute *rt,
             continue;
         }
 
-        if (path->nexthop()->GetType() != NextHop::INTERFACE) {
+        if (!path->nexthop() ||
+            path->nexthop()->GetType() != NextHop::INTERFACE) {
             continue;
         }
 
@@ -2157,11 +2158,11 @@ void RouteFlowUpdate::HandleTrackingIpChange(const AgentRoute *rt,
 
         new_map.insert(State::FixedIpEntry(intf, new_fixed_ip));
 
-        State::FixedIpMap::const_iterator it =
+        State::FixedIpMap::const_iterator fipit =
             state->fixed_ip_map_.find(intf);
-        if (it != state->fixed_ip_map_.end()) {
-            if (new_fixed_ip != it->second) {
-                FixedIpChange(rt, intf.get(), it->second);
+        if (fipit != state->fixed_ip_map_.end()) {
+            if (new_fixed_ip != fipit->second) {
+                FixedIpChange(rt, intf.get(), fipit->second);
             }
         }
     }
