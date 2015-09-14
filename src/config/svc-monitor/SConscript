@@ -119,5 +119,8 @@ test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
+env.Alias('test', test_cmd)
+env.Alias('coverage', cov_cmd)
+
 env.Alias('controller/src/config/svc_monitor:test', test_cmd)
 env.Alias('controller/src/config/svc_monitor:coverage', cov_cmd)
