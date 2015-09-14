@@ -59,6 +59,7 @@ public:
     typedef typename T::VpnRouteT VpnRouteT;
     typedef typename T::PrefixT PrefixT;
     typedef typename T::AddressT AddressT;
+    typedef StaticRouteMgr<T> StaticRouteMgrT;
 
     // List of Route targets
     typedef set<RouteTarget> RouteTargetList;
@@ -73,10 +74,13 @@ public:
         RTargetChange = 2
     };
 
-    StaticRoute(RoutingInstance *rtinstance, const PrefixT &static_route,
-                const vector<string> &rtargets, IpAddress nexthop);
-    Address::Family GetFamily() const;
-    AddressT GetAddress(IpAddress addr) const;
+    StaticRoute(RoutingInstance *rtinstance, StaticRouteMgrT *manager,
+        const PrefixT &static_route, const vector<string> &rtargets,
+        IpAddress nexthop);
+    Address::Family GetFamily() const { return manager_->GetFamily(); }
+    AddressT GetAddress(IpAddress addr) const {
+        return manager_->GetAddress(addr);
+    }
 
     // Compare config and return whether cfg has updated
     CompareResult CompareStaticRouteCfg(const StaticRouteConfig &cfg);
@@ -193,6 +197,7 @@ private:
     }
 
     RoutingInstance *routing_instance_;
+    StaticRouteMgrT *manager_;
     PrefixT static_route_prefix_;
     IpAddress nexthop_;
     BgpRoute *nexthop_route_;
@@ -205,9 +210,11 @@ private:
 
 
 template <typename T>
-StaticRoute<T>::StaticRoute(RoutingInstance *rtinst, const PrefixT &static_route,
+StaticRoute<T>::StaticRoute(RoutingInstance *rtinstance,
+    StaticRouteMgrT *manager, const PrefixT &static_route,
     const vector<string> &rtargets, IpAddress nexthop)
-    : routing_instance_(rtinst),
+    : routing_instance_(rtinstance),
+      manager_(manager),
       static_route_prefix_(static_route),
       nexthop_(nexthop),
       nexthop_route_(NULL),
@@ -220,28 +227,6 @@ StaticRoute<T>::StaticRoute(RoutingInstance *rtinst, const PrefixT &static_route
             continue;
         rtarget_list_.insert(rtarget);
     }
-}
-
-template <>
-Address::Family StaticRoute<StaticRouteInet>::GetFamily() const {
-    return Address::INET;
-}
-
-template <>
-Address::Family StaticRoute<StaticRouteInet6>::GetFamily() const {
-    return Address::INET6;
-}
-
-template <>
-Ip4Address StaticRoute<StaticRouteInet>::GetAddress(IpAddress addr) const {
-    assert(addr.is_v4());
-    return addr.to_v4();
-}
-
-template <>
-Ip6Address StaticRoute<StaticRouteInet6>::GetAddress(IpAddress addr) const {
-    assert(addr.is_v6());
-    return addr.to_v6();
 }
 
 // Compare config and return whether cfg has updated
@@ -340,7 +325,7 @@ bool StaticRoute<T>::Match(BgpServer *server, BgpTable *table,
     // and stitch the Path Attribute from nexthop route
     StaticRouteRequest *req =
         new StaticRouteRequest(type, table, route, StaticRoutePtr(this));
-    routing_instance()->static_route_mgr()->EnqueueStaticRouteReq(req);
+    manager_->EnqueueStaticRouteReq(req);
 
     return true;
 }
@@ -553,9 +538,9 @@ template <>
 int StaticRouteMgr<StaticRouteInet6>::static_route_task_id_ = -1;
 
 template <typename T>
-StaticRouteMgr<T>::StaticRouteMgr(RoutingInstance *instance)
-    : instance_(instance),
-      listener_(instance_->server()->condition_listener(GetFamily())),
+StaticRouteMgr<T>::StaticRouteMgr(RoutingInstance *rtinstance)
+    : rtinstance_(rtinstance),
+      listener_(rtinstance_->server()->condition_listener(GetFamily())),
       resolve_trigger_(new TaskTrigger(
           boost::bind(&StaticRouteMgr::ResolvePendingStaticRouteConfig, this),
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
@@ -643,7 +628,7 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
                 listener_->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
                 if (static_route_map_.empty())
-                    instance_->server()->RemoveStaticRouteMgr(this);
+                    rtinstance_->server()->RemoveStaticRouteMgr(this);
                 if (!routing_instance()->deleted() && 
                     routing_instance()->config()) {
                     resolve_trigger_->Set();
@@ -666,7 +651,7 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
                 listener_->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
                 if (static_route_map_.empty())
-                    instance_->server()->RemoveStaticRouteMgr(this);
+                    rtinstance_->server()->RemoveStaticRouteMgr(this);
                 if (!routing_instance()->deleted() && 
                     routing_instance()->config()) {
                     resolve_trigger_->Set();
@@ -722,11 +707,11 @@ void StaticRouteMgr<T>::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
     }
 
     StaticRouteT *match = new StaticRouteT(
-        routing_instance(), prefix, cfg.route_target, cfg.nexthop);
+        routing_instance(), this, prefix, cfg.route_target, cfg.nexthop);
     StaticRoutePtr static_route_match = StaticRoutePtr(match);
 
     if (static_route_map_.empty())
-        instance_->server()->InsertStaticRouteMgr(this);
+        rtinstance_->server()->InsertStaticRouteMgr(this);
     static_route_map_.insert(make_pair(prefix, static_route_match));
 
     listener_->AddMatchCondition(match->bgp_table(), static_route_match.get(),
@@ -876,16 +861,19 @@ class ShowStaticRouteHandler {
 public:
     static void FillStaticRoutesInfo(vector<StaticRouteEntriesInfo> *list,
                                      RoutingInstance *ri) {
-        if (!ri->static_route_mgr())
+        IStaticRouteMgr *imanager = ri->static_route_mgr(Address::INET);
+        StaticRouteMgr<StaticRouteInet> *manager =
+            static_cast<StaticRouteMgr<StaticRouteInet> *>(imanager);
+        if (!manager)
             return;
-        if (ri->static_route_mgr()->static_route_map().empty())
+        if (manager->static_route_map().empty())
             return;
 
         StaticRouteEntriesInfo info;
         info.set_ri_name(ri->name());
         for (StaticRouteMgr<StaticRouteInet>::StaticRouteMap::const_iterator it =
-             ri->static_route_mgr()->static_route_map().begin();
-             it != ri->static_route_mgr()->static_route_map().end(); it++) {
+             manager->static_route_map().begin();
+             it != manager->static_route_map().end(); ++it) {
             StaticRoute<StaticRouteInet> *match =
                 static_cast<StaticRoute<StaticRouteInet> *>(it->second.get());
             StaticRouteInfo static_info;
@@ -935,12 +923,6 @@ void ShowStaticRouteReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-template StaticRouteMgr<StaticRouteInet>::StaticRouteMgr(
-    RoutingInstance *rtinstance);
-template StaticRouteMgr<StaticRouteInet>::~StaticRouteMgr();
-template void StaticRouteMgr<StaticRouteInet>::ProcessStaticRouteConfig();
-template void StaticRouteMgr<StaticRouteInet>::UpdateStaticRouteConfig();
-template void StaticRouteMgr<StaticRouteInet>::FlushStaticRouteConfig();
-template void StaticRouteMgr<StaticRouteInet>::NotifyAllRoutes();
-template uint32_t StaticRouteMgr<StaticRouteInet>::GetRouteCount() const;
-template uint32_t StaticRouteMgr<StaticRouteInet>::GetDownRouteCount() const;
+// Explicit instantiation of StaticRouteMgr for INET and INET6.
+template class StaticRouteMgr<StaticRouteInet>;
+template class StaticRouteMgr<StaticRouteInet6>;

@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/routing-instance/static_route.h"
+#include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 #include <fstream>
@@ -156,19 +156,19 @@ protected:
     void DisableStaticRouteQ(const string &instance_name) {
         RoutingInstance *rtinstance = 
             ri_mgr_->GetRoutingInstance(instance_name);
-        rtinstance->static_route_mgr()->DisableQueue();
+        rtinstance->static_route_mgr(Address::INET)->DisableQueue();
     }
 
     bool IsQueueEmpty(const string  &instance_name) {
         RoutingInstance *rtinstance = 
             ri_mgr_->GetRoutingInstance(instance_name);
-        return rtinstance->static_route_mgr()->IsQueueEmpty();
+        return rtinstance->static_route_mgr(Address::INET)->IsQueueEmpty();
     }
 
     void EnableStaticRouteQ(const string  &instance_name) {
         RoutingInstance *rtinstance = 
             ri_mgr_->GetRoutingInstance(instance_name);
-        rtinstance->static_route_mgr()->EnableQueue();
+        rtinstance->static_route_mgr(Address::INET)->EnableQueue();
     }
 
     void AddInetRoute(IPeer *peer, const string &instance_name,

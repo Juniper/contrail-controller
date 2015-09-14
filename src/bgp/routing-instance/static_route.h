@@ -8,6 +8,8 @@
 #include <map>
 #include <set>
 
+#include "bgp/routing-instance/istatic_route_mgr.h"
+
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
@@ -49,8 +51,8 @@ struct StaticRouteRequest {
     }
 
     RequestType type_;
-    BgpTable    *table_;
-    BgpRoute    *rt_;
+    BgpTable *table_;
+    BgpRoute *rt_;
     StaticRoutePtr info_;
 
 private:
@@ -58,7 +60,7 @@ private:
 };
 
 template <typename T>
-class StaticRouteMgr {
+class StaticRouteMgr : public IStaticRouteMgr {
 public:
     typedef typename T::RouteT RouteT;
     typedef typename T::VpnRouteT VpnRouteT;
@@ -69,51 +71,52 @@ public:
     // Map of Static Route prefix to the StaticRoute match object
     typedef std::map<PrefixT, StaticRoutePtr> StaticRouteMap;
 
-
     explicit StaticRouteMgr(RoutingInstance *instance);
     ~StaticRouteMgr();
+
+    // Config
+    virtual void ProcessStaticRouteConfig();
+    virtual void UpdateStaticRouteConfig();
+    virtual void FlushStaticRouteConfig();
+
+    void EnqueueStaticRouteReq(StaticRouteRequest *req);
+    const StaticRouteMap &static_route_map() const { return static_route_map_; }
+
+    virtual void NotifyAllRoutes();
+    virtual uint32_t GetRouteCount() const;
+    virtual uint32_t GetDownRouteCount() const;
 
     Address::Family GetFamily() const;
     AddressT GetAddress(IpAddress addr) const;
 
-    // Config
-    void ProcessStaticRouteConfig();
-    void UpdateStaticRouteConfig();
-    void FlushStaticRouteConfig();
-    void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
-    void RemoveStaticRoutePrefix(const PrefixT &static_route);
-    void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
-
-    // Work Queue
-    static int static_route_task_id_;
-    void EnqueueStaticRouteReq(StaticRouteRequest *req);
-    bool StaticRouteEventCallback(StaticRouteRequest *req);
-
-    bool ResolvePendingStaticRouteConfig();
-    void NotifyAllRoutes();
-    uint32_t GetRouteCount() const;
-    uint32_t GetDownRouteCount() const;
-
-    RoutingInstance *routing_instance() { return instance_; }
-
-    const StaticRouteMap &static_route_map() const {
-        return static_route_map_;
-    }
-
 private:
     friend class StaticRouteTest;
 
-    RoutingInstance *instance_;
+    // All static route related actions are performed in the context
+    // of this task. This task has exclusion with db::DBTable task.
+    static int static_route_task_id_;
+
+    void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
+    void RemoveStaticRoutePrefix(const PrefixT &static_route);
+    void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
+    bool ResolvePendingStaticRouteConfig();
+    bool StaticRouteEventCallback(StaticRouteRequest *req);
+
+    virtual void DisableQueue() { static_route_queue_->set_disable(true); }
+    virtual void EnableQueue() { static_route_queue_->set_disable(false); }
+    virtual bool IsQueueEmpty() { return static_route_queue_->IsQueueEmpty(); }
+    RoutingInstance *routing_instance() { return rtinstance_; }
+
+    RoutingInstance *rtinstance_;
     BgpConditionListener *listener_;
     StaticRouteMap  static_route_map_;
-    void DisableQueue() { static_route_queue_->set_disable(true); }
-    void EnableQueue() { static_route_queue_->set_disable(false); }
-    bool IsQueueEmpty() { return static_route_queue_->IsQueueEmpty(); }
     WorkQueue<StaticRouteRequest *> *static_route_queue_;
-    // Task trigger to resolve any pending static route config commit
     boost::scoped_ptr<TaskTrigger> resolve_trigger_;
 
     DISALLOW_COPY_AND_ASSIGN(StaticRouteMgr);
 };
+
+typedef StaticRouteMgr<StaticRouteInet> StaticRouteMgrInet;
+typedef StaticRouteMgr<StaticRouteInet6> StaticRouteMgrInet6;
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_STATIC_ROUTE_H_

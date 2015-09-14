@@ -30,6 +30,7 @@ class BgpInstanceConfig;
 class BgpNeighborConfig;
 class BgpServer;
 class BgpTable;
+class IStaticRouteMgr;
 class RouteDistinguisher;
 class RoutingInstanceMgr;
 class RoutingInstanceInfo;
@@ -38,10 +39,6 @@ class ExtCommunity;
 class LifetimeActor;
 class PeerManager;
 class ShowRouteTable;
-class StaticRouteInet;
-class StaticRouteInet6;
-
-template <typename T> class StaticRouteMgr;
 
 class RoutingInstance {
 public:
@@ -114,9 +111,15 @@ public:
     // and Leave corresponding RtGroup
     void ClearRouteTarget();
 
-    StaticRouteMgr<StaticRouteInet> *static_route_mgr() {
-        return static_route_mgr_.get();
+    IStaticRouteMgr *static_route_mgr(Address::Family family) {
+        if (family == Address::INET)
+            return inet_static_route_mgr_.get();
+        if (family == Address::INET6)
+            return inet6_static_route_mgr_.get();
+        assert(false);
+        return NULL;
     }
+
     PeerManager *peer_manager() { return peer_manager_.get(); }
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
 
@@ -154,7 +157,8 @@ private:
     int vxlan_id_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstance> manager_delete_ref_;
-    boost::scoped_ptr<StaticRouteMgr<StaticRouteInet> > static_route_mgr_;
+    boost::scoped_ptr<IStaticRouteMgr> inet_static_route_mgr_;
+    boost::scoped_ptr<IStaticRouteMgr> inet6_static_route_mgr_;
     boost::scoped_ptr<PeerManager> peer_manager_;
 };
 

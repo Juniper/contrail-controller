@@ -20,11 +20,11 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
+#include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
-#include "bgp/routing-instance/static_route.h"
 #include "io/event_manager.h"
 
 using boost::system::error_code;
@@ -516,14 +516,12 @@ void BgpServer::NotifyIdentifierUpdate(Ip4Address old_identifier) {
     }
 }
 
-void BgpServer::InsertStaticRouteMgr(
-    StaticRouteMgr<StaticRouteInet> *srt_manager) {
+void BgpServer::InsertStaticRouteMgr(IStaticRouteMgr *srt_manager) {
     CHECK_CONCURRENCY("bgp::Config");
     srt_manager_list_.insert(srt_manager);
 }
 
-void BgpServer::RemoveStaticRouteMgr(
-    StaticRouteMgr<StaticRouteInet> *srt_manager) {
+void BgpServer::RemoveStaticRouteMgr(IStaticRouteMgr *srt_manager) {
     CHECK_CONCURRENCY("bgp::StaticRoute");
     srt_manager_list_.erase(srt_manager);
 }
@@ -532,7 +530,7 @@ void BgpServer::NotifyAllStaticRoutes() {
     CHECK_CONCURRENCY("bgp::Config");
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
-        StaticRouteMgr<StaticRouteInet> *srt_manager = *it;
+        IStaticRouteMgr *srt_manager = *it;
         srt_manager->NotifyAllRoutes();
     }
 }
@@ -542,7 +540,7 @@ uint32_t BgpServer::GetStaticRouteCount() const {
     uint32_t count = 0;
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
-        StaticRouteMgr<StaticRouteInet> *srt_manager = *it;
+        IStaticRouteMgr *srt_manager = *it;
         count += srt_manager->GetRouteCount();
     }
     return count;
@@ -553,7 +551,7 @@ uint32_t BgpServer::GetDownStaticRouteCount() const {
     uint32_t count = 0;
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
-        StaticRouteMgr<StaticRouteInet> *srt_manager = *it;
+        IStaticRouteMgr *srt_manager = *it;
         count += srt_manager->GetDownRouteCount();
     }
     return count;

@@ -15,12 +15,12 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
+#include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/rtarget_group.h"
-#include "bgp/routing-instance/static_route.h"
 #include "db/db_table.h"
 
 using boost::assign::list_of;
@@ -386,8 +386,8 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     server()->service_chain_mgr(Address::INET)->StopServiceChain(rtinstance);
 
     // Remove Static Route config
-    if (rtinstance->static_route_mgr())
-        rtinstance->static_route_mgr()->FlushStaticRouteConfig();
+    if (rtinstance->static_route_mgr(Address::INET))
+        rtinstance->static_route_mgr(Address::INET)->FlushStaticRouteConfig();
 
     NotifyInstanceOp(name, INSTANCE_DELETE);
 
@@ -518,8 +518,8 @@ void RoutingInstance::ProcessConfig() {
         }
     }
 
-    if (static_route_mgr())
-        static_route_mgr()->ProcessStaticRouteConfig();
+    if (static_route_mgr(Address::INET))
+        static_route_mgr(Address::INET)->ProcessStaticRouteConfig();
 }
 
 void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
@@ -603,8 +603,8 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     }
 
     // Static route update.
-    if (static_route_mgr())
-        static_route_mgr()->UpdateStaticRouteConfig();
+    if (static_route_mgr(Address::INET))
+        static_route_mgr(Address::INET)->UpdateStaticRouteConfig();
 }
 
 void RoutingInstance::ClearConfig() {
@@ -630,8 +630,8 @@ void RoutingInstance::Shutdown() {
     ClearRouteTarget();
     server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
 
-    if (static_route_mgr())
-        static_route_mgr()->FlushStaticRouteConfig();
+    if (static_route_mgr(Address::INET))
+        static_route_mgr(Address::INET)->FlushStaticRouteConfig();
 }
 
 bool RoutingInstance::MayDelete() const {
@@ -895,10 +895,14 @@ string RoutingInstance::GetVrfFromTableName(const string table) {
 
 void RoutingInstance::set_index(int index) {
     index_ = index;
-    if (!is_default_) {
-        rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index));
-        static_route_mgr_.reset(new StaticRouteMgr<StaticRouteInet>(this));
-    }
+    if (is_default_)
+        return;
+
+    rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index));
+    inet_static_route_mgr_.reset(
+        BgpObjectFactory::Create<IStaticRouteMgr, Address::INET>(this));
+    inet6_static_route_mgr_.reset(
+        BgpObjectFactory::Create<IStaticRouteMgr, Address::INET6>(this));
 }
 
 RoutingInstanceInfo RoutingInstance::GetDataCollection(const char *operation) {
