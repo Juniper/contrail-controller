@@ -1428,6 +1428,8 @@ class VncApiServer(VncApiServerGen):
         apiConfig.operation = 'post'
         apiConfig.body = str(request.json)
         if uuid_in_req:
+            if uuid_in_req != str(uuid.UUID(uuid_in_req)):
+                bottle.abort(400, 'Invalid UUID format: ' + uuid_in_req)
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
                 bottle.abort(
