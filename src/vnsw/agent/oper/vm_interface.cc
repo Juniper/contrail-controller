@@ -2159,7 +2159,8 @@ bool VmInterface::IsL2Active() const {
 }
 
 bool VmInterface::WaitForTraffic() const {
-    if (IsActive() == false) {
+    // do not continue if the interface is inactive or if the VRF is deleted
+    if (IsActive() == false || vrf_->IsDeleted()) {
         return false;
     }
 
