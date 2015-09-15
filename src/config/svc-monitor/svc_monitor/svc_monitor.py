@@ -421,185 +421,18 @@ class SvcMonitor(object):
             self._create_service_instance(si)
 
     def sync_sm(self):
-        vn_set = set()
-        vmi_set = set()
-        iip_set = set()
-        for obj in LoadbalancerPoolSM.list_obj():
-            try:
-                lb_pool = LoadbalancerPoolSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for lb pool %s" %
-                    (obj['uuid']))
-                continue
-            if lb_pool.virtual_machine_interface:
-                vmi_set.add(lb_pool.virtual_machine_interface)
+        # Read and Sync all DBase
+        for cls in DBBaseSM.get_obj_type_map().values():
+            for obj in cls.list_obj():
+                try:
+                    cls.locate(obj['uuid'], obj)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for %s: %s" %
+                        (cls.obj_type, obj['uuid']))
+                    continue
 
-        for obj in LoadbalancerMemberSM.list_obj():
-            try:
-                lb_pool_member = LoadbalancerMemberSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for lb member %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in VirtualIpSM.list_obj():
-            try:
-                virtual_ip = VirtualIpSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for lb vip %s" %
-                    (obj['uuid']))
-                continue
-            if virtual_ip.virtual_machine_interface:
-                vmi_set.add(virtual_ip.virtual_machine_interface)
-
-        for obj in HealthMonitorSM.list_obj():
-            try:
-                lb_hm = HealthMonitorSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for lb healthmonitor %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in ServiceInstanceSM.list_obj():
-            try:
-                si = ServiceInstanceSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for service instance %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in ServiceTemplateSM.list_obj():
-            try:
-                st = ServiceTemplateSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for service template %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in VirtualNetworkSM.list_obj():
-            try:
-                vn = VirtualNetworkSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for virtual network %s" %
-                    (obj['uuid']))
-                continue
-            vmi_set |= vn.virtual_machine_interfaces
-
-        for obj in PhysicalInterfaceSM.list_obj():
-            try:
-                ifd = PhysicalInterfaceSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for physical interface %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in LogicalInterfaceSM.list_obj():
-            try:
-                ifl = LogicalInterfaceSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for logical interface %s" %
-                    (obj['uuid']))
-                continue
-            if ifl.virtual_machine_interface:
-                vmi_set.add(ifl.virtual_machine_interface)
-
-        for obj in PhysicalRouterSM.list_obj():
-            try:
-                pr = PhysicalRouterSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for physical router %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in VirtualRouterSM.list_obj():
-            try:
-                vr = VirtualRouterSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for virtual router %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in VirtualMachineInterfaceSM.list_obj():
-            try:
-                vmi = VirtualMachineInterfaceSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for virtual machine interface %s" %
-                    (obj['uuid']))
-                continue
-            if vmi.instance_ip:
-                iip_set.add(vmi.instance_ip)
-
-        for obj in InterfaceRouteTableSM.list_obj():
-            try:
-                irt = InterfaceRouteTableSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for interface route table %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in ProjectSM.list_obj():
-            try:
-                prj = ProjectSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for project %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in ServiceApplianceSetSM.list_obj():
-            try:
-                sas = ServiceApplianceSetSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for service appliance set %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in ServiceApplianceSM.list_obj():
-            try:
-                sa = ServiceApplianceSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for service appliance %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in DomainSM.list_obj():
-            try:
-                DomainSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for domain %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in InstanceIpSM.list_obj():
-            try:
-                InstanceIpSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for instance ip %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in FloatingIpSM.list_obj():
-            try:
-                FloatingIpSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for floating ip %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in SecurityGroupSM.list_obj():
-            try:
-                SecurityGroupSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for security group %s" %
-                    (obj['uuid']))
-                continue
-
-        for obj in VirtualMachineSM.list_obj():
-            try:
-                vm = VirtualMachineSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for virtual machine %s" %
-                    (obj['uuid']))
-                continue
+        # Link SI and VM
+        for vm in VirtualMachineSM.values():
             if vm.service_instance:
                 continue
             for vmi_id in vm.virtual_machine_interfaces:
@@ -608,17 +441,10 @@ class SvcMonitor(object):
                     continue
                 self.check_link_si_to_vm(vm, vmi)
 
-        for obj in LogicalRouterSM.list_obj():
-            try:
-                LogicalRouterSM.locate(obj['uuid'], obj)
-            except NoIdError:
-                self.logger.log_error("db entry missing for logical router %s" %
-                    (obj['uuid']))
-                continue
-
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
 
+        # Invoke the loadbalancer pools
         for lb_pool in LoadbalancerPoolSM.values():
             lb_pool.add()
 
@@ -627,7 +453,6 @@ class SvcMonitor(object):
 
         # Audit the SNAT instances
         self.snat_agent.audit_snat_instances()
-
     # end sync_sm
 
     # create service template

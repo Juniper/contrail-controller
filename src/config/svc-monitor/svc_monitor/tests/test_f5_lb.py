@@ -578,7 +578,8 @@ OpencontrailLoadbalancerDriver")
             folder='tenant', ip_address='10.1.1.2%0', name='test-lb-pool',
             no_checks=True, port=80, ratio=1)
         # Cleanup
-        config_db.LoadbalancerMemberSM.delete('member_0')
+        config_db.LoadbalancerMemberSM.delete('member_1')
+        config_db.LoadbalancerMemberSM.delete('member_2')
         config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
     # end test_update_pool_members_add_delete
