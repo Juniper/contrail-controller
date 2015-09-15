@@ -1199,6 +1199,36 @@ TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
     bgp_peer.reset();
 }
 
+TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntry *vrf1 = VrfGet("vrf1");
+    //Add a peer and keep a reference of same.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+
+    //Take VRF reference and delete VRF.
+    VrfEntry *vrf2 = new VrfEntry("vrf2", 0, agent_);
+    vrf2->MarkDelete();
+    vrf2->set_table_partition(vrf1->get_table_partition());
+
+    bgp_peer_ptr->route_walker()->set_type(ControllerRouteWalker::DELPEER);
+    bgp_peer_ptr->route_walker()->VrfWalkNotify(vrf1->get_table_partition(), vrf2);
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    bgp_peer.reset();
+    delete vrf2;
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();

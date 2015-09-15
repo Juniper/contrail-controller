@@ -36,6 +36,7 @@ public:
     void Cancel();
     //Callback for identifying walk complete of all route tables for given vrf
     void RouteWalkDoneForVrf(VrfEntry *vrf);
+    void set_type(Type type) {type_ = type;}
 
     //Override vrf notification
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
