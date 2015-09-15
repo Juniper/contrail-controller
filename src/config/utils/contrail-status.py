@@ -17,6 +17,8 @@ from sandesh_common.vns.constants import ServiceHttpPortMap, \
     NodeUVEImplementedServices, ServicesDefaultConfigurationFile, \
     BackupImplementedServices
 
+DPDK_NETLINK_TCP_PORT = 20914
+
 try:
     subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
     distribution = 'debian'
@@ -403,7 +405,12 @@ def main():
 
     vr = False
     lsmodout = subprocess.Popen('lsmod', stdout=subprocess.PIPE).communicate()[0]
+    lsofvrouter = (subprocess.Popen(['lsof', '-ni:{0}'.format(DPDK_NETLINK_TCP_PORT),
+                   '-sTCP:LISTEN'], stdout=subprocess.PIPE).communicate()[0])
     if lsmodout.find('vrouter') != -1:
+        vr = True
+
+    elif lsofvrouter:
         vr = True
 
     if agent:
