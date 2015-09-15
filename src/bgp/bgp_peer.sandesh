@@ -371,6 +371,7 @@ struct ShowMulticastTree {
 }
 
 struct ShowBgpServiceChainConfig {
+    5: string family;
     1: string routing_instance;
     2: string chain_address;
     3: list<string> prefixes;
@@ -391,7 +392,7 @@ struct ShowBgpInstanceConfig {
     3: list<string> import_target;
     4: list<string> export_target;
     9: string last_change_at;
-    5: ShowBgpServiceChainConfig service_chain_info;
+    5: list<ShowBgpServiceChainConfig> service_chain_infos;
     6: list<ShowBgpStaticRouteConfig> static_routes;
 }
 

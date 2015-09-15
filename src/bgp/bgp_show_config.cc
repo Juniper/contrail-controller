@@ -38,15 +38,18 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     sbic->set_export_target(export_list);
     sbic->set_last_change_at(UTCUsecToString(instance->last_change_at()));
 
-    if (!instance->service_chain_list().empty()) {
-        const ServiceChainConfig &sci = instance->service_chain_list().front();
+    vector<ShowBgpServiceChainConfig> sbscc_list;
+    BOOST_FOREACH(const ServiceChainConfig &sc_config,
+        instance->service_chain_list()) {
         ShowBgpServiceChainConfig sbscc;
-        sbscc.set_routing_instance(sci.routing_instance);
-        sbscc.set_service_instance(sci.service_instance);
-        sbscc.set_chain_address(sci.service_chain_address);
-        sbscc.set_prefixes(sci.prefix);
-        sbic->set_service_chain_info(sbscc);
+        sbscc.set_family(Address::FamilyToString(sc_config.family));
+        sbscc.set_routing_instance(sc_config.routing_instance);
+        sbscc.set_service_instance(sc_config.service_instance);
+        sbscc.set_chain_address(sc_config.service_chain_address);
+        sbscc.set_prefixes(sc_config.prefix);
+        sbscc_list.push_back(sbscc);
     }
+    sbic->set_service_chain_infos(sbscc_list);
 
     vector<ShowBgpStaticRouteConfig> static_route_list;
     BOOST_FOREACH(const StaticRouteConfig &rtconfig,

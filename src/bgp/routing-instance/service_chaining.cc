@@ -674,10 +674,10 @@ void ServiceChain<T>::FillServiceChainInfo(ShowServicechainInfo *info) const {
 }
 
 static void FillServiceChainConfigInfo(ShowServicechainInfo *info,
-    const ServiceChainConfig &sci) {
+    const ServiceChainConfig *config) {
     info->set_dest_virtual_network(
-        GetVNFromRoutingInstance(sci.routing_instance));
-    info->set_service_instance(sci.service_instance);
+        GetVNFromRoutingInstance(config->routing_instance));
+    info->set_service_instance(config->service_instance);
 }
 
 struct ServiceChainInfoComp {
@@ -898,18 +898,19 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             RoutingInstanceMgr *rim = server_->routing_instance_mgr();
             for (RoutingInstanceMgr::RoutingInstanceIterator rit = rim->begin();
                 rit != rim->end(); ++rit) {
-                if (rit->deleted()) continue;
+                if (rit->deleted())
+                    continue;
                 if (!req->search_string_.empty() &&
                     rit->name().find(req->search_string_) == string::npos) {
                     continue;
                 }
                 ShowServicechainInfo info;
                 const BgpInstanceConfig *rtc = rit->config();
-                if (!rtc->service_chain_list().empty()) {
+                const ServiceChainConfig *sc_config =
+                    rtc->service_chain_info(GetFamily());
+                if (sc_config) {
                     info.set_src_virtual_network(rit->virtual_network());
-                    const ServiceChainConfig &sci =
-                            rtc->service_chain_list().front();
-                    FillServiceChainConfigInfo(&info, sci);
+                    FillServiceChainConfigInfo(&info, sc_config);
                     ServiceChainT *chain = FindServiceChain(rit->name());
                     if (chain) {
                         if (chain->deleted())
@@ -1149,10 +1150,12 @@ bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
          it != pending_chains_.end(); it = next) {
         next = it;
         ++next;
-        RoutingInstance *rtinst = *it;
+        RoutingInstance *rtinstance = *it;
         pending_chains_.erase(it);
-        LocateServiceChain(rtinst,
-                           rtinst->config()->service_chain_list().front());
+        const ServiceChainConfig *sc_config =
+            rtinstance->config()->service_chain_info(GetFamily());
+        if (sc_config)
+            LocateServiceChain(rtinstance, *sc_config);
     }
     return true;
 }

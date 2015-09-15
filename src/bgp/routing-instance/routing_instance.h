@@ -53,6 +53,7 @@ public:
     RouteTableList &GetTables() { return vrf_tables_; }
     const RouteTableList &GetTables() const { return vrf_tables_; }
 
+    void ProcessServiceChainConfig();
     void ProcessConfig();
     void UpdateConfig(const BgpInstanceConfig *config);
     void ClearConfig();

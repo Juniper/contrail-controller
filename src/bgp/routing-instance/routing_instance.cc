@@ -459,6 +459,20 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
 RoutingInstance::~RoutingInstance() {
 }
 
+void RoutingInstance::ProcessServiceChainConfig() {
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        const ServiceChainConfig *sc_config =
+            config_->service_chain_info(family);
+        IServiceChainMgr *manager = server_->service_chain_mgr(family);
+        if (sc_config && !sc_config->routing_instance.empty()) {
+            manager->LocateServiceChain(this, *sc_config);
+        } else {
+            manager->StopServiceChain(this);
+        }
+    }
+}
+
 void RoutingInstance::ProcessConfig() {
     RoutingInstanceInfo info = GetDataCollection("");
 
@@ -509,14 +523,7 @@ void RoutingInstance::ProcessConfig() {
         VrfTableCreate(Address::EVPN, Address::EVPN);
     }
 
-    // Service Chain
-    if (!config_->service_chain_list().empty()) {
-        const ServiceChainConfig &cfg = config_->service_chain_list().front();
-        if (cfg.routing_instance != "") {
-            server_->service_chain_mgr(
-                Address::INET)->LocateServiceChain(this, cfg);
-        }
-    }
+    ProcessServiceChainConfig();
 
     if (static_route_mgr(Address::INET))
         static_route_mgr(Address::INET)->ProcessStaticRouteConfig();
@@ -593,14 +600,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
         add_export_rt.size() || remove_export_rt.size())
         ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
-    // Service chain update.
-    if (!config_->service_chain_list().empty()) {
-        const ServiceChainConfig &cfg = config_->service_chain_list().front();
-        server_->service_chain_mgr(
-            Address::INET)->LocateServiceChain(this, cfg);
-    } else {
-        server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
-    }
+    ProcessServiceChainConfig();
 
     // Static route update.
     if (static_route_mgr(Address::INET))

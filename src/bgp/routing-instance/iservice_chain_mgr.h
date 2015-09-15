@@ -17,7 +17,7 @@ public:
 
     virtual void StopServiceChain(RoutingInstance *src) = 0;
     virtual bool LocateServiceChain(RoutingInstance *rtinstance,
-        ServiceChainConfig const &config) = 0;
+        const ServiceChainConfig &config) = 0;
     virtual size_t PendingQueueSize() const = 0;
     virtual size_t ResolvedQueueSize() const = 0;
     virtual uint32_t GetDownServiceChainCount() const = 0;
