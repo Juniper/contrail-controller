@@ -41,6 +41,8 @@ class VirtualMachineManagerTest(unittest.TestCase):
         InstanceIpSM.reset()
         VirtualMachineInterfaceSM.reset()
         VirtualMachineSM.reset()
+        del InterfaceRouteTableSM._cassandra
+        del VirtualMachineSM._cassandra
 
     def test_virtual_machine_create(self):
         test_utils.create_test_project('fake-domain:fake-project')

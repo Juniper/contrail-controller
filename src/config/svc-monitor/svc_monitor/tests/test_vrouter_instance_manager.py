@@ -42,6 +42,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         VirtualMachineInterfaceSM.reset()
         del VirtualMachineInterfaceSM._cassandra
         VirtualMachineSM.reset()
+        del VirtualMachineSM._cassandra
         del VirtualRouterSM._cassandra
 
     def test_vrouter_instance_create(self):
