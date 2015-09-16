@@ -332,29 +332,34 @@ void KSyncSockTypeMap::VrfStatsDelete(int vrf_id) {
     }
 }
 
-void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
-                    uint64_t receives, uint64_t udp_tunnels, 
-                    uint64_t udp_mpls_tunnels, 
-                    uint64_t gre_mpls_tunnels, 
-                    int64_t ecmp_composites, 
-                    int64_t fabric_composites,
-                    int64_t l2_mcast_composites,
-                    int64_t l3_mcast_composites,
-                    int64_t multi_proto_composites,
-                    uint64_t encaps, uint64_t l2_encaps) {
+void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, const vr_vrf_stats_req &req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    vr_vrf_stats_req &vrf_stats = sock->vrf_stats_map[vrf_id];
-    vrf_stats.set_vsr_discards(discards);
-    vrf_stats.set_vsr_resolves(resolves);
-    vrf_stats.set_vsr_receives(receives);
-    vrf_stats.set_vsr_udp_tunnels(udp_tunnels);
-    vrf_stats.set_vsr_udp_mpls_tunnels(udp_mpls_tunnels);
-    vrf_stats.set_vsr_gre_mpls_tunnels(gre_mpls_tunnels);
-    vrf_stats.set_vsr_ecmp_composites(ecmp_composites);
-    vrf_stats.set_vsr_fabric_composites(fabric_composites);
-    vrf_stats.set_vsr_l2_mcast_composites(l2_mcast_composites);
-    vrf_stats.set_vsr_encaps(encaps);
-    vrf_stats.set_vsr_l2_encaps(l2_encaps);
+    vr_vrf_stats_req &r = sock->vrf_stats_map[vrf_id];
+    r.set_vsr_discards(req.get_vsr_discards());
+    r.set_vsr_resolves(req.get_vsr_resolves());
+    r.set_vsr_receives(req.get_vsr_receives());
+    r.set_vsr_udp_tunnels(req.get_vsr_udp_tunnels());
+    r.set_vsr_udp_mpls_tunnels(req.get_vsr_udp_mpls_tunnels());
+    r.set_vsr_gre_mpls_tunnels(req.get_vsr_gre_mpls_tunnels());
+    r.set_vsr_ecmp_composites(req.get_vsr_ecmp_composites());
+    r.set_vsr_l2_mcast_composites(req.get_vsr_l2_mcast_composites());
+    r.set_vsr_fabric_composites(req.get_vsr_fabric_composites());
+    r.set_vsr_encaps(req.get_vsr_encaps());
+    r.set_vsr_l2_encaps(req.get_vsr_l2_encaps());
+    r.set_vsr_gros(req.get_vsr_gros());
+    r.set_vsr_diags(req.get_vsr_diags());
+    r.set_vsr_encap_composites(req.get_vsr_encap_composites());
+    r.set_vsr_evpn_composites(req.get_vsr_evpn_composites());
+    r.set_vsr_vrf_translates(req.get_vsr_vrf_translates());
+    r.set_vsr_vxlan_tunnels(req.get_vsr_vxlan_tunnels());
+    r.set_vsr_arp_virtual_proxy(req.get_vsr_arp_virtual_proxy());
+    r.set_vsr_arp_virtual_stitch(req.get_vsr_arp_virtual_stitch());
+    r.set_vsr_arp_virtual_flood(req.get_vsr_arp_virtual_flood());
+    r.set_vsr_arp_physical_stitch(req.get_vsr_arp_physical_stitch());
+    r.set_vsr_arp_tor_proxy(req.get_vsr_arp_tor_proxy());
+    r.set_vsr_arp_physical_flood(req.get_vsr_arp_physical_flood());
+    r.set_vsr_l2_receives(req.get_vsr_l2_receives());
+    r.set_vsr_uuc_floods(req.get_vsr_uuc_floods());
 }
 
 void KSyncSockTypeMap::VxlanAdd(int id) {

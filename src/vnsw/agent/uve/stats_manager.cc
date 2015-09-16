@@ -69,11 +69,23 @@ void StatsManager::DelVrfStatsEntry(const VrfEntry *vrf) {
         stats->prev_gre_mpls_tunnels = stats->k_gre_mpls_tunnels;
         stats->prev_fabric_composites = stats->k_fabric_composites;
         stats->prev_l2_mcast_composites = stats->k_l2_mcast_composites;
-        stats->prev_l3_mcast_composites = stats->k_l3_mcast_composites;
-        stats->prev_multi_proto_composites = stats->k_multi_proto_composites;
         stats->prev_ecmp_composites = stats->k_ecmp_composites;
         stats->prev_l2_encaps = stats->k_l2_encaps;
         stats->prev_encaps = stats->k_encaps;
+        stats->prev_gros = stats->gros;
+        stats->prev_diags = stats->diags;
+        stats->prev_encap_composites = stats->encap_composites;
+        stats->prev_evpn_composites = stats->evpn_composites;
+        stats->prev_vrf_translates = stats->vrf_translates;
+        stats->prev_vxlan_tunnels = stats->vxlan_tunnels;
+        stats->prev_arp_virtual_proxy = stats->arp_virtual_proxy;
+        stats->prev_arp_virtual_stitch = stats->arp_virtual_stitch;
+        stats->prev_arp_virtual_flood = stats->arp_virtual_flood;
+        stats->prev_arp_physical_stitch = stats->arp_physical_stitch;
+        stats->prev_arp_tor_proxy = stats->arp_tor_proxy;
+        stats->prev_arp_physical_flood = stats->arp_physical_flood;
+        stats->prev_l2_receives = stats->l2_receives;
+        stats->prev_uuc_floods = stats->uuc_floods;
     }
 }
 
@@ -208,20 +220,27 @@ void StatsManager::InterfaceStats::GetDiffStats
 }
 
 StatsManager::VrfStats::VrfStats()
-    : name(""), discards(0), resolves(0), receives(0),
-    udp_tunnels(0), udp_mpls_tunnels(0), gre_mpls_tunnels(0),
-    ecmp_composites(0), l3_mcast_composites(0),
-    l2_mcast_composites(0), fabric_composites(0),
-    multi_proto_composites(0), encaps(0), l2_encaps(0),
-    prev_discards(0), prev_resolves(0), prev_receives(0),
-    prev_udp_tunnels(0), prev_udp_mpls_tunnels(0),
-    prev_gre_mpls_tunnels(0), prev_encaps(0),
-    prev_ecmp_composites(0), prev_l3_mcast_composites(0),
-    prev_l2_mcast_composites(0), prev_fabric_composites(0),
-    prev_multi_proto_composites(0), prev_l2_encaps(0),
-    k_discards(0), k_resolves(0), k_receives(0),
-    k_gre_mpls_tunnels(0), k_encaps(0),
-    k_ecmp_composites(0), k_l3_mcast_composites(0),
-    k_l2_mcast_composites(0), k_fabric_composites(0),
-    k_multi_proto_composites(0), k_l2_encaps(0) {
+    : name(""), discards(0), resolves(0), receives(0), udp_tunnels(0),
+    udp_mpls_tunnels(0), gre_mpls_tunnels(0), ecmp_composites(0),
+    l2_mcast_composites(0), fabric_composites(0), encaps(0), l2_encaps(0),
+    gros(0), diags(0), encap_composites(0), evpn_composites(0),
+    vrf_translates(0), vxlan_tunnels(0), arp_virtual_proxy(0),
+    arp_virtual_stitch(0), arp_virtual_flood(0), arp_physical_stitch(0),
+    arp_tor_proxy(0), arp_physical_flood(0), l2_receives(0), uuc_floods(0),
+    prev_discards(0), prev_resolves(0), prev_receives(0), prev_udp_tunnels(0),
+    prev_udp_mpls_tunnels(0), prev_gre_mpls_tunnels(0), prev_ecmp_composites(0),
+    prev_l2_mcast_composites(0), prev_fabric_composites(0), prev_encaps(0),
+    prev_l2_encaps(0), prev_gros(0), prev_diags(0), prev_encap_composites(0),
+    prev_evpn_composites(0), prev_vrf_translates(0), prev_vxlan_tunnels(0),
+    prev_arp_virtual_proxy(0), prev_arp_virtual_stitch(0),
+    prev_arp_virtual_flood(0), prev_arp_physical_stitch(0),
+    prev_arp_tor_proxy(0), prev_arp_physical_flood(0), prev_l2_receives(0),
+    prev_uuc_floods(0), k_discards(0), k_resolves(0), k_receives(0),
+    k_udp_tunnels(0), k_udp_mpls_tunnels(0), k_gre_mpls_tunnels(0),
+    k_ecmp_composites(0), k_l2_mcast_composites(0), k_fabric_composites(0),
+    k_encaps(0), k_l2_encaps(0), k_gros(0), k_diags(0), k_encap_composites(0),
+    k_evpn_composites(0), k_vrf_translates(0), k_vxlan_tunnels(0),
+    k_arp_virtual_proxy(0), k_arp_virtual_stitch(0), k_arp_virtual_flood(0),
+    k_arp_physical_stitch(0), k_arp_tor_proxy(0), k_arp_physical_flood(0),
+    k_l2_receives(0), k_uuc_floods(0) {
 }
