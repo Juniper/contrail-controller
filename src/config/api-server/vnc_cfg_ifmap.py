@@ -1169,14 +1169,15 @@ class VncZkClient(object):
     # end __init__
 
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
-                                addr_from_start, should_persist):
+                                addr_from_start, should_persist,
+                                start_subnet, size):
         # TODO handle subnet resizing change, ignore for now
         if subnet not in self._subnet_allocators:
             if addr_from_start is None:
                 addr_from_start = False
             self._subnet_allocators[subnet] = IndexAllocator(
                 self._zk_client, self._subnet_path+'/'+subnet+'/',
-                size=0, start_idx=0, reverse=not addr_from_start,
+                size=size, start_idx=start_subnet, reverse=not addr_from_start,
                 alloc_list=subnet_alloc_list,
                 max_alloc=self._MAX_SUBNET_ADDR_ALLOC)
     # end create_subnet_allocator
@@ -1718,10 +1719,11 @@ class VncDbClient(object):
     # end subnet_free_req
 
     def subnet_create_allocator(self, subnet, subnet_alloc_list,
-                                addr_from_start, should_persist):
+                                addr_from_start, should_persist,
+                                start_subnet, size):
         return self._zk_db.create_subnet_allocator(subnet,
                                subnet_alloc_list, addr_from_start,
-                               should_persist)
+                               should_persist, start_subnet, size)
     # end subnet_create_allocator
 
     def subnet_delete_allocator(self, subnet):

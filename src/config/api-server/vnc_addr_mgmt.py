@@ -246,7 +246,9 @@ class Subnet(object):
                 exclude.append(service_node_address)
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
                                               addr_from_start,
-                                              should_persist=should_persist)
+                                              should_persist,
+                                              network.first,
+                                              network.size)
 
         # reserve excluded addresses
         for addr in exclude:
