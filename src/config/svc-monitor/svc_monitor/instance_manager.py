@@ -141,8 +141,11 @@ class InstanceManager(object):
     def link_si_to_vm(self, si, st, instance_index, vm_uuid):
         vm_obj = VirtualMachine()
         vm_obj.uuid = vm_uuid
-        vm_obj.fq_name = [vm_uuid]
         instance_name = self._get_instance_name(si, instance_index)
+        if st.virtualization_type == 'virtual-machine':
+            vm_obj.fq_name = [vm_uuid]
+        else:
+            vm_obj.fq_name = [instance_name]
         vm_obj.set_display_name(instance_name + '__' + st.virtualization_type)
         si_obj = ServiceInstance()
         si_obj.uuid = si.uuid
