@@ -13,6 +13,7 @@ import time
 import platform
 import functools
 import __main__ as main
+import subprocess
 
 import gen.resource_common
 import gen.vnc_api_client_gen
@@ -88,6 +89,10 @@ class VncApi(object):
     _DEFAULT_AUTHN_TENANT = 'default-tenant'
     _DEFAULT_DOMAIN_ID = "default"
 
+    #KS SSL cert bundle
+    _DEFAULT_INSECURE=False
+    _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
+
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
     _DEFAULT_BASE_URL = "/"
@@ -150,6 +155,22 @@ class VncApi(object):
             self._tenant_name = tenant_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
                           self._DEFAULT_AUTHN_TENANT)
+
+            # keystone SSL support
+            self._insecure = _read_cfg(cfg_parser, 'auth', 'insecure',
+                          self._DEFAULT_INSECURE)
+            self._certfile=_read_cfg(cfg_parser,'auth','certfile','')
+            self._keyfile=_read_cfg(cfg_parser,'auth','keyfile','')
+            self._cafile=_read_cfg(cfg_parser,'auth','cafile','')
+
+            self._kscertbundle=''
+            self._certok='NOK'
+            if self._certfile and self._keyfile and self._cafile:
+               certs=[self._certfile,self._keyfile,self._cafile]
+               self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
+               cmd='openssl verify %s | grep OK' % self._kscertbundle
+               self._certok=subprocess.check_output(cmd, shell=True)
+
             if 'v2' in self._authn_url:
                 self._authn_body = \
                     '{"auth":{"passwordCredentials":{' + \
@@ -396,8 +417,15 @@ class VncApi(object):
                                   self._authn_url)
         new_headers = headers or {}
         try:
-            response = requests.post(url, data=self._authn_body,
-                                 headers=self._DEFAULT_AUTHN_HEADERS)
+           if self._insecure:
+                response = requests.post(url, data=self._authn_body,
+                                     headers=self._DEFAULT_AUTHN_HEADERS, verify=False)
+           elif not self._insecure and self._certok == 'OK':
+                response = requests.post(url, data=self._authn_body,
+                                         headers=self._DEFAULT_AUTHN_HEADERS, verify=self._kscertbundle)
+           else:
+                response = requests.post(url, data=self._authn_body,
+                                         headers=self._DEFAULT_AUTHN_HEADERS)
         except Exception as e:
             raise RuntimeError('Unable to connect to keystone for authentication. Verify keystone server details')
 

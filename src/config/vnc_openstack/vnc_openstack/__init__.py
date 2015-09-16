@@ -32,10 +32,14 @@ from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
 import neutron_plugin_interface as npi
+import subprocess
 
 Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
+
+#Keystone SSL support
+_DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 
 DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
 
@@ -55,6 +59,29 @@ def fill_keystone_opts(obj, conf_sections):
         obj._insecure = conf_sections.getboolean('KEYSTONE', 'insecure')
     except ConfigParser.NoOptionError:
         obj._insecure = True
+
+    try:
+        obj._certfile = conf_sections.get('KEYSTONE', 'certfile')
+    except ConfigParser.NoOptionError:
+        obj._certfile = ''
+
+    try:
+        obj._keyfile = conf_sections.get('KEYSTONE', 'keyfile')
+    except ConfigParser.NoOptionError:
+        obj._keyfile = ''
+
+    try:
+        obj._cafile= conf_sections.get('KEYSTONE', 'cafile')
+    except ConfigParser.NoOptionError:
+        obj._cafile = ''
+
+    obj._kscertbundle=''
+    obj._certok='NOK'
+    if obj._certfile and obj._keyfile and obj._cafile:
+       certs=[obj._certfile,obj._keyfile,obj._cafile]
+       obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+       cmd='openssl verify %s | grep OK' % obj._kscertbundle
+       obj._certok=subprocess.check_output(cmd, shell=True)
 
     try:
         obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
@@ -233,15 +260,34 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def _ksv2_get_conn(self):
         if not self._ks:
             if self._admin_token:
-                self._ks = keystone.Client(token=self._admin_token,
-                                           endpoint=self._auth_url,
-                                           insecure=self._insecure)
+                if self._insecure:
+                       self._ks = keystone.Client(token=self._admin_token,
+                                                  endpoint=self._auth_url,
+                                                  insecure=self._insecure)
+                elif not self._insecure and self._certok == 'OK':
+                       self._ks =  keystone.Client(token=self._admin_token,
+                                                   endpoint=self._auth_url,
+                                                   cacert=self._kscertbundle)
+                else:
+                       self._ks =  keystone.Client(token=self._admin_token,
+                                                   endpoint=self._auth_url)
             else:
-                self._ks = keystone.Client(username=self._auth_user,
-                                           password=self._auth_passwd,
-                                           tenant_name=self._admin_tenant,
-                                           auth_url=self._auth_url,
-                                           insecure=self._insecure)
+                if self._insecure:
+                     self._ks = keystone.Client(username=self._auth_user,
+                                              password=self._auth_passwd,
+                                              tenant_name=self._admin_tenant,
+                                              auth_url=self._auth_url,
+                                              insecure=self._insecure)
+                elif not self._insecure and self._certok == 'OK':
+                     self._ks =  keystone.Client(username=self._auth_user,
+                                                password=self._auth_passwd,
+                                                tenant_name=self._admin_tenant,
+                                                auth_url=self._auth_url,
+                                                cacert=self._kscertbundle)
+                else:
+                     self._ks =  keystone.Client(username=self._auth_user,
+                                                password=self._auth_passwd,
+                                                tenant_name=self._admin_tenant)
     # end _ksv2_get_conn
 
     def _ksv2_projects_list(self):
