@@ -24,7 +24,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 
 # Open port for access to API server for trouble shooting
-
 class LocalAuth(object):
 
     def __init__(self, app, conf_info):
@@ -145,6 +144,10 @@ class AuthServiceKeystone(object):
             'admin_tenant_name': args.admin_tenant_name,
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
+            'insecure':args.insecure,
+            'certfile':args.certfile,
+            'keyfile':args.keyfile,
+            'cafile':args.cafile,
         }
         self._server_mgr = server_mgr
         self._auth_method = args.auth
