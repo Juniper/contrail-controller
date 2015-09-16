@@ -31,6 +31,8 @@ systemlog sandesh CleanupInterest {
 systemlog sandesh IFMapServerClientRegUnreg {
     1: string start_msg
     2: string client_name
+    3: "index"
+    4: u32 client_index
 }
 
 systemlog sandesh IFMapTblNotFound {
@@ -229,6 +231,8 @@ trace sandesh CleanupInterestTrace {
 trace sandesh IFMapServerClientRegUnregTrace {
     1: string start_msg
     2: string client_name
+    3: "index"
+    4: u32 client_index
 }
 
 trace sandesh IFMapTblNotFoundTrace {
