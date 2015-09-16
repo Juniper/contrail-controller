@@ -2,22 +2,63 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+struct UveTunnelNhStats {
+    1:  i64                 udp_tunnels; //used for mirroring
+    2:  i64                 mpls_over_udp_tunnels;
+    3:  i64                 mpls_over_gre_tunnels;
+    4:  i64                 vxlan_tunnels;
+}
+
+struct UveMulticastNhStats {
+    1:  i64                 source_replication_forwards; //evpn_composites
+    2:  i64                 edge_replication_forwards; //fabric_composites
+    3:  i64                 local_vm_l3_forwards; //encap_composites
+    4:  i64                 total_multicast_forwards; //l2_mcast_composites
+}
+
+struct UveNhStats {
+    1:  i64                    discards;
+    2:  i64                    resolves;
+    3:  i64                    l3_receives;
+    4:  i64                    l2_receives;
+    5:  i64                    local_vm_l3_forwards; //encaps
+    6:  i64                    local_vm_l2_forwards; //l2_encaps
+    7:  i64                    vrf_translates;
+    8:  i64                    ecmp_forwards; //ecmp_composites
+    9:  UveTunnelNhStats       tunnel_nh_stats;
+    10: UveMulticastNhStats    comp_nh_stats;
+}
+
+struct UveOffloadStats {
+    1: i64                 gro;
+}
+
+struct UveArpResponses {
+    1: i64 proxies;
+    2: i64 stitches;
+    3: i64 floods;
+}
+
+struct UveVmiStats {
+    1: UveArpResponses stats;
+}
+
+struct UvePhyIntfStats {
+    1: UveArpResponses stats;
+}
+
+struct UveArpStats {
+    1: UveVmiStats             from_vm_interface;
+    2: UvePhyIntfStats         from_physical_interface;
+}
 
 struct UveVrfStats {
-    1:  string              name (aggtype="listkey")
-    2:  i64                 discards;
-    3:  i64                 resolves;
-    4:  i64                 receives;
-    5:  i64                 udp_tunnels;
-    6:  i64                 udp_mpls_tunnels;
-    7:  i64                 gre_mpls_tunnels;
-    8:  i64                 fabric_composites;
-    9:  i64                 l2_mcast_composites;
-    10:  i64                 l3_mcast_composites;
-    11:  i64                 ecmp_composites;
-    12:  i64                 multi_proto_composites;
-    13:  i64                 encaps;
-    14:  i64                 l2_encaps;
+    1:  string                 name (aggtype="listkey")
+    2:  i64                    diag_packet_count;
+    3:  i64                    unknown_unicast_floods;
+    4:  UveArpStats            arp_packet_counts;
+    5:  UveOffloadStats        offload_packet_counts;
+    6:  UveNhStats             nh_packet_counts;
 }
 
 struct InterVnStats {
@@ -28,6 +69,7 @@ struct InterVnStats {
     5: u64                                  out_tpkts;
     6: u64                                  out_bytes;    
 }
+
 struct UveInterVnStats {
     1: string                               other_vn (aggtype="listkey")
     2: i64                                  tpkts;

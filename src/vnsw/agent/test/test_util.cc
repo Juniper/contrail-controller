@@ -774,12 +774,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
 }
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
-                   uint64_t discards, uint64_t resolves, uint64_t receives,
-                   uint64_t udp_tunnels, uint64_t udp_mpls_tunnels,
-                   uint64_t gre_mpls_tunnels, uint64_t ecmp_composites,
-                   uint64_t fabric_composites, uint64_t l2_mcast_composites,
-                   uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
-                   uint64_t encaps, uint64_t l2_encaps) {
+                   const vr_vrf_stats_req &req) {
     AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::VrfStats *st = sm->GetVrfStats(vrf_id);
@@ -795,38 +790,37 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
         return true;
     }
 
-    if (st->discards == discards && st->resolves == resolves &&
-        st->receives == receives && st->udp_tunnels == udp_tunnels &&
-        st->udp_mpls_tunnels == udp_mpls_tunnels &&
-        st->gre_mpls_tunnels == gre_mpls_tunnels &&
-        st->ecmp_composites == ecmp_composites &&
-        //st->l3_mcast_composites == l3_mcast_composites &&
-        st->l2_mcast_composites == l2_mcast_composites &&
-        st->fabric_composites == fabric_composites &&
-        //st->multi_proto_composites == multi_proto_composites &&
-        st->l2_encaps == l2_encaps && st->encaps == encaps) {
+    if (st->discards == (uint64_t)req.get_vsr_discards() &&
+        st->resolves == (uint64_t)req.get_vsr_resolves() &&
+        st->receives == (uint64_t)req.get_vsr_receives() &&
+        st->udp_tunnels == (uint64_t)req.get_vsr_udp_tunnels() &&
+        st->udp_mpls_tunnels == (uint64_t)req.get_vsr_udp_mpls_tunnels() &&
+        st->gre_mpls_tunnels == (uint64_t)req.get_vsr_gre_mpls_tunnels() &&
+        st->ecmp_composites == (uint64_t)req.get_vsr_ecmp_composites() &&
+        st->l2_mcast_composites == (uint64_t)req.get_vsr_l2_mcast_composites() &&
+        st->fabric_composites == (uint64_t)req.get_vsr_fabric_composites() &&
+        st->l2_encaps == (uint64_t)req.get_vsr_l2_encaps() &&
+        st->encaps == (uint64_t)req.get_vsr_encaps() &&
+        st->gros == (uint64_t)req.get_vsr_gros() &&
+        st->diags == (uint64_t)req.get_vsr_diags() &&
+        st->encap_composites == (uint64_t)req.get_vsr_encap_composites() &&
+        st->evpn_composites == (uint64_t)req.get_vsr_evpn_composites() &&
+        st->vrf_translates == (uint64_t)req.get_vsr_vrf_translates() &&
+        st->vxlan_tunnels == (uint64_t)req.get_vsr_vxlan_tunnels() &&
+        st->arp_virtual_proxy == (uint64_t)req.get_vsr_arp_virtual_proxy() &&
+        st->arp_virtual_stitch == (uint64_t)req.get_vsr_arp_virtual_stitch() &&
+        st->arp_virtual_flood == (uint64_t)req.get_vsr_arp_virtual_flood() &&
+        st->arp_physical_stitch == (uint64_t)req.get_vsr_arp_physical_stitch() &&
+        st->arp_tor_proxy == (uint64_t)req.get_vsr_arp_tor_proxy() &&
+        st->arp_physical_flood == (uint64_t)req.get_vsr_arp_physical_flood() &&
+        st->l2_receives == (uint64_t)req.get_vsr_l2_receives() &&
+        st->uuc_floods == (uint64_t)req.get_vsr_uuc_floods()) {
         return true;
     }
-    LOG(DEBUG, "discards " << st->discards << " resolves " << st->resolves <<
-        " receives " << st->receives << " udp tunnels " << st->udp_tunnels <<
-        " udp mpls tunnels " << st->udp_mpls_tunnels <<
-        " udp gre tunnels " << st->gre_mpls_tunnels <<
-        " ecmp composites " << st->ecmp_composites <<
-        " fabric composites " << st->fabric_composites <<
-        " l2 composites " << st->l2_mcast_composites <<
-        " l3 composites " << st->l3_mcast_composites <<
-        " multi proto composites " << st->multi_proto_composites <<
-        " encaps " << st->encaps << " l2 encals " << st->l2_encaps);
     return false;
 }
 
-bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
-                   uint64_t receives, uint64_t udp_tunnels,
-                   uint64_t udp_mpls_tunnels, uint64_t gre_mpls_tunnels,
-                   uint64_t ecmp_composites, uint64_t fabric_composites,
-                   uint64_t l2_mcast_composites, uint64_t l3_mcast_composites,
-                   uint64_t multi_proto_composites, uint64_t encaps,
-                   uint64_t l2_encaps) {
+bool VrfStatsMatchPrev(int vrf_id, const vr_vrf_stats_req &req) {
     AgentUveStats *uve = static_cast<AgentUveStats *>(Agent::GetInstance()->uve());
     StatsManager *sm  = uve->stats_manager();
     const StatsManager::VrfStats *st = sm->GetVrfStats(vrf_id);
@@ -834,28 +828,40 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
         return false;
     }
 
-    if (st->prev_discards == discards && st->prev_resolves == resolves &&
-        st->prev_receives == receives && st->prev_udp_tunnels == udp_tunnels &&
-        st->prev_udp_mpls_tunnels == udp_mpls_tunnels &&
-        st->prev_gre_mpls_tunnels == gre_mpls_tunnels &&
-        st->prev_ecmp_composites == ecmp_composites &&
-        //st->prev_l3_mcast_composites == l3_mcast_composites &&
-        st->prev_l2_mcast_composites == l2_mcast_composites &&
-        st->prev_fabric_composites == fabric_composites &&
-        //st->prev_multi_proto_composites == multi_proto_composites &&
-        st->prev_l2_encaps == l2_encaps && st->prev_encaps == encaps) {
+    if (st->prev_discards == (uint64_t)req.get_vsr_discards() &&
+        st->prev_resolves == (uint64_t)req.get_vsr_resolves() &&
+        st->prev_receives == (uint64_t)req.get_vsr_receives() &&
+        st->prev_udp_tunnels == (uint64_t)req.get_vsr_udp_tunnels() &&
+        st->prev_udp_mpls_tunnels == (uint64_t)req.get_vsr_udp_mpls_tunnels() &&
+        st->prev_gre_mpls_tunnels == (uint64_t)req.get_vsr_gre_mpls_tunnels() &&
+        st->prev_ecmp_composites == (uint64_t)req.get_vsr_ecmp_composites() &&
+        st->prev_l2_mcast_composites ==
+            (uint64_t)req.get_vsr_l2_mcast_composites() &&
+        st->prev_fabric_composites ==
+            (uint64_t)req.get_vsr_fabric_composites() &&
+        st->prev_l2_encaps == (uint64_t)req.get_vsr_l2_encaps() &&
+        st->prev_encaps == (uint64_t)req.get_vsr_encaps() &&
+        st->prev_gros == (uint64_t)req.get_vsr_gros() &&
+        st->prev_diags == (uint64_t)req.get_vsr_diags() &&
+        st->prev_encap_composites == (uint64_t)req.get_vsr_encap_composites() &&
+        st->prev_evpn_composites == (uint64_t)req.get_vsr_evpn_composites() &&
+        st->prev_vrf_translates == (uint64_t)req.get_vsr_vrf_translates() &&
+        st->prev_vxlan_tunnels == (uint64_t)req.get_vsr_vxlan_tunnels() &&
+        st->prev_arp_virtual_proxy ==
+            (uint64_t)req.get_vsr_arp_virtual_proxy() &&
+        st->prev_arp_virtual_stitch ==
+            (uint64_t)req.get_vsr_arp_virtual_stitch() &&
+        st->prev_arp_virtual_flood ==
+            (uint64_t)req.get_vsr_arp_virtual_flood() &&
+        st->prev_arp_physical_stitch ==
+            (uint64_t)req.get_vsr_arp_physical_stitch() &&
+        st->prev_arp_tor_proxy == (uint64_t)req.get_vsr_arp_tor_proxy() &&
+        st->prev_arp_physical_flood ==
+            (uint64_t)req.get_vsr_arp_physical_flood() &&
+        st->prev_l2_receives == (uint64_t)req.get_vsr_l2_receives() &&
+        st->prev_uuc_floods == (uint64_t)req.get_vsr_uuc_floods()) {
         return true;
     }
-    LOG(DEBUG, "discards " << st->prev_discards << " resolves " << st->prev_resolves <<
-        " receives " << st->prev_receives << " udp tunnels " << st->prev_udp_tunnels <<
-        " udp mpls tunnels " << st->prev_udp_mpls_tunnels <<
-        " udp gre tunnels " << st->prev_gre_mpls_tunnels <<
-        " ecmp composites " << st->prev_ecmp_composites <<
-        " fabric composites " << st->prev_fabric_composites <<
-        " l2 composites " << st->prev_l2_mcast_composites <<
-        " l3 composites " << st->prev_l3_mcast_composites <<
-        " multi proto composites " << st->prev_multi_proto_composites <<
-        " encaps " << st->prev_encaps << " l2 encals " << st->prev_l2_encaps);
     return false;
 }
 
