@@ -338,7 +338,8 @@ bool VrfEntry::DeleteTimeout() {
     str << " Bridge routes: " << rt_table_db_[Agent::BRIDGE]->Size();
     str << "Unicast v6 routes: " << rt_table_db_[Agent::INET6_UNICAST]->Size();
     str << " Reference: " << GetRefCount();
-    OPER_TRACE(Vrf, "VRF delete failed, " + str.str(), name_);
+    OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
+                     "VRF delete failed, " + str.str(), name_);
     assert(0);
     return false;
 }

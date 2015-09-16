@@ -107,7 +107,7 @@ KSyncEntry *KSyncVxlanPortEntry::UnresolvedReference() {
 }
 
 KSyncVxlanPortObject::KSyncVxlanPortObject(KSyncVxlan *ksync) :
-    KSyncDBObject(), ksync_(ksync) {
+    KSyncDBObject("KSyncVxlanPortObject"), ksync_(ksync) {
 }
 
 void KSyncVxlanPortObject::RegisterDBClients() {

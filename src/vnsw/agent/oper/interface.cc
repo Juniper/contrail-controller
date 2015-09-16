@@ -132,7 +132,7 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
 
     intf->Add();
 
-    intf->SendTrace(Interface::ADD);
+    intf->SendTrace(this, Interface::ADD);
     return intf;
 }
 
@@ -210,7 +210,7 @@ bool InterfaceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
 
     if (intf->Delete(req)) {
-        intf->SendTrace(Interface::DELETE);
+        intf->SendTrace(this, Interface::DELETE);
         ret = true;
     }
     return ret;
@@ -1058,7 +1058,7 @@ AgentSandeshPtr InterfaceTable::GetAgentSandesh(const AgentSandeshArguments *arg
                               args->GetString("l2_active")));
 }
 
-void Interface::SendTrace(Trace event) const {
+void Interface::SendTrace(const AgentDBTable *table, Trace event) const {
     InterfaceInfo intf_info;
     intf_info.set_name(name_);
     intf_info.set_index(id_);
@@ -1074,7 +1074,9 @@ void Interface::SendTrace(Trace event) const {
         intf_info.set_op("Unknown");
         break;
     }
-    OPER_TRACE(Interface, intf_info);
+    OPER_TRACE_ENTRY(Interface,
+                     table,
+                     intf_info);
 }
 
 bool Interface::ip_active(Address::Family family) const {

@@ -33,7 +33,8 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    void SendObjectLog(AgentLogEvent::type event) const;
+    void SendObjectLog(const AgentDBTable *table,
+                       AgentLogEvent::type event) const;
 
 private:
     uint32_t vxlan_id_;

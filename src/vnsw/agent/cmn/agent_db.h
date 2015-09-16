@@ -143,13 +143,15 @@ class AgentDBTable : public DBTable {
 public:
     static const int kPartitionCount = 1;
     AgentDBTable(DB *db, const std::string &name) : 
-        DBTable(db, name), ref_listener_id_(-1), agent_(NULL) {
+        DBTable(db, name), ref_listener_id_(-1), agent_(NULL),
+        OperDBTraceBuf(SandeshTraceBufferCreate(("Oper " + name), 5000)) {
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
                                                 this, _1, _2));
     };
 
     AgentDBTable(DB *db, const std::string &name, bool del_on_zero_refcount) : 
-        DBTable(db, name), ref_listener_id_(-1) , agent_(NULL){
+        DBTable(db, name), ref_listener_id_(-1) , agent_(NULL),
+        OperDBTraceBuf(SandeshTraceBufferCreate(("Oper " + name), 5000)) {
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
                                                 this, _1, _2));
     };
@@ -215,13 +217,26 @@ public:
     Agent *agent() const { return agent_; }
 
     void Flush(DBTableWalker *walker);
+    SandeshTraceBufferPtr GetOperDBTraceBuf() const {return OperDBTraceBuf;}
 private:
     AgentDBEntry *Find(const DBEntry *key);
     AgentDBEntry *Find(const DBRequestKey *key);
 
     DBTableBase::ListenerId ref_listener_id_;
     Agent *agent_;
+    SandeshTraceBufferPtr OperDBTraceBuf;
     DISALLOW_COPY_AND_ASSIGN(AgentDBTable);
 };
+
+#define OPER_TRACE(obj, ...)\
+do {\
+   Oper##obj::TraceMsg(GetOperDBTraceBuf(), __FILE__, __LINE__, __VA_ARGS__);\
+} while (false);\
+
+#define OPER_TRACE_ENTRY(obj, table, ...)\
+do {\
+   Oper##obj::TraceMsg(table->GetOperDBTraceBuf(),\
+                       __FILE__, __LINE__, __VA_ARGS__);\
+} while (false);\
 
 #endif // vnsw_agent_db_hpp

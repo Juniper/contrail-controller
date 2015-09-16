@@ -81,7 +81,7 @@ public:
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
     virtual bool Delete(const DBRequest *req) { return true; }
     virtual void Add() { }
-    virtual void SendTrace(Trace event) const;
+    virtual void SendTrace(const AgentDBTable *table, Trace event) const;
     virtual void GetOsParams(Agent *agent);
     void SetPciIndex(Agent *agent);
 
