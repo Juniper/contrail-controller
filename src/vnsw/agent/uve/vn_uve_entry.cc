@@ -259,6 +259,56 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
     return changed;
 }
 
+void VnUveEntry::BuildArpStats(const StatsManager::VrfStats *s,
+                               UveVrfStats &vrf_stats) const {
+    UveArpStats as;
+
+    UveVmiStats vs;
+    UveArpResponses ar1;
+    ar1.set_proxies(s->arp_virtual_proxy);
+    ar1.set_stitches(s->arp_virtual_stitch);
+    ar1.set_floods(s->arp_virtual_flood);
+    vs.set_stats(ar1);
+    as.set_from_vm_interface(vs);
+
+    UvePhyIntfStats ps;
+    UveArpResponses ar2;
+    ar2.set_proxies(s->arp_tor_proxy);
+    ar2.set_stitches(s->arp_physical_stitch);
+    ar2.set_floods(s->arp_physical_flood);
+    ps.set_stats(ar2);
+    as.set_from_physical_interface(ps);
+
+    vrf_stats.set_arp_packet_counts(as);
+}
+
+void VnUveEntry::BuildNhStats(const StatsManager::VrfStats *s,
+                              UveVrfStats &vrf_stats) const {
+    UveNhStats nhs;
+    nhs.set_discards(s->discards);
+    nhs.set_resolves(s->resolves);
+    nhs.set_l3_receives(s->receives);
+    nhs.set_l2_receives(s->l2_receives);
+    nhs.set_local_vm_l3_forwards(s->encaps);
+    nhs.set_local_vm_l2_forwards(s->l2_encaps);
+    nhs.set_vrf_translates(s->vrf_translates);
+    nhs.set_ecmp_forwards(s->ecmp_composites);
+
+    UveTunnelNhStats tns;
+    tns.set_udp_encaps(s->udp_tunnels);
+    tns.set_mpls_over_udp_encaps(s->udp_mpls_tunnels);
+    tns.set_mpls_over_gre_encaps(s->gre_mpls_tunnels);
+    tns.set_vxlan_encaps(s->vxlan_tunnels);
+    nhs.set_tunnel_nh_stats(tns);
+
+    UveMulticastNhStats mns;
+    mns.set_source_replication_forwards(s->evpn_composites);
+    mns.set_edge_replication_forwards(s->fabric_composites);
+    mns.set_local_vm_l3_forwards(s->encap_composites);
+    mns.set_total_multicast_forwards(s->l2_mcast_composites);
+    nhs.set_comp_nh_stats(mns);
+}
+
 bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
     UveVrfStats vrf_stats;
@@ -268,19 +318,17 @@ bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
     StatsManager::VrfStats *s = uve->stats_manager()->GetVrfStats(vrf_id);
     if (s != NULL) {
         vrf_stats.set_name(s->name);
-        vrf_stats.set_discards(s->discards);
-        vrf_stats.set_resolves(s->resolves);
-        vrf_stats.set_receives(s->receives);
-        vrf_stats.set_udp_tunnels(s->udp_tunnels);
-        vrf_stats.set_udp_mpls_tunnels(s->udp_mpls_tunnels);
-        vrf_stats.set_gre_mpls_tunnels(s->gre_mpls_tunnels);
-        vrf_stats.set_ecmp_composites(s->ecmp_composites);
-        vrf_stats.set_l2_mcast_composites(s->l2_mcast_composites);
-        vrf_stats.set_l3_mcast_composites(s->l3_mcast_composites);
-        vrf_stats.set_multi_proto_composites(s->multi_proto_composites);
-        vrf_stats.set_fabric_composites(s->fabric_composites);
-        vrf_stats.set_encaps(s->encaps);
-        vrf_stats.set_l2_encaps(s->l2_encaps);
+        vrf_stats.set_diag_packet_count(s->diags);
+        vrf_stats.set_unknown_unicast_floods(s->uuc_floods);
+
+        BuildArpStats(s, vrf_stats);
+
+        UveOffloadStats os;
+        os.set_gro(s->gros);
+        vrf_stats.set_offload_packet_counts(os);
+
+        BuildNhStats(s, vrf_stats);
+
         vlist.push_back(vrf_stats);
         if (UveVnVrfStatsChanged(vlist)) {
             s_vn.set_vrf_stats_list(vlist);

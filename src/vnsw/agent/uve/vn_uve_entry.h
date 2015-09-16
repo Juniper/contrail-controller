@@ -9,6 +9,7 @@
 #include "pkt/flow_proto.h"
 #include "pkt/flow_table.h"
 #include <uve/vn_uve_entry_base.h>
+#include <uve/stats_manager.h>
 
 //The class that defines data-structures to store VirtualNetwork information
 //required for sending VirtualNetwork UVE.
@@ -89,6 +90,10 @@ private:
     bool UpdateVrfStats(const VnEntry *vn, UveVirtualNetworkAgent &s_vn);
     bool UveVnInFlowCountChanged(uint32_t size);
     bool UveVnOutFlowCountChanged(uint32_t size);
+    void BuildNhStats(const StatsManager::VrfStats *s,
+                      UveVrfStats &vrf_stats) const;
+    void BuildArpStats(const StatsManager::VrfStats *s,
+                       UveVrfStats &vrf_stats) const;
 
     tbb::mutex mutex_;
     uint64_t prev_stats_update_time_;
