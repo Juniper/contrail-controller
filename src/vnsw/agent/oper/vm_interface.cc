@@ -3368,6 +3368,10 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         return;
     }
 
+    if (fixed_ip_.is_v4() && fixed_ip_ == Ip4Address(0)) {
+        fixed_ip_ = GetFixedIp(interface);
+    }
+
     InterfaceTable *table =
         static_cast<InterfaceTable *>(interface->get_table());
 
