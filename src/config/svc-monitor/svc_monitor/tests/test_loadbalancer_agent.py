@@ -258,7 +258,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         sas.add()
 
         pool = self.create_pool(fq_name_str="test-lb-pool")
-	hm_obj = self.create_hm_obj("test-hm")
+        hm_obj = self.create_hm_obj("test-hm")
         hm_obj['loadbalancer_pool_back_refs']=[{'uuid': pool.uuid}]
         hm = config_db.HealthMonitorSM.locate(hm_obj['uuid'], hm_obj)
         pool.add()
@@ -454,7 +454,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         sas.add()
 
         pool = self.create_pool(fq_name_str="test-lb-pool")
-	hm_obj = self.create_hm_obj("test-hm")
+        hm_obj = self.create_hm_obj("test-hm")
         hm_obj['loadbalancer_pool_back_refs']=[{'uuid': pool.uuid}]
         hm = config_db.HealthMonitorSM.locate(hm_obj['uuid'], hm_obj)
         pool.add()
@@ -484,7 +484,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         sas.add()
 
         pool = self.create_pool(fq_name_str="test-lb-pool")
-	hm_obj = self.create_hm_obj("test-hm")
+        hm_obj = self.create_hm_obj("test-hm")
         hm_obj['loadbalancer_pool_back_refs']=[{'uuid': pool.uuid}]
         hm = config_db.HealthMonitorSM.locate(hm_obj['uuid'], hm_obj)
         pool.add()
