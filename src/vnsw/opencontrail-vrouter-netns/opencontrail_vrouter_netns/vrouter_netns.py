@@ -34,7 +34,7 @@ import requests
 import json
 
 from linux import ip_lib
-
+import haproxy_process
 
 def validate_uuid(val):
     try:
@@ -128,40 +128,12 @@ class NetnsManager(object):
                                  self.SNAT_RT_TABLES_ID, 'via',  self.gw_ip,
                                  'dev', str(self.nic_left['name'])])
 
-    def _get_lbaas_pid(self):
-        cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
-              """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
-        try:
-            if "check_output" not in dir(subprocess):
-                s = _check_output(cmd)
-            else:
-                s = subprocess.check_output(cmd, shell=True)
-                
-        except subprocess.CalledProcessError:
-            return None
-        words = s.split()
-        pid = int(words[1])
-        return pid
-
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
-            raise ValueError('Need to create the network namespace before set '
-                             'up the lbaas')
-        pid_file = self.cfg_file + ".pid"
-        pid = self._get_lbaas_pid()
-        if (self.update is False):
-            if pid is not None:
-                self.release_lbaas()
+            self.create()
 
-            self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
-                                    '-p', pid_file])
-            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
-        else:
-            if pid is not None:
-                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
-            else:
-                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
-                                    '-p', pid_file])
+        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True)
+
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
@@ -171,17 +143,9 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
-        pid = self._get_lbaas_pid()
-        if pid is not None:
-            cmd = """kill -9 %(pid)s""" % {'pid':pid}
-            try:
-                if "check_output" not in dir(subprocess):
-                    s = _check_output(cmd)
-                else:
-                    s = subprocess.check_output(cmd, shell=True)
-                print ("Haproxy process with pid %d config file %s killed" %(pid, self.cfg_file), file=sys.stderr)
-            except subprocess.CalledProcessError:
-                print ("SIGKILL Error for pid %d %s" %(pid, self.cfg_file), file=sys.stderr)
+
+        haproxy_process.stop_haproxy(self.cfg_file, True)
+
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
@@ -238,6 +202,18 @@ class NetnsManager(object):
                                   'net.ipv4.conf.%s.rp_filter=2' % nic['name']]
                                  )
 
+    def _request_to_agent(self, url, method, data):
+        method = getattr(requests, method)
+        resp = method(url, data=data, headers=self.HEADERS)
+        if resp.status_code != requests.codes.ok:
+            error_str = resp.text
+            try:
+                err = json.loads(resp.text)
+                error_str = err['error']
+            except Exception:
+                pass
+            raise ValueError(error_str)
+
     def _add_port_to_agent(self, nic, display_name=None):
         if self.PORT_TYPE == "NovaVMPort":
             port_type_value = 0
@@ -251,11 +227,11 @@ class NetnsManager(object):
                    "vn-id": '', "vm-project-id": '',
                    "type": port_type_value, "mac-address": str(nic['mac'])}
         json_dump = json.dumps(payload)
-        requests.post(self.BASE_URL, data=json_dump, headers=self.HEADERS)
+        self._request_to_agent(self.BASE_URL, 'post', json_dump)
 
     def _delete_port_to_agent(self, nic):
         url = self.BASE_URL + "/" + nic['uuid']
-        requests.delete(url, data=None, headers=self.HEADERS);
+        self._request_to_agent(url, 'delete', None)
 
 
 class VRouterNetns(object):
