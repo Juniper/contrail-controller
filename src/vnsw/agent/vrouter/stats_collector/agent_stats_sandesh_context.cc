@@ -105,6 +105,21 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
         stats->prev_fabric_composites = req->get_vsr_fabric_composites();
         stats->prev_encaps = req->get_vsr_encaps();
         stats->prev_l2_encaps = req->get_vsr_l2_encaps();
+
+        stats->prev_gros = req->get_vsr_gros();
+        stats->prev_diags = req->get_vsr_diags();
+        stats->prev_encap_composites = req->get_vsr_encap_composites();
+        stats->prev_evpn_composites = req->get_vsr_evpn_composites();
+        stats->prev_vrf_translates = req->get_vsr_vrf_translates();
+        stats->prev_vxlan_tunnels = req->get_vsr_vxlan_tunnels();
+        stats->prev_arp_virtual_proxy = req->get_vsr_arp_virtual_proxy();
+        stats->prev_arp_virtual_stitch = req->get_vsr_arp_virtual_stitch();
+        stats->prev_arp_virtual_flood = req->get_vsr_arp_virtual_flood();
+        stats->prev_arp_physical_stitch = req->get_vsr_arp_physical_stitch();
+        stats->prev_arp_tor_proxy = req->get_vsr_arp_tor_proxy();
+        stats->prev_arp_physical_flood = req->get_vsr_arp_physical_flood();
+        stats->prev_l2_receives = req->get_vsr_l2_receives();
+        stats->prev_uuc_floods = req->get_vsr_uuc_floods();
     } else {
         stats->discards = req->get_vsr_discards() - stats->prev_discards;
         stats->resolves = req->get_vsr_resolves() - stats->prev_resolves;
@@ -124,6 +139,32 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
         stats->fabric_composites = req->get_vsr_fabric_composites() - 
                                    stats->prev_fabric_composites;
 
+        stats->gros = req->get_vsr_gros() - stats->prev_gros;
+        stats->diags = req->get_vsr_diags() - stats->prev_diags;
+        stats->encap_composites = req->get_vsr_encap_composites() -
+                                  stats->prev_encap_composites;
+        stats->evpn_composites = req->get_vsr_evpn_composites() -
+                                 stats->prev_evpn_composites;
+        stats->vrf_translates = req->get_vsr_vrf_translates() -
+                                stats->prev_vrf_translates;
+        stats->vxlan_tunnels = req->get_vsr_vxlan_tunnels() -
+                               stats->prev_vxlan_tunnels;
+        stats->arp_virtual_proxy = req->get_vsr_arp_virtual_proxy() -
+                                   stats->prev_arp_virtual_proxy;
+        stats->arp_virtual_stitch = req->get_vsr_arp_virtual_stitch() -
+                                    stats->prev_arp_virtual_stitch;
+        stats->arp_virtual_flood = req->get_vsr_arp_virtual_flood() -
+                                   stats->prev_arp_virtual_flood;
+        stats->arp_physical_stitch = req->get_vsr_arp_physical_stitch() -
+                                     stats->prev_arp_physical_stitch;
+        stats->arp_tor_proxy = req->get_vsr_arp_tor_proxy() -
+                               stats->prev_arp_tor_proxy;
+        stats->arp_physical_flood = req->get_vsr_arp_physical_flood() -
+                                    stats->prev_arp_physical_flood;
+        stats->l2_receives = req->get_vsr_l2_receives() -
+                             stats->prev_l2_receives;
+        stats->uuc_floods = req->get_vsr_uuc_floods() -
+                            stats->prev_uuc_floods;
         /* Update the last read values from Kernel in the following fields.
          * This will be used to update prev_* fields on receiving vrf delete
          * notification
@@ -140,6 +181,20 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
             stats->k_fabric_composites = req->get_vsr_fabric_composites();
             stats->k_encaps = req->get_vsr_encaps();
             stats->k_l2_encaps = req->get_vsr_l2_encaps();
+            stats->k_gros = req->get_vsr_gros();
+            stats->k_diags = req->get_vsr_diags();
+            stats->k_encap_composites = req->get_vsr_encap_composites();
+            stats->k_evpn_composites = req->get_vsr_evpn_composites();
+            stats->k_vrf_translates = req->get_vsr_vrf_translates();
+            stats->k_vxlan_tunnels = req->get_vsr_vxlan_tunnels();
+            stats->k_arp_virtual_proxy = req->get_vsr_arp_virtual_proxy();
+            stats->k_arp_virtual_stitch = req->get_vsr_arp_virtual_stitch();
+            stats->k_arp_virtual_flood = req->get_vsr_arp_virtual_flood();
+            stats->k_arp_physical_stitch = req->get_vsr_arp_physical_stitch();
+            stats->k_arp_tor_proxy = req->get_vsr_arp_tor_proxy();
+            stats->k_arp_physical_flood = req->get_vsr_arp_physical_flood();
+            stats->k_l2_receives = req->get_vsr_l2_receives();
+            stats->k_uuc_floods = req->get_vsr_uuc_floods();
         }
     }
 }
@@ -192,9 +247,13 @@ AgentDropStats AgentStatsSandeshContext::GetDropStats(vr_drop_stats_req *req) {
     ds.ds_cloned_original = req->get_vds_cloned_original();
     ds.ds_invalid_vnid = req->get_vds_invalid_vnid();
     ds.ds_frag_err = req->get_vds_frag_err();
-
     ds.ds_invalid_source = req->get_vds_invalid_source();
     ds.ds_mcast_df_bit = req->get_vds_mcast_df_bit();
+    ds.ds_arp_no_where_to_go = req->get_vds_arp_no_where_to_go();
+    ds.ds_arp_no_route = req->get_vds_arp_no_route();
+    ds.ds_l2_no_route = req->get_vds_l2_no_route();
+    ds.ds_arp_reply_no_route = req->get_vds_arp_reply_no_route();
+
     return ds;
 } 
 

@@ -276,11 +276,23 @@ bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
         vrf_stats.set_gre_mpls_tunnels(s->gre_mpls_tunnels);
         vrf_stats.set_ecmp_composites(s->ecmp_composites);
         vrf_stats.set_l2_mcast_composites(s->l2_mcast_composites);
-        vrf_stats.set_l3_mcast_composites(s->l3_mcast_composites);
-        vrf_stats.set_multi_proto_composites(s->multi_proto_composites);
         vrf_stats.set_fabric_composites(s->fabric_composites);
         vrf_stats.set_encaps(s->encaps);
         vrf_stats.set_l2_encaps(s->l2_encaps);
+        vrf_stats.set_gros(s->gros);
+        vrf_stats.set_diags(s->diags);
+        vrf_stats.set_encap_composites(s->encap_composites);
+        vrf_stats.set_evpn_composites(s->evpn_composites);
+        vrf_stats.set_vrf_translates(s->vrf_translates);
+        vrf_stats.set_vxlan_tunnels(s->vxlan_tunnels);
+        vrf_stats.set_arp_virtual_proxy(s->arp_virtual_proxy);
+        vrf_stats.set_arp_virtual_stitch(s->arp_virtual_stitch);
+        vrf_stats.set_arp_virtual_flood(s->arp_virtual_flood);
+        vrf_stats.set_arp_physical_stitch(s->arp_physical_stitch);
+        vrf_stats.set_arp_tor_proxy(s->arp_tor_proxy);
+        vrf_stats.set_arp_physical_flood(s->arp_physical_flood);
+        vrf_stats.set_l2_receives(s->l2_receives);
+        vrf_stats.set_uuc_floods(s->uuc_floods);
         vlist.push_back(vrf_stats);
         if (UveVnVrfStatsChanged(vlist)) {
             s_vn.set_vrf_stats_list(vlist);
