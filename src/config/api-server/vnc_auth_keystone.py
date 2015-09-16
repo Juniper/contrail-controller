@@ -14,6 +14,7 @@ import ConfigParser
 import bottle
 import time
 import base64
+import subprocess
 
 try:
     from keystoneclient.middleware import auth_token
@@ -22,8 +23,12 @@ except Exception:
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
+from cfgm_common import utils
 
 # Open port for access to API server for trouble shooting
+
+#keystone SSL cert bundle
+_DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 
 class LocalAuth(object):
 
@@ -136,6 +141,13 @@ class AuthPostKeystone(object):
 class AuthServiceKeystone(object):
 
     def __init__(self, server_mgr, args):
+        self._kscertbundle=''
+        self._certok='NOK'
+        if args.certfile and args.keyfile and args.cafile:
+           certs=[args.certfile,args.keyfile,args.cafile]
+           self._kscertbundle=utils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+           cmd='openssl verify %s | grep OK' % self._kscertbundle
+           self._certok=subprocess.check_output(cmd, shell=True)
         self._conf_info = {
             'auth_host': args.auth_host,
             'auth_port': args.auth_port,
@@ -145,7 +157,10 @@ class AuthServiceKeystone(object):
             'admin_tenant_name': args.admin_tenant_name,
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
+            'insecure':args.insecure,
         }
+        if self._kscertbundle and self._certok == 'OK':
+           self._conf_info['cafile'] = self._kscertbundle
         self._server_mgr = server_mgr
         self._auth_method = args.auth
         self._multi_tenancy = args.multi_tenancy
