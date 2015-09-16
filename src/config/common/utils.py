@@ -27,6 +27,8 @@ import sys
 import cgitb
 import cStringIO
 import logging
+import os
+import subprocess
 
 def detailed_traceback():
     buf = cStringIO.StringIO()
@@ -122,3 +124,15 @@ def str_to_class(class_name, module_name):
 def obj_type_to_vnc_class(obj_type, module_name):
     return str_to_class(CamelCase(obj_type), module_name)
 # end obj_type_to_vnc_class
+
+def getCertKeyCaBundle(bundle, certs):
+    if not os.path.exists(bundle):
+       with open(bundle, 'w') as ofile:
+          try:
+             for cert in certs:
+                 cmd='cat %s >> %s' % (cert, bundle)
+                 subprocess.check_call(cmd, shell=True)
+          except Exception as e:
+                 raise Exception, "Exception on writing the cert bundle: %s" % e, sys.exc_info()[2]
+    return bundle
+#end CreateCertKeyCaBundle
