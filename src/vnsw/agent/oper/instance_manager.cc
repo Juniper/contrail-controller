@@ -15,7 +15,7 @@
 #include "io/event_manager.h"
 #include "oper/instance_task.h"
 #include "oper/loadbalancer.h"
-#include "oper/loadbalancer_haproxy.h"
+#include "oper/loadbalancer_config.h"
 #include "oper/loadbalancer_properties.h"
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
@@ -108,7 +108,7 @@ public:
                 if (fs::exists(cfg_dir_path.str())) {
                     fs::remove_all(cfg_dir_path.str(), error);
                     if (error) {
-                        LOG(ERROR, "Stale Haproxy cfg fle delete error"
+                        LOG(ERROR, "Stale loadbalancer cfg fle delete error"
                                     << error.message());
                     }
                 }
@@ -135,7 +135,7 @@ InstanceManager::InstanceManager(Agent *agent)
           loadbalancer_config_path_(loadbalancer_config_path_default),
           namespace_store_path_(namespace_store_path_default),
           stale_timer_interval_(5 * 60 * 1000),
-          haproxy_(new LoadbalancerHaproxy(agent)),
+          lb_config_(new LoadbalancerHaproxy(agent)),
           stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
                       "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
                       GetTaskId("db::DBTable"), 0)), agent_(agent) {
@@ -619,7 +619,7 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_default <<
-            props.pool_id << "/etc/haproxy/haproxy.cfg";
+            props.pool_id << "/conf.json";
         cmd_str << " --pool-id " << props.pool_id;
     }
 
@@ -714,7 +714,6 @@ void InstanceManager::LoadbalancerObserver(
 
         boost::system::error_code error;
         if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
-            pathgen << "/etc/haproxy";
             boost::filesystem::path dir(pathgen.str());
             if (!boost::filesystem::exists(dir, error)) {
 #if 0
@@ -729,9 +728,9 @@ void InstanceManager::LoadbalancerObserver(
                     return;
                 }
             }
-            pathgen << "/haproxy.cfg";
-            haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
-                                     *loadbalancer->properties());
+            pathgen << "/conf.json";
+            lb_config_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
+                                       *loadbalancer->properties());
         } else {
              boost::filesystem::remove_all(pathgen.str(), error);
              if (error) {
