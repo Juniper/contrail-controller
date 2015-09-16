@@ -88,6 +88,9 @@ class VncApi(object):
     _DEFAULT_AUTHN_TENANT = 'default-tenant'
     _DEFAULT_DOMAIN_ID = "default"
 
+    #KS SSL cert bundle
+    _DEFAULT_INSECURE=False
+
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
     _DEFAULT_BASE_URL = "/"
@@ -150,6 +153,18 @@ class VncApi(object):
             self._tenant_name = tenant_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
                           self._DEFAULT_AUTHN_TENANT)
+
+            # keystone SSL support
+            self._insecure = _read_cfg(cfg_parser, 'auth', 'insecure',
+                          self._DEFAULT_INSECURE)
+            self._certfile=_read_cfg(cfg_parser,'auth','certfile','')
+            self._keyfile=_read_cfg(cfg_parser,'auth','keyfile','')
+            self._cafile=_read_cfg(cfg_parser,'auth','cafile','')
+
+            self._use_certs=False
+            if self._certfile and self._keyfile and self._cafile:
+               self._use_certs=True
+
             if 'v2' in self._authn_url:
                self._authn_body = \
                   '{"auth":{"passwordCredentials":{' + \
@@ -396,8 +411,15 @@ class VncApi(object):
                                   self._authn_url)
         new_headers = headers or {}
         try:
-            response = requests.post(url, data=self._authn_body,
-                                 headers=self._DEFAULT_AUTHN_HEADERS)
+            if self._insecure:
+                response = requests.post(url, data=self._authn_body,
+                                     headers=self._DEFAULT_AUTHN_HEADERS, verify=False)
+            elif not self._insecure and self._use_certs:
+                response = requests.post(url, data=self._authn_body,
+                                         headers=self._DEFAULT_AUTHN_HEADERS, verify=self._cafile,cert=[self._certfile,self._keyfile])
+            else:
+                response = requests.post(url, data=self._authn_body,
+                                         headers=self._DEFAULT_AUTHN_HEADERS)
         except Exception as e:
             raise RuntimeError('Unable to connect to keystone for authentication. Verify keystone server details')
 
