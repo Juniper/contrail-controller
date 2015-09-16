@@ -196,7 +196,9 @@ KSyncEntry *KSyncVxlanFdbEntry::UnresolvedReference() {
  **************************************************************************/
 KSyncVxlanRouteObject::KSyncVxlanRouteObject(KSyncVxlanVrfObject *vrf,
                                              AgentRouteTable *rt_table) :
-    KSyncDBObject(), ksync_(vrf->ksync()), marked_delete_(false),
+    KSyncDBObject("KSyncVxlanRouteObject"),
+    ksync_(vrf->ksync()),
+    marked_delete_(false),
     table_delete_ref_(this, rt_table->deleter()) {
     rt_table_ = rt_table;
     RegisterDb(rt_table);

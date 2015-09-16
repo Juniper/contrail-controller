@@ -388,7 +388,7 @@ public:
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
     virtual void GetOsParams(Agent *agent);
-    void SendTrace(Trace ev);
+    void SendTrace(const AgentDBTable *table, Trace event) const;
 
     // DBEntry vectors
     KeyPtr GetDBRequestKey() const;

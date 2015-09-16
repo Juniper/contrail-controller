@@ -119,7 +119,7 @@ KSyncEntry *MirrorKSyncEntry::UnresolvedReference() {
 }
 
 MirrorKSyncObject::MirrorKSyncObject(KSync *ksync) : 
-    KSyncDBObject(kMirrorIndexCount), ksync_(ksync) {
+    KSyncDBObject("KSync Mirror", kMirrorIndexCount), ksync_(ksync) {
 }
 
 MirrorKSyncObject::~MirrorKSyncObject() {

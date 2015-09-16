@@ -21,6 +21,10 @@
 #include <oper/mpls.h>
 #include <oper/route_common.h>
 #include <oper/multicast.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh_trace.h>
+#include <sandesh/common/vns_constants.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -65,6 +69,7 @@ bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) {
 AgentRouteTable::AgentRouteTable(DB *db, const std::string &name):
     RouteTable(db, name), agent_(NULL), vrf_entry_(NULL, this), deleter_(NULL),
     vrf_delete_ref_(this, NULL) {
+        OperDBTraceBuf = SandeshTraceBufferCreate("OperRoute", 5000);
 }
 
 AgentRouteTable::~AgentRouteTable() {
@@ -224,7 +229,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
 
     RouteInfo rt_info;
     rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, path);
-    OPER_TRACE(Route, rt_info);
+    OPER_TRACE_ROUTE(Route, rt_info);
 
     if (path == NULL) {
         return;
@@ -246,7 +251,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     if (rt->GetActivePath() == NULL) {
         RouteInfo rt_info_del;
         rt->FillTrace(rt_info_del, AgentRoute::DELETE, NULL);
-        OPER_TRACE(Route, rt_info_del);
+        OPER_TRACE_ROUTE(Route, rt_info_del);
         PreRouteDelete(rt);
         RemoveUnresolvedRoute(rt);
         rt->UpdateDependantRoutes();
@@ -383,7 +388,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 ProcessAdd(rt);
                 RouteInfo rt_info;
                 rt->FillTrace(rt_info, AgentRoute::ADD, NULL);
-                OPER_TRACE(Route, rt_info);
+                OPER_TRACE_ROUTE_ENTRY(Route, this, rt_info);
                 route_added = true;
                 AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
                                 GETPEERNAME(key->peer()));
@@ -406,7 +411,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
                 RouteInfo rt_info;
                 rt->FillTrace(rt_info, AgentRoute::ADD_PATH, path);
-                OPER_TRACE(Route, rt_info);
+                OPER_TRACE_ROUTE_ENTRY(Route, this, rt_info);
                 AGENT_ROUTE_LOG("Path add", rt->ToString(), vrf_name(),
                                 GETPEERNAME(key->peer()));
             } else {
@@ -423,7 +428,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 RouteInfo rt_info;
 
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
-                OPER_TRACE(Route, rt_info);
+                OPER_TRACE_ROUTE_ENTRY(Route, this, rt_info);
             }
 
             if (path->RouteNeedsSync()) 
@@ -740,7 +745,7 @@ void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
 
     RouteInfo rt_info;
     rt->FillTrace(rt_info, AgentRoute::STALE_PATH, path);
-    OPER_TRACE(Route, rt_info);
+    OPER_TRACE_ROUTE(Route, rt_info);
 
     if (path == NULL) {
         return;

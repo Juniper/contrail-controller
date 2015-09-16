@@ -33,7 +33,8 @@ public:
     const Ip4Address *GetDip() const {return &dip_;};
     const AgentRoute *GetRt() const {return arp_rt_.get();};
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }
@@ -105,7 +106,8 @@ public:
     const uint16_t GetDPort() const {return dport_;};
     const AgentRoute *GetRt() const {return arp_rt_.get();};
     virtual std::string ToString() const { return "Mirror to " + dip_.to_string(); };
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }

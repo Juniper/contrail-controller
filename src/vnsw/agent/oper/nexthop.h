@@ -347,7 +347,8 @@ public:
     virtual void Delete(const DBRequest *req) {};
     virtual void SetKey(const DBRequestKey *key);
     virtual bool NextHopIsLess(const DBEntry &rhs) const = 0;
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool CanAdd() const = 0;
     virtual bool IsLess(const DBEntry &rhs) const {
         const NextHop &a = static_cast<const NextHop &>(rhs);
@@ -577,7 +578,8 @@ public:
     // No change expected to Receive NH */
     virtual bool Change(const DBRequest *req) { return false;};
     virtual void Delete(const DBRequest *req) {};
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
     virtual bool NextHopIsLess(const DBEntry &rhs) const {
         const ReceiveNH &a = static_cast<const ReceiveNH &>(rhs);
@@ -717,7 +719,8 @@ public:
     virtual bool Change(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
 
     const MacAddress &GetMac() const {return mac_;};
@@ -880,7 +883,8 @@ public:
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
 
     const Interface *GetInterface() const {return interface_.get();};
     const MacAddress &GetDMac() const {return dmac_;};
@@ -975,7 +979,8 @@ public:
     virtual bool Change(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
 
     const VrfEntry *GetVrf() const {return vrf_.get();};
@@ -1057,7 +1062,8 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void Delete(const DBRequest *req) {};
     virtual bool Change(const DBRequest *req);
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
 
     const Interface *GetInterface() const {return interface_.get();};
@@ -1271,7 +1277,8 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
 
-    virtual void SendObjectLog(AgentLogEvent::type event) const;
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
     ComponentNHList::const_iterator begin() const {
         return component_nh_list_.begin();
     }
@@ -1379,21 +1386,21 @@ public:
     virtual bool OnChange(DBEntry *entry, const DBRequest *req) {
         NextHop *nh = static_cast<NextHop *>(entry);
         bool ret = nh->Change(req);
-        nh->SendObjectLog(AgentLogEvent::CHANGE);
+        nh->SendObjectLog(this, AgentLogEvent::CHANGE);
         return ret;
     }
 
     virtual bool Resync(DBEntry *entry, const DBRequest *req) {
         NextHop *nh = static_cast<NextHop *>(entry);
         bool ret = nh->Change(req);
-        nh->SendObjectLog(AgentLogEvent::RESYNC);
+        nh->SendObjectLog(this, AgentLogEvent::RESYNC);
         return ret;
     }
 
     virtual bool Delete(DBEntry *entry, const DBRequest *req) {
         NextHop *nh = static_cast<NextHop *>(entry);
         nh->Delete(req);
-        nh->SendObjectLog(AgentLogEvent::DELETE);
+        nh->SendObjectLog(this, AgentLogEvent::DELETE);
         return true;
     }
 

@@ -579,14 +579,14 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
 int RouteKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(Route, info);
+    KSYNC_TRACE(Route, GetObject(), info);
     return Encode(sandesh_op::ADD, 0, buf, buf_len);
 }
 
 int RouteKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(Route, info);
+    KSYNC_TRACE(Route, GetObject(), info);
 
     return Encode(sandesh_op::ADD, 0, buf, buf_len);
 }
@@ -665,7 +665,7 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop,
     uint8_t replace_plen = CopyReplacementData(nexthop, new_rt);
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
-    KSYNC_TRACE(Route, info);
+    KSYNC_TRACE(Route, GetObject(), info);
 
     return Encode(sandesh_op::DELETE, replace_plen, buf, buf_len);
 }
@@ -709,7 +709,7 @@ KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
 }
 
 RouteKSyncObject::RouteKSyncObject(KSync *ksync, AgentRouteTable *rt_table):
-    KSyncDBObject(), ksync_(ksync), marked_delete_(false), 
+    KSyncDBObject("KSync Route"), ksync_(ksync), marked_delete_(false),
     table_delete_ref_(this, rt_table->deleter()) {
     rt_table_ = rt_table;
     RegisterDb(rt_table);
@@ -734,7 +734,8 @@ KSyncEntry *RouteKSyncObject::DBToKSyncEntry(const DBEntry *e) {
 
 void RouteKSyncObject::Unregister() {
     if (IsEmpty() == true && marked_delete_ == true) {
-        KSYNC_TRACE(Trace, "Destroying ksync object: " + rt_table_->name());
+        KSYNC_TRACE(Trace, this, "Destroying ksync object: "\
+                    + rt_table_->name());
         KSyncObjectManager::Unregister(this);
     }
 }
@@ -764,7 +765,6 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     }
 
     if (state == NULL) {
-        KSYNC_TRACE(Trace, "Subscribing to route table " + vrf->GetName());
         state = new VrfState();
         state->seen_ = true;
         vrf->SetState(partition->parent(), vrf_listener_id_, state);
@@ -795,6 +795,9 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         //Add EVPN route table listener to update IP MAC binding table.
         rt_table = static_cast<AgentRouteTable *>(vrf->
                                                   GetEvpnRouteTable());
+        KSYNC_TRACE(Trace, state->inet4_uc_route_table_,
+                    "Subscribing to route table "\
+                    + vrf->GetName());
         if (state->evpn_rt_table_listener_id_ == DBTableBase::kInvalidId) {
             state->evpn_rt_table_listener_id_ =
                 rt_table->Register(boost::bind(&VrfKSyncObject::EvpnRouteTableNotify,

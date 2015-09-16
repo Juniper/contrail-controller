@@ -53,7 +53,7 @@ DBEntry *MplsTable::Add(const DBRequest *req) {
         UpdateLabel(key->label_, mpls);
     }
     ChangeHandler(mpls, req);
-    mpls->SendObjectLog(AgentLogEvent::ADD);
+    mpls->SendObjectLog(this, AgentLogEvent::ADD);
     return mpls;
 }
 
@@ -61,7 +61,7 @@ bool MplsTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret;
     MplsLabel *mpls = static_cast<MplsLabel *>(entry);
     ret = ChangeHandler(mpls, req);
-    mpls->SendObjectLog(AgentLogEvent::CHANGE);
+    mpls->SendObjectLog(this, AgentLogEvent::CHANGE);
     return ret;
 }
 
@@ -97,7 +97,7 @@ bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
 
 bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
     MplsLabel *mpls = static_cast<MplsLabel *>(entry);
-    mpls->SendObjectLog(AgentLogEvent::DELETE);
+    mpls->SendObjectLog(this, AgentLogEvent::DELETE);
     return true;
 }
 
@@ -309,7 +309,8 @@ bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     return true;
 }
 
-void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
+void MplsLabel::SendObjectLog(const AgentDBTable *table,
+                              AgentLogEvent::type event) const {
     MplsObjectLogInfo info;
     string str, type_str, nh_type;
 
@@ -333,7 +334,7 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
     case AgentLogEvent::DELETE:
         str.assign("Deletion ");
         info.set_event(str);
-        OPER_TRACE(Mpls, info);
+        OPER_TRACE_ENTRY(Mpls, table, info);
         return;
     case AgentLogEvent::CHANGE:
         str.assign("Modification ");
@@ -392,7 +393,7 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
         info.set_intf_uuid(UuidToString(intf->GetUuid()));
         info.set_intf_name(intf->name());
     }
-    OPER_TRACE(Mpls, info);
+    OPER_TRACE_ENTRY(Mpls, table, info);
 }
 
 void MplsLabel::SyncDependentPath() {

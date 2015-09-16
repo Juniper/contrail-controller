@@ -1421,27 +1421,28 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     // Remove floating-ip entries marked for deletion
     CleanupFloatingIpList();
 
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     if (old_l2_active != l2_active_) {
         if (l2_active_) {
-            SendTrace(ACTIVATED_L2);
+            SendTrace(table, ACTIVATED_L2);
         } else {
-            SendTrace(DEACTIVATED_L2);
+            SendTrace(table, DEACTIVATED_L2);
         }
     }
 
     if (old_ipv4_active != ipv4_active_) {
         if (ipv4_active_) {
-            SendTrace(ACTIVATED_IPV4);
+            SendTrace(table, ACTIVATED_IPV4);
         } else {
-            SendTrace(DEACTIVATED_IPV4);
+            SendTrace(table, DEACTIVATED_IPV4);
         }
     }
 
     if (old_ipv6_active != ipv6_active_) {
         if (ipv6_active_) {
-            SendTrace(ACTIVATED_IPV6);
+            SendTrace(table, ACTIVATED_IPV6);
         } else {
-            SendTrace(DEACTIVATED_IPV6);
+            SendTrace(table, DEACTIVATED_IPV6);
         }
     }
 }
@@ -4106,7 +4107,7 @@ const string VmInterface::GetAnalyzer() const {
     }
 }
 
-void VmInterface::SendTrace(Trace event) {
+void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
     InterfaceInfo intf_info;
     intf_info.set_name(name_);
     intf_info.set_index(id_);
@@ -4167,7 +4168,9 @@ void VmInterface::SendTrace(Trace event) {
         intf_info.set_vrf(vrf_->GetName());
     }
     intf_info.set_vm_project(UuidToString(vm_project_uuid_));
-    OPER_TRACE(Interface, intf_info);
+    OPER_TRACE_ENTRY(Interface,
+                     table,
+                     intf_info);
 }
 
 /////////////////////////////////////////////////////////////////////////////

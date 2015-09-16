@@ -949,7 +949,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
 int NHKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(NH, info);
+    KSYNC_TRACE(NH, GetObject(), info);
  
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
@@ -957,7 +957,7 @@ int NHKSyncEntry::AddMsg(char *buf, int buf_len) {
 int NHKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(NH, info);
+    KSYNC_TRACE(NH, GetObject(), info);
 
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
@@ -965,7 +965,7 @@ int NHKSyncEntry::ChangeMsg(char *buf, int buf_len){
 int NHKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
-    KSYNC_TRACE(NH, info);
+    KSYNC_TRACE(NH, GetObject(), info);
 
     return Encode(sandesh_op::DELETE, buf, buf_len);
 }
@@ -1112,7 +1112,7 @@ void NHKSyncEntry::SetEncap(InterfaceKSyncEntry *if_ksync,
 }
 
 NHKSyncObject::NHKSyncObject(KSync *ksync) :
-    KSyncDBObject(), ksync_(ksync) {
+    KSyncDBObject("KSync Nexthop"), ksync_(ksync) {
 }
 
 NHKSyncObject::~NHKSyncObject() {

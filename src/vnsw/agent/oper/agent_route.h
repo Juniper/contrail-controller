@@ -130,6 +130,7 @@ public:
                                             const std::string &context) {
         return AgentSandeshPtr();
     }
+    virtual SandeshTraceBufferPtr GetOperDBTraceBuf() const {return OperDBTraceBuf;}
     // Unresolved route tree accessors
     UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
         return unresolved_rt_tree_.begin();
@@ -199,8 +200,20 @@ private:
     uint32_t vrf_id_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<AgentRouteTable> vrf_delete_ref_;
+    SandeshTraceBufferPtr OperDBTraceBuf;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteTable);
 };
+
+#define OPER_TRACE_ROUTE(obj, ...)\
+do {\
+   Oper##obj::TraceMsg(GetOperDBTraceBuf(), __FILE__, __LINE__, __VA_ARGS__);\
+} while (false);\
+
+#define OPER_TRACE_ROUTE_ENTRY(obj, table, ...)\
+do {\
+   Oper##obj::TraceMsg(table->GetOperDBTraceBuf(),\
+                       __FILE__, __LINE__, __VA_ARGS__);\
+} while (false);\
 
 // Base class for all Route entries in agent
 class AgentRoute : public Route {

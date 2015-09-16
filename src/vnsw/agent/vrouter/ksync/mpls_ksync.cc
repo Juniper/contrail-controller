@@ -96,7 +96,7 @@ void MplsKSyncEntry::FillObjectLog(sandesh_op::type op,
 int MplsKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(Mpls, info);
+    KSYNC_TRACE(Mpls, GetObject(), info);
 
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
@@ -104,7 +104,7 @@ int MplsKSyncEntry::AddMsg(char *buf, int buf_len) {
 int MplsKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(Mpls, info);
+    KSYNC_TRACE(Mpls, GetObject(), info);
  
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
@@ -112,7 +112,7 @@ int MplsKSyncEntry::ChangeMsg(char *buf, int buf_len){
 int MplsKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
-    KSYNC_TRACE(Mpls, info);
+    KSYNC_TRACE(Mpls, GetObject(), info);
  
     return Encode(sandesh_op::DELETE, buf, buf_len);
 }
@@ -126,7 +126,7 @@ KSyncEntry *MplsKSyncEntry::UnresolvedReference() {
 }
 
 MplsKSyncObject::MplsKSyncObject(KSync *ksync) : 
-    KSyncDBObject(), ksync_(ksync) {
+    KSyncDBObject("KSync Mpls"), ksync_(ksync) {
 }
 
 MplsKSyncObject::~MplsKSyncObject() {

@@ -46,7 +46,8 @@ void OvsdbObject::EmptyTable(void) {
 }
 
 OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl,
-                             bool init_stale_entry_cleanup) : KSyncDBObject(),
+                             bool init_stale_entry_cleanup) :
+    KSyncDBObject("OvsdbDBObject"),
     client_idl_(idl), walkid_(DBTableWalker::kInvalidWalkerId) {
     if (init_stale_entry_cleanup) {
         InitStaleEntryCleanup(*(idl->agent()->event_manager())->io_service(),
