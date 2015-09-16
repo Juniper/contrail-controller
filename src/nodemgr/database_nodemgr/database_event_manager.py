@@ -192,15 +192,16 @@ class DatabaseEventManager(EventManager):
         else:
             self.fail_status_bits &= ~self.FAIL_STATUS_SERVER_PORT
         self.send_nodemgr_process_status()
-
+        # Record cluster status and shut down cassandra if needed
+        subprocess.Popen(["contrail-cassandra-status",
+                          "--log-file", "/var/log/cassandra/status.log",
+                          "--debug"])
     # end database_periodic
 
     def cassandra_repair(self):
-        for keyspace in RepairNeededKeyspaces:
-            repair_file_name = '/var/log/cassandra/repair-' + keyspace + '.log'
-            with open(repair_file_name, "a") as repair_file:
-                subprocess.Popen(["nodetool", "repair", "-pr", keyspace],
-                                 stdout=repair_file, stderr=repair_file)
+        subprocess.Popen(["contrail-cassandra-repair",
+                          "--log-file", "/var/log/cassandra/repair.log",
+                          "--debug"])
     #end cassandra_repair
 
     def send_disk_usage_info(self):
