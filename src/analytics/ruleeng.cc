@@ -571,7 +571,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         }
         LOG(DEBUG, __func__ << " Deleted " << key);
         osp_->UVENotif(object.name(), 
-            source, node_type, module, instance_id, key, deleted);
+            source, node_type, module, instance_id, table, barekey, deleted);
         return true;
     }
 
@@ -621,7 +621,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         
         if (!osp_->UVEUpdate(object.name(), node.name(),
                              source, node_type, module, instance_id,
-                             key, ostr.str(), seq,
+                             table, barekey, ostr.str(), seq,
                              agg, ts,
                              is_alarm)) {
             LOG(ERROR, __func__ << " Message: "  << type << " : " << source <<
@@ -637,7 +637,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
     // Publish on the Kafka bus that this UVE has changed
     osp_->UVENotif(object.name(), 
-        source, node_type, module, instance_id, key, deleted);
+        source, node_type, module, instance_id, table, barekey, deleted);
     return true;
 }
 

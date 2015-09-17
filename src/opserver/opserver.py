@@ -470,20 +470,20 @@ class OpServer(object):
             self._args.partitions, self._args.redis_password)
         self._uvedbcache = UveCacheProcessor(self._logger, body, self._args.partitions)
 
+        
         # TODO: For now, use DBCache during systemless test only
+        ucache = self._uvedbcache
         if self._args.disc_server_ip:
-            self._uve_server = UVEServer(('127.0.0.1',
-                                      self._args.redis_server_port),
-                                     self._logger,
-                                     self._args.redis_password,
-                                     None)
+            ucache = None
         else:
-            self._uve_server = UVEServer(('127.0.0.1',
-                                      self._args.redis_server_port),
-                                     self._logger,
-                                     self._args.redis_password,
-                                     self._uvedbcache)
+            if self._args.partitions == 0:
+                ucache = None
 
+        self._uve_server = UVEServer(('127.0.0.1',
+                                  self._args.redis_server_port),
+                                 self._logger,
+                                 self._args.redis_password,
+                                 ucache)
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
@@ -743,7 +743,7 @@ class OpServer(object):
             'analytics_flow_ttl' : -1,
             'logging_conf': '',
             'logger_class': None,
-            'partitions'        : 5,
+            'partitions'        : 15,
             'sandesh_send_rate_limit': SandeshSystem. \
                  get_sandesh_send_rate_limit(),
         }

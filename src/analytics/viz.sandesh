@@ -337,6 +337,30 @@ const i32 AnalyticsConfigAuditTTL   = 2160
 const i32 AnalyticsStatisticsTTL    = 168
 const i32 AnalyticsFlowTTL          = 2
 
+enum PartType {
+    PART_TYPE_INVALID= 0,
+    PART_TYPE_CNODES = 1,
+    PART_TYPE_PNODES = 2,
+    PART_TYPE_VMS = 3,
+    PART_TYPE_IFS = 4,
+    PART_TYPE_OTHER = 5,
+}
+
+const map<string, PartType> PART_TYPES = {
+    COLLECTOR_INFO_TABLE: PartType.PART_TYPE_CNODES,
+    DATABASE_INFO_TABLE: PartType.PART_TYPE_CNODES,
+    BGP_ROUTER_TABLE: PartType.PART_TYPE_CNODES,
+    CONFIG_NODE_TABLE: PartType.PART_TYPE_CNODES,
+    DNS_TABLE: PartType.PART_TYPE_CNODES,
+    SERVER_TABLE: PartType.PART_TYPE_PNODES,
+    PROUTER_TABLE: PartType.PART_TYPE_PNODES,
+    VROUTER_TABLE: PartType.PART_TYPE_PNODES,
+    VM_TABLE: PartType.PART_TYPE_VMS,
+    VMI_TABLE: PartType.PART_TYPE_IFS,
+    PHYSICAL_IF_TABLE: PartType.PART_TYPE_IFS,
+    LOGICAL_IF_TABLE: PartType.PART_TYPE_IFS,
+}
+
 const map<string, string> UVE_MAP = {
     "virtual-network" : VN_TABLE,
     "virtual-machine" : VM_TABLE,

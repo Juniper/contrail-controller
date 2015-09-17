@@ -64,7 +64,7 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_collector_port = ContrailPorts::CollectorPort();
     uint16_t default_collector_protobuf_port =
         ContrailPorts::CollectorProtobufPort();
-    uint16_t default_partitions = 5;
+    uint16_t default_partitions = 15;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 

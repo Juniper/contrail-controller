@@ -37,7 +37,9 @@ public:
                            const std::string &source, const std::string &node_type,
                            const std::string &module, 
                            const std::string &instance_id,
-                           const std::string &key, const std::string &message,
+                           const std::string &table,
+                           const std::string &barekey,
+                           const std::string &message,
                            int32_t seq, const std::string& agg, 
                            int64_t ts, bool is_alarm);
 
@@ -45,7 +47,8 @@ public:
                            const std::string &source, const std::string &node_type,
                            const std::string &module, 
                            const std::string &instance_id,
-                           const std::string &key, bool deleted);
+                           const std::string &table, const std::string &barekey,
+                           bool deleted);
 
     // Use this to delete the object when the deleted attribute is set
     virtual bool UVEDelete(const std::string &type,
