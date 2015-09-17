@@ -283,11 +283,14 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             gevent.sleep(2)
 
 
-    def setUp(self):
+    def setUp(self, extra_config_knobs = None):
         super(TestCase, self).setUp()
         global cov_handle
         if not cov_handle:
             cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
+
+        if extra_config_knobs:
+            self._config_knobs.extend(extra_config_knobs)
 
         gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
         setup_common_flexmock()
