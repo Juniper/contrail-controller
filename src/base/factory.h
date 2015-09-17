@@ -33,4 +33,10 @@ static void _Factory ## _TypeImpl ## Register () {\
 }\
 MODULE_INITIALIZER(_Factory ## _TypeImpl ## Register)
 
+#define FACTORY_PARAM_STATIC_REGISTER(_Factory, _BaseType, _Param, _TypeImpl)\
+static void _Factory ## _TypeImpl ## Register () {\
+    _Factory::Register<_BaseType, _Param>(boost::factory<_TypeImpl *>());\
+}\
+MODULE_INITIALIZER(_Factory ## _TypeImpl ## Register)
+
 #endif

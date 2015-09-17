@@ -12,7 +12,7 @@ def generate_header(file):
 """
     file.write(header)
 
-macro_tmpl = """#define FACTORY_TYPE_N%(cardinality)d(_Module, _T%(comma)s%(argument_types)s)
+macro_tmpl1 = """#define FACTORY_TYPE_N%(cardinality)d(_Module, _T%(comma)s%(argument_types)s)
   public:
     template <class U>
     static typename boost::enable_if<boost::is_same<U, _T>, void>::type
@@ -28,6 +28,26 @@ macro_tmpl = """#define FACTORY_TYPE_N%(cardinality)d(_Module, _T%(comma)s%(argu
     }
   private:
     boost::function<_T *(%(argument_types)s)> make_ ## _T ##_
+"""
+
+macro_tmpl2 = """#define FACTORY_PARAM_TYPE_N%(cardinality)d(_Module, _T, _P%(comma)s%(argument_types)s)
+  public:
+    template <class U, int UP>
+    static typename boost::enable_if_c<
+        boost::is_same<U, _T>::value && (UP == (_P)), void>::type
+        Register(boost::function<_T *(%(argument_types)s)> function) {
+        _Module *obj = GetInstance();
+        obj->make_ ## _T ## _ ## _P ## _ = function;
+    }
+    template <class U, int UP>
+    static typename boost::enable_if_c<
+        boost::is_same<U, _T>::value && (UP == (_P)), _T *>::type
+        Create(%(argument_decl)s) {
+        _Module *obj = GetInstance();
+        return obj->make_ ## _T ## _ ## _P ##_(%(call_arguments)s);
+    }
+  private:
+    boost::function<_T *(%(argument_types)s)> make_ ## _T ## _ ## _P ## _
 """
 
 def generate_n(file, cardinality):
@@ -49,7 +69,14 @@ def generate_n(file, cardinality):
     else:
         comma = ''
 
-    macro = macro_tmpl % {
+    macro1 = macro_tmpl1 % {
+        'argument_decl': decl,
+        'argument_types': types,
+        'call_arguments': call_arguments,
+        'cardinality': cardinality,
+        'comma': comma,
+        }
+    macro2 = macro_tmpl2 % {
         'argument_decl': decl,
         'argument_types': types,
         'call_arguments': call_arguments,
@@ -57,7 +84,9 @@ def generate_n(file, cardinality):
         'comma': comma,
         }
 
-    file.write(macro.replace('\n', '\\\n'))
+    file.write(macro1.replace('\n', '\\\n'))
+    file.write('\n')
+    file.write(macro2.replace('\n', '\\\n'))
     file.write('\n')
 
 def generate(filename):
