@@ -208,8 +208,6 @@ void IFMapServer::Shutdown() {
 }
 
 void IFMapServer::ClientRegister(IFMapClient *client) {
-    IFMAP_DEBUG(IFMapServerClientRegUnreg, "Register request for client ",
-                client->identifier());
     size_t index = client_indexes_.find_first_clear();
     if (index == BitSet::npos) {
         index = client_indexes_.size();
@@ -220,11 +218,13 @@ void IFMapServer::ClientRegister(IFMapClient *client) {
     index_map_.insert(make_pair(index, client));
     client->Initialize(exporter_.get(), index);
     queue_->Join(index);
+    IFMAP_DEBUG(IFMapServerClientRegUnreg, "Register request for client ",
+                client->identifier(), index);
 }
 
 void IFMapServer::ClientUnregister(IFMapClient *client) {
     IFMAP_DEBUG(IFMapServerClientRegUnreg, "Un-register request for client ",
-                client->identifier());
+                client->identifier(), client->index());
     size_t index = client->index();
     sender_->CleanupClient(index);
     queue_->Leave(index);
