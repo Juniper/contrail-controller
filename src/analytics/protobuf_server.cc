@@ -20,7 +20,6 @@
 #include <io/io_types.h>
 #include <io/udp_server.h>
 
-#include "analytics/diffstats.h"
 #include "analytics/self_describing_message.pb.h"
 #include "analytics/protobuf_server.h"
 #include "analytics/protobuf_server_impl.h"
@@ -491,15 +490,18 @@ class ProtobufServer::ProtobufServerImpl {
             }
             void GetRxDiff(
                 std::vector<SocketEndpointMessageStats> *semsv) {
-                tbb::mutex::scoped_lock lock(mutex_);
-                // Send diffs
-                GetDiffStats<EndpointStatsMessageMap,
-                    EndpointMessageKey, MessageInfo,
-                    SocketEndpointMessageStats>(rx_stats_map_, o_rx_stats_map_,
-                    *semsv);
+                GetRxInternal(semsv, true);
             }
             void GetRx(
                 std::vector<SocketEndpointMessageStats> *semsv) {
+                GetRxInternal(semsv, false);
+            }
+         private:
+            class MessageInfo;
+
+            void GetRxInternal(
+                std::vector<SocketEndpointMessageStats> *semsv,
+                bool clear_stats) {
                 tbb::mutex::scoped_lock lock(mutex_);
                 BOOST_FOREACH(
                     const EndpointStatsMessageMap::value_type &esmm_value,
@@ -507,12 +509,13 @@ class ProtobufServer::ProtobufServerImpl {
                     const EndpointMessageKey &key(esmm_value.first);
                     const MessageInfo *msg_info(esmm_value.second);
                     SocketEndpointMessageStats sems;
-                    msg_info->Get(key, sems);
+                    msg_info->Get(key, &sems);
                     semsv->push_back(sems); 
                 }
+                if (clear_stats) {
+                    rx_stats_map_.clear();
+                }
             }
-         private:
-            class MessageInfo;
 
             void Update(const boost::asio::ip::udp::endpoint &remote_endpoint,
                 const std::string &message_name, uint64_t bytes,
@@ -534,7 +537,7 @@ class ProtobufServer::ProtobufServerImpl {
                 std::string> EndpointMessageKey;
             typedef boost::ptr_map<EndpointMessageKey,
                 MessageInfo> EndpointStatsMessageMap;
-            EndpointStatsMessageMap rx_stats_map_, o_rx_stats_map_;
+            EndpointStatsMessageMap rx_stats_map_;
             tbb::mutex mutex_;
 
             //
@@ -558,38 +561,21 @@ class ProtobufServer::ProtobufServerImpl {
                     last_timestamp_ = UTCTimestampUsec();
                 }
                 void Get(const EndpointMessageKey &key,
-                    SocketEndpointMessageStats &sems) const {
+                    SocketEndpointMessageStats *sems) const {
                     const boost::asio::ip::udp::endpoint remote_endpoint(
                         key.first);
                     const std::string &message_name(key.second);
                     std::stringstream ss;
                     ss << remote_endpoint;
-                    sems.set_endpoint_name(ss.str());
-                    sems.set_message_name(message_name);
-                    sems.set_messages(messages_);
-                    sems.set_bytes(bytes_);
-                    sems.set_errors(errors_);
-                    sems.set_last_timestamp(last_timestamp_);
+                    sems->set_endpoint_name(ss.str());
+                    sems->set_message_name(message_name);
+                    sems->set_messages(messages_);
+                    sems->set_bytes(bytes_);
+                    sems->set_errors(errors_);
+                    sems->set_last_timestamp(last_timestamp_);
                 }
 
              private:
-                friend MessageInfo operator+(const MessageInfo &a,
-                    const MessageInfo &b) {
-                    MessageInfo sum;
-                    sum.messages_ = a.messages_ + b.messages_;
-                    sum.bytes_ = a.bytes_ + b.bytes_;
-                    sum.errors_ = a.errors_ + b.errors_;
-                    return sum;
-                }
-                friend MessageInfo operator-(const MessageInfo &a,
-                    const MessageInfo &b) {
-                    MessageInfo diff;
-                    diff.messages_ = a.messages_ - b.messages_;
-                    diff.bytes_ = a.bytes_ - b.bytes_;
-                    diff.errors_ = a.errors_ - b.errors_;
-                    diff.last_timestamp_ = a.last_timestamp_ - b.last_timestamp_;
-                    return diff;
-                }
                 uint64_t messages_;
                 uint64_t bytes_;
                 uint64_t errors_;

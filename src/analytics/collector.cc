@@ -394,9 +394,9 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
         const SandeshGenerator * const gen = gm_it->second;
 
         vector<SandeshStats> ssv;
-        gen->GetStatistics(ssv);
+        gen->GetStatistics(&ssv);
         vector<SandeshLogLevelStats> lsv;
-        gen->GetStatistics(lsv);
+        gen->GetStatistics(&lsv);
         vector<SandeshStatsInfo> ssiv;
         SandeshStatsInfo ssi;
         ssi.set_hostname(Sandesh::source());

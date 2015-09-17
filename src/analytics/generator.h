@@ -33,8 +33,8 @@ public:
     
     bool ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc);
     void SendSandeshMessageStatistics();
-    void GetStatistics(std::vector<SandeshStats> &ssv) const;
-    void GetStatistics(std::vector<SandeshLogLevelStats> &lsv) const;
+    void GetStatistics(std::vector<SandeshStats> *ssv) const;
+    void GetStatistics(std::vector<SandeshLogLevelStats> *lsv) const;
 
 private:
     void UpdateStatistics(const VizMsg *vmsg);
