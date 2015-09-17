@@ -27,7 +27,7 @@ class DbTableStatistics {
         }
         void Update(bool write, bool fail);
         void Get(const std::string &table_name,
-            GenDb::DbTableInfo &dbti) const;
+            GenDb::DbTableInfo *dbti) const;
 
         uint64_t num_reads_;
         uint64_t num_read_fails_;
@@ -35,16 +35,8 @@ class DbTableStatistics {
         uint64_t num_write_fails_;
     };
 
-    friend DbTableStatistics::TableStats operator+(
-        const DbTableStatistics::TableStats &a,
-        const DbTableStatistics::TableStats &b);
-    friend DbTableStatistics::TableStats operator-(
-        const DbTableStatistics::TableStats &a,
-        const DbTableStatistics::TableStats &b);
-
     typedef boost::ptr_map<const std::string, TableStats> TableStatsMap;
     TableStatsMap table_stats_map_;
-    TableStatsMap otable_stats_map_;
 };
 
 }  // namespace GenDb
