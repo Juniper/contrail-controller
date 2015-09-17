@@ -100,6 +100,12 @@ class EventManager:
         pattern = 'rm -rf ceph.conf; ln -s /etc/ceph/ceph.conf ceph.conf'
         self.call_subprocess(pattern)
 
+    def exec_local(self, arg):
+        ret = subprocess.Popen('%s' %(arg), shell=True,
+                                stdout=subprocess.PIPE).stdout.read()
+        ret = ret[:-1]
+        return ret
+
     def init_units(self):
         units = dict();
         units['K'] = 1024
@@ -448,15 +454,16 @@ class EventManager:
             if is_active == "ok\n":
                 cs_osd_state.status = "active"
                 num = arr[linecount].split('-')[1]
-                osd_name = "osd." + num
-                cmd = "ceph osd dump | grep " + \
-                    osd_name + " | cut -d \" \" -f22"
-                uuid = self.call_subprocess(cmd)
-                if uuid is None:
+                uuid = self.exec_local('ceph --admin-daemon \
+                            /var/run/ceph/ceph-osd.%s.asok status | \
+                            grep osd_fsid | awk \'{print $2}\' | \
+                            cut -d \'"\' -f 2' %(num))
+                if uuid is '':
                     return
                 cs_osd.uuid = uuid.rstrip("\n")
                 osd_prev_stats = self.dict_of_osds.get(
                     cs_osd.uuid)
+                osd_name = "osd." + num
                 cs_osd.name = self._hostname + ':' + osd_name
                 if osd_prev_stats is None:
                     no_prev_osd = 1
