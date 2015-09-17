@@ -513,6 +513,7 @@ void KSyncSockTcp::OnSessionEvent(TcpSession *session,
         break;
     case TcpSession::CLOSE:
         LOG(ERROR, "Connection to dpdk-vrouter lost.");
+        sleep(1);
         exit(EXIT_FAILURE);
         break;
     case TcpSession::CONNECT_COMPLETE:
