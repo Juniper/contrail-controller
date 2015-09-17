@@ -38,7 +38,9 @@ VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
-    StatsTestMock() : util_(), peer_(NULL) {}
+    StatsTestMock() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
+        col_ = agent_->flow_stats_collector();
+    }
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
@@ -127,6 +129,8 @@ public:
     }
     TestUveUtil util_;
     BgpPeer *peer_;
+    Agent* agent_;
+    FlowStatsCollector *col_;
 };
 
 TEST_F(StatsTestMock, FlowStatsTest) {
@@ -455,104 +459,6 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     agent->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
-TEST_F(StatsTestMock, DeletedFlowStatsTest) {
-    hash_id = 1;
-    //Flow creation using IP packet
-    TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2", 0, hash_id);
-    client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
-                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
-
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
-    EXPECT_TRUE(vrf != NULL);
-    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
-                            flow0->flow_key_nh()->id());
-    EXPECT_TRUE(f1 != NULL);
-    FlowEntry *f1_rev = f1->reverse_flow_entry();
-    EXPECT_TRUE(f1_rev != NULL);
-
-    //Create flow in reverse direction and make sure it is linked to previous flow
-    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, f1_rev->flow_handle());
-    client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
-                        "vn5", "vn5", f1_rev->flow_handle(),
-                        flow1->flow_key_nh()->id(),
-                        flow0->flow_key_nh()->id()));
-
-    //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
-                    1000, 200, hash_id);
-    client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
-    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
-                            flow0->flow_key_nh()->id());
-    EXPECT_TRUE(f2 != NULL);
-    FlowEntry *f2_rev = f2->reverse_flow_entry();
-    EXPECT_TRUE(f2_rev != NULL);
-
-    //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
-                    f2_rev->flow_handle());
-    client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", f2_rev->flow_handle(),
-                        flow1->flow_key_nh()->id(),
-                        flow0->flow_key_nh()->id()));
-
-    //Verify flow count
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
-
-    //Invoke FlowStatsCollector to update the stats
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle(10);
-
-    //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
-                               flow0->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30,
-                               flow1->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
-                               flow0->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
-                               flow1->flow_key_nh()->id()));
-
-    //Mark the flow entries as deleted
-    f1->set_deleted(true);
-    f1_rev->set_deleted(true);
-
-    //Change the stats
-    KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 1, 30);
-
-    //Invoke FlowStatsCollector to update the stats
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle(10);
-
-    //Verify flow stats are unchanged for deleted flows
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
-                               flow0->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30,
-                               flow1->flow_key_nh()->id()));
-
-    //Verfiy flow stats are updated for flows which are not marked for delete
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60,
-                               flow0->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60,
-                               flow1->flow_key_nh()->id()));
-
-    //Remove the deleted flag, so that the cleanup can happen
-    f1->set_deleted(false);
-    f1_rev->set_deleted(false);
-
-    //cleanup
-    client->EnqueueFlowFlush();
-    client->WaitForIdle();
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
-}
-
 TEST_F(StatsTestMock, IntfStatsTest) {
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->stats_collector());
@@ -871,18 +777,22 @@ TEST_F(StatsTestMock, Underlay_1) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowExportInfo *info = col_->FindFlowExportInfo(fe->key());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(),
                  Agent::GetInstance()->router_id().to_string().c_str());
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::INVALID);
-    EXPECT_EQ(fe->underlay_source_port(), 0);
+    EXPECT_EQ(info->underlay_source_port(), 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(),
                  Agent::GetInstance()->router_id().to_string().c_str());
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::INVALID);
-    EXPECT_EQ(rfe->underlay_source_port(), 0);
+    EXPECT_EQ(rinfo->underlay_source_port(), 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
@@ -910,16 +820,20 @@ TEST_F(StatsTestMock, Underlay_2) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowExportInfo *info = col_->FindFlowExportInfo(fe->key());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(), remote_router_ip);
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(fe->underlay_source_port(), 0);
+    EXPECT_EQ(info->underlay_source_port(), 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(), remote_router_ip);
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(rfe->underlay_source_port(), 0);
+    EXPECT_EQ(rinfo->underlay_source_port(), 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
@@ -950,9 +864,15 @@ TEST_F(StatsTestMock, Underlay_3) {
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    FlowExportInfo *info = col_->FindFlowExportInfo(fe->key());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
+    client->WaitForIdle();
 
+    WAIT_FOR(1000, 10000, (rinfo->flow_handle() != FlowEntry::kInvalidFlowHandle));
     //Change the underlay source port
     KSyncSockTypeMap::SetUnderlaySourcePort(fe->flow_handle(), 1234);
     KSyncSockTypeMap::SetUnderlaySourcePort(rfe->flow_handle(), 5678);
@@ -967,11 +887,11 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     //Verify underlay source port for forward flow
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(fe->underlay_source_port(), 1234);
+    EXPECT_EQ(info->underlay_source_port(), 1234);
 
     //Verify underlay source port for reverse flow
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(rfe->underlay_source_port(), 5678);
+    EXPECT_EQ(rinfo->underlay_source_port(), 5678);
 
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port

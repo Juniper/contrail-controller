@@ -30,6 +30,7 @@
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
 
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Link local service
@@ -380,7 +381,8 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->event_manager()->io_service()))),
-      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
+      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())),
+      flow_export_rate_(kDefaultFlowExportRate) {
 
     DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
               "global-vrouter-config");
@@ -421,10 +423,17 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
+        if (cfg->IsPropertySet
+                (autogen::GlobalVrouterConfig::FLOW_EXPORT_RATE)) {
+            flow_export_rate_ = cfg->flow_export_rate();
+        } else {
+            flow_export_rate_ = kDefaultFlowExportRate;
+        }
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
         encap_changed = true;
+        flow_export_rate_ = kDefaultFlowExportRate;
     }
 
     bool resync_vm_interface = false;

@@ -8,13 +8,15 @@
 #include "base/task.h"
 #include "pkt/flow_table.h"
 #include "pkt/pkt_types.h"
+#include "vrouter/flow_stats/flow_stats_collector.h"
 
 class PktSandeshFlow : public Task {
 public:
     static const int kMaxFlowResponse = 100;
     static const std::string start_key;
 
-    PktSandeshFlow(FlowRecordsResp *obj, std::string resp_ctx, std::string key);
+    PktSandeshFlow(Agent *agent, FlowRecordsResp *obj, std::string resp_ctx,
+                   std::string key);
     virtual ~PktSandeshFlow();
 
     void SendResponse(SandeshResponse *resp);
@@ -22,7 +24,8 @@ public:
     static std::string GetFlowKey(const FlowKey &key);
     
     virtual bool Run();
-    void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe);
+    void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe,
+                            FlowExportInfo *info);
     void set_delete_op(bool delete_op) {delete_op_ = delete_op;}
 
 protected:
@@ -33,6 +36,7 @@ protected:
     bool delete_op_;
 
 private:
+    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(PktSandeshFlow);
 };
 

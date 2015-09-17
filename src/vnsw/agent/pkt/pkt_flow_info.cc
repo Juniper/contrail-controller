@@ -1448,8 +1448,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     tcp_ack = pkt->tcp_ack;
-    flow->InitFwdFlow(this, pkt, in, out, rflow.get());
-    rflow->InitRevFlow(this, pkt, out, in, flow.get());
+    flow->InitFwdFlow(this, pkt, in, out, rflow.get(), flow_table->agent());
+    rflow->InitRevFlow(this, pkt, out, in, flow.get(), flow_table->agent());
 
     flow->GetPolicyInfo();
     rflow->GetPolicyInfo();
@@ -1462,9 +1462,9 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
      * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
     if (swap_flows) {
-        flow_table->FlowEvent(event, rflow.get());
+        flow_table->FlowEvent(event, rflow.get(), FlowKey(), false);
     } else {
-        flow_table->FlowEvent(event, flow.get());
+        flow_table->FlowEvent(event, flow.get(), FlowKey(), false);
     }
 }
 
@@ -1519,8 +1519,8 @@ void PktFlowInfo::UpdateFipStatsInfo
     }
 
     if (fip_snat || fip_dnat) {
-        flow->UpdateFipStatsInfo(fip, intf_id);
-        rflow->UpdateFipStatsInfo(r_fip, r_intf_id);
+        flow->UpdateFipStatsInfo(fip, intf_id, flow_table->agent());
+        rflow->UpdateFipStatsInfo(r_fip, r_intf_id, flow_table->agent());
     }
 }
 

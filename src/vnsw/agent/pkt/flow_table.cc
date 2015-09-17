@@ -12,7 +12,6 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <pkt/flow_table.h>
-#include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <ksync/ksync_entry.h>
 #include <vrouter/ksync/flowtable_ksync.h>
@@ -90,7 +89,8 @@ void FlowTable::Shutdown() {
 }
 
 // Generate flow events to FlowTable queue
-void FlowTable::FlowEvent(FlowTableRequest::Event event, FlowEntry *flow) {
+void FlowTable::FlowEvent(FlowTableRequest::Event event, FlowEntry *flow,
+                          const FlowKey &del_key, bool del_rflow) {
     FlowTableRequest req;
     req.flow_ = flow;
     req.event_ = FlowTableRequest::INVALID;
@@ -105,6 +105,12 @@ void FlowTable::FlowEvent(FlowTableRequest::Event event, FlowEntry *flow) {
 
     case FlowTableRequest::UPDATE_FLOW:
         req.event_ = FlowTableRequest::UPDATE_FLOW;
+        break;
+
+    case FlowTableRequest::DELETE_FLOW:
+        req.event_ = FlowTableRequest::DELETE_FLOW;
+        req.del_flow_key_ = del_key;
+        req.del_rev_flow_ = del_rflow;
         break;
 
     default:
@@ -135,6 +141,12 @@ bool FlowTable::RequestHandler(const FlowTableRequest &req) {
         Update(req.flow_.get(), rflow.get());
         break;
     }
+
+    case FlowTableRequest::DELETE_FLOW: {
+        Delete(req.del_flow_key_, req.del_rev_flow_);
+        break;
+    }
+
     default:
          assert(0);
 
@@ -166,7 +178,6 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow) {
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
-        flow->stats_.setup_time = UTCTimestampUsec();
         agent_->stats()->incr_flow_created();
         ret.first->second->set_on_tree();
         return flow;
@@ -325,11 +336,6 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
         reverse_flow = fe->reverse_flow_entry();
     }
 
-    /* Send flow log messages for both forward and reverse flows before we
-     * delete any flows because we need relationship between forward and
-     * reverse flow during FlowExport. This relationship will be broken if
-     * either of forward or reverse flow is deleted */
-    SendFlows(fe, reverse_flow);
     /* Delete the forward flow */
     DeleteInternal(it);
 
@@ -1014,30 +1020,13 @@ void FlowTable::UpdateKSync(FlowEntry *flow) {
     }
 }
 
-void FlowTable::SendFlowInternal(FlowEntry *fe) {
-    if (fe->deleted()) {
-        /* Already deleted return from here. */
-        return;
-    }
-    FlowStatsCollector *fec = agent_->flow_stats_collector();
-    uint64_t diff_bytes, diff_packets;
-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
-
-    fe->stats_.teardown_time = UTCTimestampUsec();
-    agent_->pkt()->flow_mgmt_manager()->ExportEvent(fe, diff_bytes,
-                                                    diff_packets);
-    /* Reset stats and teardown_time after these information is exported during
-     * flow delete so that if the flow entry is reused they point to right
-     * values */
-    fe->ResetStats();
-    fe->stats_.teardown_time = 0;
-}
-
-void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow) {
-    SendFlowInternal(flow);
-    if (rflow) {
-        SendFlowInternal(rflow);
-    }
+void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
+    /* FlowMgmt Task does not do anything apart from notifying
+     * FlowStatsCollector on Flow Index change. We don't directly enqueue
+     * the index change event to FlowStatsCollector to avoid Flow Index change
+     * event reaching FlowStatsCollector before Flow Add
+     */
+    agent_->pkt()->flow_mgmt_manager()->FlowIndexUpdateEvent(fe);
 }
 
 void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
