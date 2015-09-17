@@ -2,33 +2,9 @@
 // Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 //
 
-#include <analytics/diffstats.h>
 #include "gendb_statistics.h"
 
 namespace GenDb {
-
-// TableStats
-GenDb::DbTableStatistics::TableStats operator+(
-    const GenDb::DbTableStatistics::TableStats &a,
-    const GenDb::DbTableStatistics::TableStats &b) {
-    GenDb::DbTableStatistics::TableStats sum;
-    sum.num_reads_ = a.num_reads_ + b.num_reads_;
-    sum.num_read_fails_ = a.num_read_fails_ + b.num_read_fails_;
-    sum.num_writes_ = a.num_writes_ + b.num_writes_;
-    sum.num_write_fails_ = a.num_write_fails_ + b.num_write_fails_;
-    return sum;
-}
-
-GenDb::DbTableStatistics::TableStats operator-(
-    const GenDb::DbTableStatistics::TableStats &a,
-    const GenDb::DbTableStatistics::TableStats &b) {
-    GenDb::DbTableStatistics::TableStats diff;
-    diff.num_reads_ = a.num_reads_ - b.num_reads_;
-    diff.num_read_fails_ = a.num_read_fails_ - b.num_read_fails_;
-    diff.num_writes_ = a.num_writes_ - b.num_writes_;
-    diff.num_write_fails_ = a.num_write_fails_ - b.num_write_fails_;
-    return diff;
-}
 
 void GenDb::DbTableStatistics::TableStats::Update(bool write, bool fail) {
     if (write) {
@@ -47,12 +23,12 @@ void GenDb::DbTableStatistics::TableStats::Update(bool write, bool fail) {
 }
 
 void GenDb::DbTableStatistics::TableStats::Get(const std::string &table_name,
-    DbTableInfo &info) const {
-    info.set_table_name(table_name);
-    info.set_reads(num_reads_);
-    info.set_read_fails(num_read_fails_);
-    info.set_writes(num_writes_);
-    info.set_write_fails(num_write_fails_);
+    DbTableInfo *info) const {
+    info->set_table_name(table_name);
+    info->set_reads(num_reads_);
+    info->set_read_fails(num_read_fails_);
+    info->set_writes(num_writes_);
+    info->set_write_fails(num_write_fails_);
 }
 
 // DbTableStatistics
@@ -67,10 +43,14 @@ void GenDb::DbTableStatistics::Update(const std::string &table_name,
 }
 
 void GenDb::DbTableStatistics::Get(std::vector<GenDb::DbTableInfo> *vdbti) {
-    // Send diffs
-    GetDiffStats<GenDb::DbTableStatistics::TableStatsMap, const std::string,
-        GenDb::DbTableStatistics::TableStats, DbTableInfo>(
-        table_stats_map_, otable_stats_map_, *vdbti);
+    for (TableStatsMap::const_iterator it = table_stats_map_.begin();
+         it != table_stats_map_.end(); it++) {
+        const TableStats *table_stats(it->second);
+        GenDb::DbTableInfo dbti;
+        table_stats->Get(it->first, &dbti);
+        vdbti->push_back(dbti);
+    }
+    table_stats_map_.clear();
 }
 
 }  // namespace GenDb
