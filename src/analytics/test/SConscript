@@ -120,6 +120,13 @@ sflow_parser_test = env.UnitTest('sflow_parser_test',
      '../sflow_types.o'])
 env.Alias('src/analytics:sflow_parser_test', sflow_parser_test)
 
+diffstats_test_gen_files = env.SandeshGenCpp('diffstats_test.sandesh')
+diffstats_test_gen_srcs = env.ExtractCpp(diffstats_test_gen_files)
+diffstats_test_gen_objs = env.Object(diffstats_test_gen_srcs)
+diffstats_test = env.UnitTest('diffstats_test', diffstats_test_gen_objs +
+    ['diffstats_test.cc'])
+env.Alias('src/analytics:diffstats_test', diffstats_test)
+
 test_suite = [ 
                options_test,
                viz_message_test,
@@ -127,7 +134,8 @@ test_suite = [
                stat_walker_test,
                protobuf_test,
                syslog_test,
-               sflow_parser_test
+               sflow_parser_test,
+               diffstats_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 

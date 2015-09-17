@@ -495,8 +495,8 @@ class ProtobufServer::ProtobufServerImpl {
                 // Send diffs
                 GetDiffStats<EndpointStatsMessageMap,
                     EndpointMessageKey, MessageInfo,
-                    SocketEndpointMessageStats>(rx_stats_map_, o_rx_stats_map_,
-                    *semsv);
+                    SocketEndpointMessageStats>(&rx_stats_map_, &o_rx_stats_map_,
+                    semsv);
             }
             void GetRx(
                 std::vector<SocketEndpointMessageStats> *semsv) {
@@ -558,18 +558,18 @@ class ProtobufServer::ProtobufServerImpl {
                     last_timestamp_ = UTCTimestampUsec();
                 }
                 void Get(const EndpointMessageKey &key,
-                    SocketEndpointMessageStats &sems) const {
+                    SocketEndpointMessageStats *sems) const {
                     const boost::asio::ip::udp::endpoint remote_endpoint(
                         key.first);
                     const std::string &message_name(key.second);
                     std::stringstream ss;
                     ss << remote_endpoint;
-                    sems.set_endpoint_name(ss.str());
-                    sems.set_message_name(message_name);
-                    sems.set_messages(messages_);
-                    sems.set_bytes(bytes_);
-                    sems.set_errors(errors_);
-                    sems.set_last_timestamp(last_timestamp_);
+                    sems->set_endpoint_name(ss.str());
+                    sems->set_message_name(message_name);
+                    sems->set_messages(messages_);
+                    sems->set_bytes(bytes_);
+                    sems->set_errors(errors_);
+                    sems->set_last_timestamp(last_timestamp_);
                 }
 
              private:

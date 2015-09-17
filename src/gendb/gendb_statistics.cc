@@ -47,12 +47,12 @@ void GenDb::DbTableStatistics::TableStats::Update(bool write, bool fail) {
 }
 
 void GenDb::DbTableStatistics::TableStats::Get(const std::string &table_name,
-    DbTableInfo &info) const {
-    info.set_table_name(table_name);
-    info.set_reads(num_reads_);
-    info.set_read_fails(num_read_fails_);
-    info.set_writes(num_writes_);
-    info.set_write_fails(num_write_fails_);
+    DbTableInfo *info) const {
+    info->set_table_name(table_name);
+    info->set_reads(num_reads_);
+    info->set_read_fails(num_read_fails_);
+    info->set_writes(num_writes_);
+    info->set_write_fails(num_write_fails_);
 }
 
 // DbTableStatistics
@@ -70,7 +70,7 @@ void GenDb::DbTableStatistics::Get(std::vector<GenDb::DbTableInfo> *vdbti) {
     // Send diffs
     GetDiffStats<GenDb::DbTableStatistics::TableStatsMap, const std::string,
         GenDb::DbTableStatistics::TableStats, DbTableInfo>(
-        table_stats_map_, otable_stats_map_, *vdbti);
+        &table_stats_map_, &otable_stats_map_, vdbti);
 }
 
 }  // namespace GenDb

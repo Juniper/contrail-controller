@@ -27,7 +27,7 @@ class DbTableStatistics {
         }
         void Update(bool write, bool fail);
         void Get(const std::string &table_name,
-            GenDb::DbTableInfo &dbti) const;
+            GenDb::DbTableInfo *dbti) const;
 
         uint64_t num_reads_;
         uint64_t num_read_fails_;

@@ -79,23 +79,23 @@ void VizMsgStats::Update(const VizMsg *vmsg) {
 }
 
 template <typename T, typename K>
-void GetStats(T &stats, const VizMsgStats *vmstats, K &key) {
-    stats.set_messages(vmstats->messages);
-    stats.set_bytes(vmstats->bytes);
-    stats.set_last_msg_timestamp(vmstats->last_msg_timestamp);
+void GetStats(T *stats, const VizMsgStats *vmstats, const K &key) {
+    stats->set_messages(vmstats->messages);
+    stats->set_bytes(vmstats->bytes);
+    stats->set_last_msg_timestamp(vmstats->last_msg_timestamp);
 }
 
 template <>
-void GetStats<>(SandeshMessageInfo &sminfo,
-    const VizMsgStats *vmstats, VizMsgStatistics::TypeLevelKey &key) {
-    sminfo.set_type(key.first);
-    sminfo.set_level(key.second); 
-    sminfo.set_messages(vmstats->messages);
-    sminfo.set_bytes(vmstats->bytes);
+void GetStats<>(SandeshMessageInfo *sminfo,
+    const VizMsgStats *vmstats, const VizMsgStatistics::TypeLevelKey &key) {
+    sminfo->set_type(key.first);
+    sminfo->set_level(key.second);
+    sminfo->set_messages(vmstats->messages);
+    sminfo->set_bytes(vmstats->bytes);
 }
 
 template <typename K, typename T>
-void VizMsgStats::Get(K &key, T &stats) const {
+void VizMsgStats::Get(const K &key, T *stats) const {
     GetStats<T>(stats, this, key);
 }
 
@@ -154,8 +154,8 @@ void VizMsgStatistics::Get(std::vector<SandeshLogLevelStats> &lsv) const {
 }
 
 // TypeLevelMap
-void VizMsgStatistics::Get(std::vector<SandeshMessageInfo> &smv) {
+void VizMsgStatistics::Get(std::vector<SandeshMessageInfo> *smv) {
     // Send diffs 
    GetDiffStats<TypeLevelMap, TypeLevelKey, VizMsgStats, SandeshMessageInfo>(
-       type_level_map, otype_level_map, smv);
+       &type_level_map, &otype_level_map, smv);
 }

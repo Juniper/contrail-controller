@@ -68,7 +68,7 @@ void Generator::SendSandeshMessageStatistics() {
     vector<SandeshMessageInfo> smv;
     {
         tbb::mutex::scoped_lock lock(smutex_);
-        statistics_.Get(smv);
+        statistics_.Get(&smv);
     }
     SandeshMessageStat sms;
     sms.set_name(ToString());

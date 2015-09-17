@@ -37,7 +37,7 @@ struct VizMsgStats {
     VizMsgStats() : messages(0), bytes(0), last_msg_timestamp(0) {}
 
     void Update(const VizMsg *vmsg);
-    template <typename K, typename T> void Get(K &key, T &stats) const;
+    template <typename K, typename T> void Get(const K &key, T *stats) const;
     friend VizMsgStats operator+(const VizMsgStats &a, const VizMsgStats &b);
     friend VizMsgStats operator-(const VizMsgStats &a, const VizMsgStats &b);
 
@@ -52,7 +52,7 @@ struct VizMsgStatistics {
     void Update(const VizMsg *vmsg);
     void Get(std::vector<SandeshStats> &ssv) const;
     void Get(std::vector<SandeshLogLevelStats> &lsv) const;
-    void Get(std::vector<SandeshMessageInfo> &sms);
+    void Get(std::vector<SandeshMessageInfo> *sms);
 
     typedef boost::ptr_map<std::string, VizMsgStats> TypeMap;
     TypeMap type_map;
