@@ -2854,7 +2854,7 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe)
     // Remove from RouteFlowTree
     DeleteRouteFlowInfo(fe);
 
-    DeleteByIndex(fe->flow_handle_);
+    //DeleteByIndex(fe->flow_handle_);
 }
 
 void FlowTable::DeleteVnFlowInfo(FlowEntry *fe)
@@ -3013,7 +3013,7 @@ void FlowTable::AddFlowInfo(FlowEntry *fe)
     // Add RouteFlowTree;
     AddRouteFlowInfo(fe);
 
-    AddIndexFlowInfo(fe, fe->flow_handle_);
+    //AddIndexFlowInfo(fe, fe->flow_handle_);
 }
 
 void FlowTable::AddAclFlowInfo (FlowEntry *fe) 
