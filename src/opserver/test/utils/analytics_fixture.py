@@ -195,12 +195,13 @@ class Collector(object):
 
 class AlarmGen(object):
     def __init__(self, primary_collector, secondary_collector, kafka_port,
-                 analytics_fixture, logger, is_dup=False):
+                 analytics_fixture, logger, partitions, is_dup=False):
         self.primary_collector = primary_collector
         self.secondary_collector = secondary_collector
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
         self.kafka_port = kafka_port
+        self.partitions = partitions
         self.hostname = socket.gethostname()
         self._instance = None
         self._logger = logger
@@ -259,28 +260,23 @@ class AlarmGen(object):
                          "contrail-alarm-gen", ["http"],
                          args, None, True)
         self.http_port = ports["http"]
-        assert(self.analytics_fixture.set_alarmgen_partition(0,1) == 'true')
-        assert(self.analytics_fixture.set_alarmgen_partition(1,1) == 'true')
-        assert(self.analytics_fixture.set_alarmgen_partition(2,1) == 'true')
-        assert(self.analytics_fixture.set_alarmgen_partition(3,1) == 'true')
+        for part in range(0,self.partitions):
+            assert(self.analytics_fixture.set_alarmgen_partition(part,1) == 'true')
         return self.verify_setup()
     # end start
 
     def verify_setup(self):
         if not self.http_port:
             return False
-        assert(self.analytics_fixture.verify_alarmgen_partition(0,'true'))
-        assert(self.analytics_fixture.verify_alarmgen_partition(1,'true'))
-        assert(self.analytics_fixture.verify_alarmgen_partition(2,'true'))
-        assert(self.analytics_fixture.verify_alarmgen_partition(3,'true'))
+        for part in range(0,self.partitions):
+           if not self.analytics_fixture.verify_alarmgen_partition(part,'true'):
+               return False
         return True
 
     def stop(self):
         if self._instance is not None:
-            self.analytics_fixture.set_alarmgen_partition(0,0)
-            self.analytics_fixture.set_alarmgen_partition(1,0)
-            self.analytics_fixture.set_alarmgen_partition(2,0)
-            self.analytics_fixture.set_alarmgen_partition(3,0)            
+            for part in range(0,self.partitions):
+                self.analytics_fixture.set_alarmgen_partition(part,0)
             rcode = self.analytics_fixture.process_stop(
                 "contrail-alarm-gen:%s" % str(self.http_port),
                 self._instance, self._log_file, is_py=True)
@@ -294,12 +290,13 @@ class AlarmGen(object):
 
 class OpServer(object):
     def __init__(self, primary_collector, secondary_collector, redis_port,
-                 analytics_fixture, logger, is_dup=False):
+                 analytics_fixture, logger, kafka=False, is_dup=False):
         self.primary_collector = primary_collector
         self.secondary_collector = secondary_collector
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
         self.hostname = socket.gethostname()
+        self._kafka = kafka
         self._redis_port = redis_port
         self._instance = None
         self._logger = logger
@@ -329,6 +326,9 @@ class OpServer(object):
     def start(self):
         assert(self._instance == None)
         self._log_file = '/tmp/opserver.messages.' + str(self.listen_port)
+        part = "0"
+        if self._kafka:
+            part = "4"
         subprocess.call(['rm', '-rf', self._log_file])
         args = ['contrail-analytics-api',
                 '--redis_server_port', str(self._redis_port),
@@ -339,7 +339,7 @@ class OpServer(object):
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--log_level', "SYS_INFO",
-                '--partitions', "4",
+                '--partitions', part,
                 '--rest_api_port', str(self.listen_port)]
         if self.analytics_fixture.redis_uves[0].password:
             args.append('--redis_password')
@@ -600,16 +600,19 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.logger.error("Secondary Collector did NOT start")
             secondary_collector = self.collectors[1].get_addr()
 
+        opkafka = False
+        if self.kafka:
+            opkafka = True
         self.opserver = OpServer(primary_collector, secondary_collector, 
                                  self.redis_uves[0].port, 
-                                 self, self.logger)
+                                 self, self.logger, opkafka)
         if not self.opserver.start():
             self.logger.error("OpServer did NOT start")
         self.opserver_port = self.opserver.listen_port
         
         if self.kafka is not None: 
             self.alarmgen = AlarmGen(primary_collector, secondary_collector,
-                                     self.kafka.port, self, self.logger)
+                                     self.kafka.port, self, self.logger, 4)
             if not self.alarmgen.start():
                 self.logger.error("AlarmGen did NOT start")
 

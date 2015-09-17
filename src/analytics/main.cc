@@ -389,8 +389,29 @@ int main(int argc, char *argv[])
         string service_name = g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME;
         stringstream pub_ss;
         pub_ss << "<" << service_name << "><ip-address>" << options.host_ip() <<
-                  "</ip-address><port>" << options.collector_port() <<
-                  "</port><pid>" << getpid() << "</pid></"  << service_name << ">";
+                "</ip-address><port>" << options.collector_port() <<
+                "</port><pid>" << getpid() << "</pid><partcount>{ \"1\":[" <<
+                               VizCollector::PartitionRange(
+                        PartType::PART_TYPE_CNODES,options.partitions()).first <<
+                "," << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_CNODES,options.partitions()).second << 
+                "], \"2\":[" << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_PNODES,options.partitions()).first <<
+                "," << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_PNODES,options.partitions()).second << 
+                "], \"3\":[" << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_VMS,options.partitions()).first <<
+                "," << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_VMS,options.partitions()).second << 
+                "], \"4\":[" << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_IFS,options.partitions()).first <<
+                "," << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_IFS,options.partitions()).second << 
+                "], \"5\":[" << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_OTHER,options.partitions()).first <<
+                "," << VizCollector::PartitionRange(
+                        PartType::PART_TYPE_OTHER,options.partitions()).second << 
+                "]}</partcount></"  << service_name << ">";
         std::string pub_msg;
         pub_msg = pub_ss.str();
         ds_client->Publish(service_name, pub_msg);

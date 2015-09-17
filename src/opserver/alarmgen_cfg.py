@@ -62,7 +62,7 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             'syslog_facility'   : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'http_server_port'  : 5995,
             'worker_id'         : '0',
-            'partitions'        : 5,
+            'partitions'        : 15,
             'zk_list'           : None,
             'redis_uve_list'    : ['127.0.0.1:6379'],
             'alarmgen_list'     : ['127.0.0.1:0'],

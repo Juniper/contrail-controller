@@ -596,10 +596,21 @@ OpServerProxy::UVENotif(const std::string &type,
                        const std::string &source, const std::string &node_type,
                        const std::string &module, 
                        const std::string &instance_id,
-                       const std::string &key, bool deleted) {
+                       const std::string &table, const std::string &barekey,
+                       bool deleted) {
+     
+    std::string key = table + ":" + barekey;
 
-    // Hashing into a partition is based on UVE Key
-    unsigned int pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
+    unsigned int pt;
+    PartType::type ptype = PartType::PART_TYPE_OTHER;
+    std::map<std::string, PartType::type>::const_iterator mit = 
+            g_viz_constants.PART_TYPES.find(table);
+    if (mit != g_viz_constants.PART_TYPES.end()) {
+        ptype = mit->second;
+    }
+    std::pair<unsigned int,unsigned int> partdesc =
+        VizCollector::PartitionRange(ptype, impl_->partitions_);
+    pt = partdesc.first + (djb_hash(key.c_str(), key.size()) % partdesc.second);
 
     std::stringstream ss;
     ss << source << ":" << node_type << ":" << module << ":" << instance_id;
@@ -672,7 +683,8 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
                        const std::string &source, const std::string &node_type,
                        const std::string &module, 
                        const std::string &instance_id,
-                       const std::string &key, const std::string &message,
+                       const std::string &table,
+                       const std::string &barekey, const std::string &message,
                        int32_t seq, const std::string& agg, 
                        int64_t ts, bool is_alarm) {
 
@@ -681,11 +693,18 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
         impl_->redis_uve_.RedisUveUpdateNoConn();
         return false;
     }
-
+    std::string key = table + ":" + barekey;
     unsigned int pt = 0;
     if (!is_alarm) {
-        // Hashing into a partition is based on UVE Key
-        pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
+        PartType::type ptype = PartType::PART_TYPE_OTHER;
+        std::map<std::string, PartType::type>::const_iterator mit = 
+                g_viz_constants.PART_TYPES.find(table);
+        if (mit != g_viz_constants.PART_TYPES.end()) {
+            ptype = mit->second;
+        }
+        std::pair<unsigned int,unsigned int> partdesc =
+            VizCollector::PartitionRange(ptype, impl_->partitions_);
+        pt = partdesc.first + (djb_hash(key.c_str(), key.size()) % partdesc.second);
     }
 
     bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,

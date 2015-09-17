@@ -9,6 +9,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <utility>
 
 #include "base/parse_object.h"
 #include "base/contrail_ports.h"
@@ -68,7 +69,50 @@ public:
     void SendProtobufCollectorStatistics();
     void SendGeneratorStatistics();
     void TestDatabaseConnection();
+    
+    static const unsigned int kPartCountCnodes = 1;
+    static const unsigned int kPartMinTotalCount = 15;
+    static std::pair<unsigned int,unsigned int> PartitionRange(
+            PartType::type ptype, unsigned int partitions) {
+        if (partitions < kPartMinTotalCount) {
+            return std::make_pair(0, partitions);
+        }
+        unsigned int pnodeparts = (partitions / 15) + 1;
+        unsigned int varparts = (partitions - 
+                kPartCountCnodes - pnodeparts) / 3;
+        unsigned int bpart;
+        unsigned int npart;
+        switch (ptype)
+        {
+          case PartType::PART_TYPE_CNODES:
+            bpart = 0;
+            npart = kPartCountCnodes;
+            break;
 
+          case PartType::PART_TYPE_PNODES:
+            bpart = kPartCountCnodes;
+            npart = pnodeparts;
+            break;
+
+          case PartType::PART_TYPE_VMS:
+            bpart = kPartCountCnodes + pnodeparts;
+            npart = varparts;
+            break;
+
+          case PartType::PART_TYPE_IFS:
+            bpart = kPartCountCnodes + pnodeparts +
+                    varparts;
+            npart = varparts;
+            break;
+
+          default:
+            bpart = kPartCountCnodes + pnodeparts +
+                    (2*varparts);
+            npart = partitions - bpart;
+            break;
+        }
+        return std::make_pair(bpart, npart);
+    }
 private:
     std::string DbGlobalName(bool dup=false);
     void DbInitializeCb();
