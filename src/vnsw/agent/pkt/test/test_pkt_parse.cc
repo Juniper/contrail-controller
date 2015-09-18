@@ -250,7 +250,9 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
 static bool TestPkt(PktInfo *pkt_info, PktGen *pkt) {
     uint8_t *buff(new uint8_t[pkt->GetBuffLen() + 64]);
     memcpy(buff, pkt->GetBuff(), pkt->GetBuffLen());
-    return CallPktParse(pkt_info, buff, pkt->GetBuffLen() + 64);
+    bool result =  CallPktParse(pkt_info, buff, pkt->GetBuffLen() + 64);
+    delete buff;
+    return result;
 }
 
 static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
@@ -438,7 +440,7 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
 TEST_F(PktParseTest, IPv6_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0, 0);
+    PktInfo pkt_info(Agent::GetInstance(), 0, 0, 0);
 
     pkt->Reset();
     MakeIp6Packet(pkt, vnet1->id(), "1::1", "1::2",
@@ -461,6 +463,7 @@ TEST_F(PktParseTest, IPv6_On_Vnet_1) {
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "1::1", "1::2", IPPROTO_TCP,
                                    1, 2));
+    delete pkt;
 }
 
 TEST_F(PktParseTest, IP_On_Eth_1) {
@@ -492,7 +495,7 @@ TEST_F(PktParseTest, IP_On_Eth_1) {
 TEST_F(PktParseTest, IPv6_On_Eth_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0, 0);
+    PktInfo pkt_info(Agent::GetInstance(), 0, 0, 0);
 
     pkt->Reset();
     MakeIp6Packet(pkt, eth->id(), "1::1", "1::2", IPPROTO_ICMPV6, 1, -1);
@@ -511,6 +514,7 @@ TEST_F(PktParseTest, IPv6_On_Eth_1) {
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    delete pkt;
 }
 
 TEST_F(PktParseTest, GRE_On_Vnet_1) {
@@ -548,7 +552,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
 TEST_F(PktParseTest, IPv6_GRE_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0, 0);
+    PktInfo pkt_info(Agent::GetInstance(), 0, 0, 0);
 
     pkt->Reset();
     MakeIp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
@@ -573,6 +577,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Vnet_1) {
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
     EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+    delete pkt;
 }
 
 TEST_F(PktParseTest, GRE_On_Enet_1) {
@@ -615,7 +620,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0, 0);
+    PktInfo pkt_info(Agent::GetInstance(), 0, 0, 0);
 
     pkt->Reset();
     MakeIp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
@@ -644,6 +649,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
     EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
                                   IPPROTO_TCP, 1, 2));
     EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
+    delete pkt;
 }
 
 TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
@@ -707,7 +713,7 @@ TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0, 0);
+    PktInfo pkt_info(Agent::GetInstance(), 0, 0, 0);
 
     // Invalid Label
     pkt->Reset();
@@ -755,6 +761,7 @@ TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
     client->WaitForIdle();
     EXPECT_TRUE(pkt_info.ip != NULL);
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    delete pkt;
 }
 
 int main(int argc, char *argv[]) {
