@@ -33,6 +33,7 @@ class EdgeDiscoveryDB;
 class EdgeForwardingDB;
 class ExtCommunityDB;
 class IServiceChainMgr;
+class IStaticRouteMgr;
 class LifetimeActor;
 class LifetimeManager;
 class OriginVnPathDB;
@@ -42,17 +43,13 @@ class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RTargetGroupMgr;
 class SchedulingGroupManager;
-class StaticRouteInet;
-class StaticRouteInet6;
-
-template <typename T> class StaticRouteMgr;
 
 class BgpServer {
 public:
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
-    typedef std::set<StaticRouteMgr<StaticRouteInet> *> StaticRouteMgrList;
+    typedef std::set<IStaticRouteMgr *> StaticRouteMgrList;
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
 
@@ -187,8 +184,8 @@ public:
     void UnregisterIdentifierUpdateCallback(int listener);
     void NotifyIdentifierUpdate(Ip4Address old_identifier);
 
-    void InsertStaticRouteMgr(StaticRouteMgr<StaticRouteInet> *srt_manager);
-    void RemoveStaticRouteMgr(StaticRouteMgr<StaticRouteInet> *srt_manager);
+    void InsertStaticRouteMgr(IStaticRouteMgr *srt_manager);
+    void RemoveStaticRouteMgr(IStaticRouteMgr *srt_manager);
     void NotifyAllStaticRoutes();
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;

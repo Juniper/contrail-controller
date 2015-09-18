@@ -4,7 +4,7 @@
  */
 
 #include "bgp/routing-instance/iservice_chain_mgr.h"
-#include "bgp/routing-instance/static_route.h"
+#include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 
