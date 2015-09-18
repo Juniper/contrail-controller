@@ -5,26 +5,36 @@
 import os
 import re
 from setuptools import setup, find_packages, Command
+import distutils
 
 
 class RunTestsCommand(Command):
     description = "Test command to run testr in virtualenv"
     user_options = [
-        ('coverage', 'c',
-         "Generate code coverage report"),
+        ('coverage', 'c', "Generate code coverage report"),
+        ('testrun=', None, "Run a specific test"),
         ]
     boolean_options = ['coverage']
     def initialize_options(self):
         self.cwd = None
         self.coverage = False
+        self.testrun = None
+
     def finalize_options(self):
         self.cwd = os.getcwd()
+        if self.testrun:
+            self.announce('Running test: %s' % str(self.testrun),
+                            level=distutils.log.INFO)
+
     def run(self):
         logfname = 'test.log'
         args = '-V'
         if self.coverage:
             logfname = 'coveragetest.log'
             args += ' -c'
+        if self.testrun:
+            logfname = self.testrun + '.log'
+            args = self.testrun
         os.system('./run_tests.sh %s' % args)
         with open(logfname) as f:
             if not re.search('\nOK', ''.join(f.readlines())):
