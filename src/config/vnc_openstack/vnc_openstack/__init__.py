@@ -754,29 +754,33 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 self._vnc_lib.kv_store(subnet_name, subnet_uuid)
     # end post_virtual_network_create
 
-    def post_virtual_network_update(self, vn_uuid, vn_dict):
+    def post_virtual_network_update(self, vn_uuid, vn_dict, old_dict):
         ipam_refs = vn_dict.get('network_ipam_refs')
         if ipam_refs is None:
             return
-        result = self._vnc_lib.kv_retrieve()
-        existing_subnets = {}
-        for entry in result:
-            if entry['key'].startswith(vn_uuid):
-                existing_subnets[entry['value']] = entry['key']
 
-        new_subnets = {}
-        for ipam_ref in ipam_refs:
-            vnsn_data = ipam_ref['attr']
-            ipam_subnets = vnsn_data['ipam_subnets']
-            for ipam_subnet in ipam_subnets:
-                subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
-                prefix = subnet_dict['ip_prefix']
-                prefix_len = subnet_dict['ip_prefix_len']
-                network = IPNetwork('%s/%s' % (prefix, prefix_len))
-                subnet_name = vn_dict['uuid'] + ' ' + subnet_dict['ip_prefix'] + '/' + str(
-                    subnet_dict['ip_prefix_len'])
-                subnet_uuid = ipam_subnet['subnet_uuid']
-                new_subnets[subnet_uuid] = subnet_name
+        def get_subnets(vn_dict):
+            subnets = {}
+            ipam_refs = vn_dict.get('network_ipam_refs')
+            if ipam_refs:
+                for ipam_ref in ipam_refs:
+                    vnsn_data = ipam_ref['attr']
+                    ipam_subnets = vnsn_data['ipam_subnets']
+                    for ipam_subnet in ipam_subnets:
+                        subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                        prefix = subnet_dict['ip_prefix']
+                        prefix_len = subnet_dict['ip_prefix_len']
+                        network = IPNetwork('%s/%s' % (prefix, prefix_len))
+                        subnet_name = vn_dict['uuid'] + ' ' + \
+                                      subnet_dict['ip_prefix'] + '/' + \
+                                      str(subnet_dict['ip_prefix_len'])
+                        subnet_uuid = ipam_subnet['subnet_uuid']
+                        subnets[subnet_uuid] = subnet_name
+            return subnets
+
+        new_subnets = get_subnets(vn_dict)
+        existing_subnets = get_subnets(old_dict)
+
         add_subnets = set(new_subnets.keys()) - set(existing_subnets.keys())
         del_subnets = set(existing_subnets.keys()) - set(new_subnets.keys())
         for subnet in del_subnets or []:
