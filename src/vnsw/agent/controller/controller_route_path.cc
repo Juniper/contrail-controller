@@ -84,7 +84,8 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
                                          uint32_t label,
                                          const string &dest_vn_name,
                                          const SecurityGroupList &sg_list,
-                                         const PathPreference &path_preference) {
+                                         const PathPreference &path_preference,
+                                         bool ecmp_suppressed) {
     // Make Tunnel-NH request
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new TunnelNHKey(default_vrf, router_id, tunnel_dest, false,
@@ -93,8 +94,9 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
 
     // Make route request pointing to Tunnel-NH created above
     ControllerVmRoute *data =
-        new ControllerVmRoute(peer, default_vrf, tunnel_dest, label, dest_vn_name,
-                              bmap, sg_list, path_preference, nh_req);
+        new ControllerVmRoute(peer, default_vrf, tunnel_dest, label,
+                              dest_vn_name, bmap, sg_list, path_preference,
+                              nh_req, ecmp_suppressed);
     return data;
 }
 
@@ -222,6 +224,11 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     if (path->composite_nh_key()) {
         path->set_composite_nh_key(NULL);
         path->set_local_ecmp_mpls_label(NULL);
+    }
+
+    if (path->ecmp_suppressed() != ecmp_suppressed_) {
+        path->set_ecmp_suppressed(ecmp_suppressed_);
+        ret = true;
     }
 
     return ret;

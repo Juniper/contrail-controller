@@ -85,6 +85,9 @@ public:
     const std::string &logical_switch_name() const;
     const std::string &dest_ip() const;
     bool self_exported_route() const;
+    uint32_t sequence() const;
+    uint32_t self_sequence() const;
+    bool ecmp_suppressed() const;
 
     // Override Ack api to get trigger on Ack
     void Ack(bool success);
@@ -113,6 +116,9 @@ private:
     bool self_exported_route_;
     KSyncEntryPtr logical_switch_;
     OvsdbDupIdlList dup_list_;
+    uint32_t sequence_;
+    uint32_t self_sequence_;
+    bool ecmp_suppressed_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteEntry);
 };
 };

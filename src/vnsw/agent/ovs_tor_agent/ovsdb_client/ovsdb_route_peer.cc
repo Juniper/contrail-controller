@@ -56,13 +56,28 @@ bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
     if (vmi) {
         vmi->CopySgIdList(&sg_list);
     }
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
+    EvpnRouteEntry *route = table->FindRoute(mac, prefix_ip, vxlan_id);
+    uint32_t sequence = 0;
+    if (ha_stale_export_ == false) {
+        // for non-ha-stale route sequence number starts from 1
+        sequence = 1;
+        if (route != NULL) {
+            const AgentPath *path = route->GetActivePath();
+            if (path != NULL) {
+                // if there was already a path existing for this route
+                // bump the sequence number to trigger MAC move
+                sequence = path->sequence() + 1;
+            }
+        }
+    }
+
     OvsdbRouteData *data = new OvsdbRouteData(this, vxlan_id,
                                               tor_ip, agent->router_id(),
                                               agent->fabric_vrf_name(),
                                               dest_vn, sg_list,
-                                              ha_stale_export_);
-    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
-        (vrf->GetEvpnRouteTable());
+                                              ha_stale_export_, sequence);
     if (async) {
         table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
                                    vxlan_id, data);
