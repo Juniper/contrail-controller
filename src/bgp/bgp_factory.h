@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/factory.h"
+#include "net/address.h"
 
 class BgpConfigListener;
 class BgpConfigManager;
@@ -26,6 +27,7 @@ class EvpnManager;
 class EvpnTable;
 class ErmVpnTable;
 class IPeer;
+class IServiceChainMgr;
 class McastTreeManager;
 class PeerManager;
 class PeerCloseManager;
@@ -60,6 +62,11 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
                     const BgpInstanceConfig *);
     FACTORY_TYPE_N0(BgpObjectFactory, BgpMessageBuilder);
     FACTORY_TYPE_N0(BgpObjectFactory, BgpXmppMessageBuilder);
+
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
+        1 /* Address::INET */, BgpServer *);
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
+        2 /* Address::INET6 */, BgpServer *);
 };
 
 #endif  // SRC_BGP_BGP_FACTORY_H_

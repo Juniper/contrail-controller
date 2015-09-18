@@ -73,10 +73,11 @@ static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
 }
 
 template <typename T>
-ServiceChain<T>::ServiceChain(RoutingInstance *src, RoutingInstance *dest,
-    RoutingInstance *connected,
+ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager, RoutingInstance *src,
+    RoutingInstance *dest, RoutingInstance *connected,
     const vector<string> &subnets, AddressT addr)
-    : src_(src),
+    : manager_(manager),
+      src_(src),
       dest_(dest),
       connected_(connected),
       connected_route_(NULL),
@@ -93,16 +94,6 @@ ServiceChain<T>::ServiceChain(RoutingInstance *src, RoutingInstance *dest,
             continue;
         prefix_to_routelist_map_[ipam_subnet] = RouteList();
     }
-}
-
-template <>
-Address::Family ServiceChain<ServiceChainInet>::GetFamily() const {
-    return Address::INET;
-}
-
-template <>
-Address::Family ServiceChain<ServiceChainInet6>::GetFamily() const {
-    return Address::INET6;
 }
 
 template <typename T>
@@ -267,7 +258,7 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
     // and stitch the nexthop from connected route
     ServiceChainRequestT *req = new ServiceChainRequestT(
         type, table, route, aggregate_match, ServiceChainPtr(this));
-    server->service_chain_mgr()->Enqueue(req);
+    manager_->Enqueue(req);
     return true;
 }
 
@@ -306,19 +297,15 @@ bool ServiceChain<T>::IsConnectedRouteValid() const {
     return (connected_route_ && connected_route_->IsValid());
 }
 
-template <>
-bool ServiceChain<ServiceChainInet>::IsMoreSpecific(
-    BgpRoute *route, Ip4Prefix *aggregate_match) const {
-    uint32_t broadcast = 0xFFFFFFFF;
-    InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
-    Ip4Address address = inet_route->GetPrefix().ip4_addr();
-    for (PrefixToRouteListMap::const_iterator it =
+template <typename T>
+bool ServiceChain<T>::IsMoreSpecific(BgpRoute *route,
+    PrefixT *aggregate_match) const {
+    const RouteT *ip_route = static_cast<RouteT *>(route);
+    const PrefixT &ip_prefix = ip_route->GetPrefix();
+    for (typename PrefixToRouteListMap::const_iterator it =
          prefix_to_route_list_map()->begin();
          it != prefix_to_route_list_map()->end(); ++it) {
-        uint8_t shift_mask = (32 - it->first.prefixlen());
-        if ((it->first.prefixlen() != inet_route->GetPrefix().prefixlen()) &&
-            ((address.to_ulong() & (broadcast << shift_mask)) ==
-             (it->first.ip4_addr().to_ulong() & (broadcast << shift_mask)))) {
+        if (ip_prefix.IsMoreSpecific(it->first)) {
             *aggregate_match = it->first;
             return true;
         }
@@ -908,9 +895,9 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             ShowServiceChainResp *resp =
                 static_cast<ShowServiceChainResp *>(req->snh_resp_);
             vector<ShowServicechainInfo> list;
-            RoutingInstanceMgr::RoutingInstanceIterator rit =
-                server()->routing_instance_mgr()->begin();
-            for (; rit != server()->routing_instance_mgr()->end(); ++rit) {
+            RoutingInstanceMgr *rim = server_->routing_instance_mgr();
+            for (RoutingInstanceMgr::RoutingInstanceIterator rit = rim->begin();
+                rit != rim->end(); ++rit) {
                 if (rit->deleted()) continue;
                 if (!req->search_string_.empty() &&
                     rit->name().find(req->search_string_) == string::npos) {
@@ -946,8 +933,8 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             ShowPendingServiceChainResp *resp =
                 static_cast<ShowPendingServiceChainResp *>(req->snh_resp_);
             vector<string> pending_list;
-            for (UnresolvedServiceChainList::const_iterator it =
-                 pending_chains().begin(); it != pending_chains().end(); ++it)
+            for (PendingServiceChainList::const_iterator it =
+                 pending_chains_.begin(); it != pending_chains_.end(); ++it)
                 pending_list.push_back((*it)->name());
 
             resp->set_pending_chains(pending_list);
@@ -1012,8 +999,8 @@ ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
 template <typename T>
 ServiceChainMgr<T>::~ServiceChainMgr() {
     delete process_queue_;
-    server()->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
-    PeerRibMembershipManager *membership_mgr = server()->membership_mgr();
+    server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
+    PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     membership_mgr->UnregisterPeerRegistrationCallback(registration_id_);
 }
 
@@ -1067,7 +1054,7 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
         return true;
     }
 
-    RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
+    RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     RoutingInstance *dest = mgr->GetRoutingInstance(config.routing_instance);
     // Destination routing instance is not yet created.
     if (dest == NULL || dest->deleted()) {
@@ -1108,7 +1095,7 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
 
     // Allocate the new service chain and verify whether one already exists
     ServiceChainPtr chain = ServiceChainPtr(new ServiceChainT(
-        rtinstance, dest, connected_ri, config.prefix, chain_addr));
+        this, rtinstance, dest, connected_ri, config.prefix, chain_addr));
 
     if (aggregate_host_route()) {
         ServiceChainT *obj = static_cast<ServiceChainT *>(chain.get());
@@ -1133,12 +1120,14 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
 
 
 template <typename T>
-ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(const string &src) {
+ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(const string &instance) {
     RoutingInstance *rtinstance =
-        server()->routing_instance_mgr()->GetRoutingInstance(src);
-    if (!rtinstance) return NULL;
+        server_->routing_instance_mgr()->GetRoutingInstance(instance);
+    if (!rtinstance)
+        return NULL;
     ServiceChainMap::iterator it = chain_set_.find(rtinstance);
-    if (it == chain_set_.end()) return NULL;
+    if (it == chain_set_.end())
+        return NULL;
     ServiceChainT *chain = static_cast<ServiceChainT *>(it->second.get());
     return chain;
 }
@@ -1156,12 +1145,12 @@ ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(
 template <typename T>
 bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
     CHECK_CONCURRENCY("bgp::Config");
-    for (UnresolvedServiceChainList::iterator it = pending_chain_.begin(), next;
-         it != pending_chain_.end(); it = next) {
+    for (PendingServiceChainList::iterator it = pending_chains_.begin(), next;
+         it != pending_chains_.end(); it = next) {
         next = it;
         ++next;
         RoutingInstance *rtinst = *it;
-        pending_chain_.erase(it);
+        pending_chains_.erase(it);
         LocateServiceChain(rtinst,
                            rtinst->config()->service_chain_list().front());
     }
@@ -1175,7 +1164,7 @@ void ServiceChainMgr<T>::RoutingInstanceCallback(string name, int op) {
 
 template <typename T>
 void ServiceChainMgr<T>::StartResolve() {
-    if (pending_chain_.empty() == false) {
+    if (pending_chains_.empty() == false) {
         resolve_trigger_->Set();
     }
 }
@@ -1187,24 +1176,21 @@ void ServiceChainMgr<T>::StopServiceChainDone(BgpTable *table,
     ServiceChainRequestT *req =
         new ServiceChainRequestT(ServiceChainRequestT::STOP_CHAIN_DONE, table,
                                 NULL, PrefixT(), ServiceChainPtr(info));
-
-    server()->service_chain_mgr()->Enqueue(req);
+    Enqueue(req);
     return;
 }
 
 template <typename T>
-void ServiceChainMgr<T>::StopServiceChain(RoutingInstance *src) {
-    // Remove the src routing instance from the pending_chain_
-    pending_chain_.erase(src);
+void ServiceChainMgr<T>::StopServiceChain(RoutingInstance *rtinstance) {
+    // Remove the routing instance from pending chains list.
+    pending_chains_.erase(rtinstance);
 
-    ServiceChainMap::iterator it = chain_set_.find(src);
-    if (it == chain_set_.end()) {
+    ServiceChainMap::iterator it = chain_set_.find(rtinstance);
+    if (it == chain_set_.end())
         return;
-    }
+    if (it->second->deleted())
+        return;
 
-    if (it->second->deleted()) {
-        return;
-    }
     BgpConditionListener::RequestDoneCb callback =
         bind(&ServiceChainMgr::StopServiceChainDone, this, _1, _2);
 
@@ -1249,35 +1235,32 @@ uint32_t ServiceChainMgr<T>::GetDownServiceChainCount() const {
 
 void ShowServiceChainReq::HandleRequest() const {
     BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    ServiceChainMgr<ServiceChainInet> *mgr =
-        bsc->bgp_server->service_chain_mgr();
+    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET);
     ShowServiceChainResp *resp = new ShowServiceChainResp;
     resp->set_context(context());
     ServiceChainRequest<ServiceChainInet> *req =
         new ServiceChainRequest<ServiceChainInet>(
             ServiceChainRequest<ServiceChainInet>::SHOW_SERVICE_CHAIN,
             resp, get_search_string());
+    ServiceChainMgr<ServiceChainInet> *mgr =
+        static_cast<ServiceChainMgr<ServiceChainInet> *>(imgr);
     mgr->Enqueue(req);
 }
 
 void ShowPendingServiceChainReq::HandleRequest() const {
     BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    ServiceChainMgr<ServiceChainInet> *mgr =
-        bsc->bgp_server->service_chain_mgr();
+    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET);
     ShowPendingServiceChainResp *resp = new ShowPendingServiceChainResp;
     resp->set_context(context());
     ServiceChainRequest<ServiceChainInet> *req =
         new ServiceChainRequest<ServiceChainInet>(
             ServiceChainRequest<ServiceChainInet>::SHOW_PENDING_CHAIN,
             resp , get_search_string());
+    ServiceChainMgr<ServiceChainInet> *mgr =
+        static_cast<ServiceChainMgr<ServiceChainInet> *>(imgr);
     mgr->Enqueue(req);
 }
 
-template ServiceChainMgr<ServiceChainInet>::ServiceChainMgr(BgpServer *server);
-template ServiceChainMgr<ServiceChainInet>::~ServiceChainMgr();
-template uint32_t ServiceChainMgr<ServiceChainInet>::GetDownServiceChainCount()
-    const;
-template void ServiceChainMgr<ServiceChainInet>::StopServiceChain(
-    RoutingInstance *src);
-template bool ServiceChainMgr<ServiceChainInet>::LocateServiceChain(
-    RoutingInstance *rtinstance, ServiceChainConfig const &config);
+// Explicit instantiation of ServiceChainMgr for INET and INET6.
+template class ServiceChainMgr<ServiceChainInet>;
+template class ServiceChainMgr<ServiceChainInet6>;

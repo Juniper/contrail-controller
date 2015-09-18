@@ -32,6 +32,7 @@ class CommunityDB;
 class EdgeDiscoveryDB;
 class EdgeForwardingDB;
 class ExtCommunityDB;
+class IServiceChainMgr;
 class LifetimeActor;
 class LifetimeManager;
 class OriginVnPathDB;
@@ -41,12 +42,9 @@ class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RTargetGroupMgr;
 class SchedulingGroupManager;
-class ServiceChainInet;
-class ServiceChainInet6;
 class StaticRouteInet;
 class StaticRouteInet6;
 
-template <typename T> class ServiceChainMgr;
 template <typename T> class StaticRouteMgr;
 
 class BgpServer {
@@ -94,8 +92,13 @@ public:
         assert(false);
         return NULL;
     }
-    ServiceChainMgr<ServiceChainInet> *service_chain_mgr() {
-        return service_chain_mgr_.get();
+    IServiceChainMgr *service_chain_mgr(Address::Family family) {
+        if (family == Address::INET)
+            return inet_service_chain_mgr_.get();
+        if (family == Address::INET6)
+            return inet6_service_chain_mgr_.get();
+        assert(false);
+        return NULL;
     }
     RoutePathReplicator *replicator(Address::Family family) {
         if (family == Address::INETVPN)
@@ -246,7 +249,8 @@ private:
     boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> evpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> inet6vpn_replicator_;
-    boost::scoped_ptr<ServiceChainMgr<ServiceChainInet> > service_chain_mgr_;
+    boost::scoped_ptr<IServiceChainMgr> inet_service_chain_mgr_;
+    boost::scoped_ptr<IServiceChainMgr> inet6_service_chain_mgr_;
 
     // configuration
     boost::scoped_ptr<BgpConfigManager> config_mgr_;

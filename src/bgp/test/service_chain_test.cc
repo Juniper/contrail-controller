@@ -24,7 +24,7 @@
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
-#include "bgp/routing-instance/service_chaining.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/service_chaining_types.h"
@@ -119,7 +119,7 @@ protected:
         : bgp_server_(new BgpServer(&evm_)),
           parser_(&config_db_),
           ri_mgr_(NULL),
-          service_chain_mgr_(NULL),
+          inet_service_chain_mgr_(NULL),
           service_is_transparent_(false),
           connected_rt_is_inetvpn_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
@@ -144,9 +144,9 @@ protected:
                 static_cast<BgpIfmapConfigManager *>(
                     bgp_server_->config_manager());
         config_manager->Initialize(&config_db_, &config_graph_, "local");
-        bgp_server_->service_chain_mgr()->set_aggregate_host_route(true);
         ri_mgr_ = bgp_server_->routing_instance_mgr();
-        service_chain_mgr_ = bgp_server_->service_chain_mgr();
+        inet_service_chain_mgr_ = bgp_server_->service_chain_mgr(Address::INET);
+        EnableServiceChainAggregation();
     }
 
     virtual void TearDown() {
@@ -196,12 +196,28 @@ protected:
         assert(ec.value() == 0);
     }
 
+    bool IsServiceChainQEmpty() {
+        return inet_service_chain_mgr_->IsQueueEmpty();
+    }
+
     void DisableServiceChainQ() {
-        bgp_server_->service_chain_mgr()->DisableQueue();
+        inet_service_chain_mgr_->DisableQueue();
     }
 
     void EnableServiceChainQ() {
-        bgp_server_->service_chain_mgr()->EnableQueue();
+        inet_service_chain_mgr_->EnableQueue();
+    }
+
+    size_t ServiceChainPendingQSize() {
+        return inet_service_chain_mgr_->PendingQueueSize();
+    }
+
+    void DisableServiceChainAggregation() {
+        inet_service_chain_mgr_->set_aggregate_host_route(false);
+    }
+
+    void EnableServiceChainAggregation() {
+        inet_service_chain_mgr_->set_aggregate_host_route(true);
     }
 
     void AddInetRoute(IPeer *peer, const string &instance_name,
@@ -990,7 +1006,7 @@ protected:
     boost::scoped_ptr<BgpServer> bgp_server_;
     BgpConfigParser parser_;
     RoutingInstanceMgr *ri_mgr_;
-    ServiceChainMgr<ServiceChainInet> *service_chain_mgr_;
+    IServiceChainMgr *inet_service_chain_mgr_;
     vector<BgpPeerMock *> peers_;
     bool service_is_transparent_;
     bool connected_rt_is_inetvpn_;
@@ -1082,7 +1098,7 @@ TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress1) {
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
 
     // Verify that service chain is on pending list.
-    TASK_UTIL_EXPECT_EQ(1, service_chain_mgr_->PendingQueueSize());
+    TASK_UTIL_EXPECT_EQ(1, ServiceChainPendingQSize());
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
     VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string());
     VerifyPendingServiceChainSandesh(list_of("blue-i1"), true, string("blue"));
@@ -1090,7 +1106,7 @@ TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress1) {
     // Fix service chain address.
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
-    TASK_UTIL_EXPECT_EQ(0, service_chain_mgr_->PendingQueueSize());
+    TASK_UTIL_EXPECT_EQ(0, ServiceChainPendingQSize());
 
     // Check for aggregated routes
     VerifyInetRouteExists("blue", "192.168.1.0/24");
@@ -1942,7 +1958,7 @@ TEST_P(ServiceChainParamTest, ValidateAggregateRoute) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
+    DisableServiceChainAggregation();
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
@@ -2495,7 +2511,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
+    DisableServiceChainAggregation();
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
@@ -2545,7 +2561,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
+    DisableServiceChainAggregation();
     SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
@@ -2865,7 +2881,7 @@ TEST_P(ServiceChainParamTest, DeleteConnectedWithExtConnectRoute) {
 
     EnableServiceChainQ();
 
-    TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty());
 
     VerifyInetRouteNoExists("blue", "10.1.1.1/32");
 
@@ -2927,7 +2943,7 @@ TEST_P(ServiceChainParamTest, DeleteEntryReuse) {
     }
 
     EnableServiceChainQ();
-    TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty());
 }
 
 TEST_P(ServiceChainParamTest, EntryAfterStop) {
@@ -2976,7 +2992,7 @@ TEST_P(ServiceChainParamTest, EntryAfterStop) {
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
 
     EnableServiceChainQ();
-    TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(IsServiceChainQEmpty());
 
     for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)

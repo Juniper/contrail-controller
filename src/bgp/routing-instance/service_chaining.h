@@ -18,6 +18,7 @@
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 
 class BgpRoute;
 class BgpTable;
@@ -29,6 +30,8 @@ class Inet6VpnRoute;
 class SandeshResponse;
 class ServiceChainConfig;
 class ShowServicechainInfo;
+
+template <typename T> class ServiceChainMgr;
 
 template <typename T1, typename T2, typename T3, typename T4>
 struct ServiceChainBase {
@@ -116,6 +119,7 @@ public:
     typedef typename T::PrefixT PrefixT;
     typedef typename T::AddressT AddressT;
     typedef ServiceChainRequest<T> ServiceChainRequestT;
+    typedef ServiceChainMgr<T> ServiceChainMgrT;
 
     // List of more specific routes resulted in Aggregate route
     typedef std::set<BgpRoute *> RouteList;
@@ -129,13 +133,10 @@ public:
     // List of path ids for the connected route
     typedef std::set<uint32_t> ConnectedPathIdList;
 
-    ServiceChain(RoutingInstance *src, RoutingInstance *dest,
-                 RoutingInstance *connected,
+    ServiceChain(ServiceChainMgrT *manager, RoutingInstance *src,
+                 RoutingInstance *dest, RoutingInstance *connected,
                  const std::vector<std::string> &subnets, AddressT addr);
-    Address::Family GetFamily() const {
-        assert(false);
-        return Address::UNSPEC;
-    }
+    Address::Family GetFamily() const { return manager_->GetFamily(); }
 
     // Delete is triggered from configuration, not via LifetimeManager.
     void ManagedDelete() { }
@@ -206,6 +207,7 @@ public:
     void set_aggregate_enable() { aggregate_ = true; }
 
 private:
+    ServiceChainMgrT *manager_;
     RoutingInstance *src_;
     RoutingInstance *dest_;
     RoutingInstance *connected_;
@@ -228,7 +230,7 @@ private:
 };
 
 template <typename T>
-class ServiceChainMgr {
+class ServiceChainMgr : public IServiceChainMgr {
 public:
     typedef typename T::RouteT RouteT;
     typedef typename T::PrefixT PrefixT;
@@ -236,64 +238,25 @@ public:
     typedef ServiceChain<T> ServiceChainT;
     typedef ServiceChainRequest<T> ServiceChainRequestT;
 
-    // Set of service chains created in the system
-    typedef std::map<RoutingInstance *, ServiceChainPtr> ServiceChainMap;
-
-    // At the time of processing, service chain request, all required
-    // routing instance may not be created. Create a list of service chain
-    // waiting for a routing instance to get created
-    typedef std::set<RoutingInstance *> UnresolvedServiceChainList;
-
     explicit ServiceChainMgr(BgpServer *server);
-    ~ServiceChainMgr();
-
-    Address::Family GetFamily() const {
-        assert(false);
-        return Address::UNSPEC;
-    }
-    bool RequestHandler(ServiceChainRequestT *req);
+    virtual ~ServiceChainMgr();
 
     // Creates a new service chain between two Virtual network
     // If the two routing instance is already connected, it updates the
     // connected route address for existing service chain
-    bool LocateServiceChain(RoutingInstance *src,
+    virtual bool LocateServiceChain(RoutingInstance *rtinstance,
         const ServiceChainConfig &config);
 
     // Remove the existing service chain between from routing instance
-    void StopServiceChain(RoutingInstance *src);
-    void StopServiceChainDone(BgpTable *table, ConditionMatch *info);
-    ServiceChainT *FindServiceChain(const std::string &src);
-    ServiceChainT *FindServiceChain(RoutingInstance *rtinstance);
+    virtual void StopServiceChain(RoutingInstance *rtinstance);
 
-    void AddPendingServiceChain(RoutingInstance *rtinstance) {
-        pending_chain_.insert(rtinstance);
-    }
-    void DeletePendingServiceChain(RoutingInstance *rtinstance) {
-        pending_chain_.erase(rtinstance);
-    }
+    virtual size_t PendingQueueSize() const { return pending_chains_.size(); }
+    virtual size_t ResolvedQueueSize() const { return chain_set_.size(); }
+    virtual uint32_t GetDownServiceChainCount() const;
+    virtual bool IsQueueEmpty() const { return process_queue_->IsQueueEmpty(); }
 
-    const ServiceChainMap &chain_set() const { return chain_set_; }
-    const UnresolvedServiceChainList &pending_chains() const {
-        return pending_chain_;
-    }
-
-    void StartResolve();
-    bool ResolvePendingServiceChain();
-    size_t PendingQueueSize() const { return pending_chain_.size(); }
-    size_t ResolvedQueueSize() const { return chain_set_.size(); }
-    uint32_t GetDownServiceChainCount() const;
-
+    Address::Family GetFamily() const;
     void Enqueue(ServiceChainRequestT *req);
-
-    bool IsQueueEmpty() const { return process_queue_->IsQueueEmpty(); }
-
-    BgpServer *server() { return server_; }
-    bool aggregate_host_route() const {
-        return aggregate_host_route_;
-    }
-    void set_aggregate_host_route(bool value) {
-        aggregate_host_route_= value;
-    }
 
 private:
     friend class ServiceChainTest;
@@ -302,30 +265,57 @@ private:
     // of this task. This task has exclusion with db::DBTable task.
     static int service_chain_task_id_;
 
+    // Set of service chains created in the system
+    typedef std::map<RoutingInstance *, ServiceChainPtr> ServiceChainMap;
+
+    // At the time of processing, service chain request, all required
+    // routing instance may not be created. Create a list of service chain
+    // waiting for a routing instance to get created
+    typedef std::set<RoutingInstance *> PendingServiceChainList;
+
+    bool RequestHandler(ServiceChainRequestT *req);
+    void StopServiceChainDone(BgpTable *table, ConditionMatch *info);
+    ServiceChainT *FindServiceChain(const std::string &instance);
+    ServiceChainT *FindServiceChain(RoutingInstance *rtinstance);
+
+    void AddPendingServiceChain(RoutingInstance *rtinstance) {
+        pending_chains_.insert(rtinstance);
+    }
+    void DeletePendingServiceChain(RoutingInstance *rtinstance) {
+        pending_chains_.erase(rtinstance);
+    }
+
+    void StartResolve();
+    bool ResolvePendingServiceChain();
     void RoutingInstanceCallback(std::string name, int op);
     void PeerRegistrationCallback(IPeer *peer, BgpTable *table,
         bool unregister);
 
-    ServiceChainMap chain_set_;
-    int id_;
-    int registration_id_;
-    UnresolvedServiceChainList pending_chain_;
-    BgpServer *server_;
-    BgpConditionListener *listener_;
+    bool aggregate_host_route() const { return aggregate_host_route_; }
+    virtual void set_aggregate_host_route(bool value) {
+        aggregate_host_route_ = value;
+    }
 
     // Work Queue to handle requests posted from Match function, called
     // in the context of db::DBTable task.
     // The actions are performed in the bgp::ServiceChain task context.
-    void DisableQueue() { process_queue_->set_disable(true); }
-    void EnableQueue() { process_queue_->set_disable(false); }
-    WorkQueue<ServiceChainRequestT *> *process_queue_;
+    virtual void DisableQueue() { process_queue_->set_disable(true); }
+    virtual void EnableQueue() { process_queue_->set_disable(false); }
 
-    // Task trigger to resolve pending dependencies.
+    int id_;
+    int registration_id_;
+    BgpServer *server_;
+    BgpConditionListener *listener_;
     boost::scoped_ptr<TaskTrigger> resolve_trigger_;
-
+    WorkQueue<ServiceChainRequestT *> *process_queue_;
     bool aggregate_host_route_;
+    ServiceChainMap chain_set_;
+    PendingServiceChainList pending_chains_;
 
     DISALLOW_COPY_AND_ASSIGN(ServiceChainMgr);
 };
+
+typedef ServiceChainMgr<ServiceChainInet> ServiceChainMgrInet;
+typedef ServiceChainMgr<ServiceChainInet6> ServiceChainMgrInet6;
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
