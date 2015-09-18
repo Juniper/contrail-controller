@@ -29,7 +29,7 @@
 
 KSyncObject::FwdRefTree  KSyncObject::fwd_ref_tree_;
 KSyncObject::BackRefTree  KSyncObject::back_ref_tree_;
-KSyncObjectManager *KSyncObjectManager::singleton_;
+KSyncObjectManager *KSyncObjectManager::singleton_ = NULL;
 std::auto_ptr<KSyncEntry> KSyncObjectManager::default_defer_entry_;
 bool KSyncDebug::debug_;
 
@@ -1361,7 +1361,9 @@ KSyncObjectManager::~KSyncObjectManager() {
 SandeshTraceBufferPtr KSyncTraceBuf(SandeshTraceBufferCreate("KSync", 1000));
 
 KSyncObjectManager *KSyncObjectManager::Init() {
-    singleton_ = new KSyncObjectManager();
+    if (singleton_ == NULL) {
+        singleton_ = new KSyncObjectManager();
+    }
     return singleton_;
 }
 

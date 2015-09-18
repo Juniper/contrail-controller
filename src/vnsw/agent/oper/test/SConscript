@@ -90,11 +90,11 @@ loadbalancer_test = env.UnitTest(
 env.Alias('agent:loadbalancer_test', loadbalancer_test)
 oper_test_suite.append(loadbalancer_test)
 
-loadbalancer_haproxy_test = env.UnitTest(
-    'loadbalancer_haproxy_test',
-    ['loadbalancer_haproxy_test.cc'])
-env.Alias('agent:loadbalancer_haproxy_test', loadbalancer_haproxy_test)
-oper_test_suite.append(loadbalancer_haproxy_test)
+loadbalancer_config_test = env.UnitTest(
+    'loadbalancer_config_test',
+    ['loadbalancer_config_test.cc'])
+env.Alias('agent:loadbalancer_config_test', loadbalancer_config_test)
+oper_test_suite.append(loadbalancer_config_test)
 
 test_physical_devices = AgentEnv.MakeTestCmdSrc(env, 'test_physical_devices',
                                                 [
