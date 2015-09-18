@@ -230,6 +230,7 @@ struct ShowRoutingInstance {
     8: i32 vxlan_id;                                // VXLAN Identifier
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
+    10: bool always_subscribe;                      // Always subscribe for RTF
     7: bool deleted;                                // Deletion in progress
     9: string deleted_at;                           // Delete timestamp
     2: optional list<ShowRoutingInstanceTable> tables;
@@ -391,6 +392,7 @@ struct ShowBgpInstanceConfig {
     8: i32 vxlan_id;
     3: list<string> import_target;
     4: list<string> export_target;
+    10: bool has_pnf;
     9: string last_change_at;
     5: list<ShowBgpServiceChainConfig> service_chain_infos;
     6: list<ShowBgpStaticRouteConfig> static_routes;

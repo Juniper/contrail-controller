@@ -690,6 +690,7 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
     data_.set_export_list(export_list);
 
     if (config) {
+        data_.set_has_pnf(config->has_pnf());
         SetStaticRouteConfig(&data_, config);
         SetServiceChainConfig(&data_, config);
     }

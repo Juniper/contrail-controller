@@ -22,6 +22,7 @@
 #include "base/bitset.h"
 #include "base/index_map.h"
 #include "base/lifetime.h"
+#include "bgp/bgp_common.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "net/address.h"
 
@@ -89,6 +90,7 @@ public:
 
     void set_index(int index);
     int index() const { return index_; }
+    bool always_subscribe() const { return always_subscribe_; }
     bool IsDefaultRoutingInstance() const {
         return is_default_;
     }
@@ -125,7 +127,13 @@ public:
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
 
 private:
+    friend class RoutingInstanceMgr;
     class DeleteActor;
+
+    void AddRTargetRoute(as4_t asn, const RouteTarget &rtarget);
+    void DeleteRTargetRoute(as4_t asn, const RouteTarget &rtarget);
+    void InitAllRTargetRoutes(as4_t asn);
+    void FlushAllRTargetRoutes(as4_t asn);
 
     void AddRouteTarget(bool import, std::vector<std::string> *change_list,
         RouteTargetList::const_iterator it);
@@ -152,6 +160,7 @@ private:
     RoutingInstanceMgr *mgr_;
     const BgpInstanceConfig *config_;
     bool is_default_;
+    bool always_subscribe_;
     std::string virtual_network_;
     int virtual_network_index_;
     bool virtual_network_allow_transit_;
@@ -291,11 +300,16 @@ private:
     const RoutingInstance *GetInstanceByVnIndex(int vn_index) const;
     int GetVnIndexByRouteTarget(const RouteTarget &rtarget) const;
 
+    void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
+    void IdentifierUpdateCallback(Ip4Address old_identifier);
+
     BgpServer *server_;
     RoutingInstanceList instances_;
     InstanceTargetMap target_map_;
     VnIndexMap vn_index_map_;
     uint32_t deleted_count_;
+    int asn_listener_id_;
+    int identifier_listener_id_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstanceMgr> server_delete_ref_;
     boost::dynamic_bitset<> bmap_;      // free list.

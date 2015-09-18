@@ -32,8 +32,10 @@ public:
     const BgpPath *FindPath(BgpPath::PathSource src) const;
     BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,
                       uint32_t path_id);
+    BgpPath *FindPath(BgpPath::PathSource src, uint32_t path_id);
     bool RemovePath(BgpPath::PathSource src, const IPeer *peer = NULL,
                     uint32_t path_id = 0);
+    bool RemovePath(BgpPath::PathSource src, uint32_t path_id);
     bool RemovePath(const IPeer *peer);
 
     bool IsUsable() const;

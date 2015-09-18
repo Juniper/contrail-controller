@@ -118,6 +118,14 @@ BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
 }
 
 //
+// Find path added given source and path id - peer must be NULL.
+// Skips secondary paths.
+//
+BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, uint32_t path_id) {
+    return FindPath(src, NULL, path_id);
+}
+
+//
 // Remove path added by peer with given path id and source.
 // Skips secondary paths.
 // Return true if the path is found and removed, false otherwise.
@@ -142,6 +150,15 @@ bool BgpRoute::RemovePath(BgpPath::PathSource src, const IPeer *peer,
         }
     }
     return false;
+}
+
+//
+// Remove path added given source and path id - peer must be NULL.
+// Skips secondary paths.
+// Return true if the path is found and removed, false otherwise.
+//
+bool BgpRoute::RemovePath(BgpPath::PathSource src, uint32_t path_id) {
+    return RemovePath(src, NULL, path_id);
 }
 
 //

@@ -487,6 +487,23 @@ protected:
             "bgp-router", router2, "bgp-router", router1, "bgp-peering");
     }
 
+    void SetRoutingInstanceAlwaysSubscribe(BgpServerTest *server,
+        const string &instance) {
+        autogen::RoutingInstance::OolProperty *property =
+            new autogen::RoutingInstance::OolProperty;
+        property->data = true;
+        ifmap_test_util::IFMapMsgPropertyAdd(server->config_db(),
+            "routing-instance", instance, "routing-instance-has-pnf", property);
+        task_util::WaitForIdle();
+    }
+
+    void ClearRoutingInstanceAlwaysSubscribe(BgpServerTest *server,
+        const string &instance) {
+        ifmap_test_util::IFMapMsgPropertyDelete(server->config_db(),
+            "routing-instance", instance, "routing-instance-has-pnf");
+        task_util::WaitForIdle();
+    }
+
     void VerifyNetworkConfig(BgpServerTest *server,
         const vector<string> &instance_names) {
         for (vector<string>::const_iterator iter = instance_names.begin();
@@ -1049,6 +1066,7 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRtGroup2) {
 
     RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
     RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
     VerifyRtGroupNoExists(cn1_.get(), "target:1:1001");
     VerifyRtGroupNoExists(cn2_.get(), "target:1:1001");
 
@@ -3603,6 +3621,548 @@ TEST_F(BgpXmppRTargetTest, AddDeleteDefaultRTargetRoute4) {
     VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(2));
     VerifyInetRouteNoExists(cn1_.get(), "pink", BuildPrefix(1));
     VerifyInetRouteNoExists(cn2_.get(), "pink", BuildPrefix(2));
+}
+
+//
+// Setting and Clearing always subscribe on the routing instance without
+// agents should result in RTarget route advertisement and withdrawal.
+//
+// Set always subscribe before inet route is added.
+// Clear always subscribe before inet route is deleted.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribe1) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Setting and Clearing always subscribe on the routing instance without
+// agents should result in RTarget route advertisement and withdrawal.
+//
+// Set always subscribe after inet route is added.
+// Clear always subscribe after inet route is deleted.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribe2) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+}
+
+//
+// RTarget route should be advertised even if always subscribe is set only
+// after an RTarget route is received from a peer.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribe3) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Routing instance has always subscribe as well as agent subscriptions.
+// RTarget routes are withdrawn only after always subscribe is cleared
+// and agents have unsubscribed.
+//
+// Agents subscribe before always subscribe is set.
+// Agents unsubscribe before always subscribe is cleared.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithXmppSubscribe1) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    SubscribeAgents("blue", 1);
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    UnsubscribeAgents("blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Routing instance has always subscribe as well as agent subscriptions.
+// RTarget routes are withdrawn only after always subscribe is cleared
+// and agents have unsubscribed.
+//
+// Agents subscribe before always subscribe is set.
+// Agents unsubscribe after always subscribe is cleared.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithXmppSubscribe2) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    SubscribeAgents("blue", 1);
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    UnsubscribeAgents("blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Routing instance has always subscribe as well as agent subscriptions.
+// RTarget routes are withdrawn only after always subscribe is cleared
+// and agents have unsubscribed.
+//
+// Agents subscribe after always subscribe is set.
+// Agents unsubscribe before always subscribe is cleared.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithXmppSubscribe3) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    SubscribeAgents("blue", 1);
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    UnsubscribeAgents("blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Routing instance has always subscribe as well as agent subscriptions.
+// RTarget routes are withdrawn only after always subscribe is cleared
+// and agents have unsubscribed.
+//
+// Agents subscribe after always subscribe is set.
+// Agents unsubscribe after always subscribe is cleared.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithXmppSubscribe4) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    SubscribeAgents("blue", 1);
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    UnsubscribeAgents("blue");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// CNs have multiple VRFs with the same RT.
+// The RTargetRoute should not be withdrawn till the RT is removed from all
+// VRFs.
+//
+// Routing instances have always subscribe and there are no subscriptions
+// from xmpp agents.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithSameTargetInMultipleInstances1) {
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "pink");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "pink");
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "pink", "target:1:99");
+    AddRouteTarget(cn2_.get(), "pink", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    RemoveRouteTarget(cn1_.get(), "pink", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "pink", "target:1:99");
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:1:99");
+}
+
+//
+// CNs have multiple VRFs with the same RT.
+// The RTargetRoute should be withdrawn till always subscribe is cleared from
+// all VRFs.
+//
+// Routing instances have always subscribe and there are no subscriptions
+// from xmpp agents.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeWithSameTargetInMultipleInstances2) {
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "pink");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "pink");
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "pink", "target:1:99");
+    AddRouteTarget(cn2_.get(), "pink", "target:1:99");
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "pink");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "pink");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:1:99");
+}
+
+//
+// Update local ASN on CNs and make sure that the ASN in the RTargetRoute
+// prefix is updated.
+// Local AS is same as global AS.
+//
+// Routing instances have always subscribe and there are no subscriptions
+// from xmpp agents.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeASNUpdate) {
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UpdateASN(64497, 64497, 64497);
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+}
+
+//
+// Update local ASN on CNs and make sure that the ASN in the RTargetRoute
+// prefix is updated.
+// Local AS is different than global AS.
+//
+// Routing instances have always subscribe and there are no subscriptions
+// from xmpp agents.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeLocalASNUpdate) {
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UpdateASN(64496, 64496, 64496, 64497, 64497, 64497);
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+}
+
+//
+// Update Identifier on CNs and make sure that Nexthop in RTargetRoute prefix
+// is updated.
+// Local AS is same as global AS.
+//
+// Routing instances have always subscribe and there are no subscriptions
+// from xmpp agents.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeIdentifierUpdate1) {
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(mx_.get(), "64496:target:64496:1", nexthops0);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UpdateIdentifier(64496, 64496, 64496, 64496, 64496, 64496);
+
+    vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(mx_.get(), "64496:target:64496:1", nexthops1);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+}
+
+//
+// Update Identifier on CNs and make sure that Nexthop in RTargetRoute prefix
+// is updated.
+// Local AS is different than global AS.
+//
+// Routing instances have always subscribe and there are no subscriptions
+// from xmpp agents.
+//
+TEST_F(BgpXmppRTargetTest, AlwaysSubscribeIdentifierUpdate2) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64496, 64496, 64497, 64497, 64497);
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+
+    SetRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    SetRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64497:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(mx_.get(), "64497:target:64496:1", nexthops0);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UpdateIdentifier(64496, 64496, 64496, 64497, 64497, 64497);
+
+    vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64497:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(mx_.get(), "64497:target:64496:1", nexthops1);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    ClearRoutingInstanceAlwaysSubscribe(cn1_.get(), "blue");
+    ClearRoutingInstanceAlwaysSubscribe(cn2_.get(), "blue");
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
 }
 
 class TestEnvironment : public ::testing::Environment {

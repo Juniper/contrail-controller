@@ -36,6 +36,7 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
         export_list.push_back(rt);
     }
     sbic->set_export_target(export_list);
+    sbic->set_has_pnf(instance->has_pnf());
     sbic->set_last_change_at(UTCUsecToString(instance->last_change_at()));
 
     vector<ShowBgpServiceChainConfig> sbscc_list;

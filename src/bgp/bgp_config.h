@@ -239,6 +239,9 @@ public:
         export_list_ = export_list;
     }
 
+    bool has_pnf() const { return has_pnf_; }
+    void set_has_pnf(bool has_pnf) { has_pnf_ = has_pnf; }
+
     const std::string &virtual_network() const { return virtual_network_; }
     void set_virtual_network(const std::string &virtual_network) {
         virtual_network_ = virtual_network;
@@ -283,6 +286,7 @@ private:
     std::string name_;
     RouteTargetList import_list_;
     RouteTargetList export_list_;
+    bool has_pnf_;
     std::string virtual_network_;
     int virtual_network_index_;
     bool virtual_network_allow_transit_;

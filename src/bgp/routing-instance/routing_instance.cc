@@ -21,6 +21,7 @@
 #include "bgp/routing-instance/routing_instance_log.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/rtarget/rtarget_route.h"
 #include "db/db_table.h"
 
 using boost::assign::list_of;
@@ -56,12 +57,19 @@ private:
 RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
         server_(server),
         deleted_count_(0),
+        asn_listener_id_(server->RegisterASNUpdateCallback(
+            boost::bind(&RoutingInstanceMgr::ASNUpdateCallback, this, _1, _2))),
+        identifier_listener_id_(server->RegisterIdentifierUpdateCallback(
+            boost::bind(&RoutingInstanceMgr::IdentifierUpdateCallback,
+                this, _1))),
         deleter_(new DeleteActor(this)),
         server_delete_ref_(this, server->deleter()) {
 }
 
 RoutingInstanceMgr::~RoutingInstanceMgr() {
     assert(deleted_count_ == 0);
+    server_->UnregisterASNUpdateCallback(asn_listener_id_);
+    server_->UnregisterIdentifierUpdateCallback(identifier_listener_id_);
 }
 
 void RoutingInstanceMgr::ManagedDelete() {
@@ -295,6 +303,7 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     rtinstance->set_index(index);
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
+    rtinstance->InitAllRTargetRoutes(server_->local_autonomous_system());
 
     // Notify clients about routing instance create
     NotifyInstanceOp(config->name(), INSTANCE_ADD);
@@ -328,11 +337,18 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
         return;
     }
 
+    bool old_always_subscribe = rtinstance->always_subscribe();
+
     InstanceTargetRemove(rtinstance);
     InstanceVnIndexRemove(rtinstance);
     rtinstance->UpdateConfig(config);
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
+
+    if (old_always_subscribe != rtinstance->always_subscribe()) {
+        rtinstance->FlushAllRTargetRoutes(server_->local_autonomous_system());
+        rtinstance->InitAllRTargetRoutes(server_->local_autonomous_system());
+    }
 
     // Notify clients about routing instance create
     NotifyInstanceOp(config->name(), INSTANCE_UPDATE);
@@ -381,6 +397,7 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
 
     RTINSTANCE_LOG(Delete, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+    rtinstance->FlushAllRTargetRoutes(server_->local_autonomous_system());
     rtinstance->ClearRouteTarget();
 
     server()->service_chain_mgr(Address::INET)->StopServiceChain(rtinstance);
@@ -421,6 +438,22 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     }
 }
 
+void RoutingInstanceMgr::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
+    if (server_->local_autonomous_system() == old_local_asn)
+        return;
+    for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
+        it->FlushAllRTargetRoutes(old_local_asn);
+        it->InitAllRTargetRoutes(server_->local_autonomous_system());
+    }
+}
+
+void RoutingInstanceMgr::IdentifierUpdateCallback(Ip4Address old_identifier) {
+    for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
+        it->FlushAllRTargetRoutes(server_->local_autonomous_system());
+        it->InitAllRTargetRoutes(server_->local_autonomous_system());
+    }
+}
+
 class RoutingInstance::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(BgpServer *server, RoutingInstance *parent)
@@ -448,7 +481,7 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
                                  RoutingInstanceMgr *mgr,
                                  const BgpInstanceConfig *config)
     : name_(name), index_(-1), server_(server), mgr_(mgr), config_(config),
-      is_default_(false), virtual_network_index_(0),
+      is_default_(false), always_subscribe_(false), virtual_network_index_(0),
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
@@ -481,6 +514,9 @@ void RoutingInstance::ProcessConfig() {
     virtual_network_index_ = config_->virtual_network_index();
     virtual_network_allow_transit_ = config_->virtual_network_allow_transit();
     vxlan_id_ = config_->vxlan_id();
+
+    // Always subscribe (using RTF) for RTs of PNF service chain instances.
+    always_subscribe_ = config_->has_pnf();
 
     vector<string> import_rt, export_rt;
     BOOST_FOREACH(string irt, config_->import_list()) {
@@ -535,6 +571,9 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     // This is a noop in production code. However unit tests may pass a
     // new object.
     config_ = cfg;
+
+    // Always subscribe (using RTF) for RTs of PNF service chain instances.
+    always_subscribe_ = config_->has_pnf();
 
     // Figure out if there's a significant configuration change that requires
     // notifying routes to all listeners.
@@ -627,6 +666,7 @@ void RoutingInstance::Shutdown() {
     RTINSTANCE_LOG(Shutdown, this,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
+    FlushAllRTargetRoutes(server_->local_autonomous_system());
     ClearRouteTarget();
     server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
 
@@ -691,6 +731,88 @@ void RoutingInstance::ClearFamilyRouteTarget(Address::Family vrf_family,
     }
 }
 
+void RoutingInstance::AddRTargetRoute(uint32_t asn,
+    const RouteTarget &rtarget) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    if (asn == 0 || !always_subscribe_)
+        return;
+
+    RTargetPrefix prefix(asn, rtarget);
+    RTargetRoute rt_key(prefix);
+
+    RoutingInstance *master =
+        mgr_->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    BgpTable *table = master->GetTable(Address::RTARGET);
+    DBTablePartition *tbl_partition =
+        static_cast<DBTablePartition *>(table->GetTablePartition(0));
+    RTargetRoute *route =
+        static_cast<RTargetRoute *>(tbl_partition->Find(&rt_key));
+    if (!route) {
+        route = new RTargetRoute(prefix);
+        tbl_partition->Add(route);
+    } else {
+        route->ClearDelete();
+    }
+
+    if (route->FindPath(BgpPath::Local, index_))
+        return;
+
+    BgpAttrSpec attr_spec;
+    BgpAttrNextHop nexthop(server_->bgp_identifier());
+    attr_spec.push_back(&nexthop);
+    BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+    attr_spec.push_back(&origin);
+    BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+    BgpPath *path = new BgpPath(index_, BgpPath::Local, attr);
+    route->InsertPath(path);
+    tbl_partition->Notify(route);
+    BGP_LOG_ROUTE(table, static_cast<IPeer *>(NULL),
+        route, "Insert Local path with path id " << index_);
+}
+
+void RoutingInstance::DeleteRTargetRoute(as4_t asn,
+    const RouteTarget &rtarget) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    if (asn == 0)
+        return;
+
+    RTargetPrefix prefix(asn, rtarget);
+    RTargetRoute rt_key(prefix);
+
+    RoutingInstance *master =
+        mgr_->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    BgpTable *table = master->GetTable(Address::RTARGET);
+    DBTablePartition *tbl_partition =
+        static_cast<DBTablePartition *>(table->GetTablePartition(0));
+    RTargetRoute *route =
+        static_cast<RTargetRoute *>(tbl_partition->Find(&rt_key));
+    if (!route || !route->RemovePath(BgpPath::Local, index_))
+        return;
+
+    BGP_LOG_ROUTE(table, static_cast<IPeer *>(NULL),
+        route, "Delete Local path with path id " << index_);
+    if (!route->BestPath()) {
+        tbl_partition->Delete(route);
+    } else {
+        tbl_partition->Notify(route);
+    }
+}
+
+void RoutingInstance::InitAllRTargetRoutes(as4_t asn) {
+    BOOST_FOREACH(RouteTarget rtarget, import_) {
+        AddRTargetRoute(asn, rtarget);
+    }
+}
+
+void RoutingInstance::FlushAllRTargetRoutes(as4_t asn) {
+    BOOST_FOREACH(RouteTarget rtarget, import_) {
+        DeleteRTargetRoute(asn, rtarget);
+    }
+}
+
 void RoutingInstance::AddRouteTarget(bool import,
     vector<string> *change_list, RouteTargetList::const_iterator it) {
     BgpTable *ermvpn_table = GetTable(Address::ERMVPN);
@@ -709,6 +831,7 @@ void RoutingInstance::AddRouteTarget(bool import,
     change_list->push_back(it->ToString());
     if (import) {
         import_.insert(*it);
+        AddRTargetRoute(server_->local_autonomous_system(), *it);
     } else {
         export_.insert(*it);
     }
@@ -741,6 +864,7 @@ void RoutingInstance::DeleteRouteTarget(bool import,
 
     change_list->push_back(it->ToString());
     if (import) {
+        DeleteRTargetRoute(server_->local_autonomous_system(), *it);
         import_.erase(it);
     } else {
         export_.erase(it);
