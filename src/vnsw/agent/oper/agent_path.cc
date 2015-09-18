@@ -36,7 +36,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
-    arp_mac_(), arp_interface_(NULL), arp_valid_(false) {
+    arp_mac_(), arp_interface_(NULL), arp_valid_(false),
+    ecmp_suppressed_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -368,7 +369,8 @@ const NextHop *EvpnDerivedPath::ComputeNextHop(Agent *agent) const {
 
 EvpnDerivedPathData::EvpnDerivedPathData(const EvpnRouteEntry *evpn_rt) :
     AgentRouteData(false), ethernet_tag_(evpn_rt->ethernet_tag()),
-    ip_addr_(evpn_rt->ip_addr()), reference_path_(evpn_rt->GetActivePath()) {
+    ip_addr_(evpn_rt->ip_addr()), reference_path_(evpn_rt->GetActivePath()),
+    ecmp_suppressed_(false) {
     // For debuging add peer of active path in parent as well
     std::stringstream s;
     s << evpn_rt->ToString();
@@ -439,6 +441,11 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
     const std::string &dest_vn = reference_path_->dest_vn_name();
     if (evpn_path->dest_vn_name() != dest_vn) {
         evpn_path->set_dest_vn_name(dest_vn);
+        ret = true;
+    }
+
+    if (evpn_path->ecmp_suppressed() != ecmp_suppressed_) {
+        evpn_path->set_ecmp_suppressed(ecmp_suppressed_);
         ret = true;
     }
 
@@ -1112,6 +1119,10 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     if (!gw_ip().is_unspecified()) {
         pdata.set_gw_ip(gw_ip().to_string());
         pdata.set_vrf(vrf_name());
+    }
+
+    if (ecmp_suppressed()) {
+        pdata.set_ecmp_suppressed(true);
     }
 
     pdata.set_sg_list(sg_list());

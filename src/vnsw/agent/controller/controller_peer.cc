@@ -779,6 +779,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     if (agent_->router_id() != nh_ip.to_v4()) {
         CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), nexthop_addr,
                                     "add remote evpn route");
+        // for number of nexthops more than 1, carry flag ecmp suppressed
+        // to indicate the same to all modules, till we handle L2 ecmp
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
                                                      agent_->fabric_vrf_name(),
@@ -787,7 +789,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      encap, label,
                                                      item->entry.virtual_network,
                                                      item->entry.security_group_list.security_group,
-                                                     path_preference);
+                                                     path_preference,
+                                                     (item->entry.next_hops.next_hop.size() > 1));
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
@@ -922,7 +925,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                vrf_name, addr.to_v4(), encap, label,
                                item->entry.virtual_network ,
                                item->entry.security_group_list.security_group,
-                               path_preference);
+                               path_preference, false);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
                                       prefix_len, data);
         return;
