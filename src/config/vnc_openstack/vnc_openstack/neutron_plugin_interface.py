@@ -68,7 +68,7 @@ class NeutronPluginInterface(object):
 
         try:
             self._list_optimization_enabled = \
-                conf_sections.get('DEFAULTS', 'list_optimization_enabled')
+                conf_sections.getboolean('DEFAULTS', 'list_optimization_enabled')
         except ConfigParser.NoOptionError:
             self._list_optimization_enabled = False
 
