@@ -28,27 +28,31 @@ using namespace OVSDB;
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const std::string mac) : OvsdbDBEntry(table), mac_(mac),
     logical_switch_name_(table->logical_switch_name()),
-    self_exported_route_(false) {
+    self_exported_route_(false), sequence_(0), self_sequence_(0),
+    ecmp_suppressed_(false) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const BridgeRouteEntry *entry) : OvsdbDBEntry(table),
     mac_(entry->mac().ToString()),
     logical_switch_name_(table->logical_switch_name()),
-    self_exported_route_(false) {
+    self_exported_route_(false), sequence_(0), self_sequence_(0),
+    ecmp_suppressed_(false) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const UnicastMacRemoteEntry *entry) : OvsdbDBEntry(table),
     mac_(entry->mac_), logical_switch_name_(entry->logical_switch_name_),
-    dest_ip_(entry->dest_ip_), self_exported_route_(false) {
+    dest_ip_(entry->dest_ip_), self_exported_route_(false), sequence_(0),
+    self_sequence_(0), ecmp_suppressed_(false) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
     mac_(ovsdb_wrapper_ucast_mac_remote_mac(entry)),
     logical_switch_name_(table->logical_switch_name()), dest_ip_(),
-    self_exported_route_(false) {
+    self_exported_route_(false), sequence_(0), self_sequence_(0),
+    ecmp_suppressed_(false) {
     const char *dest_ip = ovsdb_wrapper_ucast_mac_remote_dst_ip(entry);
     if (dest_ip) {
         dest_ip_ = std::string(dest_ip);
@@ -117,6 +121,18 @@ void UnicastMacRemoteEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     }
 
     if (!stale()) {
+        // route was self exported but is not the active path
+        if (ecmp_suppressed_ ||
+            (self_sequence_ != 0 && sequence_ >= self_sequence_)) {
+            // trigger delete of ovs row and add back later
+            // to simulate MAC move.
+            if (ovs_entry_ != NULL) {
+                DeleteMsg(txn);
+                return;
+            }
+        }
+
+
         PhysicalLocatorTable *pl_table =
             table_->client_idl()->physical_locator_table();
         PhysicalLocatorEntry pl_key(pl_table, dest_ip_);
@@ -158,7 +174,9 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
     const BridgeRouteEntry *entry =
         static_cast<const BridgeRouteEntry *>(db_entry);
     std::string dest_ip;
+
     const NextHop *nh = entry->GetActiveNextHop();
+    const TunnelNH *tunnel = NULL;
     /* 
      * TOR Agent will not have any local VM so only tunnel nexthops
      * are to be looked into
@@ -169,7 +187,7 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
          * the entry to ovsdb expecting vrouter to always handle
          * VxLAN encapsulation.
          */
-        const TunnelNH *tunnel = static_cast<const TunnelNH *>(nh);
+        tunnel = static_cast<const TunnelNH *>(nh);
         dest_ip = tunnel->GetDip()->to_string();
     }
     bool change = false;
@@ -187,13 +205,44 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
     EvpnRouteEntry *evpn_rt = evpn_table->FindRoute(entry->mac(), default_ip,
                                                     entry->GetActiveLabel());
 
-    bool self_exported_route =
-        (evpn_rt != NULL &&
-         evpn_rt->FindPath((Peer *)table_->client_idl()->route_peer()) != NULL);
+    bool self_exported_route = false;
+    uint32_t self_sequence = 0;
+    if (evpn_rt != NULL) {
+        const AgentPath *ovs_path =
+            evpn_rt->FindPath((Peer *)table_->client_idl()->route_peer());
+        if (ovs_path != NULL) {
+            const NextHop *ovs_nh = ovs_path->nexthop();
+            assert(ovs_nh != NULL && ovs_nh->GetType() == NextHop::TUNNEL);
+            const TunnelNH *ovs_tunnel = static_cast<const TunnelNH *>(ovs_nh);
+            if (tunnel != NULL &&
+                *(tunnel->GetDip()) == *(ovs_tunnel->GetDip())) {
+                self_exported_route = true;
+            }
+            self_sequence = ovs_path->sequence();
+        }
+    }
+
     if (self_exported_route_ != self_exported_route) {
         self_exported_route_ = self_exported_route;
         change = true;
     }
+
+    if (self_sequence_ != self_sequence) {
+        self_sequence_ = self_sequence;
+        change = true;
+    }
+
+    const AgentPath *path = entry->GetActivePath();
+    if (path && sequence_ != path->sequence()) {
+        sequence_ = path->sequence();
+        change = true;
+    }
+
+    if (ecmp_suppressed_ != path->ecmp_suppressed()) {
+        ecmp_suppressed_ = path->ecmp_suppressed();
+        change = true;
+    }
+
     return change;
 }
 
@@ -250,6 +299,18 @@ const std::string &UnicastMacRemoteEntry::dest_ip() const {
 
 bool UnicastMacRemoteEntry::self_exported_route() const {
     return self_exported_route_;
+}
+
+uint32_t UnicastMacRemoteEntry::sequence() const {
+    return sequence_;
+}
+
+uint32_t UnicastMacRemoteEntry::self_sequence() const {
+    return self_sequence_;
+}
+
+bool UnicastMacRemoteEntry::ecmp_suppressed() const {
+    return ecmp_suppressed_;
 }
 
 void UnicastMacRemoteEntry::Ack(bool success) {
@@ -437,6 +498,9 @@ void UnicastMacRemoteSandeshTask::UpdateResp(KSyncEntry *kentry,
     oentry.set_logical_switch(entry->logical_switch_name());
     oentry.set_dest_ip(entry->dest_ip());
     oentry.set_self_exported(entry->self_exported_route());
+    oentry.set_sequence(entry->sequence());
+    oentry.set_self_sequence(entry->self_sequence());
+    oentry.set_ecmp_suppressed(entry->ecmp_suppressed());
     OvsdbUnicastMacRemoteResp *u_resp =
         static_cast<OvsdbUnicastMacRemoteResp *>(resp);
     std::vector<OvsdbUnicastMacRemoteEntry> &macs =

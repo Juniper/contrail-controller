@@ -354,7 +354,7 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
                                                  TunnelType::AllType(),
                                                  mpls_label,
                                                  vn, SecurityGroupList(),
-                                                 PathPreference());
+                                                 PathPreference(), false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
                                      vrf, ipv4, 32, data);
     return true;
@@ -457,7 +457,7 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
                               agent_->fabric_vrf_name(),
                               agent_->router_id(), vrf, gw.to_v4(),
                               TunnelType::AllType(), mpls_label, "",
-                              SecurityGroupList(), PathPreference());
+                              SecurityGroupList(), PathPreference(), false);
     agent_->fabric_inet4_unicast_table()->
         AddRemoteVmRouteReq(novaPeer_.get(),
                             vrf, ip.to_v4(), 32, data);

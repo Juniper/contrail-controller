@@ -1375,7 +1375,7 @@ bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, "", SecurityGroupList(),
-                              PathPreference());
+                              PathPreference(), false);
     EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
                                         vm_addr, 0, data);
     return true;
@@ -1420,7 +1420,8 @@ bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Addres
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, dest_vn_name, sg, path_preference);
+                              bmap, label, dest_vn_name, sg,
+                              path_preference, false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
                                         vm_addr, plen, data);
     return true;
@@ -1465,7 +1466,8 @@ bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Addres
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, dest_vn_name, sg, path_preference);
+                              bmap, label, dest_vn_name, sg,
+                              path_preference, false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
                                         vm_addr, plen, data);
     return true;
@@ -1491,7 +1493,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                               Agent::GetInstance()->router_id(),
                               vm_vrf, Ip4Address::from_string(server, ec),
                               TunnelType::AllType(), label, vn,
-                              SecurityGroupList(), PathPreference());
+                              SecurityGroupList(), PathPreference(), false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, data);

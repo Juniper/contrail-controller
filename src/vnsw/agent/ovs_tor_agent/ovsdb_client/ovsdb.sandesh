@@ -231,6 +231,9 @@ struct OvsdbUnicastMacRemoteEntry {
     3: string logical_switch;
     4: string dest_ip;
     5: bool self_exported;
+    6: u32 sequence;
+    7: u32 self_sequence;
+    8: bool ecmp_suppressed;
 }
 
 response sandesh OvsdbUnicastMacRemoteResp {
