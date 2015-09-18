@@ -34,6 +34,8 @@
 
 class FlowTableKSyncEntry;
 class FlowEntry;
+struct FlowExportInfo;
+
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 
 struct FlowKey {
@@ -85,6 +87,31 @@ struct FlowKey {
         return dst_port < key.dst_port;
     }
 
+    bool IsEqual(const FlowKey &key) const {
+        if (family != key.family)
+            return false;
+
+        if (nh != key.nh)
+            return false;
+
+        if (src_addr != key.src_addr)
+            return false;
+
+        if (dst_addr != key.dst_addr)
+            return false;
+
+        if (protocol != key.protocol)
+            return false;
+
+        if (src_port != key.src_port)
+            return false;
+
+        if (dst_port != key.dst_port)
+            return false;
+
+        return true;
+    }
+
     void Reset() {
         family = Address::UNSPEC;
         nh = -1;
@@ -102,22 +129,6 @@ struct FlowKey {
     uint8_t protocol;
     uint16_t src_port;
     uint16_t dst_port;
-};
-
-struct FlowStats {
-    FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), fip(0),
-        fip_vm_port_id(Interface::kInvalidIndex) {}
-
-    uint64_t setup_time;
-    uint64_t teardown_time;
-    uint64_t last_modified_time; //used for aging
-    uint64_t bytes;
-    uint64_t packets;
-    uint32_t intf_in;
-    // Following fields are required for FIP stats accounting
-    uint32_t fip;
-    uint32_t fip_vm_port_id;
 };
 
 typedef std::list<MatchAclParams> MatchAclParamsList;
@@ -228,6 +239,7 @@ struct FlowData {
     bool enable_rpf;
     uint8_t l2_rpf_plen;
     bool vrouter_evicted_flow;
+    std::string vm_cfg_name;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };
@@ -284,6 +296,7 @@ class FlowEntry {
         PCAP_DEST_VN = 4,
         PCAP_TLV_END = 255
     };
+
     enum FlowEntryFlags {
         NatFlow         = 1 << 0,
         LocalFlow       = 1 << 1,
@@ -308,10 +321,12 @@ class FlowEntry {
 
     void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
-                     const PktControlInfo *rev_ctrl, FlowEntry *rflow);
+                     const PktControlInfo *rev_ctrl, FlowEntry *rflow,
+                     Agent *agent);
     void InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
-                     const PktControlInfo *rev_ctrl, FlowEntry *rflow);
+                     const PktControlInfo *rev_ctrl, FlowEntry *rflow,
+                     Agent *agent);
     void InitAuditFlow(uint32_t flow_idx);
     static void Init();
 
@@ -324,16 +339,14 @@ class FlowEntry {
 
     // Flow accessor routines
     int GetRefCount() { return refcount_; }
-    const FlowStats &stats() const { return stats_;}
     const FlowKey &key() const { return key_;}
     FlowData &data() { return data_;}
     const FlowData &data() const { return data_;}
-    const uuid &flow_uuid() const { return flow_uuid_; }
-    const uuid &egress_uuid() const { return egress_uuid_; }
     bool l3_flow() const { return l3_flow_; }
     uint32_t flow_handle() const { return flow_handle_; }
     void set_flow_handle(uint32_t flow_handle, FlowTable* table);
     FlowEntry *reverse_flow_entry() { return reverse_flow_entry_.get(); }
+    uint32_t flags() const { return flags_; }
     const FlowEntry *reverse_flow_entry() const {
         return reverse_flow_entry_.get();
     }
@@ -355,21 +368,15 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    uint32_t fip() const { return fip_; }
+    VmInterfaceKey fip_vmi() const { return fip_vmi_; }
     uint32_t reverse_flow_fip() const;
-    uint32_t reverse_flow_vmport_id() const;
-    void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
+    VmInterfaceKey reverse_flow_vmi() const;
+    void UpdateFipStatsInfo(uint32_t fip, uint32_t id, Agent *agent);
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
     const std::string &peer_vrouter() const { return peer_vrouter_; }
     TunnelType tunnel_type() const { return tunnel_type_; }
-    uint16_t underlay_source_port() const { return underlay_source_port_; }
-    void set_underlay_source_port(uint16_t port) {
-        underlay_source_port_ = port;
-    }
-    bool underlay_sport_exported() const { return underlay_sport_exported_; }
-    void set_underlay_sport_exported(bool value) {
-        underlay_sport_exported_ = value;
-    }
 
     uint16_t short_flow_reason() const { return short_flow_reason_; }
     bool set_pending_recompute(bool value);
@@ -409,7 +416,6 @@ class FlowEntry {
                       MatchAclParamsList &acl, bool add_implicit_deny,
                       bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
-    void ResetStats();
 
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow);
@@ -430,8 +436,9 @@ class FlowEntry {
     void SetAclAction(std::vector<AclAction> &acl_action_l) const;
     void UpdateReflexiveAction();
     void SetAclFlowSandeshData(const AclDBEntry *acl,
-                               FlowSandeshData &fe_sandesh_data) const;
-
+                               FlowSandeshData &fe_sandesh_data,
+                               FlowExportInfo *info) const;
+    uint32_t InterfaceKeyToId(Agent *agent, const VmInterfaceKey &key);
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -443,14 +450,11 @@ private:
     void GetSourceRouteInfo(const AgentRoute *rt);
     void GetDestRouteInfo(const AgentRoute *rt);
     void UpdateRpf();
+    VmInterfaceKey InterfaceIdToKey(Agent *agent, uint32_t id);
+    const std::string InterfaceIdToVmCfgName(Agent *agent, uint32_t id);
 
     FlowKey key_;
     FlowData data_;
-    FlowStats stats_;
-    uuid flow_uuid_;
-    //egress_uuid is used only during flow-export and applicable only for
-    //local-flows
-    uuid egress_uuid_;
     bool l3_flow_;
     uint32_t flow_handle_;
     FlowEntryPtr reverse_flow_entry_;
@@ -470,11 +474,11 @@ private:
     std::string peer_vrouter_;
     //Underlay IP protocol type. Used only during flow-export
     TunnelType tunnel_type_;
-    //Underlay source port. 0 for local flows. Used during flow-export
-    uint16_t underlay_source_port_;
-    bool underlay_sport_exported_;
     // Is flow-entry on the tree
     bool on_tree_;
+    // Following fields are required for FIP stats accounting
+    uint32_t fip_;
+    VmInterfaceKey fip_vmi_;
     // atomic refcount
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;

@@ -80,21 +80,25 @@ struct FlowTableRequest {
         UPDATE_FLOW
     };
 
-    FlowTableRequest() : event_(INVALID), flow_(NULL) {
+    FlowTableRequest() : event_(INVALID), flow_(NULL), del_flow_key_(),
+        del_rev_flow_(false) {
     }
 
     FlowTableRequest(Event event, FlowEntry *flow) :
-        event_(event), flow_(flow) {
+        event_(event), flow_(flow), del_flow_key_(), del_rev_flow_(false) {
     }
 
     FlowTableRequest(const FlowTableRequest &rhs) :
-        event_(rhs.event_), flow_(rhs.flow_) {
+        event_(rhs.event_), flow_(rhs.flow_), del_flow_key_(rhs.del_flow_key_),
+        del_rev_flow_(rhs.del_rev_flow_) {
     }
 
     virtual ~FlowTableRequest() { }
 
     Event event_;
     FlowEntryPtr flow_;
+    FlowKey del_flow_key_;
+    bool del_rev_flow_;
 };
 
 struct FlowTaskMsg : public InterTaskMsg {
@@ -206,7 +210,11 @@ public:
     void UpdateKSync(FlowEntry *flow);
 
     // Flow Table request queue events
-    void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow);
+    void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow,
+                   const FlowKey &del_key, bool del_rflow);
+
+    // FlowStatsCollector request queue events
+    void NotifyFlowStatsCollector(FlowEntry *fe);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
@@ -229,13 +237,7 @@ private:
     void AddVmFlowInfo(FlowEntry *fe);
     void AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm);
 
-    void SendFlows(FlowEntry *flow, FlowEntry *rflow);
-    void SendFlowInternal(FlowEntry *fe);
-
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
 
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
                      FlowEntry *new_rflow, bool update);

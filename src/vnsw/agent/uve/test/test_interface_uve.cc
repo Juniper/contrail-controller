@@ -518,9 +518,13 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0));
 
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
-    fsc->UpdateFloatingIpStats(f1, 300, 3);
-    fsc->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(info, 300, 3);
+    fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
@@ -576,9 +580,13 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0));
 
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
-    fsc->UpdateFloatingIpStats(f1, 300, 3);
-    fsc->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(info, 300, 3);
+    fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
@@ -637,9 +645,13 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0));
 
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
-    fsc->UpdateFloatingIpStats(f1, 300, 3);
-    fsc->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(info, 300, 3);
+    fsc->UpdateFloatingIpStats(rinfo, 300, 3);
     client->WaitForIdle();
 
     //Verify that stats FIP entry is created
@@ -716,9 +728,13 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flowa));
 
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
-    fsc->UpdateFloatingIpStats(f1, 300, 3);
-    fsc->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(info, 300, 3);
+    fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flowa));
@@ -798,9 +814,13 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0));
 
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
-    fsc->UpdateFloatingIpStats(f1, 300, 3);
-    fsc->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(info, 300, 3);
+    fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));

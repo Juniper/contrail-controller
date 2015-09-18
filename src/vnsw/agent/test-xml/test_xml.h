@@ -21,6 +21,8 @@ bool GetStringAttribute(const pugi::xml_node &node, const std::string &name,
                         std::string *value);
 bool GetUintAttribute(const pugi::xml_node &node, const std::string &name,
                       uint16_t *value);
+bool GetIntAttribute(const pugi::xml_node &node, const std::string &name,
+                     int *value);
 bool GetBoolAttribute(const pugi::xml_node &node, const std::string &name,
                       bool *value);
 void NovaIntfAdd(bool op_delete, const boost::uuids::uuid &id,
@@ -199,6 +201,49 @@ protected:
 private:
     boost::uuids::uuid id_;
     DISALLOW_COPY_AND_ASSIGN(AgentUtXmlConfig);
+};
+
+class AgentUtXmlFlowExport : public AgentUtXmlNode {
+public:
+    AgentUtXmlFlowExport(const pugi::xml_node &node,
+                         AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlFlowExport();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+    virtual bool Run();
+
+private:
+    void EnqueueFlowExport(FlowEntry *fe, uint64_t bytes, uint64_t pkts);
+    uint16_t nh_id_;
+    std::string sip_;
+    std::string dip_;
+    std::string proto_;
+    uint16_t proto_id_;
+    uint16_t sport_;
+    uint16_t dport_;
+    uint32_t bytes_;
+    uint32_t pkts_;
+};
+
+class AgentUtXmlFlowThreshold : public AgentUtXmlNode {
+public:
+    AgentUtXmlFlowThreshold(const pugi::xml_node &node,
+                            AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlFlowThreshold();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+    virtual bool Run();
+
+private:
+    uint32_t flow_export_count_;
+    uint32_t configured_flow_export_rate_;
+    uint32_t threshold_;
 };
 
 #endif //vnsw_agent_test_xml_test_xml_h
