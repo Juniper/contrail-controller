@@ -366,7 +366,8 @@ class PhysicalRouterDM(DBBase):
                                                              export_set,
                                                              vn_obj.get_prefixes(),
                                                              None,
-                                                             vn_obj.router_external)
+                                                             vn_obj.router_external,
+                                                             ["irb" + "." + str(vn_obj.vn_network_id)])
 
                     break
 
