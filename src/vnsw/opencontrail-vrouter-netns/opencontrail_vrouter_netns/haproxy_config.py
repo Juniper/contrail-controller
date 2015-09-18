@@ -6,7 +6,7 @@ def validate_custom_attributes(config, section):
 
 try:
     from haproxy_validator import validate_custom_attributes as validator
-    from haproxy_validator import custom_attributes_dict
+    from haproxy_validator import custom_attributes_dict, CustomAttr
 except ImportError:
     validator = validate_custom_attributes
     custom_attributes_dict = {}
@@ -54,6 +54,29 @@ def build_config(conf_file):
     conf_file.write(conf)
     return filename
 
+
+def _construct_config_block(lb_config, conf, custom_attr_section, custom_attributes):
+    custom_objects = []
+    for key, value in custom_attributes.iteritems():
+        _type = custom_attributes_dict[custom_attr_section][key]['type']
+        if _type in (int, bool, str):
+            _cmd = custom_attributes_dict[custom_attr_section][key]['cmd']
+            conf.append(_cmd % value)
+        elif isinstance(value, CustomAttr):
+            custom_objects.append(value)
+
+    for obj in custom_objects:
+        obj.pre(lb_config, conf)
+
+    res = "\n\t".join(conf)
+
+    for obj in custom_objects:
+        ret = obj.post()
+        if type(ret) == str or type(ret) == unicode:
+            res += ("\n" + ret)
+
+    return res
+
 def _set_global_config(config, sock_path):
     global_custom_attributes = validator(config, 'global')
     maxconn = global_custom_attributes.pop('maxconn', None) \
@@ -77,11 +100,8 @@ def _set_global_config(config, sock_path):
         'maxconn %d' % maxconn
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
-    for key, value in global_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['global'][key]['cmd']
-        conf.append(cmd % value)
+    return _construct_config_block(config, conf, "global", global_custom_attributes)
 
-    return ("\n\t".join(conf))
 
 def _set_defaults(config):
     default_custom_attributes = validator(config, 'default')
@@ -106,7 +126,7 @@ def _set_defaults(config):
         cmd = custom_attributes_dict['default'][key]['cmd']
         conf.append(cmd % value)
 
-    return ("\n\t".join(conf))
+    return _construct_config_block(config, conf, "default", default_custom_attributes)
 
 def _set_frontend(config):
     port = config['vip']['port']
@@ -127,11 +147,7 @@ def _set_frontend(config):
             config['vip']['protocol'] == PROTO_HTTPS:
         conf.append('option forwardfor')
 
-    for key, value in vip_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['vip'][key]['cmd']
-        conf.append(cmd % value)
-
-    return ("\n\t".join(conf))
+    return _construct_config_block(config, conf, "vip", vip_custom_attributes)
 
 def _set_backend(config):
     pool_custom_attributes = validator(config, 'pool')
@@ -142,10 +158,6 @@ def _set_backend(config):
     ]
     if config['pool']['protocol'] == PROTO_HTTP:
         conf.append('option forwardfor')
-
-    for key, value in pool_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['pool'][key]['cmd']
-        conf.append(cmd % value)
 
     server_suffix, monitor_conf = _set_health_monitor(config)
     conf.extend(monitor_conf)
@@ -161,11 +173,7 @@ def _set_backend(config):
             server += ' cookie %d' % config['members'].index(member)
         conf.append(server)
 
-    for key, value in pool_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['pool'][key]['cmd']
-        conf.append(cmd % value)
-
-    return ("\n\t".join(conf))
+    return _construct_config_block(config, conf, "pool", pool_custom_attributes)
 
 def _set_health_monitor(config):
     for monitor in config['healthmonitors']:

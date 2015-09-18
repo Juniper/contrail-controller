@@ -1,3 +1,120 @@
+import inspect
+import re
+import shlex
+
+
+class CustomAttr(object):
+    # This type meant to do more things than just a flat data type
+    # pre()
+    #    This method will be called with the loadbalancer config and
+    #    list of config items that the haproxy_config has used
+    #    before framing the haproxy config section and it returns None
+    # post()
+    #    This method is called after the configuration block is framed
+    #    If this methid returns a string, it gets appended to the existing
+    #    block
+    def __init__(self, value):
+        self._value = value
+
+    def pre(self, conf_list):
+        return
+
+    def post(self):
+        return
+
+
+class CustomAttrTcpMultiPortBinding(CustomAttr):
+    SUFFIX = "-tcp-multi-port"
+    def __init__(self, value):
+        super(CustomAttrTcpMultiPortBinding, self).__init__(value)
+        self._port_map = {}
+        self._port = None
+        self._is_tcp = None
+        self._conf_list = []
+        self._parse()
+
+    def _parse(self):
+        tuples = shlex.split(self._value)
+        for t in tuples:
+            fr, to = t.split("/")
+            self._port_map[fr] = to
+
+    def post(self):
+        # return if not tcp
+        if not self._is_tcp:
+            return
+
+        # return if this port is not configured
+        if self._port not in self._port_map:
+            return
+
+        return "\n" + "\n\t".join(self._conf_list)
+
+
+class CustomAttrTcpMultiPortBindingFrontend(CustomAttrTcpMultiPortBinding):
+    def __init__(self, value):
+        super(CustomAttrTcpMultiPortBindingFrontend, self).__init__(value)
+
+    def pre(self, lb_config, conf_list):
+        for item in conf_list:
+            if item.startswith("bind"):
+                exp = re.compile("bind\s+(?P<bind_address>.*?):(?P<port>\d+)\s*(?P<remaining>.*)")
+                matcher = exp.search(item)
+                if not matcher:
+                    # Not in the expected format
+                    continue
+                else:
+                    match = matcher.groupdict()
+                    self._port = match.get("port")
+                    if self._port in self._port_map:
+                        self._conf_list.append("bind %s:%s %s" % (
+                            match.get("bind_address"),
+                            self._port_map[self._port],
+                            match.get("remaining", "")))
+            elif item.startswith("mode"):
+                _, mode = shlex.split(item)
+                self._is_tcp = (mode == 'tcp')
+                if self._is_tcp:
+                    self._conf_list.append(item)
+            elif item.startswith("default_backend"):
+                _, id = shlex.split(item)
+                self._conf_list.append("default_backend %s%s" % (id, self.SUFFIX))
+            elif item.startswith("frontend"):
+                _, id = shlex.split(item)
+                self._conf_list.append("frontend %s%s" % (id, self.SUFFIX))
+            else:
+                self._conf_list.append(item)
+
+
+class CustomAttrTcpMultiPortBindingBackend(CustomAttrTcpMultiPortBinding):
+    def __init__(self, value):
+        super(CustomAttrTcpMultiPortBindingBackend, self).__init__(value)
+
+    def pre(self, lb_config, config_list):
+        self._port = str(lb_config['vip']['port'])
+        self._is_tcp = lb_config['vip']['protocol'] == 'TCP'
+        exp = re.compile(
+            "server\s+(?P<server_id>\S+)\s+(?P<bind_address>.*?)"\
+            ":(?P<port>\d+)(?P<remaining>.*)")
+
+        for item in config_list:
+            if item.startswith("backend"):
+                _, id = shlex.split(item)
+                self._conf_list.append("backend %s%s" % (id, self.SUFFIX))
+            elif item.startswith('server'):
+                matcher = exp.search(item)
+                if self._port in self._port_map and matcher:
+                    match = matcher.groupdict()
+                    self._conf_list.append("server %s %s:%s %s" % (
+                        match.get("server_id"),
+                        match.get("bind_address"),
+                        self._port_map[self._port],
+                        match.get("remaining")))
+            else:
+                self._conf_list.append(item)
+
+
+
 custom_attributes_dict = {
     'global': {
         'max_conn': {
@@ -68,9 +185,18 @@ custom_attributes_dict = {
             'type': int,
             'limits': [1, 65535],
             'cmd': 'rate-limit sessions %d'
+        },
+        'tcp_multi_port_binding': {
+            'type': CustomAttrTcpMultiPortBindingFrontend,
+            'limits': None
         }
     },
-    'pool': {},
+    'pool': {
+        'tcp_multi_port_binding': {
+            'type': CustomAttrTcpMultiPortBindingBackend,
+            'limits': None
+        }
+    },
 }
 
 def validate_custom_attributes(config, section):
@@ -97,9 +223,10 @@ def validate_custom_attributes(config, section):
                             elif value == 'False':
                                 value = 'no '
                             section_dict.update({key:value})
+                    elif inspect.isclass(type_attr):
+                        section_dict.update({key: type_attr(value)})
                 except Exception as e:
                     print "Skipping key: %s, value: %s due to validation failure" \
                         % (key, value)
                     continue
-
     return section_dict
