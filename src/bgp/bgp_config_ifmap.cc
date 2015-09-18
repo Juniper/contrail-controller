@@ -595,20 +595,39 @@ static void SetStaticRouteConfig(BgpInstanceConfig *rti,
 
 static void SetServiceChainConfig(BgpInstanceConfig *rti,
                                   const autogen::RoutingInstance *config) {
-    const autogen::ServiceChainInfo &chain =
-            config->service_chain_information();
+
     BgpInstanceConfig::ServiceChainList list;
+
+    const autogen::ServiceChainInfo &inet_chain =
+        config->service_chain_information();
     if (config->IsPropertySet(
         autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
         ServiceChainConfig item = {
-            chain.routing_instance,
-            chain.prefix,
-            chain.service_chain_address,
-            chain.service_instance,
-            chain.source_routing_instance
+            Address::INET,
+            inet_chain.routing_instance,
+            inet_chain.prefix,
+            inet_chain.service_chain_address,
+            inet_chain.service_instance,
+            inet_chain.source_routing_instance
         };
         list.push_back(item);
     }
+
+    const autogen::ServiceChainInfo &inet6_chain =
+        config->ipv6_service_chain_information();
+    if (config->IsPropertySet(
+        autogen::RoutingInstance::IPV6_SERVICE_CHAIN_INFORMATION)) {
+        ServiceChainConfig item = {
+            Address::INET6,
+            inet6_chain.routing_instance,
+            inet6_chain.prefix,
+            inet6_chain.service_chain_address,
+            inet6_chain.service_instance,
+            inet6_chain.source_routing_instance
+        };
+        list.push_back(item);
+    }
+
     rti->swap_service_chain_list(&list);
 }
 

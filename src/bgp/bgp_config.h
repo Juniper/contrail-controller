@@ -17,7 +17,7 @@
 class BgpServer;
 
 struct AuthenticationKey {
-    AuthenticationKey() : start_time(0) {
+    AuthenticationKey() : id(-1), start_time(0) {
     }
 
     bool operator<(const AuthenticationKey &) const;
@@ -203,6 +203,7 @@ private:
 };
 
 struct ServiceChainConfig {
+    Address::Family family;
     std::string routing_instance;
     std::vector<std::string> prefix;
     std::string service_chain_address;
@@ -272,6 +273,7 @@ public:
     void swap_service_chain_list(ServiceChainList *list) {
         std::swap(service_chain_list_, *list);
     }
+    const ServiceChainConfig *service_chain_info(Address::Family family) const;
 
     void Clear();
 

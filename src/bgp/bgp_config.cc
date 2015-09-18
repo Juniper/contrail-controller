@@ -226,6 +226,16 @@ void BgpInstanceConfig::Clear() {
     service_chain_list_.clear();
 }
 
+const ServiceChainConfig *BgpInstanceConfig::service_chain_info(
+    Address::Family family) const {
+    for (ServiceChainList::const_iterator it = service_chain_list_.begin();
+         it != service_chain_list_.end(); ++it) {
+        if (it->family == family)
+            return it.operator->();
+    }
+    return NULL;
+}
+
 BgpConfigManager::BgpConfigManager(BgpServer *server)
         : server_(server) {
 }

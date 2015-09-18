@@ -154,6 +154,10 @@
 <!-- #IFMAP-SEMANTICS-IDL
      Property('service-chain-information', 'routing-instance') -->
 
+<xsd:element name='ipv6-service-chain-information' type='ServiceChainInfo'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Property('ipv6-service-chain-information', 'routing-instance') -->
+
 <xsd:element name="routing-instance-is-default" type="xsd:boolean" default="false"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('routing-instance-is-default', 'routing-instance') -->
