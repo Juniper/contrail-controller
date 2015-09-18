@@ -14,6 +14,7 @@ class DBGraphVertex;
 class IFMapExporter;
 class IFMapNode;
 class IFMapNodeState;
+class IFMapState;
 class TaskTrigger;
 struct IFMapTypenameFilter;
 struct IFMapTypenameWhiteList;
@@ -21,6 +22,10 @@ struct IFMapTypenameWhiteList;
 // Computes the interest graph for the ifmap clients (i.e. vnc agent).
 class IFMapGraphWalker {
 public:
+    typedef std::set<IFMapState *> ReachableNodesSet;
+    typedef ReachableNodesSet::const_iterator Rns_citer;
+    typedef std::vector<ReachableNodesSet *> ReachableNodesTracker;
+
     IFMapGraphWalker(DBGraph *graph, IFMapExporter *exporter);
     ~IFMapGraphWalker();
 
@@ -41,20 +46,26 @@ private:
     void ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode, const BitSet &bset);
     void JoinVertex(DBGraphVertex *vertex, const BitSet &bset);
     void RecomputeInterest(DBGraphVertex *vertex, int bit);
-    void CleanupInterest(IFMapNode *node, IFMapNodeState *state);
+    void CleanupInterest(int client_index, IFMapNode *node,
+                         IFMapNodeState *state);
     void AddNodesToWhitelist();
     void AddLinksToWhitelist();
     bool LinkDeleteWalk();
-    void LinkDeleteWalkBatchEnd();
+    void LinkDeleteWalkBatchEnd(const BitSet &done_set);
     void OrLinkDeleteClients(const BitSet &bset);
+    void AddNewReachableNodesTracker(int client_index);
+    void DeleteNewReachableNodesTracker(int client_index);
+    void UpdateNewReachableNodesTracker(int client_index, IFMapState *state);
+    void OldReachableNodesCleanupInterest(int client_index);
+    void NewReachableNodesCleanupInterest(int client_index);
 
     DBGraph *graph_;
     IFMapExporter *exporter_;
     boost::scoped_ptr<TaskTrigger> link_delete_walk_trigger_;
     std::auto_ptr<IFMapTypenameWhiteList> traversal_white_list_;
-    BitSet rm_mask_;
     BitSet link_delete_clients_;
     size_t walk_client_index_;
+    ReachableNodesTracker new_reachable_nodes_tracker_;
 };
 
 #endif /* defined(__ctrlplane__ifmap_graph_walker__) */

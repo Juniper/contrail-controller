@@ -137,12 +137,18 @@ void IFMapGraphWalker::RecomputeInterest(DBGraphVertex *vertex, int bit) {
     IFMapNode *node = static_cast<IFMapNode *>(vertex);
     IFMapNodeState *state = exporter_->NodeStateLocate(node);
     state->nmask_set(bit);
+    UpdateNewReachableNodesTracker(bit, state);
 }
 
 bool IFMapGraphWalker::LinkDeleteWalk() {
-    IFMapServer *server = exporter_->server();
+    if (link_delete_clients_.empty()) {
+        walk_client_index_ = BitSet::npos;
+        return true;
+    }
 
+    IFMapServer *server = exporter_->server();
     size_t i;
+
     // Get the index of the client we want to start with.
     if (walk_client_index_ == BitSet::npos) {
         i = link_delete_clients_.find_first();
@@ -154,33 +160,31 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
     BitSet done_set;
     while (i != BitSet::npos) {
         IFMapClient *client = server->GetClient(i);
-        if (client) {
-            IFMapTable *table = IFMapTable::FindTable(server->database(),
-                                                      "virtual-router");
-            IFMapNode *node = table->FindNode(client->identifier());
-            if ((node != NULL) && node->IsVertexValid()) {
-                graph_->Visit(node,
-                 boost::bind(&IFMapGraphWalker::RecomputeInterest, this, _1, i),
-                 0, *traversal_white_list_.get());
-            }
-            done_set.set(i);
-            if (++count == kMaxLinkDeleteWalks) {
-                // client 'i' has been processed. If 'i' is the last bit set, we
-                // will return true below. Else we will return false and there
-                // is atleast one more bit left to process.
-                break;
-            }
-        } else {
-            done_set.set(i);
+        assert(client);
+        AddNewReachableNodesTracker(client->index());
+
+        IFMapTable *table = IFMapTable::FindTable(server->database(),
+                                                  "virtual-router");
+        IFMapNode *node = table->FindNode(client->identifier());
+        if ((node != NULL) && node->IsVertexValid()) {
+            graph_->Visit(node,
+                boost::bind(&IFMapGraphWalker::RecomputeInterest, this, _1, i),
+                0, *traversal_white_list_.get());
+        }
+        done_set.set(i);
+        if (++count == kMaxLinkDeleteWalks) {
+            // client 'i' has been processed. If 'i' is the last bit set, we
+            // will return true below. Else we will return false and there
+            // is atleast one more bit left to process.
+            break;
         }
 
         i = link_delete_clients_.find_next(i);
     }
     // Remove the subset of clients that we have finished processing.
     ResetLinkDeleteClients(done_set);
-    rm_mask_ |= done_set;
 
-    LinkDeleteWalkBatchEnd();
+    LinkDeleteWalkBatchEnd(done_set);
 
     if (link_delete_clients_.empty()) {
         walk_client_index_ = BitSet::npos;
@@ -199,16 +203,20 @@ void IFMapGraphWalker::ResetLinkDeleteClients(const BitSet &bset) {
     link_delete_clients_.Reset(bset);
 }
 
-void IFMapGraphWalker::CleanupInterest(IFMapNode *node, IFMapNodeState *state) {
-    // interest = interest - rm_mask_ + nmask
+void IFMapGraphWalker::CleanupInterest(int client_index, IFMapNode *node,
+                                       IFMapNodeState *state) {
+    BitSet rm_mask;
+    rm_mask.set(client_index);
+
+    // interest = interest - rm_mask + nmask
 
     if (!state->interest().empty() && !state->nmask().empty()) {
         IFMAP_DEBUG(CleanupInterest, node->ToString(),
-                    state->interest().ToString(), rm_mask_.ToString(),
+                    state->interest().ToString(), rm_mask.ToString(),
                     state->nmask().ToString());
     }
     BitSet ninterest;
-    ninterest.BuildComplement(state->interest(), rm_mask_);
+    ninterest.BuildComplement(state->interest(), rm_mask);
     ninterest |= state->nmask();
     state->nmask_clear();
     if (state->interest() == ninterest) {
@@ -226,34 +234,93 @@ void IFMapGraphWalker::CleanupInterest(IFMapNode *node, IFMapNodeState *state) {
     }
 }
 
-// Cleanup all graph nodes that have a bit set in the remove mask (rm_mask_) but
-// were not visited by the walker because they were not reachable after the
-// link delete.
-void IFMapGraphWalker::LinkDeleteWalkBatchEnd() {
+// Cleanup all the graph nodes that were reachable before this link delete.
+// After this link delete, these nodes may still be reachable. But, its
+// also possible that the link delete has made them unreachable.
+void IFMapGraphWalker::OldReachableNodesCleanupInterest(int client_index) {
     IFMapState *state = NULL;
     IFMapNode *node = NULL;
-    IFMapExporter::Cs_citer iter, end_iter;
+    IFMapExporter::Cs_citer iter =
+        exporter_->ClientConfigTrackerBegin(client_index);
+    IFMapExporter::Cs_citer end_iter =
+        exporter_->ClientConfigTrackerEnd(client_index);
 
-    for (size_t i = rm_mask_.find_first(); i != BitSet::npos;
-            i = rm_mask_.find_next(i)) {
-        iter = exporter_->ClientConfigTrackerBegin(i);
-        end_iter = exporter_->ClientConfigTrackerEnd(i);
-        while (iter != end_iter) {
-            state = *iter;
-            // Get the iterator to the next element before calling
-            // CleanupInterest() since the state might be removed from the
-            // client's config-tracker, thereby invalidating the iterator.
-            ++iter;
-            if (state->IsNode()) {
-                node = state->GetIFMapNode();
-                assert(node);
-                IFMapNodeState *nstate = exporter_->NodeStateLookup(node);
-                assert(state == nstate);
-                CleanupInterest(node, nstate);
-            }
+    while (iter != end_iter) {
+        state = *iter;
+        // Get the iterator to the next element before calling
+        // CleanupInterest() since the state might be removed from the
+        // client's config-tracker, thereby invalidating the iterator of the
+        // container we are iterating over.
+        ++iter;
+        if (state->IsNode()) {
+            node = state->GetIFMapNode();
+            assert(node);
+            IFMapNodeState *nstate = exporter_->NodeStateLookup(node);
+            assert(state == nstate);
+            CleanupInterest(client_index, node, nstate);
         }
     }
-    rm_mask_.clear();
+}
+
+// Cleanup all the graph nodes that were not reachable before the link delete
+// but are reachable now. Note, we store nodes in new_reachable_nodes_tracker_
+// only if we visited them during the graph-walk via RecomputeInterest() and if
+// their interest bit was not set i.e. they were not reachable before we
+// started the walk.
+void IFMapGraphWalker::NewReachableNodesCleanupInterest(int client_index) {
+    IFMapState *state = NULL;
+    IFMapNode *node = NULL;
+    ReachableNodesSet *rnset = new_reachable_nodes_tracker_.at(client_index);
+
+    for (Rns_citer iter = rnset->begin(); iter != rnset->end(); ++iter) {
+        state = *iter;
+        assert(state->IsNode());
+        node = state->GetIFMapNode();
+        assert(node);
+        IFMapNodeState *nstate = exporter_->NodeStateLookup(node);
+        assert(state == nstate);
+        CleanupInterest(client_index, node, nstate);
+    }
+    DeleteNewReachableNodesTracker(client_index);
+}
+
+void IFMapGraphWalker::LinkDeleteWalkBatchEnd(const BitSet &done_set) {
+    for (size_t i = done_set.find_first(); i != BitSet::npos;
+            i = done_set.find_next(i)) {
+        // Examine all the nodes that were reachable before the link delete.
+        OldReachableNodesCleanupInterest(i);
+        // Examine all the nodes that were not reachable before the link
+        // delete but are now reachable.
+        NewReachableNodesCleanupInterest(i);
+    }
+}
+
+void IFMapGraphWalker::AddNewReachableNodesTracker(int client_index) {
+    if (client_index >= (int)new_reachable_nodes_tracker_.size()) {
+        new_reachable_nodes_tracker_.resize(client_index + 1, NULL);
+    }
+    assert(new_reachable_nodes_tracker_[client_index] == NULL);
+    ReachableNodesSet *rnset = new ReachableNodesSet();
+    new_reachable_nodes_tracker_[client_index] = rnset;
+}
+
+void IFMapGraphWalker::DeleteNewReachableNodesTracker(int client_index) {
+    ReachableNodesSet *rnset = new_reachable_nodes_tracker_.at(client_index);
+    assert(rnset);
+    delete rnset;
+    new_reachable_nodes_tracker_[client_index] = NULL;
+}
+
+// Keep track of this node if it was unreachable earlier.
+void IFMapGraphWalker::UpdateNewReachableNodesTracker(int client_index,
+                                                      IFMapState *state) {
+    ReachableNodesSet *rnset = new_reachable_nodes_tracker_.at(client_index);
+    assert(rnset);
+    // If the interest is not set, the node was not reachable earlier but is
+    // reachable now.
+    if (!state->interest().test(client_index)) {
+        rnset->insert(state);
+    }
 }
 
 const IFMapTypenameWhiteList &IFMapGraphWalker::get_traversal_white_list()
