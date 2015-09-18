@@ -140,7 +140,7 @@ protected:
         client->WaitForIdle();
     }
 
-    void DeleteRoute(const Peer *peer, const std::string &vrf_name,
+    void DeleteBridgeRoute(const Peer *peer, const std::string &vrf_name,
                      MacAddress &remote_vm_mac, const IpAddress &ip_addr) {
         const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
         EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
@@ -359,7 +359,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
+    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
                 remote_vm_ip4_);
     client->WaitForIdle();
     DelEncapList();
@@ -421,7 +421,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     l2_req->Release();
     client->WaitForIdle();
 
-    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_2_,
+    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_2_,
                 remote_vm_ip4_2_);
     client->WaitForIdle();
 
@@ -480,7 +480,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_2_,
+    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_2_,
                 remote_vm_ip4_2_);
     client->WaitForIdle();
 
@@ -634,7 +634,7 @@ TEST_F(RouteTest, RemoteVxlanEncapRoute_1) {
         static_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
+    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
                 remote_vm_ip4_);
     client->WaitForIdle();
     DelEncapList();
@@ -931,7 +931,7 @@ TEST_F(RouteTest, DISABLED_send_route_add_in_not_subscribed_vrf) {
     }
     //Delete route
     //delete vrf_state;
-    DeleteRoute(agent_->local_vm_peer(), vrf_name_, remote_vm_mac_,
+    DeleteBridgeRoute(agent_->local_vm_peer(), vrf_name_, remote_vm_mac_,
                 remote_vm_ip4_);
     client->WaitForIdle();
 
@@ -994,7 +994,7 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
     client->WaitForIdle();
 
     //Delete route
-    DeleteRoute(agent_->local_vm_peer(), vrf_name_, remote_vm_mac_,
+    DeleteBridgeRoute(agent_->local_vm_peer(), vrf_name_, remote_vm_mac_,
                 remote_vm_ip4_);
     client->WaitForIdle();
 
@@ -1134,6 +1134,67 @@ TEST_F(RouteTest, notify_walk_on_deleted_vrf_with_no_state_but_listener_id) {
     client->WaitForIdle();
     //Release VRF reference
     vrf_ref.reset();
+    client->WaitForIdle();
+    bgp_peer.reset();
+}
+
+TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
+    client->Reset();
+    AddVrf("vrf1", 1);
+    AddVn("vn1", 1, true);
+    client->WaitForIdle();
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+
+    //Delete VN
+    VrfEntry *vrf = VrfGet("vrf1");
+    //Add remote evpn route
+    BridgeTunnelRouteAdd(bgp_peer_ptr, "vrf1", TunnelType::AllType(),
+                         server1_ip_, MplsTable::kStartLabel,
+                         remote_vm_mac_, remote_vm_ip4_, 32);
+    WAIT_FOR(1000, 100,
+             (L2RouteFind("vrf1", remote_vm_mac_, remote_vm_ip4_) == true));
+    //Now add remote l3 route for IP.
+    Inet4TunnelRouteAdd(bgp_peer_ptr, "vrf1", remote_vm_ip4_, 32, server1_ip_,
+                        TunnelType::AllType(), MplsTable::kStartLabel, "vrf1",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    InetUnicastRouteEntry *inet_rt = RouteGet("vrf1", remote_vm_ip4_, 32);
+    VrfKSyncObject *vrf_obj = agent_->ksync()->vrf_ksync_obj();;
+    DBTableBase::ListenerId vrf_listener_id = vrf_obj->vrf_listener_id();
+    InetUnicastAgentRouteTable *vrf_uc_table =
+        static_cast<InetUnicastAgentRouteTable *>
+        (vrf->GetInet4UnicastRouteTable());
+    VrfKSyncObject::VrfState *l3_state =
+        static_cast<VrfKSyncObject::VrfState *>
+        (vrf->GetState(vrf_uc_table, vrf_listener_id));
+    RouteKSyncObject *vrf_rt_obj = l3_state->inet4_uc_route_table_;
+    RouteKSyncEntry key(vrf_rt_obj, inet_rt);
+    RouteKSyncEntry *ksync_route =
+        static_cast<RouteKSyncEntry *>(vrf_rt_obj->GetReference(&key));
+    EXPECT_FALSE(vrf_obj->RouteNeedsMacBinding(inet_rt));
+    EXPECT_TRUE(ksync_route->mac() == MacAddress::ZeroMac());
+
+    //Add VN
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(vrf->vn() != NULL);
+    WAIT_FOR(1000, 1000, (ksync_route->mac() != MacAddress::ZeroMac()));
+    EXPECT_TRUE(vrf_obj->RouteNeedsMacBinding(inet_rt));
+
+    //Delete
+    DeleteBridgeRoute(bgp_peer_ptr, vrf_name_, remote_vm_mac_,
+                remote_vm_ip4_);
+    WAIT_FOR(1000, 100,
+             (L2RouteFind("vrf1", remote_vm_mac_, remote_vm_ip4_) == false));
+    DeleteRoute("vrf1", remote_vm_ip4_str_, 32, bgp_peer_ptr);
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelVrf("vrf1");
+    DelVn("vn1");
     client->WaitForIdle();
     bgp_peer.reset();
 }
