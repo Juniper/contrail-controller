@@ -39,12 +39,14 @@ for file in local_sources:
         env.Install("schema_transformer", "#controller/src/config/schema-transformer/" + file))
 
 st_introspect_pkg = env.SandeshGenPy('st_introspect.sandesh', 'schema_transformer/sandesh/', False)
+sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'schema_transformer/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(st_introspect_pkg)
+sdist_depends.extend(sandesh_trace_pkg)
 sdist_gen = env.Command('dist/schema_transformer-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 
