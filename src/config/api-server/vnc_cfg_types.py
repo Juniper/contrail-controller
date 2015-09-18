@@ -454,6 +454,16 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def _check_vxlan_id(cls, obj_dict, db_conn):
+        # if vxlan id check is disabled, return
+        try:
+            conf_sections = db_conn._api_svr_mgr._args.config_sections
+            check_enabled = \
+                conf_sections.getboolean('DEFAULTS', 'check_vxlan_id_uniqueness')
+        except ConfigParser.NoOptionError:
+            check_enabled = True
+        if not check_enabled:
+            return (True, '')
+
         vxlan_id = None
         vn_uuid = obj_dict.get('uuid', None)
         vn_properties = obj_dict.get('virtual_network_properties', None)
