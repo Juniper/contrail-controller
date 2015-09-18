@@ -219,7 +219,7 @@ public:
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr, TunnelType::AllType(), 16,
                                vn, SecurityGroupList(),
-                               PathPreference());
+                               PathPreference(), false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,
             vrf_name, addr, plen, data);
     }

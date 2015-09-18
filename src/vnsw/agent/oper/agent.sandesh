@@ -263,6 +263,7 @@ struct PathSandeshData {
    16: optional i32 active_label;
    17: optional string flood_dhcp;
    18: optional string vm_name;
+   19: optional bool ecmp_suppressed;
 }
 
 struct RouteUcSandeshData {
