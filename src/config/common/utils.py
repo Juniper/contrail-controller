@@ -122,3 +122,12 @@ def str_to_class(class_name, module_name):
 def obj_type_to_vnc_class(obj_type, module_name):
     return str_to_class(CamelCase(obj_type), module_name)
 # end obj_type_to_vnc_class
+
+def getCertKeyCaBundle(bundle, certs):
+    with open(bundle, 'w') as ofile:
+         for cert in certs:
+             with open(cert) as ifile:
+                  for line in ifile:
+                      ofile.write(line)
+    return bundle
+#end CreateCertKeyCaBundle

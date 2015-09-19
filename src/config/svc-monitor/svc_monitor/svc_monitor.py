@@ -712,6 +712,7 @@ def parse_args(args_str):
                          --cassandra_server_list 10.1.2.3:9160
                          --api_server_ip 10.1.2.3
                          --api_server_port 8082
+                         --api_server_use_ssl False
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
                          --collectors 127.0.0.1:8086
@@ -752,6 +753,7 @@ def parse_args(args_str):
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
+        'api_server_use_ssl': False,
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
         'collectors': None,
@@ -842,6 +844,8 @@ def parse_args(args_str):
                         help="IP address of API server")
     parser.add_argument("--api_server_port",
                         help="Port of API server")
+    parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
@@ -910,7 +914,7 @@ def run_svc_monitor(args=None):
         try:
             vnc_api = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port)
+                args.api_server_ip, args.api_server_port, api_server_use_ssl=args.api_server_use_ssl)
             connected = True
             monitor.logger.api_conn_status_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
