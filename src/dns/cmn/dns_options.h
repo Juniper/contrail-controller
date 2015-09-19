@@ -23,6 +23,9 @@ public:
     const std::string & named_log_file() const { return named_log_file_; }
     const std::string & rndc_config_file() const { return rndc_config_file_; }
     const std::string & rndc_secret() const { return rndc_secret_; }
+    const std::string & named_max_cache_size() const {
+        return named_max_cache_size_;
+    }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -77,6 +80,7 @@ private:
     std::string named_log_file_;
     std::string rndc_config_file_;
     std::string rndc_secret_;
+    std::string named_max_cache_size_;
 
     std::string hostname_;
     std::string host_ip_;
