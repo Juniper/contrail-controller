@@ -115,6 +115,11 @@ if [ $no_site_packages -eq 1 ]; then
   installvenvopts="${installvenvopts} --no-site-packages"
 fi
 
+OMITS="--omit='./test/*'"
+for omit in ${omit_list}; do
+    OMITS="--omit='./${omit}/*' ${OMITS}"
+done
+
 function run_tests {
   # Cleanup *pyc
   ${wrapper} find . -type f -name "*.pyc" -delete
@@ -165,8 +170,7 @@ function run_tests {
     echo "Generating coverage report in covhtml/"
     # Don't compute coverage for common code, which is tested elsewhere
     ${wrapper} coverage combine
-    ${wrapper} coverage html --include='./*' --omit='./tests/*' \
-                             --omit='./opserver/sandesh/*' -d covhtml -i
+    ${wrapper} coverage html --include='./*' ${OMITS} -d covhtml -i
   fi
 
   return $RESULT
