@@ -525,6 +525,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="bgp-router" type="xsd:integer"/>
         <xsd:element name="network-ipam" type="xsd:integer"/>
         <xsd:element name="access-control-list" type="xsd:integer"/>
+        <xsd:element name="network-policy" type="xsd:integer"/>
         <xsd:element name="floating-ip-pool" type="xsd:integer"/>
         <xsd:element name="service-template" type="xsd:integer"/>
         <xsd:element name="service-instance" type="xsd:integer"/>
