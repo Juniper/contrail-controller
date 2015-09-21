@@ -228,7 +228,7 @@ class PhysicalRouterDM(DBBaseDM):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
-            if vn.router_external == True:   #dont need irb ip, gateway ip
+            if vn.forwarding_mode != 'l2_l3': #dont need irb ip, gateway ip
                 continue
             for subnet_prefix in vn.gateways.keys():
                 new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
@@ -369,7 +369,8 @@ class PhysicalRouterDM(DBBaseDM):
                                                              export_set,
                                                              vn_obj.get_prefixes(),
                                                              None,
-                                                             vn_obj.router_external)
+                                                             vn_obj.router_external,
+                                                             ["irb" + "." + str(vn_obj.vn_network_id)])
 
                     break
 
