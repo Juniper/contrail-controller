@@ -821,6 +821,8 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
         obj_ids = {'uuid': id}
+        if 'uuid' not in obj_dict:
+            obj_dict['uuid'] = id
 
         def stateful_update():
             get_context().set_state('PRE_DBE_UPDATE')
