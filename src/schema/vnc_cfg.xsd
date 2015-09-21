@@ -2802,9 +2802,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('api-access-list-entries', 'api-access-list', 'required', 'CRUD',
               'List of rules e.g network.* => admin:CRUD (admin can perform all ops on networks).') -->
 
-<!-- Neutron extensions -->
-<xsd:include schemaLocation='loadbalancer.xsd'/>
-
 <!-- Discovery service assignment config -->
 <xsd:complexType name="DiscoveryPubSubEndPointType">
     <xsd:all>
@@ -2837,6 +2834,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('discovery-service-assignment-dsa-rule',
               'discovery-service-assignment', 'dsa-rule', ['has'], 'optional', 'CRUD',
               'Discovery service rule for assigning subscriber to publisher. (set of subscriber) can be assigned to (set of publisher).') -->
+
+<!-- OpenStack Neutron LBaaS extension http://docs.openstack.org/mitaka/networking-guide/config-lbaas.html -->
+<xsd:include schemaLocation='loadbalancer.xsd'/>
+
+<!-- OpenStack Neutron networking-bgpvpn extension http://docs.openstack.org/developer/networking-bgpvpn/ -->
+<xsd:include schemaLocation='bgpvpn.xsd'/>
 
 <!-- Alarm config -->
 <xsd:include schemaLocation='alarm.xsd'/>

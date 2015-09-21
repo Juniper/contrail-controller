@@ -94,7 +94,7 @@ class VerifyPolicy(VerifyCommon):
         raise Exception('Implicit deny ACL rule not found')
 
     @retries(5)
-    def check_rt_in_ri(self, ri_name, rt_id, is_present, exim=None):
+    def check_rt_in_ri(self, ri_name, rt_id, is_present=True, exim=None):
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         ri_rt_refs = [ref for ref in ri_obj.get_route_target_refs() or []
                       if ref['to'][0] == rt_id]
@@ -102,6 +102,7 @@ class VerifyPolicy(VerifyCommon):
             self.assertEqual(ri_rt_refs, [])
             return
         else:
+            self.assertEqual(len(ri_rt_refs), 1)
             self.assertEqual(ri_rt_refs[0]['to'][0], rt_id)
             self.assertEqual(ri_rt_refs[0]['attr'].import_export, exim)
 
