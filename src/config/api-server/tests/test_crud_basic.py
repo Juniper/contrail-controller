@@ -1867,6 +1867,15 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         finally:
             os.removedirs(bundle_dir)
     # end test_cert_bundle_refresh
+
+    def test_create_bgpvpn(self):
+        bgpvpn_name = self.id() + 'bgpvpn1'
+        bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
+
+        bgpvpn_id = self._vnc_lib.bgpvpn_create(bgpvpn)
+        bgpvpn = self._vnc_lib.bgpvpn_read(id=bgpvpn_id)
+
+        self.assertEqual(bgpvpn.bgpvpn_type, 'l3')
 # end class TestVncCfgApiServer
 
 

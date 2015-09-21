@@ -686,7 +686,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return 'contrail:%s:%s' %(obj._type, obj.get_fq_name_str())
     # end get_obj_imid
 
-    def create_virtual_network(self, vn_name, vn_subnet):
+    def create_virtual_network(self, vn_name, vn_subnet='10.0.0.0/24'):
         vn_obj = VirtualNetwork(name=vn_name)
         ipam_fq_name = [
             'default-domain', 'default-project', 'default-network-ipam']
