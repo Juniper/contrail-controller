@@ -1,0 +1,40 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xsd:targetNamespace="http://www.contrailsystems.com/bgpvpn.xsd">
+
+    <!-- BGP VPN https://review.openstack.org/#/c/177740/ -->
+    <xsd:element name="bgpvpn" type="ifmap:IdentityType"/>
+    <xsd:element name="project-bgpvpn"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('project-bgpvpn',
+              'project', 'bgpvpn', ['has']) -->
+
+    <xsd:complexType name="BgpVpnType">
+        <xsd:sequence>
+            <xsd:element name="type" type="AddressFamily"/>
+            <xsd:element name="technique" type="ForwardingModeType"/>
+            <xsd:element name="vnid" type="VxlanNetworkIdentifierType"/>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:element name="bgpvpn-properties" type="BgpVpnType"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Property('bgpvpn-properties', 'bgpvpn') -->
+
+    <xsd:element name="bgpvpn-route-target"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('bgpvpn-route-target"',
+              'bgpvn', 'route-target', ['ref']) -->
+
+    <xsd:element name="bgpvpn-network"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('bgpvpn-network"',
+              'bgpvn', 'virtual-network', ['ref']) -->
+
+    <xsd:element name="bgpvpn-router"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('bgpvpn-router"',
+              'bgpvn', 'locical-router', ['ref']) -->
+</xsd:schema>
