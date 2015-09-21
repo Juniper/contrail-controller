@@ -135,7 +135,8 @@ void ContrailAgentInit::InitDone() {
     ContrailInitCommon::InitDone();
 
     /* Reads and processes port information written by nova-compute */
-    PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir, true);
+    PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir,
+                       !agent_param()->vrouter_on_host_dpdk());
     pih.ReloadAllPorts();
 }
 
