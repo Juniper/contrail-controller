@@ -2441,3 +2441,11 @@ class QosConfigServer(Resource, QosConfig):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls._check_qos_values(obj_dict, db_conn)
 # end class QosConfigServer
+
+
+class BgpvpnServer(Resource, Bgpvpn):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if obj_dict.get('bgpvpn_type') is None:
+            obj_dict['bgpvpn_type'] = 'l3'
+        return (True, '')
