@@ -258,7 +258,7 @@ class PhysicalRouterConfig(object):
         # add firewall config for public VRF
         forwarding_options_config = self.forwarding_options_config
         firewall_config = self.firewall_config
-        if router_external:
+        if router_external and is_l2 == False:
             if self.forwarding_options_config is None:
                 forwarding_options_config = etree.Element("forwarding-options")
                 fo = etree.SubElement(forwarding_options_config, "family")
