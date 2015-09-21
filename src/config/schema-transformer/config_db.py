@@ -257,6 +257,7 @@ class VirtualNetworkST(DBBaseST):
                 self.dynamic_acl = acl_obj
 
         self.ipams = {}
+        self.update_multiple_refs('bgpvpn', self.obj)
         self.get_route_target_lists(self.obj)
         for rt in itertools.chain(self.rt_list, self.import_rt_list,
                                   self.export_rt_list):
@@ -451,6 +452,7 @@ class VirtualNetworkST(DBBaseST):
             self._object_db.free_vn_id(nid - 1)
 
         self.update_multiple_refs('route_table', {})
+        self.update_multiple_refs('bgpvpn', {})
         self.uve_send(deleted=True)
     # end delete_obj
 
@@ -700,6 +702,14 @@ class VirtualNetworkST(DBBaseST):
             self.export_rt_list = set(rt_list.get_route_target())
         else:
             self.export_rt_list = set()
+
+        # Add BGP VPN's route targets associated to that network
+        for bgpvpn_name in self.bgpvpns:
+            bgpvpn = BgpvpnST.get(bgpvpn_name)
+            if bgpvpn is not None:
+                self.rt_list |= bgpvpn.rt_list
+                self.import_rt_list |= bgpvpn.import_rt_list
+                self.export_rt_list |= bgpvpn.export_rt_list
 
         # if any RT exists in both import and export, just add it to rt_list
         self.rt_list |= self.import_rt_list & self.export_rt_list
@@ -1273,7 +1283,7 @@ class VirtualNetworkST(DBBaseST):
     # end handle_st_object_req
 
     def get_gateway(self, address):
-        """Returns the defualt gateway of the network
+        """Returns the default gateway of the network
         to which the 'address' belongs
         """
         for ipam in self.ipams.values():
@@ -3693,7 +3703,11 @@ class LogicalRouterST(DBBaseST):
         self.virtual_networks = set()
         self.route_tables = set()
         self.rt_list = set()
+        self.bgpvpn_rt_list = set()
+        self.bgpvpn_import_rt_list = set()
+        self.bgpvpn_export_rt_list = set()
         self.obj = obj or self.read_vnc_obj(fq_name=name)
+
         rt_ref = self.obj.get_route_target_refs()
         old_rt_key = None
         if rt_ref:
@@ -3721,6 +3735,7 @@ class LogicalRouterST(DBBaseST):
         self.obj = obj or self.read_vnc_obj(uuid=self.obj.uuid)
         self.update_multiple_refs('virtual_machine_interface', self.obj)
         self.update_multiple_refs('route_table', self.obj)
+        self.update_multiple_refs('bgpvpn', self.obj)
         self.update_virtual_networks()
         rt_list = self.obj.get_configured_route_target_list() or RouteTargetList()
         self.set_route_target_list(rt_list)
@@ -3729,6 +3744,7 @@ class LogicalRouterST(DBBaseST):
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('route_table', {})
+        self.update_multiple_refs('bgpvpn', {})
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
         self._object_db.free_route_target_by_number(rtgt_num)
@@ -3751,14 +3767,23 @@ class LogicalRouterST(DBBaseST):
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(
-                    rt_add=set(), rt_del=self.rt_list|set([self.route_target]))
+                rt_del = (set([self.route_target]) |
+                          self.rt_list |
+                          self.bgpvpn_rt_list |
+                          self.bgpvpn_import_rt_list |
+                          self.bgpvpn_export_rt_list)
+                ri_obj.update_route_target_list(rt_add=set(), rt_del=rt_del)
         for vn in vn_set - self.virtual_networks:
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
+                rt_add =(self.rt_list |
+                         set([self.route_target]) |
+                         self.bgpvpn_rt_list)
                 ri_obj.update_route_target_list(
-                    rt_add=self.rt_list|set([self.route_target]))
+                    rt_add=rt_add,
+                    rt_add_import=self.bgpvpn_import_rt_list,
+                    rt_add_export=self.bgpvpn_export_rt_list)
         self.virtual_networks = vn_set
     # end set_virtual_networks
 
@@ -3789,15 +3814,39 @@ class LogicalRouterST(DBBaseST):
 
     def set_route_target_list(self, rt_list):
         old_rt_list = self.rt_list
+        old_bgpvpn_rt_list = self.bgpvpn_rt_list
+        old_bgpvpn_import_rt_list = self.bgpvpn_import_rt_list
+        old_bgpvpn_export_rt_list = self.bgpvpn_export_rt_list
+
+        # Set the system allocated route target
         self.rt_list = set(rt_list.get_route_target())
-        rt_add = self.rt_list - old_rt_list
-        rt_del = old_rt_list - self.rt_list
+        # Add BGP VPN's route targets
+        for bgpvpn_name in self.bgpvpns:
+            bgpvpn = BgpvpnST.get(bgpvpn_name)
+            if bgpvpn is not None:
+                self.bgpvpn_rt_list |= bgpvpn.rt_list
+                self.bgpvpn_import_rt_list |= bgpvpn.import_rt_list
+                self.bgpvpn_export_rt_list |= bgpvpn.export_rt_list
+
+        rt_add = ((self.rt_list - old_rt_list) |
+                  (self.bgpvpn_rt_list - old_bgpvpn_rt_list))
+        rt_add_import = self.bgpvpn_import_rt_list - old_bgpvpn_import_rt_list
+        rt_add_export = self.bgpvpn_export_rt_list - old_bgpvpn_export_rt_list
+        rt_del = ((old_rt_list - self.rt_list) |
+                  (old_bgpvpn_rt_list - self.bgpvpn_rt_list) |
+                  (old_bgpvpn_import_rt_list - self.bgpvpn_import_rt_list) |
+                  (old_bgpvpn_export_rt_list - self.bgpvpn_export_rt_list))
+        if not (rt_add or rt_add_import or rt_add_export or rt_del):
+            return
 
         for vn in self.virtual_networks:
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_del=rt_del, rt_add=rt_add)
+                ri_obj.update_route_target_list(rt_add=rt_add,
+                                                rt_add_import=rt_add_import,
+                                                rt_add_export=rt_add_export,
+                                                rt_del=rt_del)
     # end set_route_target_list
 
     def handle_st_object_req(self):
@@ -3809,6 +3858,11 @@ class LogicalRouterST(DBBaseST):
         ]
         resp.properties = [
             sandesh.PropList('route_target', self.route_target),
+            sandesh.PropList('bgpvpn_route_target', self.bgpvpn_route_target),
+            sandesh.PropList('bgpvpn_import_route_target',
+                             self.bgpvpn_import_route_target),
+            sandesh.PropList('bgpvpn_export_route_target',
+                             self.bgpvpn_export_route_target),
         ]
         return resp
     # end handle_st_object_req
@@ -4211,3 +4265,44 @@ class PortTupleST(DBBaseST):
         return resp
     # end handle_st_object_req
 # end PortTupleST
+
+class BgpvpnST(DBBaseST):
+    _dict = {}
+    obj_type = 'bgpvpn'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.rt_list = set()
+        self.import_rt_list = set()
+        self.export_rt_list = set()
+        self.update(obj)
+
+    def update(self, obj=None):
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.get_route_target_lists()
+
+    def delete_obj(self):
+        self.remove_from_parent()
+
+    def get_route_target_lists(self):
+        rt_list = self.obj.get_route_target_list()
+        if rt_list:
+            self.rt_list = set(rt_list.get_route_target())
+        else:
+            self.rt_list = set()
+        rt_list = self.obj.get_import_route_target_list()
+        if rt_list:
+            self.import_rt_list = set(rt_list.get_route_target())
+        else:
+            self.import_rt_list = set()
+        rt_list = self.obj.get_export_route_target_list()
+        if rt_list:
+            self.export_rt_list = set(rt_list.get_route_target())
+        else:
+            self.export_rt_list = set()
+
+        # if any RT exists in both import and export, just add it to rt_list
+        self.rt_list |= self.import_rt_list & self.export_rt_list
+        # if any RT exists in rt_list, remove it from import/export lists
+        self.import_rt_list -= self.rt_list
+        self.export_rt_list -= self.rt_list

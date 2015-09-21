@@ -66,7 +66,7 @@ class SchemaTransformer(object):
             'bgp_as_a_service': [],
         },
         'virtual_network': {
-            'self': ['network_policy', 'route_table'],
+            'self': ['network_policy', 'route_table', 'bgpvpn'],
             'routing_instance': ['network_policy'],
             'network_policy': [],
             'virtual_machine_interface': [],
@@ -108,7 +108,7 @@ class SchemaTransformer(object):
             'logical_router': ['service_instance'],
         },
         'logical_router': {
-            'self': ['route_table'],
+            'self': ['route_table', 'bgpvpn'],
             'virtual_machine_interface': [],
             'route_table': [],
         },
@@ -137,7 +137,12 @@ class SchemaTransformer(object):
         },
         'route_aggregate': {
             'self': ['service_instance'],
-        }
+        },
+        'bgpvpn': {
+            'self': ['virtual_network', 'logical_router'],
+            'virtual_network': [],
+            'logical_router': [],
+        },
     }
 
     def __init__(self, args=None):

@@ -225,7 +225,7 @@ class DBBase(object):
         for ref in refs or []:
             new_key = self._get_ref_key(ref, ref_type)
             new_refs.add(new_key)
-        old_refs = getattr(self, ref_type+'s')
+        old_refs = getattr(self, ref_type+'s', set())
         for ref_key in old_refs - new_refs:
             ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
