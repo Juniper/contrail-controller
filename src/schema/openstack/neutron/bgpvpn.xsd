@@ -1,0 +1,55 @@
+<!--
+ Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xsd:targetNamespace="http://www.contrailsystems.com/bgpvpn.xsd">
+
+    <xsd:simpleType name="VpnType">
+        <xsd:restriction base="xsd:string">
+            <xsd:enumeration value="l2"/>
+            <xsd:enumeration value="l3"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <!-- BGP VPN http://docs.openstack.org/developer/networking-bgpvpn/ -->
+    <xsd:element name="bgpvpn" type="ifmap:IdentityType"/>
+
+    <xsd:element name="project-bgpvpn"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('project-bgpvpn',
+              'project', 'bgpvpn', ['has'], 'optional', 'CR',
+              'BGP VPN resource contains a set of parameters for a BGP-based VPN') -->
+
+    <xsd:element name="bgpvpn-type" type="VpnType"/>
+    <!--#IFMAP-SEMANTICS-IDL
+    Property('vpn-type', 'bgpvpn', 'required', 'CR',
+             'Selection of the type of VPN and the technology behind it.') -->
+
+    <xsd:element name="bgpvpn-route-targets" type="RouteTargetList"/>
+    <!--#IFMAP-SEMANTICS-IDL
+      Property('bgpvpn-route-targets', 'bgpvpn', 'optional', 'CRU',
+               'List of route targets that are used as both import and export.') -->
+
+    <xsd:element name="bgpvpn-import-targets" type="RouteTargetList"/>
+    <!--#IFMAP-SEMANTICS-IDL
+      Property('bgpvpn-import-targets', 'bgpvpn', 'optional', 'CRU',
+               'List of route targets that are used as import.') -->
+
+    <xsd:element name="bgpvpn-export-targets" type="RouteTargetList"/>
+    <!--#IFMAP-SEMANTICS-IDL
+      Property('bgpvpn-export-targets', 'bgpvpn', 'optional', 'CRU',
+               'List of route targets that are used as export.') -->
+
+    <xsd:element name="bgpvpn-networks"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('bgpvpn-networks',
+              'bgpvpn', 'virtual-network', ['ref'], 'optional', 'CRUD',
+              'Reference to virtual network associated to the BGP VPN resource') -->
+
+    <xsd:element name="bgpvpn-routers"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('bgpvpn-routers',
+              'bgpvpn', 'locical-router', ['ref'], 'optional', 'CRUD',
+              'Reference to logical router associated to the BGP VPN resource') -->
+</xsd:schema>

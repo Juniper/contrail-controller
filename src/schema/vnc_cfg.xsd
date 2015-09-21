@@ -2726,7 +2726,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'List of rules e.g network.* => admin:CRUD (admin can perform all ops on networks).') -->
 
 <!-- Neutron extensions -->
-<xsd:include schemaLocation='loadbalancer.xsd'/>
+<xsd:include schemaLocation='openstack/neutron/loadbalancer.xsd'/>
+<xsd:include schemaLocation='openstack/neutron/bgpvpn.xsd'/>
+
 
 <!-- Discovery service assignment config -->
 <xsd:complexType name="DiscoveryPubSubEndPointType">
