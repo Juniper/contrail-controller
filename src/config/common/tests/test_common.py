@@ -17,6 +17,7 @@ from flexmock import flexmock
 from webtest import TestApp
 import contextlib
 from lxml import etree
+from netaddr import IPNetwork, IPAddress
 
 from vnc_api.vnc_api import *
 import kombu
@@ -752,7 +753,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return imid.get_ifmap_id_from_fq_name(obj._type, obj.get_fq_name_str())
     # end get_obj_imid
 
-    def create_virtual_network(self, vn_name, vn_subnet):
+    def create_virtual_network(self, vn_name, vn_subnet='10.0.0.0/24'):
         vn_obj = VirtualNetwork(name=vn_name)
         ipam_fq_name = [
             'default-domain', 'default-project', 'default-network-ipam']
@@ -760,10 +761,17 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         subnets = [vn_subnet] if isinstance(vn_subnet, basestring) else vn_subnet
         subnet_infos = []
         for subnet in subnets:
-            cidr = subnet.split('/')
-            pfx = cidr[0]
-            pfx_len = int(cidr[1])
-            subnet_infos.append(IpamSubnetType(subnet=SubnetType(pfx, pfx_len)))
+            cidr = IPNetwork(subnet)
+            subnet_infos.append(
+                IpamSubnetType(
+                    subnet=SubnetType(
+                        str(cidr.network),
+                        int(cidr.prefixlen),
+                    ),
+                    default_gateway=str(IPAddress(cidr.last - 1)),
+                    subnet_uuid=str(uuid.uuid4()),
+                )
+            )
         subnet_data = VnSubnetsType(subnet_infos)
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
         self._vnc_lib.virtual_network_create(vn_obj)
@@ -874,5 +882,46 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._vnc_lib.network_policy_create(np)
         return np
     # end create_network_policy
+
+    def create_logical_router(self, name, nb_of_attached_networks=1, **kwargs):
+        lr = LogicalRouter(name, **kwargs)
+        vns = []
+        vmis = []
+        iips = []
+        for idx in range(nb_of_attached_networks):
+            # Virtual Network
+            vn = self.create_virtual_network('%s-network%d' % (name, idx),
+                                             '10.%d.0.0/24' % idx)
+            vns.append(vn)
+
+            # Virtual Machine Interface
+            vmi_name = '%s-network%d-vmi' % (name, idx)
+            vmi = VirtualMachineInterface(
+                vmi_name, parent_type='project',
+                fq_name=['default-domain', 'default-project', vmi_name])
+            vmi.set_virtual_machine_interface_device_owner(
+                'network:router_interface')
+            vmi.add_virtual_network(vn)
+            self._vnc_lib.virtual_machine_interface_create(vmi)
+            lr.add_virtual_machine_interface(vmi)
+            vmis.append(vmi)
+
+            # Instance IP
+            gw_ip = vn.get_network_ipam_refs()[0]['attr'].ipam_subnets[0].\
+                default_gateway
+            subnet_uuid = vn.get_network_ipam_refs()[0]['attr'].\
+                ipam_subnets[0].subnet_uuid
+            iip = InstanceIp(name='%s-network%d-iip' % (name, idx))
+            iip.set_subnet_uuid(subnet_uuid)
+            iip.set_virtual_machine_interface(vmi)
+            iip.set_virtual_network(vn)
+            iip.set_instance_ip_family('v4')
+            iip.set_instance_ip_address(gw_ip)
+            self._vnc_lib.instance_ip_create(iip)
+            iips.append(iip)
+
+
+        self._vnc_lib.logical_router_create(lr)
+        return lr, vns, vmis, iips
 
 # end TestCase
