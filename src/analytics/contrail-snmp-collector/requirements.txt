@@ -1,1 +1,8 @@
-netsnmp-python
+lxml
+gevent
+geventhttpclient
+xmltodict
+prettytable
+psutil>=0.4.1
+bottle
+consistent-hash
