@@ -2895,16 +2895,12 @@ class ServiceInstanceST(DBBaseST):
         policy.virtual_networks = set([self.left_vn_str, self.right_vn_str])
 
         policy.set_internal()
-        networks = set()
         vn1 = VirtualNetworkST.get(self.left_vn_str)
         if vn1:
             vn1.add_policy(policy_name)
-            networks.add(left_vn_str)
         vn2 = VirtualNetworkST.get(self.right_vn_str)
         if vn2:
             vn2.add_policy(policy_name)
-            networks.add(right_vn_str)
-        return networks
     # add_properties
 
     def delete_properties(self):
