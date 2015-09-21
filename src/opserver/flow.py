@@ -65,6 +65,12 @@ class FlowQuerier(object):
     # end __init__
 
     # Public functions
+    def run(self):
+        if self.parse_args() != 0:
+            return
+        result = self.query()
+        self.display(result)
+
     def parse_args(self):
         """
         Eg. python flow.py --analytics-api-ip 127.0.0.1
@@ -333,6 +339,38 @@ class FlowQuerier(object):
         return result
     # end query
 
+    def output(self, output_dict):
+        vrouter = output_dict['vrouter']
+        vrouter_ip = output_dict['vrouter_ip']
+        direction = output_dict['direction']
+        action = output_dict['action']
+        setup_ts = output_dict['setup_ts']
+        teardown_ts = output_dict['teardown_ts']
+        protocol = output_dict['protocol']
+        source_vn = output_dict['source_vn']
+        source_ip = output_dict['source_ip']
+        source_port = output_dict['source_port']
+        src_vmi_uuid = output_dict['src_vmi_uuid']
+        destination_vn = output_dict['destination_vn']
+        destination_ip = output_dict['destination_ip']
+        destination_port = output_dict['destination_port']
+        other_vrouter_ip = output_dict['other_vrouter_ip']
+        agg_pkts = output_dict['agg_pkts']
+        agg_bytes = output_dict['agg_bytes']
+        sg_rule_uuid = output_dict['sg_rule_uuid']
+        nw_ace_uuid = output_dict['nw_ace_uuid']
+        tunnel_info = output_dict['tunnel_info']
+        flow_uuid = output_dict['flow_uuid']
+
+        print '[SRC-VR:{0}{1}] {2} {3} ({4} -- {5}) {6} '\
+                '{7}:{8}:{9}:{10} ---> {11}:{12}:{13}{14} <{15} P ({16} B)>'\
+                ' : SG:{17} ACL:{18} {19}{20}'.format(
+               vrouter, vrouter_ip, direction, action, setup_ts, teardown_ts,
+               protocol, source_vn, source_ip, source_port, src_vmi_uuid,
+               destination_vn, destination_ip, destination_port,
+               other_vrouter_ip, agg_pkts, agg_bytes, sg_rule_uuid,
+               nw_ace_uuid, tunnel_info, flow_uuid)
+
     def display(self, result):
         if result == [] or result is None:
             return
@@ -510,14 +548,29 @@ class FlowQuerier(object):
                     tunnel_info = tunnel_proto
                 else:
                     tunnel_info = ''
-            print '[SRC-VR:{0}{1}] {2} {3} ({4} -- {5}) {6} '\
-                '{7}:{8}:{9}:{10} ---> {11}:{12}:{13}{14} <{15} P ({16} B)>'\
-                ' : SG:{17} ACL:{18} {19}{20}'.format(
-               vrouter, vrouter_ip, direction, action, setup_ts, teardown_ts,
-               protocol, source_vn, source_ip, source_port, src_vmi_uuid,
-               destination_vn, destination_ip, destination_port,
-               other_vrouter_ip, agg_pkts, agg_bytes, sg_rule_uuid,
-               nw_ace_uuid, tunnel_info, flow_uuid)
+            output_dict = {}
+            output_dict['vrouter'] = vrouter
+            output_dict['vrouter_ip'] = vrouter_ip
+            output_dict['direction'] = direction
+            output_dict['action'] = action
+            output_dict['setup_ts'] = setup_ts
+            output_dict['teardown_ts'] = teardown_ts
+            output_dict['protocol'] = protocol
+            output_dict['source_vn'] = source_vn
+            output_dict['source_ip'] = source_ip
+            output_dict['source_port'] = source_port
+            output_dict['src_vmi_uuid'] = src_vmi_uuid
+            output_dict['destination_vn'] = destination_vn
+            output_dict['destination_ip'] = destination_ip
+            output_dict['destination_port'] = destination_port
+            output_dict['other_vrouter_ip'] = other_vrouter_ip
+            output_dict['agg_pkts'] = agg_pkts
+            output_dict['agg_bytes'] = agg_bytes
+            output_dict['sg_rule_uuid'] = sg_rule_uuid
+            output_dict['nw_ace_uuid'] = nw_ace_uuid
+            output_dict['tunnel_info'] = tunnel_info
+            output_dict['flow_uuid'] = flow_uuid
+            self.output(output_dict)
     # end display
 
 # end class FlowQuerier
@@ -525,10 +578,7 @@ class FlowQuerier(object):
 
 def main():
     querier = FlowQuerier()
-    if querier.parse_args() != 0:
-        return
-    result = querier.query()
-    querier.display(result)
+    querier.run()
 # end main
 
 if __name__ == "__main__":

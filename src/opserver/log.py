@@ -41,6 +41,43 @@ class LogQuerier(object):
         self._slogger = None
     # end __init__
 
+    def run(self):
+        try:
+            if self.parse_args() != 0:
+                return
+            if self._args.tail:
+                start_time = UTCTimestampUsec() - 10*pow(10,6)
+                while True:
+                    self._start_time = start_time
+                    self._end_time = UTCTimestampUsec()
+                    start_time = self._end_time + 1
+                    time.sleep(3)
+                    result = self.query()
+                    if result == -1:
+                        return
+                    self.display(result)
+            else:
+                start_time = self._args.start_time
+                end_time = self._args.end_time
+                if not self._args.start_time:
+                    start_time = "now-10m"
+                if not self._args.end_time:
+                    end_time = "now"
+                try:
+                    self._start_time, self._end_time = \
+                        OpServerUtils.parse_start_end_time(
+                            start_time = start_time,
+                            end_time = end_time,
+                            last = self._args.last)
+                except:
+                    return -1
+                result = self.query()
+                if result == -1:
+                    return
+                self.display(result)
+        except KeyboardInterrupt:
+            return
+
     # Public functions
     def parse_args(self):
         """
@@ -415,7 +452,7 @@ class LogQuerier(object):
         return result
     # end query
 
-    def _output(self, log_str, sandesh_level):
+    def output(self, log_str, sandesh_level):
         if self._args.json:
              if isinstance(log_str,dict):
                  #convert to json and dump
@@ -437,7 +474,7 @@ class LogQuerier(object):
             self._logger.log(syslog_level, log_str)
         else:
             print log_str
-    #end _output
+    #end output
 
     def display(self, result):
         if result == [] or result is None:
@@ -523,18 +560,18 @@ class LogQuerier(object):
                 else:
                     data_str = 'Data not present'
                 if self._args.json:
-                    self._output(messages_dict, sandesh_level)
+                    self.output(messages_dict, sandesh_level)
                 else:
                     if self._args.trace is not None:
                         trace_str = '{0} {1}:{2} {3}'.format(
                             message_ts, message_type, seq_num, data_str)
-                        self._output(trace_str, sandesh_level)
+                        self.output(trace_str, sandesh_level)
                     else:
                         log_str = \
                             '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
                             message_ts, source, node_type, module, instance_id,
                             category, level, message_type, seq_num, data_str)
-                        self._output(log_str, sandesh_level)
+                        self.output(log_str, sandesh_level)
             else:
                 if self._args.object_values is True:
                     if OpServerUtils.OBJECT_ID in messages_dict:
@@ -562,51 +599,17 @@ class LogQuerier(object):
                                 message_ts, source, node_type, module,
                                 instance_id, message_type, data_str)
                             if self._args.json:
-                                self._output(messages_dict[obj_sel_field], sandesh_level)
+                                self.output(messages_dict[obj_sel_field], sandesh_level)
                             else:
-                                self._output(obj_str, sandesh_level)
+                                self.output(obj_str, sandesh_level)
     # end display
 
 # end class LogQuerier
 
 
 def main():
-    try:
-        querier = LogQuerier()
-        if querier.parse_args() != 0:
-            return
-        if querier._args.tail:
-            start_time = UTCTimestampUsec() - 10*pow(10,6)
-            while True:
-                querier._start_time = start_time
-                querier._end_time = UTCTimestampUsec()
-                start_time = querier._end_time + 1
-                time.sleep(3)
-                result = querier.query()
-                if result == -1:
-                    return
-                querier.display(result)
-        else:
-            start_time = querier._args.start_time
-            end_time = querier._args.end_time
-            if not querier._args.start_time:
-                start_time = "now-10m"
-            if not querier._args.end_time:
-                end_time = "now"
-            try:
-                querier._start_time, querier._end_time = \
-                    OpServerUtils.parse_start_end_time(
-                        start_time = start_time,
-                        end_time = end_time,
-                        last = querier._args.last)
-            except:
-                return -1
-            result = querier.query()
-            if result == -1:
-                return
-            querier.display(result)
-    except KeyboardInterrupt:
-        return
+    querier = LogQuerier()
+    querier.run()
 # end main
 
 if __name__ == "__main__":
