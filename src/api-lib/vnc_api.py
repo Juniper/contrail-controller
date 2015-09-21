@@ -136,8 +136,11 @@ class VncApi(object):
             
         self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_CONNECT
         # API server SSL Support
-        if api_server_use_ssl:
-           self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_SSL_CONNECT
+        use_ssl = api_server_use_ssl
+        if isinstance(api_server_use_ssl, basestring):
+           use_ssl = (api_server_use_ssl.lower() == 'true')
+        if use_ssl:
+             self._api_connect_protocol = VncApi.__DEFAULT_API_SERVER_SSL_CONNECT
 
         # keystone
         self._authn_type = auth_type or \

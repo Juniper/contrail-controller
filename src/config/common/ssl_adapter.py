@@ -1,13 +1,20 @@
 # -*- coding: utf-8 -*-
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 # @author: Sanju Abraham, Juniper Networks, OpenContrail
+import requests
 from requests.adapters import HTTPAdapter
 try:
     from urllib3.poolmanager import PoolManager
+    # Issue in python 2.7 hence disable warnings as suggested below
+    # https://urllib3.readthedocs.org/en/latest/security.html
+    urllib3.disable_warnings()
 except ImportError:
     # This is required for redhat7 as it does not have
     # separate urllib3 package installed
     from requests.packages.urllib3.poolmanager import PoolManager
+    # Issue in python 2.7 hence disable warnings as suggested below
+    # https://urllib3.readthedocs.org/en/latest/security.html
+    requests.packages.urllib3.disable_warnings()
 import ssl
 
 class SSLAdapter(HTTPAdapter):
