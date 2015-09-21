@@ -686,7 +686,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return 'contrail:%s:%s' %(obj._type, obj.get_fq_name_str())
     # end get_obj_imid
 
-    def create_virtual_network(self, vn_name, vn_subnet):
+    def create_virtual_network(self, vn_name, vn_subnet='10.0.0.0/24'):
         vn_obj = VirtualNetwork(name=vn_name)
         ipam_fq_name = [
             'default-domain', 'default-project', 'default-network-ipam']
@@ -806,5 +806,25 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._vnc_lib.network_policy_create(np)
         return np
     # end create_network_policy
+
+    def create_logical_router(self, name, nb_of_attached_networks=1):
+        lr = LogicalRouter(name)
+        vns = []
+        vmis = []
+        for idx in range(1):
+            vn = self.create_virtual_network('%s-network%d' % (name, idx),
+                                             '10.%d.0.24/2' % idx)
+            vns.append(vn)
+            vmi_name = '%s-network%d-vmi' % (name, idx)
+            vmi = VirtualMachineInterface(
+                vmi_name, parent_type='project',
+                fq_name=['default-domain', 'default-project', vmi_name])
+            vmi.add_virtual_network(vn)
+            self._vnc_lib.virtual_machine_interface_create(vmi)
+            vmis.append(vmi)
+            lr.add_virtual_machine_interface(vmi)
+
+        self._vnc_lib.logical_router_create(lr)
+        return lr, vns, vmis
 
 # end TestCase
