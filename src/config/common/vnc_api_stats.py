@@ -18,14 +18,9 @@ def log_api_stats(func):
             statistics.response_size = len(str(response))
             statistics.response_code = bottle.response.status_code
             return response
-        except Exception as err_response:
-            if isinstance(err_response, bottle.HTTPError):
-                statistics.response_size = len(err_response.body)
-                statistics.response_code = err_response.status_code
-            else:
-                statistics.response_size = 0
-                # 520 Unknown Error
-                statistics.response_code = 520
+        except bottle.HTTPError as err_response:
+            statistics.response_size = len(err_response.body)
+            statistics.response_code = err_response.status_code
             raise
         finally:
             # Collect api stats and send to analytics
@@ -38,6 +33,7 @@ class VncApiStatistics(object):
     def __init__(self, obj_type):
         self.obj_type = obj_type
         self.response_size = 0
+        self.response_code = 520 # Unknown Error
         self.time_start = datetime.now()
 
     def collect(self):

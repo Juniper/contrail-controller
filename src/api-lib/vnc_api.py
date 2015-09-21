@@ -29,8 +29,8 @@ from pprint import pformat
 
 def compare_refs(old_refs, new_refs):
     # compare refs in an object
-    old_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in old_refs)
-    new_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in new_refs)
+    old_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in old_refs or [])
+    new_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in new_refs or [])
     return old_ref_dict == new_ref_dict
 # end compare_refs
 
