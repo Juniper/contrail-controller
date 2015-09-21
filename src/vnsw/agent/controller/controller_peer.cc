@@ -746,9 +746,32 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
-    uint32_t label = item->entry.next_hops.next_hop[0].label;
+    int n = -1;
+    IpAddress nh_ip;
+    // if list contains more than one nexthop, pick the lowest IP for
+    // active nexthop of ecmp
+    for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
+        string nexthop_addr = item->entry.next_hops.next_hop[i].address;
+        IpAddress temp_nh_ip = IpAddress::from_string(nexthop_addr, ec);
+        if (ec.value() != 0) {
+            continue;
+        }
+
+        if (n == -1 || temp_nh_ip < nh_ip) {
+            n = i;
+            nh_ip = temp_nh_ip;
+        }
+    }
+
+    if (n == -1) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Error parsing nexthop ip address");
+        return;
+    }
+
+    uint32_t label = item->entry.next_hops.next_hop[n].label;
     TunnelType::TypeBmap encap = GetEnetTypeBitmap
-        (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+        (item->entry.next_hops.next_hop[n].tunnel_encapsulation_list);
     PathPreference::Preference preference = PathPreference::LOW;
     if (item->entry.local_preference == PathPreference::HIGH) {
         preference = PathPreference::HIGH;
@@ -758,14 +781,6 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     PathPreference path_preference(item->entry.sequence_number, preference,
                                    false, false);
 
-    string nexthop_addr = item->entry.next_hops.next_hop[0].address;
-    IpAddress nh_ip = IpAddress::from_string(nexthop_addr, ec);
-    if (ec.value() != 0) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Error parsing nexthop ip address");
-        return;
-    }
-
     IpAddress ip_addr;
     if (ParseAddress(item->entry.nlri.address, &ip_addr) < 0) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
@@ -773,12 +788,15 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
+    string nexthop_addr = item->entry.next_hops.next_hop[n].address;
     CONTROLLER_INFO_TRACE(RouteImport, GetBgpPeerName(), vrf_name,
                      mac.ToString(), 0, nexthop_addr, label, "");
 
     if (agent_->router_id() != nh_ip.to_v4()) {
         CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), nexthop_addr,
                                     "add remote evpn route");
+        // for number of nexthops more than 1, carry flag ecmp suppressed
+        // to indicate the same to all modules, till we handle L2 ecmp
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
                                                      agent_->fabric_vrf_name(),
@@ -787,7 +805,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      encap, label,
                                                      item->entry.virtual_network,
                                                      item->entry.security_group_list.security_group,
-                                                     path_preference);
+                                                     path_preference,
+                                                     (item->entry.next_hops.next_hop.size() > 1));
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
@@ -922,7 +941,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                vrf_name, addr.to_v4(), encap, label,
                                item->entry.virtual_network ,
                                item->entry.security_group_list.security_group,
-                               path_preference);
+                               path_preference, false);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
                                       prefix_len, data);
         return;
