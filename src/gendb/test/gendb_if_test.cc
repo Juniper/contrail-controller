@@ -580,7 +580,6 @@ static void PopulateDbDataValueVec(GenDb::DbDataValueVec *dbv, size_t *vsize) {
 }
 
 static GenDb::NewCol* CreateNewColNoSql(size_t *csize) {
-    size_t size(0);
     GenDb::DbDataValueVec *name(new GenDb::DbDataValueVec);
     PopulateDbDataValueVec(name, csize);
     GenDb::DbDataValueVec *value(new GenDb::DbDataValueVec);

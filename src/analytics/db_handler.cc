@@ -307,7 +307,7 @@ void DbHandler::GetSandeshStats(std::string *drop_level,
     *drop_level = Sandesh::LevelToString(drop_level_);
     if (vdropmstats) {
         tbb::mutex::scoped_lock lock(smutex_);
-        dropped_msg_stats_.Get(*vdropmstats);
+        dropped_msg_stats_.Get(vdropmstats);
     }
 }
 
