@@ -286,15 +286,16 @@ class PhysicalRouterDM(DBBase):
             li = LogicalInterfaceDM.get(li_uuid)
             if li is None:
                 continue
+            vlan_tag = li.vlan_tag
             vmi_id = li.virtual_machine_interface
             vmi = VirtualMachineInterfaceDM.get(vmi_id)
             if vmi is None:
                 continue
             vn_id = vmi.virtual_network
             if vn_id in vn_dict:
-                vn_dict[vn_id].append(li.name)
+                vn_dict[vn_id].append([li.name, vlan_tag])
             else:
-                vn_dict[vn_id] = [li.name]
+                vn_dict[vn_id] = [[li.name, vlan_tag]]
         return vn_dict
     #end
 
@@ -316,6 +317,8 @@ class PhysicalRouterDM(DBBase):
             if self.dataplane_ip is not None and self.is_valid_ip(self.dataplane_ip):
                 self.config_manager.add_dynamic_tunnels(self.dataplane_ip,
                               GlobalSystemConfigDM.ip_fabric_subnets, bgp_router_ips)
+
+        self.config_manager.add_mpls_protocol()
 
         vn_dict = self.get_vn_li_map()
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()))
@@ -367,7 +370,7 @@ class PhysicalRouterDM(DBBase):
                                                              vn_obj.get_prefixes(),
                                                              None,
                                                              vn_obj.router_external,
-                                                             ["irb" + "." + str(vn_obj.vn_network_id)])
+                                                             [["irb" + "." + str(vn_obj.vn_network_id)]])
 
                     break
 
@@ -380,8 +383,8 @@ class PhysicalRouterDM(DBBase):
                     vrf_name = vrf_name_l3[:123] + '-nat'
                     interfaces = []
                     service_ports = self.junos_service_ports.get('service_port')
-                    interfaces.append(service_ports[0] + "." + str(service_port_id))
-                    interfaces.append(service_ports[0] + "." + str(service_port_id + 1))
+                    interfaces.append([service_ports[0] + "." + str(service_port_id)])
+                    interfaces.append([service_ports[0] + "." + str(service_port_id + 1)])
                     self.config_manager.add_routing_instance(vrf_name,
                                                          False,
                                                          False,
@@ -548,6 +551,7 @@ class LogicalInterfaceDM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interface = None
+        self.vlan_tag = 0
         self.update(obj_dict)
         if self.physical_interface:
             parent = PhysicalInterfaceDM.get(self.physical_interface)
@@ -567,6 +571,7 @@ class LogicalInterfaceDM(DBBase):
             self.physical_interface = self.get_parent_uuid(obj)
             self.physical_router = None
 
+        self.vlan_tag = obj.get("logical_interface_vlan_tag", 0)
         self.update_single_ref('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
     # end update
