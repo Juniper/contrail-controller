@@ -269,6 +269,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.floating_ip = None
         self.interface_route_table = None
         self.security_group = None
+        self.service_instance = None
         self.update(obj_dict)
     # end __init__
 
@@ -289,6 +290,10 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('interface_route_table', obj)
         self.update_single_ref('security_group', obj)
+        if self.virtual_machine:
+            vm = VirtualMachineSM.get(self.virtual_machine)
+            if vm:
+                self.service_instance = vm.service_instance
     # end update
 
     @classmethod

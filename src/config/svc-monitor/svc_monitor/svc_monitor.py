@@ -262,8 +262,7 @@ class SvcMonitor(object):
                 for vm_id in dependency_tracker.resources.get(
                         'virtual_machine', []):
                     vm = VirtualMachineSM.get(vm_id)
-                    if vm:
-                        self.check_link_si_to_vm(vm, vmi)
+                    self.port_delete_or_si_link(vm, vmi)
             else:
                 for irt_id in dependency_tracker.resources.get(
                         'interface_route_table', []):
@@ -469,7 +468,7 @@ class SvcMonitor(object):
                 vmi = VirtualMachineInterfaceSM.get(vmi_id)
                 if not vmi:
                     continue
-                self.check_link_si_to_vm(vm, vmi)
+                self.port_delete_or_si_link(vm, vmi)
 
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
@@ -557,8 +556,12 @@ class SvcMonitor(object):
             (st_name, str(st_uuid)))
     #_create_default_analyzer_template
 
-    def check_link_si_to_vm(self, vm, vmi):
-        if vm.service_instance:
+    def port_delete_or_si_link(self, vm, vmi):
+        if (vmi.service_instance and vmi.virtual_machine == None):
+            self.vm_manager.cleanup_svc_vm_ports([vmi.uuid])
+            return
+
+        if not vm or vm.service_instance:
             return
         if not vmi.if_type:
             return
@@ -659,6 +662,15 @@ def timer_callback(monitor):
             vm_delete_list.append(vm)
     for vm in vm_delete_list:
         monitor._delete_service_instance(vm)
+
+    # delete vmis with si but no vms
+    vmi_delete_list = []
+    for vmi in VirtualMachineInterfaceSM.values():
+        si = ServiceInstanceSM.get(vmi.service_instance)
+        if si and not vmi.virtual_machine:
+            vmi_delete_list.append(vmi.uuid)
+    if len(vmi_delete_list):
+        monitor.vm_manager.cleanup_svc_vm_ports(vmi_delete_list)
 
     # check status of service
     si_id_list = list(ServiceInstanceSM._dict.keys())
