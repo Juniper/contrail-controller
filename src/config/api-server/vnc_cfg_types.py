@@ -973,7 +973,7 @@ def _check_policy_rules(entries):
     if not entries:
         return True, ""
     rules = entries.get('policy_rule') or []
-    rules_no_uuid = [{k: v for k, v in r.items() if k != 'rule_uuid'}
+    rules_no_uuid = [dict((k, v) for k, v in r.items() if k != 'rule_uuid')
                      for r in rules]
     for index, rule in enumerate(rules_no_uuid):
         rules_no_uuid[index] = None
