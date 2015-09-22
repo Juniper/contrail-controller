@@ -83,14 +83,17 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
 
 int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mirror_req encoder;
-    int encode_len, error;
+    int encode_len;
     NHKSyncEntry *nh_entry = nh();
 
     encoder.set_h_op(op);
     encoder.set_mirr_index(GetIndex());
     encoder.set_mirr_rid(0);
     encoder.set_mirr_nhid(nh_entry->nh_id());
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     LOG(DEBUG, "Mirror index " << GetIndex() << " nhid " 
             << nh_entry->nh_id());
     return encode_len;

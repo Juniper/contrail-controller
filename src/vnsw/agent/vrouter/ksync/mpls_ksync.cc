@@ -70,14 +70,17 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
 
 int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mpls_req encoder;
-    int encode_len, error;
+    int encode_len;
     NHKSyncEntry *next_hop = nh();
 
     encoder.set_h_op(op);
     encoder.set_mr_label(label_);
     encoder.set_mr_rid(0);
     encoder.set_mr_nhid(next_hop->nh_id());
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     return encode_len;
 }
 

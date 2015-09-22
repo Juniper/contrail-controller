@@ -28,6 +28,7 @@
 class KSyncEntry;
 class KSyncIoContext;
 class KSyncSockTcpSession;
+struct nl_client;
 
 /* Base class to hold sandesh context information which is passed to 
  * Sandesh decode
@@ -157,7 +158,7 @@ public:
 
     static uint32_t GetPid() {return pid_;};
     static int GetNetlinkFamilyId() {return vnsw_netlink_family_id_;};
-    static void SetNetlinkFamilyId(int id) {vnsw_netlink_family_id_ = id;};
+    static void SetNetlinkFamilyId(int id);
     int AllocSeqNo(bool is_uve) { 
         int seq;
         if (is_uve) {
@@ -236,7 +237,7 @@ private:
 class KSyncSockNetlink : public KSyncSock {
 public:
     KSyncSockNetlink(boost::asio::io_service &ios, int protocol);
-    virtual ~KSyncSockNetlink() { };
+    virtual ~KSyncSockNetlink();
 
     static void Init(boost::asio::io_service &ios, int count, int protocol);
     virtual uint32_t GetSeqno(char *data);
@@ -247,8 +248,13 @@ public:
     virtual void AsyncSendTo(char *, uint32_t, uint32_t,  HandlerCb);
     virtual std::size_t SendTo(const char*, uint32_t, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
+
+    void InitNetlink();
+    void ResetNetlink();
+
 private:
     boost::asio::netlink::raw::socket sock_;
+    nl_client *nl_client_;
 };
 
 //udp socket class for interacting with user vrouter
