@@ -9,6 +9,8 @@
 #include "oper/physical_device_vn.h"
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
+#include <cfg/cfg_types.h>
+#include <instance_service_server.h>
 
 #define MAX_TESTNAME_LEN 80
 
@@ -549,6 +551,38 @@ void IntfCfgAdd(PortInfo *input, int id) {
     IntfCfgAdd(input[id].intf_id, input[id].name, input[id].addr,
   	       input[id].vm_id, input[id].vn_id, input[id].mac,
 	       input[id].ip6addr);
+}
+
+void IntfCfgAddThrift(PortInfo *input, int id) {
+    AddPortReq *port_req = new AddPortReq();
+    std::stringstream vm_ss;
+    vm_ss << "vm" << input[id].vm_id;
+    string tap_name = input[id].name;
+    uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
+    uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
+    int16_t port_type = CfgIntEntry::CfgIntVMPort;
+    std::string port_uuid = UuidToString(MakeUuid(input[id].intf_id));
+    std::string instance_uuid = UuidToString(MakeUuid(input[id].vm_id));
+    std::string vn_uuid = UuidToString(MakeUuid(input[id].vn_id));
+    std::string vm_project_uuid = UuidToString(MakeUuid(kProjectUuid));
+    //Set all parameters
+    port_req->set_port_uuid(port_uuid);
+    port_req->set_instance_uuid(instance_uuid);
+    port_req->set_vn_uuid(vn_uuid);
+    port_req->set_vm_name(vm_ss.str());
+    port_req->set_vm_project_uuid(vm_project_uuid);
+    port_req->set_tap_name(input[id].name);
+    port_req->set_ip_address(input[id].addr);
+    port_req->set_ip6_address(input[id].ip6addr);
+    port_req->set_mac_address(input[id].mac);
+    port_req->set_rx_vlan_id(rx_vlan_id);
+    port_req->set_tx_vlan_id(tx_vlan_id);
+    port_req->set_port_type(port_type);
+
+    port_req->HandleRequest();
+    client->WaitForIdle();
+    port_req->Release();
+    client->WaitForIdle();
 }
 
 void IntfCfgDel(int id) {
@@ -1644,6 +1678,21 @@ void AddPort(const char *name, int id, const char *attr) {
     AddNode("virtual-machine-interface", name, id, buff);
 }
 
+void AddPortWithMac(const char *name, int id, const char *mac,
+                    const char *attr) {
+    std::stringstream str;
+    str << "<virtual-machine-interface-mac-addresses>" << endl;
+    str << "    <mac-address>" << mac << "</mac-address>"
+        << endl;
+    str << "</virtual-machine-interface-mac-addresses>" << endl;
+
+    char buff[4096];
+    strcpy(buff, str.str().c_str());
+    if (attr != NULL)
+        strcat(buff, attr);
+    AddNode("virtual-machine-interface", name, id, buff);
+}
+
 void AddPortByStatus(const char *name, int id, bool admin_status) {
     AddNodeByStatus("virtual-machine-interface", name, id, admin_status);
 }
@@ -2491,7 +2540,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
 
         //AddNode("virtual-machine-interface-routing-instance", input[i].name,
         //        input[i].intf_id);
-        IntfCfgAdd(input, i);
+        IntfCfgAddThrift(input, i);
         AddPort(input[i].name, input[i].intf_id);
         AddActiveActiveInstanceIp(instance_ip, input[i].intf_id, input[i].addr);
         AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
@@ -2555,9 +2604,10 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         //AddNode("virtual-machine-interface-routing-instance", input[i].name,
         //        input[i].intf_id);
         if (send_nova_msg) {
-            IntfCfgAdd(input, i);
+            IntfCfgAddThrift(input, i);
         }
-        AddPort(input[i].name, input[i].intf_id, vm_interface_attr);
+        AddPortWithMac(input[i].name, input[i].intf_id,
+                       input[i].mac, vm_interface_attr);
         if (with_ip) {
             if (ecmp) {
                 AddActiveActiveInstanceIp(instance_ip, input[i].intf_id,
@@ -2610,7 +2660,7 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
                      bool vn_admin_state) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf,
                             vm_interface_attr, false, true, false,
-                            vn_admin_state);
+                            vn_admin_state, false, true);
 }
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id,

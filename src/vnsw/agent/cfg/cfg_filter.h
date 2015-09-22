@@ -19,8 +19,15 @@ public:
     void Shutdown();
 private:
     AgentConfig *agent_cfg_;
-    bool CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
-                       int property_id);
+    bool CheckVmInterfaceProperty(DBTable *table,
+                                  const IFMapIdentifier *req_id,
+                                  DBRequest *req);
+    bool CheckIdPermsProperty(DBTable *table,
+                              const IFMapIdentifier *req_id,
+                              DBRequest *req,
+                              int property_id);
+    bool CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req);
+    int GetIdPermsPropertyId(DBTable *table) const;
     DISALLOW_COPY_AND_ASSIGN(CfgFilter);
 };
 
