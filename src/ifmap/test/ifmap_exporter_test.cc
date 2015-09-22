@@ -182,6 +182,29 @@ protected:
         return exporter_->ClientConfigTrackerSize(index);
     }
 
+    IFMapLink* VerifyLink(const string &ltype, const string &rtype,
+            const string &lid, const string &rid, bool add) {
+        TASK_UTIL_EXPECT_TRUE(TableLookup(ltype, lid) != NULL);
+        IFMapNode *lnode = TableLookup(ltype, lid);
+        assert(lnode);
+        TASK_UTIL_EXPECT_TRUE(TableLookup(rtype, rid) != NULL);
+        IFMapNode *rnode = TableLookup(rtype, rid);
+        assert(lnode);
+        IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>
+            (db_.FindTable("__ifmap_metadata__.0"));
+        string metadata = ltype + "-" + rtype;
+        string link_name = link_table->LinkKey(metadata, lnode, rnode);
+        IFMapLink *link = NULL;
+        if (add) {
+            TASK_UTIL_EXPECT_TRUE(link_table->FindLink(link_name) != NULL);
+            link = link_table->FindLink(link_name);
+        } else {
+            TASK_UTIL_EXPECT_TRUE(link_table->FindLink(link_name) == NULL);
+            link = NULL;
+        }
+        return link;
+    }
+
     DB db_;
     DBGraph graph_;
     EventManager evm_;
@@ -209,37 +232,30 @@ TEST_F(IFMapExporterTest, Basic) {
                  "vm_x", "vm_x:veth0");
     IFMapMsgLink("virtual-machine-interface", "virtual-network", 
                  "vm_x:veth0", "blue");
-
     task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "blue") != NULL);
     IFMapNode *idn = TableLookup("virtual-network", "blue");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     IFMapNodeState *state = exporter_->NodeStateLookup(idn);
-    if (state != NULL) {
-        EXPECT_TRUE(state->interest().empty());
-    }
+    TASK_UTIL_EXPECT_TRUE(state->interest().empty());
 
-    IFMapMsgLink("virtual-router", "virtual-machine",
-                 "192.168.1.1", "vm_x");
-
+    IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
     
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
-    EXPECT_FALSE(state->interest().empty());
+    TASK_UTIL_EXPECT_FALSE(state->interest().empty());
+    TASK_UTIL_EXPECT_FALSE(state->update_list().empty());
 
-    IFMapMsgUnlink("virtual-router", "virtual-machine",
-                   "192.168.1.1", "vm_x");
-
+    IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
 
     idn = TableLookup("virtual-network", "blue");
-    if (idn != NULL) {
-        state = exporter_->NodeStateLookup(idn);
-        if (state != NULL) {
-            EXPECT_TRUE(state->interest().empty());
-            EXPECT_TRUE(state->update_list().empty());
-        }
-    }
+    state = exporter_->NodeStateLookup(idn);
+    TASK_UTIL_EXPECT_TRUE(state->interest().empty());
+    TASK_UTIL_EXPECT_TRUE(state->update_list().empty());
 }
 
 // interest change: subgraph was to be sent to a subset of peers and that
@@ -280,24 +296,91 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c4:veth0", "red");
 
+    // Add the id-perms property to all the VRs and VMs so that they dont get
+    // deleted when we delete links.
+    autogen::IdPermsType *prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-router", "192.168.1.1", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-router", "192.168.1.2", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-router", "192.168.1.3", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-router", "192.168.1.4", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-machine", "vm_c1", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-machine", "vm_c2", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-machine", "vm_c3", 1, "id-perms", prop1);
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-machine", "vm_c4", 1, "id-perms", prop1);
+
+    // Verify that the VR nodes have the property.
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "192.168.1.1") != NULL);
+    IFMapNode *node = TableLookup("virtual-router", "192.168.1.1");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "192.168.1.2") != NULL);
+    node = TableLookup("virtual-router", "192.168.1.2");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "192.168.1.3") != NULL);
+    node = TableLookup("virtual-router", "192.168.1.3");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "192.168.1.4") != NULL);
+    node = TableLookup("virtual-router", "192.168.1.4");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+
+    // Verify that the VM nodes have the property.
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", "vm_c1") != NULL);
+    node = TableLookup("virtual-machine", "vm_c1");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", "vm_c2") != NULL);
+    node = TableLookup("virtual-machine", "vm_c2");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", "vm_c3") != NULL);
+    node = TableLookup("virtual-machine", "vm_c3");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", "vm_c4") != NULL);
+    node = TableLookup("virtual-machine", "vm_c4");
+    TASK_UTIL_EXPECT_TRUE(node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER))
+                          != NULL);
+
+    // Add VR-VM links for c1, c2 and c3.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
     task_util::WaitForIdle();
 
+    TASK_UTIL_ASSERT_TRUE(TableLookup("virtual-network", "blue") != NULL);
     IFMapNode *blue = TableLookup("virtual-network", "blue");
     ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_ASSERT_TRUE(exporter_->NodeStateLookup(blue) != NULL);
     IFMapNodeState *state = exporter_->NodeStateLookup(blue);
     ASSERT_TRUE(state != NULL);
 
     // c1 and c3 should get 'blue'.
+    TASK_UTIL_ASSERT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(update != NULL);
     TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c2.index()));
     TASK_UTIL_EXPECT_TRUE(update->advertise().test(c3.index()));
+
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
+    // Verify that the links exist in the table.
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1",
+               true);
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2",
+               true);
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3",
+               true);
 
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
@@ -315,8 +398,10 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c4.index()));
 
     // Check that only c4 will receive an add for red.
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "red") != NULL);
     IFMapNode *red = TableLookup("virtual-network", "red");
     ASSERT_TRUE(red != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(red) != NULL);
     state = exporter_->NodeStateLookup(red);
     TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
@@ -340,8 +425,21 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     state = exporter_->NodeStateLookup(blue);
     TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
 
+    // Verify that the deleted links exist before we process the queue.
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2",
+               true);
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3",
+               true);
+
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
+    // Verify that the deleted links are gone.
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2",
+               false);
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3",
+               false);
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4",
+               true);
 
     IFMapMsgUnlink("virtual-machine-interface", "virtual-network",
                    "vm_c4:veth0", "red");
@@ -367,8 +465,18 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     EXPECT_FALSE(update->advertise().test(c3.index()));
     EXPECT_TRUE(update->advertise().test(c4.index()));
 
+    // Verify that the deleted link exists before we process the queue.
+    VerifyLink("virtual-machine-interface", "virtual-network", "vm_c4:veth0",
+               "red", true);
+
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
+    // Verify that the VMI link with red has been deleted and the one with blue
+    // exists.
+    VerifyLink("virtual-machine-interface", "virtual-network", "vm_c4:veth0",
+               "red", false);
+    VerifyLink("virtual-machine-interface", "virtual-network", "vm_c4:veth0",
+               "blue", true);
 
     red = TableLookup("virtual-network", "red");
     ASSERT_TRUE(red != NULL);
@@ -406,8 +514,19 @@ TEST_F(IFMapExporterTest, NodeAddDependency) {
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
 
+    TASK_UTIL_ASSERT_TRUE(TableLookup("virtual-network", "blue") != NULL);
+    IFMapNode *blue = TableLookup("virtual-network", "blue");
+    ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_ASSERT_TRUE(exporter_->NodeStateLookup(blue) != NULL);
+    IFMapNodeState *state = exporter_->NodeStateLookup(blue);
+    ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(update != NULL);
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
+
     IFMapUpdateQueue *queue = server_.queue();
-    
+
     set<IFMapNode *> seen;
     for (IFMapListEntry *iter = queue->tail_marker(); iter != NULL;
          iter = queue->Next(iter)) {
@@ -446,10 +565,27 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
  
+    TASK_UTIL_ASSERT_TRUE(TableLookup("virtual-network", "blue") != NULL);
+    IFMapNode *blue = TableLookup("virtual-network", "blue");
+    ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_ASSERT_TRUE(exporter_->NodeStateLookup(blue) != NULL);
+    IFMapNodeState *state = exporter_->NodeStateLookup(blue);
+    ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(update != NULL);
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
+
     // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
+
+    state = exporter_->NodeStateLookup(blue);
+    TASK_UTIL_ASSERT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DELETE);
+    ASSERT_TRUE(update != NULL);
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
 
     set<IFMapNode *> seen;
     IFMapUpdateQueue *queue = server_.queue();
@@ -470,6 +606,7 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
                 << link->ToString() << " after " << link->right()->ToString();
         }
     }
+    EXPECT_EQ(4, seen.size());
 }
 
 TEST_F(IFMapExporterTest, CrcChecks) {
@@ -479,44 +616,59 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "host1") != NULL);
     IFMapNode *idn = TableLookup("virtual-router", "host1");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     IFMapNodeState *state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_uuid1 = state->crc();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "host2") != NULL);
     idn = TableLookup("virtual-router", "host2");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_perm1 = state->crc();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "host3") != NULL);
     idn = TableLookup("virtual-router", "host3");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_bool1 = state->crc();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "host4") != NULL);
     idn = TableLookup("virtual-router", "host4");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_string1 = state->crc();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "host5") != NULL);
     idn = TableLookup("virtual-router", "host5");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_idperms1 = state->crc();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-policy", "policy1") != NULL);
     idn = TableLookup("network-policy", "policy1");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_np_vec_complex1 = state->crc();
 
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine-interface", "vm1")
+                          != NULL);
     idn = TableLookup("virtual-machine-interface", "vm1");
     ASSERT_TRUE(idn != NULL);
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(idn) != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     IFMapState::crc32type crc_vm_vec_simple1 = state->crc();
@@ -531,24 +683,28 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_uuid1 != state->crc());
     IFMapState::crc32type crc_uuid2 = state->crc();
 
     idn = TableLookup("virtual-router", "host2");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_perm1 != state->crc());
     IFMapState::crc32type crc_perm2 = state->crc();
 
     idn = TableLookup("virtual-router", "host3");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_bool1 != state->crc());
     IFMapState::crc32type crc_bool2 = state->crc();
 
     idn = TableLookup("virtual-router", "host4");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_string1 != state->crc());
     IFMapState::crc32type crc_string2 = state->crc();
 
     idn = TableLookup("virtual-router", "host5");
@@ -561,12 +717,14 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_np_vec_complex1 != state->crc());
     IFMapState::crc32type crc_np_vec_complex2 = state->crc();
 
     idn = TableLookup("virtual-machine-interface", "vm1");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_vm_vec_simple1 != state->crc());
     IFMapState::crc32type crc_vm_vec_simple2 = state->crc();
 
     ASSERT_TRUE(crc_uuid1 != crc_uuid2);
@@ -590,24 +748,28 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_uuid2 != state->crc());
     IFMapState::crc32type crc_uuid3 = state->crc();
 
     idn = TableLookup("virtual-router", "host2");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_perm2 != state->crc());
     IFMapState::crc32type crc_perm3 = state->crc();
 
     idn = TableLookup("virtual-router", "host3");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_bool2 != state->crc());
     IFMapState::crc32type crc_bool3 = state->crc();
 
     idn = TableLookup("virtual-router", "host4");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_string2 != state->crc());
     IFMapState::crc32type crc_string3 = state->crc();
 
     idn = TableLookup("virtual-router", "host5");
@@ -620,12 +782,14 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_np_vec_complex2 != state->crc());
     IFMapState::crc32type crc_np_vec_complex3 = state->crc();
 
     idn = TableLookup("virtual-machine-interface", "vm1");
     ASSERT_TRUE(idn != NULL);
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
+    TASK_UTIL_ASSERT_TRUE(crc_vm_vec_simple2 != state->crc());
     IFMapState::crc32type crc_vm_vec_simple3 = state->crc();
 
     ASSERT_TRUE(crc_uuid1 == crc_uuid3);
@@ -669,7 +833,6 @@ TEST_F(IFMapExporterTest, ChangePropertiesIncrementally) {
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
     IFMapMsgNodeAdd("virtual-router", "vr-test", 1, "id-perms", prop1);
     task_util::WaitForIdle();
-    state = exporter_->NodeStateLookup(vrnode);
     TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     EXPECT_TRUE(update->advertise().test(c1.index()));
@@ -696,7 +859,6 @@ TEST_F(IFMapExporterTest, ChangePropertiesIncrementally) {
     prop2->data = "myDisplayName";
     IFMapMsgNodeAdd("virtual-router", "vr-test", 1, "display-name", prop2);
     task_util::WaitForIdle();
-    state = exporter_->NodeStateLookup(vrnode);
     TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     EXPECT_TRUE(update->advertise().test(c1.index()));
@@ -816,13 +978,19 @@ TEST_F(IFMapExporterTest, PR1383393) {
     std::string samename = "samename";
     std::string name1 = "name1";
     std::string name2 = "name2";
+
+    IFMapTable *vn_tbl = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(0, vn_tbl->Size());
+    IFMapTable *ni_tbl = IFMapTable::FindTable(&db_, "network-ipam");
+    TASK_UTIL_EXPECT_EQ(0, ni_tbl->Size());
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) == NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) == NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) == NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", name2) == NULL);
+
     IFMapMsgLink("virtual-network", "network-ipam", samename, samename);
     IFMapMsgLink("virtual-network", "network-ipam", name1, name2);
 
-    IFMapTable *vn_tbl = IFMapTable::FindTable(&db_, "virtual-network");
-    TASK_UTIL_EXPECT_EQ(2, vn_tbl->Size());
-    IFMapTable *ni_tbl = IFMapTable::FindTable(&db_, "network-ipam");
-    TASK_UTIL_EXPECT_EQ(2, ni_tbl->Size());
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) != NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) != NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) != NULL);
@@ -906,6 +1074,8 @@ TEST_F(IFMapExporterTest, PR1454380) {
     // Delete the link between VR-VM but dont process the Q. The delete-update
     // should remain in the state's list.
     EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::DELETE) == NULL);
+    EXPECT_FALSE(link_state->IsInvalid());
+    EXPECT_TRUE(link_state->HasDependency());
     IFMapMsgUnlink("virtual-router", "virtual-machine", "vr-test", "vm_x");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(
@@ -913,7 +1083,6 @@ TEST_F(IFMapExporterTest, PR1454380) {
     link_update = link_state->GetUpdate(IFMapListEntry::DELETE);
     ASSERT_TRUE(link_update != NULL);
     TASK_UTIL_EXPECT_TRUE(link_update->advertise().test(c1.index()));
-    link_state = exporter_->LinkStateLookup(vr_vm_link);
     EXPECT_TRUE(link_state->IsInvalid());
     EXPECT_FALSE(link_state->HasDependency());
 
@@ -977,6 +1146,8 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     // Add the vr-vm link for c1. The state for VN 'blue' must have c1.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
     task_util::WaitForIdle();
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1",
+               true);
 
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "blue") != NULL);
     IFMapNode *blue = TableLookup("virtual-network", "blue");
@@ -990,18 +1161,24 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     // Add the vr-vm link for c2. The state for VN 'blue' must have c2.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
     task_util::WaitForIdle();
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2",
+               true);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c2.index()));
     TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c2.index(), state));
 
     // Add the vr-vm link for c3. The state for VN 'blue' must have c3.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
     task_util::WaitForIdle();
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3",
+               true);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c3.index()));
     TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c3.index(), state));
 
     // Add the vr-vm link for c4. The state for VN 'blue' must have c4.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4");
     task_util::WaitForIdle();
+    VerifyLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4",
+               true);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c4.index()));
     TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c4.index(), state));
 
