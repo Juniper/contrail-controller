@@ -44,6 +44,9 @@ public:
     virtual KSyncEntry *UnresolvedReference();
     bool AllowDeleteStateComp() {return false;}
     virtual void ErrorHandler(int, uint32_t) const;
+    void set_force_sync(bool val) {
+        force_sync_ = true;
+    }
 private:
     FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
@@ -59,6 +62,7 @@ private:
     bool enable_rpf_;
     KSyncEntryPtr nh_;
     FlowTableKSyncObject *ksync_obj_;
+    bool force_sync_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 
@@ -68,6 +72,8 @@ public:
     static const uint32_t AuditYieldTimer = 500;         // in msec
     static const uint32_t AuditTimeout = 2000;           // in msec
     static const int AuditYield = 1024;
+    typedef std::map<uint32_t, FlowTableKSyncEntry *> FlowKSyncIndexTree;
+    typedef std::pair<uint32_t, FlowTableKSyncEntry *> FlowKSyncIndexEntry;
 
     FlowTableKSyncObject(KSync *ksync);
     FlowTableKSyncObject(KSync *ksync, int max_index);
@@ -100,6 +106,12 @@ public:
     void MapSharedMemory();
     void GetFlowTableSize();
     void StartAuditTimer();
+
+    void DeleteByIndex(uint32_t flow_handle, FlowTableKSyncEntry *fe);
+    void InsertByIndex(uint32_t flow_handle, FlowTableKSyncEntry *flow);
+    FlowTableKSyncEntry *FindByIndex(uint32_t flow_handle);
+    void DeleteVrouterEvictedFlow(FlowTableKSyncEntry *flow);
+    void AddIndexFlowInfo(FlowTableKSyncEntry *fe, uint32_t flow_index);
 private:
     friend class KSyncSandeshContext;
     KSync *ksync_;
@@ -114,6 +126,7 @@ private:
     uint64_t audit_timestamp_;
     std::string flow_table_path_;
     std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;
+    FlowKSyncIndexTree flow_index_tree_;
     Timer *audit_timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
 };

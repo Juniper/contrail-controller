@@ -245,7 +245,6 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     UpdateReverseFlow(flow, rflow);
-    AddIndexFlowInfo(flow, flow->flow_handle_);
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -259,6 +258,14 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     //
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
+
+    if (!update && flow_req == flow) {
+        if (flow->ksync_entry()) {
+            flow->ksync_entry()->set_force_sync(true);
+            rflow->ksync_entry()->set_force_sync(true);
+        }
+    }
+
     if (rflow) {
         UpdateKSync(rflow);
         AddFlowInfo(rflow);
@@ -1030,6 +1037,7 @@ void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
 }
 
 void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
+    return;
     if (flow_handle == FlowEntry::kInvalidFlowHandle) {
         return;
     }
@@ -1041,6 +1049,7 @@ void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
 }
 
 void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
+    return;
     if (flow_handle == FlowEntry::kInvalidFlowHandle) {
         return;
     }
