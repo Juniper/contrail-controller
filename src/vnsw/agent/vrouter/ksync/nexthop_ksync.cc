@@ -646,7 +646,7 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
 
 int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_nexthop_req encoder;
-    int encode_len, error;
+    int encode_len;
     uint32_t intf_id = kInvalidIndex;
     std::vector<int8_t> encap;
     InterfaceKSyncEntry *if_ksync = NULL;
@@ -655,7 +655,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_nhr_id(nh_id());
     if (op == sandesh_op::DELETE) {
         /* For delete only NH-index is required by vrouter */
+        int error = 0;
         encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+        assert(error == 0);
+        assert(encode_len <= buf_len);
         return encode_len;
     }
     encoder.set_nhr_rid(0);
@@ -837,7 +840,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             assert(0);
     }
     encoder.set_nhr_flags(flags);
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     return encode_len;
 }
 

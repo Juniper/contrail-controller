@@ -468,7 +468,7 @@ bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id,
 
 int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
-    int encode_len, error;
+    int encode_len;
 
     // Dont send message if interface index not known
     if (IsValidOsIndex(os_index_, type_, rx_vlan_id_, vmi_type_, transport_) == false) {
@@ -645,7 +645,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_vifr_ip(ip_);
     encoder.set_vifr_nh_id(flow_key_nh_id_);
 
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     return encode_len;
 }
 

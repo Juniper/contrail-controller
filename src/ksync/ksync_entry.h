@@ -55,6 +55,7 @@ public:
     // maintained is optionally used to defer DELETE till refcount is 0
     typedef boost::intrusive_ptr<KSyncEntry> KSyncEntryPtr;
     static const size_t kInvalidIndex = 0xFFFFFFFF;
+    static const int kDefaultMsgSize = 512;
 
     // Use this constructor if automatic index allocation is *not* needed
     KSyncEntry() : index_(kInvalidIndex), state_(INIT), seen_(false),
