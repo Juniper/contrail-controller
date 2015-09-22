@@ -737,6 +737,9 @@ public:
     bool init_done() const { return init_done_; }
     void set_init_done(bool done) { init_done_ = done; }
 
+    bool flood_arp() const {return flood_arp_;}
+    void set_flood_arp(bool flood_arp) {flood_arp_ = flood_arp;}
+
     AgentParam *params() const { return params_; }
 
     bool isXenMode();
@@ -877,6 +880,7 @@ private:
     bool test_mode_;
     bool init_done_;
     bool simulate_evpn_tor_;
+    bool flood_arp_;
 
     // Flow information
     uint32_t flow_table_size_;

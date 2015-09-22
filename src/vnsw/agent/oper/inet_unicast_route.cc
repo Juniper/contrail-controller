@@ -422,6 +422,10 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
 bool InetUnicastRouteEntry::FloodArp() const {
     Agent *agent =
         (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
+    //User has disabled flood arp feature.
+    if (agent->flood_arp() == false)
+        return false;
+
     const AgentPath *local_path = FindPath(agent->local_peer());
     //Only look for subnet route programmed via IPAM(i.e. will have local path
     //as subnet discard) and active path of that subnet route should not be
