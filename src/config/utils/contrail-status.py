@@ -360,6 +360,7 @@ def supervisor_status(nodetype, options):
         check_status('supervisor-analytics', options)
     elif nodetype == 'database':
         print "== Contrail Database =="
+        check_svc('contrail-database', initd_svc=True)
         check_status('supervisor-database', options)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
