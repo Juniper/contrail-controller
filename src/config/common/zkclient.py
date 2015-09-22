@@ -187,7 +187,7 @@ class ZookeeperClient(object):
     def __init__(self, module, server_list, logging_fn=None):
         # logging
         logger = logging.getLogger(module)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         try:
             handler = logging.handlers.RotatingFileHandler(LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
@@ -202,20 +202,22 @@ class ZookeeperClient(object):
         else:
             self.log = self.syslog
 
+        # KazooRetry to retry keeper CRUD operations
+        self._retry = KazooRetry(max_tries=None, max_delay=300,
+                                 sleep_func=gevent.sleep)
         self._zk_client = \
             kazoo.client.KazooClient(
                 server_list,
                 timeout=400,
                 handler=kazoo.handlers.gevent.SequentialGeventHandler(),
-                logger=logger)
+                logger=logger,
+                connection_retry=self._retry,
+                command_retry=self._retry)
 
         self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
         self._election = None
         self._server_list = server_list
-        # KazooRetry to retry keeper CRUD operations
-        self._retry = KazooRetry(max_tries=None, max_delay=300,
-                                 sleep_func=gevent.sleep)
 
         self._conn_state = None
         self._sandesh_connection_info_update(status='INIT', message='')
