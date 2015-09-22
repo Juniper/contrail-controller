@@ -224,7 +224,7 @@ class ZookeeperClient(object):
     def __init__(self, module, server_list, logging_fn=None):
         # logging
         logger = logging.getLogger(module)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         try:
             handler = logging.handlers.RotatingFileHandler(LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
