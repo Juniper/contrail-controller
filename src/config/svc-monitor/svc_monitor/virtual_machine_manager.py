@@ -150,7 +150,7 @@ class VirtualMachineManager(InstanceManager):
         vmi_list = []
         for vmi_id in vm.virtual_machine_interfaces:
             vmi_list.append(vmi_id)
-        self.cleanup_svc_vm_ports(vmi_list, port_delete=False)
+        self.cleanup_svc_vm_ports(vmi_list)
 
         # nova vm delete
         proj_name = vm.proj_fq_name[-1]
