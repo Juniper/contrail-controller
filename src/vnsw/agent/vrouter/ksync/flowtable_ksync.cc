@@ -97,7 +97,7 @@ FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj,
     old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
     old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
     old_second_mirror_index_(0xFFFF), trap_flow_(false), old_drop_reason_(0),
-    ecmp_(false), nh_(NULL), ksync_obj_(obj) {
+    ecmp_(false), nh_(NULL), ksync_obj_(obj), force_sync_(false) {
 }
 
 FlowTableKSyncEntry::~FlowTableKSyncEntry() {
@@ -320,7 +320,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
 bool FlowTableKSyncEntry::Sync() {
     bool changed = false;
-    
+
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();   
     if (rev_flow) {
         if (old_reverse_flow_id_ != rev_flow->flow_handle()) {
@@ -395,6 +395,10 @@ bool FlowTableKSyncEntry::Sync() {
         }
     }
 
+    if (force_sync_ == true) {
+        force_sync_ = false;
+        changed = true;
+    }
     return changed;
 }
 
@@ -446,14 +450,23 @@ KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
 }
 
 int FlowTableKSyncEntry::AddMsg(char *buf, int buf_len) {
+    FlowTableKSyncObject *object =
+        static_cast<FlowTableKSyncObject *>(GetObject());
+    object->AddIndexFlowInfo(this, hash_id_);
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
 int FlowTableKSyncEntry::ChangeMsg(char *buf, int buf_len) {
+    FlowTableKSyncObject *object =
+        static_cast<FlowTableKSyncObject *>(GetObject());
+    object->AddIndexFlowInfo(this, hash_id_);
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
 int FlowTableKSyncEntry::DeleteMsg(char *buf, int buf_len) {
+    FlowTableKSyncObject *object =
+        static_cast<FlowTableKSyncObject *>(GetObject());
+    object->DeleteByIndex(hash_id_, this);
     return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
@@ -472,15 +485,6 @@ std::string FlowTableKSyncEntry::ToString() const {
 bool FlowTableKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const FlowTableKSyncEntry &entry = static_cast
         <const FlowTableKSyncEntry &>(rhs);
-    /*
-     * Ksync Flow Table should have the same key as vrouter flow table,
-     * so that all the flow entries present in vrouter can be represented
-     * in Ksync. This will also ensure that the index change for a flow
-     * entry will be sync'ed appropriately in vrouter.
-     */
-    if (hash_id_ != entry.hash_id_) {
-        return hash_id_ < entry.hash_id_;
-    }
     return flow_entry_ < entry.flow_entry_;
 }
 
@@ -651,6 +655,60 @@ bool FlowTableKSyncObject::AuditProcess() {
         }
     }
     return true;
+}
+
+void FlowTableKSyncObject::DeleteByIndex(uint32_t flow_handle,
+                                         FlowTableKSyncEntry *kflow) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
+        if (FindByIndex(flow_handle) == kflow) {
+            flow_index_tree_.erase(flow_handle);
+        }
+    }
+}
+
+void FlowTableKSyncObject::InsertByIndex(uint32_t flow_handle,
+                                         FlowTableKSyncEntry *kflow) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
+        FlowTableKSyncEntry *old_flow = FindByIndex(flow_handle);
+        if (old_flow == NULL) {
+            flow_index_tree_.insert(FlowKSyncIndexEntry(flow_handle,
+                                                        kflow));
+        } else if (old_flow != kflow) {
+            assert(0);
+        }
+    }
+}
+
+FlowTableKSyncEntry*
+FlowTableKSyncObject::FindByIndex(uint32_t flow_handle) {
+    FlowKSyncIndexTree::iterator it = flow_index_tree_.find(flow_handle);
+    if (it != flow_index_tree_.end()) {
+        return it->second;
+    }
+    return NULL;
+}
+
+void FlowTableKSyncObject::AddIndexFlowInfo(FlowTableKSyncEntry *kflow,
+                                            uint32_t flow_handle) {
+    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
+        return;
+    }
+
+    if (kflow->flow_entry()->deleted() == true) {
+        return;
+    }
+
+    FlowTableKSyncEntry *old_kflow = FindByIndex(flow_handle);
+    if (old_kflow && old_kflow != kflow) {
+        DeleteVrouterEvictedFlow(old_kflow);
+    }
+
+    InsertByIndex(flow_handle, kflow);
+}
+
+void FlowTableKSyncObject::DeleteVrouterEvictedFlow(FlowTableKSyncEntry *kflow) {
+    FlowTable *table = ksync()->agent()->pkt()->flow_table();
+    table->DeleteVrouterEvictedFlow(kflow->flow_entry().get());
 }
 
 void FlowTableKSyncObject::GetFlowTableSize() {

@@ -119,7 +119,6 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             bool update_rev_flow = false;
             if ((int)entry->flow_handle() != r->get_fr_index()) {
                 update_rev_flow = true;
-                table->AddIndexFlowInfo(entry, r->get_fr_index());
                 table->NotifyFlowStatsCollector(entry);
             }
 
