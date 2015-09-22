@@ -575,7 +575,12 @@ class VncApiServer(object):
             if req_obj_type != obj_type:
                 raise cfgm_common.exceptions.HttpError(
                     404, 'No %s object found for id %s' %(resource_type, id))
-            fq_name = db_conn.uuid_to_fq_name(id)
+            obj_ids = {'uuid': id}
+            (read_ok, read_result) = db_conn.dbe_read(resource_type, obj_ids)
+            if not read_ok:
+                bottle.abort(
+                    404, 'No %s object found for id %s' %(resource_type, id))
+            fq_name = read_result['fq_name']
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
 
@@ -657,7 +662,7 @@ class VncApiServer(object):
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'post_%s_update' %(obj_type), id, obj_dict)
+                'post_%s_update' %(obj_type), id, obj_dict, read_result)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
@@ -1636,7 +1641,7 @@ class VncApiServer(object):
             self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
             raise cfgm_common.exceptions.HttpError(500, read_result)
 
-        obj_dict = read_result
+        obj_dict = copy.deepcopy(read_result)
 
         # invoke the extension
         try:
@@ -1682,7 +1687,7 @@ class VncApiServer(object):
         # invoke the extension
         try:
             post_func = 'post_'+obj_type+'_update'
-            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict)
+            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict, read_result)
         except Exception as e:
             pass
 
