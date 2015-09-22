@@ -145,7 +145,9 @@ public:
         size_(size),
         bounded_(false),
         shutdown_scheduled_(false),
-        delete_entries_on_shutdown_(true) {
+        delete_entries_on_shutdown_(true),
+        task_starts_(0),
+        max_queue_len_(0) {
         count_ = 0;
         hwater_index_ = -1;
         lwater_index_ = -1;
@@ -319,6 +321,7 @@ public:
         if (running_ || queue_.empty() || deleted_ || RunnerAbortLocked()) {
             return;
         }
+        task_starts_++;
         running_ = true;
         assert(current_runner_ == NULL);
         current_runner_ =
@@ -396,6 +399,8 @@ public:
         return deleted_;
     }
 
+    uint32_t task_starts() const { return task_starts_; }
+    uint32_t max_queue_len() const { return max_queue_len_; }
 private:
     // Returns true if pop is successful.
     bool DequeueInternal(QueueEntryT *entry) {
@@ -510,6 +515,8 @@ private:
     bool EnqueueInternal(QueueEntryT entry) {
         enqueues_++;
         size_t ncount(AtomicIncrementQueueCount(&entry));
+        if (ncount > max_queue_len_)
+            max_queue_len_ = ncount;
         ProcessHighWaterMarks(ncount);
         queue_.push(entry);
         MayBeStartRunner();
@@ -523,6 +530,8 @@ private:
 
     bool EnqueueBounded(QueueEntryT entry) {
         size_t ncount(AtomicIncrementQueueCount(&entry));
+        if (ncount > max_queue_len_)
+            max_queue_len_ = ncount;
         if (ncount < size_) {
             enqueues_++;
             ProcessHighWaterMarks(ncount);
@@ -609,6 +618,8 @@ private:
     mutable tbb::mutex water_mutex_;
     tbb::atomic<bool> hwater_mark_set_;
     tbb::atomic<bool> lwater_mark_set_;
+    uint32_t task_starts_;
+    uint32_t max_queue_len_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;
