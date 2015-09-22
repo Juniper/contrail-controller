@@ -244,6 +244,10 @@ public:
 
     bool arp_valid() const { return arp_valid_;}
     void set_arp_valid(bool valid) { arp_valid_ = valid;}
+
+    bool ecmp_suppressed() const { return ecmp_suppressed_;}
+    void set_ecmp_suppressed(bool suppresed) { ecmp_suppressed_ = suppresed;}
+
     bool CopyArpData();
     const IpAddress& GetFixedIp() const {
         return path_preference_.dependent_ip();
@@ -310,6 +314,9 @@ private:
     //Interface on which ARP would be resolved
     InterfaceConstRef arp_interface_;
     bool arp_valid_;
+    // set true if path was supposed to be ecmp, however ecmp was suppressed
+    // by taking only one of the nexthop from the path
+    bool ecmp_suppressed_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -385,6 +392,7 @@ private:
     //reference_path holds good if route request is inline i.e. via Process
     //and not via Enqueue.
     const AgentPath *reference_path_;
+    bool ecmp_suppressed_;
     DISALLOW_COPY_AND_ASSIGN(EvpnDerivedPathData);
 };
 

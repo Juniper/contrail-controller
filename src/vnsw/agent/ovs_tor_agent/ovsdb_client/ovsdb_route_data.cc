@@ -21,10 +21,10 @@ OvsdbRouteData::OvsdbRouteData(const Peer *peer, uint32_t vxlan_id,
                                const std::string &tor_vrf,
                                const std::string &dest_vn_name,
                                const SecurityGroupList &sg_list,
-                               bool ha_stale_export) :
+                               bool ha_stale_export, uint32_t sequence) :
     AgentRouteData(false), peer_(peer), vxlan_id_(vxlan_id), tor_ip_(tor_ip),
     tor_vrf_(tor_vrf), router_id_(router_id), dest_vn_name_(dest_vn_name),
-    sg_list_(sg_list), ha_stale_export_(ha_stale_export) {
+    sg_list_(sg_list), ha_stale_export_(ha_stale_export), sequence_(sequence) {
 }
 
 OvsdbRouteData::OvsdbRouteData(const Peer *peer) :
@@ -58,14 +58,15 @@ bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    PathPreference::Preference pref = PathPreference::LOW;
     // if it is a ha stale export check for path preference to be HA_STALE
     if (ha_stale_export_) {
-        PathPreference path_preference(0, PathPreference::HA_STALE,
-                                       false, false);
-        if (path->path_preference() != path_preference) {
-            path->set_path_preference(path_preference);
-            ret = true;
-        }
+        pref = PathPreference::HA_STALE;
+    }
+    PathPreference path_preference(sequence_, pref, false, false);
+    if (path->path_preference() != path_preference) {
+        path->set_path_preference(path_preference);
+        ret = true;
     }
 
     // Create Tunnel-NH first
