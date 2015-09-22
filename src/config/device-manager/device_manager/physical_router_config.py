@@ -145,7 +145,7 @@ class PhysicalRouterConfig(object):
      network_id : this is used for configuraing irb interfaces
     '''
     def add_routing_instance(self, ri_name, is_l2, is_l2_l3, import_targets, export_targets,
-                             prefixes=[], gateways=[], router_external=False, 
+                             prefixes=[], gateways=[], router_external=False,
                              interfaces=[], vni=None, fip_map=None, network_id=None):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
@@ -189,7 +189,7 @@ class PhysicalRouterConfig(object):
             if fip_map is None:
                 for interface in interfaces:
                     if_element = etree.SubElement(ri, "interface")
-                    etree.SubElement(if_element, "name").text = interface
+                    etree.SubElement(if_element, "name").text = interface.name
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
             auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
@@ -203,9 +203,9 @@ class PhysicalRouterConfig(object):
             static_config = etree.SubElement(ri_opt, "static")
             route_config = etree.SubElement(static_config, "route")
             etree.SubElement(route_config, "name").text = "0.0.0.0/0"
-            etree.SubElement(route_config, "next-hop").text = interfaces[0]
+            etree.SubElement(route_config, "next-hop").text = interfaces[0].name
             if_element = etree.SubElement(ri, "interface")
-            etree.SubElement(if_element, "name").text = interfaces[0]
+            etree.SubElement(if_element, "name").text = interfaces[0].name
             public_vrf_ips = {}
             for pip in fip_map.values():
                 if pip["vrf_name"] not in public_vrf_ips:
@@ -218,12 +218,12 @@ class PhysicalRouterConfig(object):
                 ri_opt = etree.SubElement(ri_public, "routing-options")
                 static_config = etree.SubElement(ri_opt, "static")
                 if_element = etree.SubElement(ri_public, "interface")
-                etree.SubElement(if_element, "name").text = interfaces[1]
+                etree.SubElement(if_element, "name").text = interfaces[1].name
 
                 for fip in fips:
                     route_config = etree.SubElement(static_config, "route")
                     etree.SubElement(route_config, "name").text = fip + "/32"
-                    etree.SubElement(route_config, "next-hop").text = interfaces[1]
+                    etree.SubElement(route_config, "next-hop").text = interfaces[1].name
 
         # add policies for export route targets
         ps = etree.SubElement(policy_config, "policy-statement")
@@ -331,7 +331,7 @@ class PhysicalRouterConfig(object):
             etree.SubElement(vxlan, "vni").text = str(vni)
             for interface in interfaces:
                 if_element = etree.SubElement(bd, "interface")
-                etree.SubElement(if_element, "name").text = interface
+                etree.SubElement(if_element, "name").text = interface.name
             if is_l2_l3:
                 etree.SubElement(bd, "routing-interface").text = "irb." + str(network_id) #network_id is unique, hence irb
             evpn_proto_config = etree.SubElement(ri, "protocols")
@@ -366,20 +366,8 @@ class PhysicalRouterConfig(object):
             etree.SubElement(addr, "primary")
             etree.SubElement(addr, "preferred")
 
-            for interface in interfaces:
-                intf = etree.SubElement(interfaces_config, "interface")
-                intfparts = interface.split(".")
-                etree.SubElement(intf, "name").text = intfparts[0] 
-                etree.SubElement(intf, "encapsulation").text = "ethernet-bridge" 
-                intf_unit = etree.SubElement(intf, "unit")
-                etree.SubElement(intf_unit, "name").text = intfparts[1]
-                family = etree.SubElement(intf_unit, "family")
-                etree.SubElement(family, "bridge")
+            self.build_l2_evpn_interface_config(interfaces_config, interfaces)
 
-            proto_config = self.proto_config or etree.Element("protocols")
-            mpls = etree.SubElement(proto_config, "mpls")
-            intf = etree.SubElement(mpls, "interface")
-            etree.SubElement(intf, "name").text = "all"
         #fip services config
         services_config = self.services_config
         if fip_map is not None:
@@ -394,8 +382,8 @@ class PhysicalRouterConfig(object):
             nat_rule = etree.SubElement(service_set, "nat-rules")
             etree.SubElement(nat_rule, "name").text = service_name + "-dn-rule"
             next_hop_service = etree.SubElement(service_set, "next-hop-service")
-            etree.SubElement(next_hop_service , "inside-service-interface").text = interfaces[0]
-            etree.SubElement(next_hop_service , "outside-service-interface").text = interfaces[1]
+            etree.SubElement(next_hop_service , "inside-service-interface").text = interfaces[0].name
+            etree.SubElement(next_hop_service , "outside-service-interface").text = interfaces[1].name
 
             nat = etree.SubElement(services_config, "nat")
             snat_rule = etree.SubElement(nat, "rule")
@@ -431,15 +419,14 @@ class PhysicalRouterConfig(object):
 
             interfaces_config = self.interfaces_config or etree.Element("interfaces")
             si_intf = etree.SubElement(interfaces_config, "interface")
-            intfparts = interfaces[0].split(".")
-            etree.SubElement(si_intf, "name").text = intfparts[0]
+            etree.SubElement(si_intf, "name").text = interfaces[0].ifd_name
             intf_unit = etree.SubElement(si_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = interfaces[0].split(".")[1]
+            etree.SubElement(intf_unit, "name").text = interfaces[0].unit
             family = etree.SubElement(intf_unit, "family")
             etree.SubElement(family, "inet")
             etree.SubElement(intf_unit, "service-domain").text = "inside"
             intf_unit = etree.SubElement(si_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = interfaces[1].split(".")[1]
+            etree.SubElement(intf_unit, "name").text = interfaces[1].unit
             family = etree.SubElement(intf_unit, "family")
             etree.SubElement(family, "inet")
             etree.SubElement(intf_unit, "service-domain").text = "outside"
@@ -453,6 +440,39 @@ class PhysicalRouterConfig(object):
         self.route_targets |= import_targets | export_targets
         self.ri_config = ri_config
     # end add_routing_instance
+
+    def build_l2_evpn_interface_config(self, interfaces_config, interfaces):
+        ifd_map = {}
+        for interface in interfaces:
+            ifd_map.setdefault(interface.ifd_name, []).append(interface)
+
+        for ifd_name, interface_list in ifd_map.items():
+            intf = etree.SubElement(interfaces_config, "interface")
+            etree.SubElement(intf, "name").text = ifd_name
+            if interface_list[0].is_untagged():
+                if (len(interface_list) > 1):
+                    self._logger.error("invalid logical interfaces config for ifd %s" % (ifd_name))
+                    continue
+                etree.SubElement(intf, "encapsulation").text = "ethernet-bridge"
+                intf_unit = etree.SubElement(intf, "unit")
+                etree.SubElement(intf_unit, "name").text = interface_list[0].unit
+                family = etree.SubElement(intf_unit, "family")
+                etree.SubElement(family, "bridge")
+            else:
+                etree.SubElement(intf, "flexible-vlan-tagging")
+                etree.SubElement(intf, "encapsulation").text = "flexible-ethernet-services"
+                for interface in interface_list:
+                    intf_unit = etree.SubElement(intf, "unit")
+                    etree.SubElement(intf_unit, "name").text = interface.unit
+                    etree.SubElement(intf_unit, "encapsulation").text = "vlan-bridge"
+                    etree.SubElement(intf_unit, "vlan-id").text = str(interface.vlan_tag)
+    #end build_l2_evpn_interface_config
+
+    def add_mpls_protocol(self):
+        proto_config = self.proto_config or etree.Element("protocols")
+        mpls = etree.SubElement(proto_config, "mpls")
+        intf = etree.SubElement(mpls, "interface")
+        etree.SubElement(intf, "name").text = "all"
 
     def set_global_routing_options(self, bgp_params):
         if bgp_params['address'] is not None:
