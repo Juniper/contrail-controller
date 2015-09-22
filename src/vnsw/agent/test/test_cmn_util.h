@@ -74,6 +74,7 @@ void AddNode(Agent *agent, const char *node_name, const char *name, int id,
 void DelNode(const char *node_name, const char *name);
 void DelNode(Agent *agent, const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
+void IntfCfgAddThrift(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
                 const string ip6addr, int project_id = kProjectUuid);
@@ -218,6 +219,8 @@ void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
 void AddVn(const char *name, int id, int vxlan_id, bool admin_state = true);
 void DelVn(const char *name);
+void AddPortWithMac(const char *name, int id, const char *mac,
+                    const char *attr);
 void AddPort(const char *name, int id, const char *attr = NULL);
 void AddPortByStatus(const char *name, int id, bool admin_status);
 void DelPort(const char *name);
