@@ -462,6 +462,12 @@ void AgentParam::ParseServiceInstance() {
 
 }
 
+void AgentParam::ParseFloodArp() {
+    if (!GetValueFromTree<bool>(flood_arp_, "DEFAULT.flood_arp_")) {
+        flood_arp_ = false;
+    }
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
@@ -599,6 +605,11 @@ void AgentParam::ParseServiceInstanceArguments
 
 }
 
+void AgentParam::ParseFloodArpArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, flood_arp_, "DEFAULT.flood_arp");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -641,6 +652,7 @@ void AgentParam::InitFromConfig() {
     ParseHeadlessMode();
     ParseSimulateEvpnTor();
     ParseServiceInstance();
+    ParseFloodArp();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -659,6 +671,7 @@ void AgentParam::InitFromArguments() {
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
+    ParseFloodArpArguments(var_map_);
     return;
 }
 
@@ -823,6 +836,7 @@ void AgentParam::LogConfig() const {
     if (simulate_evpn_tor_) {
         LOG(DEBUG, "Simulate EVPN TOR           : " << simulate_evpn_tor_);
     }
+    LOG(DEBUG, "Flood Arp                   : " << flood_arp_);
     LOG(DEBUG, "Service instance netns cmd  : " << si_netns_command_);
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
@@ -890,7 +904,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         headless_mode_(false), simulate_evpn_tor_(false),
         si_netns_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
-        vmware_mode_(ESXI_NEUTRON) {
+        vmware_mode_(ESXI_NEUTRON), flood_arp_(false) {
 
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));

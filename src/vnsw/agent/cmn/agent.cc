@@ -228,6 +228,7 @@ void Agent::CopyConfig(AgentParam *params) {
     simulate_evpn_tor_ = params->simulate_evpn_tor();
     debug_ = params_->debug();
     test_mode_ = params_->test_mode();
+    flood_arp_ = params_->flood_arp();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -363,7 +364,7 @@ Agent::Agent() :
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     connection_state_(NULL), debug_(false), test_mode_(false),
-    init_done_(false), simulate_evpn_tor_(false) {
+    init_done_(false), simulate_evpn_tor_(false), flood_arp_(false) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

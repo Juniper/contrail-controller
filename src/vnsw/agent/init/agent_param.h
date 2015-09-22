@@ -153,6 +153,8 @@ public:
     boost::program_options::options_description options() const {
         return options_;
     }
+    bool flood_arp() const {return flood_arp_;}
+
 protected:
     void set_mode(Mode m) { mode_ = m; }
     virtual void InitFromSystem();
@@ -204,6 +206,7 @@ private:
     void ParseHeadlessMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
+    void ParseFloodArp();
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -224,6 +227,8 @@ private:
     void ParseHeadlessModeArguments
         (const boost::program_options::variables_map &v);
     void ParseServiceInstanceArguments
+        (const boost::program_options::variables_map &v);
+    void ParseFloodArpArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -287,6 +292,7 @@ private:
     int si_netns_timeout_;
     std::string si_haproxy_ssl_cert_path_;
     VmwareMode vmware_mode_;
+    bool flood_arp_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
