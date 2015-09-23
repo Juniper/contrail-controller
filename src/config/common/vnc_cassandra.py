@@ -544,13 +544,12 @@ class VncCassandraClient(object):
             obj_uuid_cf = self._obj_uuid_cf
             col_start = 'children:%s:' %(obj_type)
             col_fin = 'children:%s;' %(obj_type)
-            try:
-                obj_rows = obj_uuid_cf.multiget(parent_uuids,
-                                       column_start=col_start,
-                                       column_finish=col_fin,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-            except pycassa.NotFoundException:
+            obj_rows = obj_uuid_cf.multiget(parent_uuids,
+                                   column_start=col_start,
+                                   column_finish=col_fin,
+                                   column_count=self._MAX_COL,
+                                   include_timestamp=True)
+            if not obj_rows:
                 if count:
                     return (True, 0)
                 else:
@@ -593,13 +592,12 @@ class VncCassandraClient(object):
             obj_uuid_cf = self._obj_uuid_cf
             col_start = 'backref:%s:' %(obj_type)
             col_fin = 'backref:%s;' %(obj_type)
-            try:
-                obj_rows = obj_uuid_cf.multiget(back_ref_uuids,
-                                       column_start=col_start,
-                                       column_finish=col_fin,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-            except pycassa.NotFoundException:
+            obj_rows = obj_uuid_cf.multiget(back_ref_uuids,
+                                   column_start=col_start,
+                                   column_finish=col_fin,
+                                   column_count=self._MAX_COL,
+                                   include_timestamp=True)
+            if not obj_rows:
                 if count:
                     return (True, 0)
                 else:
@@ -662,7 +660,7 @@ class VncCassandraClient(object):
                 obj_fq_name_cf = self._obj_fq_name_cf
                 try:
                     cols = obj_fq_name_cf.get('%s' %(obj_type),
-                        column_count=self._MAX_COL)
+                                              column_count=self._MAX_COL)
                 except pycassa.NotFoundException:
                     if count:
                         return (True, 0)
@@ -799,14 +797,11 @@ class VncCassandraClient(object):
         fq_name_str = ':'.join(fq_name)
         col_start = '%s:' % (utils.encode_string(fq_name_str))
         col_fin = '%s;' % (utils.encode_string(fq_name_str))
-        try:
-            col_info_iter = self._obj_fq_name_cf.xget(
-                method_name, column_start=col_start, column_finish=col_fin)
-        except pycassa.NotFoundException:
-            raise NoIdError('%s %s' % (obj_type, fq_name))
+        col_info_iter = self._obj_fq_name_cf.xget(method_name,
+                                                  column_start=col_start,
+                                                  column_finish=col_fin)
 
         col_infos = list(col_info_iter)
-
         if len(col_infos) == 0:
             raise NoIdError('%s %s' % (obj_type, fq_name))
 

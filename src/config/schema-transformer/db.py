@@ -173,11 +173,8 @@ class SchemaTransformerDB(VncCassandraClient):
         self._rt_allocator.delete(rtgt)
 
     def free_route_target(self, ri_fq_name):
-        try:
-            rtgt = self.get_route_target(ri_fq_name)
-            self._rt_cf.remove(ri_fq_name)
-        except NotFoundException:
-            pass
+        rtgt = self.get_route_target(ri_fq_name)
+        self._rt_cf.remove(ri_fq_name)
         self._rt_allocator.delete(rtgt)
     # end free_route_target
 
@@ -191,25 +188,16 @@ class SchemaTransformerDB(VncCassandraClient):
         self._sc_ip_cf.insert(sc_name, {'ip_address': ip})
 
     def remove_service_chain_ip(self, sc_name):
-        try:
-            self._sc_ip_cf.remove(sc_name)
-        except NotFoundException:
-            pass
+        self._sc_ip_cf.remove(sc_name)
 
     def list_service_chain_uuid(self):
-        try:
-            return self._service_chain_uuid_cf.get_range()
-        except NotFoundException:
-            return []
+        return self._service_chain_uuid_cf.get_range()
 
     def add_service_chain_uuid(self, name, value):
         self._service_chain_uuid_cf.insert(name, {'value': value})
 
     def remove_service_chain_uuid(self, name):
-        try:
-            self._service_chain_uuid_cf.remove(name)
-        except NotFoundException:
-            pass
+        self._service_chain_uuid_cf.remove(name)
 
     def get_sg_from_id(self, sg_id):
         return self._sg_id_allocator.read(sg_id)
