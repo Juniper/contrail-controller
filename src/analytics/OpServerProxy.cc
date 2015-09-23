@@ -546,10 +546,14 @@ class OpServerProxy::OpServerImpl {
             return true;
         }
 
-        ~OpServerImpl() {
+        void Shutdown() {
             TimerManager::DeleteTimer(kafka_timer_);
             kafka_timer_ = NULL;
             StopKafka();
+        }
+
+        ~OpServerImpl() {
+            assert(kafka_timer_ == NULL);
         }
 
         RedisInfo redis_uve_;
@@ -589,6 +593,13 @@ OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
 OpServerProxy::~OpServerProxy() {
     if (impl_)
         delete impl_;
+}
+
+void
+OpServerProxy::Shutdown() {
+    if (impl_) {
+        impl_->Shutdown();
+    }
 }
 
 bool

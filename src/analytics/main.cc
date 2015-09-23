@@ -186,8 +186,11 @@ static void ShutdownServers(VizCollector *viz_collector,
 
     viz_collector->Shutdown();
 
-    TimerManager::DeleteTimer(collector_info_log_timer);
-    delete collector_info_trigger;
+    if (collector_info_log_timer) {
+        TimerManager::DeleteTimer(collector_info_log_timer);
+        delete collector_info_trigger;
+        collector_info_log_timer = NULL;
+    }
 
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Shutdown();
@@ -356,13 +359,19 @@ int main(int argc, char *argv[])
     unsigned short coll_port = analytics.GetCollector()->GetPort();
     VizSandeshContext vsc(&analytics);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
-    Sandesh::InitCollector(
+    bool success(Sandesh::InitCollector(
             module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             instance_id,
             a_evm, "127.0.0.1", coll_port,
-            options.http_server_port(), &vsc);
+            options.http_server_port(), &vsc));
+    if (!success) {
+        LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+        ShutdownServers(&analytics, NULL);
+        delete a_evm;
+        exit(1);
+    }
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());

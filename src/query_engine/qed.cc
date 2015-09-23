@@ -120,6 +120,23 @@ static bool OptionsParse(Options &options, EventManager &evm,
     return false;
 }
 
+static void ShutdownQe(DiscoveryServiceClient *ds_client,
+    Timer *qe_info_log_timer) {
+    if (ds_client) {
+        ds_client->Shutdown();
+        delete ds_client;
+    }
+    if (qe_info_log_timer) {
+        qe_info_log_timer->Cancel();
+        TimerManager::DeleteTimer(qe_info_log_timer);
+    }
+    WaitForIdle();
+    Sandesh::Uninit();
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Shutdown();
+    WaitForIdle();
+}
+
 int
 main(int argc, char *argv[]) {
     EventManager evm;
@@ -208,7 +225,7 @@ main(int argc, char *argv[]) {
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
-    Sandesh::InitGenerator(
+    bool success(Sandesh::InitGenerator(
             module_name,
             options.hostname(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
@@ -217,7 +234,13 @@ main(int argc, char *argv[]) {
             options.http_server_port(),
             csf,
             options.collector_server_list(),
-            NULL);
+            NULL));
+    if (!success) {
+        LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+        ShutdownQe(ds_client, NULL);
+        exit(1);
+    }
+
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
@@ -249,9 +272,9 @@ main(int argc, char *argv[]) {
          ostream_iterator<string>(css, " "));
     LOG(INFO, "Cassandra Servers: " << css.str());
 
-    QueryEngine *qe;
+    boost::scoped_ptr<QueryEngine> qe;
     if (cassandra_ports.size() == 1 && cassandra_ports[0] == 0) {
-        qe = new QueryEngine(&evm,
+        qe.reset(new QueryEngine(&evm,
             options.redis_server(),
             options.redis_port(),
             options.redis_password(),
@@ -259,9 +282,9 @@ main(int argc, char *argv[]) {
             options.max_slice(),
             options.analytics_data_ttl(),
             options.cassandra_user(),
-            options.cassandra_password());
+            options.cassandra_password()));
     } else {
-        qe = new QueryEngine(&evm,
+        qe.reset(new QueryEngine(&evm,
             cassandra_ips,
             cassandra_ports,
             options.redis_server(),
@@ -272,9 +295,8 @@ main(int argc, char *argv[]) {
             options.analytics_data_ttl(),
             options.cassandra_user(),
             options.cassandra_password(),
-            options.start_time());
+            options.start_time()));
     }
-    (void) qe;
 
     CpuLoadData::Init();
     qe_info_trigger =
@@ -286,17 +308,6 @@ main(int argc, char *argv[]) {
     signal(SIGTERM, terminate_qe);
     evm.Run();
 
-    if (ds_client) {
-        ds_client->Shutdown();
-        delete ds_client;
-    }
-    qe_info_log_timer->Cancel();
-    TimerManager::DeleteTimer(qe_info_log_timer);
-    WaitForIdle();
-    delete qe;
-    Sandesh::Uninit();
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Shutdown();
-    WaitForIdle();
+    ShutdownQe(ds_client, qe_info_log_timer);
     return 0;
 }
