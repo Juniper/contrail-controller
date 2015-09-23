@@ -64,15 +64,19 @@ class UVEServer(object):
                     r_ip+":"+str(r_port), ConnectionStatus.INIT)
         # Exercise redis connections to update health
         if len(newlist):
-            self.get_uve_list("ObjectCollectorInfo")
+            self.get_uve("ObjectCollectorInfo:__NONE__", True, None)
 
     # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
         redis_uve_info.ip = self._local_redis_uve[0]
         redis_uve_info.port = self._local_redis_uve[1]
+        redish =  redis.StrictRedis(self._local_redis_uve[0],
+                                    self._local_redis_uve[1],
+                                    password=self._redis_password,
+                                    db=1)
         try:
-            self._redis.ping()
+            redish.ping()
         except redis.exceptions.ConnectionError:
             redis_uve_info.status = 'DisConnected'
         else:
@@ -215,13 +219,17 @@ class UVEServer(object):
 	    ConnectionState.update(ConnectionType.REDIS_UVE,
 		r_ip + ":" + str(r_port), ConnectionStatus.DOWN)
  
-    def get_uve(self, key, flat, filters=None, is_alarm=False, base_url=None):
+    def get_uve(self, key, flat, filters=None, base_url=None):
 
         filters = filters or {}
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')
+
+        is_alarm = False
+        if tfilter == "UVEAlarms": 
+            is_alarm = True
 
         if flat and not sfilter and not mfilter and self._uvedbcache:
             return self._uvedbcache.get_uve(key, filters, is_alarm)
@@ -350,13 +358,13 @@ class UVEServer(object):
         return re.compile(regex)
     # end get_uve_regex
 
-    def multi_uve_get(self, table, flat, filters=None, is_alarm=False, base_url=None):
+    def multi_uve_get(self, table, flat, filters=None, base_url=None):
         # get_uve_list cannot handle attribute names very efficiently,
         # so we don't pass them here
-        uve_list = self.get_uve_list(table, filters, False, is_alarm)
+        uve_list = self.get_uve_list(table, filters, False)
         for uve_name in uve_list:
             _,uve_val = self.get_uve(
-                table + ':' + uve_name, flat, filters, is_alarm, base_url)
+                table + ':' + uve_name, flat, filters,  base_url)
             if uve_val == {}:
                 continue
             else:
@@ -364,9 +372,12 @@ class UVEServer(object):
                 yield uve
     # end multi_uve_get
 
-    def get_uve_list(self, table, filters=None, parse_afilter=False,
-                     is_alarm=False):
+    def get_uve_list(self, table, filters=None, parse_afilter=False):
+        is_alarm = False
         filters = filters or {}
+        tfilter = filters.get('cfilt')
+        if tfilter == "UVEAlarms": 
+            is_alarm = True
         uve_list = set()
         kfilter = filters.get('kfilt')
         if kfilter is not None:

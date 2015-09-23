@@ -2292,11 +2292,13 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=1, tries=5)
     def verify_alarm_list_include(self, table, filts=None, expected_alarms=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(filts)
+        yfilts = filts or {}
+        yfilts['cfilt'] = ["UVEAlarms"] 
+        filters = self._get_filters_string(yfilts)
         query = table+'s?'+filters
         self.logger.info('verify_alarm_list: %s' % (query))
         try:
-            alarms = vns.get_alarms(query)
+            alarms = vns.uve_query(query)
         except Exception as err:
             self.logger.error('Failed to get response for %s: %s' % \
                               (query, str(err)))
@@ -2313,11 +2315,13 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=1, tries=5)
     def verify_alarm_list_exclude(self, table, filts=None, unexpected_alms=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(filts)
+        yfilts = filts or {}
+        yfilts['cfilt'] = ["UVEAlarms"]
+        filters = self._get_filters_string(yfilts)
         query = table+'s?'+filters
         self.logger.info('verify_alarm_list: %s' % (query))
         try:
-            alarms = vns.get_alarms(query)
+            alarms = vns.uve_query(query)
         except Exception as err:
             self.logger.error('Failed to get response for %s: %s' % \
                               (query, str(err)))
@@ -2349,42 +2353,11 @@ class AnalyticsFixture(fixtures.Fixture):
     # end _verify_alarms
 
     @retry(delay=1, tries=3)
-    def verify_multi_alarm_get(self, table, filts, exp_alarms=None):
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(filts)
-        if not filters:
-            filters = 'flat'
-        query = table+'/*?'+filters
-        self.logger.info('verify_multi_alarm_get: %s' % (query))
-        try:
-            actual_alarms = vns.get_alarms(query)
-        except Exception as err:
-            self.logger.error('Failed to get response for %s: %s' % \
-                              (query, str(err)))
-            assert(False)
-        return self._verify_alarms(exp_alarms, actual_alarms)
-    # end verify_multi_alarm_get
-
-    @retry(delay=1, tries=3)
-    def verify_alarm_post(self, table, filts, exp_alarms=None):
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filter_json = self._get_filters_json(filts)
-        self.logger.info('verify_alarm_post: %s: %s' % (table, filter_json))
-        try:
-            actual_alarms = vns.post_alarm_request(table, filter_json)
-        except Exception as err:
-            self.logger.error('Failed to get response for Alarm POST request'
-                              '%s: %s' % (table, str(err)))
-            assert(False)
-        return self._verify_alarms(exp_alarms, actual_alarms)
-    # end verify_alarm_post
-
-    @retry(delay=1, tries=3)
     def verify_alarm(self, table, key, expected_alarm):
         self.logger.info('verify_alarm: %s:%s' % (table, key))
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         try:
-            alarm = vns.get_alarms(table+'/'+key+'?flat')
+            alarm = vns.uve_query(table+'/'+key+'?cfilt=UVEAlarms')
         except Exception as err:
             self.logger.error('Failed to get alarm %s:%s: %s' % \
                               (table, key, str(err)))
