@@ -30,9 +30,8 @@ kafka_src = ''
 def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     if not os.path.exists(kafka_bdir):
         output,_ = call_command_("mkdir " + kafka_bdir)
-    kafka_download = 'wget -P ' + kafka_bdir + ' http://download.nextag.com/apache/kafka/0.8.2.0/kafka_2.9.2-0.8.2.0.tgz'
-
-    if not os.path.exists(kafka_bdir+'/kafka_2.9.2-0.8.2.0.tgz'):
+    kafka_download = 'wget -P ' + kafka_bdir + ' https://launchpad.net/~opencontrail/+archive/ubuntu/ppa/+files/kafka_2.9.2-0.8.2.0.orig.tar.gz'
+    if not os.path.exists(kafka_bdir+'/kafka_2.9.2-0.8.2.0.orig.tar.gz'):
         process = subprocess.Popen(kafka_download.split(' '))
         process.wait()
         if process.returncode is not 0:
@@ -45,7 +44,7 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     output,_ = call_command_("mkdir " + kafkabase)
 
     logging.info('Installing kafka in ' + kafkabase)
-    os.system("cat " + kafka_bdir+'/kafka_2.9.2-0.8.2.0.tgz' + " | tar -xpzf - -C " + kafkabase)
+    os.system("cat " + kafka_bdir+'/kafka_2.9.2-0.8.2.0.orig.tar.gz' + " | tar -xpzf - -C " + kafkabase)
 
     logging.info('kafka Port %d' % broker_listen_port)
  
