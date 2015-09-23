@@ -430,7 +430,8 @@ class EventManager:
             cmd = "cat /var/lib/ceph/osd/" + arr[linecount] + "/active"
             is_active = self.call_subprocess(cmd)
             if is_active is None:
-                return
+                linecount = linecount + 1
+                continue
             #instantiate osd and its state
             cs_osd = ComputeStorageOsd()
             cs_osd_state = ComputeStorageOsdState()
@@ -455,11 +456,12 @@ class EventManager:
                 cs_osd_state.status = "active"
                 num = arr[linecount].split('-')[1]
                 uuid = self.exec_local('ceph --admin-daemon \
-                            /var/run/ceph/ceph-osd.%s.asok status | \
-                            grep osd_fsid | awk \'{print $2}\' | \
+                            /var/run/ceph/ceph-osd.%s.asok status 2>/dev/null | \
+                            grep osd_fsid  | awk \'{print $2}\' | \
                             cut -d \'"\' -f 2' %(num))
                 if uuid is '':
-                    return
+                    linecount = linecount + 1
+                    continue
                 cs_osd.uuid = uuid.rstrip("\n")
                 osd_prev_stats = self.dict_of_osds.get(
                     cs_osd.uuid)
@@ -477,12 +479,14 @@ class EventManager:
                                                         temp_osd_stats,
                                                         osd_prev_stats)
                     if rval == False:
-                        return
+                        linecount = linecount + 1
+                        continue
                     rval = self.populate_osd_latency_stats(osd_name,
                                                            osd_stats,
                                                            prev_osd_latency)
                 if rval == False:
-                    return
+                    linecount = linecount + 1
+                    continue
             else:
                 cs_osd_state.status = "inactive"
             if no_prev_osd == 0:
@@ -634,7 +638,7 @@ class EventManager:
                 cmd = "cat /sys/block/"+ arr1[0] +"/stat"
                 res = self.call_subprocess(cmd)
                 if res is None:
-                    return
+                    continue
                 arr = re.sub('\s+', ' ', res).strip().split()
                 disk_stats.reads = int(arr[0])
                 disk_stats.writes = int(arr[4])
