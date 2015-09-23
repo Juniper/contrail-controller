@@ -68,6 +68,7 @@ class SchemaTransformer(object):
             'logical_router': ['virtual_network'],
             'instance_ip': ['virtual_machine'],
             'floating_ip': ['virtual_machine'],
+            'virtual_machine': [],
         },
         'virtual_network': {
             'self': ['network_policy'],
@@ -79,15 +80,15 @@ class SchemaTransformer(object):
         'virtual_machine': {
             'self': ['service_instance'],
             'virtual_machine_interface': ['service_instance'],
-            'service_instance': []
+            'service_instance': ['virtual_machine_interface']
         },
         'service_instance': {
             'self': ['network_policy'],
             'virtual_machine': ['network_policy'],
-            'network_policy': []
+            'network_policy': ['virtual_machine']
         },
         'network_policy': {
-            'self': ['virtual_network', 'network_policy'],
+            'self': ['virtual_network', 'network_policy', 'service_instance'],
             'service_instance': ['virtual_network'],
             'network_policy': ['virtual_network'],
             'virtual_network': ['virtual_network', 'network_policy']
