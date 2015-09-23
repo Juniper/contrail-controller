@@ -539,7 +539,7 @@ class OpServer(object):
                 self._state_server.update_redis_list(self.redis_uve_list)
                 self._uve_server.update_redis_uve_list(self.redis_uve_list)
 
-        self._analytics_links = ['uves', 'alarms', 'tables', 'queries']
+        self._analytics_links = ['uves', 'tables', 'queries', 'alarm-types']
 
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
@@ -635,7 +635,6 @@ class OpServer(object):
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', self.uves_http_get)
-        bottle.route('/analytics/alarms', 'GET', self.alarms_http_get)
         bottle.route('/analytics/alarms/acknowledge', 'POST',
             self.alarms_ack_http_post)
         bottle.route('/analytics/query', 'POST', self.query_process)
@@ -664,46 +663,16 @@ class OpServer(object):
                      'GET', self.documentation_http_get)
         bottle.route('/analytics/uve-stream', 'GET', self.uve_stream)
 
-        bottle.route('/analytics/<uvealarm>/<tables>', 'GET', self.dyn_list_http_get)
-        bottle.route('/analytics/<uvealarm>/<table>/<name:path>', 'GET', self.dyn_http_get)
-        bottle.route('/analytics/<uvealarm>/<tables>', 'POST', self.dyn_http_post)
-        bottle.route('/analytics/alarms/<tables>/types', 'GET', self._uve_alarm_http_types)
+        bottle.route('/analytics/uves/<tables>', 'GET', self.dyn_list_http_get)
+        bottle.route('/analytics/uves/<table>/<name:path>', 'GET', self.dyn_http_get)
+        bottle.route('/analytics/uves/<tables>', 'POST', self.dyn_http_post)
+        bottle.route('/analytics/alarm-types', 'GET', self.uve_alarm_http_types)
 
         # start gevent to monitor disk usage and automatically purge
         if (self._args.auto_db_purge):
             self.gevs.append(gevent.spawn(self._auto_purge))
 
     # end __init__
-
-    def dyn_http_get(self, uvealarm, table, name):
-        is_alarm = None
-        if uvealarm == "uves":
-            is_alarm = False
-        elif uvealarm == "alarms":
-            is_alarm = True
-        else:
-            return {}
-        return self._uve_alarm_http_get(table, name, is_alarm)
-
-    def dyn_list_http_get(self, uvealarm, tables):
-        is_alarm = None
-        if uvealarm == "uves":
-            is_alarm = False
-        elif uvealarm == "alarms":
-            is_alarm = True
-        else:
-            return []
-        return self._uve_alarm_list_http_get(is_alarm)
-
-    def dyn_http_post(self, uvealarm, tables):
-        is_alarm = None
-        if uvealarm == "uves":
-            is_alarm = False
-        elif uvealarm == "alarms":
-            is_alarm = True
-        else:
-            return {}
-        return self._uve_alarm_http_post(is_alarm)
 
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
         '''
@@ -723,7 +692,7 @@ class OpServer(object):
                                --use_syslog
                                --syslog_facility LOG_USER
                                --worker_id 0
-                               --partitions 5
+                               --partitions 15
                                --redis_uve_list 127.0.0.1:6379
                                --auto_db_purge
         '''
@@ -1407,14 +1376,14 @@ class OpServer(object):
         return filters
     # end _uve_http_post_filter_set
 
-    def _uve_alarm_http_post(self, is_alarm):
+    def dyn_http_post(self, tables):
         (ok, result) = self._post_common(bottle.request, None)
         base_url = bottle.request.urlparts.scheme + \
             '://' + bottle.request.urlparts.netloc
         if not ok:
             (code, msg) = result
             abort(code, msg)
-        uve_type = bottle.request.url.rsplit('/', 1)[1]
+        uve_type = tables
         uve_tbl = uve_type
         if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
@@ -1434,7 +1403,6 @@ class OpServer(object):
                 if key.find('*') != -1:
                     for gen in self._uve_server.multi_uve_get(uve_tbl, True,
                                                               filters,
-                                                              is_alarm,
                                                               base_url):
                         if first:
                             yield u'' + json.dumps(gen)
@@ -1450,7 +1418,6 @@ class OpServer(object):
             for key in filters['kfilt']:
                 uve_name = uve_tbl + ':' + key
                 _, rsp = self._uve_server.get_uve(uve_name, True, filters,
-                                               is_alarm=is_alarm,
                                                base_url=base_url)
                 num += 1
                 if rsp != {}:
@@ -1465,7 +1432,7 @@ class OpServer(object):
             yield u']}'
     # end _uve_alarm_http_post
 
-    def _uve_alarm_http_get(self, uve_type, name, is_alarm):
+    def dyn_http_get(self, table, name):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         base_url = bottle.request.urlparts.scheme + \
@@ -1473,9 +1440,9 @@ class OpServer(object):
         if not ok:
             (code, msg) = result
             abort(code, msg)
-        uve_tbl = uve_type
-        if uve_type in UVE_MAP:
-            uve_tbl = UVE_MAP[uve_type]
+        uve_tbl = table 
+        if table in UVE_MAP:
+            uve_tbl = UVE_MAP[table]
 
         bottle.response.set_header('Content-Type', 'application/json')
         uve_name = uve_tbl + ':' + name
@@ -1488,7 +1455,7 @@ class OpServer(object):
         if 'flat' in req.keys() or any(filters.values()):
             flat = True
 
-        stats = AnalyticsApiStatistics(self._sandesh, uve_type)
+        stats = AnalyticsApiStatistics(self._sandesh, table)
 
         uve_name = uve_tbl + ':' + name
         if name.find('*') != -1:
@@ -1499,7 +1466,7 @@ class OpServer(object):
                 filters['kfilt'] = [name]
             num = 0
             for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
-                                                      filters, is_alarm, base_url):
+                                                      filters, base_url):
                 if first:
                     yield u'' + json.dumps(gen)
                     first = False
@@ -1511,33 +1478,31 @@ class OpServer(object):
             yield u']}'
         else:
             _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
-                                           is_alarm=is_alarm,
                                            base_url=base_url)
             stats.collect(1)
             stats.sendwith()
             yield json.dumps(rsp)
-    # end _uve_alarm_http_get
+    # end dyn_http_get
 
-    def _uve_alarm_http_types(self):
+    def uve_alarm_http_types(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
             abort(code, msg)
-        arg_line = bottle.request.url.rsplit('/', 2)[1]
-        uve_type = arg_line[:-1]
 
         bottle.response.set_header('Content-Type', 'application/json')
-        ret = None
-        try:
-            uve_tbl = UVE_MAP[uve_type]
-            ret = self._ALARM_TYPES[uve_tbl] 
-        except Exception as e:
-            return {}
-        else:
-            return json.dumps(ret)
+        ret = {}
+        known = set()
+        for apiname,rawname in UVE_MAP.iteritems():
+            known.add(rawname)
+            ret[apiname] = self._ALARM_TYPES[rawname]
+        for aname, avalue in self._ALARM_TYPES.iteritems():
+            if not aname in known:
+                ret[aname] = avalue
+        return json.dumps(ret)
 
-    def _uve_alarm_list_http_get(self, is_alarm):
+    def dyn_list_http_get(self, tables):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -1545,7 +1510,7 @@ class OpServer(object):
             abort(code, msg)
         arg_line = bottle.request.url.rsplit('/', 1)[1]
         uve_args = arg_line.split('?')
-        uve_type = uve_args[0][:-1]
+        uve_type = tables[:-1]
         if len(uve_args) != 1:
             uve_filters = ''
             filters = uve_args[1].split('&')
@@ -1559,28 +1524,27 @@ class OpServer(object):
             uve_filters = 'flat'
 
         bottle.response.set_header('Content-Type', 'application/json')
-        try:
+        uve_tbl = uve_type
+        if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
+
+        req = bottle.request.query
+        try:
+            filters = OpServer._uve_filter_set(req)
         except Exception as e:
-            return {}
+            return bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
         else:
-            req = bottle.request.query
-            try:
-                filters = OpServer._uve_filter_set(req)
-            except Exception as e:
-                return bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
             uve_list = self._uve_server.get_uve_list(
-                uve_tbl, filters, True, is_alarm)
-            uve_or_alarm = 'alarms' if is_alarm else 'uves'
+                uve_tbl, filters, True)
             base_url = bottle.request.urlparts.scheme + '://' + \
                 bottle.request.urlparts.netloc + \
-                '/analytics/%s/%s/' % (uve_or_alarm, uve_type)
+                '/analytics/uves/%s/' % (uve_type)
             uve_links =\
                 [obj_to_dict(LinkObject(uve,
                                         base_url + uve + "?" + uve_filters))
                  for uve in uve_list]
             return json.dumps(uve_links)
-    # end _uve_alarm_list_http_get
+    # end dyn_list_http_get
 
     def analytics_http_get(self):
         # common handling for all resource get
@@ -1597,35 +1561,24 @@ class OpServer(object):
         return json.dumps(analytics_links)
     # end analytics_http_get
 
-    def _uves_alarms_http_get(self, is_alarm):
+    def uves_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
             abort(code, msg)
 
-        uve_or_alarm = 'alarms' if is_alarm else 'uves'
         base_url = bottle.request.urlparts.scheme + '://' + \
-            bottle.request.urlparts.netloc + '/analytics/%s/' % (uve_or_alarm)
+            bottle.request.urlparts.netloc + '/analytics/uves/'
         uvetype_links = []
         for uvetype in UVE_MAP:
             entry = obj_to_dict(LinkObject(uvetype + 's',
                                 base_url + uvetype + 's'))
-            if is_alarm:
-                entry['type'] = base_url + uvetype + 's/types'
             uvetype_links.append(entry)
             
         bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(uvetype_links)
     # end _uves_alarms_http_get
-
-    def uves_http_get(self):
-        return self._uves_alarms_http_get(is_alarm=False)
-    # end uves_http_get
-
-    def alarms_http_get(self):
-        return self._uves_alarms_http_get(is_alarm=True)
-    # end alarms_http_get
 
     def alarms_ack_http_post(self):
         self._post_common(bottle.request, None)
