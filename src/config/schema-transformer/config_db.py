@@ -1789,7 +1789,10 @@ class RoutingInstanceST(DBBaseST):
                 vmi_obj.del_routing_instance(self.obj)
                 DBBaseST._vnc_lib.virtual_machine_interface_update(vmi_obj)
             # end for vmi
+        except NoIdError:
+            pass
 
+        try:
             DBBaseST._vnc_lib.routing_instance_delete(id=self.obj.uuid)
         except NoIdError:
             pass
@@ -2399,14 +2402,6 @@ class VirtualMachineInterfaceST(DBBaseST):
     def get_service_interfaces(cls):
         return cls._service_vmi_list
 
-    def add_instance_ip(self, ip_name):
-        self.instance_ips.add(ip_name)
-    # end add_instance_ip
-
-    def delete_instance_ip(self, ip_name):
-        self.instance_ips.discard(ip_name)
-    # end delete_instance_ip
-
     def get_any_instance_ip_address(self):
         for ip_name in self.instance_ips:
             ip = InstanceIpST.get(ip_name)
@@ -2414,14 +2409,6 @@ class VirtualMachineInterfaceST(DBBaseST):
                 return ip.address
         return None
     # end get_any_instance_ip_address
-
-    def add_floating_ip(self, ip_name):
-        self.floating_ips.add(ip_name)
-    # end add_floating_ip
-
-    def delete_floating_ip(self, ip_name):
-        self.floating_ips.discard(ip_name)
-    # end delete_floating_ip
 
     def set_service_interface_type(self, service_interface_type):
         if self.service_interface_type == service_interface_type:
@@ -2435,17 +2422,6 @@ class VirtualMachineInterfaceST(DBBaseST):
     def set_interface_mirror(self, interface_mirror):
         self.interface_mirror = interface_mirror
     # end set_interface_mirror
-
-    def set_virtual_machine(self, virtual_machine):
-        if self.virtual_machine == virtual_machine:
-            return
-        self.virtual_machine = virtual_machine
-        if virtual_machine:
-            vm = VirtualMachineST.get(virtual_machine)
-            if vm:
-                vm.add_interface(self.name)
-        self._add_pbf_rules()
-    # end set_virtual_machine
 
     def _add_pbf_rules(self):
         if (not self.virtual_machine or
@@ -2489,7 +2465,7 @@ class VirtualMachineInterfaceST(DBBaseST):
 
         for lr in LogicalRouterST.values():
             if self.name in lr.virtual_machine_interfaces:
-                lr.add_interface(self.name)
+                lr.update_virtual_networks()
     # end set_virtual_network
 
     def process_analyzer(self):
@@ -2667,14 +2643,6 @@ class VirtualMachineST(DBBaseST):
         self.update_single_ref('service_instance', {})
     # end delete_obj
 
-    def add_interface(self, interface):
-        self.virtual_machine_interfaces.add(interface)
-    # end add_interface
-
-    def delete_interface(self, interface):
-        self.virtual_machine_interfaces.discard(interface)
-    # end delete_interface
-
     def get_service_mode(self):
         if self.service_instance is None:
             return None
@@ -2747,16 +2715,6 @@ class LogicalRouterST(DBBaseST):
             return
         self.set_virtual_networks(vn_set)
     # end update_virtual_netwokrs
-
-    def add_interface(self, intf_name):
-        self.virtual_machine_interfaces.add(intf_name)
-        self.update_virtual_networks()
-    # end add_interface
-
-    def delete_interface(self, intf_name):
-        self.virtual_machine_interfaces.discard(intf_name)
-        self.update_virtual_networks()
-    # end delete_interface
 
     def set_virtual_networks(self, vn_set):
         for vn in self.virtual_networks - vn_set:
@@ -2904,20 +2862,17 @@ class ServiceInstanceST(DBBaseST):
     # add_properties
 
     def delete_properties(self):
-        networks = set()
         policy_name = '_internal_' + self.name
         policy = NetworkPolicyST.get(policy_name)
         if policy is None:
-            return networks
+            return
         for vn_name in policy.virtual_networks:
             vn = VirtualNetworkST.get(vn_name)
             if vn is None:
                 continue
             del vn.network_policys[policy_name]
-            networks.add(vn_name)
         # end for vn_name
         NetworkPolicyST.delete(policy_name)
-        return networks
     # end delete_properties
 
     def delete_obj(self):
