@@ -221,7 +221,7 @@ bool AgentUtXmlTest::ReadXml() {
             AgentUtXmlTestCase *test = new AgentUtXmlTestCase(attr.value(),
                                                               node, this);
             attr = node.attribute("verbose");
-            bool verbose;
+            bool verbose = false;
             if (!attr) {
                 verbose = false;
             } else {

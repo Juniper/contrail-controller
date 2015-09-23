@@ -134,7 +134,7 @@ NHKSyncEntry *VrfAssignKSyncEntry::nh() const {
 
 int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_vrf_assign_req encoder;
-    int encode_len, error;
+    int encode_len;
     InterfaceKSyncEntry *intf = interface();
 
     encoder.set_h_op(op);
@@ -142,7 +142,10 @@ int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_var_vlan_id(vlan_tag_);
     encoder.set_var_vif_vrf(vrf_id_);
     encoder.set_var_nh_id(nh()->nh_id());
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     LOG(DEBUG, "VRF Assign for Interface <" << intf->interface_name() << 
         "> Tag <" << vlan_tag() << "> Vrf <" << vrf_id_ << ">");
     return encode_len;

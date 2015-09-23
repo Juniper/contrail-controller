@@ -23,6 +23,7 @@ class NHKSyncObject;
 
 class NHKSyncEntry : public KSyncNetlinkDBEntry {
 public:
+    static const int kDefaultNhMsgSize = 4096;
     NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry, 
                  uint32_t index);
     NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh);
@@ -46,6 +47,8 @@ public:
     uint32_t nh_id() const { return nh_id_;}
     void SetEncap(InterfaceKSyncEntry *if_ksync, std::vector<int8_t> &encap);
     bool is_bridge() const { return is_bridge_; }
+
+    int MsgLen() { return kDefaultNhMsgSize; }
 private:
     class KSyncComponentNH {
     public:

@@ -33,11 +33,11 @@
 // KSyncNetlinkEntry routines
 ///////////////////////////////////////////////////////////////////////////////
 bool KSyncNetlinkEntry::Add() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
     Sync();
-    msg_len = AddMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    int len = MsgLen();
+    char *msg = (char *)malloc(len);
+    int  msg_len = AddMsg(msg, len);
+    assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);
         return true;
@@ -48,15 +48,14 @@ bool KSyncNetlinkEntry::Add() {
 }
 
 bool KSyncNetlinkEntry::Change() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
     if (Sync() == false) {
-        free(msg);
         return true;
     }
 
-    msg_len = ChangeMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    int len = MsgLen();
+    char *msg = (char *)malloc(len);
+    int  msg_len = ChangeMsg(msg, len);
+    assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);
         return true;
@@ -67,10 +66,10 @@ bool KSyncNetlinkEntry::Change() {
 }
 
 bool KSyncNetlinkEntry::Delete() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = DeleteMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    int len = MsgLen();
+    char *msg = (char *)malloc(len);
+    int  msg_len = DeleteMsg(msg, len);
+    assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);
         return true;
@@ -84,10 +83,10 @@ bool KSyncNetlinkEntry::Delete() {
 // KSyncNetlinkDBEntry routines
 ///////////////////////////////////////////////////////////////////////////////
 bool KSyncNetlinkDBEntry::Add() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = AddMsg(msg, KSYNC_DEFAULT_MSG_SIZE); 
+    int len = MsgLen();
+    char *msg = (char *)malloc(len);
+    int  msg_len = AddMsg(msg, len); 
+    assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);
         return true;
@@ -98,10 +97,10 @@ bool KSyncNetlinkDBEntry::Add() {
 }
 
 bool KSyncNetlinkDBEntry::Change() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = ChangeMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    int len = MsgLen();
+    char *msg = (char *)malloc(len);
+    int  msg_len = ChangeMsg(msg, len);
+    assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);
         return true;
@@ -112,10 +111,10 @@ bool KSyncNetlinkDBEntry::Change() {
 }
 
 bool KSyncNetlinkDBEntry::Delete() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = DeleteMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    int len = MsgLen();
+    char *msg = (char *)malloc(len);
+    int  msg_len = DeleteMsg(msg, len);
+    assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);
         return true;
@@ -124,4 +123,3 @@ bool KSyncNetlinkDBEntry::Delete() {
     sock->SendAsync(this, msg_len, msg, KSyncEntry::DEL_ACK);
     return false;
 }
-
