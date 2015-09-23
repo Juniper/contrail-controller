@@ -1437,6 +1437,28 @@ class VncApiServer(object):
             except NoIdError:
                 bottle.abort(404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
+        # To invoke type specific hook and extension manager
+        try:
+            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, bottle.request.json)
+        except NoIdError:
+            bottle.abort(404, 'Object Not Found: ' + obj_uuid)
+        except Exception as e:
+            read_ok = False
+            read_result = cfgm_common.utils.detailed_traceback()
+
+        if not read_ok:
+            self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
+            bottle.abort(500, read_result)
+
+        obj_dict = read_result
+
+        # invoke the extension
+        try:
+            pre_func = 'pre_'+obj_type+'_update'
+            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict)
+        except Exception as e:
+            pass
+
         # type-specific hook
         r_class = self.get_resource_class(obj_type)
         if r_class:
@@ -1444,19 +1466,6 @@ class VncApiServer(object):
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             except NoIdError:
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
-            try:
-                (read_ok, read_result) = self._db_conn.dbe_read(
-                                              obj_type, bottle.request.json)
-            except NoIdError:
-                bottle.abort(404, 'Object Not Found: ' + obj_uuid)
-            except Exception as e:
-                read_ok = False
-                read_result = cfgm_common.utils.detailed_traceback()
-            if not read_ok:
-                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
-                bottle.abort(500, read_result)
-
-            obj_dict = read_result
             if operation == 'ADD':
                 if ref_type+'_refs' not in obj_dict:
                     obj_dict[ref_type+'_refs'] = []
@@ -1477,6 +1486,14 @@ class VncApiServer(object):
             id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
         except NoIdError:
             bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
+
+        # invoke the extension
+        try:
+            post_func = 'post_'+obj_type+'_update'
+            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict)
+        except Exception as e:
+            pass
+
         apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type.replace('-', '_')
         fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)

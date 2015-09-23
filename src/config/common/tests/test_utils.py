@@ -846,6 +846,10 @@ class FakeExtensionManager(object):
     @classmethod
     def get_extension_objects(cls, entry_pt):
         return [e.obj for e in cls._ext_objs if e.entry_pt == entry_pt]
+
+    @classmethod
+    def reset(cls):
+        cls._ext_objs = []
 # end class FakeExtensionManager
 
 

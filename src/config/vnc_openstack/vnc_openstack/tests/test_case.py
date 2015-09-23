@@ -59,11 +59,13 @@ class VncOpenstackTestCase(TestCase):
 class NeutronBackendTestCase(VncOpenstackTestCase):
     def setUp(self):
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [vnc_openstack.NeutronApiDriver]
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [vnc_openstack.ResourceApiDriver]
         super(NeutronBackendTestCase, self).setUp()
     # end setUp
 
     def tearDown(self):
         del FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi']
+        del FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi']
         super(NeutronBackendTestCase, self).tearDown()
     # end tearDown
 
@@ -88,3 +90,23 @@ class KeystoneSyncTestCase(VncOpenstackTestCase):
         super(KeystoneSyncTestCase, self).tearDown()
     # end tearDown
 # end class KeystoneSyncTestCase
+
+class ResouceDriverNetworkTestCase(VncOpenstackTestCase):
+    def setup_flexmock(self):
+        import keystoneclient.v2_0.client as keystone
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [vnc_openstack.OpenstackDriver]
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [vnc_openstack.ResourceApiDriver]
+        setup_extra_flexmock([(keystone.Client, '__new__', get_keystone_client)])
+    # end setup_flexmock
+
+    def setUp(self):
+        self.setup_flexmock()
+        super(ResouceDriverNetworkTestCase, self).setUp()
+    # end setUp
+
+    def tearDown(self):
+        del FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync']
+        del FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi']
+        super(ResouceDriverNetworkTestCase, self).tearDown()
+    # end tearDown
+# end class ResouceDriverNetworkTestCase
