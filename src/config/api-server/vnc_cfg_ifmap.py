@@ -837,8 +837,11 @@ class VncServerCassandraClient(VncCassandraClient):
     # end _delete_ref
 
     def is_latest(self, id, tstamp):
-        id_perms_json = self._obj_uuid_cf.get(
-            id, columns=['prop:id_perms'])['prop:id_perms']
+        try:
+            id_perms_json = self._obj_uuid_cf.get(
+                id, columns=['prop:id_perms'])['prop:id_perms']
+        except pycassa.NotFoundException:
+            raise NoIdError(id)
         id_perms = json.loads(id_perms_json)
         if id_perms['last_modified'] == tstamp:
             return True
@@ -848,9 +851,12 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def update_last_modified(self, bch, obj_uuid, id_perms=None):
         if id_perms is None:
-            id_perms = json.loads(
-                self._obj_uuid_cf.get(obj_uuid,
-                                      ['prop:id_perms'])['prop:id_perms'])
+            try:
+                id_perms_json = self._obj_uuid_cf.get(
+                    obj_uuid, ['prop:id_perms'])['prop:id_perms']
+            except pycassa.NotFoundException:
+                raise NoIdError(obj_uuid)
+            id_perms = json.loads(id_perms_json)
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
@@ -1833,8 +1839,12 @@ class VncDbClient(object):
 
     @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_ids, obj_dict):
-        (ok, cassandra_result) = self._cassandra_db.object_delete(
-            obj_type, obj_ids['uuid'])
+        method_name = obj_type.replace('-', '_')
+        try:
+            (ok, cassandra_result) = self._cassandra_db.object_delete(
+                obj_type, obj_ids['uuid'])
+        except NoIdError as e:
+            return (False, str(e))
 
         # publish to ifmap via message bus (rabbitmq)
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)

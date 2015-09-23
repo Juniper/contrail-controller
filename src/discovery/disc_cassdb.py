@@ -189,11 +189,8 @@ class DiscoveryCassandraClient(object):
             data = [(service_type, dict(clients))]
         else:
             col_name = ('client', )
-            try:
-                data = self._disco_cf.get_range(column_start=col_name,
-                   column_finish = col_name, column_count = disc_consts.MAX_COL)
-            except pycassa.NotFoundException:
-                return None
+            data = self._disco_cf.get_range(column_start=col_name,
+                column_finish = col_name, column_count = disc_consts.MAX_COL)
 
         for service_type, clients in data:
             rr = []
