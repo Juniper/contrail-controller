@@ -32,6 +32,7 @@ class OpencontrailFakeLoadbalancerDriver(
 
     def create_pool(self, pool):
         self._pools[pool['id']] = pool
+        self.db.pool_driver_info_insert(pool['id'], {'fake-driver-data': 'junk'})
         pass
 
     def update_pool(self, old_pool, pool):
@@ -40,6 +41,7 @@ class OpencontrailFakeLoadbalancerDriver(
 
     def delete_pool(self, pool):
         del self._pools[pool['id']]
+        self.db.pool_remove(pool['id'], ['fake-driver-data'])
         pass
 
     def create_member(self, member):

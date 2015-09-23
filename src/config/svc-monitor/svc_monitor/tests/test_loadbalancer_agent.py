@@ -14,6 +14,43 @@ class LoadbalancerAgentTest(unittest.TestCase):
         self.cassandra = mock.Mock()
         self.logger = mock.Mock()
         self.svc = mock.Mock()
+        self._db = {}
+
+        def read_db(id):
+            if id in self._db:
+                return self._db[id]
+
+        def put_db_config(id, data):
+            if id not in self._db:
+                self._db[id] = {}
+            self._db[id]['config_info'] = data
+        def put_db_driver(id, data):
+            if id not in self._db:
+                self._db[id] = {}
+            self._db[id]['driver_info'] = data
+
+        def remove_db(id, data=None):
+            if data is None:
+                del self._db[id]
+                return
+            if self._db[id]['driver_info'][data[0]]:
+                del self._db[id]['driver_info'][data[0]]
+
+        def list_pools():
+            ret_list = []
+            for each_entry_id, each_entry_data in self._db.iteritems() or []:
+                config_info_obj_dict = each_entry_data['config_info']
+                driver_info_obj_dict = None
+                if 'driver_info' in each_entry_data:
+                    driver_info_obj_dict = each_entry_data['driver_info']
+                ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
+            return ret_list
+
+        self.cassandra.pool_list = mock.Mock(side_effect=list_pools)
+        self.cassandra.pool_remove = mock.Mock(side_effect=remove_db)
+        self.cassandra.pool_driver_info_get = mock.Mock(side_effect=read_db)
+        self.cassandra.pool_driver_info_insert = mock.Mock(side_effect=put_db_driver)
+        self.cassandra.pool_config_insert = mock.Mock(side_effect=put_db_config)
 
         mocked_gsc = mock.MagicMock()
         mocked_gsc.uuid = 'fake-gsc-uuid'
@@ -510,4 +547,29 @@ class LoadbalancerAgentTest(unittest.TestCase):
         config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.HealthMonitorSM.delete('test-hm')
     # end test_update_hm
+
+    def test_audit_pool(self):
+        sas = self.create_sa_set("test-lb-provider")
+        sas.add()
+        pool = self.create_pool("test-lb-pool")
+        pool.add()
+        # Validate
+        self.validate_pool(self.lb_agent._loadbalancer_driver['test-lb-provider']._pools['test-lb-pool'], pool)
+
+        # Delete the pool without letting the driver know about it..
+        config_db.LoadbalancerPoolSM.reset()
+
+        # Validate that all pool info is valid in driver..still..
+        self.assertEqual(len(self.lb_agent._loadbalancer_driver['test-lb-provider']._pools), 1)
+        self.validate_pool(self.lb_agent._loadbalancer_driver['test-lb-provider']._pools['test-lb-pool'], pool)
+        self.assertEqual(len(self._db), 1)
+        self.assertTrue('test-lb-pool' in self._db)
+
+        # call audit and ensure pool is deleted
+        self.lb_agent.audit_lb_pools()
+
+        # Validate that audit has deleted the pool from driver and from db
+        self.assertEqual(len(self.lb_agent._loadbalancer_driver['test-lb-provider']._pools), 0)
+        self.assertEqual(len(self._db), 0)
+    # end test_audit_pool
 #end LoadbalancerAgentTest(unittest.TestCase):
