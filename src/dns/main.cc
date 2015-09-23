@@ -161,7 +161,8 @@ int main(int argc, char *argv[]) {
                            options.named_config_file(),
                            options.named_log_file(),
                            options.rndc_config_file(),
-                           options.rndc_secret());
+                           options.rndc_secret(),
+                           options.named_max_cache_size());
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 

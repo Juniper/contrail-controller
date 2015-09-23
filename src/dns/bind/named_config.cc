@@ -28,10 +28,12 @@ void NamedConfig::Init(const std::string& named_config_dir,
                        const std::string& named_config_file,
                        const std::string& named_log_file,
                        const std::string& rndc_config_file,
-                       const std::string& rndc_secret) {
+                       const std::string& rndc_secret,
+                       const std::string& named_max_cache_size) {
     assert(singleton_ == NULL);
     singleton_ = new NamedConfig(named_config_dir, named_config_file,
-                                 named_log_file, rndc_config_file, rndc_secret);
+                                 named_log_file, rndc_config_file, rndc_secret,
+                                 named_max_cache_size);
     singleton_->Reset();
 }
 
@@ -175,6 +177,8 @@ void NamedConfig::WriteOptionsConfig() {
     file_ << "    allow-query { any; };" << endl;
     file_ << "    allow-recursion { any; };" << endl;
     file_ << "    allow-query-cache { any; };" << endl;
+    if (!named_max_cache_size_.empty())
+        file_ << "    max-cache-size " << named_max_cache_size_ << ";" << endl;
     file_ << "};" << endl << endl;
 }
 

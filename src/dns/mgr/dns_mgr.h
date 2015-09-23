@@ -50,7 +50,8 @@ public:
                     const std::string& named_config_file,
                     const std::string& named_log_file,
                     const std::string& rndc_config_file,
-                    const std::string& rndc_secret);
+                    const std::string& rndc_secret,
+                    const std::string& named_max_cache_size);
     void Shutdown();
     void DnsView(const DnsConfig *config, DnsConfig::DnsConfigEvent ev);
     void DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
