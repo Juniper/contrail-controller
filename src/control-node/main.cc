@@ -86,16 +86,14 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_cfg->auth_enabled = options->xmpp_auth_enabled();
     xmpp_cfg->tcp_hold_time = options->tcp_hold_time();
 
-    XmppServer *xmpp_server;
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();
         xmpp_cfg->path_to_pvt_key = options->xmpp_server_key();
-        // Create XmppServer
-        xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
-    } else {
-        // Create XmppServer
-        xmpp_server = new XmppServer(evm, options->hostname());
     }
+
+    XmppServer *xmpp_server;
+    // Create XmppServer
+    xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
     xmpp_server->Initialize(options->xmpp_port(), true);
 
     return (xmpp_server);
