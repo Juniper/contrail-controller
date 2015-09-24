@@ -25,6 +25,7 @@
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_route.h"
 #include "bgp/inet6/inet6_table.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
@@ -1181,6 +1182,10 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             ext.communities.push_back(mm.GetExtCommunityValue());
         }
 
+        // Process load-balance extended community
+        LoadBalance load_balance(item.entry.load_balance);
+        ext.communities.push_back(load_balance.GetExtCommunityValue());
+
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
@@ -1374,6 +1379,10 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             MacMobility mm(item.entry.sequence_number);
             ext.communities.push_back(mm.GetExtCommunityValue());
         }
+
+        // Process load-balance extended community
+        LoadBalance load_balance(item.entry.load_balance);
+        ext.communities.push_back(load_balance.GetExtCommunityValue());
 
         if (!ext.communities.empty()) {
             attrs.push_back(&ext);
@@ -1620,6 +1629,9 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             MacMobility mm(item.entry.sequence_number);
             ext.communities.push_back(mm.GetExtCommunityValue());
         }
+
+        // LoadBalance load_balance(item.entry.load_balance);
+        // ext.communities.push_back(load_balance.GetExtCommunityValue());
 
         if (!ext.communities.empty())
             attrs.push_back(&ext);
