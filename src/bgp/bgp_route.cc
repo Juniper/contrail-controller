@@ -16,6 +16,7 @@
 #include "bgp/extended-community/default_gateway.h"
 #include "bgp/extended-community/es_import.h"
 #include "bgp/extended-community/esi_label.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -342,6 +343,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
             TunnelEncapType::Encap id = encap.tunnel_encap();
             show_path->tunnel_encap.push_back(
                 TunnelEncapType::TunnelEncapToString(id));
+        } else if (ExtCommunity::is_load_balance(*it)) {
+            LoadBalance load_balance(*it);
+            show_path->communities.push_back(load_balance.ToString());
         } else {
             char temp[50];
             int len = snprintf(temp, sizeof(temp), "ext community: ");

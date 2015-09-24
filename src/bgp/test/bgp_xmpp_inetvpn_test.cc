@@ -8,6 +8,7 @@
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -295,7 +296,8 @@ protected:
 
     bool CheckRoute(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, const string &encap,
-        const string &origin_vn, const vector<int> sgids) {
+        const string &origin_vn, const vector<int> sgids,
+        const LoadBalance &loadBalance) {
         const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
         if (!rt)
             return false;
@@ -308,6 +310,10 @@ protected:
         if (!sgids.empty() &&
             rt->entry.security_group_list.security_group != sgids)
             return false;
+        if (!(LoadBalance(rt->entry.load_balance).ToAttribute() ==
+                    loadBalance.ToAttribute())) {
+            return false;
+        }
 
         autogen::TunnelEncapsulationListType rt_encap =
             rt->entry.next_hops.next_hop[0].tunnel_encapsulation_list;
@@ -319,15 +325,25 @@ protected:
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref = 100,
         const string &encap = string(), const string &origin_vn = string(),
-        const vector<int> sgids = vector<int>()) {
+        const vector<int> sgids = vector<int>(),
+        const LoadBalance lb = LoadBalance()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, local_pref, encap, origin_vn, sgids));
+            agent, net, prefix, nexthop, local_pref, encap, origin_vn,
+            sgids, lb));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const vector<int> sgids) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, 0, string(), string(), sgids));
+            agent, net, prefix, nexthop, 0, string(), string(), sgids,
+            LoadBalance()));
+    }
+
+    void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
+        string prefix, string nexthop, const LoadBalance &lb) {
+        TASK_UTIL_EXPECT_TRUE(CheckRoute(
+            agent, net, prefix, nexthop, 0, string(), string(), vector<int>(),
+            lb));
     }
 
     void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string net,
@@ -922,7 +938,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
     task_util::WaitForIdle();
 
     // Add a bunch of route targets to blue instance.
-    static const int kRouteTargetCount = 498;
+    static const int kRouteTargetCount = 497;
     for (int idx = 0; idx < kRouteTargetCount; ++idx) {
         string target = string("target:1:") + integerToString(10000 + idx);
         AddRouteTarget(bs_x_, "blue", target);
@@ -1346,6 +1362,234 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, SecurityGroupsDifferentAsn) {
         agent_a_, "blue", route_a.str(), "192.168.1.1", sgids);
     VerifyRouteExists(
         agent_b_, "blue", route_a.str(), "192.168.1.1", global_sgids);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Send default LoadBalance extended community
+TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHops next_hops;
+    test::NextHop next_hop("192.168.1.1");
+    next_hops.push_back(next_hop);
+
+    // Use default LoadBalance attribute
+    LoadBalance loadBalance;
+    test::RouteAttributes attributes(loadBalance.ToAttribute());
+    agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with expected lba.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Send LoadBalance extended community with all options set
+TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHops next_hops;
+    test::NextHop next_hop("192.168.1.1");
+    next_hops.push_back(next_hop);
+
+    // Use LoadBalance attribute with all boolean options set
+    LoadBalance::bytes_type data =
+        { { BGP_EXTENDED_COMMUNITY_TYPE_OPAQUE,
+            BGP_EXTENDED_COMMUNITY_OPAQUE_LOAD_BALANCE,
+            0xFE, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+    LoadBalance loadBalance(data);
+    test::RouteAttributes attributes(loadBalance.ToAttribute());
+    agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with expected lba.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Send LoadBalance extended community options set alternately
+TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHops next_hops;
+    test::NextHop next_hop("192.168.1.1");
+    next_hops.push_back(next_hop);
+
+    // Use LoadBalance attribute with all boolean options reset
+    // i.e, no loadBalance attribute
+    LoadBalance::bytes_type data =
+        { { BGP_EXTENDED_COMMUNITY_TYPE_OPAQUE,
+            BGP_EXTENDED_COMMUNITY_OPAQUE_LOAD_BALANCE,
+            0xaa, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+    LoadBalance loadBalance(data);
+    test::RouteAttributes attributes(loadBalance.ToAttribute());
+    agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with expected lba.
+    // Since no load-balance option was set, control-node would not send
+    // LoadBalance attribute. Hence on reception, agent would infer default
+    // attribute contents
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Send LoadBalance extended community wth all options reset
+TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_4) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHops next_hops;
+    test::NextHop next_hop("192.168.1.1");
+    next_hops.push_back(next_hop);
+
+    // Use LoadBalance attribute with all boolean options reset.
+    LoadBalance::bytes_type data =
+        { { BGP_EXTENDED_COMMUNITY_TYPE_OPAQUE,
+            BGP_EXTENDED_COMMUNITY_OPAQUE_LOAD_BALANCE,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+    LoadBalance loadBalance(data);
+    test::RouteAttributes attributes(loadBalance.ToAttribute());
+    agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with expected lba.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", loadBalance);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());

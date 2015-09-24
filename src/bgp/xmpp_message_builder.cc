@@ -16,6 +16,7 @@
 #include "bgp/bgp_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_table.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/evpn/evpn_route.h"
@@ -94,6 +95,9 @@ private:
                     table_->routing_instance()->manager();
                 virtual_network_ =
                     manager->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
+            } else if (ExtCommunity::is_load_balance(*iter)) {
+                LoadBalance load_balance(*iter);
+                load_balance.fillAttribute(load_balance_attribute_);
             }
         }
     }
@@ -110,6 +114,7 @@ private:
     string repr_new_;
     size_t repr_part1_;
     size_t repr_part2_;
+    LoadBalance::LoadBalanceAttribute load_balance_attribute_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppMessage);
 };
@@ -215,6 +220,9 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
         item.entry.security_group_list.security_group.push_back(*it);
     }
 
+    // Encode load balance attribute.
+    load_balance_attribute_.encode(item.entry.load_balance);
+
     xml_node node = xitems_.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
@@ -290,6 +298,9 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
          it !=  security_group_list_.end(); ++it) {
         item.entry.security_group_list.security_group.push_back(*it);
     }
+
+    // Encode load balance attribute.
+    // load_balance_attribute_.encode(item.entry.load_balance);
 
     const BgpOList *olist = roattr->attr()->olist().get();
     assert((olist == NULL) != roattr->nexthop_list().empty());
