@@ -258,7 +258,7 @@ class AlarmGen(object):
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-alarm-gen", ["http"],
-                         args, None, True)
+                         args, None, False)
         self.http_port = ports["http"]
         for part in range(0,self.partitions):
             assert(self.analytics_fixture.set_alarmgen_partition(part,1) == 'true')
@@ -279,7 +279,7 @@ class AlarmGen(object):
                 self.analytics_fixture.set_alarmgen_partition(part,0)
             rcode = self.analytics_fixture.process_stop(
                 "contrail-alarm-gen:%s" % str(self.http_port),
-                self._instance, self._log_file, is_py=True)
+                self._instance, self._log_file, is_py=False)
             #assert(rcode == 0)
             self._instance = None
     # end stop
