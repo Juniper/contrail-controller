@@ -690,6 +690,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(code, 404)
         
     def test_err_on_max_rabbit_pending(self):
+        self.ignore_err_in_log = True
         api_server = test_common.vnc_cfg_api_server.server
         max_pend_upd = 10
         api_server._args.rabbit_max_pending_updates = str(max_pend_upd)
@@ -707,8 +708,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             api_server._db_conn._msgbus._conn.connect = err_rabbitq_conn
 
             logger.info("Creating objects to hit max rabbit pending.")
-            # every create updates project quota
-            test_objs = self._create_test_objects(count=max_pend_upd+1)
+            # every VN create, creates RI too
+            test_objs = self._create_test_objects(count=max_pend_upd/2+1)
 
             def asserts_on_max_pending():
                 self.assertEqual(e.status_code, 500)
@@ -750,6 +751,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             api_server._db_conn._msgbus._conn.connect = orig_rabbitq_conn
 
     def test_err_on_ifmap_publish(self):
+        self.ignore_err_in_log = True
         api_server = test_common.vnc_cfg_api_server.server
         orig_call_async_result = api_server._db_conn._ifmap_db._mapclient.call_async_result
         def err_call_async_result(*args, **kwargs):
@@ -763,6 +765,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertTill(self.ifmap_has_ident, obj=test_obj)
 
     def test_reconnect_to_rabbit(self):
+        self.ignore_err_in_log = True
         exceptions = [(FakeKombu.Connection.ConnectionException(), 'conn'),
                       (FakeKombu.Connection.ChannelException(), 'chan'),
                       (Exception(), 'generic')]
@@ -931,6 +934,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     # end test_reconnect_to_rabbit
  
     def test_handle_trap_on_exception(self):
+        self.ignore_err_in_log = True
         api_server = test_common.vnc_cfg_api_server.server
 
         def exception_on_log_error(*args, **kwargs):
@@ -1067,6 +1071,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         logger.info("Creating a virtual network")
         logger.info("Creating subnet 1.1.1.0/24")
         vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  'vn-%s' %(self.id()),
                   network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
         vn_fixt.getObj().set_router_external(True)
         self._vnc_lib.virtual_network_update(vn_fixt.getObj())
@@ -1153,7 +1158,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                                                parent_id=vn_uuids)
         ret_uuids = [ret['uuid']
                      for ret in ret_list['routing-instances']]
-        self.assertThat(set(ri_uuids), Equals(set(ret_uuids)))
+        self.assertThat(set(ri_uuids),
+            Equals(set(ret_uuids) & set(ri_uuids)))
 
         logger.info("Querying VMIs by back_ref_id.")
         flexmock(self._api_server).should_call('_list_collection').once()
@@ -1189,7 +1195,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertNotEqual(ri_children, 'VMI backrefs absent')
             ret_vmi_uuids.extend([vmi['uuid'] for vmi in vmi_back_refs])
 
-        self.assertThat(set(ri_uuids), Equals(set(ret_ri_uuids)))
+        self.assertThat(set(ri_uuids),
+            Equals(set(ret_ri_uuids) & set(ri_uuids)))
         self.assertThat(set(vmi_uuids), Equals(set(ret_vmi_uuids)))
     # end test_list_bulk_collection
 
@@ -1391,11 +1398,15 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(ret_vn.keys(), Contains('virtual_machine_interface_back_refs'))
         for link_key, linked_obj in [('routing_instances', ri_objs[0]),
             ('virtual_machine_interface_back_refs', vmi_objs[0])]:
-            ret_link = ret_vn[link_key][0]
-            self.assertThat(ret_link, Contains('to'))
-            self.assertThat(ret_link, Contains('uuid'))
-            self.assertEqual(ret_link['to'], linked_obj.get_fq_name())
-            self.assertEqual(ret_link['uuid'], linked_obj.uuid)
+            found = False
+            for ret_link in ret_vn[link_key]:
+                self.assertThat(ret_link, Contains('to'))
+                self.assertThat(ret_link, Contains('uuid'))
+                if (ret_link['to'] == linked_obj.get_fq_name() and
+                    ret_link['uuid'] == linked_obj.uuid):
+                    found = True
+                    break
+            self.assertTrue(found)
 
         logger.info("Reading VN with children excluded.")
         url = 'http://%s:%s/virtual-network/%s?exclude_children=true' %(
@@ -1427,11 +1438,15 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             'virtual_machine_interface_back_refs')))
         for link_key, linked_obj in [('routing_instances',
                                      ri_objs[0])]:
-            ret_link = ret_vn[link_key][0]
-            self.assertThat(ret_link, Contains('to'))
-            self.assertThat(ret_link, Contains('uuid'))
-            self.assertEqual(ret_link['to'], linked_obj.get_fq_name())
-            self.assertEqual(ret_link['uuid'], linked_obj.uuid)
+            found = False
+            for ret_link in ret_vn[link_key]:
+                self.assertThat(ret_link, Contains('to'))
+                self.assertThat(ret_link, Contains('uuid'))
+                if (ret_link['to'] == linked_obj.get_fq_name() and
+                    ret_link['uuid'] == linked_obj.uuid):
+                    found = True
+                    break
+            self.assertTrue(found)
 
         logger.info("Reading VN with children and backrefs excluded.")
         query_param_str = 'exclude_children=True&exclude_back_refs=true'
@@ -1447,8 +1462,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     # end test_read_rest_api
 
     def test_delete_after_unref(self):
+        # 2 policies, 1 VN associate to VN, dissociate, delete policies
         def create_vn_and_policies():
-            # 2 policies, 1 VN associate to VN, dissociate, delete policies
             pol1_obj = NetworkPolicy('%s-pol1' %(self.id()))
             self._vnc_lib.network_policy_create(pol1_obj)
 
@@ -1482,6 +1497,65 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_update(vn_obj)
         delete_vn_and_policies()
     # end test_delete_after_unref
+
+    def test_vn_with_native_ri(self):
+        logger.info("Creating a VN, expecting auto Native RI creation...")
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        ri_obj = self._vnc_lib.routing_instance_read(
+            fq_name=vn_obj.fq_name+[vn_obj.name])
+        ri_children = vn_obj.get_routing_instances()
+        self.assertTrue(ri_obj.uuid in [r['uuid'] for r in ri_children])
+        logger.info("...VN/RI creation done.")
+
+        logger.info("Deleting a VN, expecting auto Native RI deletion.")
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        with ExpectedException(NoIdError) as e:
+            self._vnc_lib.routing_instance_read(fq_name=ri_obj.fq_name)
+
+        logger.info("Testing delete RI with refs to RI...")
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        ri_obj = self._vnc_lib.routing_instance_read(
+            fq_name=vn_obj.fq_name+[vn_obj.name])
+        vmi_obj = VirtualMachineInterface(
+            'vmi-%s' %(self.id()), parent_obj=Project())
+        # link to vn expected in vmi create in server
+        vmi_obj.add_virtual_network(vn_obj)
+        vmi_obj.add_routing_instance(ri_obj, PolicyBasedForwardingRuleType())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        logger.info("...VN/RI/VMI creation done...")
+        # remove link from vmi before vn delete
+        vmi_obj.del_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        with ExpectedException(NoIdError) as e:
+            self._vnc_lib.routing_instance_read(fq_name=ri_obj.fq_name)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid)
+        ri_refs = vmi_obj.get_routing_instance_refs()
+        self.assertIsNone(ri_refs)
+        logger.info("...VN/RI deletion done.")
+    # end test_vn_with_native_ri
+
+    def test_vmi_links_to_native_ri(self):
+        logger.info("Creating a VN/VMI, expecting auto Native RI linking...")
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vmi_obj = VirtualMachineInterface(
+            'vmi-%s' %(self.id()), parent_obj=Project())
+        # link to vn expected in vmi create in server
+        vmi_obj.add_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid)
+
+        ri_refs = vmi_obj.get_routing_instance_refs()
+        ri_fq_name = vn_obj.fq_name[:]
+        ri_fq_name.append(vn_obj.fq_name[-1])
+        self.assertEqual(ri_refs[0]['to'], ri_fq_name)
+        logger.info("...link to Native RI done.")
+    # end test_vmi_links_to_native_ri
 
 # end class TestVncCfgApiServer
 
@@ -1810,6 +1884,7 @@ class TestExtensionApi(test_case.ApiServerTestCase):
     # end test_transform_request
 
     def test_validate_request(self):
+        self.ignore_err_in_log = True
         # create
         obj = VirtualNetwork('validate-create')
         body_dict = {'virtual-network':

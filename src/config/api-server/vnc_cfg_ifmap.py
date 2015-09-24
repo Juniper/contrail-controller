@@ -1665,7 +1665,7 @@ class VncDbClient(object):
         (ok, cassandra_result) = self._cassandra_db.delete(method_name,
                                                            obj_ids['uuid'])
 
-        # publish to ifmap via redis
+        # publish to ifmap via message bus (rabbitmq)
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
 
         # finally remove mapping in zk
