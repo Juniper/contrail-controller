@@ -3136,7 +3136,7 @@ class SchemaTransformer(object):
     def delete_virtual_machine_service_instance(self, idents, meta):
         vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
-        vm = VirtualMachineST.delete(si_name)
+        vm = VirtualMachineST.delete(vm_name)
         for sc in ServiceChain._dict.values():
             if si_name in sc.service_list:
                 if VirtualNetworkST.get(sc.left_vn) is not None:
