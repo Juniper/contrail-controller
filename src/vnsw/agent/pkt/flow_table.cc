@@ -1331,16 +1331,24 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
-        assert(l3_flow_ == true);
-            //Logic for RPF check for ecmp
-            //  Get reverse flow, and its corresponding ecmp index
-            //  Check if source matches composite nh in reverse flow ecmp index,
-            //  if not DP would trap packet for ECMP resolve.
-            //  If there is only one instance of ECMP in compute node, then 
-            //  RPF NH would only point to local interface NH.
-            //  If there are multiple instances of ECMP in local server
-            //  then RPF NH would point to local composite NH(containing 
-            //  local members only)
+        if (l3_flow_ == false) {
+           //ECMP flow are always layer3 flow
+            if (is_flags_set(FlowEntry::ShortFlow) == false) {
+                MakeShortFlow(SHORT_INVALID_L2_FLOW);
+                data_.nh_state_ = NULL;
+                ret = true;
+            }
+           return ret;
+        }
+        //Logic for RPF check for ecmp
+        //  Get reverse flow, and its corresponding ecmp index
+        //  Check if source matches composite nh in reverse flow ecmp index,
+        //  if not DP would trap packet for ECMP resolve.
+        //  If there is only one instance of ECMP in compute node, then
+        //  RPF NH would only point to local interface NH.
+        //  If there are multiple instances of ECMP in local server
+        //  then RPF NH would point to local composite NH(containing
+        //  local members only)
         const InetUnicastRouteEntry *route =
             static_cast<const InetUnicastRouteEntry *>(rt);
         nh = route->GetLocalNextHop();
