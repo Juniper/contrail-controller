@@ -7,10 +7,14 @@
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
+env.Append(CPPPATH = [ env['TOP'] ])
+
 env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
 env.Append(LIBPATH = env['TOP'] + '/net')
+env.Append(LIBPATH = env['TOP'] + '/schema')
 
-env.Prepend(LIBS = ['gunit', 'extended_community', 'boost_regex', 'net'])
+env.Prepend(LIBS = ['gunit', 'extended_community', 'boost_regex', 'net',
+                    'xmpp_unicast'])
 
 default_gateway_test = env.UnitTest('default_gateway_test',
                                     ['default_gateway_test.cc'])
@@ -32,10 +36,15 @@ site_of_origin_test = env.UnitTest('site_of_origin_test',
                                    ['site_of_origin_test.cc'])
 env.Alias('src/bgp/extended-community:site_of_origin_test', site_of_origin_test)
 
+load_balance_test = env.UnitTest('load_balance_test',
+                                   ['load_balance_test.cc'])
+env.Alias('src/bgp/extended-community:load_balance_test', load_balance_test)
+
 test_suite = [
     default_gateway_test,
     es_import_test,
     esi_label_test,
+    load_balance_test,
     mac_mobility_test,
     site_of_origin_test,
 ]
