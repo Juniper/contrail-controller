@@ -133,6 +133,7 @@ public:
     const long log_file_size() const { return log_file_size_; }
     bool log_local() const { return log_local_; }
     bool log_flow() const { return log_flow_; }
+    bool disable_flow_collection() const { return disable_flow_collection_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
     const std::string &log_property_file() const { return log_property_file_; }
@@ -360,6 +361,7 @@ private:
 
     bool log_local_;
     bool log_flow_;
+    bool disable_flow_collection_;
     std::string log_level_;
     std::string log_category_;
     bool use_syslog_;

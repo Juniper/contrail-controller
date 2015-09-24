@@ -436,6 +436,7 @@ void AgentParam::ParseDefaultSection() {
         log_flow_ = false;
     }
 
+    GetValueFromTree<bool>(disable_flow_collection_, "DEFAULT.disable_flow_collection");
 
     if (!GetValueFromTree<bool>(xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable")) {
         xmpp_auth_enable_ = false;
@@ -646,6 +647,7 @@ void AgentParam::ParseDefaultSectionArguments
     if (var_map.count("DEFAULT.log_flow")) {
          log_flow_ = true;
     }
+    GetOptValue<bool>(var_map, disable_flow_collection_, "DEFAULT.disable_flow_collection");
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time");
@@ -1100,7 +1102,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
-        log_file_(), log_local_(false), log_flow_(false), log_level_(),
+        log_file_(), log_local_(false), log_flow_(false),
+        disable_flow_collection_(false), log_level_(),
         log_category_(), use_syslog_(false),
         http_server_port_(), host_name_(),
         agent_stats_interval_(kAgentStatsInterval),
@@ -1198,6 +1201,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
          "Syslog facility to receive log lines")
         ("DEFAULT.log_flow", "Enable local logging of flow sandesh messages")
+        ("DEFAULT.disable_flow_collection", opt::value<bool>()->default_value(false),
+         "Disable sending flow samples to collector")
         ;
     options_.add(log);
 

@@ -124,7 +124,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 19;
+    int argc = 21;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -132,6 +132,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
         (char *) "--DEFAULT.log_local",
         (char *) "--DEFAULT.log_flow",
+        (char *) "--DEFAULT.disable_flow_collection", (char *)"false",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
         (char *) "--DEFAULT.log_category",  (char *)"Test",
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
@@ -146,6 +147,7 @@ TEST_F(FlowTest, Agent_Param_1) {
 
     EXPECT_TRUE(param.log_local());
     EXPECT_TRUE(param.log_flow());
+    EXPECT_FALSE(param.disable_flow_collection());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_STREQ(param.log_category().c_str(), "Test");
     EXPECT_EQ(param.collector_server_list().size(), 1);
