@@ -107,6 +107,10 @@ class VncApi(object):
     # a POST /list-bulk-collection is issued
     POST_FOR_LIST_THRESHOLD = 25
 
+    # Number of pools and number of pool per conn to api-server
+    _DEFAULT_MAX_POOLS = 100
+    _DEFAULT_MAX_CONNS_PER_POOL = 100
+
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
@@ -245,6 +249,13 @@ class VncApi(object):
                                        self._DEFAULT_WEB_PORT)
         else:
             self._web_port = api_server_port
+
+        self._max_pools = int(_read_cfg(
+            cfg_parser, 'global', 'MAX_POOLS',
+            self._DEFAULT_MAX_POOLS))
+        self._max_conns_per_pool = int(_read_cfg(
+            cfg_parser, 'global', 'MAX_CONNS_PER_POOL',
+            self._DEFAULT_MAX_CONNS_PER_POOL))
 
         # Where client's view of world begins
         if not api_server_url:
@@ -438,10 +449,13 @@ class VncApi(object):
     def _create_api_server_session(self):
         self._api_server_session = requests.Session()
 
-        adapter = requests.adapters.HTTPAdapter(pool_connections=100,
-                                                pool_maxsize=100)
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=self._max_conns_per_pool,
+            pool_maxsize=self._max_pools)
         ssladapter = ssl_adapter.SSLAdapter(ssl.PROTOCOL_SSLv23)
-        ssladapter.init_poolmanager(connections=100,maxsize=100)
+        ssladapter.init_poolmanager(
+            connections=self._max_conns_per_pool,
+            maxsize=self._max_pools)
         self._api_server_session.mount("http://", adapter)
         self._api_server_session.mount("https://", ssladapter)
     #end _create_api_server_session
