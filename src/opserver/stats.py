@@ -30,6 +30,30 @@ class StatQuerier(object):
     # end __init__
 
     # Public functions
+    def run(self):
+        if self.parse_args() != 0:
+            return
+
+        if len(self._args.select)==0 and self._args.dtable is None: 
+            tab_url = "http://" + self._args.analytics_api_ip + ":" +\
+                self._args.analytics_api_port +\
+                "/analytics/table/StatTable." + self._args.table
+            schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
+            schema = json.loads(schematxt.text)['columns']
+            for pp in schema:
+                if pp.has_key('suffixes') and pp['suffixes']:
+                    des = "%s %s" % (pp['name'],str(pp['suffixes']))
+                else:
+                    des = "%s" % pp['name']
+                if pp['index']:
+                    valuetxt = OpServerUtils.get_url_http(tab_url + "/column-values/" + pp['name'])
+                    print "%s : %s %s" % (des,pp['datatype'], valuetxt.text)
+                else:
+                    print "%s : %s" % (des,pp['datatype'])
+        else:
+            result = self.query()
+            self.display(result)
+
     def parse_args(self):
         """ 
         Eg. python stats.py --analytics-api-ip 127.0.0.1
@@ -130,29 +154,7 @@ class StatQuerier(object):
 
 def main():
     querier = StatQuerier()
-    if querier.parse_args() != 0:
-        return
-
-
-    if len(querier._args.select)==0 and querier._args.dtable is None: 
-        tab_url = "http://" + querier._args.analytics_api_ip + ":" +\
-            querier._args.analytics_api_port +\
-            "/analytics/table/StatTable." + querier._args.table
-        schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
-        schema = json.loads(schematxt.text)['columns']
-        for pp in schema:
-            if pp.has_key('suffixes') and pp['suffixes']:
-                des = "%s %s" % (pp['name'],str(pp['suffixes']))
-            else:
-                des = "%s" % pp['name']
-            if pp['index']:
-                valuetxt = OpServerUtils.get_url_http(tab_url + "/column-values/" + pp['name'])
-                print "%s : %s %s" % (des,pp['datatype'], valuetxt.text)
-            else:
-                print "%s : %s" % (des,pp['datatype'])
-    else:
-        result = querier.query()
-        querier.display(result)
+    querier.run()
 # end main
 
 if __name__ == "__main__":
