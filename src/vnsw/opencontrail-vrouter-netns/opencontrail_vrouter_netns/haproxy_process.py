@@ -16,9 +16,11 @@ def stop_haproxy(conf_file, daemon_mode=False):
     except Exception as e:
         pass
 
-def start_update_haproxy(conf_file, netns, daemon_mode=False):
+def start_update_haproxy(conf_file, netns, daemon_mode=False,
+                         keystone_auth_conf_file=None):
     pool_id = os.path.split(os.path.dirname(conf_file))[1]
-    haproxy_cfg_file = haproxy_config.build_config(conf_file)
+    haproxy_cfg_file = haproxy_config.build_config(conf_file, \
+                                      keystone_auth_conf_file)
     try:
         if daemon_mode:
             _start_haproxy_daemon(pool_id, netns, haproxy_cfg_file)
