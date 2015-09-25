@@ -53,3 +53,33 @@ message TestMessageBaseStream {
     required string tmbs_name = 1 [(telemetry_options).is_key = true];
     optional TestMessageBaseSensors tmbs_sensor = 101;
 }
+
+message TestMessageAllTypesInner {
+    optional string tmp_inner_string = 1 [(telemetry_options).is_key = true];
+    optional int32 tmp_inner_int32 = 2;
+    optional int64 tmp_inner_int64 = 3;
+    optional uint32 tmp_inner_uint32 = 4;
+    optional uint64 tmp_inner_uint64 = 5;
+    optional double tmp_inner_double = 6;
+    optional float tmp_inner_float = 7;
+    optional bool tmp_inner_bool = 8;
+    optional TestMessageAllTypes.TestMessageAllTypesEnum tmp_inner_enum = 9 [(telemetry_options).is_key = true];
+}
+
+message TestMessageAllTypes {
+    optional string tmp_string = 1 [(telemetry_options).is_key = true];
+    optional int32 tmp_int32 = 2 [(telemetry_options).is_key = true];
+    optional int64 tmp_int64 = 3 [(telemetry_options).is_key = true];
+    optional uint32 tmp_uint32 = 4 [(telemetry_options).is_key = true];
+    optional uint64 tmp_uint64 = 5 [(telemetry_options).is_key = true];
+    optional double tmp_double = 6 [(telemetry_options).is_key = true];
+    optional float tmp_float = 7 [(telemetry_options).is_key = true];
+    optional bool tmp_bool = 8 [(telemetry_options).is_key = true];
+    enum TestMessageAllTypesEnum {
+        GOOD = 1;
+        BAD = 2;
+    }
+    optional TestMessageAllTypesEnum tmp_enum = 9 [(telemetry_options).is_key = true];
+    optional TestMessageAllTypesInner tmp_message = 10;
+    repeated TestMessageAllTypesInner tmp_inner = 11;
+}
