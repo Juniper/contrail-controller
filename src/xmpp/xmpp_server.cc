@@ -292,6 +292,12 @@ void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux,
 
 SslSession *XmppServer::AllocSession(SslSocket *socket) {
     SslSession *session = new XmppSession(this, socket);
+    boost::system::error_code err; 
+    XmppSession *xmpps = static_cast<XmppSession *>(session);
+    err = xmpps->EnableTcpKeepalive(tcp_hold_time_);
+    if (err) { 
+        XMPP_WARNING(ServerKeepAliveFailure, err.message());
+    }
     return session;
 }
 
