@@ -31,17 +31,15 @@ def sse_pack(d):
             buffer += '%s: %s\n' % (k, d[k])
     return buffer + '\n'
 
-class UveCacheProcessor(gevent.Greenlet):
-    def __init__(self, logger, q, partitions):
-        gevent.Greenlet.__init__(self)
+class UveCacheProcessor(object):
+    def __init__(self, logger, partitions):
         self._logger = logger
-        self._q = q
         self._partkeys = {}
         for partno in range(0,partitions):
             self._partkeys[partno] = set()
         self._uvedb = {} 
 
-    def get_uve(self, key, filters=None, is_alarm=False):
+    def get_cache_uve(self, key, filters, is_alarm):
         failures = False
         rsp = {}
         try:
@@ -107,58 +105,45 @@ class UveCacheProcessor(gevent.Greenlet):
                               (messag, traceback.format_exc()))
         return failures, rsp
 
-    def _run(self):
-        for telem in self._q:
-            elem = telem['data']
-            if telem['event'] == 'clear':
-                # remove all keys of this partition
-                partno = elem['partition']
-                for key in self._partkeys[partno]:
-                    barekey = key.split(":",1)[1]
-                    table = key.split(":",1)[0]
-                    del self._uvedb[table][barekey]
-                    self._partkeys[partno].remove("%s:%s" % \
-                        (table, barekey))
+    def store_uve(self, partno, key, typ, value):
+        self._partkeys[partno].add(key)
 
-            elif telem['event'] == 'sync' or telem['event'] == 'update':
-                partno = elem['partition']
-                self._partkeys[partno].add(elem['key'])
+        barekey = key.split(":",1)[1]
+        table = key.split(":",1)[0]
+        if table not in self._uvedb:
+            self._uvedb[table] = {}
+        if barekey not in self._uvedb[table]:
+            self._uvedb[table][barekey] = {}
 
-                barekey = elem['key'].split(":",1)[1]
-                table = elem['key'].split(":",1)[0]
-                if table not in self._uvedb:
-                    self._uvedb[table] = {}
-                if barekey not in self._uvedb[table]:
-                    self._uvedb[table][barekey] = {}
-
-                if elem['type'] is None:
-                    # delete the entire UVE
-                    self._partkeys[partno].remove("%s:%s" % \
-                        (table, barekey))
-                    del self._uvedb[table][barekey]
-                else:
-                    typ = elem['type']
-                    if typ not in self._uvedb[table][barekey]:
-                        self._uvedb[table][barekey][typ] = None
-                    if elem['value'] is None:
-                        # remove one type of this UVE
-                        del self._uvedb[table][barekey][typ]
-                    else:
-                        self._uvedb[table][barekey][typ] = elem['value']
-            elif telem['event'] == 'stop':
-                break
+        if typ is None:
+            # delete the entire UVE
+            self._partkeys[partno].remove("%s:%s" % \
+                (table, barekey))
+            del self._uvedb[table][barekey]
+        else:
+            if typ not in self._uvedb[table][barekey]:
+                self._uvedb[table][barekey][typ] = None
+            if value is None:
+                # remove one type of this UVE
+                del self._uvedb[table][barekey][typ]
             else:
-                pass
+                self._uvedb[table][barekey][typ] = value
+
+    def clear_partition(self, partno):
+        for key in self._partkeys[partno]:
+            barekey = key.split(":",1)[1]
+            table = key.split(":",1)[0]
+            del self._uvedb[table][barekey]
+        self._partkeys[partno] = set()
 
 class UveStreamPart(gevent.Greenlet):
-    def __init__(self, partno, logger, q, pi, rpass, sse):
+    def __init__(self, partno, logger, cb, pi, rpass):
         gevent.Greenlet.__init__(self)
         self._logger = logger
-        self._q = q
+        self._cb = cb
         self._pi = pi
         self._partno = partno
         self._rpass = rpass
-        self._sse = sse
 
     def syncpart(self, redish):
         inst = self._pi.instance_id
@@ -171,14 +156,7 @@ class UveStreamPart(gevent.Greenlet):
         idx=0
         for res in pperes:
             for tk,tv in res.iteritems():
-                dt = {'partition':self._partno,
-                    'key':keys[idx], 'type':tk, 'value':json.loads(tv)}
-                if self._sse:
-                    msg = {'event': 'sync', 'data':json.dumps(dt)}
-                    self._q.put(sse_pack(msg))
-                else:
-                    msg = {'event': 'sync', 'data':dt}
-                    self._q.put(msg)
+                self._cb(self._partno, keys[idx], tk, json.loads(tv))
             idx += 1
         
     def _run(self):
@@ -203,8 +181,8 @@ class UveStreamPart(gevent.Greenlet):
                     try:
                         elems = json.loads(dataline)
                     except:
-                         self._logger.error("AggUVE Parsing failed: %s" % str(message))
-                         continue
+                        self._logger.error("AggUVE Parsing failed: %s" % str(message))
+                        continue
                     else:
                          self._logger.info("AggUVE loading: %s" % str(elems))
                     ppe = lredis.pipeline()
@@ -219,24 +197,19 @@ class UveStreamPart(gevent.Greenlet):
                     pperes = ppe.execute()
                     idx = 0
                     for elem in elems:
-                        if elem["type"] is None:
-                            dt = {'partition':part,
-                                'key':elem["key"], 'type':None}
-                        else:
+
+                        key = elem["key"]
+                        typ = elem["type"]
+                        vdata = None
+
+                        if not typ is None:
                             vjson = pperes[idx]
                             if vjson is None:
                                 vdata = None
                             else:
                                 vdata = json.loads(vjson)
-                            dt = {'partition':part,
-                                    'key':elem["key"], 'type':elem["type"],
-                                    'value':vdata}
-                        if self._sse:
-                            msg = {'event': 'update', 'data':json.dumps(dt)}
-                            self._q.put(sse_pack(msg))
-                        else:
-                            msg = {'event': 'update', 'data':dt}
-                            self._q.put(msg)
+
+                        self._cb(self._partno, key, typ, vdata)
                         idx += 1
             except gevent.GreenletExit:
                 break
@@ -263,25 +236,39 @@ class UveStreamer(gevent.Greenlet):
         self._parts = {}
         self._partitions = partitions
         self._rpass = rpass
-        self._sse = True
         self._ccb = None
-        if self._rfile is None:
-            self._sse = False
+        self._uvedbcache = UveCacheProcessor(self._logger, partitions)
 
+    def get_uve(self, key, filters=None, is_alarm=False):
+        return self._uvedbcache.get_cache_uve(key, filters, is_alarm)
+
+    def partition_callback(self, partition, key, type, value):
+        # gevent is non-premptive; we don't need locks
+        if self._q:
+            dt = {'partition':partition, 'key':key, 'type':type}
+            if not type is None:
+                dt['value'] = value
+            msg = {'event': 'update', 'data':json.dumps(dt)}
+            self._q.put(sse_pack(msg))
+            # If this stream is being used for SSE, the cache
+            # does not need to store the contents of "value"
+            if not value is None:
+                value = {}
+            self._uvedbcache.store_uve(partition, key, type, value)
+        else:
+            self._uvedbcache.store_uve(partition, key, type, value)
+        
     def set_cleanup_callback(self, cb):
         self._ccb = cb
 
     def _run(self):
         inputs = [ self._rfile ]
         outputs = [ ]
-        if self._sse:
+        if self._q:
             msg = {'event': 'init', 'data':\
                 json.dumps({'partitions':self._partitions})}
             self._q.put(sse_pack(msg))
-        else:
-            msg = {'event': 'init', 'data':\
-                {'partitions':self._partitions}}
-            self._q.put(msg)
+        self._logger.error("Starting UveStreamer with %d partitions" % self._partitions)
         while True:
             try:
                 if self._rfile is not None:
@@ -297,40 +284,38 @@ class UveStreamer(gevent.Greenlet):
                 # deleted parts
                 for elem in set_old - intersect:
                     self.partition_stop(elem)
+                    self._uvedbcache.clear_partition(elem)
                 # new parts
                 for elem in set_new - intersect:
+                    self._uvedbcache.clear_partition(elem)
                     self.partition_start(elem, newagp[elem])
                 # changed parts
                 for elem in intersect:
                     if self._agp[elem] != newagp[elem]:
                         self.partition_stop(elem)
+                        self._uvedbcache.clear_partition(elem)
                         self.partition_start(elem, newagp[elem])
                 self._agp = newagp
             except gevent.GreenletExit:
                 break
+        self._logger.error("Stopping UveStreamer with %d partitions" % self._partitions)
         for part, pi in self._agp.iteritems():
             self.partition_stop(part)
-        if self._sse:
+            self._uvedbcache.clear_partition(elem)
+        if self._q:
             msg = {'event': 'stop', 'data':json.dumps(None)}
             self._q.put(sse_pack(msg))
-        else:
-            msg = {'event': 'stop', 'data':None}
-            self._q.put(msg)
         if callable(self._ccb):
             self._ccb(self) #remove myself
 
     def partition_start(self, partno, pi):
         self._logger.error("Starting agguve part %d using %s" %( partno, pi))
-        if self._sse:
+        if self._q:
             msg = {'event': 'clear', 'data':\
                 json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
             self._q.put(sse_pack(msg))
-        else:
-            msg = {'event': 'clear', 'data':\
-                {'partition':partno, 'acq_time':pi.acq_time}}
-            self._q.put(msg)
         self._parts[partno] = UveStreamPart(partno, self._logger,
-            self._q, pi, self._rpass, self._sse)
+            self.partition_callback, pi, self._rpass)
         self._parts[partno].start()
 
     def partition_stop(self, partno):
