@@ -1,3 +1,43 @@
+import logging
+import inspect
+from haproxy_cert import Barbican_Cert_Manager
+import os
+
+class CustomAttr(object):
+    """This type handles non-flat data-types like
+       int, str, bool.
+    """
+    def __init__(self, key, value):
+        self._value = value
+        self._key =  key
+
+    def validate(self, conf_list):
+        return
+
+    def post_validation(self, conf_list):
+        return
+
+class CustomAttrTlsContainer(CustomAttr):
+    def __init__(self, barbican_conf_file, key, value):
+        super(CustomAttrTlsContainer, self).__init__(key, value)
+        self.cert_manager = Barbican_Cert_Manager(barbican_conf_file)
+
+    def validate(self):
+        if self._key != 'tls_container':
+            return False
+
+        if (self.cert_manager and \
+           self.cert_manager._validate_tls_secret(self._value)):
+            tls_pem_string = self.cert_manager._populate_tls_pem(self._value)
+            self._value = tls_pem_string
+            return True
+        else:
+            logging.error("TLS container invalid")
+            return False
+
+    def post_validation(self):
+        return self._value
+
 custom_attributes_dict = {
     'global': {
         'max_conn': {
@@ -68,12 +108,17 @@ custom_attributes_dict = {
             'type': int,
             'limits': [1, 65535],
             'cmd': 'rate-limit sessions %d'
+        },
+        'tls_container': {
+            'type': CustomAttrTlsContainer,
+            'limits': None,
+            'cmd': None
         }
     },
     'pool': {},
 }
 
-def validate_custom_attributes(config, section):
+def validate_custom_attributes(config, section, barbican_conf_file=None):
     section_dict = {}
     if 'custom-attributes' in config and section in custom_attributes_dict:
         custom_attributes = config['custom-attributes']
@@ -87,9 +132,15 @@ def validate_custom_attributes(config, section):
                         value = type_attr(value)
                         if value in range(limits[0], limits[1]):
                             section_dict.update({key:value})
+                        else:
+                            logging.info("Skipping key: %s, value: %s due to" \
+                               "validation failure" % (key, value))
                     elif type_attr == str:
                         if len(value) in range(limits[0], limits[1]):
                             section_dict.update({key:value})
+                        else:
+                            logging.info("Skipping key: %s, value: %s due to" \
+                               "validation failure" % (key, value))
                     elif type_attr == bool:
                         if value in limits:
                             if value == 'True':
@@ -97,9 +148,19 @@ def validate_custom_attributes(config, section):
                             elif value == 'False':
                                 value = 'no '
                             section_dict.update({key:value})
+                        else:
+                            logging.info("Skipping key: %s, value: %s due to" \
+                               "validation failure" % (key, value))
+                    elif inspect.isclass(type_attr):
+                        new_custom_attr = type_attr(barbican_conf_file, key, value)
+                        if new_custom_attr.validate():
+                            value = new_custom_attr.post_validation()
+                            section_dict.update({key:value})
+                        else:
+                            logging.info("Skipping key: %s, value: %s due to" \
+                               "validation failure" % (key, value))
                 except Exception as e:
-                    print "Skipping key: %s, value: %s due to validation failure" \
-                        % (key, value)
+                    logging.error(str(e))
                     continue
 
     return section_dict
