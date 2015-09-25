@@ -107,7 +107,14 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Path received from EBGP is better than the one received from IBGP
     KEY_COMPARE(peer_->PeerType() == BgpProto::IBGP,
                 rhs.peer_->PeerType() == BgpProto::IBGP);
-    KEY_COMPARE(peer_->bgp_identifier(), rhs.peer_->bgp_identifier());
+
+    // Lower router id is better. Substitute originator id for router id
+    // if the path has an originator id.
+    uint32_t orig_id = attr_->originator_id().to_ulong();
+    uint32_t rorig_id = rattr->originator_id().to_ulong();
+    uint32_t id = orig_id ? orig_id : peer_->bgp_identifier();
+    uint32_t rid = rorig_id ? rorig_id : rhs.peer_->bgp_identifier();
+    KEY_COMPARE(id, rid);
 
     const BgpPeer *lpeer = dynamic_cast<const BgpPeer *>(peer_);
     const BgpPeer *rpeer = dynamic_cast<const BgpPeer *>(rhs.peer_);
