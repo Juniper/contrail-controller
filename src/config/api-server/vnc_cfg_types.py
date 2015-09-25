@@ -744,6 +744,18 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
 
 class NetworkIpamServer(Resource, NetworkIpam):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'network_ipams',
+                               'obj_type': 'network-ipam',
+                               'user_visibility': user_visibility}
+
+        return QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
+    # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
