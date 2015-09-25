@@ -102,6 +102,7 @@ def create_test_si(name='fake-instance', count=1, vr_id=None, intf_list=None):
         si_props['interface_list'].append({'virtual_network': vn_fq_name})
     si_props['virtual_router_id'] = 'fake-vr-uuid'
     si_obj['service_instance_properties'] = si_props
+    si_obj['parent_type'] = 'project'
     si = ServiceInstanceSM.locate(si_obj['uuid'], si_obj)
     return si
 
@@ -112,18 +113,12 @@ def create_test_project(fq_name_str):
     proj_obj['id_perms'] = 'fake-id-perms'
     ProjectSM.locate(proj_obj['uuid'], proj_obj)
 
-def create_test_security_group(fq_name_str):
-    sg_obj = {}
-    sg_obj['fq_name'] = fq_name_str.split(':')
-    sg_obj['uuid'] = fq_name_str
-    sg_obj['id_perms'] = 'fake-id-perms'
-    SecurityGroupSM.locate(sg_obj['uuid'], sg_obj)
-
 def create_test_virtual_network(fq_name_str):
     vn_obj = {}
     vn_obj['fq_name'] = fq_name_str.split(':')
     vn_obj['uuid'] = fq_name_str
     vn_obj['id_perms'] = 'fake-id-perms'
+    vn_obj['parent_type'] = 'project'
     VirtualNetworkSM.locate(vn_obj['uuid'], vn_obj)
 
 def create_test_virtual_machine(fq_name_str):
@@ -140,6 +135,7 @@ def create_test_security_group(fq_name_str):
     sg_obj['fq_name'] = fq_name_str.split(':')
     sg_obj['uuid'] = fq_name_str
     sg_obj['id_perms'] = 'fake-id-perms'
+    sg_obj['parent_type'] = 'project'
     SecurityGroupSM.locate(sg_obj['uuid'], sg_obj)
 
 def get_vn_id_for_fq_name(obj_type, fq_name):
@@ -155,6 +151,7 @@ def vn_create(vn_obj):
     vn = {}
     vn['uuid'] = vn_obj.uuid
     vn['fq_name'] = vn_obj.fq_name
+    vn['parent_type'] = 'project'
     VirtualNetworkSM.locate(vn_obj.uuid, vn)
     return vn_obj.uuid
 

@@ -128,7 +128,7 @@ class SnatAgentTest(unittest.TestCase):
         # register the public network
         config_db.VirtualNetworkSM.locate(
             ROUTER_1['virtual_network_refs'][0]['uuid'],
-            {'fq_name': ROUTER_1['virtual_network_refs'][0]['to']})
+            {'fq_name': ROUTER_1['virtual_network_refs'][0]['to'], 'parent_type': 'project'})
 
         # register interfaces
         config_db.VirtualMachineInterfaceSM.locate(
