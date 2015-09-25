@@ -3590,6 +3590,9 @@ void FlowTable::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
 
 void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
                            uint64_t diff_pkts) {
+    if (agent_->params()->disable_flow_collection())
+        return;
+
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
     FlowStats &stats = flow->stats_;
