@@ -63,6 +63,7 @@ static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
         export_rt.push_back(rt.ToString());
     }
     sri->set_export_target(export_rt);
+    sri->set_always_subscribe(rtinstance->always_subscribe());
 
     if (!summary) {
         const PeerRibMembershipManager *pmm = bsc->bgp_server->membership_mgr();

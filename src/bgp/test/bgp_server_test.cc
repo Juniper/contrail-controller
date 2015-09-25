@@ -1112,17 +1112,21 @@ TEST_F(BgpServerUnitTest, ChangeLocalAsNumber3) {
     }
 }
 
+//
+// Note that RoutingInstanceMgr already has a callback registered - that will
+// get id 0.
+//
 TEST_F(BgpServerUnitTest, ASNUpdateRegUnreg) {
     for (int i = 0; i < 1024; i++) {
         int j = a_->RegisterASNUpdateCallback(
           boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1, _2));
-        assert(j == i);
+        assert(j == i + 1);
     }
     for (int i = 0; i < 1024; i++) {
-        a_->UnregisterASNUpdateCallback(i);
+        a_->UnregisterASNUpdateCallback(i + 1);
         int j = a_->RegisterASNUpdateCallback(
           boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1, _2));
-        assert(j == 0);
+        assert(j == 1);
         a_->UnregisterASNUpdateCallback(j);
     }
 }

@@ -206,6 +206,7 @@ int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
 
 BgpInstanceConfig::BgpInstanceConfig(const std::string &name)
         : name_(name),
+          has_pnf_(false),
           virtual_network_index_(0), 
           virtual_network_allow_transit_(false),
           vxlan_id_(0),
@@ -218,6 +219,7 @@ BgpInstanceConfig::~BgpInstanceConfig() {
 void BgpInstanceConfig::Clear() {
     import_list_.clear();
     export_list_.clear();
+    has_pnf_ = false;
     virtual_network_.clear();
     virtual_network_index_ = 0;
     virtual_network_allow_transit_ = false;

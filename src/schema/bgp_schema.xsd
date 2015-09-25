@@ -162,6 +162,24 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('routing-instance-is-default', 'routing-instance') -->
 
+<xsd:element name="routing-instance-has-pnf" type="xsd:boolean"
+    default="false"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This flag is used to indicate that the routing-instance has a
+            Physical Network Function (PNF) service associated with it. The
+            flag is set by Schema Transformer and examined by Control Node.
+            The flag is set if one of the following conditions is met.
+            * The routing-instance is created as left/right routing-instance
+              for a PNF service.
+            * The routing-instance is the default routing-instance of a
+              virtual-network that has one or more policies that apply a
+              PNF service.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('routing-instance-has-pnf', 'routing-instance') -->
+
 <xsd:complexType name="ServiceChainInfo">
     <xsd:all>
         <xsd:element name='routing-instance' type='xsd:string'/>
