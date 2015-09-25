@@ -525,6 +525,9 @@ static bool ValidateMac(std::string &mac) {
     }
     if (colon != 5)
         return false;
+    // NULL mac not expected.
+    if (mac == MacAddress::ZeroMac().ToString())
+        return false;
     return true;
 }
 
