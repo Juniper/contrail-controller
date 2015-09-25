@@ -138,6 +138,8 @@ public:
     std::size_t Size() { return tree_.size(); }
     void set_delete_scheduled() { delete_scheduled_ = true;}
     bool delete_scheduled() { return delete_scheduled_;}
+    void InsertToTree(KSyncEntry* entry);
+    void RemoveFromTree(KSyncEntry* entry);
 
 protected:
     // Create an entry with default state. Used internally
