@@ -3,7 +3,6 @@
  */
 
 #include "analytics/viz_message.h"
-
 #include <base/logging.h>
 #include <base/util.h>
 #include <sandesh/sandesh_message_builder.h>
