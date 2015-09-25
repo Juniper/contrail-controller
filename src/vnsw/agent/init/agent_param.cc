@@ -537,7 +537,8 @@ void AgentParam::ParseServiceInstance() {
                           "SERVICE-INSTANCE.netns_timeout");
     GetValueFromTree<string>(si_lb_ssl_cert_path_,
                          "SERVICE-INSTANCE.lb_ssl_cert_path");
-
+    GetValueFromTree<string>(si_lb_barbican_ssl_conf_path_,
+                         "SERVICE-INSTANCE.lb_barbican_ssl_conf_path");
 }
 
 void AgentParam::ParseNexthopServer() {

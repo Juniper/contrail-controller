@@ -36,6 +36,10 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/conf.json";
         cmd_str << " --pool-id " << props.pool_id;
+        if (!agent_->params()->si_lb_barbican_ssl_conf_path().empty()) {
+            cmd_str << " --barbican-cfg-file " <<
+                agent_->params()->si_lb_barbican_ssl_conf_path();
+        }
     }
 
     if (update) {
