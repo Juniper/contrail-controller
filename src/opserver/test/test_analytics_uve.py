@@ -666,61 +666,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
 
             # kfilt
@@ -805,61 +750,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'kfilt': ['default-domain:project1:*',
@@ -943,61 +833,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'kfilt': ['default-domain:project1:vn1',
@@ -1044,32 +879,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'kfilt': [
@@ -1106,32 +915,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'kfilt': [
@@ -1206,68 +989,11 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'kfilt': ['invalid-vn'],
                 'uve_list_get': [],
                 'uve_get_post': {'value': []},
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # sfilt
@@ -1323,41 +1049,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'sfilt': socket.gethostname()+'_3',
@@ -1387,39 +1078,11 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'sfilt': 'invalid_source',
                 'uve_list_get': [],
                 'uve_get_post': {'value': []},
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # mfilt
@@ -1452,8 +1115,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
             {
                 'mfilt': 'Analytics:contrail-alarm-gen:0',
@@ -1512,68 +1173,11 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'mfilt': 'Analytics:contrail-invalid:0',
                 'uve_list_get': [],
                 'uve_get_post': {'value': []},
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # cfilt
@@ -1606,8 +1210,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
             {
                 'cfilt': [
@@ -1640,8 +1242,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
             {
                 'cfilt': [
@@ -1710,61 +1310,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
             {
                 'cfilt': [
@@ -1774,8 +1319,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 ],
                 'uve_list_get': [],
                 'uve_get_post': {'value': []},
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # ackfilt
@@ -1837,33 +1380,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                    ]
-                }
             },
             {
                 'ackfilt': False,
@@ -1936,51 +1452,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2',
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
 
             # kfilt + sfilt
@@ -2018,8 +1489,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # kfilt + sfilt + ackfilt
@@ -2047,8 +1516,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # kfilt + sfilt + cfilt
@@ -2099,41 +1566,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project1:vn2'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project1:vn2',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
-                                            'ack': True
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
 
             # kfilt + mfilt + cfilt
@@ -2146,8 +1578,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 ],
                 'uve_list_get': [],
                 'uve_get_post': {'value': []},
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
 
             # kfilt + sfilt + mfilt + cfilt
@@ -2191,8 +1621,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [],
-                'alarm_get_post': {'value': []}
             },
             {
                 'kfilt': [
@@ -2233,32 +1661,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                    'alarms': [
-                                        {
-                                            'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
-                                            'ack': False
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
             },
 
             # kfilt + sfilt + mfilt + cfilt + ackfilt
@@ -2290,20 +1692,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                         }
                     ]
                 },
-                'alarm_list_get': [
-                    'default-domain:project2:vn1'
-                ],
-                'alarm_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                }
-                            }
-                        }
-                    ]
-                }
             }
         ]
 
@@ -2321,12 +1709,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 filts=filters, exp_uves=filt_test[i]['uve_get_post']))
             assert(vizd_obj.verify_uve_post(vn_table,
                 filts=filters, exp_uves=filt_test[i]['uve_get_post']))
-            assert(vizd_obj.verify_alarm_list_include(vn_table,
-                filts=filters, expected_alarms=filt_test[i]['alarm_list_get']))
-            assert(vizd_obj.verify_multi_alarm_get(vn_table,
-                filts=filters, exp_alarms=filt_test[i]['alarm_get_post']))
-            assert(vizd_obj.verify_alarm_post(vn_table,
-                filts=filters, exp_alarms=filt_test[i]['alarm_get_post']))
     # end test_08_uve_alarm_filter
 
     @staticmethod

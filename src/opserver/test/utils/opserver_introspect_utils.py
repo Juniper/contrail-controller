@@ -71,22 +71,6 @@ class VerificationOpsSrv (IntrospectUtilBase):
             return res
     # end post_uve_request
 
-    def get_alarms(self, query):
-        return self.dict_get('analytics/alarms/%s' % query)
-    # end get_alarms
-
-    def post_alarm_request(self, table, json_body):
-        url = 'http://%s:%s/analytics/alarms/%s' % (self._ip, str(self._port), table)
-        try:
-            res = OpServerUtils.post_url_http(url, json_body, sync=True)
-            res = json.loads(res)
-        except Exception as e:
-            print 'Error: POST alarm request: %s' % str(e)
-            return None
-        else:
-            return res
-    # end post_alarm_request
-
     def get_redis_uve_info(self):
         path = 'Snh_RedisUVERequest'
         xpath = '/RedisUVEResponse/redis_uve_info'
