@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "analytics/viz_message.h"
 
+#include "analytics/viz_message.h"
 #include <base/logging.h>
 #include <base/util.h>
 #include <sandesh/sandesh_message_builder.h>
