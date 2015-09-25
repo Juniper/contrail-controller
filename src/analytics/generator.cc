@@ -54,12 +54,12 @@ void Generator::UpdateStatistics(const VizMsg *vmsg) {
     statistics_.Update(vmsg);
 }
 
-void Generator::GetStatistics(vector<SandeshStats> &ssv) const {
+void Generator::GetStatistics(vector<SandeshStats> *ssv) const {
     tbb::mutex::scoped_lock lock(smutex_);
     statistics_.Get(ssv);
 }
 
-void Generator::GetStatistics(vector<SandeshLogLevelStats> &lsv) const {
+void Generator::GetStatistics(vector<SandeshLogLevelStats> *lsv) const {
     tbb::mutex::scoped_lock lock(smutex_);
     statistics_.Get(lsv);
 }
@@ -68,7 +68,7 @@ void Generator::SendSandeshMessageStatistics() {
     vector<SandeshMessageInfo> smv;
     {
         tbb::mutex::scoped_lock lock(smutex_);
-        statistics_.Get(smv);
+        statistics_.Get(&smv);
     }
     SandeshMessageStat sms;
     sms.set_name(ToString());

@@ -132,21 +132,21 @@ TEST_F(VizMessageTest, Stats) {
     stats_.Update(&vmsgp);
     // Verify Gets - SandeshStats, SandeshLogLevelStats, SandeshMessageInfo 
     std::vector<SandeshStats> vsstats;
-    stats_.Get(vsstats);
+    stats_.Get(&vsstats);
     ASSERT_EQ(1, vsstats.size());
     EXPECT_STREQ("VNSwitchErrorMsg", vsstats[0].get_message_type().c_str());
     EXPECT_EQ(1, vsstats[0].get_messages());
     EXPECT_EQ(xmlmessage.size(), vsstats[0].get_bytes());
     vsstats.clear();
     std::vector<SandeshLogLevelStats> vsllstats;
-    stats_.Get(vsllstats);
+    stats_.Get(&vsllstats);
     ASSERT_EQ(1, vsllstats.size());
     EXPECT_STREQ("SYS_DEBUG", vsllstats[0].get_level().c_str());
     EXPECT_EQ(1, vsllstats[0].get_messages());
     EXPECT_EQ(xmlmessage.size(), vsllstats[0].get_bytes());
     vsllstats.clear();
     std::vector<SandeshMessageInfo> vsmi;
-    stats_.Get(vsmi);
+    stats_.Get(&vsmi);
     ASSERT_EQ(1, vsmi.size());
     EXPECT_STREQ("VNSwitchErrorMsg", vsmi[0].get_type().c_str());
     EXPECT_STREQ("SYS_DEBUG", vsmi[0].get_level().c_str());
@@ -156,19 +156,19 @@ TEST_F(VizMessageTest, Stats) {
     // Send same message, update stats
     stats_.Update(&vmsgp);
     // Verify updates
-    stats_.Get(vsstats);
+    stats_.Get(&vsstats);
     ASSERT_EQ(1, vsstats.size());
     EXPECT_STREQ("VNSwitchErrorMsg", vsstats[0].get_message_type().c_str());
     EXPECT_EQ(2, vsstats[0].get_messages());
     EXPECT_EQ(xmlmessage.size() * 2, vsstats[0].get_bytes());
     vsstats.clear();
-    stats_.Get(vsllstats);
+    stats_.Get(&vsllstats);
     ASSERT_EQ(1, vsllstats.size());
     EXPECT_STREQ("SYS_DEBUG", vsllstats[0].get_level().c_str());
     EXPECT_EQ(2, vsllstats[0].get_messages());
     EXPECT_EQ(xmlmessage.size() * 2, vsllstats[0].get_bytes());
     vsllstats.clear();
-    stats_.Get(vsmi);
+    stats_.Get(&vsmi);
     ASSERT_EQ(1, vsmi.size());
     EXPECT_STREQ("VNSwitchErrorMsg", vsmi[0].get_type().c_str());
     EXPECT_STREQ("SYS_DEBUG", vsmi[0].get_level().c_str());
@@ -194,7 +194,7 @@ TEST_F(VizMessageTest, Stats) {
     // Update stats
     stats_.Update(&vmsgp_object);
     // Verify Gets - SandeshStats, SandeshLogLevelStats, SandeshMessageInfo 
-    stats_.Get(vsstats);
+    stats_.Get(&vsstats);
     ASSERT_EQ(2, vsstats.size());
     EXPECT_STREQ("VNSwitchErrorMsg", vsstats[0].get_message_type().c_str());
     EXPECT_STREQ("VNSwitchErrorMsgObject", vsstats[1].get_message_type().c_str());
@@ -204,23 +204,18 @@ TEST_F(VizMessageTest, Stats) {
     EXPECT_EQ(xmlmessage_object.size(), vsstats[1].get_bytes());
     vsstats.clear();
     // Only SYSTEM and SYSLOG have level
-    stats_.Get(vsllstats);
+    stats_.Get(&vsllstats);
     ASSERT_EQ(1, vsllstats.size());
     EXPECT_STREQ("SYS_DEBUG", vsllstats[0].get_level().c_str());
     EXPECT_EQ(2, vsllstats[0].get_messages());
     EXPECT_EQ(xmlmessage.size() * 2, vsllstats[0].get_bytes());
     vsllstats.clear();
-    stats_.Get(vsmi);
-    ASSERT_EQ(2, vsmi.size());
-    EXPECT_STREQ("VNSwitchErrorMsg", vsmi[0].get_type().c_str());
-    EXPECT_STREQ("SYS_DEBUG", vsmi[0].get_level().c_str());
-    // Diffs
-    EXPECT_EQ(0, vsmi[0].get_messages());
-    EXPECT_EQ(0, vsmi[0].get_bytes());
-    EXPECT_STREQ("VNSwitchErrorMsgObject", vsmi[1].get_type().c_str());
-    EXPECT_STREQ("INVALID", vsmi[1].get_level().c_str());
-    EXPECT_EQ(1, vsmi[1].get_messages());
-    EXPECT_EQ(xmlmessage_object.size(), vsmi[1].get_bytes());
+    stats_.Get(&vsmi);
+    ASSERT_EQ(1, vsmi.size());
+    EXPECT_STREQ("VNSwitchErrorMsgObject", vsmi[0].get_type().c_str());
+    EXPECT_STREQ("INVALID", vsmi[0].get_level().c_str());
+    EXPECT_EQ(1, vsmi[0].get_messages());
+    EXPECT_EQ(xmlmessage_object.size(), vsmi[0].get_bytes());
     vsmi.clear();
     // Delete message
     vmsgp_object.msg = NULL;
