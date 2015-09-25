@@ -1020,6 +1020,16 @@ void FlowTable::UpdateKSync(FlowEntry *flow) {
     }
 }
 
+void FlowTable::RemoveFromKSyncTree(FlowEntry *flow) {
+    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
+    ksync_obj->RemoveFromTree(flow->ksync_entry());
+}
+
+void FlowTable::AddToKSyncTree(FlowEntry *flow) {
+    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
+    ksync_obj->InsertToTree(flow->ksync_entry());
+}
+
 void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
     /* FlowMgmt Task does not do anything apart from notifying
      * FlowStatsCollector on Flow Index change. We don't directly enqueue

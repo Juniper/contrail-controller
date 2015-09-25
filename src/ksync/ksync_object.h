@@ -147,6 +147,8 @@ protected:
     // Big lock on the tree
     // TODO: Make this more fine granular
     tbb::recursive_mutex  lock_;
+    void InsertToTree(KSyncEntry* entry);
+    void RemoveFromTree(KSyncEntry* entry);
 
 private:
     friend class KSyncEntry;

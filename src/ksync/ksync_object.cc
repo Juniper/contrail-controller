@@ -197,6 +197,17 @@ void KSyncObject::Delete(KSyncEntry *entry) {
     SafeNotifyEvent(entry, KSyncEntry::DEL_REQ);
 }
 
+void KSyncObject::InsertToTree(KSyncEntry *entry) {
+    tbb::recursive_mutex::scoped_lock lock(lock_);
+    assert(entry->GetRefCount() > 0);
+    tree_.insert(*entry);
+}
+
+void KSyncObject::RemoveFromTree(KSyncEntry *entry) {
+    tbb::recursive_mutex::scoped_lock lock(lock_);
+    assert(tree_.erase(*entry) > 0);
+}
+
 void KSyncObject::FreeInd(KSyncEntry *entry, uint32_t index) {
     assert(tree_.erase(*entry) > 0);
     if (need_index_ == true && index != KSyncEntry::kInvalidIndex) {
