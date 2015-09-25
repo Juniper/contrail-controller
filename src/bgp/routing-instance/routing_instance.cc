@@ -298,9 +298,9 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     rtinstance = BgpObjectFactory::Create<RoutingInstance>(
         config->name(), server_, this, config);
     int index = instances_.Insert(config->name(), rtinstance);
-    rtinstance->ProcessConfig();
-
     rtinstance->set_index(index);
+
+    rtinstance->ProcessConfig();
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
     rtinstance->InitAllRTargetRoutes(server_->local_autonomous_system());
@@ -339,6 +339,8 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
 
     bool old_always_subscribe = rtinstance->always_subscribe();
 
+    // Note that InstanceTarget[Remove|Add] depend on the RouteTargetList in
+    // the RoutingInstance.
     InstanceTargetRemove(rtinstance);
     InstanceVnIndexRemove(rtinstance);
     rtinstance->UpdateConfig(config);
@@ -397,17 +399,8 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
 
     RTINSTANCE_LOG(Delete, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
-    rtinstance->FlushAllRTargetRoutes(server_->local_autonomous_system());
-    rtinstance->ClearRouteTarget();
-
-    server()->service_chain_mgr(Address::INET)->StopServiceChain(rtinstance);
-
-    // Remove Static Route config
-    if (rtinstance->static_route_mgr(Address::INET))
-        rtinstance->static_route_mgr(Address::INET)->FlushStaticRouteConfig();
 
     NotifyInstanceOp(name, INSTANCE_DELETE);
-
     rtinstance->ManagedDelete();
 }
 
@@ -426,9 +419,11 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     const string name = rtinstance->name();
     instances_.Remove(rtinstance->name(), rtinstance->index());
 
-    if (deleted()) return;
+    if (deleted())
+        return;
 
-    if (name == BgpConfigManager::kMasterInstance) return;
+    if (name == BgpConfigManager::kMasterInstance)
+        return;
 
     const BgpInstanceConfig *config
         = server()->config_manager()->FindInstance(name);
@@ -485,8 +480,12 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
-      manager_delete_ref_(this, mgr->deleter()) {
-      peer_manager_.reset(BgpObjectFactory::Create<PeerManager>(this));
+      manager_delete_ref_(this, mgr->deleter()),
+      inet_static_route_mgr_(
+          BgpObjectFactory::Create<IStaticRouteMgr, Address::INET>(this)),
+      inet6_static_route_mgr_(
+          BgpObjectFactory::Create<IStaticRouteMgr, Address::INET6>(this)),
+      peer_manager_(BgpObjectFactory::Create<PeerManager>(this)) {
 }
 
 RoutingInstance::~RoutingInstance() {
@@ -496,13 +495,43 @@ void RoutingInstance::ProcessServiceChainConfig() {
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
         const ServiceChainConfig *sc_config =
-            config_->service_chain_info(family);
+            config_ ? config_->service_chain_info(family) : NULL;
         IServiceChainMgr *manager = server_->service_chain_mgr(family);
         if (sc_config && !sc_config->routing_instance.empty()) {
             manager->LocateServiceChain(this, *sc_config);
         } else {
             manager->StopServiceChain(this);
         }
+    }
+}
+
+void RoutingInstance::ProcessStaticRouteConfig() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        static_route_mgr(family)->ProcessStaticRouteConfig();
+    }
+}
+
+void RoutingInstance::UpdateStaticRouteConfig() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        static_route_mgr(family)->UpdateStaticRouteConfig();
+    }
+}
+
+void RoutingInstance::FlushStaticRouteConfig() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        static_route_mgr(family)->FlushStaticRouteConfig();
     }
 }
 
@@ -560,9 +589,7 @@ void RoutingInstance::ProcessConfig() {
     }
 
     ProcessServiceChainConfig();
-
-    if (static_route_mgr(Address::INET))
-        static_route_mgr(Address::INET)->ProcessStaticRouteConfig();
+    ProcessStaticRouteConfig();
 }
 
 void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
@@ -640,10 +667,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
         ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
     ProcessServiceChainConfig();
-
-    // Static route update.
-    if (static_route_mgr(Address::INET))
-        static_route_mgr(Address::INET)->UpdateStaticRouteConfig();
+    UpdateStaticRouteConfig();
 }
 
 void RoutingInstance::ClearConfig() {
@@ -666,12 +690,12 @@ void RoutingInstance::Shutdown() {
     RTINSTANCE_LOG(Shutdown, this,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
+    ClearConfig();
     FlushAllRTargetRoutes(server_->local_autonomous_system());
     ClearRouteTarget();
-    server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
 
-    if (static_route_mgr(Address::INET))
-        static_route_mgr(Address::INET)->FlushStaticRouteConfig();
+    ProcessServiceChainConfig();
+    FlushStaticRouteConfig();
 }
 
 bool RoutingInstance::MayDelete() const {
@@ -1023,10 +1047,6 @@ void RoutingInstance::set_index(int index) {
         return;
 
     rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index));
-    inet_static_route_mgr_.reset(
-        BgpObjectFactory::Create<IStaticRouteMgr, Address::INET>(this));
-    inet6_static_route_mgr_.reset(
-        BgpObjectFactory::Create<IStaticRouteMgr, Address::INET6>(this));
 }
 
 RoutingInstanceInfo RoutingInstance::GetDataCollection(const char *operation) {

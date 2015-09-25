@@ -749,7 +749,7 @@ template <typename T>
 void StaticRouteMgr<T>::ProcessStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
     const BgpInstanceConfig::StaticRouteList &list =
-        routing_instance()->config()->static_routes();
+        routing_instance()->config()->static_routes(GetFamily());
     typedef BgpInstanceConfig::StaticRouteList::const_iterator iterator_t;
     for (iterator_t iter = list.begin(); iter != list.end(); ++iter) {
         LocateStaticRoutePrefix(*iter);
@@ -781,7 +781,7 @@ void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
     typedef BgpInstanceConfig::StaticRouteList StaticRouteList;
     StaticRouteList static_route_list =
-        routing_instance()->config()->static_routes();
+        routing_instance()->config()->static_routes(GetFamily());
 
     sort(static_route_list.begin(), static_route_list.end(),
               CompareStaticRouteConfig);
@@ -859,11 +859,11 @@ uint32_t StaticRouteMgr<T>::GetDownRouteCount() const {
 
 class ShowStaticRouteHandler {
 public:
+    template <Address::Family family, typename T>
     static void FillStaticRoutesInfo(vector<StaticRouteEntriesInfo> *list,
-                                     RoutingInstance *ri) {
-        IStaticRouteMgr *imanager = ri->static_route_mgr(Address::INET);
-        StaticRouteMgr<StaticRouteInet> *manager =
-            static_cast<StaticRouteMgr<StaticRouteInet> *>(imanager);
+        RoutingInstance *ri) {
+        IStaticRouteMgr *imanager = ri->static_route_mgr(family);
+        StaticRouteMgr<T> *manager = static_cast<StaticRouteMgr<T> *>(imanager);
         if (!manager)
             return;
         if (manager->static_route_map().empty())
@@ -871,11 +871,11 @@ public:
 
         StaticRouteEntriesInfo info;
         info.set_ri_name(ri->name());
-        for (StaticRouteMgr<StaticRouteInet>::StaticRouteMap::const_iterator it =
+        for (typename StaticRouteMgr<T>::StaticRouteMap::const_iterator it =
              manager->static_route_map().begin();
              it != manager->static_route_map().end(); ++it) {
-            StaticRoute<StaticRouteInet> *match =
-                static_cast<StaticRoute<StaticRouteInet> *>(it->second.get());
+            StaticRoute<T> *match =
+                static_cast<StaticRoute<T> *>(it->second.get());
             StaticRouteInfo static_info;
             match->FillShowInfo(&static_info);
             info.static_route_list.push_back(static_info);
@@ -884,27 +884,32 @@ public:
     }
 
     static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data) {
         const ShowStaticRouteReq *req =
                 static_cast<const ShowStaticRouteReq *>(ps.snhRequest_.get());
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-        vector<StaticRouteEntriesInfo> static_route_entries;
+        vector<StaticRouteEntriesInfo> srei_list;
         if (req->get_ri_name() != "") {
             RoutingInstance *ri = rim->GetRoutingInstance(req->get_ri_name());
             if (ri)
-                FillStaticRoutesInfo(&static_route_entries, ri);
+                FillStaticRoutesInfo<Address::INET, StaticRouteInet>(
+                    &srei_list, ri);
+                FillStaticRoutesInfo<Address::INET6, StaticRouteInet6>(
+                    &srei_list, ri);
         } else {
-            RoutingInstanceMgr::name_iterator i = rim->name_begin();
-            for (; i != rim->name_end(); i++) {
-                FillStaticRoutesInfo(&static_route_entries, i->second);
+            for (RoutingInstanceMgr::name_iterator it = rim->name_begin();
+                 it != rim->name_end(); ++it) {
+                FillStaticRoutesInfo<Address::INET, StaticRouteInet>(
+                    &srei_list, it->second);
+                FillStaticRoutesInfo<Address::INET6, StaticRouteInet6>(
+                    &srei_list, it->second);
             }
         }
         ShowStaticRouteResp *resp = new ShowStaticRouteResp;
-        resp->set_static_route_entries(static_route_entries);
+        resp->set_static_route_entries(srei_list);
         resp->set_context(req->context());
         resp->Response();
         return true;

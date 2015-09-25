@@ -224,8 +224,29 @@ void BgpInstanceConfig::Clear() {
     virtual_network_index_ = 0;
     virtual_network_allow_transit_ = false;
     vxlan_id_ = 0;
-    static_routes_.clear();
+    inet_static_routes_.clear();
+    inet6_static_routes_.clear();
     service_chain_list_.clear();
+}
+
+const BgpInstanceConfig::StaticRouteList &BgpInstanceConfig::static_routes(
+    Address::Family family) const {
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        return inet_static_routes_;
+    } else {
+        return inet6_static_routes_;
+    }
+}
+
+void BgpInstanceConfig::swap_static_routes(Address::Family family,
+    StaticRouteList *list) {
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        std::swap(inet_static_routes_, *list);
+    } else {
+        std::swap(inet6_static_routes_, *list);
+    }
 }
 
 const ServiceChainConfig *BgpInstanceConfig::service_chain_info(
