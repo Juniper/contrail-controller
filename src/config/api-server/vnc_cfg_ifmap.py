@@ -174,7 +174,6 @@ class VncIfmapClient(object):
             if field is None:
                 continue
             # construct object of xsd-type and get its xml repr
-            field = obj_dict[prop_field]
             # e.g. virtual_network_properties
             is_simple, prop_type = obj_class.prop_field_types[prop_field]
             # e.g. virtual-network-properties
@@ -294,10 +293,9 @@ class VncIfmapClient(object):
 
         # remove properties that are no longer active
         props = obj_cls.prop_field_metas
-        for prop in props:
-            prop_m = prop.replace('-', '_')
-            if prop in existing_metas and prop_m not in new_obj_dict:
-                self._delete_id_self_meta(ifmap_id, 'contrail:'+prop)
+        for prop, meta in props.items():
+            if meta in existing_metas and new_obj_dict.get(prop) is None:
+                self._delete_id_self_meta(ifmap_id, 'contrail:'+meta)
 
         # remove refs that are no longer active
         delete_list = []
@@ -1732,7 +1730,7 @@ class VncDbClient(object):
         (ok, cassandra_result) = self._cassandra_db.update(
             method_name, obj_ids['uuid'], new_obj_dict)
 
-        # publish to ifmap via redis
+        # publish to ifmap via message bus (rabbitmq)
         self._msgbus.dbe_update_publish(obj_type, obj_ids)
 
         return (ok, cassandra_result)
