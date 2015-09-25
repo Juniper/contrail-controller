@@ -265,10 +265,8 @@ public:
     uint64_t last_change_at() const { return last_change_at_; }
     void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
 
-    const StaticRouteList &static_routes() const { return static_routes_; }
-    void swap_static_routes(StaticRouteList *list) {
-        std::swap(static_routes_, *list);
-    }
+    const StaticRouteList &static_routes(Address::Family family) const;
+    void swap_static_routes(Address::Family family, StaticRouteList *list);
 
     const ServiceChainList &service_chain_list() const {
         return service_chain_list_;
@@ -292,7 +290,8 @@ private:
     bool virtual_network_allow_transit_;
     int vxlan_id_;
     mutable uint64_t last_change_at_;
-    StaticRouteList static_routes_;
+    StaticRouteList inet_static_routes_;
+    StaticRouteList inet6_static_routes_;
     ServiceChainList service_chain_list_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpInstanceConfig);

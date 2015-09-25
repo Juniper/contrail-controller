@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_show_handler.h"
 
+#include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
@@ -13,6 +14,7 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 
+using boost::assign::list_of;
 using std::string;
 using std::vector;
 
@@ -53,15 +55,18 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     sbic->set_service_chain_infos(sbscc_list);
 
     vector<ShowBgpStaticRouteConfig> static_route_list;
-    BOOST_FOREACH(const StaticRouteConfig &rtconfig,
-        instance->static_routes()) {
-        ShowBgpStaticRouteConfig sbsrc;
-        string prefix = rtconfig.address.to_string() + "/";
-        prefix += integerToString(rtconfig.prefix_length);
-        sbsrc.set_prefix(prefix);
-        sbsrc.set_targets(rtconfig.route_target);
-        sbsrc.set_nexthop(rtconfig.nexthop.to_string());
-        static_route_list.push_back(sbsrc);
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        BOOST_FOREACH(const StaticRouteConfig &static_rt_config,
+            instance->static_routes(family)) {
+            ShowBgpStaticRouteConfig sbsrc;
+            string prefix = static_rt_config.address.to_string() + "/";
+            prefix += integerToString(static_rt_config.prefix_length);
+            sbsrc.set_prefix(prefix);
+            sbsrc.set_targets(static_rt_config.route_target);
+            sbsrc.set_nexthop(static_rt_config.nexthop.to_string());
+            static_route_list.push_back(sbsrc);
+        }
     }
     if (!static_route_list.empty())
         sbic->set_static_routes(static_route_list);

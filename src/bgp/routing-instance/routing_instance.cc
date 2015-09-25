@@ -401,10 +401,10 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     rtinstance->ClearRouteTarget();
 
     server()->service_chain_mgr(Address::INET)->StopServiceChain(rtinstance);
-
-    // Remove Static Route config
     if (rtinstance->static_route_mgr(Address::INET))
         rtinstance->static_route_mgr(Address::INET)->FlushStaticRouteConfig();
+    if (rtinstance->static_route_mgr(Address::INET6))
+        rtinstance->static_route_mgr(Address::INET6)->FlushStaticRouteConfig();
 
     NotifyInstanceOp(name, INSTANCE_DELETE);
 
@@ -485,8 +485,8 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
-      manager_delete_ref_(this, mgr->deleter()) {
-      peer_manager_.reset(BgpObjectFactory::Create<PeerManager>(this));
+      manager_delete_ref_(this, mgr->deleter()),
+      peer_manager_(BgpObjectFactory::Create<PeerManager>(this)) {
 }
 
 RoutingInstance::~RoutingInstance() {
@@ -560,9 +560,10 @@ void RoutingInstance::ProcessConfig() {
     }
 
     ProcessServiceChainConfig();
-
     if (static_route_mgr(Address::INET))
         static_route_mgr(Address::INET)->ProcessStaticRouteConfig();
+    if (static_route_mgr(Address::INET6))
+        static_route_mgr(Address::INET6)->ProcessStaticRouteConfig();
 }
 
 void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
@@ -640,10 +641,10 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
         ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
     ProcessServiceChainConfig();
-
-    // Static route update.
     if (static_route_mgr(Address::INET))
         static_route_mgr(Address::INET)->UpdateStaticRouteConfig();
+    if (static_route_mgr(Address::INET6))
+        static_route_mgr(Address::INET6)->UpdateStaticRouteConfig();
 }
 
 void RoutingInstance::ClearConfig() {
@@ -668,10 +669,12 @@ void RoutingInstance::Shutdown() {
 
     FlushAllRTargetRoutes(server_->local_autonomous_system());
     ClearRouteTarget();
-    server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
 
+    server_->service_chain_mgr(Address::INET)->StopServiceChain(this);
     if (static_route_mgr(Address::INET))
         static_route_mgr(Address::INET)->FlushStaticRouteConfig();
+    if (static_route_mgr(Address::INET6))
+        static_route_mgr(Address::INET6)->FlushStaticRouteConfig();
 }
 
 bool RoutingInstance::MayDelete() const {
