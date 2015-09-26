@@ -66,7 +66,7 @@ KSyncEntry *KSyncVxlanBridgeEntry::UnresolvedReference() {
 }
 
 KSyncVxlanBridgeObject::KSyncVxlanBridgeObject(KSyncVxlan *ksync) :
-    KSyncDBObject(), ksync_(ksync) {
+    KSyncDBObject("KSyncVxlanBridgeObject"), ksync_(ksync) {
 }
 
 KSyncVxlanBridgeObject::~KSyncVxlanBridgeObject() {

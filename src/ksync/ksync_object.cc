@@ -39,19 +39,21 @@ void TestTriggerStaleEntryCleanupCb(KSyncObject *obj) {
     obj->StaleEntryCleanupCb();
 }
 
-KSyncObject::KSyncObject() : need_index_(false), index_table_(),
+KSyncObject::KSyncObject(const std::string &name) : need_index_(false), index_table_(),
                          delete_scheduled_(false), stale_entry_tree_(),
                          stale_entry_cleanup_timer_(NULL),
                          stale_entry_cleanup_intvl_(0),
                          stale_entries_per_intvl_(0) {
+    KSyncTraceBuf = SandeshTraceBufferCreate(name, 1000);
 }
 
-KSyncObject::KSyncObject(int max_index) : 
+KSyncObject::KSyncObject(const std::string &name, int max_index) :
                          need_index_(true), index_table_(max_index),
                          delete_scheduled_(false), stale_entry_tree_(),
                          stale_entry_cleanup_timer_(NULL),
                          stale_entry_cleanup_intvl_(0),
                          stale_entries_per_intvl_(0) {
+    KSyncTraceBuf = SandeshTraceBufferCreate(name, 1000);
 }
 
 KSyncObject::~KSyncObject() {
@@ -214,21 +216,24 @@ void KSyncObject::SafeNotifyEvent(KSyncEntry *entry,
 ///////////////////////////////////////////////////////////////////////////////
 // KSyncDBObject routines
 ///////////////////////////////////////////////////////////////////////////////
-KSyncDBObject::KSyncDBObject() : KSyncObject(), test_id_(-1) {
+KSyncDBObject::KSyncDBObject(const std::string &name) : KSyncObject(name), test_id_(-1) {
     table_ = NULL;
 }
 
-KSyncDBObject::KSyncDBObject(int max_index) : KSyncObject(max_index), test_id_(-1) {
+KSyncDBObject::KSyncDBObject(const std::string &name,
+                             int max_index) : KSyncObject(name, max_index), test_id_(-1) {
     table_ = NULL;
 }
 
-KSyncDBObject::KSyncDBObject(DBTableBase *table) : KSyncObject(), test_id_(-1) {
+KSyncDBObject::KSyncDBObject(const std::string &name,
+                             DBTableBase *table) : KSyncObject(name), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
 }
 
-KSyncDBObject::KSyncDBObject(DBTableBase *table, int max_index) 
-    : KSyncObject(max_index), test_id_(-1) {
+KSyncDBObject::KSyncDBObject(const std::string &name,
+                             DBTableBase *table, int max_index)
+    : KSyncObject(name, max_index), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
 }
@@ -1110,8 +1115,8 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     bool dep_reval = false;
 
     if (DoEventTrace()) {
-        KSYNC_TRACE(Event, entry->ToString(), entry->StateString(),
-                entry->EventString(event));
+        KSYNC_TRACE(Event, this, entry->ToString(), entry->StateString(),
+                    entry->EventString(event));
     }
     switch (entry->GetState()) {
         case KSyncEntry::INIT:
@@ -1357,8 +1362,6 @@ KSyncObjectManager::KSyncObjectManager() {
 KSyncObjectManager::~KSyncObjectManager() {
     delete event_queue_;
 }
-
-SandeshTraceBufferPtr KSyncTraceBuf(SandeshTraceBufferCreate("KSync", 1000));
 
 KSyncObjectManager *KSyncObjectManager::Init() {
     if (singleton_ == NULL) {

@@ -73,9 +73,10 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
     }
 
     if (phy_intf_display_name_ != data->phy_intf_display_name_) {
-        OPER_TRACE(Trace, "Changing Physical Interface display name from "
-                   + phy_intf_display_name_ + " to " +
-                   data->phy_intf_display_name_);
+        OPER_TRACE_ENTRY(Trace, table,
+                         "Changing Physical Interface display name from " \
+                         + phy_intf_display_name_ + " to " +
+                         data->phy_intf_display_name_);
         phy_intf_display_name_ = data->phy_intf_display_name_;
         ret = true;
     }
@@ -97,9 +98,10 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
     }
 
     if (phy_dev_display_name_ != data->phy_dev_display_name_) {
-        OPER_TRACE(Trace, "Changing Physical Device display name from "
-                   + phy_dev_display_name_ + " to " +
-                   data->phy_dev_display_name_);
+        OPER_TRACE_ENTRY(Trace, table,
+                         "Changing Physical Device display name from " \
+                         + phy_dev_display_name_ + " to " +
+                         data->phy_dev_display_name_);
         phy_dev_display_name_ = data->phy_dev_display_name_;
         ret = true;
     }

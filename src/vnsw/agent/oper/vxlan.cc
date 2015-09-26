@@ -49,7 +49,7 @@ DBEntry *VxLanTable::Add(const DBRequest *req) {
     VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
 
     ChangeHandler(vxlan_id, req);
-    vxlan_id->SendObjectLog(AgentLogEvent::ADD);
+    vxlan_id->SendObjectLog(this, AgentLogEvent::ADD);
     return vxlan_id;
 }
 
@@ -57,7 +57,7 @@ bool VxLanTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret;
     VxLanId *vxlan_id = static_cast<VxLanId *>(entry);
     ret = ChangeHandler(vxlan_id, req);
-    vxlan_id->SendObjectLog(AgentLogEvent::CHANGE);
+    vxlan_id->SendObjectLog(this, AgentLogEvent::CHANGE);
     return ret;
 }
 
@@ -82,7 +82,7 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
 
 bool VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
     VxLanId *vxlan_id = static_cast<VxLanId *>(entry);
-    vxlan_id->SendObjectLog(AgentLogEvent::DELETE);
+    vxlan_id->SendObjectLog(this, AgentLogEvent::DELETE);
     return true;
 }
 
@@ -208,7 +208,8 @@ bool VxLanId::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     return true;
 }
 
-void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
+void VxLanId::SendObjectLog(const AgentDBTable *table,
+                            AgentLogEvent::type event) const {
     VxLanObjectLogInfo info;
     string str, nh_type;
     
@@ -220,7 +221,7 @@ void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
         case AgentLogEvent::DELETE:
             str.assign("Deletion ");
             info.set_event(str);
-            OPER_TRACE(VxLan, info);
+            OPER_TRACE_ENTRY(VxLan, table, info);
             return;
         case AgentLogEvent::CHANGE:
             str.assign("Modification ");
@@ -245,7 +246,7 @@ void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
         }
     }
     info.set_nh_type(nh_type);
-    OPER_TRACE(VxLan, info);
+    OPER_TRACE_ENTRY(VxLan, table, info);
 }
 
 void VxLanReq::HandleRequest() const {

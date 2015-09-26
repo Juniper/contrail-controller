@@ -80,14 +80,8 @@ static inline void CloseTaskFds(void) {
         close(fd);
 }
 
-extern SandeshTraceBufferPtr OperDBTraceBuf;
 extern SandeshTraceBufferPtr OperConfigTraceBuf;
 extern bool GetBuildInfo(std::string &build_info_str);
-
-#define OPER_TRACE(obj, ...)\
-do {\
-   Oper##obj::TraceMsg(OperDBTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);\
 
 #define OPER_IFMAP_TRACE(obj, ...)\
 do {\

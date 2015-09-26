@@ -82,9 +82,9 @@ public:
     typedef boost::intrusive::set<KSyncBackReference, KSyncBackRefNode> BackRefTree;
 
     // Default constructor. No index needed
-    KSyncObject();
+    KSyncObject(const std::string &name);
     // Constructor for objects needing index
-    KSyncObject(int max_index);
+    KSyncObject(const std::string &name, int max_index);
     // Destructor
     virtual ~KSyncObject();
 
@@ -138,6 +138,7 @@ public:
     std::size_t Size() { return tree_.size(); }
     void set_delete_scheduled() { delete_scheduled_ = true;}
     bool delete_scheduled() { return delete_scheduled_;}
+    virtual SandeshTraceBufferPtr GetKSyncTraceBuf() {return KSyncTraceBuf;}
 
 protected:
     // Create an entry with default state. Used internally
@@ -186,6 +187,7 @@ private:
 
     uint32_t stale_entry_cleanup_intvl_;
     uint16_t stale_entries_per_intvl_;
+    SandeshTraceBufferPtr KSyncTraceBuf;
 
     DISALLOW_COPY_AND_ASSIGN(KSyncObject);
 };
@@ -204,12 +206,14 @@ public:
         DBFilterDelete  // Ignore DB Entry Add/Change and clear previous state
     };
     // Create KSyncObject. DB Table will be registered later
-    KSyncDBObject();
-    KSyncDBObject(int max_index);
+    KSyncDBObject(const std::string &name);
+    KSyncDBObject(const std::string &name, int max_index);
 
-    KSyncDBObject(DBTableBase *table);
+    KSyncDBObject(const std::string &name, DBTableBase *table);
     // KSync DB Object with index allocation
-    KSyncDBObject(DBTableBase *table, int max_index);
+    KSyncDBObject(const std::string &name,
+                  DBTableBase *table,
+                  int max_index);
 
     // Destructor
     virtual ~KSyncDBObject();
@@ -235,6 +239,7 @@ public:
     // Used for lookup of KSyncEntry from DBEntry
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry) = 0;
     void set_test_id(DBTableBase::ListenerId id);
+
 private:
     //Callback to do cleanup when DEL ACK is received.
     virtual void CleanupOnDel(KSyncEntry *kentry);
@@ -289,9 +294,9 @@ private:
     static bool debug_;
 };
 
-#define KSYNC_TRACE(obj, ...)\
+#define KSYNC_TRACE(obj, parent, ...)\
 do {\
-   KSync##obj::TraceMsg(KSyncTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
+   KSync##obj::TraceMsg(parent->GetKSyncTraceBuf(), __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
 
 #define KSYNC_ASSERT(cond)\
@@ -300,7 +305,5 @@ do {\
        assert(cond);\
    }\
 } while (false);\
-
-extern SandeshTraceBufferPtr KSyncTraceBuf;
 
 #endif // ctrlplane_ksync_object_h 

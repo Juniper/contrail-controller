@@ -42,7 +42,6 @@
 using boost::assign::map_list_of;
 using boost::assign::list_of;
 
-SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
 SandeshTraceBufferPtr OperConfigTraceBuf(SandeshTraceBufferCreate("OperIfmap",
                                                                   1000));
 

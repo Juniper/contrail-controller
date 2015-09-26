@@ -81,11 +81,12 @@ uint32_t NextHopTable::ReserveIndex() {
     return index_table_.Insert(NULL);
 }
 
-void NextHop::SendObjectLog(AgentLogEvent::type event) const {
+void NextHop::SendObjectLog(const NextHopTable *table,
+                            AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
     FillObjectLog(event, info);
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 NextHop::~NextHop() {
@@ -229,7 +230,7 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
     }
     nh->set_id(index_table_.Insert(nh));
     nh->Change(req);
-    nh->SendObjectLog(AgentLogEvent::ADD);
+    nh->SendObjectLog(this, AgentLogEvent::ADD);
     return static_cast<DBEntry *>(nh);
 }
 
@@ -368,7 +369,8 @@ const uuid &ArpNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
-void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
+void ArpNH::SendObjectLog(const NextHopTable *table,
+                          AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
     FillObjectLog(event, info);
@@ -386,7 +388,7 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
     const unsigned char *m = GetMac().GetData();
     FillObjectLogMac(m, info);
 
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -607,7 +609,8 @@ void InterfaceNH::DeletePhysicalInterfaceNh(const string &ifname) {
     NextHopTable::GetInstance()->Process(req);
 }
 
-void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
+void InterfaceNH::SendObjectLog(const NextHopTable *table,
+                                AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
     FillObjectLog(event, info);
@@ -618,7 +621,7 @@ void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
     const unsigned char *m = (unsigned char *)GetDMac().GetData();
     FillObjectLogMac(m, info);
 
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -677,7 +680,8 @@ bool VrfNH::Change(const DBRequest *req) {
     return ret;
 }
 
-void VrfNH::SendObjectLog(AgentLogEvent::type event) const {
+void VrfNH::SendObjectLog(const NextHopTable *table,
+                          AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
     FillObjectLog(event, info);
 
@@ -685,7 +689,7 @@ void VrfNH::SendObjectLog(AgentLogEvent::type event) const {
     if (vrf) {
         info.set_vrf(vrf->GetName());
     }
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -840,7 +844,8 @@ void TunnelNH::Delete(const DBRequest *req) {
         rt_table->RemoveUnresolvedNH(this);
 }
 
-void TunnelNH::SendObjectLog(AgentLogEvent::type event) const {
+void TunnelNH::SendObjectLog(const NextHopTable *table,
+                             AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
     FillObjectLog(event, info);
 
@@ -853,7 +858,7 @@ void TunnelNH::SendObjectLog(AgentLogEvent::type event) const {
     const Ip4Address *dip = GetDip();
     info.set_dest_ip(dip->to_string());
     info.set_tunnel_type(tunnel_type_.ToString());
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -989,7 +994,8 @@ void MirrorNH::Delete(const DBRequest *req) {
     rt_table->RemoveUnresolvedNH(this);
 }
 
-void MirrorNH::SendObjectLog(AgentLogEvent::type event) const {
+void MirrorNH::SendObjectLog(const NextHopTable *table,
+                             AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
     FillObjectLog(event, info);
@@ -1004,7 +1010,7 @@ void MirrorNH::SendObjectLog(AgentLogEvent::type event) const {
     info.set_dest_ip(dip->to_string());
     info.set_source_port((short int)GetSPort());
     info.set_dest_port((short int)GetDPort());
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1064,7 +1070,8 @@ void ReceiveNH::Delete(NextHopTable *table, const string &interface) {
 }
 
 
-void ReceiveNH::SendObjectLog(AgentLogEvent::type event) const {
+void ReceiveNH::SendObjectLog(const NextHopTable *table,
+                              AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
     FillObjectLog(event, info);
@@ -1072,7 +1079,7 @@ void ReceiveNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1260,7 +1267,8 @@ VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag) {
     return static_cast<VlanNH *>(NextHopTable::GetInstance()->FindActiveEntry(&key));
 }
 
-void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
+void VlanNH::SendObjectLog(const NextHopTable *table,
+                           AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 
     FillObjectLog(event, info);
@@ -1272,7 +1280,7 @@ void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
     FillObjectLogMac(m, info);
 
     info.set_vlan_tag((short int)GetVlanTag());
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1392,7 +1400,8 @@ bool CompositeNH::Change(const DBRequest* req) {
     return changed;
 }
 
-void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
+void CompositeNH::SendObjectLog(const NextHopTable *table,
+                                AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
     FillObjectLog(event, info);
 
@@ -1455,7 +1464,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
     }
 
     info.set_nh_list(comp_nh_log_list);
-    OPER_TRACE(NextHop, info);
+    OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
 //Key for composite NH is list of component NH

@@ -497,7 +497,7 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
-    KSyncObject(), ksync_(ksync), audit_flow_idx_(0),
+    KSyncObject("KSync FlowTable"), ksync_(ksync), audit_flow_idx_(0),
     audit_timer_(TimerManager::CreateTimer
                  (*(ksync_->agent()->event_manager())->io_service(),
                   "Flow Audit Timer",
@@ -507,7 +507,8 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) :
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
-    KSyncObject(max_index), ksync_(ksync), audit_flow_idx_(0),
+    KSyncObject("KSync FlowTable", max_index),
+    ksync_(ksync), audit_flow_idx_(0),
     audit_timer_(TimerManager::CreateTimer
                  (*(ksync_->agent()->event_manager())->io_service(),
                   "Flow Audit Timer",

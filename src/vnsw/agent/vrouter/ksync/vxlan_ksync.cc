@@ -115,7 +115,7 @@ void VxLanIdKSyncEntry::FillObjectLog(sandesh_op::type op,
 int VxLanIdKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncVxLanInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(VxLan, info);
+    KSYNC_TRACE(VxLan, GetObject(), info);
 
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
@@ -123,7 +123,7 @@ int VxLanIdKSyncEntry::AddMsg(char *buf, int buf_len) {
 int VxLanIdKSyncEntry::ChangeMsg(char *buf, int buf_len) {
     KSyncVxLanInfo info;
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(VxLan, info);
+    KSYNC_TRACE(VxLan, GetObject(), info);
  
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
@@ -131,7 +131,7 @@ int VxLanIdKSyncEntry::ChangeMsg(char *buf, int buf_len) {
 int VxLanIdKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncVxLanInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
-    KSYNC_TRACE(VxLan, info);
+    KSYNC_TRACE(VxLan, GetObject(), info);
  
     return Encode(sandesh_op::DELETE, buf, buf_len);
 }
@@ -145,7 +145,7 @@ KSyncEntry *VxLanIdKSyncEntry::UnresolvedReference() {
 }
 
 VxLanKSyncObject::VxLanKSyncObject(KSync *ksync) 
-    : KSyncDBObject(), ksync_(ksync) {
+    : KSyncDBObject("KSync VxLan"), ksync_(ksync) {
 }
 
 VxLanKSyncObject::~VxLanKSyncObject() {

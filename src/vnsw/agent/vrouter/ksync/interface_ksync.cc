@@ -675,14 +675,14 @@ int InterfaceKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
 
     FillObjectLog(sandesh_op::ADD, info);
-    KSYNC_TRACE(Intf, info);
+    KSYNC_TRACE(Intf, GetObject(), info);
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
 int InterfaceKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
-    KSYNC_TRACE(Intf, info);
+    KSYNC_TRACE(Intf, GetObject(), info);
     return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
@@ -691,7 +691,7 @@ int InterfaceKSyncEntry::ChangeMsg(char *buf, int buf_len) {
 }
 
 InterfaceKSyncObject::InterfaceKSyncObject(KSync *ksync) :
-    KSyncDBObject(), ksync_(ksync) {
+    KSyncDBObject("KSync Interface"), ksync_(ksync) {
 }
 
 InterfaceKSyncObject::~InterfaceKSyncObject() {

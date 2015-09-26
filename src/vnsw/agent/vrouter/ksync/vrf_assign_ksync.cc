@@ -175,7 +175,7 @@ KSyncEntry *VrfAssignKSyncEntry::UnresolvedReference() {
 }
 
 VrfAssignKSyncObject::VrfAssignKSyncObject(KSync *ksync) 
-    : KSyncDBObject(), ksync_(ksync) {
+    : KSyncDBObject("KSync VrfAssign"), ksync_(ksync) {
 }
 
 VrfAssignKSyncObject::~VrfAssignKSyncObject() {
