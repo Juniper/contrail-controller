@@ -9,8 +9,8 @@
 #include <ksync/ksync_types.h>
 
 void VrfStatsIoContext::Handler() {
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                       (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     VnUveTable *vt = static_cast<VnUveTable *>
         (ctx->agent()->uve()->vn_uve_table());
     vt->SendVnStats(true);

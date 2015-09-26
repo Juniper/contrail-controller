@@ -46,8 +46,8 @@ IoContext *AgentStatsCollectorTest::AllocateIoContext(char* buf, uint32_t buf_le
 
 void InterfaceStatsIoContextTest::Handler() {
     InterfaceStatsIoContext::Handler();
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                        (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (ctx->agent()->stats_collector());
     collector->interface_stats_responses_++;
@@ -55,8 +55,8 @@ void InterfaceStatsIoContextTest::Handler() {
 
 void InterfaceStatsIoContextTest::ErrorHandler(int err) {
     InterfaceStatsIoContext::ErrorHandler(err);
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                        (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (ctx->agent()->stats_collector());
     collector->interface_stats_errors_++;
@@ -64,8 +64,8 @@ void InterfaceStatsIoContextTest::ErrorHandler(int err) {
 
 void VrfStatsIoContextTest::Handler() {
     VrfStatsIoContext::Handler();
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                       (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (ctx->agent()->stats_collector());
     collector->vrf_stats_responses_++;
@@ -73,8 +73,8 @@ void VrfStatsIoContextTest::Handler() {
 
 void VrfStatsIoContextTest::ErrorHandler(int err) {
     VrfStatsIoContext::ErrorHandler(err);
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                       (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (ctx->agent()->stats_collector());
     collector->vrf_stats_errors_++;
@@ -82,8 +82,8 @@ void VrfStatsIoContextTest::ErrorHandler(int err) {
 
 void DropStatsIoContextTest::Handler() {
     DropStatsIoContext::Handler();
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                      (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (ctx->agent()->stats_collector());
     collector->drop_stats_responses_++;
@@ -91,8 +91,8 @@ void DropStatsIoContextTest::Handler() {
 
 void DropStatsIoContextTest::ErrorHandler(int err) {
     DropStatsIoContext::ErrorHandler(err);
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                      (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (ctx->agent()->stats_collector());
     collector->drop_stats_errors_++;
