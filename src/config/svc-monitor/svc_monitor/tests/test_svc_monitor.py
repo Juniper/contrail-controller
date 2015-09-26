@@ -211,6 +211,7 @@ class SvcMonitorTest(unittest.TestCase):
         obj = {}
         obj['uuid'] = uuids[0]
         obj['fq_name'] = ['fake-domain', 'fake-project', uuids[0]]
+        obj['parent_type'] = 'project'
         return True, [obj]
 
     def cassandra_vmi_read(self, obj_type, uuids):
