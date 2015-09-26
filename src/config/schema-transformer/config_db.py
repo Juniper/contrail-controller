@@ -2040,9 +2040,9 @@ class ServiceChain(DBBaseST):
 
             if first_node:
                 first_node = False
-                rt_list = vn1_obj.rt_list
+                rt_list = set(vn1_obj.rt_list)
                 if vn1_obj.allow_transit:
-                    rt_list |= set([vn1_obj.get_route_target()])
+                    rt_list.add(vn1_obj.get_route_target())
                 service_ri1.update_route_target_list(rt_list,
                                                      import_export='export')
 
@@ -2077,9 +2077,9 @@ class ServiceChain(DBBaseST):
             self._vnc_lib.routing_instance_update(service_ri1.obj)
             self._vnc_lib.routing_instance_update(service_ri2.obj)
 
-        rt_list = vn2_obj.rt_list
+        rt_list = set(vn2_obj.rt_list)
         if vn2_obj.allow_transit:
-            rt_list |= set([vn2_obj.get_route_target()])
+            rt_list.add(vn2_obj.get_route_target())
         service_ri2.update_route_target_list(rt_list, import_export='export')
 
         service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
