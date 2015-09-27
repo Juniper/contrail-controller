@@ -54,18 +54,126 @@ const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
                                                 {"Agent::KSync", "Agent::Uve"};
 
 /////////////////////////////////////////////////////////////////////////////
+// Netlink utilities
+/////////////////////////////////////////////////////////////////////////////
+static uint32_t GetNetlinkSeqno(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    return nlh->nlmsg_seq;
+}
+
+static bool NetlinkMsgDone(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    return ((nlh->nlmsg_flags & NLM_F_MULTI) &&
+            (nlh->nlmsg_type != NLMSG_DONE));
+}
+
+// Common validation for netlink messages
+static bool ValidateNetlink(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    if (nlh->nlmsg_type == NLMSG_ERROR) {
+        LOG(ERROR, "Netlink error for seqno " << nlh->nlmsg_seq << " len "
+            << nlh->nlmsg_len);
+        assert(0);
+        return false;
+    }
+
+    if (nlh->nlmsg_len > KSyncSock::kBufLen) {
+        LOG(ERROR, "Length of " << nlh->nlmsg_len << " is more than expected "
+            "length of " << KSyncSock::kBufLen);
+        assert(0);
+        return false;
+    }
+
+    if (nlh->nlmsg_type == NLMSG_DONE) {
+        return true;
+    }
+
+    // Sanity checks for generic-netlink message
+    if (nlh->nlmsg_type != KSyncSock::GetNetlinkFamilyId()) {
+        LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
+        assert(0);
+        return false;
+    }
+
+    struct genlmsghdr *genlh = (struct genlmsghdr *) (data + NLMSG_HDRLEN);
+    if (genlh->cmd != SANDESH_REQUEST) {
+        LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
+        assert(0);
+        return false;
+    }
+
+    struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
+                                             + GENL_HDRLEN);
+    if (attr->nla_type != NL_ATTR_VR_MESSAGE_PROTOCOL) {
+        LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
+        assert(0);
+        return false;
+    }
+
+    return true;
+}
+
+static void GetSandeshMessage(char *data, char **buf, uint32_t *buf_len) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    *buf = data + NLMSG_HDRLEN + GENL_HDRLEN + NLA_HDRLEN;
+    *buf_len = nlh->nlmsg_len - (NLMSG_HDRLEN + GENL_HDRLEN + NLA_HDRLEN);
+}
+
+static void InitNetlink(nl_client *client) {
+    nl_init_generic_client_req(client, KSyncSock::GetNetlinkFamilyId());
+    unsigned char *nl_buf;
+    uint32_t nl_buf_len;
+    assert(nl_build_header(client, &nl_buf, &nl_buf_len) >= 0);
+}
+
+static void ResetNetlink(nl_client *client) {
+    unsigned char *nl_buf;
+    uint32_t nl_buf_len;
+    client->cl_buf_offset = 0;
+    nl_build_header(client, &nl_buf, &nl_buf_len);
+}
+
+static void UpdateNetlink(nl_client *client, uint32_t len, uint32_t seq_no) {
+    nl_update_header(client, len);
+    struct nlmsghdr *nlh = (struct nlmsghdr *)client->cl_buf;
+    nlh->nlmsg_pid = KSyncSock::GetPid();
+    nlh->nlmsg_seq = seq_no;
+}
+
+static void DecodeSandeshMessages(char *buf, uint32_t buf_len,
+                                  SandeshContext *sandesh_context) {
+    while (buf_len > (NLA_ALIGNTO - 1)) {
+        int error;
+        int decode_len = Sandesh::ReceiveBinaryMsgOne((uint8_t *)buf, buf_len,
+                                                      &error, sandesh_context);
+        if (decode_len < 0) {
+            LOG(DEBUG, "Incorrect decode len " << decode_len);
+            break;
+        }
+        buf += decode_len;
+        buf_len -= decode_len;
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 // KSyncSock routines
 /////////////////////////////////////////////////////////////////////////////
 KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), read_inline_(true) {
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    uint32_t task_id = 0;
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        receive_work_queue[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
-                             GetTaskId(IoContext::io_wq_names[i]), 0,
-                             boost::bind(&KSyncSock::ProcessKernelData, this, 
-                                         _1));
+        task_id = scheduler->GetTaskId(IoContext::io_wq_names[i]);
+        receive_work_queue[i] =
+            new WorkQueue<char *>(task_id, 0,
+                                  boost::bind(&KSyncSock::ProcessKernelData,
+                                              this, _1));
     }
-    async_send_queue_ = new WorkQueue<IoContext *>(TaskScheduler::GetInstance()->
-                            GetTaskId("Ksync::AsyncSend"), 0,
-                            boost::bind(&KSyncSock::SendAsyncImpl, this, _1));
+    task_id = scheduler->GetTaskId("Ksync::AsyncSend");
+    async_send_queue_ =
+        new WorkQueue<IoContext *>(task_id, 0,
+                                   boost::bind(&KSyncSock::SendAsyncImpl, this,
+                                               _1));
+    nl_client_ = (nl_client *)malloc(sizeof(nl_client));
+    bzero(nl_client_, sizeof(nl_client));
     rx_buff_ = NULL;
     seqno_ = 0;
     uve_seqno_ = 0;
@@ -87,6 +195,11 @@ KSyncSock::~KSyncSock() {
         receive_work_queue[i]->Shutdown();
         delete receive_work_queue[i];
     }
+
+    if (nl_client_->cl_buf) {
+        free(nl_client_->cl_buf);
+    }
+    free(nl_client_);
 }
 
 void KSyncSock::Shutdown() {
@@ -126,8 +239,9 @@ void KSyncSock::SetNetlinkFamilyId(int id) {
     for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
          it != sock_table_.end(); it++) {
         KSyncSockNetlink *sock = dynamic_cast<KSyncSockNetlink *>(*it);
-        if (sock)
-            sock->InitNetlink();
+        if (sock) {
+            InitNetlink(sock->nl_client_);
+        }
     }
 }
 
@@ -153,7 +267,7 @@ KSyncSock *KSyncSock::Get(int idx) {
 
 Tree::iterator KSyncSock::GetIoContext(char *data) {
     IoContext ioc;
-    ioc.SetSeqno(GetSeqno(data));
+    ioc.SetSeqno(GetNetlinkSeqno(data));
     Tree::iterator it;
     {
         tbb::mutex::scoped_lock lock(mutex_);
@@ -165,9 +279,9 @@ Tree::iterator KSyncSock::GetIoContext(char *data) {
 
 bool KSyncSock::ValidateAndEnqueue(char *data) {
     Validate(data);
-
     IoContext::IoContextWorkQId q_id;
-    if ((GetSeqno(data) & KSYNC_DEFAULT_Q_ID_SEQ) == KSYNC_DEFAULT_Q_ID_SEQ) {
+    if ((GetNetlinkSeqno(data) & KSYNC_DEFAULT_Q_ID_SEQ) ==
+        KSYNC_DEFAULT_Q_ID_SEQ) {
         q_id = IoContext::DEFAULT_Q_ID;
     } else {
         q_id = IoContext::UVE_Q_ID;
@@ -201,7 +315,6 @@ void KSyncSock::ReadHandler(const boost::system::error_code& error,
 // Currently only Agent::KSync and Agent::Uve are possibilities
 bool KSyncSock::ProcessKernelData(char *data) {
     Tree::iterator it = GetIoContext(data);
-
     IoContext *context = it.operator->();
 
     AgentSandeshContext *ctxt = context->GetSandeshContext();
@@ -306,7 +419,7 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
 // KSyncSockNetlink routines
 /////////////////////////////////////////////////////////////////////////////
 KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) 
-    : sock_(ios, protocol), nl_client_(NULL) {
+    : sock_(ios, protocol) {
     ReceiveBuffForceSize set_rcv_buf;
     set_rcv_buf = KSYNC_SOCK_RECV_BUFF_SIZE;
     boost::system::error_code ec;
@@ -323,12 +436,6 @@ KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
 }
 
 KSyncSockNetlink::~KSyncSockNetlink() {
-    if (nl_client_) {
-        if (nl_client_->cl_buf) {
-            free(nl_client_->cl_buf);
-        }
-        free(nl_client_);
-    }
 }
 
 void KSyncSockNetlink::Init(io_service &ios, int count, int protocol) {
@@ -338,136 +445,55 @@ void KSyncSockNetlink::Init(io_service &ios, int count, int protocol) {
     }
 }
 
-void KSyncSockNetlink::InitNetlink() {
-    nl_client_ = (nl_client *)malloc(sizeof(nl_client));
-    nl_init_generic_client_req(nl_client_, GetNetlinkFamilyId());
-    unsigned char *nl_buf;
-    uint32_t nl_buf_len;
-    assert(nl_build_header(nl_client_, &nl_buf, &nl_buf_len) >= 0);
-}
-
-void KSyncSockNetlink::ResetNetlink() {
-    unsigned char *nl_buf;
-    uint32_t nl_buf_len;
-    nl_client_->cl_buf_offset = 0;
-    nl_build_header(nl_client_, &nl_buf, &nl_buf_len);
-}
-
 uint32_t KSyncSockNetlink::GetSeqno(char *data) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    return nlh->nlmsg_seq;
+    return GetNetlinkSeqno(data);
 }
 
 bool KSyncSockNetlink::IsMoreData(char *data) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-
-    return ((nlh->nlmsg_flags & NLM_F_MULTI) && (nlh->nlmsg_type != NLMSG_DONE));
+    return NetlinkMsgDone(data);
 }
 
 bool KSyncSockNetlink::Validate(char *data) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    if (nlh->nlmsg_type == NLMSG_ERROR) {
-        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq 
-                        << " len " << nlh->nlmsg_len);
-        assert(0);
-        return true;
-    }
-
-    if (nlh->nlmsg_len > kBufLen) {
-        LOG(ERROR, "Length of " << nlh->nlmsg_len << " is more than expected "
-            "length of " << kBufLen);
-        assert(0);
-        return true;
-    }
-    return true;
+    return ValidateNetlink(data);
 }
 
 //netlink socket class for interacting with kernel
 void KSyncSockNetlink::AsyncSendTo(char *data, uint32_t data_len,
                                    uint32_t seq_no, HandlerCb cb) {
-    struct nl_client cl;
-    unsigned char *nl_buf;
-    uint32_t nl_buf_len;
-    int ret;
+    ResetNetlink(nl_client_);
     std::vector<mutable_buffers_1> iovec;
-
-    nl_init_generic_client_req(&cl, GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &nl_buf, &nl_buf_len)) < 0) {
-        LOG(ERROR, "Error creating netlink message. Error : " << ret);
-        free(cl.cl_buf);
-        return;
-    }
-
-    iovec.push_back(buffer(cl.cl_buf, cl.cl_buf_offset));
+    iovec.push_back(buffer(nl_client_->cl_buf, nl_client_->cl_buf_offset));
     iovec.push_back(buffer(data, data_len));
-
-    nl_update_header(&cl, data_len);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
-    nlh->nlmsg_pid = KSyncSock::GetPid();
-    nlh->nlmsg_seq = seq_no;
+    UpdateNetlink(nl_client_, data_len, seq_no);
 
     boost::asio::netlink::raw::endpoint ep;
     sock_.async_send_to(iovec, ep, cb);
-    free(cl.cl_buf);
 }
 
 size_t KSyncSockNetlink::SendTo(const char *data, uint32_t data_len,
                                  uint32_t seq_no) {
+    ResetNetlink(nl_client_);
     std::vector<const_buffers_1> iovec;
-
-    ResetNetlink();
-    iovec.push_back(buffer((const char *)nl_client_->cl_buf, nl_client_->cl_buf_offset));
+    iovec.push_back(buffer((const char *)nl_client_->cl_buf,
+                           nl_client_->cl_buf_offset));
     iovec.push_back(buffer((const char *)data, data_len));
-
-    nl_update_header(nl_client_, data_len);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)nl_client_->cl_buf;
-    nlh->nlmsg_pid = KSyncSock::GetPid();
-    nlh->nlmsg_seq = seq_no;
+    UpdateNetlink(nl_client_, data_len, seq_no);
 
     boost::asio::netlink::raw::endpoint ep;
     return sock_.send_to(iovec, ep);
 }
 
-void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
+void KSyncSockNetlink::Decoder(char *data, SandeshContext *sandesh_context) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    if (nlh->nlmsg_type == GetNetlinkFamilyId()) {
-        struct genlmsghdr *genlh = (struct genlmsghdr *)
-                                   (data + NLMSG_HDRLEN);
-        int total_len = nlh->nlmsg_len;
-        int decode_len;
-        uint8_t *decode_buf;
-        if (genlh->cmd == SANDESH_REQUEST) {
-            struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
-                                                     + GENL_HDRLEN);
-            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN + 
-                                              NLA_HDRLEN);
-            int err = 0;
-            if (attr->nla_type == NL_ATTR_VR_MESSAGE_PROTOCOL) {
-                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN + 
-                                         GENL_HDRLEN + NLA_HDRLEN);
-                while(decode_buf_len > (NLA_ALIGNTO - 1)) {
-                    decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len, &err,
-                                                              ctxt);
-                    if (decode_len < 0) {
-                        LOG(DEBUG, "Incorrect decode len " << decode_len);
-                        break;
-                    }
-                    decode_buf += decode_len;
-                    decode_buf_len -= decode_len;
-                }
-            } else {
-                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
-                assert(0);
-            }
-        } else {
-            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
-            assert(0);
-        }
-    } else if (nlh->nlmsg_type != NLMSG_DONE) {
-        LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
-        assert(0);
+    if (nlh->nlmsg_type == NLMSG_DONE) {
+        return;
     }
+
+    // Get sandesh buffer and buffer-length
+    uint32_t buf_len = 0;
+    char *buf = NULL;
+    GetSandeshMessage(data, &buf, &buf_len);
+    DecodeSandeshMessages(buf, buf_len, sandesh_context);
 }
 
 void KSyncSockNetlink::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
@@ -488,9 +514,9 @@ void KSyncSockNetlink::Receive(mutable_buffers_1 buf) {
 // KSyncSockUdp routines
 /////////////////////////////////////////////////////////////////////////////
 //Udp socket class for interacting with kernel
-KSyncSockUdp::KSyncSockUdp(boost::asio::io_service &ios, int port)
-    : sock_(ios, ip::udp::endpoint(ip::udp::v4(), 0)), server_ep_(ip::address::from_string("127.0.0.1"), port) {
-    //sock_.open(ip::udp::v4());
+KSyncSockUdp::KSyncSockUdp(boost::asio::io_service &ios, int port) :
+    sock_(ios, ip::udp::endpoint(ip::udp::v4(), 0)),
+    server_ep_(ip::address::from_string("127.0.0.1"), port) {
 }
 
 void KSyncSockUdp::Init(io_service &ios, int count, int port) {
@@ -510,23 +536,11 @@ bool KSyncSockUdp::IsMoreData(char *data) {
     return ((hdr->flags & UVR_MORE) == UVR_MORE);
 }
 
-void KSyncSockUdp::Decoder(char *data, SandeshContext *ctxt) {
+void KSyncSockUdp::Decoder(char *data, SandeshContext *sandesh_context) {
     struct uvr_msg_hdr *hdr = (struct uvr_msg_hdr *)data;
-    int decode_len;
-    int decode_buf_len = hdr->msg_len;
-    uint8_t *decode_buf;
-    int err = 0;
-    decode_buf = (uint8_t *)(data + sizeof(struct uvr_msg_hdr));
-    while(decode_buf_len > 0) {
-        decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len,
-                                                  &err, ctxt);
-        if (decode_len < 0) {
-            LOG(DEBUG, "Incorrect decode len " << decode_len);
-            break;
-        }
-        decode_buf += decode_len;
-        decode_buf_len -= decode_len;
-    }
+    uint32_t buf_len = hdr->msg_len;
+    char *buf = data + sizeof(struct uvr_msg_hdr);
+    DecodeSandeshMessages(buf, buf_len, sandesh_context);
 }
 
 void KSyncSockUdp::AsyncSendTo(char *data, uint32_t data_len,
@@ -600,138 +614,57 @@ TcpSession* KSyncSockTcp::AllocSession(Socket *socket) {
 }
 
 uint32_t KSyncSockTcp::GetSeqno(char *data) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    return nlh->nlmsg_seq;
+    return GetNetlinkSeqno(data);
 }
 
 bool KSyncSockTcp::IsMoreData(char *data) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    return ((nlh->nlmsg_flags & NLM_F_MULTI) && (nlh->nlmsg_type != NLMSG_DONE));
+    return NetlinkMsgDone(data);
 }
 
 void KSyncSockTcp::AsyncSendTo(char *data, uint32_t data_len,
                                uint32_t seq_no, HandlerCb cb) {
-    struct nl_client cl;
-    unsigned char *nl_buf;
-    uint32_t nl_buf_len;
-    int ret;
-    char msg[4096];
-    std::vector<mutable_buffers_1> iovec;
+    ResetNetlink(nl_client_);
+    UpdateNetlink(nl_client_, data_len, seq_no);
 
-    nl_init_generic_client_req(&cl, GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &nl_buf, &nl_buf_len)) < 0) {
-        LOG(ERROR, "Error creating netlink message. Error : " << ret);
-        free(cl.cl_buf);
-        return;
-    }
-
-    uint32_t total_length = cl.cl_buf_offset + data_len;
+    uint32_t total_length = nl_client_->cl_buf_offset + data_len;
     assert(total_length < 4096);
-
-    uint32_t header_len = cl.cl_buf_offset;
-    nl_update_header(&cl, data_len);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
-    nlh->nlmsg_pid = KSyncSock::GetPid();
-    nlh->nlmsg_seq = seq_no;
-
-    memcpy(msg, cl.cl_buf, header_len);
-    memcpy(msg + header_len, data, data_len);
+    char msg[4096];
+    memcpy(msg, nl_client_->cl_buf, nl_client_->cl_buf_offset);
+    memcpy(msg + nl_client_->cl_buf_offset, data, data_len);
 
     session_->Send((const uint8_t *)msg, total_length, NULL);
-    free(cl.cl_buf);
 }
 
 size_t KSyncSockTcp::SendTo(const char *data, uint32_t data_len,
                             uint32_t seq_no) {
-    struct nl_client cl;
-    unsigned char *nl_buf;
-    uint32_t nl_buf_len;
-    int ret;
-    char msg[4096];
+    ResetNetlink(nl_client_);
+    UpdateNetlink(nl_client_, data_len, seq_no);
 
-    nl_init_generic_client_req(&cl, GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &nl_buf, &nl_buf_len)) < 0) {
-        LOG(ERROR, "Error creating netlink message. Error : " << ret);
-        free(cl.cl_buf);
-        return ((size_t) -1);
-    }
-
-    uint32_t total_length = cl.cl_buf_offset + data_len;
+    uint32_t total_length = nl_client_->cl_buf_offset + data_len;
     assert(total_length < 4096);
+    char msg[4096];
+    memcpy(msg, nl_client_->cl_buf, nl_client_->cl_buf_offset);
+    memcpy(msg + nl_client_->cl_buf_offset, data, data_len);
 
-    uint32_t header_len = cl.cl_buf_offset;
-    nl_update_header(&cl, data_len);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
-    nlh->nlmsg_pid = KSyncSock::GetPid();
-    nlh->nlmsg_seq = seq_no;
-
-    memcpy(msg, cl.cl_buf, header_len);
-    memcpy(msg + header_len, data, data_len);
- 
     session_->Send((const uint8_t *)msg, total_length, NULL);
-    free(cl.cl_buf);
     return total_length;
 }
 
 bool KSyncSockTcp::Validate(char *data) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    if (nlh->nlmsg_type == NLMSG_ERROR) {
-        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq
-                        << " len " << nlh->nlmsg_len);
-        assert(0);
-        return true;
-    }
-
-    if (nlh->nlmsg_len > kBufLen) {
-        LOG(ERROR, "Length of " << nlh->nlmsg_len << " is more than expected "
-            "length of " << kBufLen);
-        assert(0);
-        return true;
-    }
-    return true;
+    return ValidateNetlink(data);
 }
 
-void KSyncSockTcp::Decoder(char *data, SandeshContext *ctxt) {
+void KSyncSockTcp::Decoder(char *data, SandeshContext *sandesh_context) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    if (nlh->nlmsg_type == GetNetlinkFamilyId()) {
-        struct genlmsghdr *genlh = (struct genlmsghdr *)
-                                   (data + NLMSG_HDRLEN);
-        int total_len = nlh->nlmsg_len;
-        int decode_len;
-        uint8_t *decode_buf;
-        if (genlh->cmd == SANDESH_REQUEST) {
-            struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
-                                                     + GENL_HDRLEN);
-            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN +
-                                              NLA_HDRLEN);
-            int err = 0;
-            if (attr->nla_type == NL_ATTR_VR_MESSAGE_PROTOCOL) {
-                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN +
-                                         GENL_HDRLEN + NLA_HDRLEN);
-                while(decode_buf_len > (NLA_ALIGNTO - 1)) {
-                    decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len, &err,
-                                                              ctxt);
-                    if (decode_len < 0) {
-                        LOG(DEBUG, "Incorrect decode len " << decode_len);
-                        break;
-                    }
-                    decode_buf += decode_len;
-                    decode_buf_len -= decode_len;
-                }
-            } else {
-                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
-                assert(0);
-            }
-        } else {
-            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
-            assert(0);
-        }
-    } else if (nlh->nlmsg_type != NLMSG_DONE) {
-        LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
-        assert(0);
+    if (nlh->nlmsg_type == NLMSG_DONE) {
+        return;
     }
+
+    // Get sandesh buffer and buffer-length
+    uint32_t buf_len = 0;
+    char *buf = NULL;
+    GetSandeshMessage(data, &buf, &buf_len);
+    DecodeSandeshMessages(buf, buf_len, sandesh_context);
 }
 
 void KSyncSockTcp::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
