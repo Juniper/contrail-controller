@@ -38,6 +38,14 @@ class IFMapDependencyManagerTest : public ::testing::Test {
     }
 
     void ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
+        IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
+        if (state) {
+            state->set_oper_db_request_enqueued(true);
+        }
+        change_list_.push_back(node);
+    }
+
+    void RequestEventHandler(IFMapNode *node, DBEntry *entry) {
         change_list_.push_back(node);
     }
 
@@ -385,7 +393,118 @@ TEST_F(IFMapDependencyManagerTest, DisableNotify) {
     task_util::WaitForIdle();
 }
 
+TEST_F(IFMapDependencyManagerTest, OperDBNotifyDisable) {
+    typedef IFMapDependencyManagerTest_OperDBNotifyDisable_Test TestClass;
 
+    ifmap_test_util::IFMapMsgNodeAdd(database_, "service-instance", "si-1");
+    ifmap_test_util::IFMapMsgNodeAdd(database_, "virtual-machine", "vm-1");
+    ifmap_test_util::IFMapMsgNodeAdd(database_,
+            "virtual-machine-interface", "vmi-1");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(database_, "service-instance", "si-1",
+                                  "virtual-machine", "vm-1",
+                                  "virtual-machine-service-instance");
+    task_util::WaitForIdle();
+
+    dependency_manager_->Unregister("service-instance");
+    dependency_manager_->Register(
+        "service-instance",
+        boost::bind(&TestClass::RequestEventHandler, this, _1, _2));
+
+    //Add the link and verify that Edge VM<->VMI is propogted to SI
+    ifmap_test_util::IFMapMsgLink(database_, "virtual-machine", "vm-1",
+                                  "virtual-machine-interface", "vmi-1",
+                                  "virtual-machine-interface-virtual-machine");
+
+    task_util::WaitForIdle();
+
+    ASSERT_NE(0, change_list_.size());
+
+    std::vector<IFMapNode *>::iterator it;
+    int seen = 0;
+    for (it = change_list_.begin(); it != change_list_.end(); it++) {
+        IFMapNode *n = *it;
+        if (n->name() == "si-1")
+            seen = 1;
+    }
+    EXPECT_EQ(seen, 1);
+
+    IFMapTable *si_cfg_table = IFMapTable::FindTable(database_,
+            "service-instance");
+    ASSERT_TRUE(si_cfg_table);
+    IFMapNode *si = si_cfg_table->FindNode("si-1");
+    ASSERT_TRUE(si);
+    dependency_manager_->SetRequestEnqueued(si, false);
+
+    change_list_.clear();
+
+    //Add the link and verify that Edge VM<->VMI is NOT propogted to SI
+    ifmap_test_util::IFMapMsgLink(database_, "virtual-machine", "vm-1",
+                                  "virtual-machine-interface", "vmi-1",
+                                  "virtual-machine-interface-virtual-machine");
+
+    task_util::WaitForIdle();
+
+    ASSERT_EQ(0, change_list_.size());
+
+    IFMapTable *vm_cfg_table = IFMapTable::FindTable(database_,
+            "virtual-machine");
+    ASSERT_TRUE(vm_cfg_table);
+    IFMapNode *vm = vm_cfg_table->FindNode("vm-1");
+    ASSERT_TRUE(vm);
+
+    //Ensure that there is SI is not seen in VM's Adjacency table by
+    //using config manager
+    seen = 0;
+    for (DBGraphVertex::adjacency_iterator iter =
+            vm->begin(agent_->cfg()->cfg_graph());
+            iter != vm->end(agent_->cfg()->cfg_graph()); ++iter) {
+        IFMapNode *node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent_->config_manager()->SkipNode(node))
+            continue;
+        if (node->name() == "si-1")
+            seen = 1;
+    }
+    EXPECT_EQ(seen, 0);
+
+    //Turn the notification on
+    dependency_manager_->SetRequestEnqueued(si, true);
+    change_list_.clear();
+    dependency_manager_->PropogateNodeAndLinkChange(vm);
+    task_util::WaitForIdle();
+    ASSERT_NE(0, change_list_.size());
+
+    seen = 0;
+    for (DBGraphVertex::adjacency_iterator iter =
+            vm->begin(agent_->cfg()->cfg_graph());
+            iter != vm->end(agent_->cfg()->cfg_graph()); ++iter) {
+        IFMapNode *node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent_->config_manager()->SkipNode(node))
+            continue;
+        if (node->name() == "si-1")
+            seen = 1;
+    }
+    EXPECT_EQ(seen, 1);
+
+    //Remove our change event handle get back the original
+    dependency_manager_->Unregister("service-instance");
+    agent_->service_instance_table()->Initialize(agent_->cfg()->cfg_graph(),
+                dependency_manager_);
+    ifmap_test_util::IFMapMsgUnlink(database_, "service-instance", "si-1",
+                                  "virtual-machine", "vm-1",
+                                  "virtual-machine-service-instance");
+
+    ifmap_test_util::IFMapMsgUnlink(database_, "virtual-machine", "vm-1",
+                                  "virtual-machine-interface", "vmi-1",
+                                  "virtual-machine-interface-virtual-machine");
+    ifmap_test_util::IFMapMsgNodeDelete(database_, "service-instance", "si-1");
+    ifmap_test_util::IFMapMsgNodeDelete(database_, "virtual-machine", "vm-1");
+    ifmap_test_util::IFMapMsgNodeDelete(database_,
+            "virtual-machine-interface", "vmi-1");
+
+    task_util::WaitForIdle();
+}
 
 static void SetUp() {
 }

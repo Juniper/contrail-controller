@@ -36,7 +36,7 @@ class IFMapNodeState : public DBState {
     IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
             : manager_(manager), node_(node), object_(NULL),
             uuid_(boost::uuids::nil_uuid()), refcount_(0),
-            notify_(true) {
+            notify_(true), oper_db_request_enqueued_(false) {
     }
 
     IFMapNode *node() { return node_; }
@@ -53,12 +53,20 @@ class IFMapNodeState : public DBState {
         notify_ = flag;
     }
 
+    void set_oper_db_request_enqueued(bool oper_db_request_enqueued) {
+        oper_db_request_enqueued_ = oper_db_request_enqueued;
+    }
+
     bool notify() { return notify_;};
 
     boost::uuids::uuid uuid() { return uuid_; }
 
     void clear_object() {
         object_ = NULL;
+    }
+
+    bool oper_db_request_enqueued() const {
+        return oper_db_request_enqueued_;
     }
 
   private:
@@ -71,6 +79,7 @@ class IFMapNodeState : public DBState {
     boost::uuids::uuid uuid_;
     int refcount_;
     bool notify_;
+    bool oper_db_request_enqueued_;
 };
 
 
@@ -120,6 +129,7 @@ public:
      */
     IFMapNodePtr SetState(IFMapNode *node);
     void SetNotify(IFMapNode *node, bool notfiy_flag);
+    void SetRequestEnqueued(IFMapNode *node, bool oper_db_request_enqueued);
     IFMapNodeState *IFMapNodeGet(IFMapNode *node);
 
     /*
