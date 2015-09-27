@@ -135,10 +135,14 @@ public:
                 }
             }
             state->set_uuid(new_uuid);
+            state->set_oper_db_request_enqueued(true);
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
             new_uuid = old_uuid;
+            if (state) {
+                state->set_oper_db_request_enqueued(false);
+            }
         }
 
         if (IFNodeToReq(node, req, new_uuid) == true) {
