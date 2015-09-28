@@ -9,6 +9,7 @@
 #include <tbb/atomic.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
+#include <base/intrusive_ptr_back_ref.h>
 
 #define KSYNC_ERROR(obj, ...)\
 do {\
@@ -54,6 +55,9 @@ public:
     // All referring KSyncEntries must use KSyncEntryPtr. The ref-count
     // maintained is optionally used to defer DELETE till refcount is 0
     typedef boost::intrusive_ptr<KSyncEntry> KSyncEntryPtr;
+    // same functionality as KSyncEntryPtr, additionally store the back
+    // reference pointer
+    typedef IntrusivePtrRef<KSyncEntry> KSyncEntryRef;
     static const size_t kInvalidIndex = 0xFFFFFFFF;
 
     // Use this constructor if automatic index allocation is *not* needed
@@ -131,12 +135,20 @@ public:
     // this entry however may still be still in unresolved state.
     bool IsActive() { return (state_ != TEMP && !IsDeleted()); }
 
+    // back ref set should always be acessed after locking the mutex
+    const std::set<IntrusiveReferrer> &back_ref_set() const;
+    tbb::mutex &back_ref_set_mutex();
+
 protected:
     void SetIndex(size_t index) {index_ = index;};
     void SetState(KSyncState state) {state_ = state;};
 private:
     friend void intrusive_ptr_add_ref(KSyncEntry *p);
     friend void intrusive_ptr_release(KSyncEntry *p);
+    friend void intrusive_ptr_add_back_ref(IntrusiveReferrer ref,
+                                           KSyncEntry* p);
+    friend void intrusive_ptr_del_back_ref(IntrusiveReferrer ref,
+                                           KSyncEntry* p);
     friend class KSyncSock;
     friend class KSyncObject;
 
@@ -150,6 +162,9 @@ private:
     // Stale Entry flag indicates an entry as stale, which will be
     // removed once stale entry timer cleanup gets triggered.
     bool                stale_;
+
+    tbb::mutex          back_ref_set_mutex_;
+    std::set<IntrusiveReferrer> back_ref_set_;
     DISALLOW_COPY_AND_ASSIGN(KSyncEntry);
 };
 
