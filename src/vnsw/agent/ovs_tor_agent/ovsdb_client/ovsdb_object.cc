@@ -10,6 +10,7 @@ extern "C" {
 #include <ovsdb_object.h>
 
 using OVSDB::OvsdbObject;
+using OVSDB::OvsdbEntry;
 using OVSDB::OvsdbDBObject;
 using OVSDB::OvsdbDBEntry;
 
@@ -20,13 +21,10 @@ OvsdbObject::OvsdbObject(OvsdbClientIdl *idl) : KSyncObject("OvsdbDBObject"),
 OvsdbObject::~OvsdbObject() {
 }
 
-bool OvsdbObject::IsActiveEntry(KSyncEntry *entry) {
-    return (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted());
-}
-
 KSyncEntry *OvsdbObject::FindActiveEntry(KSyncEntry *key) {
     KSyncEntry *entry = Find(key);
-    if (entry != NULL && IsActiveEntry(entry)) {
+    OvsdbEntry *o_entry = static_cast<OvsdbEntry*>(entry);
+    if (entry != NULL && o_entry->IsActive()) {
         return entry;
     }
     return NULL;

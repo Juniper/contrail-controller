@@ -51,11 +51,11 @@ void OvsdbEntry::Ack(bool success) {
 }
 
 OvsdbDBEntry::OvsdbDBEntry(OvsdbDBObject *table) : KSyncDBEntry(), table_(table),
-    ovs_entry_(NULL) {
+    ovs_entry_(NULL), trigger_delete_(false) {
 }
 
 OvsdbDBEntry::OvsdbDBEntry(OvsdbDBObject *table, struct ovsdb_idl_row *ovs_entry) : KSyncDBEntry(),
-    table_(table), ovs_entry_(ovs_entry) {
+    table_(table), ovs_entry_(ovs_entry), trigger_delete_(false) {
 }
 
 OvsdbDBEntry::~OvsdbDBEntry() {
@@ -88,9 +88,15 @@ bool OvsdbDBEntry::Add() {
         // failed to create transaction because of idl marked for
         // deletion return from here.
         TxnDoneNoMessage();
+        trigger_delete_ = false;
         return true;
     }
-    AddMsg(txn);
+    if (trigger_delete_) {
+        DeleteMsg(txn);
+        trigger_delete_ = false;
+    } else {
+        AddMsg(txn);
+    }
     return object->client_idl_->EncodeSendTxn(txn, this);
 }
 
@@ -121,9 +127,15 @@ bool OvsdbDBEntry::Change() {
         // failed to create transaction because of idl marked for
         // deletion return from here.
         TxnDoneNoMessage();
+        trigger_delete_ = false;
         return true;
     }
-    ChangeMsg(txn);
+    if (trigger_delete_) {
+        DeleteMsg(txn);
+        trigger_delete_ = false;
+    } else {
+        ChangeMsg(txn);
+    }
     return object->client_idl_->EncodeSendTxn(txn, this);
 }
 
@@ -243,3 +255,25 @@ void OvsdbDBEntry::Ack(bool success) {
         }
     }
 }
+
+void OvsdbDBEntry::TriggerDeleteAdd() {
+    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    if (stale()) {
+        object->Delete(this);
+        return;
+    }
+
+    if (IsNoTxnEntry()) {
+        // trigger DeleteMsg with NULL pointer
+        DeleteMsg(NULL);
+    } else {
+        // trigger delete inside change notification to handle Ack
+        // appropriately
+        trigger_delete_ = true;
+    }
+
+    if (IsActive()) {
+        object->Change(this);
+    }
+}
+

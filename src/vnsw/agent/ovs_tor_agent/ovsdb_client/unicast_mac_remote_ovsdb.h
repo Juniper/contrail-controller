@@ -114,7 +114,7 @@ private:
     std::string logical_switch_name_;
     std::string dest_ip_;
     bool self_exported_route_;
-    KSyncEntryPtr logical_switch_;
+    KSyncEntryRef logical_switch_;
     OvsdbDupIdlList dup_list_;
     uint32_t sequence_;
     uint32_t self_sequence_;

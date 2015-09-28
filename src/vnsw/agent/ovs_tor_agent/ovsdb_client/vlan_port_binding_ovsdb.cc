@@ -28,14 +28,16 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         uint16_t vlan_tag, const std::string &logical_switch) :
     OvsdbDBEntry(table_), logical_switch_name_(logical_switch),
     physical_port_name_(physical_port), physical_device_name_(physical_device),
-    vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
+    vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    logical_switch_(NULL, this) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
     logical_switch_name_(), physical_port_name_(entry->phy_intf_display_name()),
     physical_device_name_(entry->phy_dev_display_name()), vlan_(entry->vlan()),
-    vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
+    vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    logical_switch_(NULL, this) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
@@ -43,7 +45,8 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
     logical_switch_name_(key->logical_switch_name_),
     physical_port_name_(key->physical_port_name_),
     physical_device_name_(key->physical_device_name_), vlan_(key->vlan_),
-    vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
+    vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    logical_switch_(NULL, this) {
 }
 
 void VlanPortBindingEntry::PreAddChange() {
@@ -96,6 +99,10 @@ void VlanPortBindingEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
         // no change return from here.
         return;
     }
+
+    // update logical switch name propagated to OVSDB server
+    old_logical_switch_name_ = logical_switch_name_;
+
     PhysicalPortEntry *port =
         static_cast<PhysicalPortEntry *>(physical_port_.get());
     OVSDB_TRACE(Trace, "Changing port vlan binding port " +
@@ -109,6 +116,10 @@ void VlanPortBindingEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     if (!physical_port_) {
         return;
     }
+
+    // update logical switch name propagated to OVSDB server
+    old_logical_switch_name_ = "";
+
     PhysicalPortEntry *port =
         static_cast<PhysicalPortEntry *>(physical_port_.get());
     OVSDB_TRACE(Trace, "Deleting port vlan binding port " +
