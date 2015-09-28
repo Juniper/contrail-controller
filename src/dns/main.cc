@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
     if (options.discovery_server().empty()) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
-        Sandesh::InitGenerator(
+        bool success(Sandesh::InitGenerator(
                     module_name,
                     options.hostname(), 
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
@@ -136,7 +136,12 @@ int main(int argc, char *argv[]) {
                     Dns::GetEventManager(),
                     options.http_server_port(), 0,
                     options.collector_server_list(),
-                    NULL);
+                    NULL));
+        if (!success) {
+            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+            Sandesh::Uninit();
+            exit(1);
+        }
     }
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
@@ -222,7 +227,7 @@ int main(int argc, char *argv[]) {
                               _1, _2, _3);
             vector<string> list;
             list.clear();
-            Sandesh::InitGenerator(subscriber_name,
+            bool success(Sandesh::InitGenerator(subscriber_name,
                                    options.hostname(),
                                    node_type_name,
                                    g_vns_constants.INSTANCE_ID_DEFAULT,
@@ -230,7 +235,13 @@ int main(int argc, char *argv[]) {
                                    options.http_server_port(),
                                    csf,
                                    list,
-                                   NULL);
+                                   NULL));
+            if (!success) {
+                LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+                Sandesh::Uninit();
+                Dns::ShutdownDiscoveryClient(ds_client);
+                exit(1);
+            }
         }
     } else {
         LOG(ERROR, "Invalid Discovery Server hostname or ip " <<

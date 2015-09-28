@@ -121,6 +121,7 @@ void VizCollector::Shutdown() {
     }
     TcpServerManager::DeleteServer(collector_);
 
+    osp_->Shutdown();
     syslog_listener_->Shutdown();
     WaitForIdle();
 
