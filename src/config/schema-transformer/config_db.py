@@ -1984,12 +1984,15 @@ class ServiceChain(DBBaseST):
     # check_create
 
     def create(self):
+        si_info = self.check_create()
         if self.created:
             self.created_stale = False
+            if si_info is None:
+                # if previously created but no longer valid, then destroy
+                self.destroy()
             # already created
             return
 
-        si_info = self.check_create()
         if si_info is None:
             return
         self._create(si_info)
