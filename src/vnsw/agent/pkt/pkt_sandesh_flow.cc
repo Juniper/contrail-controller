@@ -128,17 +128,17 @@ static const char * GetShortFlowReason(uint16_t reason) {
 static const char * GetFlowDropReason(FlowEntry *fe) {
     switch (fe->data().drop_reason) {
     case FlowEntry::DROP_POLICY:
-        return "Interface unavialable";
+        return "Policy";
     case FlowEntry::DROP_OUT_POLICY:
-        return "Ipv4 forwarding disabled";
+        return "Out Policy";
     case FlowEntry::DROP_SG:
-        return "VRF unavailable";
+        return "SG";
     case FlowEntry::DROP_OUT_SG:
-        return "No Source route";
+        return "Out SG";
     case FlowEntry::DROP_REVERSE_SG:
-        return "No Destination route";
+        return "Reverse SG";
     case FlowEntry::DROP_REVERSE_OUT_SG:
-        return "Audit Entry";
+        return "Reverse Out SG";
     default:
         break;
     }
