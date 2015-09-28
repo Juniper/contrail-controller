@@ -40,6 +40,8 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
+from schema_transformer.sandesh.traces.ttypes import MessageBusNotifyTrace,\
+    DependencyTrackerResource
 import discoveryclient.client as client
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
@@ -183,7 +185,6 @@ class SchemaTransformer(object):
         DBBaseST._vnc_lib = _vnc_lib
         ServiceChain.init()
         self.reinit()
-        self.ifmap_search_done = False
         # create cpu_info object to send periodic updates
         sysinfo_req = False
         cpu_info = vnc_cpu_info.CpuInfo(
@@ -208,19 +209,24 @@ class SchemaTransformer(object):
             if obj_class is None:
                 return
 
-            if oper_info['oper'] == 'CREATE':
+            oper = oper_info['oper']
+            obj_id = oper_info['uuid']
+            notify_trace = MessageBusNotifyTrace(
+                request_id=oper_info.get('request_id'),
+                operation=oper, uuid=obj_id)
+            if oper == 'CREATE':
                 obj_dict = oper_info['obj_dict']
                 obj_fq_name = ':'.join(obj_dict['fq_name'])
                 obj = obj_class.locate(obj_fq_name)
                 if obj is None:
-                    self.config_log('%s id %s fq_name %s not found' % (obj_type, obj_id, obj_fq_name),
+                    self.config_log('%s id %s fq_name %s not found' % (
+                                    obj_type, obj_id, obj_fq_name),
                                     level=SandeshLevel.SYS_INFO)
                     return
                 dependency_tracker = DependencyTracker(
                     DBBaseST.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
-            elif oper_info['oper'] == 'UPDATE':
-                obj_id = oper_info['uuid']
+            elif oper == 'UPDATE':
                 obj = obj_class.get_by_uuid(obj_id)
                 old_dt = None
                 if obj is not None:
@@ -248,8 +254,7 @@ class SchemaTransformer(object):
                             dependency_tracker.resources[resource] = list(
                                 set(dependency_tracker.resources[resource]) |
                                 set(ids))
-            elif oper_info['oper'] == 'DELETE':
-                obj_id = oper_info['uuid']
+            elif oper == 'DELETE':
                 obj = obj_class.get_by_uuid(obj_id)
                 if obj is None:
                     return
@@ -259,7 +264,7 @@ class SchemaTransformer(object):
                 obj_class.delete(obj.name)
             else:
                 # unknown operation
-                self.config_log('Unknown operation %s' % oper_info['oper'],
+                self.config_log('Unknown operation %s' % oper,
                                 level=SandeshLevel.SYS_ERR)
                 return
 
@@ -268,12 +273,16 @@ class SchemaTransformer(object):
                                 obj_type, obj_id))
                 return
 
+            notify_trace.fq_name = obj.name
             if not dependency_tracker:
                 return
 
+            notify_trace.dependency_tracker_resources = []
             for res_type, res_id_list in dependency_tracker.resources.items():
                 if not res_id_list:
                     continue
+                dtr = DependencyTrackerResource(obj_type=res_type, obj_keys=res_id_list)
+                notify_trace.dependency_tracker_resources.append(dtr)
                 cls = DBBaseST.get_obj_type_map().get(res_type)
                 if cls is None:
                     continue
@@ -287,14 +296,20 @@ class SchemaTransformer(object):
                 if vn is not None:
                     vn.uve_send()
             # end for vn_id
-        except Exception:
+        except Exception as e:
             string_buf = cStringIO.StringIO()
             cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            notify_trace.error = string_buf.getvalue()
             try:
                 with open(self._args.trace_file, 'a') as err_file:
                     err_file.write(string_buf.getvalue())
             except IOError:
                 self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+        finally:
+            try:
+                trace_msg(notify_trace, 'MessageBusNotifyTraceBuf', self._sandesh)
+            except Exception:
+                pass
 
 
     # end _vnc_subscribe_callback
@@ -570,7 +585,6 @@ def parse_args(args_str):
         'keyfile': '',
         'certfile': '',
         'ca_certs': '',
-        'ifmap_certauth_port': "8444",
     }
     ksopts = {
         'admin_user': 'user1',
@@ -612,15 +626,6 @@ def parse_args(args_str):
     defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
 
-    parser.add_argument(
-        "--ifmap_server_ip", help="IP address of ifmap server")
-    parser.add_argument("--ifmap_server_port", help="Port of ifmap server")
-
-    # TODO should be from certificate
-    parser.add_argument("--ifmap_username",
-                        help="Username known to ifmap server")
-    parser.add_argument("--ifmap_password",
-                        help="Password known to ifmap server")
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
@@ -675,30 +680,16 @@ def parse_args(args_str):
     parser.add_argument(
         "--logger_class",
         help=("Optional external logger class, default: None"))
-    parser.add_argument("--cassandra_user",
-            help="Cassandra user name")
-    parser.add_argument("--cassandra_password",
-            help="Cassandra password")
+    parser.add_argument("--cassandra_user", help="Cassandra user name")
+    parser.add_argument("--cassandra_password", help="Cassandra password")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
-    parser.add_argument(
-        "--rabbit_server",
-        help="Rabbitmq server address")
-    parser.add_argument(
-        "--rabbit_port",
-        help="Rabbitmq server port")
-    parser.add_argument(
-        "--rabbit_user",
-        help="Username for rabbit")
-    parser.add_argument(
-        "--rabbit_vhost",
-        help="vhost for rabbit")
-    parser.add_argument(
-        "--rabbit_password",
-        help="password for rabbit")
-    parser.add_argument(
-        "--rabbit_ha_mode",
-        action='store_true',
+    parser.add_argument("--rabbit_server", help="Rabbitmq server address")
+    parser.add_argument("--rabbit_port", help="Rabbitmq server port")
+    parser.add_argument("--rabbit_user", help="Username for rabbit")
+    parser.add_argument("--rabbit_vhost", help="vhost for rabbit")
+    parser.add_argument("--rabbit_password", help="password for rabbit")
+    parser.add_argument("--rabbit_ha_mode", action='store_true',
         help="True if the rabbitmq cluster is mirroring all queue")
 
     args = parser.parse_args(remaining_argv)
