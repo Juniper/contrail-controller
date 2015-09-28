@@ -127,6 +127,48 @@ public:
         client->VnDelNotifyWait(1);
         client->PortDelNotifyWait(2);
     }
+
+    vr_vrf_stats_req GetVrfStatsObj(uint64_t discards, uint64_t resolves,
+        uint64_t receives, uint64_t udp_tunnels, uint64_t udp_mpls_tunnels,
+        uint64_t gre_mpls_tunnels, uint64_t ecmp_composites,
+        uint64_t l2_mcast_composites, uint64_t fabric_composites,
+        uint64_t l2_encaps, uint64_t encaps, uint64_t gros, uint64_t diags,
+        uint64_t encap_composites, uint64_t evpn_composites,
+        uint64_t vrf_translates, uint64_t vxlan_tunnels,
+        uint64_t arp_virtual_proxy, uint64_t arp_virtual_stitch,
+        uint64_t arp_virtual_flood, uint64_t arp_physical_stitch,
+        uint64_t arp_tor_proxy, uint64_t arp_physical_flood,
+        uint64_t l2_receives, uint64_t uuc_floods) {
+
+        vr_vrf_stats_req req;
+
+        req.set_vsr_discards(discards);
+        req.set_vsr_resolves(resolves);
+        req.set_vsr_receives(receives);
+        req.set_vsr_udp_tunnels(udp_tunnels);
+        req.set_vsr_udp_mpls_tunnels(udp_mpls_tunnels);
+        req.set_vsr_gre_mpls_tunnels(gre_mpls_tunnels);
+        req.set_vsr_ecmp_composites(ecmp_composites);
+        req.set_vsr_l2_mcast_composites(l2_mcast_composites);
+        req.set_vsr_fabric_composites(fabric_composites);
+        req.set_vsr_l2_encaps(l2_encaps);
+        req.set_vsr_encaps(encaps);
+        req.set_vsr_gros(gros);
+        req.set_vsr_diags(diags);
+        req.set_vsr_encap_composites(encap_composites);
+        req.set_vsr_evpn_composites(evpn_composites);
+        req.set_vsr_vrf_translates(vrf_translates);
+        req.set_vsr_vxlan_tunnels(vxlan_tunnels);
+        req.set_vsr_arp_virtual_proxy(arp_virtual_proxy);
+        req.set_vsr_arp_virtual_stitch(arp_virtual_stitch);
+        req.set_vsr_arp_virtual_flood(arp_virtual_flood);
+        req.set_vsr_arp_physical_stitch(arp_physical_stitch);
+        req.set_vsr_arp_tor_proxy(arp_tor_proxy);
+        req.set_vsr_arp_physical_flood(arp_physical_flood);
+        req.set_vsr_l2_receives(l2_receives);
+        req.set_vsr_uuc_floods(uuc_floods);
+        return req;
+    }
     TestUveUtil util_;
     BgpPeer *peer_;
     Agent* agent_;
@@ -614,10 +656,12 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     //Create 2 vrfs in mock Kernel and update its stats
     KSyncSockTypeMap::VrfStatsAdd(vrf41_id);
     KSyncSockTypeMap::VrfStatsAdd(vrf42_id);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 10, 11, 12, 13, 14, 15, 16, 17,
-                                     18, 19, 20, 21, 22);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 23, 24, 25, 26, 27, 28, 29, 30,
-                                     31, 32, 33, 34, 35);
+    vr_vrf_stats_req v41_req = GetVrfStatsObj(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25);
+    vr_vrf_stats_req v42_req = GetVrfStatsObj(26, 27, 28, 29, 30, 31, 32, 33,
+        34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, v41_req);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, v42_req);
 
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->stats_collector());
@@ -630,16 +674,13 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     client->WaitForIdle(3);
 
     //Verfify the stats read from kernel
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 10, 11, 12, 13, 
-                              14, 15, 16, 17, 18, 19, 20, 21, 22));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 23, 24, 25, 26,
-                              27, 28, 29, 30, 31, 32, 33, 34, 35));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, v41_req));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, v42_req));
 
+    vr_vrf_stats_req zero_req;
     //Verfify the prev_* fields of vrf_stats are 0
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                                  0, 0, 0, 0));
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                                  0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, zero_req));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, zero_req));
 
     //Delete both the VRFs from agent
     VrfDelReq("vrf41");
@@ -653,24 +694,20 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     EXPECT_FALSE(DBTableFind("vrf42.uc.route.0"));
 
     //Verify that vrf_stats's entry is still present in agent_stats_collector.
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), false,
-                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                              0, 0, 0, 0));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), false,
-                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                              0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), false, zero_req));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), false, zero_req));
 
     //Verify that prev_* fields of vrf_stats are updated
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 10, 11, 12, 13, 
-                              14, 15, 16, 17, 18, 19, 20, 21, 22));
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 23, 24, 25, 26,
-                              27, 28, 29, 30, 31, 32, 33, 34, 35));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, v41_req));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, v42_req));
 
     //Update stats in mock kernel when vrfs are absent in agent
-    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 36, 37, 38, 39, 40, 41, 42, 43, 
-                                     44, 45, 46, 47, 48);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 49, 50, 51, 52, 53, 54, 55, 56,
-                                     57, 58, 59, 60, 61);
+    vr_vrf_stats_req v41_req2 = GetVrfStatsObj(51, 52, 53, 54, 55, 56, 57, 58,
+        59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75);
+    vr_vrf_stats_req v42_req2 = GetVrfStatsObj(76, 77, 78, 79, 80, 81, 82, 83,
+        84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, v41_req2);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, v42_req2);
 
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
@@ -681,10 +718,8 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     client->WaitForIdle(3);
 
     //Verify that prev_* fields of vrf_stats are updated when vrf is absent from agent
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 36, 37, 38, 39, 40, 41, 42, 43,
-                                  44, 45, 46, 47, 48));
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 49, 50, 51, 52, 53, 54, 55, 56,
-                                  57, 58, 59, 60, 61));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, v41_req2));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, v42_req2));
 
     //Add 2 VRFs in agent. They will re-use the id's allocated earlier
     VrfAddReq("vrf41");
@@ -712,18 +747,18 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     client->WaitForIdle(3);
 
     //Verify that vrf_stats's entry stats are set to 0
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true,
-                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                              0, 0, 0, 0));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true,
-                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                              0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, zero_req));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, zero_req));
 
     //Update stats in mock kernel when vrfs are absent in agent
-    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 62, 63, 64, 65, 66, 67, 68, 69, 
-                                     70, 71, 72, 73, 74);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 75, 76, 77, 78, 79, 80, 81, 82,
-                                     83, 84, 85, 86, 87);
+    vr_vrf_stats_req v41_req3 = GetVrfStatsObj(101, 102, 103, 104, 105, 106,
+        107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120,
+        121, 122, 123, 124, 125);
+    vr_vrf_stats_req v42_req3 = GetVrfStatsObj(126, 127, 128, 129, 130, 131,
+        132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145,
+        146, 147, 148, 149, 150);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, v41_req3);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, v42_req3);
 
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
@@ -734,10 +769,10 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     client->WaitForIdle(3);
 
     //Verify that vrf_stats_entry's stats are set to values after the vrf was added
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 26, 26, 26, 26, 
-                              26, 26, 26, 26, 26, 26, 26, 26, 26));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 26, 26, 26, 26, 
-                              26, 26, 26, 26, 26, 26, 26, 26, 26));
+    vr_vrf_stats_req match_req = GetVrfStatsObj(50, 50, 50, 50, 50, 50, 50,
+        50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50);
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, match_req));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, match_req));
 
     //Cleanup-Remove the VRFs added 
     VrfDelReq("vrf41");

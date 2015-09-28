@@ -154,9 +154,6 @@ public:
         if (d1.get_ds_invalid_if() != (uint64_t)d2.get_vds_invalid_if()) {
             return false;
         }
-        //if (d1.get_ds_arp_not_me() != (uint64_t)d2.get_vds_arp_not_me()) {
-        //    return false;
-        //}
         if (d1.get_ds_garp_from_vm() != (uint64_t)d2.get_vds_garp_from_vm()) {
             return false;
         }
@@ -266,6 +263,24 @@ public:
             return false;
         }
         if (d1.get_ds_frag_err() != (uint64_t)d2.get_vds_frag_err()) {
+            return false;
+        }
+        if (d1.get_ds_invalid_source() != (uint64_t)d2.get_vds_invalid_source()) {
+            return false;
+        }
+        if (d1.get_ds_mcast_df_bit() != (uint64_t)d2.get_vds_mcast_df_bit()) {
+            return false;
+        }
+        if (d1.get_ds_arp_no_where_to_go() != (uint64_t)d2.get_vds_arp_no_where_to_go()) {
+            return false;
+        }
+        if (d1.get_ds_arp_no_route() != (uint64_t)d2.get_vds_arp_no_route()) {
+            return false;
+        }
+        if (d1.get_ds_l2_no_route() != (uint64_t)d2.get_vds_l2_no_route()) {
+            return false;
+        }
+        if (d1.get_ds_arp_reply_no_route() != (uint64_t)d2.get_vds_arp_reply_no_route()) {
             return false;
         }
         return true;
