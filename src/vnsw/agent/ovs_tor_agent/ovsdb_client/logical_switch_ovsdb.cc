@@ -26,13 +26,17 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
                                        const std::string &name) :
     OvsdbDBEntry(table), name_(name), device_name_(), vxlan_id_(0),
     mcast_local_row_(NULL), mcast_remote_row_(NULL), tor_ip_(),
-    mc_flood_entry_(NULL) {
+    mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this),
+    delete_ovs_(false), del_task_(NULL) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
     name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
-    mcast_remote_row_(NULL), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL), mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this),
+    delete_ovs_(false), del_task_(NULL) {
     vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device_display_name();
     tor_ip_ = entry->tor_ip();
@@ -41,7 +45,9 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const LogicalSwitchEntry *entry) : OvsdbDBEntry(table),
     mcast_local_row_(NULL), mcast_remote_row_(NULL),
-    mc_flood_entry_(NULL) {
+    mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this),
+    delete_ovs_(false), del_task_(NULL) {
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
     device_name_ = entry->device_name_;
@@ -52,7 +58,9 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
     name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
     vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
-    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this),
+    delete_ovs_(false), del_task_(NULL) {
 }
 
 LogicalSwitchEntry::~LogicalSwitchEntry() {
@@ -65,6 +73,10 @@ Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
     return p_switch->tunnel_ip();
 }
 
+void LogicalSwitchEntry::PostDelete() {
+    physical_switch_ = NULL;
+}
+
 void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
@@ -74,9 +86,16 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
         // skip add encoding for stale entry
         return;
     }
+
+    if (delete_ovs_ || res_vxlan_id_.VxLanId() == 0) {
+        // return from here while deleting OVS
+        // or when VxLan ID is not available
+        return;
+    }
+
     struct ovsdb_idl_row *row =
         ovsdb_wrapper_add_logical_switch(txn, ovs_entry_, name_.c_str(),
-                vxlan_id_);
+                                         res_vxlan_id_.VxLanId());
 
     // Encode Delete for Old remote multicast entries
     DeleteOldMcastRemoteMac();
@@ -120,7 +139,6 @@ void LogicalSwitchEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
-    physical_switch_ = NULL;
     if (mcast_local_row_ != NULL) {
         ovsdb_wrapper_delete_mcast_mac_local(mcast_local_row_);
     }
@@ -175,6 +193,14 @@ const IpAddress &LogicalSwitchEntry::tor_ip() const {
     return tor_ip_;
 }
 
+bool LogicalSwitchEntry::IsDeleteOvsInProgress() const {
+    return delete_ovs_;
+}
+
+const OvsdbResourceVxLanId &LogicalSwitchEntry::res_vxlan_id() const {
+    return res_vxlan_id_;
+}
+
 bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
     PhysicalDeviceVn *entry =
         static_cast<PhysicalDeviceVn *>(db_entry);
@@ -207,8 +233,10 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
         // while creating stale entry we should not wait for physical
         // switch object since it will not be available till config
         // comes up
+        assert(res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_));
         return NULL;
     }
+
     PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
     PhysicalSwitchEntry *p_switch =
@@ -216,6 +244,17 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
     if (!p_switch->IsResolved()) {
         return p_switch;
     }
+
+    bool ret = res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_);
+    if (!ret) {
+        // failed to get vxlan-id delete ovs entry
+        DeleteOvs();
+        // deleting ovs entry, no need to resolve anything further
+        return NULL;
+    }
+
+    // cancel running delete process
+    CancelDeleteOvs();
 
     // check if physical locator is available
     std::string dest_ip = table_->client_idl()->tsn_ip().to_string();
@@ -240,12 +279,89 @@ bool LogicalSwitchEntry::IsLocalMacsRef() const {
 }
 
 void LogicalSwitchEntry::Ack(bool success) {
+    if (success) {
+        if (ovs_entry_ != NULL) {
+            uint32_t active_vxlan_id =
+                (uint32_t)ovsdb_wrapper_logical_switch_tunnel_key(ovs_entry_);
+            res_vxlan_id_.set_active_vxlan_id(active_vxlan_id);
+        } else {
+            res_vxlan_id_.set_active_vxlan_id(0);
+            delete_ovs_ = false;
+        }
+    } else {
+        if (delete_ovs_) {
+            trigger_delete_ = true;
+        }
+    }
     ReleaseLocatorCreateReference();
     OvsdbDBEntry::Ack(success);
 }
 
 void LogicalSwitchEntry::TxnDoneNoMessage() {
     ReleaseLocatorCreateReference();
+    if (ovs_entry_ != NULL) {
+        uint32_t active_vxlan_id =
+            (uint32_t)ovsdb_wrapper_logical_switch_tunnel_key(ovs_entry_);
+        res_vxlan_id_.set_active_vxlan_id(active_vxlan_id);
+    } else {
+        res_vxlan_id_.set_active_vxlan_id(0);
+        delete_ovs_ = false;
+    }
+}
+
+void LogicalSwitchEntry::DeleteOvs() {
+    if (ovs_entry_ == NULL || delete_ovs_ == true) {
+        return;
+    }
+    delete_ovs_ = true;
+    assert(del_task_ == NULL);
+    del_task_ = new ProcessDeleteOvsReqTask(this);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(del_task_);
+}
+
+LogicalSwitchEntry::ProcessDeleteOvsReqTask::ProcessDeleteOvsReqTask(
+        LogicalSwitchEntry *entry) :
+    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
+    entry_(entry) {
+}
+
+LogicalSwitchEntry::ProcessDeleteOvsReqTask::~ProcessDeleteOvsReqTask() {
+}
+
+bool LogicalSwitchEntry::ProcessDeleteOvsReqTask::Run() {
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry*>(entry_.get());
+    const std::set<IntrusiveReferrer> &back_ref = entry->back_ref_set();
+    for (int i = 0; i < KEntriesPerIteration; i++) {
+        std::set<IntrusiveReferrer>::const_iterator it = back_ref.begin();
+        if (it == back_ref.end()) {
+            break;
+        }
+        OvsdbDBEntry *ref_entry = static_cast<OvsdbDBEntry*>((*it).first);
+        ref_entry->TriggerDeleteAdd();
+    }
+
+    if (!back_ref.empty()) {
+        return false;
+    }
+
+    entry->del_task_ = NULL;
+
+    if (entry->IsActive() && !entry->IsLocalMacsRef()) {
+        entry->trigger_delete_ = true;
+        entry->table_->Change(entry);
+    }
+
+    return true;
+}
+
+void LogicalSwitchEntry::CancelDeleteOvs() {
+    delete_ovs_ = false;
+    if (del_task_ != NULL) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        assert(scheduler->Cancel(del_task_) == TaskScheduler::CANCELLED);
+        del_task_ = NULL;
+    }
 }
 
 void LogicalSwitchEntry::SendTrace(Trace event) const {
@@ -289,6 +405,15 @@ void LogicalSwitchEntry::ReleaseLocatorCreateReference() {
         pl_entry->ReleaseCreateRequest(this);
         pl_create_ref_ = NULL;
     }
+}
+
+bool LogicalSwitchEntry::IsDataResolved() {
+    if (res_vxlan_id_.VxLanId() == 0) {
+        // if we don't hold the vxlan id return false
+        return false;
+    }
+
+    return OvsdbDBEntry::IsDataResolved();
 }
 
 LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl) :
@@ -360,6 +485,10 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
                 entry->local_mac_ref_ = entry;
         } else {
             entry->local_mac_ref_ = NULL;
+            if (entry->delete_ovs_ && entry->IsActive()) {
+                entry->trigger_delete_ = true;
+                Change(entry);
+            }
         }
     }
 }
@@ -475,6 +604,10 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
                 entry->local_mac_ref_ = entry;
         } else {
             entry->local_mac_ref_ = NULL;
+            if (entry->delete_ovs_ && entry->IsActive()) {
+                entry->trigger_delete_ = true;
+                Change(entry);
+            }
         }
     }
 }
@@ -563,13 +696,19 @@ LogicalSwitchSandeshTask::LogicalSwitchSandeshTask(
     if (false == args.Get("name", &name_)) {
         name_ = "";
     }
+    int vxlan_id = 0;
+    if (false == args.Get("vxlan_id", &vxlan_id)) {
+        vxlan_id = 0;
+    }
+    vxlan_id_ = vxlan_id;
 }
 
 LogicalSwitchSandeshTask::LogicalSwitchSandeshTask(std::string resp_ctx,
                                                    const std::string &ip,
                                                    uint32_t port,
-                                                   const std::string &name) :
-    OvsdbSandeshTask(resp_ctx, ip, port), name_(name) {
+                                                   const std::string &name,
+                                                   uint32_t vxlan_id) :
+    OvsdbSandeshTask(resp_ctx, ip, port), name_(name), vxlan_id_(vxlan_id) {
 }
 
 LogicalSwitchSandeshTask::~LogicalSwitchSandeshTask() {
@@ -579,18 +718,29 @@ void LogicalSwitchSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
     if (!name_.empty()) {
         args.Add("name", name_);
     }
+    if (vxlan_id_ != 0) {
+        args.Add("vxlan_id", vxlan_id_);
+    }
 }
 
 OvsdbSandeshTask::FilterResp
 LogicalSwitchSandeshTask::Filter(KSyncEntry *kentry) {
+    OvsdbSandeshTask::FilterResp resp = FilterAllow;
     if (!name_.empty()) {
         LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
-        if (entry->name().find(name_) != std::string::npos) {
-            return FilterAllow;
+        if (entry->name().find(name_) == std::string::npos) {
+            resp = FilterDeny;
         }
-        return FilterDeny;
     }
-    return FilterAllow;
+    if (vxlan_id_ != 0) {
+        LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+        const OvsdbResourceVxLanId &res = entry->res_vxlan_id();
+        if (entry->vxlan_id() != vxlan_id_ &&
+            res.active_vxlan_id() != vxlan_id_) {
+            resp = FilterDeny;
+        }
+    }
+    return resp;
 }
 
 void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
@@ -602,7 +752,12 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_physical_switch(entry->device_name());
     lentry.set_vxlan_id(entry->vxlan_id());
     lentry.set_tor_service_node(entry->tor_service_node());
-    if (entry->IsDeleted() && entry->IsLocalMacsRef()) {
+    lentry.set_delete_in_progress(entry->IsDeleteOvsInProgress());
+    const OvsdbResourceVxLanId &res = entry->res_vxlan_id();
+    lentry.set_vxlan_id_available(res.VxLanId() != 0);
+    lentry.set_ovs_vxlan_id(res.active_vxlan_id());
+    if ((entry->IsDeleted() || entry->IsDeleteOvsInProgress()) &&
+        entry->IsLocalMacsRef()) {
         lentry.set_message("Waiting for Local Macs Cleanup");
     }
     OvsdbLogicalSwitchResp *ls_resp =
@@ -626,7 +781,7 @@ void OvsdbLogicalSwitchReq::HandleRequest() const {
     LogicalSwitchSandeshTask *task =
         new LogicalSwitchSandeshTask(context(), get_session_remote_ip(),
                                      get_session_remote_port(),
-                                     get_name());
+                                     get_name(), get_vxlan_id());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

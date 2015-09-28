@@ -125,10 +125,16 @@ void VrfOvsdbObject::OvsdbNotify(OvsdbClientIdl::Op op,
             key.dest_ip_ = std::string(dest_ip);
         key.SendTrace(UnicastMacRemoteEntry::DEL_ACK);
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
-        table->NotifyAddOvsdb((OvsdbDBEntry*)&key, row);
-        if (dest_ip)
+        if (dest_ip) {
+            // trigger notify add only once the dest ip is available
+            // ovsdb won't have a unicast MAC without physical locator
+            // in case we receive update for ucast remote row before
+            // physical locator wait for dependency resolution on the
+            // unicast mac to resolve
+            table->NotifyAddOvsdb((OvsdbDBEntry*)&key, row);
             key.dest_ip_ = std::string(dest_ip);
-        key.SendTrace(UnicastMacRemoteEntry::ADD_ACK);
+            key.SendTrace(UnicastMacRemoteEntry::ADD_ACK);
+        }
     }
 }
 

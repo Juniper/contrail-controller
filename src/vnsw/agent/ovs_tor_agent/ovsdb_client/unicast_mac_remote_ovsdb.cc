@@ -29,7 +29,7 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const std::string mac) : OvsdbDBEntry(table), mac_(mac),
     logical_switch_name_(table->logical_switch_name()),
     self_exported_route_(false), sequence_(0), self_sequence_(0),
-    ecmp_suppressed_(false) {
+    ecmp_suppressed_(false), logical_switch_(NULL, this) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
@@ -37,14 +37,14 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
     mac_(entry->mac().ToString()),
     logical_switch_name_(table->logical_switch_name()),
     self_exported_route_(false), sequence_(0), self_sequence_(0),
-    ecmp_suppressed_(false) {
+    ecmp_suppressed_(false), logical_switch_(NULL, this) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const UnicastMacRemoteEntry *entry) : OvsdbDBEntry(table),
     mac_(entry->mac_), logical_switch_name_(entry->logical_switch_name_),
     dest_ip_(entry->dest_ip_), self_exported_route_(false), sequence_(0),
-    self_sequence_(0), ecmp_suppressed_(false) {
+    self_sequence_(0), ecmp_suppressed_(false), logical_switch_(NULL, this) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
@@ -52,7 +52,7 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
     mac_(ovsdb_wrapper_ucast_mac_remote_mac(entry)),
     logical_switch_name_(table->logical_switch_name()), dest_ip_(),
     self_exported_route_(false), sequence_(0), self_sequence_(0),
-    ecmp_suppressed_(false) {
+    ecmp_suppressed_(false), logical_switch_(NULL, this) {
     const char *dest_ip = ovsdb_wrapper_ucast_mac_remote_dst_ip(entry);
     if (dest_ip) {
         dest_ip_ = std::string(dest_ip);
@@ -163,6 +163,9 @@ void UnicastMacRemoteEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
         ovsdb_wrapper_delete_ucast_mac_remote(ovs_entry_);
         SendTrace(UnicastMacRemoteEntry::DEL_REQ);
     }
+    if (trigger_delete_) {
+        PostDelete();
+    }
 }
 
 void UnicastMacRemoteEntry::OvsdbChange() {
@@ -256,6 +259,11 @@ bool UnicastMacRemoteEntry::IsLess(const KSyncEntry &entry) const {
 
 KSyncEntry *UnicastMacRemoteEntry::UnresolvedReference() {
     assert(pl_create_ref_.get() == NULL);
+
+    if (trigger_delete_) {
+        // do not resolve references for trigger delete
+        return NULL;
+    }
 
     LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
     LogicalSwitchEntry key(l_table, logical_switch_name_.c_str());
