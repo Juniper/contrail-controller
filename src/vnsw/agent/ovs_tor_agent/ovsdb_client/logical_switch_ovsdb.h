@@ -8,12 +8,14 @@
 #include <ovsdb_entry.h>
 #include <ovsdb_object.h>
 #include <ovsdb_client_idl.h>
+#include <ovsdb_resource_vxlan_id.h>
 
 class PhysicalDeviceVn;
 
 namespace OVSDB {
 class MulticastMacLocalEntry;
 class LogicalSwitchEntry;
+class OvsdbResourceVxLanId;
 
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
@@ -71,6 +73,7 @@ public:
     virtual ~LogicalSwitchEntry();
 
     Ip4Address &physical_switch_tunnel_ip();
+    void PostDelete();
     void AddMsg(struct ovsdb_idl_txn *);
     void ChangeMsg(struct ovsdb_idl_txn *);
     void DeleteMsg(struct ovsdb_idl_txn *);
@@ -82,6 +85,9 @@ public:
     int64_t vxlan_id() const;
     std::string tor_service_node() const;
     const IpAddress &tor_ip() const;
+    bool IsDeleteOvsInProgress() const;
+
+    const OvsdbResourceVxLanId &res_vxlan_id() const;
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
@@ -97,11 +103,29 @@ public:
     // transaction complete
     void TxnDoneNoMessage();
 
+    void DeleteOvs();
+
 private:
+    class ProcessDeleteOvsReqTask : public Task {
+    public:
+        static const int KEntriesPerIteration = 32;
+        ProcessDeleteOvsReqTask(LogicalSwitchEntry *entry);
+        virtual ~ProcessDeleteOvsReqTask();
+
+        bool Run();
+
+    private:
+        KSyncEntry::KSyncEntryPtr entry_;
+        DISALLOW_COPY_AND_ASSIGN(ProcessDeleteOvsReqTask);
+    };
+
+    void CancelDeleteOvs();
     void SendTrace(Trace event) const;
     void DeleteOldMcastRemoteMac();
 
     void ReleaseLocatorCreateReference();
+
+    virtual bool IsDataResolved();
 
     friend class LogicalSwitchTable;
     std::string name_;
@@ -122,6 +146,9 @@ private:
     OvsdbIdlRowList ucast_local_row_list_;
     IpAddress tor_ip_;
     MulticastMacLocalEntry *mc_flood_entry_;
+    OvsdbResourceVxLanId res_vxlan_id_;
+    bool delete_ovs_;
+    ProcessDeleteOvsReqTask *del_task_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };

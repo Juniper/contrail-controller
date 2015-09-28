@@ -565,6 +565,14 @@ std::string KSyncEntry::EventString(KSyncEvent event) {
     return str.str();
 }
 
+const std::set<IntrusiveReferrer> &KSyncEntry::back_ref_set() const {
+    return back_ref_set_;
+}
+
+tbb::mutex &KSyncEntry::back_ref_set_mutex() {
+    return back_ref_set_mutex_;
+}
+
 void intrusive_ptr_add_ref(KSyncEntry *p) {
     p->refcount_++;
 };
@@ -586,6 +594,16 @@ void intrusive_ptr_release(KSyncEntry *p) {
                 break;
         }
     }
+}
+
+void intrusive_ptr_add_back_ref(IntrusiveReferrer ref, KSyncEntry* p) {
+    tbb::mutex::scoped_lock lock(p->back_ref_set_mutex_);
+    p->back_ref_set_.insert(ref);
+}
+
+void intrusive_ptr_del_back_ref(IntrusiveReferrer ref, KSyncEntry* p) {
+    tbb::mutex::scoped_lock lock(p->back_ref_set_mutex_);
+    p->back_ref_set_.erase(ref);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1112,7 +1130,8 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
 void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
 
     KSyncEntry::KSyncState state;
-    bool dep_reval = false;
+    // if entry was unresolved set default dep_reval as true
+    bool dep_reval = !entry->IsResolved();
 
     if (DoEventTrace()) {
         KSYNC_TRACE(Event, this, entry->ToString(), entry->StateString(),
