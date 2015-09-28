@@ -60,6 +60,35 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
         (LINKLOCAL_FLOW,           "00000000-0000-0000-0000-000000000004")
         (MULTICAST_FLOW,           "00000000-0000-0000-0000-000000000005")
         (NON_IP_FLOW,              "00000000-0000-0000-0000-000000000006");
+
+const std::map<uint16_t, const char*>
+    FlowEntry::FlowDropReasonStr = boost::assign::map_list_of
+        ((uint16_t)DROP_UNKNOWN,                 "UNKNOWN")
+        ((uint16_t)FlowEntry::SHORT_UNAVIALABLE_INTERFACE,
+         "SHORT_UNAVIALABLE_INTERFACE")
+        ((uint16_t)FlowEntry::SHORT_IPV4_FWD_DIS,       "SHORT_IPV4_FWD_DIS")
+        ((uint16_t)FlowEntry::SHORT_UNAVIALABLE_VRF,
+         "SHORT_UNAVIALABLE_VRF")
+        ((uint16_t)FlowEntry::SHORT_NO_SRC_ROUTE,       "SHORT_NO_SRC_ROUTE")
+        ((uint16_t)FlowEntry::SHORT_NO_DST_ROUTE,       "SHORT_NO_DST_ROUTE")
+        ((uint16_t)FlowEntry::SHORT_AUDIT_ENTRY,        "SHORT_AUDIT_ENTRY")
+        ((uint16_t)FlowEntry::SHORT_VRF_CHANGE,         "SHORT_VRF_CHANGE")
+        ((uint16_t)FlowEntry::SHORT_NO_REVERSE_FLOW,    "SHORT_NO_REVERSE_FLOW")
+        ((uint16_t)FlowEntry::SHORT_REVERSE_FLOW_CHANGE,
+         "SHORT_REVERSE_FLOW_CHANGE")
+        ((uint16_t)FlowEntry::SHORT_NAT_CHANGE,         "SHORT_NAT_CHANGE")
+        ((uint16_t)FlowEntry::SHORT_FLOW_LIMIT,         "SHORT_FLOW_LIMIT")
+        ((uint16_t)FlowEntry::SHORT_LINKLOCAL_SRC_NAT,
+         "SHORT_LINKLOCAL_SRC_NAT")
+        ((uint16_t)FlowEntry::SHORT_FAILED_VROUTER_INSTALL,
+         "SHORT_FAILED_VROUTER_INST")
+        ((uint16_t)FlowEntry::DROP_POLICY,              "DROP_POLICY")
+        ((uint16_t)FlowEntry::DROP_OUT_POLICY,          "DROP_OUT_POLICY")
+        ((uint16_t)FlowEntry::DROP_SG,                  "DROP_SG")
+        ((uint16_t)FlowEntry::DROP_OUT_SG,              "DROP_OUT_SG")
+        ((uint16_t)FlowEntry::DROP_REVERSE_SG,          "DROP_REVERSE_SG")
+        ((uint16_t)FlowEntry::DROP_REVERSE_OUT_SG,      "DROP_REVERSE_OUT_SG");
+
 tbb::atomic<int> FlowEntry::alloc_count_;
 InetUnicastRouteEntry FlowEntry::inet4_route_key_(NULL, Ip4Address(), 32,
                                                   false);
@@ -1237,6 +1266,8 @@ void FlowEntry::ResyncFlow() {
 // Recompute FlowEntry action based on ACLs already set in the flow
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
+    uint16_t drop_reason = DROP_UNKNOWN;
+    bool ret = false;
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
@@ -1276,21 +1307,21 @@ bool FlowEntry::ActionRecompute() {
                   ~TrafficAction::PASS_FLAGS);
         action |= (1 << TrafficAction::DROP);
         if (is_flags_set(FlowEntry::ShortFlow)) {
-            data_.drop_reason = short_flow_reason_;
+            drop_reason = short_flow_reason_;
         } else if (ShouldDrop(data_.match_p.policy_action)) {
-            data_.drop_reason = DROP_POLICY;
+            drop_reason = DROP_POLICY;
         } else if (ShouldDrop(data_.match_p.out_policy_action)){
-            data_.drop_reason = DROP_OUT_POLICY;
+            drop_reason = DROP_OUT_POLICY;
         } else if (ShouldDrop(data_.match_p.sg_action)){
-            data_.drop_reason = DROP_SG;
+            drop_reason = DROP_SG;
         } else if (ShouldDrop(data_.match_p.out_sg_action)){
-            data_.drop_reason = DROP_OUT_SG;
+            drop_reason = DROP_OUT_SG;
         } else if (ShouldDrop(data_.match_p.reverse_sg_action)){
-            data_.drop_reason = DROP_REVERSE_SG;
+            drop_reason = DROP_REVERSE_SG;
         } else if (ShouldDrop(data_.match_p.reverse_out_sg_action)){
-            data_.drop_reason = DROP_REVERSE_OUT_SG;
+            drop_reason = DROP_REVERSE_OUT_SG;
         } else {
-            data_.drop_reason = DROP_UNKNOWN;
+            drop_reason = DROP_UNKNOWN;
         }
     }
 
@@ -1300,10 +1331,14 @@ bool FlowEntry::ActionRecompute() {
 
     if (action != data_.match_p.action_info.action) {
         data_.match_p.action_info.action = action;
-        return true;
+        ret = true;
+    }
+    if (drop_reason != data_.drop_reason) {
+        data_.drop_reason = drop_reason;
+        ret = true;
     }
 
-    return false;
+    return ret;
 }
 
 // SetMirrorVrfFromAction

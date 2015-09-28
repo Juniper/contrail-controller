@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import re
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+# test specific modifications
+AgentEnv.MakeTestEnv(env)
+
+flow_stats_test_suite=[]
+flow_stats_flaky_test_suite=[]
+
+test_flow_stats = AgentEnv.MakeTestCmd(env, 'test_flow_stats',
+                                       flow_stats_test_suite)
+
+flaky_test = env.TestSuite('agent-flaky-test', flow_stats_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/vrouter/flow_stats:flaky_test', flaky_test)
+
+test = env.TestSuite('agent-test', flow_stats_test_suite)
+env.Alias('agent:flow_stats', test)
+env.Alias('controller/src/vnsw/agent/vrouter/flow_stats:test', test)
+Return('flow_stats_test_suite')
