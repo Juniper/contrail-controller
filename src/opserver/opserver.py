@@ -482,13 +482,11 @@ class OpServer(object):
         self._state_server = OpStateServer(self._logger, self._args.redis_password)
 
         body = gevent.queue.Queue()
-        self._uvedbstream = UveStreamer(self._logger, body, None, self.get_agp,
+        self._uvedbstream = UveStreamer(self._logger, None, None, self.get_agp,
             self._args.partitions, self._args.redis_password)
-        self._uvedbcache = UveCacheProcessor(self._logger, body, self._args.partitions)
-
         
         # TODO: For now, use DBCache during systemless test only
-        ucache = self._uvedbcache
+        ucache = self._uvedbstream
         if self._args.disc_server_ip:
             ucache = None
         else:
@@ -2106,9 +2104,8 @@ class OpServer(object):
             if partno not in new_agp:
                 new_agp[partno] = pi
             else:
-                if new_agp[partno] != pi:
-                    if pi.acq_time > new_agp[partno].acq_time:
-                        new_agp[partno] = pi
+                if pi.acq_time > new_agp[partno].acq_time:
+                    new_agp[partno] = pi
         if len(new_agp) == self._args.partitions and \
                 len(self.agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
@@ -2125,11 +2122,9 @@ class OpServer(object):
         return self.agp
 
     def run(self):
-        self._uvedbcache.start()
         self._uvedbstream.start()
 
         self.gevs += [
-            self._uvedbcache,
             self._uvedbstream,
             gevent.spawn(self.start_webserver),
             gevent.spawn(self.cpu_info_logger),
@@ -2165,13 +2160,14 @@ class OpServer(object):
         self._sandesh._client._connection.set_admin_state(down=True)
         self._sandesh.uninit()
         self.stop_webserver()
-        i, l = 1, len(self.gevs)
-        for gv in self.gevs:
-            gv.kill()
-            gv.join()
-            self.gevs.remove(gv)
-            self._logger.error('stopped %d of %d' % (i, l))
-            i += 1
+        l = len(self.gevs)
+        for idx in range(0,l):
+            self._logger.error('killing %d of %d' % (idx+1, l))
+            self.gevs[0].kill()
+            self._logger.error('joining %d of %d' % (idx+1, l))
+            self.gevs[0].join()
+            self._logger.error('stopped %d of %d' % (idx+1, l))
+            self.gevs = self.gevs[1:]
 
     def sigterm_handler(self):
         self.stop()

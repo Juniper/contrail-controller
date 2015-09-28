@@ -536,7 +536,8 @@ class Controller(object):
         lredis = None
         while True:
             for part in self._uveqf.keys():
-                self._logger.error("Stop UVE processing for %d" % part)
+                self._logger.error("Stop UVE processing for %d:%d" % \
+                        (part, self._uveqf[part]))
                 self.stop_uve_partition(part)
                 del self._uveqf[part]
                 if part in self._uveq:
@@ -559,6 +560,7 @@ class Controller(object):
             if len(gevs):
                 gevent.joinall(gevs.values())
                 for part in gevs.keys():
+                    acq_time = self._workers[part].acq_time()
                     # If UVE processing failed, requeue the working set
                     outp = gevs[part].get()
                     if outp is None:
@@ -584,7 +586,7 @@ class Controller(object):
                                             Controller.send_agg_uve(lredis,
                                                 self._instance_id,
                                                 part,
-                                                self._workers[part].acq_time(),
+                                                acq_time,
                                                 rows)
                                             rows[:] = []
                                         continue
@@ -594,7 +596,7 @@ class Controller(object):
                                             Controller.send_agg_uve(lredis,
                                                 self._instance_id,
                                                 part,
-                                                self._workers[part].acq_time(),
+                                                acq_time,
                                                 rows)
                                             rows[:] = []
                                 # Flush all remaining rows
@@ -602,7 +604,7 @@ class Controller(object):
                                     Controller.send_agg_uve(lredis,
                                         self._instance_id,
                                         part,
-                                        self._workers[part].acq_time(),
+                                        acq_time,
                                         rows)
                                     rows[:] = []
 
@@ -985,9 +987,9 @@ class Controller(object):
                 ph.kill()
                 res,db = ph.get(False)
                 self._logger.error("Returned " + str(res))
+                self._uveqf[partno] = self._workers[partno].acq_time()
                 del self._workers[partno]
                 del self._uvestats[partno]
-                self._uveqf[partno] = True
 
                 tout = 600
                 idx = 0
@@ -1255,16 +1257,26 @@ class Controller(object):
         try:
             gevent.joinall(self.gevs)
         except KeyboardInterrupt:
-            print 'Exiting on ^C'
+            print 'AlarmGen Exiting on ^C'
+        except gevent.GreenletExit:
+            self._logger.error('AlarmGen Exiting on gevent-kill')
         except:
             raise
         finally:
+            self._logger.error('AlarmGen stopping everything')
             self.stop()
 
     def stop(self):
         self._sandesh._client._connection.set_admin_state(down=True)
         self._sandesh.uninit()
-        gevent.killall(self.gevs)
+        l = len(self.gevs)
+        for idx in range(0,l):
+            self._logger.error('AlarmGen killing %d of %d' % (idx+1, l))
+            self.gevs[0].kill()
+            self._logger.error('AlarmGen joining %d of %d' % (idx+1, l))
+            self.gevs[0].join()
+            self._logger.error('AlarmGen stopped %d of %d' % (idx+1, l))
+            self.gevs = self.gevs[1:]
 
     def sigterm_handler(self):
         self.stop()

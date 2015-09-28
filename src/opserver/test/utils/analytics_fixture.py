@@ -2212,7 +2212,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return json.dumps(filt)
     # end _get_filters_json
 
-    @retry(delay=1, tries=3)
+    @retry(delay=1, tries=4)
     def verify_uve_list(self, table, filts=None, exp_uve_list=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         filters = self._get_filters_string(filts)
@@ -2258,7 +2258,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return actual_uve_value == exp_uve_value
     # end _verify_uves
 
-    @retry(delay=1, tries=3)
+    @retry(delay=1, tries=4)
     def verify_multi_uve_get(self, table, filts=None, exp_uves=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         filters = self._get_filters_string(filts)
@@ -2275,7 +2275,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return self._verify_uves(exp_uves, actual_uves)
     # end verify_multi_uve_get
 
-    @retry(delay=1, tries=3)
+    @retry(delay=1, tries=4)
     def verify_uve_post(self, table, filts=None, exp_uves=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         filter_json = self._get_filters_json(filts)

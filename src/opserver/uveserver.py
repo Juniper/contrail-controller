@@ -135,6 +135,9 @@ class UVEServer(object):
                     # value is of the format: 
                     # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
                     redish.delete(value)
+            except gevent.GreenletExit:
+                self._logger.error('UVEServer Exiting on gevent-kill')
+                break
             except:
                 if self._redis:
                     #send redis connection down msg. Coule be bcos of authentication
