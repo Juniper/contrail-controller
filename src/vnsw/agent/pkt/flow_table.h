@@ -215,6 +215,8 @@ public:
 
     // FlowStatsCollector request queue events
     void NotifyFlowStatsCollector(FlowEntry *fe);
+    void RemoveFromKSyncTree(FlowEntry *flow);
+    void AddToKSyncTree(FlowEntry *flow);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;

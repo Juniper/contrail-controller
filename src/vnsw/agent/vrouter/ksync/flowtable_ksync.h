@@ -31,6 +31,9 @@ public:
 
     FlowEntryPtr flow_entry() const {return flow_entry_;}
     uint32_t hash_id() const {return hash_id_;}
+    void set_hash_id(uint32_t hash_id) {
+        hash_id_ = hash_id;
+    }
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     KSyncObject *GetObject();
 
@@ -102,6 +105,7 @@ public:
     void StartAuditTimer();
 private:
     friend class KSyncSandeshContext;
+    friend class FlowTable;
     KSync *ksync_;
     int major_devid_;
     int flow_table_size_;
