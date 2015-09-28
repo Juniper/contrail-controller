@@ -1237,6 +1237,8 @@ void FlowEntry::ResyncFlow() {
 // Recompute FlowEntry action based on ACLs already set in the flow
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
+    uint16_t drop_reason = DROP_UNKNOWN;
+    bool ret = false;
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
@@ -1276,21 +1278,21 @@ bool FlowEntry::ActionRecompute() {
                   ~TrafficAction::PASS_FLAGS);
         action |= (1 << TrafficAction::DROP);
         if (is_flags_set(FlowEntry::ShortFlow)) {
-            data_.drop_reason = short_flow_reason_;
+            drop_reason = short_flow_reason_;
         } else if (ShouldDrop(data_.match_p.policy_action)) {
-            data_.drop_reason = DROP_POLICY;
+            drop_reason = DROP_POLICY;
         } else if (ShouldDrop(data_.match_p.out_policy_action)){
-            data_.drop_reason = DROP_OUT_POLICY;
+            drop_reason = DROP_OUT_POLICY;
         } else if (ShouldDrop(data_.match_p.sg_action)){
-            data_.drop_reason = DROP_SG;
+            drop_reason = DROP_SG;
         } else if (ShouldDrop(data_.match_p.out_sg_action)){
-            data_.drop_reason = DROP_OUT_SG;
+            drop_reason = DROP_OUT_SG;
         } else if (ShouldDrop(data_.match_p.reverse_sg_action)){
-            data_.drop_reason = DROP_REVERSE_SG;
+            drop_reason = DROP_REVERSE_SG;
         } else if (ShouldDrop(data_.match_p.reverse_out_sg_action)){
-            data_.drop_reason = DROP_REVERSE_OUT_SG;
+            drop_reason = DROP_REVERSE_OUT_SG;
         } else {
-            data_.drop_reason = DROP_UNKNOWN;
+            drop_reason = DROP_UNKNOWN;
         }
     }
 
@@ -1300,10 +1302,14 @@ bool FlowEntry::ActionRecompute() {
 
     if (action != data_.match_p.action_info.action) {
         data_.match_p.action_info.action = action;
-        return true;
+        ret = true;
+    }
+    if (drop_reason != data_.drop_reason) {
+        data_.drop_reason = drop_reason;
+        ret = true;
     }
 
-    return false;
+    return ret;
 }
 
 // SetMirrorVrfFromAction

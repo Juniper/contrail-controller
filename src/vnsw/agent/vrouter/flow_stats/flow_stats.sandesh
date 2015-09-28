@@ -1,0 +1,90 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "vnsw/agent/oper/agent.sandesh"
+
+request sandesh SetFlowStatsInterval_InSeconds {
+    1: byte interval;
+}
+
+response sandesh FlowStatsCfgResp {
+    1: string resp = "  Success  ";
+}
+
+response sandesh FlowStatsCfgErrResp {
+    1: string resp = "  Failure: Value should be greater than 0 ";
+}
+
+request sandesh GetFlowStatsInterval {
+}
+
+response sandesh FlowStatsIntervalResp_InSeconds {
+    1: byte flow_stats_interval;
+}
+
+request sandesh FlowStatsCollectionParamsReq {
+}
+
+response sandesh FlowStatsCollectionParamsResp {
+    1: u32 flow_export_rate;
+    2: u32 sampling_threshold;
+}
+
+struct SandeshFlowKey {
+    1: u32 nh;                                                                  
+    2: string sip;                                                              
+    3: string dip;                                                              
+    4: u32 src_port;                                                            
+    5: u32 dst_port;                                                            
+    6: byte protocol;                                                           
+}
+
+struct SandeshFlowExportInfo {
+    1: string uuid;
+    2: string egress_uuid;
+    3: SandeshFlowKey rev_key;
+    4: string source_vn;
+    5: string dest_vn;
+    6: string sg_rule_uuid;
+    7: string nw_ace_uuid;
+    8: u64 setup_time;
+    9: u64 teardown_time;
+   10: u64 last_modified_time; //used for aging
+   11: u64 bytes;
+   12: u64 packets;
+   13: u32 flags;
+   14: u32 flow_handle;
+   15: list<agent.ActionStr> action;
+   16: string vm_cfg_name;
+   17: string peer_vrouter;
+   18: string tunnel_type;
+   19: string fip_vmi;
+   20: string fip;
+   21: u16 underlay_source_port;
+}
+
+struct FlowStatsRecord {
+    1: SandeshFlowKey key;
+    2: SandeshFlowExportInfo info;
+}
+
+request sandesh FlowStatsRecordsReq {
+}
+
+response sandesh FlowStatsRecordsResp {
+    1: list<FlowStatsRecord> records_list;
+}
+
+request sandesh FetchFlowStatsRecord {
+    1: u32 nh;                                                                  
+    2: string sip;                                                              
+    3: string dip;                                                              
+    4: u32 src_port;                                                            
+    5: u32 dst_port;                                                            
+    6: byte protocol;                                                           
+}
+
+response sandesh FlowStatsRecordResp {
+    1: SandeshFlowExportInfo info;
+}

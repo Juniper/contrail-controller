@@ -7,7 +7,7 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats_interval.sandesh')
+FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats.sandesh')
 FlowStatsSandeshGenSrcs = env.ExtractCpp(FlowStatsSandeshGenFiles)
 FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
 
@@ -17,3 +17,4 @@ libflowstats = env.Library('flowstats',
                           'flow_export_info.cc',
                           'flow_stats_collector.cc'
                          ])
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)
