@@ -574,23 +574,35 @@ static int GetVirtualNetworkVxlanId(DBGraph *graph, IFMapNode *node) {
 
 static void SetStaticRouteConfig(BgpInstanceConfig *rti,
                                  const autogen::RoutingInstance *config) {
-    BgpInstanceConfig::StaticRouteList list;
+    BgpInstanceConfig::StaticRouteList inet_list;
+    BgpInstanceConfig::StaticRouteList inet6_list;
     BOOST_FOREACH(const autogen::StaticRouteType &route,
                   config->static_route_entries()) {
+        boost::system::error_code ec;
         StaticRouteConfig item;
-        Ip4Address address;
-        boost::system::error_code ec =
-            Ip4PrefixParse(route.prefix, &address, &item.prefix_length);
-        if (ec != 0)
-            continue;
-        item.address = address;
         item.nexthop = IpAddress::from_string(route.next_hop, ec);
         if (ec != 0)
             continue;
+
         item.route_target = route.route_target;
-        list.push_back(item);
+        if (item.nexthop.is_v4()) {
+            Ip4Address address;
+            ec = Ip4PrefixParse(route.prefix, &address, &item.prefix_length);
+            if (ec != 0)
+                continue;
+            item.address = address;
+            inet_list.push_back(item);
+        } else {
+            Ip6Address address;
+            ec = Inet6PrefixParse(route.prefix, &address, &item.prefix_length);
+            if (ec != 0)
+                continue;
+            item.address = address;
+            inet6_list.push_back(item);
+        }
     }
-    rti->swap_static_routes(&list);
+    rti->swap_static_routes(Address::INET, &inet_list);
+    rti->swap_static_routes(Address::INET6, &inet6_list);
 }
 
 static void SetServiceChainConfig(BgpInstanceConfig *rti,
