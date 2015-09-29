@@ -32,6 +32,7 @@ public:
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
+    static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
     // Comparator for FlowEntryPtr
     struct FlowEntryCmp {
@@ -91,7 +92,8 @@ public:
     friend class AgentUtXmlFlowThresholdValidate;
 private:
     void FlowDeleteEnqueue(const FlowKey &key, bool rev);
-    void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
+    void EnqueueFlowMsg(FlowDataIpv4 &flow);
+    void DispatchFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
     void SetUnderlayInfo(FlowExportInfo *info, FlowDataIpv4 &s_flow);
@@ -140,6 +142,7 @@ private:
     uint32_t threshold_;
     uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
+    std::vector<FlowDataIpv4> msg_list_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 
