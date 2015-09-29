@@ -603,7 +603,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_names = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
-        np = self.create_network_policy(vn1_obj, vn2_obj, service_names, "in-network", auto_policy=False)
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names, None, "in-network", auto_policy=False)
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
         vn1_obj.set_network_policy(np, vnp)
@@ -742,7 +742,7 @@ class TestPolicy(test_case.STTestCase):
         rvn = self.create_virtual_network(rvn_name, "20.0.0.0/24")
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(lvn, rvn, [service_name], "in-network")
+        np = self.create_network_policy(lvn, rvn, [service_name], None, "in-network")
 
         vn_name = self.id() + 'vn100'
         vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
@@ -1150,7 +1150,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], 'transparent', 'analyzer', action_type = 'mirror-to')
+        np = self.create_network_policy(vn1_obj, vn2_obj, None, service_name, 'transparent', 'analyzer')
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
         vn1_obj.set_network_policy(np, vnp)
@@ -1179,6 +1179,57 @@ class TestPolicy(test_case.STTestCase):
         self.check_acl_not_match_mirror_to_ip(self.get_ri_name(vn1_obj))
         self.check_acl_not_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
         self.check_acl_not_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
+
+    def test_service_and_analyzer_policy(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        analyzer_service_name = self.id() + '_analyzer'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], analyzer_service_name)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
+
+        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
+                                       prefix='10.0.0.0/24')
+
+        svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
+        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn1_obj))
+        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn2_obj))
+
+        self.check_acl_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end test_service_policy
 
     @retries(5, hook=retry_exc_handler)
     def check_security_group_id(self, sg_fq_name, verify_sg_id = None):
@@ -1490,7 +1541,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], 'in-network')
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], None, 'in-network')
 
         sc = self.wait_to_get_sc()
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name

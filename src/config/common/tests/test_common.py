@@ -452,51 +452,58 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         vn_obj.clear_pending_updates()
         return vn_obj
     # end create_virtual_network
-    def create_network_policy(self, vn1, vn2, service_list=None, 
-                              service_mode=None, service_type=None, action_type='simple-action', auto_policy=True):
+
+    def _create_service(self, vn1, vn2, si_name, service_mode, service_type, auto_policy):
+            sti = [ServiceTemplateInterfaceType(
+                'left'), ServiceTemplateInterfaceType('right')]
+            st_prop = ServiceTemplateType(
+                service_type=service_type,
+                flavor='medium',
+                image_name='junk',
+                ordered_interfaces=True,
+                service_mode=service_mode, interface_type=sti)
+            service_template = ServiceTemplate(
+                name=si_name + 'template',
+                service_template_properties=st_prop)
+            self._vnc_lib.service_template_create(service_template)
+            scale_out = ServiceScaleOutType()
+            if service_mode == 'in-network':
+                if_list = [ServiceInstanceInterfaceType(virtual_network=vn1.get_fq_name_str()),
+                           ServiceInstanceInterfaceType(virtual_network=vn2.get_fq_name_str())]
+                si_props = ServiceInstanceType(
+                    auto_policy=auto_policy, interface_list=if_list,
+                    scale_out=scale_out)
+            else:
+                if_list = [ServiceInstanceInterfaceType(),
+                           ServiceInstanceInterfaceType()]
+                si_props = ServiceInstanceType(interface_list=if_list,
+                                               scale_out=scale_out)
+            service_instance = ServiceInstance(
+                name=si_name, service_instance_properties=si_props)
+            service_instance.add_service_template(service_template)
+            self._vnc_lib.service_instance_create(service_instance)
+            return service_instance.get_fq_name_str()
+
+    def create_network_policy(self, vn1, vn2, service_list=None, mirror_service=None,
+                              service_mode=None, service_type=None, auto_policy=True):
         addr1 = AddressType(virtual_network=vn1.get_fq_name_str())
         addr2 = AddressType(virtual_network=vn2.get_fq_name_str())
         port = PortType(-1, 0)
         service_name_list = []
+        si_list = service_list or []
         if service_list:
-            for service in service_list:
-                sti = [ServiceTemplateInterfaceType(
-                    'left'), ServiceTemplateInterfaceType('right')]
-                st_prop = ServiceTemplateType(
-                    service_type=service_type,
-                    flavor='medium',
-                    image_name='junk',
-                    ordered_interfaces=True,
-                    service_mode=service_mode, interface_type=sti)
-                service_template = ServiceTemplate(
-                    name=service + 'template',
-                    service_template_properties=st_prop)
-                self._vnc_lib.service_template_create(service_template)
-                scale_out = ServiceScaleOutType()
-                if service_mode == 'in-network':
-                    if_list = [ServiceInstanceInterfaceType(virtual_network=vn1.get_fq_name_str()),
-                               ServiceInstanceInterfaceType(virtual_network=vn2.get_fq_name_str())]
-                    si_props = ServiceInstanceType(
-                        auto_policy=auto_policy, interface_list=if_list,
-                        scale_out=scale_out)
-                else:
-                    if_list = [ServiceInstanceInterfaceType(),
-                               ServiceInstanceInterfaceType()]
-                    si_props = ServiceInstanceType(interface_list=if_list,
-                                                   scale_out=scale_out)
-                service_instance = ServiceInstance(
-                    name=service, service_instance_properties=si_props)
-                service_instance.add_service_template(service_template)
-                self._vnc_lib.service_instance_create(service_instance)
-                service_name_list.append(service_instance.get_fq_name_str())
-
-        if action_type == 'mirror-to':
-            mirror = MirrorActionType(analyzer_name=service_instance.get_fq_name_str())
-            action_list = ActionListType(mirror_to=mirror)
-        elif service_name_list:
-            action_list = ActionListType(apply_service=service_name_list)
+            for service in si_list:
+                service_name_list.append(self._create_service(vn1, vn2, service, service_mode, service_type, auto_policy))
+        if mirror_service:
+            mirror_si = self._create_service(vn1, vn2, mirror_service, 'transparent', 'analyzer', True)
+        action_list = ActionListType()
+        if mirror_service:
+            mirror = MirrorActionType(analyzer_name=mirror_si)
+            action_list.mirror_to=mirror
+        if service_name_list:
+            action_list.apply_service=service_name_list
         else:
-            action_list = ActionListType(simple_action='pass')
+            action_list.simple_action='pass'
 
         prule = PolicyRuleType(direction="<>", protocol="any",
                                src_addresses=[addr1], dst_addresses=[addr2],
@@ -509,4 +516,5 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._vnc_lib.network_policy_create(np)
         return np
     # end create_network_policy
+
 # end TestCase
