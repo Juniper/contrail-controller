@@ -2535,9 +2535,8 @@ class VirtualMachineInterfaceST(DBBaseST):
                                     src_port=PortType(),
                                     dst_port=PortType())
 
-            ri_name = vn.obj.get_fq_name_str() + ':' + vn._default_ri_name
             vrf_rule = VrfAssignRuleType(match_condition=mc,
-                                         routing_instance=ri_name,
+                                         routing_instance=vn._default_ri_name,
                                          ignore_acl=False)
             vrf_table.add_vrf_assign_rule(vrf_rule)
 
