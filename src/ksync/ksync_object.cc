@@ -1112,7 +1112,9 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
 void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
 
     KSyncEntry::KSyncState state;
-    bool dep_reval = false;
+    // check if entry is resolved, KSync needs to trigger dependency re-eval
+    // if the entry is not resolved while KSync state machine kicks-in
+    bool dep_reval = !entry->IsResolved();
 
     if (DoEventTrace()) {
         KSYNC_TRACE(Event, this, entry->ToString(), entry->StateString(),
@@ -1124,17 +1126,14 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::TEMP:
-            dep_reval = true;
             state = KSyncSM_Temp(this, entry, event);
             break;
 
         case KSyncEntry::ADD_DEFER:
-            dep_reval = true;
             state = KSyncSM_AddDefer(this, entry, event);
             break;
 
         case KSyncEntry::CHANGE_DEFER:
-            dep_reval = true;
             state = KSyncSM_ChangeDefer(this, entry, event);
             break;
 
@@ -1143,7 +1142,6 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::SYNC_WAIT:
-            dep_reval = true;
             state = KSyncSM_SyncWait(this, entry, event);
             break;
 
@@ -1156,7 +1154,6 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::DEL_DEFER_REF:
-            dep_reval = true;
             state = KSyncSM_DelPending_Ref(this, entry, event);
             break;
 
@@ -1169,7 +1166,6 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::RENEW_WAIT:
-            dep_reval = true;
             state = KSyncSM_RenewWait(this, entry, event);
             break;
 
@@ -1179,6 +1175,8 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     }
 
     entry->SetState(state);
+    // if entry is resolved and needs dependency re-evaluation
+    // trigger back ref re-eval
     if (dep_reval == true && entry->IsResolved()) {
         BackRefReEval(entry);
     }
