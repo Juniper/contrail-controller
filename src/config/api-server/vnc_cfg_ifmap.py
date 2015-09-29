@@ -33,6 +33,7 @@ from cfgm_common.ifmap.operations import PublishUpdateOperation,\
     PublishDeleteOperation
 from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
+from cfgm_common.imid import escape
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
@@ -45,7 +46,6 @@ import pycassa
 import pycassa.util
 import pycassa.cassandra.ttypes
 from pycassa.system_manager import *
-from datetime import datetime
 from pycassa.util import *
 
 import signal, os
@@ -57,8 +57,6 @@ import cfgm_common.imid
 from cfgm_common.exceptions import *
 from vnc_quota import *
 import gen
-from gen.vnc_ifmap_client_gen import *
-from gen.vnc_cassandra_client_gen import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
@@ -136,15 +134,11 @@ class VncIfmapClient(object):
         # Set the signal handler
         signal.signal(signal.SIGUSR2, self.handler)
 
-        # Initialize ifmap-id handler (alloc|convert|parse etc.)
-        self._imid_handler = ImidGen()
-
         self._init_conn()
         self._publish_config_root()
     # end __init__
 
     def _object_alloc(self, res_type, parent_type, fq_name):
-        imid = self._imid_handler
         my_fqn = ':'.join(fq_name)
         parent_fqn = ':'.join(fq_name[:-1])
 
@@ -434,7 +428,7 @@ class VncIfmapClient(object):
             try:
                 self._publish_to_ifmap_dequeue()
             except Exception as e:
-                tb = utils.detailed_traceback()
+                tb = cfgm_common.utils.detailed_traceback()
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)
 
     def _publish_to_ifmap_dequeue(self):
@@ -1482,7 +1476,7 @@ class VncDbClient(object):
     # end update_subnet_uuid
 
     def _dbe_resync(self, obj_type, obj_uuids):
-        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
+        obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._cassandra_db.read(
                                obj_type, obj_uuids, field_names=obj_fields)
