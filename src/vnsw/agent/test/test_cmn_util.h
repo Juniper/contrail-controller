@@ -339,19 +339,8 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
                             int sport, int dport, int hash_idx = 0);
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
-                   uint64_t discards, uint64_t resolves, uint64_t receives, 
-                   uint64_t udp_tunnels, uint64_t udp_mpls_tunnels, 
-                   uint64_t gre_mpls_tunnels, uint64_t ecmp_composites, 
-                   uint64_t fabric_composites, uint64_t l2_composites,
-                   uint64_t l3_composites, uint64_t multi_proto_composites,
-                   uint64_t encaps, uint64_t l2_encaps);
-bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
-                   uint64_t receives, uint64_t udp_tunnels, 
-                   uint64_t udp_mpls_tunnels, uint64_t gre_mpls_tunnels, 
-                   uint64_t ecmp_composites, uint64_t fabric_composites, 
-                   uint64_t l2_composites, uint64_t l3_composites, 
-                   uint64_t multi_proto_composites, uint64_t encaps, 
-                   uint64_t l2_encaps);
+                   const vr_vrf_stats_req &req);
+bool VrfStatsMatchPrev(int vrf_id, const vr_vrf_stats_req &req);
 bool RouterIdMatch(Ip4Address rid2);
 bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);

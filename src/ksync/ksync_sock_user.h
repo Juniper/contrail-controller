@@ -157,16 +157,7 @@ public:
     static void VrfAssignAdd(vr_vrf_assign_req &req);
     static void VrfAssignDelete(vr_vrf_assign_req &req);
     static void VrfStatsAdd(int vrf_id);
-    static void VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
-                               uint64_t receives, uint64_t udp_tunnels, 
-                               uint64_t udp_mpls_tunnels, 
-                               uint64_t udp_gre_tunnels, 
-                               int64_t ecmp_composites, 
-                               int64_t fabric_composites,
-                               int64_t l2_mcast_composites,
-                               int64_t l3_mcast_composites,
-                               int64_t multi_proto_composites,
-                               uint64_t encaps, uint64_t l2_encaps);
+    static void VrfStatsUpdate(int vrf_id, const vr_vrf_stats_req &req);
     static void VrfStatsDelete(int vrf_id);
     static void VxlanAdd(int id);
     static void VxlanDelete(int id);
