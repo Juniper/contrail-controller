@@ -34,6 +34,7 @@ public:
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
+    static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
     // Comparator for FlowEntryPtr
     struct FlowEntryCmp {
@@ -98,7 +99,9 @@ public:
     friend class FetchFlowStatsRecord;
 private:
     void FlowDeleteEnqueue(const FlowKey &key, bool rev);
-    void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
+    void EnqueueFlowMsg();
+    void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
+    void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
     void SetUnderlayInfo(FlowExportInfo *info, FlowDataIpv4 &s_flow);
@@ -128,6 +131,7 @@ private:
 
     void UpdateFlowStats(FlowExportInfo *flow, uint64_t &diff_bytes,
                          uint64_t &diff_pkts);
+    uint8_t GetFlowMsgIdx();
 
     AgentUveBase *agent_uve_;
     FlowKey flow_iteration_key_;
@@ -147,6 +151,8 @@ private:
     uint32_t threshold_;
     uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
+    std::vector<FlowDataIpv4> msg_list_;
+    uint8_t msg_index_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 
