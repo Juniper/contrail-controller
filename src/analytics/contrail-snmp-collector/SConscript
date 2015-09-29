@@ -45,7 +45,6 @@ env.Alias('controller/src/analytics/contrail-snmp-collector/' + \
 
 src_rules = [env.Install(Dir("."),
     '#controller/src/analytics/contrail-snmp-collector/' + f) for f in sources]
-#src_rules += [env.Install(Dir("."), x.path) for x in src_sandesh]
 src_rules.append(env.Install(Dir("."),
         '#controller/src/opserver/run_tests.sh'))
 
@@ -73,7 +72,7 @@ else:
 
 testr_str = 'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + \
             ' && tools_path=../config/common/tests/' + \
-            ' omit_list="contrail_snmp_collector/sandesh"' \
+            ' omit_list="contrail_snmp_collector/gen_py"' \
             ' build_top=' + Dir(env['TOP']).path + \
             ' CFLAGS= LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:../../../build/lib' \
             ' python setup.py run_tests %s 2>&1 |' \
