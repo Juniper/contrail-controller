@@ -58,15 +58,18 @@ public:
 
     // Use this constructor if automatic index allocation is *not* needed
     KSyncEntry() : index_(kInvalidIndex), state_(INIT), seen_(false),
-    stale_(false) {
+    stale_(false), unresolved_ref_count_(0) {
         refcount_ = 0;
     };
     // Use this constructor if automatic index allocation is needed
     KSyncEntry(uint32_t index) : index_(index), state_(INIT), seen_(false),
-    stale_(false) {
+    stale_(false), unresolved_ref_count_(0) {
         refcount_ = 0;
     };
-    virtual ~KSyncEntry() { assert(refcount_ == 0);};
+    virtual ~KSyncEntry() {
+        assert(refcount_ == 0);
+        assert(unresolved_ref_count_ == 0);
+    }
 
     // Comparator for boost::set containing all KSyncEntries in an KSyncObject
     bool operator<(const KSyncEntry &rhs) const {
@@ -117,6 +120,7 @@ public:
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
     uint32_t GetRefCount() const {return refcount_;} 
+    bool BackRefReEvalNeeded() const {return (0 != unresolved_ref_count_);}
     bool Seen() const {return seen_;}
     bool stale() const {return stale_;}
     void SetSeen() {seen_ = true;}
@@ -150,6 +154,9 @@ private:
     // Stale Entry flag indicates an entry as stale, which will be
     // removed once stale entry timer cleanup gets triggered.
     bool                stale_;
+
+    // indicates count of unresolved entries waiting for re-evaluation
+    int                 unresolved_ref_count_;
     DISALLOW_COPY_AND_ASSIGN(KSyncEntry);
 };
 

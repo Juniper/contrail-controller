@@ -1112,7 +1112,6 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
 void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
 
     KSyncEntry::KSyncState state;
-    bool dep_reval = false;
 
     if (DoEventTrace()) {
         KSYNC_TRACE(Event, this, entry->ToString(), entry->StateString(),
@@ -1124,17 +1123,14 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::TEMP:
-            dep_reval = true;
             state = KSyncSM_Temp(this, entry, event);
             break;
 
         case KSyncEntry::ADD_DEFER:
-            dep_reval = true;
             state = KSyncSM_AddDefer(this, entry, event);
             break;
 
         case KSyncEntry::CHANGE_DEFER:
-            dep_reval = true;
             state = KSyncSM_ChangeDefer(this, entry, event);
             break;
 
@@ -1143,7 +1139,6 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::SYNC_WAIT:
-            dep_reval = true;
             state = KSyncSM_SyncWait(this, entry, event);
             break;
 
@@ -1156,7 +1151,6 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::DEL_DEFER_REF:
-            dep_reval = true;
             state = KSyncSM_DelPending_Ref(this, entry, event);
             break;
 
@@ -1169,7 +1163,6 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::RENEW_WAIT:
-            dep_reval = true;
             state = KSyncSM_RenewWait(this, entry, event);
             break;
 
@@ -1179,7 +1172,9 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     }
 
     entry->SetState(state);
-    if (dep_reval == true && entry->IsResolved()) {
+    // if entry is resolved and needs dependency re-evaluation
+    // trigger back ref re-eval
+    if (entry->BackRefReEvalNeeded() && entry->IsResolved()) {
         BackRefReEval(entry);
     }
 
@@ -1240,6 +1235,7 @@ void KSyncObject::BackRefAdd(KSyncEntry *key, KSyncEntry *reference) {
     fwd_ref_tree_.insert(*fwd_node);
     intrusive_ptr_add_ref(key);
     intrusive_ptr_add_ref(reference);
+    reference->unresolved_ref_count_++;
 
     KSyncBackReference *back_node = new KSyncBackReference(reference, key);
     BackRefTree::iterator back_it = back_ref_tree_.find(*back_node);
@@ -1265,6 +1261,7 @@ void KSyncObject::BackRefDel(KSyncEntry *key) {
     back_ref_tree_.erase(back_it);
     delete back_node;
 
+    reference->unresolved_ref_count_--;
     intrusive_ptr_release(key);
     intrusive_ptr_release(reference);
 }
