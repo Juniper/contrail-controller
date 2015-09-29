@@ -49,5 +49,5 @@ struct FlowDataIpv4 {
 }
 
 flowlog sandesh FlowDataIpv4Object {
-    1: FlowDataIpv4       flowdata;
+    1: list<FlowDataIpv4>       flowdata;
 }

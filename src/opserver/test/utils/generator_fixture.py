@@ -118,7 +118,7 @@ class GeneratorFixture(fixtures.Fixture):
             diff_packets=flow.diff_packets, action=action,
             sg_rule_uuid=flow.sg_rule_uuid,
             nw_ace_uuid=flow.nw_ace_uuid)
-        flow_object = FlowDataIpv4Object(flowdata=flow_data, sandesh=self._sandesh_instance)
+        flow_object = FlowDataIpv4Object(flowdata=[flow_data], sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
             flow_object._timestamp = ts

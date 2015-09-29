@@ -44,7 +44,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                    _1)),
         flow_export_count_(0), prev_flow_export_rate_compute_time_(0),
         flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
-        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0)  {
+        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0),
+        msg_list_(kMaxFlowMsgsPerSend, FlowDataIpv4()), msg_index_(0) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
@@ -419,6 +420,9 @@ bool FlowStatsCollector::Run() {
         }
     }
 
+    //Send any pending flow export messages
+    DispatchPendingFlowMsg();
+
     if (count == flow_count_per_pass_) {
         if (it != flow_tree_.end()) {
             key_updation_reqd = false;
@@ -569,9 +573,33 @@ void FlowStatsCollector::GetFlowSandeshActionParams
     }
 }
 
-void FlowStatsCollector::DispatchFlowMsg(SandeshLevel::type level,
-                                         FlowDataIpv4 &flow) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
+void FlowStatsCollector::EnqueueFlowMsg() {
+    msg_index_++;
+    if (msg_index_ == kMaxFlowMsgsPerSend) {
+        DispatchFlowMsg(msg_list_);
+    }
+}
+
+void FlowStatsCollector::DispatchPendingFlowMsg() {
+    if (msg_index_ == 0) {
+        return;
+    }
+
+    vector<FlowDataIpv4>::const_iterator first = msg_list_.begin();
+    vector<FlowDataIpv4>::const_iterator last = msg_list_.begin() + msg_index_;
+    vector<FlowDataIpv4> new_list(first, last);
+    DispatchFlowMsg(new_list);
+}
+
+void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst) {
+    FLOW_DATA_IPV4_OBJECT_LOG("", SandeshLevel::SYS_CRIT, lst);
+    msg_index_ = 0;
+}
+
+uint8_t FlowStatsCollector::GetFlowMsgIdx() {
+    FlowDataIpv4 &obj = msg_list_[msg_index_];
+    obj = FlowDataIpv4();
+    return msg_index_;
 }
 
 /* Flow Export Algorithm
@@ -617,8 +645,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
             diff_pkts = diff_pkts/probability;
         }
     }
-    FlowDataIpv4   s_flow;
-    SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
+    FlowDataIpv4 &s_flow = msg_list_[GetFlowMsgIdx()];
 
     s_flow.set_flowuuid(to_string(info->flow_uuid()));
     s_flow.set_bytes(info->bytes());
@@ -652,15 +679,11 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
 
     // Set flow action
     std::string action_str;
-    //GetFlowSandeshActionParams(flow->match_p().action_info, action_str);
     GetFlowSandeshActionParams(info->action_info(), action_str);
     s_flow.set_action(action_str);
-    // Flow setup(first) and teardown(last) messages are sent with higher
-    // priority.
     if (!info->exported()) {
         s_flow.set_setup_time(info->setup_time());
         info->set_exported(true);
-        level = SandeshLevel::SYS_ERR;
         SetUnderlayInfo(info, s_flow);
     } else {
         /* When the flow is being exported for first time, underlay port
@@ -673,15 +696,12 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
          *       populated yet
          */
         if (!info->underlay_sport_exported()) {
-            if (SetUnderlayPort(info, s_flow)) {
-                level = SandeshLevel::SYS_ERR;
-            }
+            SetUnderlayPort(info, s_flow);
         }
     }
 
     if (info->teardown_time()) {
         s_flow.set_teardown_time(info->teardown_time());
-        level = SandeshLevel::SYS_ERR;
     }
 
     if (info->is_flags_set(FlowEntry::LocalFlow)) {
@@ -694,13 +714,13 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
          */
         s_flow.set_direction_ing(1);
         SourceIpOverride(key, info, s_flow);
-        DispatchFlowMsg(level, s_flow);
+        EnqueueFlowMsg();
         s_flow.set_direction_ing(0);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
         s_flow.set_flowuuid(to_string(info->egress_uuid()));
-        DispatchFlowMsg(level, s_flow);
+        EnqueueFlowMsg();
         flow_export_count_ += 2;
     } else {
         if (info->is_flags_set(FlowEntry::IngressDir)) {
@@ -709,7 +729,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
         } else {
             s_flow.set_direction_ing(0);
         }
-        DispatchFlowMsg(level, s_flow);
+        EnqueueFlowMsg();
         flow_export_count_++;
     }
 }
