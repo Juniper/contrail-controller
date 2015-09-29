@@ -32,6 +32,7 @@ public:
             uint16_t partitions);
     OpServerProxy() : impl_(NULL) { }
     virtual ~OpServerProxy();
+    virtual void Shutdown();
 
     virtual bool UVEUpdate(const std::string &type, const std::string &attr,
                            const std::string &source, const std::string &node_type,
