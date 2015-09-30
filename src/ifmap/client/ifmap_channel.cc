@@ -616,18 +616,21 @@ int IFMapChannel::ReadPollResponse() {
                 "Incorrectly formatted Poll response. Quitting.", "");
             return -1;
         }
-        if (reply_str.find(string("searchResult")) != string::npos) {
-            if (start_stale_entries_cleanup()) {
-                // If this is a reconnection, keep re-arming the stale entries
-                // cleanup timer as long as we keep receiving SearchResults.
-                StartStaleEntriesCleanupTimer();
-            }
-            // When the daemon is coming up, as long as we are receiving
-            // SearchResults, we have not received the entire db.
-            if (!end_of_rib_computed()) {
-                StartEndOfRibTimer();
-            }
+
+        // Manage timers.
+        if (start_stale_entries_cleanup()) {
+            // If this is a reconnection, keep re-arming the stale entries
+            // cleanup timer as long as we keep receiving data.
+            StartStaleEntriesCleanupTimer();
         }
+        if (!end_of_rib_computed()) {
+            // When the daemon is coming up, as long as we are receiving data,
+            // we have not received the entire db. Keep re-arming the EOR timer
+            // as long as we are receiving data.
+            StartEndOfRibTimer();
+        }
+
+        // Send the message to the parser for further processing.
         string poll_string = reply_str.substr(pos);
         increment_recv_msg_cnt();
         bool success = true;
