@@ -44,6 +44,15 @@ vr_flow_entry *KSyncSockTypeMap::flow_table_;
 int KSyncSockTypeMap::error_code_;
 using namespace boost::asio;
 
+int EncodeVrResponse(uint8_t *buf, int buf_len, uint32_t seq_num, int code) {
+    vr_response encoder;
+    int error = 0;
+
+    encoder.set_h_op(sandesh_op::RESPONSE);
+    encoder.set_resp_code(code);
+    return encoder.WriteBinary(buf, buf_len, &error);
+}
+
 //process sandesh messages that are being sent from the agent
 //this is used to store a local copy of what is being send to kernel
 void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len, 
@@ -96,18 +105,13 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
         }
     }
     if (add_error) {
-        vr_response encoder;
-        encoder.set_h_op(sandesh_op::RESPONSE);
-        encoder.set_resp_code(flow_error);
-        encode_len = encoder.WriteBinary(buf, buf_len, &error);
-        if (error != 0) {
-            SimulateResponse(seq_num, -ENOENT, 0);
-            nl_free(&cl);
-            return;
-        }
-        buf += encode_len;
-        buf_len -= encode_len;
+        encode_len = EncodeVrResponse(buf, buf_len, seq_num, flow_error);
+    } else {
+        encode_len = EncodeVrResponse(buf, buf_len, seq_num, 0);
     }
+
+    buf += encode_len;
+    buf_len -= encode_len;
     req->set_fr_op(flow_op::FLOW_SET);
     encode_len += req->WriteBinary(buf, buf_len, &error);
     if (error != 0) {
@@ -134,7 +138,7 @@ void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
 void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     struct nl_client cl;
     vr_response encoder;
-    int encode_len, error, ret;
+    int encode_len, ret;
     uint8_t *buf;
     uint32_t buf_len;
 
@@ -148,9 +152,7 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_seq = seq_num;
     nlh->nlmsg_flags |= flags;
-    encoder.set_h_op(sandesh_op::RESPONSE);
-    encoder.set_resp_code(code);
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
+    encode_len = EncodeVrResponse(buf, buf_len, seq_num, code);
     nl_update_header(&cl, encode_len);
     LOG(DEBUG, "SimulateResponse " << " seq " << seq_num << " code " << std::hex << code);
 
@@ -512,27 +514,17 @@ bool KSyncSockTypeMap::Validate(char *data) {
 //send or store in map
 void KSyncSockTypeMap::AsyncSendTo(char *data, uint32_t data_len,
                                    uint32_t seq_no, HandlerCb cb) {
-    KSyncUserSockContext ctx(true, seq_no);
+    KSyncUserSockContext ctx(seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh((const uint8_t *)(data), data_len, &ctx);
-
-    if (ctx.IsResponseReqd()) {
-        //simulate ok response with the same seq
-        SimulateResponse(seq_no, 0, 0);
-    }
 }
 
 //send or store in map
 size_t KSyncSockTypeMap::SendTo(const char *data, uint32_t data_len,
                                 uint32_t seq_no) {
-    KSyncUserSockContext ctx(true, seq_no);
+    KSyncUserSockContext ctx(seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh((const uint8_t *)(data), data_len, &ctx);
-
-    if (ctx.IsResponseReqd()) {
-        //simulate ok response with the same seq
-        SimulateResponse(seq_no, 0, 0); 
-    }
     return 0;
 }
 
@@ -699,7 +691,6 @@ void KSyncUserSockContext::IfMsgHandler(vr_interface_req *req) {
         ifctx->Process();
         delete ifctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockFlowContext::Process() {
@@ -736,11 +727,9 @@ void KSyncUserSockFlowContext::Process() {
 
         // For NAT flow, don't send vr_response, instead send
         // vr_flow_req with index of reverse_flow
-        SetResponseReqd(false);
         KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
         return;
     }
-    SetResponseReqd(false);
     KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
 }
 
@@ -755,7 +744,6 @@ void KSyncUserSockContext::FlowMsgHandler(vr_flow_req *req) {
         flowctx->Process();
         delete flowctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockNHContext::Process() {
@@ -791,7 +779,6 @@ void KSyncUserSockContext::NHMsgHandler(vr_nexthop_req *req) {
         nhctx->Process();
         delete nhctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockMplsContext::Process() {
@@ -827,7 +814,6 @@ void KSyncUserSockContext::MplsMsgHandler(vr_mpls_req *req) {
         mplsctx->Process();
         delete mplsctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockRouteContext::Process() {
@@ -867,7 +853,6 @@ void KSyncUserSockContext::RouteMsgHandler(vr_route_req *req) {
         rtctx->Process();
         delete rtctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockContext::MirrorMsgHandler(vr_mirror_req *req) {
@@ -876,18 +861,17 @@ void KSyncUserSockContext::MirrorMsgHandler(vr_mirror_req *req) {
     //delete from map if command is delete
     if (req->get_h_op() == sandesh_op::DELETE) {
         sock->mirror_map.erase(req->get_mirr_index());
+        KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
         return;
     }
 
     if (req->get_h_op() == sandesh_op::DUMP) {
-        SetResponseReqd(false);
         MirrorDumpHandler dump;
         dump.SendDumpResponse(GetSeqNum(), req);
         return;
     }
 
     if (req->get_h_op() == sandesh_op::GET) {
-        SetResponseReqd(false);
         MirrorDumpHandler dump;
         dump.SendGetResponse(GetSeqNum(), req->get_mirr_index());
         return;
@@ -896,37 +880,7 @@ void KSyncUserSockContext::MirrorMsgHandler(vr_mirror_req *req) {
     //store in the map
     vr_mirror_req mirror_info(*req);
     sock->mirror_map[req->get_mirr_index()] = mirror_info;
-
-}
-
-void KSyncUserSockContext::VxLanMsgHandler(vr_vxlan_req *req) {
-    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    KSyncUserSockVxLanContext *vxlanctx = 
-        new KSyncUserSockVxLanContext(GetSeqNum(), req);
-
-    if (sock->IsBlockMsgProcessing()) {
-        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
-        sock->ctx_queue_.push(vxlanctx);
-    } else {
-        vxlanctx->Process();
-        delete vxlanctx;
-    }
-    SetResponseReqd(false);
-}
-
-void KSyncUserSockContext::VrouterOpsMsgHandler(vrouter_ops *req) {
-    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    KSyncUserVrouterOpsContext *vrouter_ops =
-        new KSyncUserVrouterOpsContext(GetSeqNum(), req);
-
-    if (sock->IsBlockMsgProcessing()) {
-        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
-        sock->ctx_queue_.push(vrouter_ops);
-    } else {
-        vrouter_ops->Process();
-        delete vrouter_ops;
-    }
-    SetResponseReqd(false);
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockVxLanContext::Process() {
@@ -948,9 +902,47 @@ void KSyncUserSockVxLanContext::Process() {
         vr_vxlan_req vxlan_info(*req_);
         sock->vxlan_map[req_->get_vxlanr_vnid()] = vxlan_info;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
- 
+
+void KSyncUserSockContext::VxLanMsgHandler(vr_vxlan_req *req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncUserSockVxLanContext *vxlanctx = 
+        new KSyncUserSockVxLanContext(GetSeqNum(), req);
+
+    if (sock->IsBlockMsgProcessing()) {
+        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
+        sock->ctx_queue_.push(vxlanctx);
+    } else {
+        vxlanctx->Process();
+        delete vxlanctx;
+    }
+}
+
+
+void KSyncUserVrouterOpsContext::Process() {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    if (req_->get_h_op() == sandesh_op::GET) {
+        VRouterOpsDumpHandler dump;
+        sock->ksync_vrouter_ops.set_vo_mpls_labels(10000);
+        dump.SendGetResponse(GetSeqNum(), 0);
+        return;
+    }
+}
+void KSyncUserSockContext::VrouterOpsMsgHandler(vrouter_ops *req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncUserVrouterOpsContext *vrouter_ops =
+        new KSyncUserVrouterOpsContext(GetSeqNum(), req);
+
+    if (sock->IsBlockMsgProcessing()) {
+        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
+        sock->ctx_queue_.push(vrouter_ops);
+    } else {
+        vrouter_ops->Process();
+        delete vrouter_ops;
+    }
+}
+
 void KSyncUserSockVrfAssignContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
@@ -989,7 +981,6 @@ void KSyncUserSockContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
         ctx->Process();
         delete ctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockVrfStatsContext::Process() {
@@ -1014,7 +1005,6 @@ void KSyncUserSockContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
         vrfctx->Process();
         delete vrfctx;
     }
-    SetResponseReqd(false);
 }
 
 void KSyncUserSockDropStatsContext::Process() {
@@ -1036,7 +1026,6 @@ void KSyncUserSockContext::DropStatsMsgHandler(vr_drop_stats_req *req) {
         dropctx->Process();
         delete dropctx;
     }
-    SetResponseReqd(false);
 }
 
 void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) {
@@ -1145,6 +1134,10 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_seq = seq_num;
 
+    int resp_len = EncodeVrResponse(buf, buf_len, seq_num, 0);
+    buf += resp_len;
+    buf_len -= resp_len;
+
     encode_len = req->WriteBinary(buf, buf_len, &error);
     if (error) {
         KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 
@@ -1154,7 +1147,7 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     buf += encode_len;
     buf_len -= encode_len;
 
-    nl_update_header(&cl, encode_len);
+    nl_update_header(&cl, encode_len + resp_len);
     sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
     nl_free(&cl);
 }
@@ -1515,14 +1508,4 @@ Sandesh* VxLanDumpHandler::GetNext(Sandesh *input) {
         return &req;
     }
     return NULL;
-}
-
-void KSyncUserVrouterOpsContext::Process() {
-    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    if (req_->get_h_op() == sandesh_op::GET) {
-        VRouterOpsDumpHandler dump;
-        sock->ksync_vrouter_ops.set_vo_mpls_labels(10000);
-        dump.SendGetResponse(GetSeqNum(), 0);
-        return;
-    }
 }
