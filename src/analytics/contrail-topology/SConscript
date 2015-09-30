@@ -16,7 +16,6 @@ sources = [
     'README.txt',
     'contrail-topology.conf',
     'requirements.txt',
-    'test-requirements.txt',
     'setup.py',
     'contrail_topology/__init__.py',
     'contrail_topology/main.py',
@@ -24,12 +23,9 @@ sources = [
     'contrail_topology/controller.py',
     'contrail_topology/config.py',
     'contrail_topology/topology_uve.py',
-    'contrail_topology/tests/__init__.py',
-    'contrail_topology/tests/topology_test.py',
     ]
 
-sources += env.SandeshGenPy('link.sandesh',
-        'contrail_topology/')
+src_sandesh = env.SandeshGenPy('link.sandesh', 'contrail_topology/')
 
 version = '0.0.1'
 #with open("CHANGES.txt") as f:
@@ -38,37 +34,76 @@ version = '0.0.1'
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-topology-' \
         + version + '.tar.gz',
-        sources, cd_cmd + 'python setup.py sdist')
+        sources + src_sandesh, cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/analytics/contrail-topology/' + \
         'contrail_topology:sdist', sdist_gen)
 
-def AutoGenPyTest(env, target, source):
-    with open(target[0].abspath, 'w') as f:
-        f.write("[easy_install]\nfind_links =")
-        for s in source:
-            f.write(" %s" % os.path.dirname(env.File(s).abspath))
-        f.write("\n")
-        f.flush()
+src_rules = [env.Install(Dir("."),
+    '#controller/src/analytics/contrail-topology/' + f) for f in sources]
+src_rules.append(env.Install(Dir("."),
+        '#controller/src/opserver/run_tests.sh'))
 
-def TestSetupCmd(env, targets, source):
-    return env.Command(target='setup.cfg', source=source, 
-            action=AutoGenPyTest)
-
-env.Append(BUILDERS = {'PythonTestSetup': TestSetupCmd})
-
-test_sources = sources
-packages = [
+test_sources = [
+    'requirements.txt',
+    'test-requirements.txt',
+    '.testr.conf',
+    '.coveragerc',
+    'test',
 ]
 
-test_sources += env.PythonTestSetup(source=packages)
+src_rules += [env.Install(Dir("."),
+    '#controller/src/analytics/contrail-topology/' + f) for f in test_sources]
 
-test = env.Command(None, test_sources, cd_cmd + 'python setup.py test')
+import os
 
-env.Alias('controller/src/analytics/contrail-topology/' + \
-        'contrail_topology:test', test)
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+testr_str = 'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + \
+            ' && tools_path=../config/common/tests/' + \
+            ' omit_list="contrail_topology/gen_py"' \
+            ' build_top=' + Dir(env['TOP']).path + \
+            ' CFLAGS= LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:../../../build/lib' \
+            ' python setup.py run_tests %s 2>&1 |' \
+            ' tee %s.log"'
+
+env.Append(ENV = {'BUILDTOP': Dir(env['TOP']).abspath,
+                    'COVERAGERUN': str(env['OPT'] == 'coverage')})
+
+test_depends = [
+        '/config/common/dist/cfgm_common-0.1dev.tar.gz',
+        '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
+        '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
+        '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+        '/opserver/dist/opserver-0.1dev.tar.gz',
+]
+
+if env['OPT'] == 'coverage':
+    test_cmd = env.Command('coveragetest.log', sdist_gen,
+            testr_str % ('--coverage', 'coveragetest'))
+elif env['PYTESTARG']:
+    test_cmd = env.Command(env['PYTESTARG'] + '.log', sdist_gen,
+            testr_str % ('--testrun="%s"' % (env['PYTESTARG']),
+            env['PYTESTARG']))
+else:
+    test_cmd = env.Command('test.log', sdist_gen,
+            testr_str % ('', 'test'))
+
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+env.Depends(test_cmd, src_rules)
+env.Alias('tests', test_cmd)
+env.Alias('controller/src/analytics/contrail-topology:test', test_cmd)
+env.AlwaysBuild(test_cmd)
+
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, sources,
+    install_cmd = env.Command(None, sources + src_sandesh,
                               cd_cmd + 'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)

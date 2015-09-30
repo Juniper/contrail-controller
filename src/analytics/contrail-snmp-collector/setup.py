@@ -64,8 +64,8 @@ setuptools.setup(
             'contrail-snmp-scanner = contrail_snmp_collector.scanner:main',
             ],
         },
-    cmdclass={
-       'run_tests': RunTestsCommand,
-    },
+        cmdclass={
+           'run_tests': RunTestsCommand,
+        },
     )
 

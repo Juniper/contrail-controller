@@ -2167,7 +2167,7 @@ class OpServer(object):
             self._logger.error('joining %d of %d' % (idx+1, l))
             self.gevs[0].join()
             self._logger.error('stopped %d of %d' % (idx+1, l))
-            self.gevs = self.gevs[1:]
+            self.gevs.pop(0)
 
     def sigterm_handler(self):
         self.stop()
