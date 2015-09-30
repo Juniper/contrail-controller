@@ -252,14 +252,16 @@ protected:
     }
 
     bool CheckRoute(test::NetworkAgentMockPtr agent, string net,
-        string prefix, string nexthop, int local_pref, const string &encap,
-        const string &origin_vn, const vector<int> sgids) {
+        string prefix, string nexthop, int local_pref, int med,
+        const string &encap, const string &origin_vn, const vector<int> sgids) {
         const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
         if (!rt)
             return false;
         if (rt->entry.next_hops.next_hop[0].address != nexthop)
             return false;
         if (local_pref && rt->entry.local_preference != local_pref)
+            return false;
+        if (med && rt->entry.med != med)
             return false;
         if (!origin_vn.empty() && rt->entry.virtual_network != origin_vn)
             return false;
@@ -275,17 +277,23 @@ protected:
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
-        string prefix, string nexthop, int local_pref = 100,
+        string prefix, string nexthop, int local_pref, int med) {
+        TASK_UTIL_EXPECT_TRUE(CheckRoute(agent, net, prefix, nexthop,
+            local_pref, med, string(), string(), vector<int>()));
+    }
+
+    void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
+        string prefix, string nexthop, int local_pref = 0,
         const string &encap = string(), const string &origin_vn = string(),
         const vector<int> sgids = vector<int>()) {
-        TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, local_pref, encap, origin_vn, sgids));
+        TASK_UTIL_EXPECT_TRUE(CheckRoute(agent, net, prefix, nexthop,
+            local_pref, 0, encap, origin_vn, sgids));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const vector<int> sgids) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, 0, string(), string(), sgids));
+            agent, net, prefix, nexthop, 0, 0, string(), string(), sgids));
     }
 
     void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string net,
@@ -413,6 +421,117 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteChangeLocalPref) {
     // Verify that route is updated up on agents A and B.
     VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 100);
     VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 100);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Route added with explicit med has expected med.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteExplicitMed) {
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A with local preference 100 and med 500.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100, 500);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with local preference 100
+    // and med 500.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 100, 500);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 100, 500);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Route added with local preference and no med has auto calculated med.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteLocalPrefToMed) {
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A with local preference 100.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with med 200.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 0, 200);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 0, 200);
+
+    // Change route from agent A to local preference 200.
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with med 100.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 0, 100);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 0, 100);
+
+    // Change route from agent A to local preference 400.
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 400);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with med UINT32_MAX - 400.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 0, 0xFFFFFFFF - 400);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 0, 0xFFFFFFFF - 400);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
@@ -605,7 +724,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
     task_util::WaitForIdle();
 
     // Add a bunch of route targets to blue instance.
-    static const int kRouteTargetCount = 498;
+    static const int kRouteTargetCount = 497;
     for (int idx = 0; idx < kRouteTargetCount; ++idx) {
         string target = string("target:1:") + integerToString(10000 + idx);
         AddRouteTarget(bs_x_, "blue", target);

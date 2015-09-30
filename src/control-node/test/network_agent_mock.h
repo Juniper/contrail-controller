@@ -53,36 +53,59 @@ struct RouteParams {
 struct RouteAttributes {
 public:
     static const int kDefaultLocalPref = 100;
+    static const int kDefaultMed = 200;
     static const int kDefaultSequence = 0;
     RouteAttributes()
-        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+        : local_pref(kDefaultLocalPref),
+          med(kDefaultMed),
+          sequence(kDefaultSequence),
           sgids(std::vector<int>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t seq, const std::vector<int> &sg)
-        : local_pref(lpref), sequence(seq), sgids(sg) {
+        : local_pref(lpref),
+          med(0),
+          sequence(seq),
+          sgids(sg) {
     }
     RouteAttributes(uint32_t lpref, uint32_t seq)
-        : local_pref(lpref), sequence(seq), sgids(std::vector<int>()) {
+        : local_pref(lpref),
+          med(0),
+          sequence(seq),
+          sgids(std::vector<int>()) {
+    }
+    RouteAttributes(uint32_t lpref, uint32_t med, uint32_t seq)
+        : local_pref(lpref),
+          med(med),
+          sequence(seq),
+          sgids(std::vector<int>()) {
     }
     RouteAttributes(uint32_t lpref)
-        : local_pref(lpref), sequence(kDefaultSequence),
+        : local_pref(lpref),
+          med(0),
+          sequence(kDefaultSequence),
           sgids(std::vector<int>()) {
     }
     RouteAttributes(const std::vector<int> &sg)
-        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+        : local_pref(kDefaultLocalPref),
+          med(0),
+          sequence(kDefaultSequence),
           sgids(sg) {
     }
     RouteAttributes(const RouteParams &params)
-        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+        : local_pref(kDefaultLocalPref),
+          med(kDefaultMed),
+          sequence(kDefaultSequence),
           params(params) {
     }
     void SetSg(const std::vector<int> &sg) {
         sgids = sg;
     }
     static int GetDefaultLocalPref() { return kDefaultLocalPref; }
+    static int GetDefaultMed() { return kDefaultMed; }
     static int GetDefaultSequence() { return kDefaultSequence; }
 
     uint32_t local_pref;
+    uint32_t med;
     uint32_t sequence;
     std::vector<int> sgids;
     RouteParams params;
@@ -355,7 +378,8 @@ public:
     }
 
     void AddRoute(const std::string &network, const std::string &prefix,
-                  const std::string nexthop = "", int local_pref = 0);
+                  const std::string nexthop = "",
+                  int local_pref = 0, int med = 0);
     void AddRoute(const std::string &network, const std::string &prefix,
                   const NextHops &nexthops, int local_pref = 0);
     void AddRoute(const std::string &network, const std::string &prefix,
