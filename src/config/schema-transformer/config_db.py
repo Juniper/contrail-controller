@@ -952,6 +952,24 @@ class VirtualNetworkST(DBBaseST):
         return result_acl_rule_list
     # end policy_to_acl_rule
 
+    def update_pnf_presence(self):
+        has_pnf = False
+        for ri_name in self.routing_instances:
+            if ri_name == self._default_ri_name:
+                continue
+            ri = RoutingInstanceST.get(ri_name)
+            if ri is None:
+                continue
+            if ri.obj.get_routing_instance_has_pnf():
+                has_pnf = True
+                break
+        default_ri = RoutingInstanceST.get(self._default_ri_name)
+        if (default_ri and
+                default_ri.obj.get_routing_instance_has_pnf() != has_pnf):
+            default_ri.obj.set_routing_instance_has_pnf(has_pnf)
+            self._vnc_lib.routing_instance_update(default_ri.obj)
+    # end update_pnf_presence
+
     def evaluate(self):
         old_virtual_network_connections = self.expand_connections()
         old_service_chains = self.service_chains
@@ -1122,6 +1140,7 @@ class VirtualNetworkST(DBBaseST):
         # for remote_vn_name
 
         self.update_route_table()
+        self.update_pnf_presence()
     # end evaluate
 # end class VirtualNetworkST
 
@@ -1586,10 +1605,11 @@ class RoutingInstanceST(DBBaseST):
         pass
 
     @classmethod
-    def create(cls, fq_name, vn_obj):
+    def create(cls, fq_name, vn_obj, has_pnf=False):
         try:
             name = fq_name.split(':')[-1]
-            ri_obj = RoutingInstance(name, parent_obj=vn_obj.obj) 
+            ri_obj = RoutingInstance(name, parent_obj=vn_obj.obj,
+                                     routing_instance_has_pnf=has_pnf)
             cls._vnc_lib.routing_instance_create(ri_obj)
             return ri_obj
         except RefsExistError:
@@ -1627,7 +1647,7 @@ class RoutingInstanceST(DBBaseST):
         try:
             if self.obj.parent_uuid != vn.obj.uuid:
                 # Stale object. Delete it.
-                self._vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
+                self._vnc_lib.routing_instance_delete(id=self.obj.uuid)
                 self.obj = None
             else:
                 old_rt_refs = copy.deepcopy(self.obj.get_route_target_refs())
@@ -1804,7 +1824,7 @@ class RoutingInstanceST(DBBaseST):
                 # if other routing instances are referring to this target,
                 # it will be deleted when those instances are deleted
                 pass
-
+    # end delete_obj
 # end class RoutingInstanceST
 
 
@@ -1979,7 +1999,10 @@ class ServiceChain(DBBaseST):
                                    service_vm)
                     return None
                 vm_info_list.append(vm_info)
-            ret_dict[service] = {'mode': mode, 'vm_list': vm_info_list}
+            # end for service_vm
+            virtualization_type = si.get_virtualization_type()
+            ret_dict[service] = {'mode': mode, 'vm_list': vm_info_list,
+                                 'virtualization_type': virtualization_type}
         return ret_dict
     # check_create
 
@@ -1990,7 +2013,6 @@ class ServiceChain(DBBaseST):
             if si_info is None:
                 # if previously created but no longer valid, then destroy
                 self.destroy()
-            # already created
             return
 
         if si_info is None:
@@ -2029,13 +2051,14 @@ class ServiceChain(DBBaseST):
         for service in self.service_list:
             service_name1 = vn1_obj.get_service_name(self.name, service)
             service_name2 = vn2_obj.get_service_name(self.name, service)
-            ri_obj = RoutingInstanceST.create(service_name1, vn1_obj)
+            has_pnf = (si_info[service]['virtualization_type'] == 'physical-device')
+            ri_obj = RoutingInstanceST.create(service_name1, vn1_obj, has_pnf)
             service_ri1 = RoutingInstanceST.locate(service_name1, ri_obj)
             if service_ri1 is None or service_ri2 is None:
                 self.log_error("service_ri1 or service_ri2 is None")
                 return
             service_ri2.add_connection(service_ri1)
-            ri_obj = RoutingInstanceST.create(service_name2, vn2_obj)
+            ri_obj = RoutingInstanceST.create(service_name2, vn2_obj, has_pnf)
             service_ri2 = RoutingInstanceST.locate(service_name2, ri_obj)
             if service_ri2 is None:
                 self.log_error("service_ri2 is None")
@@ -2882,24 +2905,34 @@ class ServiceInstanceST(DBBaseST):
         self.delete_properties()
     # end delete_obj
 
-    def get_service_mode(self):
-        if hasattr(self, 'service_mode'):
-            return self.service_mode
-        st_name = self.service_template
-        if st_name is None:
+    def _update_service_template(self):
+        if self.service_template is None:
             self._logger.error("service template is None for service instance "
                                + self.name)
-            return None
+            return
         try:
-            st_obj = self.read_vnc_obj(fq_name=st_name,
+            st_obj = self.read_vnc_obj(fq_name=self.service_template,
                                        obj_type='service_template')
         except NoIdError:
             self._logger.error("NoIdError while reading service template "
-                               + st_name)
-            return None
-        self.service_mode = st_obj.get_service_template_properties(
-            ).get_service_mode() or 'transparent'
-        return self.service_mode
+                               + self.service_template)
+            return
+        st_props = st_obj.get_service_template_properties()
+        self.service_mode = st_props.get_service_mode() or 'transparent'
+        self.virtualization_type = st_props.get_service_virtualization_type()
     # end get_service_mode
-# end ServiceInstanceST
 
+    def get_service_mode(self):
+        if hasattr(self, 'service_mode'):
+            return self.service_mode
+        self._update_service_template()
+        return getattr(self, 'service_mode', None)
+    # end get_service_mode
+
+    def get_virtualization_type(self):
+        if hasattr(self, 'virtualization_type'):
+            return self.virtualization_type
+        self._update_service_template()
+        return getattr(self, 'virtualization_type', None)
+    # end get_virtualization_type
+# end ServiceInstanceST
