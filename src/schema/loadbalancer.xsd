@@ -61,6 +61,11 @@
      Link('loadbalancer-pool-virtual-machine-interface',
           'loadbalancer-pool', 'virtual-machine-interface', ['ref']) -->
 
+<xsd:element name="loadbalancer-pool-loadbalancer-listener"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-pool-loadbalancer-listener',
+          'loadbalancer-pool', 'loadbalancer-listener', ['ref']) -->
+
 <xsd:element name="loadbalancer-pool-properties" type="LoadbalancerPoolType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-pool-properties', 'loadbalancer-pool') -->
@@ -185,11 +190,6 @@
 <!--#IFMAP-SEMANTICS-IDL
      Link('loadbalancer-listener-loadbalancer',
           'loadbalancer-listener', 'loadbalancer', ['ref']) -->
-
-<xsd:element name="loadbalancer-listener-loadbalancer-pool"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('loadbalancer-listener-loadbalancer-pool',
-          'loadbalancer-listener', 'loadbalancer-pool', ['ref']) -->
 
 <xsd:element name="loadbalancer-listener-properties" type="LoadbalancerListenerType"/>
 <!--#IFMAP-SEMANTICS-IDL
