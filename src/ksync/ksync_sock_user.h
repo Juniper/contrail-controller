@@ -28,13 +28,8 @@ private:
 
 class KSyncUserSockContext : public AgentSandeshContext {
 public:
-    KSyncUserSockContext(bool value, uint32_t num) : 
-            response_reqd_(value), seqno_(num) {}
+    KSyncUserSockContext(uint32_t num) : seqno_(num) {}
     virtual ~KSyncUserSockContext() {}
-    void SetResponseReqd(bool value) {
-        response_reqd_ = value;
-    }
-    bool IsResponseReqd() { return response_reqd_; }
     uint32_t GetSeqNum() { return seqno_; }
     virtual void IfMsgHandler(vr_interface_req *req);
     virtual void NHMsgHandler(vr_nexthop_req *req);
@@ -50,7 +45,6 @@ public:
     virtual void VrouterOpsMsgHandler(vrouter_ops *req);
     virtual void Process() {}
 private:
-    bool response_reqd_; 
     uint32_t seqno_;
 };
 
@@ -325,7 +319,7 @@ public:
 
 class KSyncUserSockIfContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockIfContext(uint32_t seq_num, vr_interface_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockIfContext(uint32_t seq_num, vr_interface_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_interface_req(*req);
         } else {
@@ -346,7 +340,7 @@ private:
 
 class KSyncUserSockNHContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockNHContext(uint32_t seq_num, vr_nexthop_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockNHContext(uint32_t seq_num, vr_nexthop_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_nexthop_req(*req);
         } else {
@@ -367,7 +361,7 @@ private:
 
 class KSyncUserSockMplsContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockMplsContext(uint32_t seq_num, vr_mpls_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockMplsContext(uint32_t seq_num, vr_mpls_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_mpls_req(*req);
         } else {
@@ -388,7 +382,7 @@ private:
 
 class KSyncUserSockFlowContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockFlowContext(uint32_t seq_num, vr_flow_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockFlowContext(uint32_t seq_num, vr_flow_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_flow_req(*req);
         } else {
@@ -409,7 +403,7 @@ private:
 
 class KSyncUserSockRouteContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockRouteContext(uint32_t seq_num, vr_route_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockRouteContext(uint32_t seq_num, vr_route_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_route_req(*req);
         } else {
@@ -431,7 +425,7 @@ private:
 class KSyncUserSockVrfAssignContext : public KSyncUserSockContext {
 public:
     KSyncUserSockVrfAssignContext(uint32_t seq_num, vr_vrf_assign_req *req) : 
-        KSyncUserSockContext(false, seq_num) {
+        KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_vrf_assign_req(*req);
         } else {
@@ -452,7 +446,7 @@ private:
 
 class KSyncUserSockVrfStatsContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockVrfStatsContext(uint32_t seq_num, vr_vrf_stats_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockVrfStatsContext(uint32_t seq_num, vr_vrf_stats_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_vrf_stats_req(*req);
         } else {
@@ -473,7 +467,7 @@ private:
 
 class KSyncUserSockVxLanContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockVxLanContext(uint32_t seq_num, vr_vxlan_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockVxLanContext(uint32_t seq_num, vr_vxlan_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_vxlan_req(*req);
         } else {
@@ -494,7 +488,7 @@ private:
  
 class KSyncUserSockDropStatsContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockDropStatsContext(uint32_t seq_num, vr_drop_stats_req *req) : KSyncUserSockContext(false, seq_num) {
+    KSyncUserSockDropStatsContext(uint32_t seq_num, vr_drop_stats_req *req) : KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_drop_stats_req(*req);
         } else {
@@ -516,7 +510,7 @@ private:
 class KSyncUserVrouterOpsContext : public KSyncUserSockContext {
 public:
     KSyncUserVrouterOpsContext(uint32_t seq_num, vrouter_ops *req) :
-        KSyncUserSockContext(false, seq_num) {
+        KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vrouter_ops(*req);
         } else {
