@@ -603,7 +603,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_names = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
-        np = self.create_network_policy(vn1_obj, vn2_obj, service_names, None, "in-network", auto_policy=False)
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names, auto_policy=False, service_mode='in-network')
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
         vn1_obj.set_network_policy(np, vnp)
@@ -742,7 +742,7 @@ class TestPolicy(test_case.STTestCase):
         rvn = self.create_virtual_network(rvn_name, "20.0.0.0/24")
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(lvn, rvn, [service_name], None, "in-network")
+        np = self.create_network_policy(lvn, rvn, [service_name], auto_policy=True, service_mode="in-network")
 
         vn_name = self.id() + 'vn100'
         vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
@@ -1150,7 +1150,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, None, service_name, 'transparent', 'analyzer')
+        np = self.create_network_policy(vn1_obj, vn2_obj, mirror_service=service_name, auto_policy=False, service_mode='transparent', service_type='analyzer')
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
         vn1_obj.set_network_policy(np, vnp)
@@ -1541,7 +1541,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], None, 'in-network')
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], service_mode='in-network', auto_policy=True)
 
         sc = self.wait_to_get_sc()
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
@@ -1586,5 +1586,51 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.floating_ip_delete(fip_fq_name)
         self.wait_to_remove_link(self.get_obj_imid(vmi), fip_fq_name)
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
+
+    def _test_pnf_service(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], service_virtualization_type='physical-device')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
+
+        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
+                                       prefix='10.0.0.0/24')
+        ri1 = self._vnc_lib.routing_instance_read(fq_name=self.get_ri_name(vn1_obj))
+        self.assertEqual(ri1.get_routing_instance_has_pnf(), True)
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+        ri1 = self._vnc_lib.routing_instance_read(fq_name=self.get_ri_name(vn1_obj))
+        self.assertEqual(ri1.get_routing_instance_has_pnf(), False)
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end test_pnf_service
 
 # end class TestRouteTable
