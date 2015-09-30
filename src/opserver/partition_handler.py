@@ -521,7 +521,8 @@ class UveStreamProc(PartitionHandler):
                         self._uvedb[kcoll][kgen][tab] = {}
                     self._uvedb[kcoll][kgen][tab][rkey] = {}
 
-                    uves[kk] = {}
+                    if not kk in uves:
+                        uves[kk] = {}
                     for typ, contents in gen[kk].iteritems():
                         self._uvedb[kcoll][kgen][tab][rkey][typ] = {}
                         self._uvedb[kcoll][kgen][tab][rkey][typ]["c"] = 0
