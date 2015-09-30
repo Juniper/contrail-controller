@@ -328,9 +328,7 @@ def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
     return _search(start_id, srch_meta, result_meta, max_depth=10)
 # end ifmap_read
 
-def ifmap_read_all(mapclient):
-    srch_meta = None
-    result_meta = 'all'
+def ifmap_read_all(mapclient, srch_meta=None, result_meta='all'):
     return ifmap_read(mapclient, 'contrail:config-root:root',
                       srch_meta, result_meta)
 # end ifmap_read_all
