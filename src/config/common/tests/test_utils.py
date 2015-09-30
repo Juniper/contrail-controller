@@ -594,30 +594,48 @@ class FakeIfmapClient(object):
             srch_id_str = body._SearchRequest__identifier
             mch = re.match('<identity name="(.*)" type', srch_id_str)
             start_name = mch.group(1)
-            match_links = body._SearchRequest__parameters['match-links']
+            match_links = body._SearchRequest__parameters.get(
+                'match-links', 'all')
+            if match_links != 'all':
+                match_links = set(match_links.split(' or '))
 
-            all_link_keys = set()
-            for match_link in match_links.split(' or '):
-                link_keys = set(
-                    [link_key for link_key in cls._graph[start_name]
-                     ['links'].keys()
-                     if re.match(match_link, link_key)])
-                all_link_keys |= link_keys
+            result_filter = body._SearchRequest__parameters.get(
+                'result-filter', 'all')
+            if result_filter != 'all':
+                result_filter = set(result_filter.split(' or '))
 
+            visited_nodes = set([])
             result_items = []
-            for link_key in all_link_keys:
-                r_item = etree.Element('resultItem')
-                link_info = cls._graph[start_name]['links'][link_key]
-                if 'other' in link_info:
-                    r_item.append(cls._graph[start_name]['ident'])
-                    r_item.append(link_info['other'])
-                    r_item.append(link_info['meta'])
-                else:
-                    r_item.append(cls._graph[start_name]['ident'])
-                    r_item.append(link_info['meta'])
+            def visit_node(ident_name):
+                if ident_name in visited_nodes:
+                    return
+                visited_nodes.add(ident_name)
+                # add all metas on current to result, visit further nodes
+                to_visit_nodes = set([])
+                for link_key in cls._graph[ident_name]['links']:
+                    meta_name = link_key.split()[0]
+                    r_item = etree.Element('resultItem')
+                    link_info = cls._graph[ident_name]['links'][link_key]
+                    if 'other' in link_info:
+                        r_item.append(cls._graph[ident_name]['ident'])
+                        r_item.append(link_info['other'])
+                        r_item.append(link_info['meta'])
+                        to_visit_nodes.add(link_info['other'].attrib['name'])
+                    else:
+                        r_item.append(cls._graph[ident_name]['ident'])
+                        r_item.append(link_info['meta'])
 
-                result_items.append(copy.deepcopy(r_item))
+                    if (result_filter != 'all' and 
+                        meta_name not in result_filter):
+                        continue
+                    result_items.append(copy.deepcopy(r_item))
 
+                # all metas on ident walked
+                for new_node in to_visit_nodes:
+                    visit_node(new_node)
+            # end visit_node
+
+            visit_node(start_name)
             search_result = etree.Element('searchResult')
             search_result.extend(result_items)
             search_str = etree.tostring(search_result)
@@ -1149,11 +1167,15 @@ def get_keystone_client(*args, **kwargs):
 
 
 
-def get_free_port():
+def get_free_port(allocated_sockets=None):
     tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tmp_sock.bind(('', 0))
     free_port = tmp_sock.getsockname()[1]
-    tmp_sock.close()
+    if allocated_sockets:
+        # add to accumulator, caller to close
+        allocated_sockets.append(tmp_sock)
+    else:
+        tmp_sock.close()
 
     return free_port
 # end get_free_port
@@ -1183,6 +1205,8 @@ class ZnodeStat(object):
 # end ZnodeStat
 
 class FakeKazooClient(object):
+    # database values same across client instances
+    _values = {}
     class Election(object):
         __init__ = stub
         def run(self, cb, *args, **kwargs):
@@ -1191,9 +1215,22 @@ class FakeKazooClient(object):
     def __init__(self, *args, **kwargs):
         self.add_listener = stub
         self.start = stub
-        self._values = {}
         self.state = KazooState.CONNECTED
     # end __init__
+
+    @classmethod
+    def reset(cls):
+        cls._values = {}
+    # end reset
+
+    def command(self, cmd):
+        if cmd == 'stat':
+            return 'Mode:standalone\nNode count:%s\n' %(len(self._values.keys()))
+    # end command
+
+    def stop(*args, **kwargs):
+        pass
+    # end stop
 
     def create(self, path, value='', *args, **kwargs):
         if path in self._values:
@@ -1206,6 +1243,21 @@ class FakeKazooClient(object):
         return self._values[path]
     # end get
 
+    def get_children(self, path):
+        children = []
+        for node in self._values:
+            if node.startswith(path):
+                # return non-leading '/' in name
+                child_node = node[len(path):]
+                if not child_node:
+                    children.append(child_node)
+                    continue
+                if child_node[0] == '/':
+                    child_node = child_node[1:]
+                children.append(child_node.split('/')[0])
+        return children
+    # end get_children
+
     def delete(self, path, recursive=False):
         if not recursive:
             try:
@@ -1217,6 +1269,26 @@ class FakeKazooClient(object):
                 if path in path_key:
                     del self._values[path_key]
     # end delete
+
+    @contextlib.contextmanager
+    def patch_path(self, path, new_values=None, recursive=True):
+        orig_nodes = {}
+        if not new_values and recursive:
+            # simulate wipe of entire node with path and its descendants
+            for node in self._values.keys():
+                if not node.startswith(path):
+                    continue
+                orig_nodes[node] = self._values[node]
+                del self._values[node]
+        try:
+            yield
+        finally:
+            if not new_values and recursive:
+                for node in orig_nodes:
+                    self._values[node] = orig_nodes[node]
+    #end patch_row
+# end class FakeKazooClient
+
 
 class ZookeeperClientMock(object):
 

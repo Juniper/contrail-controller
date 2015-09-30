@@ -15,6 +15,7 @@ from testtools import content, content_type
 from flexmock import flexmock, Mock
 from webtest import TestApp
 import contextlib
+import re
 
 from vnc_api.vnc_api import *
 import cfgm_common.vnc_cpu_info
@@ -255,6 +256,21 @@ def flexmocks(mocks):
             setattr(cls, method_name, method)
 # end flexmocks
 
+@contextlib.contextmanager
+def flexmocks(mocks):
+    orig_values = {}
+    try:
+        for cls, method_name, val in mocks:
+            kwargs = {method_name: val}
+            # save orig cls.method_name
+            orig_values[(cls, method_name)] = getattr(cls, method_name)
+            flexmock(cls, **kwargs)
+        yield
+    finally:
+        for (cls, method_name), method in orig_values.items():
+            setattr(cls, method_name, method)
+# end flexmocks
+
 def setup_extra_flexmock(mocks):
     for (cls, method_name, val) in mocks:
         kwargs = {method_name: val}
@@ -291,6 +307,33 @@ def patch(target_obj, target_method_name, patched):
     finally:
         setattr(target_obj, target_method_name, orig_method)
 #end patch
+
+@contextlib.contextmanager
+def patch_imports(imports):
+    # save original, patch and restore
+    orig_modules = {}
+    mocked_modules = []
+    try:
+        for import_str, fake in imports:
+           cur_module = None
+           for mod_part in import_str.split('.'):
+               if not cur_module:
+                   cur_module = mod_part
+               else:
+                   cur_module += "." + mod_part
+               if cur_module in sys.modules:
+                   orig_modules[cur_module] = sys.modules[cur_module]
+               else:
+                   mocked_modules.append(cur_module)
+               sys.modules[cur_module] = fake
+        yield
+    finally:
+        for mod_name, mod in orig_modules.items():
+            sys.modules[mod_name] = mod
+        for mod_name in mocked_modules:
+            del sys.modules[mod_name]
+
+#end patch_import
 
 cov_handle = None
 class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
@@ -341,6 +384,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         super(TestCase, self).__init__(*args, **kwargs)
         self.addOnException(self._add_detailed_traceback)
+        # list of sockets allocated from system for test case
+        self._allocated_sockets = []
 
     def _add_detailed_traceback(self, exc_info):
         import cgitb
@@ -472,9 +517,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             self._config_knobs.extend(extra_config_knobs)
 
         self._api_server_ip = socket.gethostbyname(socket.gethostname())
-        self._api_server_port = get_free_port()
-        http_server_port = get_free_port()
-        self._api_admin_port = get_free_port()
+        self._api_server_port = get_free_port(self._allocated_sockets)
+        http_server_port = get_free_port(self._allocated_sockets)
+        self._api_admin_port = get_free_port(self._allocated_sockets)
         self._api_svr_greenlet = gevent.spawn(launch_api_server,
                                      self.id(),
                                      self._api_server_ip, self._api_server_port,
@@ -503,7 +548,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         FakeKombu.reset()
         FakeIfmapClient.reset()
         CassandraCFs.reset()
+        FakeKazooClient.reset()
         FakeExtensionManager.reset()
+        for sock in self._allocated_sockets:
+            sock.close()
         #cov_handle.stop()
         #cov_handle.report(file=open('covreport.txt', 'w'))
     # end cleanUp
