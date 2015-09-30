@@ -161,9 +161,9 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             }
         }
 
+        const IPeer *peer = path->GetPeer();
         if (ribout->peer_type() == BgpProto::IBGP) {
             // Split horizon check.
-            const IPeer *peer = path->GetPeer();
             if (peer && peer->PeerType() == BgpProto::IBGP)
                 return NULL;
 
@@ -209,11 +209,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
 
             BgpAttr *clone = new BgpAttr(*attr);
 
-            // Reset LocalPref and Med.
-            if (attr->local_pref() || attr->med()) {
+            // Reset LocalPref.
+            if (attr->local_pref())
                 clone->set_local_pref(0);
+
+            // Reset Med if the path was not learnt from XMPP.
+            if (attr->med() && (!peer || peer->PeerType() != BgpProto::XMPP))
                 clone->set_med(0);
-            }
 
             // Prepend the local AS to AsPath.
             as_t local_as =
