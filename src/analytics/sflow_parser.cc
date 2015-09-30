@@ -44,15 +44,21 @@ SFlowParser::~SFlowParser() {
 
 int SFlowParser::Parse(SFlowData* const sflow_data) {
     if (ReadSFlowHeader(sflow_data->sflow_header) < 0) {
+        SFLOW_PACKET_TRACE(trace_buf_, "Failed to parse sFlow header");
         return -1;
     }
     if (sflow_data->sflow_header.version != 5) {
         // unsupported version. Don't proceed futher.
+        SFLOW_PACKET_TRACE(trace_buf_, "Unsupported sFlow version: " +
+            integerToString(sflow_data->sflow_header.version));
         return -1;
     }
     for (uint32_t nsamples = 0; nsamples < sflow_data->sflow_header.nsamples;
          nsamples++) {
         if (!CanReadBytes(SFlowSample::kMinSampleLen)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Invalid sample count [" +
+                integerToString(sflow_data->sflow_header.nsamples) +
+                "] in sFlow header (or) Tuncated sFlow packet");
             return -1;
         }
         uint32_t sample_type, sample_len;
@@ -60,6 +66,10 @@ int SFlowParser::Parse(SFlowData* const sflow_data) {
         ReadData32NoCheck(sample_len);
         // Check if we can read sample_len bytes.
         if (!CanReadBytes(sample_len)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Invalid sample length [" +
+                integerToString(sample_len) + "] : sample type [" +
+                integerToString(sample_type) + "] (or) "
+                "Truncated sFlow packet");
             return -1;
         }
         // Preserve the start of the sample to verify that we
@@ -87,14 +97,15 @@ int SFlowParser::Parse(SFlowData* const sflow_data) {
             break;
         }
         default:
-            if (SkipBytes(sample_len) < 0) {
-                return -1;
-            }
-            SFLOW_PACKET_TRACE(trace_buf_, "Skip SFlow Sample Type: " +
-                               integerToString(sample_type));
+            SkipBytesNoCheck(sample_len);
+            SFLOW_PACKET_TRACE(trace_buf_, "Skip sFlow Sample Type: " +
+                integerToString(sample_type));
         }
         if (!VerifyLength(sample_start, sample_len)) {
             // sample length error
+            SFLOW_PACKET_TRACE(trace_buf_, "Invalid sample length [" +
+                integerToString(sample_len) + "] : sample type ["+
+                integerToString(sample_type) + "]");
             return -1;
         }
     }
@@ -129,6 +140,8 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSample& flow_sample) {
         min_flow_sample_len = SFlowFlowSample::kMinExpandedFlowSampleLen;
     }
     if (!CanReadBytes(min_flow_sample_len)) {
+        SFLOW_PACKET_TRACE(trace_buf_, "Not enough bytes left to read "
+            "Flow sample type: " + integerToString(flow_sample.type));
         return -1;
     }
     ReadData32NoCheck(flow_sample.seqno);
@@ -162,6 +175,9 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSample& flow_sample) {
     for (uint32_t flow_rec = 0; flow_rec < flow_sample.nflow_records; 
          ++flow_rec) {
         if (!CanReadBytes(SFlowFlowRecord::kMinFlowRecordLen)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Invalid flow record count [" +
+                integerToString(flow_sample.nflow_records) + "] (or) "
+                "Truncated sFlow packet");
             return -1;
         }
         uint32_t flow_record_type, flow_record_len;
@@ -169,6 +185,10 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSample& flow_sample) {
         ReadData32NoCheck(flow_record_len);
         // Check if we can read flow_record_len bytes.
         if (!CanReadBytes(flow_record_len)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Invalid flow record length [" +
+                integerToString(flow_record_len) + "] : flow record type [" +
+                integerToString(flow_record_type) + "] (or) "
+                "Truncated sFlow packet");
             return -1;
         }
         // Preserve the start of the flow record to verify that we
@@ -186,14 +206,14 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSample& flow_sample) {
             break;
         }
         default:
-            if (SkipBytes(flow_record_len) < 0) {
-                return -1;
-            }
+            SkipBytesNoCheck(flow_record_len);
             SFLOW_PACKET_TRACE(trace_buf_, "Skip processing of Flow Record: " +
-                               integerToString(flow_record_type));
+                integerToString(flow_record_type));
         }
         if (!VerifyLength(flow_record_start, flow_record_len)) {
-            // invalid flow record length
+            SFLOW_PACKET_TRACE(trace_buf_, "Invalid flow record length [" +
+                integerToString(flow_record_len) + "] : flow record type [" +
+                integerToString(flow_record_type) + "]");
             return -1;
         }
     }
@@ -201,20 +221,20 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSample& flow_sample) {
 }
 
 int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
-    if (ReadData32(flow_header.protocol) < 0) {
+    if (!CanReadBytes(SFlowFlowHeader::kFlowHeaderInfoLen)) {
+        SFLOW_PACKET_TRACE(trace_buf_, "Not enough bytes left to read "
+            "Flow header info");
         return -1;
     }
-    if (ReadData32(flow_header.frame_length) < 0) {
-        return -1;
-    }
-    if (ReadData32(flow_header.stripped) < 0) {
-        return -1;
-    }
-    if (ReadData32(flow_header.header_length) < 0) {
-        return -1;
-    }
+    ReadData32NoCheck(flow_header.protocol);
+    ReadData32(flow_header.frame_length);
+    ReadData32(flow_header.stripped);
+    ReadData32(flow_header.header_length);
     flow_header.header = (uint8_t*)decode_ptr_;
     if (SkipBytes(flow_header.header_length) < 0) {
+        SFLOW_PACKET_TRACE(trace_buf_, "Invalid header length [" +
+            integerToString(flow_header.header_length) + "] (or) "
+            "Truncated sFlow packet");
         return -1;
     }
     switch(flow_header.protocol) {
@@ -226,8 +246,9 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
                                 flow_header.header_length,
                                 offset,
                                 flow_header.decoded_eth_data)) < 0) {
-            SFLOW_PACKET_TRACE(trace_buf_, "Received Header length not enough"
-                               " to decode Ethernet Header");
+            SFLOW_PACKET_TRACE(trace_buf_, "Flow Header protocol [" +
+                integerToString(flow_header.protocol) + "] : Failed to "
+                "decode Ethernet header");
             return 0;
         }
         offset += eth_header_len;
@@ -240,8 +261,9 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
                                     flow_header.header_length,
                                     offset,
                                     flow_header.decoded_ip_data)) < 0) {
-                SFLOW_PACKET_TRACE(trace_buf_, "Received Header length not"
-                                   " enough to decode Ipv4 Header");
+                SFLOW_PACKET_TRACE(trace_buf_, "Flow Header protocol [" +
+                    integerToString(flow_header.protocol) + "] : Failed to "
+                    "decode Ipv4 header");
                 return 0;
             }
             offset += ip_header_len;
@@ -249,8 +271,9 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
                                    flow_header.header_length,
                                    offset,
                                    flow_header.decoded_ip_data) < 0) {
-                SFLOW_PACKET_TRACE(trace_buf_, "Received Header length not"
-                                   " enough to decode Layer4 Header");
+                SFLOW_PACKET_TRACE(trace_buf_, "Flow Header protocol [" +
+                    integerToString(flow_header.protocol) + "] : Failed to "
+                    "decode Layer4 header");
                 return 0;
             }
             flow_header.is_ip_data_set = true;
@@ -265,8 +288,9 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
                                     flow_header.header_length,
                                     offset,
                                     flow_header.decoded_ip_data)) < 0) {
-            SFLOW_PACKET_TRACE(trace_buf_, "Received Header length not"
-                               " enough to decode Ipv4 Header");
+            SFLOW_PACKET_TRACE(trace_buf_, "Flow Header protocol [" +
+                integerToString(flow_header.protocol) + "] : Failed to "
+                "decode Ipv4 header");
             return 0;
         }
         offset += ip_header_len;
@@ -274,8 +298,9 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
                                flow_header.header_length,
                                offset,
                                flow_header.decoded_ip_data) < 0) {
-            SFLOW_PACKET_TRACE(trace_buf_, "Received Header length not"
-                               " enough to decode Layer4 Header");
+            SFLOW_PACKET_TRACE(trace_buf_, "Flow Header protocol [" +
+                integerToString(flow_header.protocol) + "] : Failed to "
+                "decode Layer4 header");
             return 0;
         }
         flow_header.is_ip_data_set = true;
@@ -283,7 +308,7 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
     }
     default:
         SFLOW_PACKET_TRACE(trace_buf_, "Skip processing of protocol header: " +
-                           integerToString(flow_header.protocol));
+            integerToString(flow_header.protocol));
     }
     return 0;
 }
@@ -295,6 +320,9 @@ int SFlowParser::DecodeEthernetHeader(const uint8_t* header,
     // sanity check
     size_t ether_header_len = sizeof(struct ether_header);
     if (header_len < (offset + ether_header_len)) {
+        SFLOW_PACKET_TRACE(trace_buf_, "Header length [" +
+            integerToString(header_len) + "] not enough to decode "
+            "Ethernet header");
         return -1;
     }
 
@@ -304,6 +332,9 @@ int SFlowParser::DecodeEthernetHeader(const uint8_t* header,
     eth_data.ether_type = ntohs(eth->ether_type);
     if (eth_data.ether_type == ETHERTYPE_VLAN) {
         if (header_len < (offset + ether_header_len + 4)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Header length [" +
+                integerToString(header_len) + "] not enough to decode "
+                "vlan header");
             return -1;
         }
         uint8_t *vlan_data = reinterpret_cast<uint8_t*>(eth) +
@@ -322,6 +353,9 @@ int SFlowParser::DecodeIpv4Header(const uint8_t* header,
                                   SFlowFlowIpData& ip_data) {
     // sanity check
     if (header_len < (offset + sizeof(struct ip))) {
+        SFLOW_PACKET_TRACE(trace_buf_, "Header length [" +
+            integerToString(header_len) + "] not enough to decode "
+            "Ipv4 header");
         return -1;
     }
 
@@ -344,6 +378,9 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* header,
     case IPPROTO_ICMP: {
         len = sizeof(struct icmp);
         if (header_len < (offset + len)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Header length [" +
+                integerToString(header_len) + "] not enough to decode "
+                "ICMP header");
             return -1;
         }
         struct icmp* icmp = (struct icmp*)(header + offset);
@@ -360,6 +397,9 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* header,
     case IPPROTO_TCP: {
         len = sizeof(tcphdr);
         if (header_len < (offset + len)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Header length [" +
+                integerToString(header_len) + "] not enough to decode "
+                "TCP header");
             return -1;
         }
         tcphdr* tcp = (tcphdr*)(header + offset);
@@ -370,6 +410,9 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* header,
     case IPPROTO_UDP: {
         len = sizeof(udphdr);
         if (header_len < (offset + len)) {
+            SFLOW_PACKET_TRACE(trace_buf_, "Header length [" +
+                integerToString(header_len) + "] not enough to decode "
+                "UDP header");
             return -1;
         }
         udphdr* udp = (udphdr*)(header + offset);
@@ -394,9 +437,13 @@ bool SFlowParser::CanReadBytes(size_t len) {
             reinterpret_cast<const uint32_t*>(end_ptr_));
 }
 
-int SFlowParser::SkipBytes(size_t len) {
+void SFlowParser::SkipBytesNoCheck(size_t len) {
     // All the fields in SFlow datagram are 4-byte aligned
     decode_ptr_ += ((len+3)/4);
+}
+
+int SFlowParser::SkipBytes(size_t len) {
+    SkipBytesNoCheck(len);
     if (decode_ptr_ > reinterpret_cast<const uint32_t*>(end_ptr_)) {
         return -1;
     }
