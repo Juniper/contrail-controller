@@ -98,6 +98,24 @@ class TestPolicy(test_case.STTestCase):
         self.assertEqual(sci.service_instance, si)
 
     @retries(5, hook=retry_exc_handler)
+    def check_analyzer_ip(self, vmi_fq_name):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        vmi_props = vmi.get_virtual_machine_interface_properties()
+        ip = vmi_props.get_interface_mirror().get_mirror_to().get_analyzer_ip_address()
+        self.assertTrue(ip != None)
+ 
+    @retries(5, hook=retry_exc_handler)
+    def check_analyzer_no_ip(self, vmi_fq_name):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        vmi_props = vmi.get_virtual_machine_interface_properties()
+        try:
+            ip = vmi_props.get_interface_mirror().get_mirror_to().get_analyzer_ip_address()
+            if ip not None:
+                raise Exception('analyzer ip found for %s' % vmi_fq_name)
+        except:
+            pass
+
+    @retries(5, hook=retry_exc_handler)
     def check_service_chain_pbf_rules(self, service_fq_name, vmi_fq_name, macs):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         ri_refs = vmi.get_routing_instance_refs()
@@ -1586,5 +1604,72 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.floating_ip_delete(fip_fq_name)
         self.wait_to_remove_link(self.get_obj_imid(vmi), fip_fq_name)
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
+
+    def test_interface_mirror(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, None, service_name, 'transparent', 'analyzer')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
+        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
+        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn1_obj))
+        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn2_obj))
+
+        # create virtual machine interface with interface mirror property
+        vmi_name = self.id() + 'vmi1'
+        vmi_fq_name = ['default-domain', 'default-project', vmi_name]
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project', fq_name=vmi_fq_name)
+        vmi.add_virtual_network(vn1_obj)
+        props = VirtualMachineInterfacePropertiesType()
+        mirror_type = InterfaceMirrorType()
+        mirror_act_type = MirrorActionType()
+        mirror_act_type.analyzer_name = 'default-domain:default-project:test.test_service.TestPolicy.test_interface_mirrors1'
+        mirror_type.mirror_to = mirror_act_type
+        props.interface_mirror = mirror_type
+        vmi.set_virtual_machine_interface_properties(props)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        self.check_acl_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
+
+        self.check_analyzer_ip(vmi_fq_name)
+
+        props = VirtualMachineInterfacePropertiesType()
+        mirror_type = InterfaceMirrorType()
+        mirror_act_type = MirrorActionType()
+        mirror_act_type.analyzer_name = None
+        mirror_type.mirror_to = mirror_act_type
+        props.interface_mirror = mirror_type
+        vmi.set_virtual_machine_interface_properties(props)
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        self.check_analyzer_no_ip(vmi_fq_name)
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.check_acl_not_match_mirror_to_ip(self.get_ri_name(vn1_obj))
+        self.check_acl_not_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
+        self.check_acl_not_match_nets(self.get_ri_name(vn2_obj), ':'.join(vn2_obj.get_fq_name()), ':'.join(vn1_obj.get_fq_name()))
 
 # end class TestRouteTable

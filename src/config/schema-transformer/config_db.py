@@ -2478,17 +2478,12 @@ class VirtualMachineInterfaceST(DBBaseST):
         if vn is None:
             return
 
+        old_interface_mirror = copy.deepcopy(self.interface_mirror)
         vn.process_analyzer(self.interface_mirror)
         vmi_props = self.obj.get_virtual_machine_interface_properties()
         if vmi_props is None:
             return
-        if_mirror = vmi_props.get_interface_mirror()
-        if if_mirror is None:
-            return
-        mirror_to = if_mirror.get_mirror_to()
-        if mirror_to is None:
-            return
-        if mirror_to == self.interface_mirror.mirror_to:
+        if old_interface_mirror.mirror_to == self.interface_mirror.mirror_to:
             return
         vmi_props.set_interface_mirror(self.interface_mirror)
         self.obj.set_virtual_machine_interface_properties(vmi_props)
