@@ -287,6 +287,7 @@ class FlowEntry {
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
     static const std::map<FlowPolicyState, const char*> FlowPolicyStateStr;
+    static const std::map<uint16_t, const char*> FlowDropReasonStr;
 
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
