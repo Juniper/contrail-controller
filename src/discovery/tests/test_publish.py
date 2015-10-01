@@ -301,3 +301,29 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         entry = response['services'][0]
         self.assertEqual(entry['admin_state'], 'down')
         self.assertEqual(entry['oper_state'], 'up')
+
+    # Use python client library to publish a service
+    # ensure service is up after multiple hearbeat intervals
+    def test_publish_client_lib(self):
+        disc = client.DiscoveryClient(self._disc_server_ip,
+                   self._disc_server_port, "test-publish")
+
+        service_type = 'foobar'
+        service_data = {
+            "ip-addr" : "1.1.1.1", 
+            "port"    : "1234",
+        }
+        tasks = []
+        hbtask = disc.publish(service_type, service_data)
+        tasks.append(hbtask)
+
+        # wait for multiple heartbeat intervals
+        time.sleep(60)
+
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 1)
+
+        entry = response['services'][0]
+        self.assertEqual(entry['status'], 'up')

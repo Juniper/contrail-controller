@@ -289,47 +289,15 @@ class DiscoveryClient(object):
     # publisher - send periodic heartbeat
     def heartbeat(self):
         while True:
-            # send heartbeat for each published object seperately
+            # Republish each published object seperately
             # dictionary can change size during iteration
             pub_list = self.pubdata.copy()
             for cookie in pub_list:
                 gevent.sleep(0)
-                payload = {'cookie': cookie}
-                self.syslog('Sending cookie %s in heartbeat' % cookie)
-                try:
-                    r = requests.post(
-                        self.hburl, data=json.dumps(payload), headers=self._headers)
-                except requests.exceptions.ConnectionError:
-                    service, data = pub_list[cookie]
-                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-                        name = service, status = ConnectionStatus.DOWN,
-                        server_addrs = ['%s:%s' % (self._server_ip, \
-                            self._server_port)],
-                        message = 'HeartBeat - Connection Error') 
-                    self.syslog('Connection Error')
-                    continue
-
-                # if DS lost track of our data, republish
-                if r.status_code == 404:
-                    # forget cached cookie and object; will re-learn
-                    self.syslog('Server lost track of token %s' % (cookie))
-                    service, data = self.pubdata[cookie]
-                    del self.pubdata[cookie]
-                    self._publish_int(service, data)
-                elif r.status_code != 200:
-                    service, data = pub_list[cookie]
-                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-                        name = service, status = ConnectionStatus.DOWN,
-                        server_addrs = ['%s:%s' % (self._server_ip, \
-                            self._server_port)],
-                        message = 'HeartBeat Error: %d' % r.status_code)
-                else:
-                    service, data = pub_list[cookie]
-                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-                        name = service, status = ConnectionStatus.UP,
-                        server_addrs = ['%s:%s' % (self._server_ip, \
-                            self._server_port)],
-                        message = 'HeartBeat OK')
+                self.syslog('Republish %s' % (cookie))
+                service, data = self.pubdata[cookie]
+                del self.pubdata[cookie]
+                self._publish_int(service, data)
             gevent.sleep(HC_INTERVAL)
     # end client
 
