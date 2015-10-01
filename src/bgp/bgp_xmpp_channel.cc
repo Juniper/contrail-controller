@@ -8,6 +8,7 @@
 #include <boost/foreach.hpp>
 #include <pugixml/pugixml.hpp>
 
+#include <limits>
 #include <vector>
 #include <sstream>
 
@@ -63,10 +64,26 @@ using boost::system::error_code;
 using pugi::xml_node;
 using std::auto_ptr;
 using std::make_pair;
+using std::numeric_limits;
 using std::pair;
 using std::set;
 using std::string;
 using std::vector;
+
+//
+// Calculate med from local preference.
+// Should move agent definitions to a common location and use those here
+// instead of hard coded values.
+//
+static uint32_t GetMedFromLocalPref(uint32_t local_pref) {
+    if (local_pref == 0)
+        return 0;
+    if (local_pref == 100)
+        return 200;
+    if (local_pref == 200)
+        return 100;
+    return numeric_limits<uint32_t>::max() - local_pref;
+}
 
 BgpXmppChannel::ErrorStats::ErrorStats()
     : inet6_rx_bad_xml_token_count(0), inet6_rx_bad_prefix_count(0),
@@ -1161,6 +1178,15 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         if (local_pref.local_pref != 0)
             attrs.push_back(&local_pref);
 
+        // If there's no explicit med, calculate it automatically from the
+        // local pref.
+        uint32_t med_value = item.entry.med;
+        if (!med_value)
+            med_value = GetMedFromLocalPref(local_pref.local_pref);
+        BgpAttrMultiExitDisc med(med_value);
+        if (med.med != 0)
+            attrs.push_back(&med);
+
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
@@ -1354,6 +1380,15 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         if (local_pref.local_pref != 0) {
             attrs.push_back(&local_pref);
         }
+
+        // If there's no explicit med, calculate it automatically from the
+        // local pref.
+        uint32_t med_value = item.entry.med;
+        if (!med_value)
+            med_value = GetMedFromLocalPref(local_pref.local_pref);
+        BgpAttrMultiExitDisc med(med_value);
+        if (med.med != 0)
+            attrs.push_back(&med);
 
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
@@ -1599,6 +1634,15 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         if (local_pref.local_pref != 0) {
             attrs.push_back(&local_pref);
         }
+
+        // If there's no explicit med, calculate it automatically from the
+        // local pref.
+        uint32_t med_value = item.entry.med;
+        if (!med_value)
+            med_value = GetMedFromLocalPref(local_pref.local_pref);
+        BgpAttrMultiExitDisc med(med_value);
+        if (med.med != 0)
+            attrs.push_back(&med);
 
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
