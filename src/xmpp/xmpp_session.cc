@@ -99,6 +99,7 @@ void XmppSession::IncStats(unsigned int type, uint64_t bytes) {
 }
 
 boost::system::error_code XmppSession::EnableTcpKeepalive(int hold_time) {
+    hold_time = ((hold_time > 25)? hold_time/2 : hold_time);
     keepalive_idle_time_ = hold_time/3;
     keepalive_interval_ =
         ((hold_time - keepalive_idle_time_)/keepalive_probes_);
