@@ -239,9 +239,9 @@ private:
     typedef boost::tuple<bool, size_t, DbQueueWaterMarkCb>
         DbQueueWaterMarkInfo;
     void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
-        std::vector<DbQueueWaterMarkInfo> &vwmi);
+        const std::vector<DbQueueWaterMarkInfo> &vwmi);
     void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
-        DbQueueWaterMarkInfo &wmi);
+        const DbQueueWaterMarkInfo &wmi);
 
     boost::shared_ptr<apache::thrift::transport::TTransport> socket_;
     boost::shared_ptr<apache::thrift::transport::TTransport> transport_;
