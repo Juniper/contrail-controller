@@ -838,6 +838,24 @@ class SvcMonitor(object):
             cls.reset()
 
 
+def skip_check_service(si):
+    # wait for first launch
+    if not si.launch_count:
+        return True
+    # back off going on
+    if si.back_off > 0:
+        si.back_off -= 1
+        return True
+    # back off done
+    if si.back_off == 0:
+        si.back_off = -1
+        return False
+    # set back off
+    if not si.launch_count % 10:
+        si.back_off = 10
+        return True
+    return False
+
 def timer_callback(monitor):
     # delete vms without si
     vm_delete_list = []
@@ -849,10 +867,9 @@ def timer_callback(monitor):
         monitor._delete_service_instance(vm)
 
     # check status of service
-    si_id_list = list(ServiceInstanceSM._dict.keys())
-    for si_id in si_id_list:
-        si = ServiceInstanceSM.get(si_id)
-        if not si or not si.launch_count:
+    si_list = list(ServiceInstanceSM.values())
+    for si in si_list:
+        if skip_check_service(si):
             continue
         if not monitor._check_service_running(si):
             monitor._relaunch_service_instance(si)
@@ -875,8 +892,15 @@ def timer_callback(monitor):
                 monitor._delete_shared_vn(vn.uuid)
 
 def launch_timer(monitor):
+    if not monitor._args.check_service_interval.isdigit():
+        monitor.logger.log_emergency("set seconds for check_service_interval "
+            "in contrail-svc-monitor.conf. example: check_service_interval=60")
+        sys.exit()
+    monitor.logger.log_notice("check_service_interval set to %s seconds" %
+        monitor._args.check_service_interval)
+
     while True:
-        gevent.sleep(svc_info.get_vm_health_interval())
+        gevent.sleep(int(monitor._args.check_service_interval))
         try:
             timer_callback(monitor)
         except Exception:
@@ -914,6 +938,7 @@ def parse_args(args_str):
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
+                         --check_service_interval 60
                          [--region_name <name>]
                          [--reset_config]
     '''
@@ -955,6 +980,7 @@ def parse_args(args_str):
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'region_name': None,
         'cluster_id': '',
+        'check_service_interval': '60',
         }
     secopts = {
         'use_certs': False,
