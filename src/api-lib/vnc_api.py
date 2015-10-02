@@ -376,13 +376,17 @@ class VncApi(object):
         if not obj.uuid:
             obj.uuid = self.fq_name_to_id(res_type, obj.get_fq_name())
 
-        # Ignore fields with None value in json representation
-        json_param = json.dumps(obj, default=self._obj_serializer)
-        json_body = '{"%s":%s}' %(res_type, json_param)
+        # Generate PUT on object only if some attr was modified
+        content = None
+        if obj.get_pending_updates():
+            # Ignore fields with None value in json representation
+            json_param = json.dumps(obj, default=self._obj_serializer)
+            json_body = '{"%s":%s}' %(res_type, json_param)
 
-        id = obj.uuid
-        uri = obj_cls.resource_uri_base[res_type] + '/' + id
-        content = self._request_server(rest.OP_PUT, uri, data=json_body)
+            id = obj.uuid
+            uri = obj_cls.resource_uri_base[res_type] + '/' + id
+            content = self._request_server(rest.OP_PUT, uri, data=json_body)
+
         for ref_name in obj._pending_ref_updates:
              ref_orig = set([(x.get('uuid'),
                              tuple(x.get('to', [])), x.get('attr'))

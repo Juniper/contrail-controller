@@ -556,6 +556,13 @@ class VncApiServer(object):
     def http_resource_update(self, resource_type, id):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
+        # Early return if there is no body or an empty body
+        request = get_request()
+        if (not hasattr(request, 'json') or
+            not request.json or
+            not request.json[resource_type]):
+            return
+
         obj_dict = get_request().json[resource_type]
         try:
             self._extension_mgrs['resourceApi'].map_method(

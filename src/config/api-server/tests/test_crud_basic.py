@@ -1614,6 +1614,26 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         logger.info("...link to Native RI done.")
     # end test_vmi_links_to_native_ri
 
+    def test_nop_on_empty_body_update(self):
+        # library api test
+        vn_fq_name = VirtualNetwork().fq_name
+        vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+        mod_time = vn_obj.id_perms.last_modified
+        resp = self._vnc_lib.virtual_network_update(vn_obj)
+        self.assertIsNone(resp)
+        vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+        self.assertEqual(mod_time, vn_obj.id_perms.last_modified)
+
+        # rest api test
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+        url = 'http://%s:%s/virtual-network/%s' %(
+            listen_ip, listen_port, vn_obj.uuid)
+        resp = requests.put(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.text, '')
+    # end test_nop_on_empty_body_update
+
 # end class TestVncCfgApiServer
 
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
