@@ -834,7 +834,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     return False
                 meta = node.get('links', {}).get('contrail:display-name',
                     {}).get('meta')
-                if not meta:
+                if meta is None:
                     return False
                 if not 'test_update' in etree.tostring(meta):
                     return False
@@ -1615,6 +1615,40 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     # end test_vmi_links_to_native_ri
 
 # end class TestVncCfgApiServer
+
+class TestIfmapHealthCheck(test_case.ApiServerTestCase):
+    """ Tests to verify re-seeding of ifmap once it does down->up move. """
+    HEALTH_CHECK_INTERVAL = '0.5'
+    def __init__(self, *args, **kwargs):
+        super(TestIfmapHealthCheck, self).__init__(*args, **kwargs)
+        self._config_knobs.extend([('DEFAULTS', 'ifmap_health_check_interval',
+            self.HEALTH_CHECK_INTERVAL),])
+    # end __init__
+
+    def test_periodic_check(self):
+        gevent.sleep(float(self.HEALTH_CHECK_INTERVAL)+0.1)
+        health_check_node = FakeIfmapClient._graph.get('healthcheck')
+        self.assertIsNot(health_check_node, None)
+    # end test_periodic_check
+
+    def test_reseed_after_error(self):
+        self.ignore_err_in_log = True
+        api_server = test_common.vnc_cfg_api_server.server
+        err_invokes = []
+        def err_on_publish(orig_method, *args, **kwargs):
+            if not err_invokes:
+                err_invokes.append(True)
+                raise socket.error
+            orig_method(*args, **kwargs)
+
+        with test_common.patch(api_server._db_conn._ifmap_db._mapclient,
+            'call', err_on_publish):
+            test_obj = self._create_test_object()
+
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+        self.assertNotEqual(len(err_invokes), 0)
+    # end test_reseed_after_error
+# end class TestIfmapHealthCheck
 
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     """ Tests to verify the max_requests config parameter of api-server."""
