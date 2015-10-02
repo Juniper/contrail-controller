@@ -136,6 +136,7 @@ class VncIfmapClient(object):
 
         self._init_conn()
         self._publish_config_root()
+        self._health_checker_greenlet = gevent.spawn(self._health_checker)
     # end __init__
 
     def _object_alloc(self, res_type, parent_type, fq_name):
@@ -523,10 +524,10 @@ class VncIfmapClient(object):
         except Exception as e:
             if (isinstance(e, socket.error) and
                 self._conn_state != ConnectionStatus.DOWN):
+                self._conn_state = ConnectionStatus.DOWN
                 log_str = 'Connection to IFMAP down. Failed to publish %s' %(
                     oper_body)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-                self._conn_state = ConnectionStatus.DOWN
                 ConnectionState.update(
                     conn_type=ConnectionType.IFMAP,
                     name='IfMap', status=ConnectionStatus.DOWN, message='',
@@ -683,6 +684,25 @@ class VncIfmapClient(object):
         upd_str = ''.join(requests)
         self._publish_to_ifmap_enqueue('update', upd_str)
     # end _publish_update
+
+    def _health_checker(self):
+        while True:
+            try:
+                # do the healthcheck only if we are connected
+                if self._conn_state == ConnectionStatus.DOWN:
+                    continue
+                meta = Metadata('display-name', '',
+                        {'ifmap-cardinality': 'singleValue'},
+                        ns_prefix='contrail', elements='')
+                request_str = self._build_request('healthcheck', 'self', [meta])
+                self._publish_to_ifmap_enqueue('update', request_str, do_trace=False)
+            except Exception as e:
+                log_str = 'Healthcheck to IFMAP failed: %s' %(str(e))
+                self.config_log(log_str, level=SandeshLevel.SYS_ERR)
+            finally:
+                gevent.sleep(
+                    self._get_api_server().get_ifmap_health_check_interval())
+    # end _health_checker
 
     def fq_name_to_ifmap_id(self, obj_type, fq_name):
         return cfgm_common.imid.get_ifmap_id_from_fq_name(obj_type, fq_name)

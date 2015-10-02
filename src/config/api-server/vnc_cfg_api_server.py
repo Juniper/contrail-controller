@@ -1533,6 +1533,10 @@ class VncApiServer(object):
         return self._pipe_start_app
     # end get_pipe_start_app
 
+    def get_ifmap_health_check_interval(self):
+        return float(self._args.ifmap_health_check_interval)
+    # end get_ifmap_health_check_interval
+
     def is_admin_request(self):
         env = get_request().headers.environ
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
@@ -1901,6 +1905,7 @@ class VncApiServer(object):
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
                                          [--default_encoding ascii ]
+                                         --ifmap_health_check_interval 60
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
