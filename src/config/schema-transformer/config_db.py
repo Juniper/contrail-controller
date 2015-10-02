@@ -1544,6 +1544,12 @@ class SecurityGroupST(DBBaseST):
                     if daddr.security_group == 'local':
                         daddr_match.security_group = None
                         acl_rule_list = ingress_acl_rule_list
+                    if acl_rule_list is None:
+                        self._logger.error("SG rule must have either source "
+                                           "or destination as 'local': " +
+                                           self.name)
+                        continue
+
                     for dp in prule.dst_ports:
                         action = ActionListType(simple_action='pass')
                         match = MatchConditionType(arule_proto,
