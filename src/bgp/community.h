@@ -186,7 +186,7 @@ public:
         //
         // Default Gateway extended community
         //
-        return (val[0] == 0x06) && (val[1] == 0x0d);
+        return (val[0] == 0x03) && (val[1] == 0x0d);
     }
 
     static bool is_es_import(const ExtCommunityValue &val) {
