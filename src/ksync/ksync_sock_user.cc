@@ -52,12 +52,20 @@ int EncodeVrResponse(uint8_t *buf, int buf_len, uint32_t seq_num, int code) {
     return encoder.WriteBinary(buf, buf_len, &error);
 }
 
+void KSyncSockTypeMap::AddNetlinkTxBuff(struct nl_client *cl) {
+    tx_buff_list_.push_back(*cl);
+}
+
 //process sandesh messages that are being sent from the agent
 //this is used to store a local copy of what is being send to kernel
+//Also handles bulk request messages.
 void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len, 
                                       KSyncUserSockContext *ctx) {
     int decode_len;
     uint8_t *decode_buf;
+
+    // Ensure that tx_buff_list is empty
+    assert(tx_buff_list_.size() == 0);
 
     //parse sandesh
     int err = 0;
@@ -73,6 +81,53 @@ void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len,
         decode_buf += decode_len;
         decode_buf_len -= decode_len;
     }
+
+    // All responses are stored in tx_buff_list_
+    // Make io-vector of all responses and transmit them
+    // If there are more than one responses, they are sent as NETLINK MULTI
+    // messages
+    uint32_t count = 0;
+    KSyncBufferList iovec;
+    struct nlmsghdr *last_nlh = NULL;
+    std::vector<struct nl_client>::iterator it = tx_buff_list_.begin();
+    // Add all messages to to io-vector.
+    while (it != tx_buff_list_.end()) {
+        struct nl_client *cl = &(*it);
+        struct nlmsghdr *nlh = (struct nlmsghdr *)(cl->cl_buf);
+        // Set MULTI flag by default. It will be reset for last buffer later
+        nlh->nlmsg_flags |= NLM_F_MULTI;
+        last_nlh = nlh;
+        iovec.push_back(buffer(cl->cl_buf, cl->cl_msg_len));
+        it++;
+        count++;
+    }
+
+    // If there are more than one NETLINK messages, we need to add 
+    struct nlmsghdr nlh;
+    if (count > 1) {
+        //Send Netlink-Done message NLMSG_DONE at end
+        InitNetlinkDoneMsg(&nlh, last_nlh->nlmsg_seq);
+        iovec.push_back(buffer((uint8_t *)&nlh, NLMSG_HDRLEN));
+    } else {
+        // Single buffer. Reset the MULTI flag
+        last_nlh->nlmsg_flags &= (~NLM_F_MULTI);
+    }
+
+    // Send a message for each entry in io-vector
+    KSyncBufferList::iterator iovec_it = iovec.begin();
+    while (iovec_it != iovec.end()) {
+         sock_.send_to(*iovec_it, local_ep_);
+         iovec_it++;
+    }
+
+    // Free the buffers
+    it = tx_buff_list_.begin();
+    while (it != tx_buff_list_.end()) {
+        struct nl_client *cl = &(*it);
+        nl_free(cl);
+        *it++;
+    }
+    tx_buff_list_.clear();
 }
 
 void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
@@ -120,23 +175,18 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     }
 
     nl_update_header(&cl, encode_len);
-    sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
-    nl_free(&cl);
+    sock->AddNetlinkTxBuff(&cl);
 }
 
-void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
-    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    struct nlmsghdr nlh;
-    nlh.nlmsg_seq = seq_num;
-    nlh.nlmsg_type = NLMSG_DONE;
-    nlh.nlmsg_len = NLMSG_HDRLEN;
-    nlh.nlmsg_flags = 0;
-    sock->sock_.send_to(buffer(&nlh, NLMSG_HDRLEN), sock->local_ep_);
+void KSyncSockTypeMap::InitNetlinkDoneMsg(struct nlmsghdr *nlh, int seq_num) {
+    nlh->nlmsg_seq = seq_num;
+    nlh->nlmsg_type = NLMSG_DONE;
+    nlh->nlmsg_len = NLMSG_HDRLEN;
+    nlh->nlmsg_flags = 0;
 }
 
 void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     struct nl_client cl;
-    vr_response encoder;
     int encode_len, ret;
     uint8_t *buf;
     uint32_t buf_len;
@@ -156,8 +206,7 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     LOG(DEBUG, "SimulateResponse " << " seq " << seq_num << " code " << std::hex << code);
 
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
-    nl_free(&cl);
+    sock->AddNetlinkTxBuff(&cl);
 }
 
 void KSyncSockTypeMap::SetDropStats(const vr_drop_stats_req &req) {
@@ -445,51 +494,13 @@ uint32_t KSyncSockTypeMap::GetSeqno(char *data) {
 bool KSyncSockTypeMap::IsMoreData(char *data) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
 
-    return ((nlh->nlmsg_flags & NLM_F_MULTI) && (nlh->nlmsg_type != NLMSG_DONE));
+    return (nlh->nlmsg_flags & NLM_F_MULTI);
 }
 
-void KSyncSockTypeMap::Decoder(char *data, SandeshContext *ctxt) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    //LOG(DEBUG, "Kernel Data: msg_type " << nlh->nlmsg_type << " seq no " 
-    //                << nlh->nlmsg_seq << " len " << nlh->nlmsg_len);
-    if (nlh->nlmsg_type == GetNetlinkFamilyId()) {
-        struct genlmsghdr *genlh = (struct genlmsghdr *)
-                                   (data + NLMSG_HDRLEN);
-        int total_len = nlh->nlmsg_len;
-        int decode_len;
-        uint8_t *decode_buf;
-        if (genlh->cmd == SANDESH_REQUEST) {
-            struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
-                                                     + GENL_HDRLEN);
-            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN + 
-                                              NLA_HDRLEN);
-            int err = 0;
-            if (attr->nla_type == NL_ATTR_VR_MESSAGE_PROTOCOL) {
-                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN + 
-                                         GENL_HDRLEN + NLA_HDRLEN);
-                while(decode_buf_len > (NLA_ALIGNTO - 1)) {
-                    decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len, &err,
-                                                              ctxt);
-                    if (decode_len < 0) {
-                        LOG(DEBUG, "Incorrect decode len " << decode_len);
-                        break;
-                    }
-                    decode_buf += decode_len;
-                    decode_buf_len -= decode_len;
-                }
-            } else {
-                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
-                assert(0);
-            }
-        } else {
-            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
-            assert(0);
-        }
-    } else if (nlh->nlmsg_type != NLMSG_DONE) {
-        LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
-        assert(0);
-    }
-    
+bool KSyncSockTypeMap::Decoder(char *data,
+                               KSyncBulkSandeshContext *bulk_context) {
+    KSyncSock::NetlinkBulkDecoder(data, bulk_context, IsMoreData(data));
+    return true;
 }
 
 bool KSyncSockTypeMap::Validate(char *data) {
@@ -509,18 +520,33 @@ bool KSyncSockTypeMap::Validate(char *data) {
     }
     return true;
 }
+static int IoVectorToData(char *data, KSyncBufferList *iovec) {
+    KSyncBufferList::iterator it = iovec->begin();
+    int offset = 0;
+    while (it != iovec->end()) {
+        unsigned char *buf = boost::asio::buffer_cast<unsigned char *>(*it);
+        memcpy(data + offset, buf, boost::asio::buffer_size(*it));
+        offset +=  boost::asio::buffer_size(*it);
+        it++;
+    }
+    return offset;
+}
 
 //send or store in map
-void KSyncSockTypeMap::AsyncSendTo(char *data, uint32_t data_len,
-                                   uint32_t seq_no, HandlerCb cb) {
+void KSyncSockTypeMap::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                                   HandlerCb cb) {
+    char data[4096];
+    int data_len = IoVectorToData(data, iovec);
+
     KSyncUserSockContext ctx(seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh((const uint8_t *)(data), data_len, &ctx);
 }
 
 //send or store in map
-size_t KSyncSockTypeMap::SendTo(const char *data, uint32_t data_len,
-                                uint32_t seq_no) {
+std::size_t KSyncSockTypeMap::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
+    char data[4096];
+    int data_len = IoVectorToData(data, iovec);
     KSyncUserSockContext ctx(seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh((const uint8_t *)(data), data_len, &ctx);
@@ -1082,10 +1108,7 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
         //Send dump-response containing objects (with multi-flag set)
         nlh->nlmsg_flags |= NLM_F_MULTI;
         nl_update_header(&cl, tot_encode_len);
-        sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
-        nl_free(&cl);
-        //Send Netlink-Done message
-        KSyncSockTypeMap::SendNetlinkDoneMsg(seq_num);
+        sock->AddNetlinkTxBuff(&cl);
     } else {
         KSyncSockTypeMap::SimulateResponse(seq_num, resp_code, 0);
     }
@@ -1135,8 +1158,7 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     buf_len -= encode_len;
 
     nl_update_header(&cl, encode_len + resp_len);
-    sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
-    nl_free(&cl);
+    sock->AddNetlinkTxBuff(&cl);
 }
 
 Sandesh* IfDumpHandler::Get(int idx) {

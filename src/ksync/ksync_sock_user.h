@@ -14,6 +14,7 @@
 #include <boost/unordered_map.hpp>
 #include "ksync_sock.h"
 
+#include "nl_util.h"
 #include "vr_types.h"
 #include "vr_flow.h"
 
@@ -122,16 +123,17 @@ public:
 
     virtual uint32_t GetSeqno(char *data);
     virtual bool IsMoreData(char *data);
-    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool Decoder(char *data, KSyncBulkSandeshContext *ctxt);
     virtual bool Validate(char *data);
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(char *, uint32_t, uint32_t, HandlerCb);
-    virtual std::size_t SendTo(const char *, uint32_t, uint32_t);
+    virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                             HandlerCb cb);
+    virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
+    void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);
     static void set_error_code(int code) { error_code_ = code; }
     static int error_code() { return error_code_; }
-    static void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);
     static void SimulateResponse(uint32_t, int, int);
     static void SendNetlinkDoneMsg(int seq_num);
     static void IfDumpResponse(uint32_t);
@@ -192,6 +194,9 @@ public:
         return ksync_error_[type];
     }
 
+    // Add a response in nl_client into tx_buff_list_
+    void AddNetlinkTxBuff(struct nl_client *cl);
+    void InitNetlinkDoneMsg(struct nlmsghdr *nlh, int seq_num);
 private:
     void PurgeBlockedMsg();
     udp::socket sock_;
@@ -201,6 +206,10 @@ private:
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;
     static int error_code_;
+    // List of nl_client messages to be sent. In case of bulk message, all
+    // responses are initially put into this list and finally NL_MULTI
+    // netlink messages are sent
+    std::vector<struct nl_client> tx_buff_list_;
     DISALLOW_COPY_AND_ASSIGN(KSyncSockTypeMap);
 };
 

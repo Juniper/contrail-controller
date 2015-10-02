@@ -53,6 +53,18 @@ tbb::atomic<bool> KSyncSock::shutdown_;
 const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] = 
                                                 {"Agent::KSync", "Agent::Uve"};
 
+// Copy data from io-vector to a buffer
+static void IoVectorToData(char *data, KSyncBufferList *iovec) {
+    KSyncBufferList::iterator it = iovec->begin();
+    int offset = 0;
+    while (it != iovec->end()) {
+        unsigned char *buf = boost::asio::buffer_cast<unsigned char *>(*it);
+        memcpy(data + offset, buf, boost::asio::buffer_size(*it));
+        offset +=  boost::asio::buffer_size(*iovec);
+        it++;
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Netlink utilities
 /////////////////////////////////////////////////////////////////////////////
@@ -63,8 +75,7 @@ static uint32_t GetNetlinkSeqno(char *data) {
 
 static bool NetlinkMsgDone(char *data) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    return ((nlh->nlmsg_flags & NLM_F_MULTI) &&
-            (nlh->nlmsg_type != NLMSG_DONE));
+    return ((nlh->nlmsg_flags & NLM_F_MULTI) != 0);
 }
 
 // Common validation for netlink messages
@@ -115,8 +126,15 @@ static bool ValidateNetlink(char *data) {
 
 static void GetNetlinkPayload(char *data, char **buf, uint32_t *buf_len) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    *buf = data + NLMSG_HDRLEN + GENL_HDRLEN + NLA_HDRLEN;
-    *buf_len = nlh->nlmsg_len - (NLMSG_HDRLEN + GENL_HDRLEN + NLA_HDRLEN);
+    int len = 0;
+    if (nlh->nlmsg_type == NLMSG_DONE) {
+        len = NLMSG_HDRLEN;
+    } else {
+        len = NLMSG_HDRLEN + GENL_HDRLEN + NLA_HDRLEN;
+    }
+
+    *buf = data + len;
+    *buf_len = nlh->nlmsg_len - len;
 }
 
 static void InitNetlink(nl_client *client) {
@@ -155,10 +173,13 @@ static void DecodeSandeshMessages(char *buf, uint32_t buf_len,
         buf_len -= decode_len;
     }
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // KSyncSock routines
 /////////////////////////////////////////////////////////////////////////////
-KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), read_inline_(true) {
+KSyncSock::KSyncSock() :
+    max_bulk_msg_count_(kMaxBulkMsgCount), max_bulk_buf_size_(kMaxBulkMsgSize),
+    bulk_seq_no_(-1), tx_count_(0), err_count_(0), read_inline_(true) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     uint32_t task_id = 0;
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
@@ -173,6 +194,8 @@ KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), read_inline_(true) {
         new WorkQueue<IoContext *>(task_id, 0,
                                    boost::bind(&KSyncSock::SendAsyncImpl, this,
                                                _1));
+    async_send_queue_->SetExitCallback
+        (boost::bind(&KSyncSock::SendTaskExit, this, _1));
     nl_client_ = (nl_client *)malloc(sizeof(nl_client));
     bzero(nl_client_, sizeof(nl_client));
     rx_buff_ = NULL;
@@ -266,18 +289,6 @@ KSyncSock *KSyncSock::Get(int idx) {
     return sock_table_[idx];
 }
 
-Tree::iterator KSyncSock::GetIoContext(char *data) {
-    IoContext ioc;
-    ioc.SetSeqno(GetSeqno(data));
-    Tree::iterator it;
-    {
-        tbb::mutex::scoped_lock lock(mutex_);
-        it = wait_tree_.find(ioc);
-    }
-    assert (it != wait_tree_.end());
-    return it;
-}
-
 bool KSyncSock::ValidateAndEnqueue(char *data) {
     Validate(data);
     IoContext::IoContextWorkQId q_id;
@@ -315,32 +326,29 @@ void KSyncSock::ReadHandler(const boost::system::error_code& error,
 // Process kernel data - executes in the task specified by IoContext
 // Currently only Agent::KSync and Agent::Uve are possibilities
 bool KSyncSock::ProcessKernelData(char *data) {
-    Tree::iterator it = GetIoContext(data);
-    IoContext *context = it.operator->();
-
-    AgentSandeshContext *ctxt = context->GetSandeshContext();
-    ctxt->SetErrno(0);
-    ctxt->set_ksync_io_ctx(static_cast<KSyncIoContext *>(context));
-    Decoder(data, ctxt);
-    ctxt->set_ksync_io_ctx(NULL);
-    if (ctxt->GetErrno() != 0) {
-        context->ErrorHandler(ctxt->GetErrno());
+    uint32_t seqno = GetSeqno(data);
+    WaitTree::iterator it;
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
+        it = wait_tree_.find(seqno);
     }
-
-    if (!IsMoreData(data)) {
-        context->Handler();
-        {
-            tbb::mutex::scoped_lock lock(mutex_);
-            wait_tree_.erase(it);
-        }
-        async_send_queue_->MayBeStartRunner();
-        delete(context);
+    if (it == wait_tree_.end()) {
+        LOG(ERROR, "KSync error in finding for sequence number : " << seqno);
+        assert(0);
     }
+    KSyncBulkSandeshContext *bulk_context = &(it->second);
 
+    Decoder(data, bulk_context);
+    // Remove the IoContext only on last netlink message
+    if (IsMoreData(data) == false) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        wait_tree_.erase(it);
+    }
+    async_send_queue_->MayBeStartRunner();
     delete[] data;
     return true;
 }
-    
+
 bool KSyncSock::BlockingRecv() {
     char *data = new char[kBufLen];
     bool ret = false;
@@ -350,7 +358,11 @@ bool KSyncSock::BlockingRecv() {
 
         AgentSandeshContext *ctxt = KSyncSock::GetAgentSandeshContext();
         ctxt->SetErrno(0);
-        Decoder(data, ctxt);
+
+        char *buf = NULL;
+        uint32_t buf_len = 0;
+        GetNetlinkPayload(data, &buf, &buf_len);
+        DecodeSandeshMessages(buf, buf_len, ctxt, NLA_ALIGNTO);
         if (ctxt->GetErrno() != 0) {
             KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", 
                         ctxt->GetErrno(), ":", strerror(ctxt->GetErrno()), 
@@ -364,8 +376,12 @@ bool KSyncSock::BlockingRecv() {
     return ret;
 }
 
-size_t KSyncSock::BlockingSend(const char *msg, int msg_len) {
-    return SendTo(msg, msg_len, 0);
+// BlockingSend does not support bulk messages.
+size_t KSyncSock::BlockingSend(char *msg, int msg_len) {
+    KSyncBufferList iovec;
+    iovec.push_back(buffer(msg, msg_len));
+    bulk_buf_size_ = msg_len;
+    return SendTo(&iovec, 0);
 }
 
 void KSyncSock::GenericSend(IoContext *ioc) {
@@ -391,19 +407,28 @@ void KSyncSock::WriteHandler(const boost::system::error_code& error,
     }
 }
 
-bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
-    {
-        tbb::mutex::scoped_lock lock(mutex_);
-        wait_tree_.insert(*ioc);
-    }
-    if (read_inline_ == false) {
-        AsyncSendTo(ioc->GetMsg(), ioc->GetMsgLen(), ioc->GetSeqno(),
+// End of messages in the work-queue. Send messages pending in bulk context
+void KSyncSock::SendTaskExit(bool done) {
+    WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
+    assert(it != wait_tree_.end());
+    KSyncBulkSandeshContext *bulk_context = &it->second;
+    SendBulkMessage(bulk_context, bulk_seq_no_);
+}
+
+// Send messages accumilated in bulk context
+int KSyncSock::SendBulkMessage(KSyncBulkSandeshContext *bulk_context,
+                               uint32_t seqno) {
+    KSyncBufferList iovec;
+    // Get all buffers to send into single io-vector
+    bulk_context->Data(&iovec);
+
+    if (!read_inline_) {
+        AsyncSendTo(&iovec, seqno,
                     boost::bind(&KSyncSock::WriteHandler, this,
                                 placeholders::error,
                                 placeholders::bytes_transferred));
     } else {
-        SendTo((const char *)ioc->GetMsg(),
-               ioc->GetMsgLen(), ioc->GetSeqno());
+        SendTo(&iovec, seqno);
         bool more_data = false;
         do {
             int len = kBufLen;
@@ -413,7 +438,76 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
             ValidateAndEnqueue(rxbuf);
         } while(more_data);
     }
+    bulk_seq_no_ = -1;
     return true;
+}
+
+// Get the bulk-context for sequence-number
+KSyncBulkSandeshContext *KSyncSock::LocateBulkContext(uint32_t seqno) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    if (bulk_seq_no_ == -1) {
+        bulk_seq_no_ = seqno;
+        bulk_buf_size_ = 0;
+        bulk_msg_count_ = 0;
+        wait_tree_.insert(WaitTreePair(seqno, KSyncBulkSandeshContext()));
+    }
+
+    WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
+    assert(it != wait_tree_.end());
+    return &it->second;
+}
+
+// Try adding an io-context to bulk context. Returns
+//  - true  : if message can be added to bulk context
+//  - false : if message cannot be added to bulk context
+bool KSyncSock::TryAddToBulk(KSyncBulkSandeshContext *bulk_context,
+                             IoContext *ioc) {
+    if ((bulk_buf_size_ + ioc->GetMsgLen()) > max_bulk_buf_size_)
+        return false;
+
+    if (bulk_msg_count_ >= max_bulk_msg_count_)
+        return false;
+
+    bulk_buf_size_ += ioc->GetMsgLen();
+    bulk_msg_count_++;
+
+    bulk_context->Insert(ioc);
+    return true;
+}
+
+bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
+    KSyncBulkSandeshContext *bulk_context = LocateBulkContext(ioc->GetSeqno());
+    // Try adding message to bulk-message list
+    if (TryAddToBulk(bulk_context, ioc)) {
+        // Message added to bulk-list. Nothing more to do
+        return true;
+    }
+
+    // Message cannot be added to bulk-list. Send the current list
+    SendBulkMessage(bulk_context, bulk_seq_no_);
+
+    // Allocate a new context and add message to it
+    bulk_context = LocateBulkContext(ioc->GetSeqno());
+    assert(TryAddToBulk(bulk_context, ioc));
+    return true;
+}
+
+void KSyncSock::NetlinkBulkDecoder(char *data, SandeshContext *ctxt, bool more){
+    assert(ValidateNetlink(data));
+    char *buf = NULL;
+    uint32_t buf_len = 0;
+    GetNetlinkPayload(data, &buf, &buf_len);
+    KSyncBulkSandeshContext *bulk_context =
+        dynamic_cast<KSyncBulkSandeshContext *>(ctxt);
+    bulk_context->Decoder(buf, buf_len, NLA_ALIGNTO, more);
+}
+
+void KSyncSock::NetlinkDecoder(char *data, SandeshContext *ctxt) {
+    assert(ValidateNetlink(data));
+    char *buf = NULL;
+    uint32_t buf_len = 0;
+    GetNetlinkPayload(data, &buf, &buf_len);
+    DecodeSandeshMessages(buf, buf_len, ctxt, NLA_ALIGNTO);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -459,42 +553,36 @@ bool KSyncSockNetlink::Validate(char *data) {
 }
 
 //netlink socket class for interacting with kernel
-void KSyncSockNetlink::AsyncSendTo(char *data, uint32_t data_len,
-                                   uint32_t seq_no, HandlerCb cb) {
+void KSyncSockNetlink::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                                   HandlerCb cb) {
     ResetNetlink(nl_client_);
-    std::vector<mutable_buffers_1> iovec;
-    iovec.push_back(buffer(nl_client_->cl_buf, nl_client_->cl_buf_offset));
-    iovec.push_back(buffer(data, data_len));
-    UpdateNetlink(nl_client_, data_len, seq_no);
+    KSyncBufferList::iterator it = iovec->begin();
+    iovec->insert(it, buffer((char *)nl_client_->cl_buf,
+                             nl_client_->cl_buf_offset));
+    UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
 
     boost::asio::netlink::raw::endpoint ep;
-    sock_.async_send_to(iovec, ep, cb);
+    sock_.async_send_to(*iovec, ep, cb);
 }
 
-size_t KSyncSockNetlink::SendTo(const char *data, uint32_t data_len,
-                                 uint32_t seq_no) {
+size_t KSyncSockNetlink::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
     ResetNetlink(nl_client_);
-    std::vector<const_buffers_1> iovec;
-    iovec.push_back(buffer((const char *)nl_client_->cl_buf,
-                           nl_client_->cl_buf_offset));
-    iovec.push_back(buffer((const char *)data, data_len));
-    UpdateNetlink(nl_client_, data_len, seq_no);
+    KSyncBufferList::iterator it = iovec->begin();
+    iovec->insert(it, buffer((char *)nl_client_->cl_buf,
+                             nl_client_->cl_buf_offset));
+    UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
 
     boost::asio::netlink::raw::endpoint ep;
-    return sock_.send_to(iovec, ep);
+    return sock_.send_to(*iovec, ep);
 }
 
-void KSyncSockNetlink::Decoder(char *data, SandeshContext *sandesh_context) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    if (nlh->nlmsg_type == NLMSG_DONE) {
-        return;
-    }
-
+bool KSyncSockNetlink::Decoder(char *data,
+                               KSyncBulkSandeshContext *bulk_context) {
     // Get sandesh buffer and buffer-length
     uint32_t buf_len = 0;
     char *buf = NULL;
     GetNetlinkPayload(data, &buf, &buf_len);
-    DecodeSandeshMessages(buf, buf_len, sandesh_context, NLA_ALIGNTO);
+    return bulk_context->Decoder(buf, buf_len, NLA_ALIGNTO, IsMoreData(data));
 }
 
 void KSyncSockNetlink::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
@@ -537,40 +625,36 @@ bool KSyncSockUdp::IsMoreData(char *data) {
     return ((hdr->flags & UVR_MORE) == UVR_MORE);
 }
 
-void KSyncSockUdp::Decoder(char *data, SandeshContext *sandesh_context) {
+bool KSyncSockUdp::Decoder(char *data, KSyncBulkSandeshContext *bulk_context) {
     struct uvr_msg_hdr *hdr = (struct uvr_msg_hdr *)data;
     uint32_t buf_len = hdr->msg_len;
     char *buf = data + sizeof(struct uvr_msg_hdr);
-    DecodeSandeshMessages(buf, buf_len, sandesh_context, 1);
+    return bulk_context->Decoder(buf, buf_len, 1, IsMoreData(data));
 }
 
-void KSyncSockUdp::AsyncSendTo(char *data, uint32_t data_len,
-                               uint32_t seq_no, HandlerCb cb) {
+void KSyncSockUdp::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                               HandlerCb cb) {
     struct uvr_msg_hdr hdr;
-    std::vector<mutable_buffers_1> iovec;
     hdr.seq_no = seq_no;
     hdr.flags = 0;
-    hdr.msg_len = data_len;
+    hdr.msg_len = bulk_buf_size_;
 
-    iovec.push_back(buffer((char *)(&hdr), sizeof(hdr)));
-    iovec.push_back(buffer(data, data_len));
+    KSyncBufferList::iterator it = iovec->begin();
+    iovec->insert(it, buffer((char *)(&hdr), sizeof(hdr)));
 
-    sock_.async_send_to(iovec, server_ep_, cb);
+    sock_.async_send_to(*iovec, server_ep_, cb);
 }
 
-size_t KSyncSockUdp::SendTo(const char *data, uint32_t data_len,
-                            uint32_t seq_no) {
+size_t KSyncSockUdp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
     struct uvr_msg_hdr hdr;
-    std::vector<const_buffers_1> iovec;
     hdr.seq_no = seq_no;
     hdr.flags = 0;
-    hdr.msg_len = data_len;
+    hdr.msg_len = bulk_buf_size_;
 
-    iovec.push_back(buffer((const char *)(&hdr), sizeof(hdr)));
-    iovec.push_back(buffer((const char *)data, data_len));
+    KSyncBufferList::iterator it = iovec->begin();
+    iovec->insert(it, buffer((char *)(&hdr), sizeof(hdr)));
 
-    size_t ret = sock_.send_to(iovec, server_ep_, MSG_DONTWAIT);
-    return ret;
+    return sock_.send_to(*iovec, server_ep_, MSG_DONTWAIT);
 }
 
 bool KSyncSockUdp::Validate(char *data) {
@@ -622,50 +706,38 @@ bool KSyncSockTcp::IsMoreData(char *data) {
     return NetlinkMsgDone(data);
 }
 
-void KSyncSockTcp::AsyncSendTo(char *data, uint32_t data_len,
-                               uint32_t seq_no, HandlerCb cb) {
-    ResetNetlink(nl_client_);
-    UpdateNetlink(nl_client_, data_len, seq_no);
-
-    uint32_t total_length = nl_client_->cl_buf_offset + data_len;
-    assert(total_length < 4096);
+size_t KSyncSockTcp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
     char msg[4096];
-    memcpy(msg, nl_client_->cl_buf, nl_client_->cl_buf_offset);
-    memcpy(msg + nl_client_->cl_buf_offset, data, data_len);
-
-    session_->Send((const uint8_t *)msg, total_length, NULL);
-}
-
-size_t KSyncSockTcp::SendTo(const char *data, uint32_t data_len,
-                            uint32_t seq_no) {
-    ResetNetlink(nl_client_);
-    UpdateNetlink(nl_client_, data_len, seq_no);
-
-    uint32_t total_length = nl_client_->cl_buf_offset + data_len;
+    uint32_t total_length = nl_client_->cl_buf_offset + bulk_buf_size_;
     assert(total_length < 4096);
-    char msg[4096];
-    memcpy(msg, nl_client_->cl_buf, nl_client_->cl_buf_offset);
-    memcpy(msg + nl_client_->cl_buf_offset, data, data_len);
 
+    ResetNetlink(nl_client_);
+    UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
+
+    memcpy(msg, nl_client_->cl_buf, nl_client_->cl_buf_offset);
+    int offset = nl_client_->cl_buf_offset;
+
+    IoVectorToData(msg + offset, iovec);
     session_->Send((const uint8_t *)msg, total_length, NULL);
     return total_length;
+}
+
+void KSyncSockTcp::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                               HandlerCb cb) {
+    SendTo(iovec, seq_no);
+    return;
 }
 
 bool KSyncSockTcp::Validate(char *data) {
     return ValidateNetlink(data);
 }
 
-void KSyncSockTcp::Decoder(char *data, SandeshContext *sandesh_context) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    if (nlh->nlmsg_type == NLMSG_DONE) {
-        return;
-    }
-
+bool KSyncSockTcp::Decoder(char *data, KSyncBulkSandeshContext *bulk_context) {
     // Get sandesh buffer and buffer-length
     uint32_t buf_len = 0;
     char *buf = NULL;
     GetNetlinkPayload(data, &buf, &buf_len);
-    DecodeSandeshMessages(buf, buf_len, sandesh_context, NLA_ALIGNTO);
+    return bulk_context->Decoder(buf, buf_len, NLA_ALIGNTO, IsMoreData(data));
 }
 
 void KSyncSockTcp::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
@@ -789,10 +861,174 @@ KSyncIoContext::KSyncIoContext(KSyncEntry *sync_entry, int msg_len, char *msg,
 }
 
 void KSyncIoContext::Handler() {
-    if (KSyncObject *obj = entry_->GetObject())
+    if (KSyncObject *obj = entry_->GetObject()) {
         obj->NetlinkAck(entry_, event_);
+    }
 }
 
 void KSyncIoContext::ErrorHandler(int err) {
     entry_->ErrorHandler(err, GetSeqno());
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Routines for KSyncBulkSandeshContext
+/////////////////////////////////////////////////////////////////////////////
+KSyncBulkSandeshContext::KSyncBulkSandeshContext() :
+    AgentSandeshContext(), vr_response_count_(0), io_context_list_it_(),
+    io_context_list_() {
+}
+
+KSyncBulkSandeshContext::KSyncBulkSandeshContext
+(const KSyncBulkSandeshContext &rhs) :
+    AgentSandeshContext(), vr_response_count_(0), io_context_list_it_(),
+    io_context_list_() {
+}
+
+struct IoContextDisposer {
+    void operator() (IoContext *io_context) { delete io_context; }
+};
+
+KSyncBulkSandeshContext::~KSyncBulkSandeshContext() {
+    assert(vr_response_count_ == io_context_list_.size());
+    io_context_list_.clear_and_dispose(IoContextDisposer());
+}
+
+void KSyncBulkSandeshContext::Insert(IoContext *ioc) {
+    io_context_list_.push_back(*ioc);
+    return;
+}
+
+void KSyncBulkSandeshContext::Data(KSyncBufferList *iovec) {
+    IoContextList::iterator it = io_context_list_.begin();
+    while (it != io_context_list_.end()) {
+        iovec->push_back(buffer(it->GetMsg(), it->GetMsgLen()));
+        it++;
+    }
+}
+
+// Sandesh responses for old context are done. Check for any errors
+void KSyncBulkSandeshContext::IoContextDone() {
+    IoContext *io_context = &(*io_context_list_it_);
+    AgentSandeshContext *sandesh_context = io_context->GetSandeshContext();
+
+    sandesh_context->set_ksync_io_ctx(NULL);
+    if (sandesh_context->GetErrno() != 0) {
+        io_context->ErrorHandler(sandesh_context->GetErrno());
+    }
+    io_context->Handler();
+}
+
+void KSyncBulkSandeshContext::IoContextStart() {
+    vr_response_count_++;
+    IoContext &io_context = *io_context_list_it_;
+    AgentSandeshContext *sandesh_context = io_context.GetSandeshContext();
+    sandesh_context->set_ksync_io_ctx
+        (static_cast<KSyncIoContext *>(&io_context));
+}
+
+// Process the sandesh messages
+// There can be more then one sandesh messages in the netlink buffer.
+// Iterate and process all of them
+bool KSyncBulkSandeshContext::Decoder(char *data, uint32_t len,
+                                      uint32_t alignment, bool more) {
+    DecodeSandeshMessages(data, len, this, alignment);
+    assert(io_context_list_it_ != io_context_list_.end());
+    if (more == true)
+        return false;
+
+    IoContextDone();
+
+    // No more netlink messages. Validate that iterator points to last element
+    // in IoContextList
+    io_context_list_it_++;
+    assert(io_context_list_it_ == io_context_list_.end());
+    return true;
+}
+
+void KSyncBulkSandeshContext::SetErrno(int err) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->SetErrno(err);
+}
+
+AgentSandeshContext *KSyncBulkSandeshContext::GetSandeshContext() {
+    assert(vr_response_count_);
+    return io_context_list_it_->GetSandeshContext();
+}
+
+void KSyncBulkSandeshContext::IfMsgHandler(vr_interface_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->IfMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::NHMsgHandler(vr_nexthop_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->NHMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::RouteMsgHandler(vr_route_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->RouteMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::MplsMsgHandler(vr_mpls_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->MplsMsgHandler(req);
+}
+
+// vr_response message is treated as delimiter in a bulk-context. So, move to
+// next io-context within bulk-message context.
+int KSyncBulkSandeshContext::VrResponseMsgHandler(vr_response *resp) {
+    AgentSandeshContext *sandesh_context = NULL;
+    // If this is first vr_reponse received, move io-context to first entry in
+    // bulk context
+    if (vr_response_count_ == 0) {
+        io_context_list_it_ = io_context_list_.begin();
+        sandesh_context = io_context_list_it_->GetSandeshContext();
+        IoContextStart();
+    } else {
+        // Sandesh responses for old io-context are done.
+        // Check for any errors and trigger state-machine for old io-context
+        IoContextDone();
+        // Move to the next io-context
+        io_context_list_it_++;
+        assert(io_context_list_it_ != io_context_list_.end());
+        sandesh_context = io_context_list_it_->GetSandeshContext();
+        IoContextStart();
+    }
+    return sandesh_context->VrResponseMsgHandler(resp);
+}
+
+void KSyncBulkSandeshContext::MirrorMsgHandler(vr_mirror_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->MirrorMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::FlowMsgHandler(vr_flow_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->FlowMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->VrfAssignMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->VrfStatsMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::DropStatsMsgHandler(vr_drop_stats_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->DropStatsMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::VxLanMsgHandler(vr_vxlan_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->VxLanMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::VrouterOpsMsgHandler(vrouter_ops *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->VrouterOpsMsgHandler(req);
 }

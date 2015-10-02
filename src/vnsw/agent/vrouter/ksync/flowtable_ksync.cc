@@ -707,7 +707,7 @@ void FlowTableKSyncObject::GetFlowTableSize() {
         }
     }
 
-    sock->Decoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
+    sock->NetlinkDecoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
     nl_free_client(cl);
 }
 
@@ -772,7 +772,7 @@ void FlowTableKSyncObject::MapFlowMem() {
 
     while ((ret = nl_recvmsg(cl)) > 0) {
         KSyncSock *sock = KSyncSock::Get(0);
-        sock->Decoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
+        sock->NetlinkDecoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
     }
     nl_free_client(cl);
 
