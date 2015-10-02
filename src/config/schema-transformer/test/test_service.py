@@ -15,6 +15,10 @@ try:
     import to_bgp
 except ImportError:
     from schema_transformer import to_bgp
+try:
+    import config_db
+except ImportError:
+    from schema_transformer import config_db
 
 from gevent import sleep
 
@@ -98,6 +102,24 @@ class TestPolicy(test_case.STTestCase):
         self.assertEqual(sci.service_instance, si)
 
     @retries(5, hook=retry_exc_handler)
+    def check_analyzer_ip(self, vmi_fq_name):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        vmi_props = vmi.get_virtual_machine_interface_properties()
+        ip = vmi_props.get_interface_mirror().get_mirror_to().get_analyzer_ip_address()
+        self.assertTrue(ip != None)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_analyzer_no_ip(self, vmi_fq_name):
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+        vmi_props = vmi.get_virtual_machine_interface_properties()
+        ip = None
+        try:
+            ip = vmi_props.get_interface_mirror().get_mirror_to().get_analyzer_ip_address()
+        except AttributeError as e:
+            pass
+        self.assertTrue(ip == None)
+
+    @retries(5, hook=retry_exc_handler)
     def check_service_chain_pbf_rules(self, service_fq_name, vmi_fq_name, macs):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         ri_refs = vmi.get_routing_instance_refs()
@@ -169,6 +191,24 @@ class TestPolicy(test_case.STTestCase):
         except RefsExistError:
             print "retrying ... ", test_common.lineno()
             raise Exception('virtual network %s still exists' % str(fq_name))
+
+    @retries(5, hook=retry_exc_handler)
+    def check_lr_is_deleted(self, uuid):
+        try:
+            self._vnc_lib.logical_router_read(id=uuid)
+            print "retrying ... ", test_common.lineno()
+            raise Exception('logical router %s still exists' % uuid)
+        except NoIdError:
+            print 'lr deleted'
+
+    @retries(5, hook=retry_exc_handler)
+    def check_rt_is_deleted(self, name):
+        try:
+            self._vnc_lib.route_target_delete(fq_name=[name])
+            print "retrying ... ", test_common.lineno()
+            raise Exception('rt %s still exists' % uuid)
+        except NoIdError:
+            print 'rt deleted'
 
     @retries(5, hook=retry_exc_handler)
     def check_vn_is_deleted(self, uuid):
@@ -1071,6 +1111,8 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self.check_lr_is_deleted(uuid=lr.uuid)
+        self.check_rt_is_deleted(name='target:64512:8000002')
 
     @retries(5, hook=retry_exc_handler)
     def check_bgp_peering(self, router1, router2, length):
@@ -1632,5 +1674,159 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_pnf_service
+
+    def test_interface_mirror(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        si_fq_name_str = self._create_service(vn1_obj, vn2_obj, service_name, False, service_mode='transparent', service_type='analyzer')
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        # create virtual machine interface with interface mirror property
+        vmi_name = self.id() + 'vmi1'
+        vmi_fq_name = ['default-domain', 'default-project', vmi_name]
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project', fq_name=vmi_fq_name)
+        vmi.add_virtual_network(vn1_obj)
+        props = VirtualMachineInterfacePropertiesType()
+        mirror_type = InterfaceMirrorType()
+        mirror_act_type = MirrorActionType()
+        mirror_act_type.analyzer_name = 'default-domain:default-project:test.test_service.TestPolicy.test_interface_mirrors1'
+        mirror_type.mirror_to = mirror_act_type
+        props.interface_mirror = mirror_type
+        vmi.set_virtual_machine_interface_properties(props)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        self.check_analyzer_ip(vmi_fq_name)
+
+        props = VirtualMachineInterfacePropertiesType()
+        mirror_type = InterfaceMirrorType()
+        mirror_act_type = MirrorActionType()
+        mirror_act_type.analyzer_name = None
+        mirror_type.mirror_to = mirror_act_type
+        props.interface_mirror = mirror_type
+        vmi.set_virtual_machine_interface_properties(props)
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        self.check_analyzer_no_ip(vmi_fq_name)
+
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_vn_is_deleted(uuid=vn2_obj.uuid)
+
+    #end test_interface_mirror
+
+    def test_misc(self):
+        # create a service chain
+        # find the service chain
+        # check sandesh message parameters
+        # make a copy of it
+        # check for the equality of these service chains
+
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+
+        sp_list1 = [PortType(start_port=5000, end_port=8000), PortType(start_port=2000, end_port=3000)]
+        dp_list1 = [PortType(start_port=1000, end_port=1500), PortType(start_port=500, end_port=800)]
+        service_names1 = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
+
+        sp_list2 = [PortType(start_port=5000, end_port=8000), PortType(start_port=2000, end_port=3000)]
+        dp_list2 = [PortType(start_port=1000, end_port=1500), PortType(start_port=500, end_port=800)]
+        service_names2 = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
+
+        sc11 = config_db.ServiceChain.find_or_create("vn1", "vn2", "<>", sp_list1, dp_list1, "icmp", service_names1)
+
+        #build service chain introspect and check if it has got right values
+        sandesh_sc = sc11.build_introspect()
+
+        self.assertEqual(sandesh_sc.left_virtual_network, sc11.left_vn)
+        self.assertEqual(sandesh_sc.right_virtual_network, sc11.right_vn)
+        self.assertEqual(sandesh_sc.protocol, sc11.protocol)
+        port_list = []
+        for sp in sp_list1:
+            port_list.append("%s-%s" % (sp.start_port, sp.end_port))
+        self.assertEqual(sandesh_sc.src_ports,  ','.join(port_list))
+
+        port_list = []
+        for dp in dp_list1:
+            port_list.append("%s-%s" % (dp.start_port, dp.end_port))
+
+        self.assertEqual(sandesh_sc.dst_ports,  ','.join(port_list))
+        self.assertEqual(sandesh_sc.direction, sc11.direction)
+        self.assertEqual(sandesh_sc.service_list, service_names1)
+
+        sc22 = config_db.ServiceChain.find_or_create("vn1", "vn2", "<>", sp_list1, dp_list1, "icmp", service_names2)
+
+        sc33 = copy.deepcopy(sc11)
+
+        # check for SC equality, sc11 && sc22 are references
+        self.assertEqual(sc11, sc22)
+
+        # check for SC equality, sc11 && sc33 are different
+        self.assertEqual(sc11, sc33)
+
+        # change values and test
+        sc33.protocol = "tcp"
+
+        if sc11 == sc33:
+            self.assertTrue(False)
+
+        sc33.service_list = []
+        if sc11 == sc33:
+            self.assertTrue(False)
+
+        sc33.direction = "<"
+        if sc11 == sc33:
+            self.assertTrue(False)
+
+        sc33.dp_list = []
+        if sc11 == sc33:
+            self.assertTrue(False)
+
+        sc33.sp_list = []
+        if sc11 == sc33:
+            self.assertTrue(False)
+
+        sc33.name = "dummy"
+        if sc11 == sc33:
+            self.assertTrue(False)
+
+        sc11.delete()
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+
+    #end test_misc
 
 # end class TestRouteTable

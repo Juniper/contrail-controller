@@ -2501,26 +2501,22 @@ class VirtualMachineInterfaceST(DBBaseST):
     # end set_virtual_network
 
     def process_analyzer(self):
-        if self.interface_mirror is None or self.virtual_network is None:
+        if (self.interface_mirror is None or
+            self.interface_mirror.mirror_to is None or
+            self.virtual_network is None):
             return
         vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
             return
 
+        old_interface_mirror_mirror_to = copy.deepcopy(self.interface_mirror.mirror_to)
+
         vn.process_analyzer(self.interface_mirror)
-        vmi_props = self.obj.get_virtual_machine_interface_properties()
-        if vmi_props is None:
+
+        if old_interface_mirror_mirror_to == self.interface_mirror.mirror_to:
             return
-        if_mirror = vmi_props.get_interface_mirror()
-        if if_mirror is None:
-            return
-        mirror_to = if_mirror.get_mirror_to()
-        if mirror_to is None:
-            return
-        if mirror_to == self.interface_mirror.mirror_to:
-            return
-        vmi_props.set_interface_mirror(self.interface_mirror)
-        self.obj.set_virtual_machine_interface_properties(vmi_props)
+
+        self.obj.set_virtual_machine_interface_properties(self.obj.get_virtual_machine_interface_properties())
         try:
             self._vnc_lib.virtual_machine_interface_update(self.obj)
         except NoIdError:
