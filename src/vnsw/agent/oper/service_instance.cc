@@ -33,21 +33,6 @@ class ServiceInstanceCreate : public AgentData {
     IFMapNode *node_;
 };
 
-/*
- * ServiceInstanceTable update requests contain ServiceInstance Properties.
- */
-class ServiceInstanceUpdate : public AgentData {
-  public:
-    typedef ServiceInstance::Properties Properties;
-    ServiceInstanceUpdate(Properties &properties) :
-            properties_(properties) {
-    }
-    const Properties &properties() { return properties_; }
-
-  private:
-    Properties properties_;
-};
-
 class ServiceInstanceTypesMapping {
 public:
     static const std::string kOtherType;
@@ -645,35 +630,51 @@ std::auto_ptr<DBEntry> ServiceInstanceTable::AllocEntry(
 }
 
 bool ServiceInstanceTable::HandleAddChange(ServiceInstance
-        *svc_instance, const DBRequest *request) {
-
-    if (!svc_instance || svc_instance->ifmap_node())
-        return false;
+        **svc_instancep, const DBRequest *request) {
 
     ServiceInstanceCreate *data =
             static_cast<ServiceInstanceCreate *>(request->data.get());
     if (!data)
         return false;
 
-    svc_instance->SetKey(request->key.get());
-    assert(dependency_manager_);
-    svc_instance->SetIFMapNodeState
-        (dependency_manager_->SetState(data->node()));
-    dependency_manager_->SetObject(data->node(), svc_instance);
+    IFMapNode *node = data->node();
+    ServiceInstance *svc_instance = *svc_instancep;
 
+    assert(graph_);
     ServiceInstance::Properties properties;
     properties.Clear();
-    assert(graph_);
-    CalculateProperties(graph_, svc_instance->ifmap_node(), &properties);
+    CalculateProperties(graph_, node, &properties);
+
+    assert(dependency_manager_);
+
+    if (!svc_instance) {
+        svc_instance = new ServiceInstance();
+        *svc_instancep = svc_instance;
+    }
+
+    if (!svc_instance->ifmap_node()) {
+        svc_instance->SetKey(request->key.get());
+        svc_instance->SetIFMapNodeState
+                    (dependency_manager_->SetState(node));
+        dependency_manager_->SetObject(node, svc_instance);
+    }
+
+    if (properties.CompareTo(svc_instance->properties()) == 0)
+        return false;
+
+    if (svc_instance->properties().Usable() != properties.Usable()) {
+        LOG(DEBUG, "service-instance properties change" <<
+                svc_instance->properties().DiffString(properties));
+    }
+
     svc_instance->set_properties(properties);
     return true;
 }
 
 
 DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
-    ServiceInstance *svc_instance = new ServiceInstance();
-
-    assert(HandleAddChange(svc_instance, request));
+    ServiceInstance *svc_instance = NULL;
+    HandleAddChange(&svc_instance, request);
     return svc_instance;
 }
 
@@ -689,18 +690,8 @@ bool ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
 
 bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
-    /*
-     * FIX(safchain), get OnChange with another object than ServiceInstanceUpdate
-     * when restarting agent with a registered instance
-     */
-    if (dynamic_cast<ServiceInstanceUpdate*>(request->data.get()) != NULL) {
-        ServiceInstanceUpdate *data =
-                static_cast<ServiceInstanceUpdate *>(request->data.get());
-        svc_instance->set_properties(data->properties());
-    } else {
-        HandleAddChange(svc_instance, request);
-    }
-    return true;
+
+    return HandleAddChange(&svc_instance, request);
 }
 
 void ServiceInstanceTable::Initialize(
@@ -726,27 +717,7 @@ bool ServiceInstanceTable::IFNodeToReq(IFMapNode *node, DBRequest
     }
 
     request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
-    ServiceInstance *svc_instance = static_cast<ServiceInstance *>
-                                                    (state->object());
-
-    if (!svc_instance || svc_instance->uuid() != id) {
-        request.data.reset(new ServiceInstanceCreate(node));
-        return true;
-    } else {
-        assert(graph_);
-        ServiceInstance::Properties properties;
-        CalculateProperties(graph_, node, &properties);
-
-        if (properties.CompareTo(svc_instance->properties()) == 0)
-            return false;
-
-        if (svc_instance->properties().Usable() != properties.Usable()) {
-            LOG(DEBUG, "service-instance properties change"
-                        << svc_instance->properties().DiffString(properties));
-        }
-        request.data.reset(new ServiceInstanceUpdate(properties));
-    }
+    request.data.reset(new ServiceInstanceCreate(node));
     return true;
 }
 

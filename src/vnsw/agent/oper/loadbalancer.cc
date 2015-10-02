@@ -17,17 +17,10 @@ class LoadbalancerData : public AgentData {
         : node_(node) {
     }
 
-    LoadbalancerData(const Properties &properties)
-         : node_(NULL), properties_(properties) {
-    }
-
     IFMapNode *node() { return node_; }
-
-    const Properties &properties() { return properties_; }
 
   private:
     IFMapNode *node_;
-    Properties properties_;
 };
 
 Loadbalancer::Loadbalancer() {
@@ -221,15 +214,17 @@ bool LoadbalancerTable::OnChange(DBEntry *entry, const DBRequest *request) {
     LoadbalancerData *data = static_cast<LoadbalancerData *>(
         request->data.get());
 
+    assert(graph_);
+    LoadbalancerProperties properties;
+    CalculateProperties(graph_, data->node(), &properties);
+
     loadbalancer->SetKey(request->key.get());
-    if (data->node() == NULL) {
-        loadbalancer->set_properties(data->properties());
-    } else {
-        assert(graph_);
-        LoadbalancerProperties properties;
-        CalculateProperties(graph_, data->node(), &properties);
-        loadbalancer->set_properties(properties);
+    const LoadbalancerProperties *current = loadbalancer->properties();
+    if (current) {
+        if (properties.CompareTo(*current) == 0)
+            return false;
     }
+    loadbalancer->set_properties(properties);
     return true;
 }
 
@@ -265,26 +260,7 @@ bool LoadbalancerTable::IFNodeToReq(IFMapNode *node, DBRequest &request,
     }
 
     request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
-    const LoadbalancerProperties *current = NULL;
-    LoadbalancerProperties properties;
-    assert(graph_);
-    CalculateProperties(graph_, node, &properties);
-    Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(state->object());
-    if (!loadbalancer || loadbalancer->uuid() != id) {
-        request.data.reset(new LoadbalancerData(node));
-    } else {
-        current = loadbalancer->properties();
-        if (current) {
-            if (properties.CompareTo(*current) == 0)
-                return false;
-        }
-
-        LOG(DEBUG, "loadbalancer property change "
-                            << properties.DiffString(current));
-        request.data.reset(new LoadbalancerData(properties));
-    }
+    request.data.reset(new LoadbalancerData(node));
     return true;
 }
 
