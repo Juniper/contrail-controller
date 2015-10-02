@@ -17,10 +17,6 @@ public:
     virtual void NotifyAllRoutes() = 0;
     virtual uint32_t GetRouteCount() const = 0;
     virtual uint32_t GetDownRouteCount() const = 0;
-
-private:
-    friend class StaticRouteTest;
-
     virtual void DisableQueue() = 0;
     virtual void EnableQueue() = 0;
     virtual bool IsQueueEmpty() = 0;
