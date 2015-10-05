@@ -90,7 +90,7 @@ public:
     AddressT GetAddress(IpAddress addr) const;
 
 private:
-    friend class StaticRouteTest;
+    template <typename U> friend class StaticRouteTest;
 
     // All static route related actions are performed in the context
     // of this task. This task has exclusion with db::DBTable task.

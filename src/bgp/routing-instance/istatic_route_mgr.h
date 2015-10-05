@@ -19,7 +19,7 @@ public:
     virtual uint32_t GetDownRouteCount() const = 0;
 
 private:
-    friend class StaticRouteTest;
+    template <typename U> friend class StaticRouteTest;
 
     virtual void DisableQueue() = 0;
     virtual void EnableQueue() = 0;
