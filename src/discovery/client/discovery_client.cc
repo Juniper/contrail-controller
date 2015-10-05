@@ -100,10 +100,7 @@ bool DSPublishResponse::HeartBeatTimerExpired() {
             boost::bind(&DiscoveryServiceClient::ReEvaluatePublish, ds_client_,
                         serviceName_, it->second));
     } else {
-        stringstream hb;
-        hb.clear();
-        hb << "<cookie>" << cookie_ << "</cookie>" ;
-        ds_client_->SendHeartBeat(serviceName_, hb.str());
+        ds_client_->Publish(serviceName_);
     }
 
     //
