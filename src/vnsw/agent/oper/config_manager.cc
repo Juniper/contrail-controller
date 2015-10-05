@@ -375,8 +375,10 @@ bool ConfigManager::CanUseNode(IFMapNode *node) {
     IFMapDependencyManager *dep =
         agent()->oper_db()->dependency_manager();
     IFMapNodeState *state = dep->IFMapNodeGet(node);
-    if (state && state->notify() == false)
+    if (state && (state->notify() == false ||
+                  state->oper_db_request_enqueued() == false)) {
         return false;
+    }
 
     return true;
 }
