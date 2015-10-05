@@ -515,12 +515,8 @@ class VRouterHostedManager(InstanceManager):
         self.cleanup_svc_vm_ports(vmi_list)
 
         if vm.virtual_router:
-            vm_obj = VirtualMachine()
-            vm_obj.uuid = vm.uuid
-            vm_obj.fq_name = vm.fq_name
-            vr_obj = self._vnc_lib.virtual_router_read(id=vm.virtual_router)
-            vr_obj.del_virtual_machine(vm_obj)
-            self._vnc_lib.virtual_router_update(vr_obj)
+            self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
+                'virtual-machine', vm.uuid, None, 'DELETE')
             self.logger.log_info("vm %s deleted from vr %s" %
                 (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
 
@@ -541,16 +537,10 @@ class VRouterHostedManager(InstanceManager):
                 vr = VirtualRouterSM.get(vm.virtual_router)
                 if self.vrouter_scheduler.vrouter_running(vr.name):
                     continue
-                vr_obj = VirtualRouter()
-                vr_obj.uuid = vr.uuid
-                vr_obj.fq_name = vr.fq_name
-                vm_obj = VirtualMachine()
-                vm_obj.uuid = vm.uuid
-                vm_obj.fq_name = vm.fq_name
-                vr_obj.del_virtual_machine(vm_obj)
-                self._vnc_lib.virtual_router_update(vr_obj)
-                self._update_local_preference(si, vm)
-                self.logger.log_error("vrouter down for vm %s" % vm.uuid)
+                self._vnc_lib.ref_update('virtual-router', vr.uuid,
+                    'virtual-machine', vm.uuid, None, 'DELETE')
+                vr.update()
+                self.logger.log_error("vrouter %s down for vm %s" % (vr.name, vm.uuid))
                 service_up = False
 
         return service_up

@@ -329,6 +329,7 @@ class ServiceInstanceSM(DBBaseSM):
         self.params = None
         self.state = 'init'
         self.launch_count = 0
+        self.back_off = -1
         self.image = None
         self.flavor = None
         self.max_instances = 0
