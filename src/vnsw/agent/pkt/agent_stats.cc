@@ -15,6 +15,7 @@
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>
 #include <uve/agent_uve_base.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 
 AgentStats *AgentStats::singleton_;
 
@@ -61,6 +62,8 @@ void AgentStatsReq::HandleRequest() const {
             stats->flow_drop_due_to_linklocal_limit());
     flow->set_flow_max_system_flows(agent->flow_table_size());
     flow->set_flow_max_vm_flows(agent->pkt()->flow_table()->max_vm_flows());
+    flow->set_flow_export_msg_drops(
+        agent->flow_stats_collector()->flow_export_msg_drops());
     flow->set_context(context());
     flow->set_more(true);
     flow->Response();

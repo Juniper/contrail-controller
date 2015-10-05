@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <pkt/flow_table.h>
+#include <sandesh/common/flow_types.h>
 
 class FlowTableUnitTest : public FlowTable {
 public:

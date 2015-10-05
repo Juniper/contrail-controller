@@ -59,6 +59,34 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
                             (MULTICAST_FLOW, "00000000-0000-0000-0000-000000000005")
                             (NON_IP_FLOW,    "00000000-0000-0000-0000-000000000006");
 
+const std::map<uint16_t, const char*>
+    FlowEntry::FlowDropReasonStr = boost::assign::map_list_of
+        ((uint16_t)DROP_UNKNOWN,                 "UNKNOWN")
+        ((uint16_t)SHORT_UNAVIALABLE_INTERFACE,
+         "SHORT_UNAVIALABLE_INTERFACE")
+        ((uint16_t)SHORT_IPV4_FWD_DIS,       "SHORT_IPV4_FWD_DIS")
+        ((uint16_t)SHORT_UNAVIALABLE_VRF,
+         "SHORT_UNAVIALABLE_VRF")
+        ((uint16_t)SHORT_NO_SRC_ROUTE,       "SHORT_NO_SRC_ROUTE")
+        ((uint16_t)SHORT_NO_DST_ROUTE,       "SHORT_NO_DST_ROUTE")
+        ((uint16_t)SHORT_AUDIT_ENTRY,        "SHORT_AUDIT_ENTRY")
+        ((uint16_t)SHORT_VRF_CHANGE,         "SHORT_VRF_CHANGE")
+        ((uint16_t)SHORT_NO_REVERSE_FLOW,    "SHORT_NO_REVERSE_FLOW")
+        ((uint16_t)SHORT_REVERSE_FLOW_CHANGE,
+         "SHORT_REVERSE_FLOW_CHANGE")
+        ((uint16_t)SHORT_NAT_CHANGE,         "SHORT_NAT_CHANGE")
+        ((uint16_t)SHORT_FLOW_LIMIT,         "SHORT_FLOW_LIMIT")
+        ((uint16_t)SHORT_LINKLOCAL_SRC_NAT,
+         "SHORT_LINKLOCAL_SRC_NAT")
+        ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
+         "SHORT_FAILED_VROUTER_INST")
+        ((uint16_t)DROP_POLICY,              "DROP_POLICY")
+        ((uint16_t)DROP_OUT_POLICY,          "DROP_OUT_POLICY")
+        ((uint16_t)DROP_SG,                  "DROP_SG")
+        ((uint16_t)DROP_OUT_SG,              "DROP_OUT_SG")
+        ((uint16_t)DROP_REVERSE_SG,          "DROP_REVERSE_SG")
+        ((uint16_t)DROP_REVERSE_OUT_SG,      "DROP_REVERSE_OUT_SG");
+
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowTable::default_sg_list_;
@@ -863,7 +891,8 @@ void FlowEntry::UpdateKSync(FlowTable* table) {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        table->FlowExport(this, 0, 0);
+        FlowStatsCollector *fec = table->agent()->flow_stats_collector();
+        fec->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
@@ -1719,7 +1748,7 @@ void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
     fe->stats_.teardown_time = time;
-    FlowExport(fe, diff_bytes, diff_packets);
+    fec->FlowExport(fe, diff_bytes, diff_packets);
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */
@@ -3399,6 +3428,14 @@ uint32_t FlowEntry::reverse_flow_vmport_id() const {
     return Interface::kInvalidIndex;
 }
 
+bool FlowEntry::IsActionLog() const {
+    uint32_t fe_action = data_.match_p.action_info.action;
+    if (fe_action & (1 << TrafficAction::LOG)) {
+        return true;
+    }
+    return false;
+}
+
 string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
     string uuid_str = UuidToString(acl->GetUuid());
     stringstream ss;
@@ -3518,192 +3555,4 @@ void FlowTable::Shutdown() {
     delete nh_listener_;
 }
 
-bool FlowTable::SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow) {
-    uint16_t underlay_src_port = 0;
-    bool exported = false;
-    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
-        /* Set source_port as 0 for local flows. Source port is calculated by
-         * vrouter irrespective of whether flow is local or not. So for local
-         * flows we need to ignore port given by vrouter
-         */
-        s_flow.set_underlay_source_port(0);
-        exported = true;
-    } else {
-        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
-            underlay_src_port = flow->underlay_source_port();
-            if (underlay_src_port) {
-                exported = true;
-            }
-        } else {
-            exported = true;
-        }
-        s_flow.set_underlay_source_port(underlay_src_port);
-    }
-    flow->set_underlay_sport_exported(exported);
-    return exported;
-}
 
-void FlowTable::SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow) {
-    string rid = agent_->router_id().to_string();
-    uint16_t underlay_src_port = 0;
-    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
-        s_flow.set_vrouter_ip(rid);
-        s_flow.set_other_vrouter_ip(rid);
-        /* Set source_port as 0 for local flows. Source port is calculated by
-         * vrouter irrespective of whether flow is local or not. So for local
-         * flows we need to ignore port given by vrouter
-         */
-        s_flow.set_underlay_source_port(0);
-        flow->set_underlay_sport_exported(true);
-    } else {
-        s_flow.set_vrouter_ip(rid);
-        s_flow.set_other_vrouter_ip(flow->peer_vrouter());
-        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
-            underlay_src_port = flow->underlay_source_port();
-            if (underlay_src_port) {
-                flow->set_underlay_sport_exported(true);
-            }
-        } else {
-            flow->set_underlay_sport_exported(true);
-        }
-        s_flow.set_underlay_source_port(underlay_src_port);
-    }
-    s_flow.set_underlay_proto(flow->tunnel_type().GetType());
-}
-
-/* For ingress flows, change the SIP as Nat-IP instead of Native IP */
-void FlowTable::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
-    FlowEntry *rev_flow = flow->reverse_flow_entry();
-    if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
-        rev_flow) {
-        const FlowKey *nat_key = &rev_flow->key();
-        if (flow->key().src_addr != nat_key->dst_addr) {
-            // TODO: IPV6
-            if (flow->key().family == Address::INET) {
-                s_flow.set_sourceip(nat_key->dst_addr.to_v4().to_ulong());
-            } else {
-                s_flow.set_sourceip(0);
-            }
-        }
-    }
-}
-
-void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
-                           uint64_t diff_pkts) {
-    if (agent_->params()->disable_flow_collection())
-        return;
-
-    FlowDataIpv4   s_flow;
-    SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
-    FlowStats &stats = flow->stats_;
-
-    s_flow.set_flowuuid(to_string(flow->flow_uuid()));
-    s_flow.set_bytes(stats.bytes);
-    s_flow.set_packets(stats.packets);
-    s_flow.set_diff_bytes(diff_bytes);
-    s_flow.set_diff_packets(diff_pkts);
-
-    // TODO: IPV6
-    if (flow->key().family == Address::INET) {
-        s_flow.set_sourceip(flow->key().src_addr.to_v4().to_ulong());
-        s_flow.set_destip(flow->key().dst_addr.to_v4().to_ulong());
-    } else {
-        s_flow.set_sourceip(0);
-        s_flow.set_destip(0);
-    }
-    s_flow.set_protocol(flow->key().protocol);
-    s_flow.set_sport(flow->key().src_port);
-    s_flow.set_dport(flow->key().dst_port);
-    s_flow.set_sourcevn(flow->data().source_vn);
-    s_flow.set_destvn(flow->data().dest_vn);
-
-    if (stats.intf_in != Interface::kInvalidIndex) {
-        Interface *intf = InterfaceTable::GetInstance()->FindInterface(stats.intf_in);
-        if (intf && intf->type() == Interface::VM_INTERFACE) {
-            VmInterface *vm_port = static_cast<VmInterface *>(intf);
-            const VmEntry *vm = vm_port->vm();
-            if (vm) {
-                s_flow.set_vm(vm->GetCfgName());
-            }
-        }
-    }
-    s_flow.set_sg_rule_uuid(flow->sg_rule_uuid());
-    s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
-
-    FlowEntry *rev_flow = flow->reverse_flow_entry();
-    if (rev_flow) {
-        s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
-    }
-
-    // Flow setup(first) and teardown(last) messages are sent with higher
-    // priority.
-    if (!stats.exported) {
-        s_flow.set_setup_time(stats.setup_time);
-        // Set flow action
-        std::string action_str;
-        GetFlowSandeshActionParams(flow->match_p().action_info,
-            action_str);
-        s_flow.set_action(action_str);
-        stats.exported = true;
-        level = SandeshLevel::SYS_ERR;
-        SetUnderlayInfo(flow, s_flow);
-    } else {
-        /* When the flow is being exported for first time, underlay port
-         * info is set as part of SetUnderlayInfo. At this point it is possible
-         * that port is not yet populated to flow-entry because of either
-         * (i) flow-entry has not got chance to be evaluated by
-         *     flow-stats-collector
-         * (ii) there is no flow entry in vrouter yet
-         * (iii) the flow entry in vrouter does not have underlay source port
-         *       populated yet
-         */
-        if (!flow->underlay_sport_exported()) {
-            if (SetUnderlayPort(flow, s_flow)) {
-                level = SandeshLevel::SYS_ERR;
-            }
-        }
-    }
-
-    if (stats.teardown_time) {
-        s_flow.set_teardown_time(stats.teardown_time);
-        //Teardown time will be set in flow only when flow is deleted.
-        //We need to reset the exported flag when flow is getting deleted to
-        //handle flow entry reuse case (Flow add request coming for flows
-        //marked as deleted)
-        stats.exported = false;
-        flow->set_underlay_sport_exported(false);
-        level = SandeshLevel::SYS_ERR;
-    }
-
-    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
-        /* For local flows we need to send two flow log messages.
-         * 1. With direction as ingress
-         * 2. With direction as egress
-         * For local flows we have already sent flow log above with
-         * direction as ingress. We are sending flow log below with
-         * direction as egress.
-         */
-        s_flow.set_direction_ing(1);
-        SourceIpOverride(flow, s_flow);
-        DispatchFlowMsg(level, s_flow);
-        s_flow.set_direction_ing(0);
-        //Export local flow of egress direction with a different UUID even when
-        //the flow is same. Required for analytics module to query flows
-        //irrespective of direction.
-        s_flow.set_flowuuid(to_string(flow->egress_uuid()));
-        DispatchFlowMsg(level, s_flow);
-    } else {
-        if (flow->is_flags_set(FlowEntry::IngressDir)) {
-            s_flow.set_direction_ing(1);
-            SourceIpOverride(flow, s_flow);
-        } else {
-            s_flow.set_direction_ing(0);
-        }
-        DispatchFlowMsg(level, s_flow);
-    }
-
-}
-
-void FlowTable::DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
-}
