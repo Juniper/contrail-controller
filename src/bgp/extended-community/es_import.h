@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_EXTENDED_COMMUNITY_ES_IMPORT_H_
 #define SRC_BGP_EXTENDED_COMMUNITY_ES_IMPORT_H_
 
+#include "bgp/extended-community/types.h"
+
 #include <boost/array.hpp>
 #include <stdint.h>
 

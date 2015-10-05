@@ -12,14 +12,18 @@ class EsImportTest : public ::testing::Test {
 
 TEST_F(EsImportTest, ByteArray_1) {
     EsImport::bytes_type data =
-        { { 0x06, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 } };
+        { { BGP_EXTENDED_COMMUNITY_TYPE_EVPN,
+            BGP_EXTENDED_COMMUNITY_EVPN_ES_IMPORT,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06 } };
     EsImport es_import(data);
     EXPECT_EQ("esimport:01:02:03:04:05:06", es_import.ToString());
 }
 
 TEST_F(EsImportTest, ByteArray_2) {
     EsImport::bytes_type data =
-        { { 0x06, 0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff } };
+        { { BGP_EXTENDED_COMMUNITY_TYPE_EVPN,
+            BGP_EXTENDED_COMMUNITY_EVPN_ES_IMPORT,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff } };
     EsImport es_import(data);
     EXPECT_EQ("esimport:aa:bb:cc:dd:ee:ff", es_import.ToString());
 }

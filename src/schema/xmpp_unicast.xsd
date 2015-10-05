@@ -38,6 +38,34 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
      <xsd:element name="security-group" type="xsd:integer" maxOccurs="unbounded"/>
 </xsd:complexType> 
 
+<xsd:simpleType name="LoadBalanceFieldType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="l2-source-address"/>
+        <xsd:enumeration value="l2-destination-address"/>
+        <xsd:enumeration value="l3-source-address"/>
+        <xsd:enumeration value="l3-destination-address"/>
+        <xsd:enumeration value="l4-protocol"/>
+        <xsd:enumeration value="l4-source-port"/>
+        <xsd:enumeration value="l4-destination-port"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="LoadBalanceFieldListType">
+    <xsd:element name="load-balance-field-list" type="LoadBalanceFieldType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:simpleType name="LoadBalanceDecisionType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="field-hash"/>
+        <xsd:enumeration value="source-bias"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="LoadBalanceType">
+    <xsd:element name="load-balance-fields" type="LoadBalanceFieldListType"/>
+    <xsd:element name="load-balance-decision" type="LoadBalanceDecisionType" default="field-hash"/>
+</xsd:complexType>
+
 <xsd:complexType name="EntryType">
     <xsd:all>
         <xsd:element name="nlri" type="IPAddressType"/>
@@ -48,6 +76,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
         <xsd:element name="security-group-list" type="SecurityGroupListType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
         <xsd:element name="med" type="xsd:integer"/>
+        <xsd:element name="load-balance" type="LoadBalanceType"/>
     </xsd:all>
 </xsd:complexType>
 
