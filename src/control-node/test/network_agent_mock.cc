@@ -12,6 +12,7 @@
 #include "base/util.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "net/bgp_af.h"
@@ -371,6 +372,9 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
             rt_entry.entry.security_group_list.security_group.push_back(101);
         }
 
+        // Encode LoadBalance attribute
+        attributes.loadBalanceAttribute.encode(rt_entry.entry.load_balance);
+
         if (nexthops.empty()) {
             autogen::NextHopType item_nexthop;
             item_nexthop.af = BgpAf::IPv4;
@@ -430,6 +434,9 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
         } else {
             rt_entry.entry.security_group_list.security_group.push_back(101);
         }
+
+        // Encode LoadBalance attribute
+        attributes.loadBalanceAttribute.encode(rt_entry.entry.load_balance);
 
         if (nexthops.empty()) {
             autogen::NextHopType item_nexthop;
@@ -590,6 +597,9 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
         } else {
             rt_entry.entry.security_group_list.security_group.push_back(101);
         }
+
+        // Encode LoadBalance attribute
+        // attributes.loadBalanceAttribute.encode(rt_entry.entry.load_balance);
 
         if (nexthops.empty()) {
             autogen::EnetNextHopType item_nexthop;
