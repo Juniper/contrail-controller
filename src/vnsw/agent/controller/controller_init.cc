@@ -87,7 +87,6 @@ void VNController::XmppServerConnect() {
                 port = XMPP_SERVER_PORT;
             }
             xmpp_cfg->endpoint.port(port);
-            xmpp_cfg->tcp_hold_time = agent_->tcp_hold_time();
 
             // Create Xmpp Client
             XmppClient *client = new XmppClient(agent_->event_manager(), xmpp_cfg);
