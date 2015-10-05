@@ -131,13 +131,6 @@ TcpSession *XmppClient::CreateSession() {
         assert(0); 
     }
 
-    XmppSession *xmpps = static_cast<XmppSession *>(session);
-    err = xmpps->EnableTcpKeepalive(tcp_hold_time_);
-    if (err) {
-        DeleteSession(xmpps);
-        assert(0);
-    }
-
     return session;
 }
 
