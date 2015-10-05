@@ -468,8 +468,9 @@ class InstanceManager(object):
                 si.uuid, vm.uuid)
             if chosen_vr_fq_name:
                 vrouter_name = chosen_vr_fq_name[-1]
-                self.logger.log_info("VRouter %s updated with VM %s" %
+                self.logger.log_notice("vrouter %s updated with vm %s" %
                     (':'.join(chosen_vr_fq_name), vm.name))
+                vm.update()
         else:
             vr = VirtualRouterSM.get(vm.virtual_router)
             vrouter_name = vr.name
