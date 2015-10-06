@@ -106,6 +106,13 @@ struct LldpLocManAddrEntry {
     5: optional i32 lldpLocManAddrIfId
 }
 
+struct LldpLocPortEntry {
+    1: i32 lldpLocPortNum
+    2: i32 lldpLocPortIdSubtype
+    3: string lldpLocPortId
+    4: string lldpLocPortDesc
+}
+
 struct LldpLocalSystemData {
     1: string lldpLocChassisId
     2: i32 lldpLocChassisIdSubtype
@@ -114,6 +121,7 @@ struct LldpLocalSystemData {
     5: list <LldpSystemCapabilitiesMap> lldpLocSysCapEnabled
     6: list <LldpSystemCapabilitiesMap> lldpLocSysCapSupported
     7: LldpLocManAddrEntry lldpLocManAddrEntry
+    8: list<LldpLocPortEntry> lldpLocPortTable
 }
 
 struct LldpRemOrgDefInfoTable {
