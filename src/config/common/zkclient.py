@@ -226,11 +226,13 @@ class ZookeeperClient(object):
         logger = logging.getLogger(module)
         logger.setLevel(logging.DEBUG)
         try:
-            handler = logging.handlers.RotatingFileHandler(LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
+            handler = logging.handlers.RotatingFileHandler(
+                LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
             print "Cannot open log file in %s" %(LOG_DIR)
         else:
-            log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+            log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s',
+                                           datefmt='%m/%d/%Y %I:%M:%S %p')
             handler.setFormatter(log_format)
             logger.addHandler(handler)
 
@@ -242,8 +244,7 @@ class ZookeeperClient(object):
         # KazooRetry to retry keeper CRUD operations
         self._retry = KazooRetry(max_tries=None, max_delay=300,
                                  sleep_func=gevent.sleep)
-        self._zk_client = \
-            kazoo.client.KazooClient(
+        self._zk_client = kazoo.client.KazooClient(
                 server_list,
                 timeout=400,
                 handler=kazoo.handlers.gevent.SequentialGeventHandler(),
