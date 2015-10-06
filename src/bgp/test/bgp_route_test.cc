@@ -18,45 +18,36 @@
 
 #include "testing/gunit.h"
 
-class BgpPeerMock : public IPeer {
+using std::string;
+
+class PeerMock : public IPeer {
 public:
-    virtual std::string ToString() const {
-        return "test-peer";
+    PeerMock()
+        : peer_type_(BgpProto::IBGP),
+          address_(Ip4Address(0)) {
     }
-    virtual std::string ToUVEKey() const {
-        return "test-peer";
-    }
-    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
-        return true;
-    }
-    virtual BgpServer *server() {
-        return NULL;
-    }
-    virtual IPeerClose *peer_close() {
-        return NULL;
-    }
-    virtual IPeerDebugStats *peer_stats() {
-        return NULL;
-    }
-    virtual const IPeerDebugStats *peer_stats() const {
-        return NULL;
-    }
-    virtual bool IsReady() const {
-        return true;
-    }
-    virtual bool IsXmppPeer() const { return false; }
-    virtual void Close() {
-    }
-    virtual const std::string GetStateName() const {
-        return "UNKNOWN";
+    PeerMock(BgpProto::BgpPeerType peer_type, Ip4Address address)
+        : peer_type_(peer_type),
+          address_(address) {
     }
 
-    BgpProto::BgpPeerType PeerType() const {
-        return BgpProto::IBGP;
+    virtual string ToString() const {
+        return string("Peer_") + address_.to_string();
     }
-    virtual uint32_t bgp_identifier() const {
-        return 0;
+    virtual string ToUVEKey() const {
+        return string("Peer_") + address_.to_string();
     }
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
+    virtual BgpServer *server() { return NULL; }
+    virtual IPeerClose *peer_close() { return NULL; }
+    virtual IPeerDebugStats *peer_stats() { return NULL; }
+    virtual const IPeerDebugStats *peer_stats() const { return NULL; }
+    virtual bool IsReady() const { return true; }
+    virtual bool IsXmppPeer() const { return peer_type_ == BgpProto::XMPP; }
+    virtual void Close() { }
+    virtual const string GetStateName() const { return "Established"; }
+    BgpProto::BgpPeerType PeerType() const { return peer_type_; }
+    virtual uint32_t bgp_identifier() const { return address_.to_ulong(); }
     virtual void UpdateRefCount(int count) const { }
     virtual tbb::atomic<int> GetRefCount() const {
         tbb::atomic<int> count;
@@ -67,6 +58,8 @@ public:
     virtual int GetPrimaryPathCount() const { return 0; }
 
 private:
+    BgpProto::BgpPeerType peer_type_;
+    Ip4Address address_;
 };
 
 class BgpRouteTest : public ::testing::Test {
@@ -83,8 +76,6 @@ protected:
     EventManager evm_;
     BgpServer server_;
 };
-
-namespace {
 
 TEST_F(BgpRouteTest, Paths) {
     BgpAttrSpec spec;
@@ -105,7 +96,7 @@ TEST_F(BgpRouteTest, Paths) {
     attr->set_as_path(&as_path);
 
 
-    BgpPeerMock peer;
+    PeerMock peer;
     BgpPath *path = new BgpPath(&peer, BgpPath::BGP_XMPP, attr, 0, 0);
 
     Ip4Prefix prefix;
@@ -140,7 +131,156 @@ TEST_F(BgpRouteTest, Paths) {
     route.RemovePath(&peer);
 }
 
-}  // namespace
+//
+// Paths with same router id are considered are equal.
+//
+TEST_F(BgpRouteTest, PathCompareRouterId1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
+}
+
+//
+// Path with lower router id is better.
+//
+TEST_F(BgpRouteTest, PathCompareRouterId2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// Paths with same originator id are considered are equal even if router ids
+// are different.
+//
+TEST_F(BgpRouteTest, PathCompareOriginatorId1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    Ip4Address origid1 = Ip4Address::from_string("10.1.1.1", ec);
+    BgpAttrOriginatorId origid_spec1(origid1.to_ulong());
+    spec1.push_back(&origid_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.251", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    Ip4Address origid2 = Ip4Address::from_string("10.1.1.1", ec);
+    BgpAttrOriginatorId origid_spec2(origid2.to_ulong());
+    spec2.push_back(&origid_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.252", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
+}
+
+//
+// Path with lower originator id is better.
+// Router ids are the same.
+//
+TEST_F(BgpRouteTest, PathCompareOriginatorId2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    Ip4Address origid1 = Ip4Address::from_string("10.1.1.1", ec);
+    BgpAttrOriginatorId origid_spec1(origid1.to_ulong());
+    spec1.push_back(&origid_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    Ip4Address origid2 = Ip4Address::from_string("10.1.1.2", ec);
+    BgpAttrOriginatorId origid_spec2(origid2.to_ulong());
+    spec2.push_back(&origid_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// Path with lower originator id is better.
+// Router ids are different.
+//
+TEST_F(BgpRouteTest, PathCompareOriginatorId3) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    Ip4Address origid1 = Ip4Address::from_string("10.1.1.1", ec);
+    BgpAttrOriginatorId origid_spec1(origid1.to_ulong());
+    spec1.push_back(&origid_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.252", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    Ip4Address origid2 = Ip4Address::from_string("10.1.1.2", ec);
+    BgpAttrOriginatorId origid_spec2(origid2.to_ulong());
+    spec2.push_back(&origid_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.251", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// Path with lower originator id than other path's router id is better.
+// One path has originator id and other path has no originator id.
+//
+TEST_F(BgpRouteTest, PathCompareOriginatorId4) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    Ip4Address origid1 = Ip4Address::from_string("10.1.1.1", ec);
+    BgpAttrOriginatorId origid_spec1(origid1.to_ulong());
+    spec1.push_back(&origid_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
 
 static void SetUp() {
     bgp_log_test::init();
