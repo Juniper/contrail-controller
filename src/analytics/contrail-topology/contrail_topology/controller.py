@@ -113,16 +113,28 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
+                loc_pname = [x for x in d['PRouterEntry']['lldpTable'][
+                        'lldpLocalSystemData']['lldpLocPortTable'] if x[
+                        'lldpLocPortNum'] == pl['lldpRemLocalPortNum']][
+                        0]['lldpLocPortDesc']
+                pl['lldpRemLocalPortNum'] = [k for k in ifm if ifm[
+                                        k] == loc_pname][0]
                 if pl['lldpRemLocalPortNum'] in ifm and self._chk_lnk(
                         d['PRouterEntry'], pl['lldpRemLocalPortNum']):
                     if pl['lldpRemPortId'].isdigit():
                         rii = int(pl['lldpRemPortId'])
                     else:
                         try:
-                            rii = filter(lambda y: y['ifName'] == pl[
-                                    'lldpRemPortId'], [ x for x in self.prouters \
+                            rpn = filter(lambda y: y['lldpLocPortId'] == pl[
+                                    'lldpRemPortId'], [
+                                    x for x in self.prouters if x.name == pl[
+                                    'lldpRemSysName']][0].data['PRouterEntry'][
+                                    'lldpTable']['lldpLocalSystemData'][
+                                    'lldpLocPortTable'])[0]['lldpLocPortDesc']
+                            rii = filter(lambda y: y['ifDescr'] == rpn,
+                                    [ x for x in self.prouters \
                                     if x.name == pl['lldpRemSysName']][0].data[
-                                    'PRouterEntry']['ifXTable'])[0]['ifIndex']
+                                    'PRouterEntry']['ifTable'])[0]['ifIndex']
                         except:
                             rii = 0
 

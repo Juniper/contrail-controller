@@ -146,8 +146,19 @@ class LldpTable(SnmpTable):
         return self.default_value(x)
 
     def lldpLocalSystemData_translator(self, snmp_dict):
-        for x in filter(lambda x:'LocPort' not in x.tag, snmp_dict['vars']):
-            if x.iid == '0':
+        # for x in filter(lambda x:'LocPort' not in x.tag, snmp_dict['vars']):
+        for x in snmp_dict['vars']:
+            if 'LocPort' in x.tag:
+                if 'lldpLocPortTable' not in self.lldpLocalSystemData:
+                    self.lldpLocalSystemData['lldpLocPortTable'] = {}
+                lldpLocPortNum = int(x.iid)
+                if lldpLocPortNum not in self.lldpLocalSystemData[
+                                                        'lldpLocPortTable']:
+                    self.lldpLocalSystemData['lldpLocPortTable'][
+                        lldpLocPortNum] = dict(lldpLocPortNum=lldpLocPortNum)
+                self.lldpLocalSystemData['lldpLocPortTable'][lldpLocPortNum][
+                                                    x.tag] = self.normalize(x)
+            elif x.iid == '0':
                 self.lldpLocalSystemData[x.tag] = self.normalize(x,
                         ('lldpLocChassisId', ), self.capabilities)
             elif x.iid:

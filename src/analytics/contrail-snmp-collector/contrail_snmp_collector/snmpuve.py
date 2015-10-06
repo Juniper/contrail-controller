@@ -12,7 +12,7 @@ from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          LldpRemManAddrEntry, LldpRemoteSystemsData, \
          dot1qTpFdbPortTable, dot1dBasePortIfIndexTable, \
          LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, \
-         PRouterFlowUVE, IfIndexOperStatusTable
+         PRouterFlowUVE, IfIndexOperStatusTable, LldpLocPortEntry
 from opserver.sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
@@ -212,6 +212,12 @@ class SnmpUve(object):
                         'lldpLocSysCapSupported'] = map(self._to_cap_map,
                             data['lldpTable']['lldpLocalSystemData'][
                             'lldpLocSysCapSupported'])
+                if 'lldpLocPortTable' in data['lldpTable'][
+                                                        'lldpLocalSystemData']:
+                    data['lldpTable']['lldpLocalSystemData'][
+                        'lldpLocPortTable'] = [LldpLocPortEntry(
+                            **x) for x in data['lldpTable'][
+                            'lldpLocalSystemData']['lldpLocPortTable'].values()]
                 data['lldpTable']['lldpLocalSystemData'] = \
                     LldpLocalSystemData(**data['lldpTable'][
                             'lldpLocalSystemData'])
