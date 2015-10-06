@@ -1104,6 +1104,7 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         cf_def.__set_keyspace(tablespace_);
         cf_def.__set_name(cf.cfname_);
         cf_def.__set_gc_grace_seconds(0);
+        cf_def.__set_compaction_strategy("LeveledCompactionStrategy");
 
         std::string key_valid_class;
         if (!DbDataTypeVecToCompositeType(key_valid_class,
@@ -1164,6 +1165,8 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         cf_def.__set_keyspace(tablespace_);
         cf_def.__set_name(cf.cfname_);
         cf_def.__set_gc_grace_seconds(0);
+        cf_def.__set_compaction_strategy("LeveledCompactionStrategy");
+
         // Key Validation
         std::string key_valid_class;
         if (!DbDataTypeVecToCompositeType(key_valid_class,
