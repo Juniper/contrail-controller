@@ -93,6 +93,9 @@ struct SFlowFlowHeader : public SFlowFlowRecord {
     SFlowFlowEthernetData decoded_eth_data;
     SFlowFlowIpData decoded_ip_data;
 
+    // protocol + frame_length + stripped + header_length
+    static const size_t kFlowHeaderInfoLen = 16;
+
     explicit SFlowFlowHeader(uint32_t flow_record_len)
         : SFlowFlowRecord(SFLOW_FLOW_HEADER, flow_record_len),
           protocol(), frame_length(), stripped(), header_length(),

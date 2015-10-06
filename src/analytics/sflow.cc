@@ -152,14 +152,14 @@ bool SFlowFlowHeader::operator==(const SFlowFlowHeader& rhs) const {
         return false;
     }
     if (is_eth_data_set == rhs.is_eth_data_set) {
-        if (!(decoded_eth_data == rhs.decoded_eth_data)) {
+        if (is_eth_data_set && !(decoded_eth_data == rhs.decoded_eth_data)) {
             return false;
         }
     } else {
         return false;
     }
     if (is_ip_data_set == rhs.is_ip_data_set) {
-        if (!(decoded_ip_data == rhs.decoded_ip_data)) {
+        if (is_ip_data_set && !(decoded_ip_data == rhs.decoded_ip_data)) {
             return false;
         }
     } else {

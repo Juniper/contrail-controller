@@ -63,6 +63,7 @@ private:
                            SFlowFlowIpData& ip_data);
     bool VerifyLength(const uint32_t* start_decode_ptr, size_t len);
     bool CanReadBytes(size_t len);
+    void SkipBytesNoCheck(size_t len);
     int SkipBytes(size_t len);
     void ReadData32NoCheck(uint32_t& data32);
     int ReadData32(uint32_t& data32);

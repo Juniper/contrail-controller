@@ -20,20 +20,27 @@ public:
     }
 
     void WriteEthHdr(const std::string& dmac, const std::string& smac,
-                     uint16_t ether_type) {
+                     uint16_t proto, int16_t vlan_id) {
         struct ether_header* eth = (struct ether_header*)(buff_ + len_);
+        len_ += sizeof(struct ether_header);
 
         MacAddress::FromString(dmac).ToArray(eth->ether_dhost,
                                              sizeof(eth->ether_dhost));
         MacAddress::FromString(smac).ToArray(eth->ether_shost,
                                              sizeof(eth->ether_shost));
-        eth->ether_type = htons(ether_type);
-        len_ += sizeof(struct ether_header);
+        uint16_t* ptr = (uint16_t*)(buff_ + (ETHER_ADDR_LEN*2));
+        if (vlan_id != -1) {
+            *ptr++ = htons(ETHERTYPE_VLAN);
+            *ptr++ = htons(vlan_id & 0xFFF);
+            len_ += 4;
+        }
+        *ptr = htons(proto);
     }
 
     void WriteIpHdr(const std::string& sip, const std::string& dip,
                     uint16_t proto, uint16_t ip_len) {
         struct ip* iph = (struct ip*)(buff_ + len_);
+        len_ += sizeof(struct ip);
 
         iph->ip_hl = 5;
         iph->ip_v = 4;
@@ -41,28 +48,27 @@ public:
         iph->ip_src.s_addr = inet_addr(sip.c_str());
         iph->ip_dst.s_addr = inet_addr(dip.c_str());
         iph->ip_p = proto;
-        len_ += sizeof(struct ip);
     }
 
     void WriteUdpHdr(uint16_t sport, uint16_t dport) {
         struct udphdr* udp = (struct udphdr*)(buff_ + len_);
+        len_ += sizeof(udphdr);
         udp->source = htons(sport);
         udp->dest = htons(dport);
-        len_ += sizeof(udphdr);
     }
 
     void WriteTcpHdr(uint16_t sport, uint16_t dport) {
         struct tcphdr* tcp = (struct tcphdr*)(buff_ + len_);
+        len_ += sizeof(tcphdr);
         tcp->source = htons(sport);
         tcp->dest = htons(dport);
-        len_ += sizeof(tcphdr);
     }
 
     void WriteIcmpHdr(uint16_t icmp_type, uint16_t icmpid) {
         struct icmp* icmp = (struct icmp*)(buff_ + len_);
+        len_ += sizeof(struct icmp);
         icmp->icmp_type = icmp_type;
         icmp->icmp_id = icmpid;
-        len_ += sizeof(struct icmp);
     }
 
     const uint8_t* GetPktHeader() const {
