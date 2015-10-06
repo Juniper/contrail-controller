@@ -1,16 +1,22 @@
 import json
 import os
+import logging
 
-def validate_custom_attributes(config, section):
+def validate_custom_attributes(config, section, keystone_auth_conf_file=None):
     return {}
 
 try:
     from haproxy_validator import validate_custom_attributes as validator
     from haproxy_validator import custom_attributes_dict
+    from haproxy_cert import Barbican_Cert_Manager
 except ImportError:
     validator = validate_custom_attributes
     custom_attributes_dict = {}
 
+# Setup logger
+logging.basicConfig(filename='/var/log/contrail/haproxy_parse.log', level=logging.WARNING)
+
+# Setup global definitions
 PROTO_TCP = 'TCP'
 PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
@@ -38,7 +44,7 @@ PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 
 HTTPS_PORT = 443
 
-def build_config(conf_file):
+def build_config(conf_file, keystone_auth_conf_file):
     with open(conf_file) as data_file:
         config = json.load(data_file)
     conf_dir = os.path.dirname(conf_file)
@@ -47,12 +53,20 @@ def build_config(conf_file):
     sock_path = conf_dir + '/haproxy.sock'
     conf = _set_global_config(config, sock_path) + '\n\n'
     conf += _set_defaults(config) + '\n\n'
-    conf += _set_frontend(config) + '\n\n'
+    conf += _set_frontend(config, conf_dir, keystone_auth_conf_file) + '\n\n'
     conf += _set_backend(config) + '\n'
     filename = conf_dir + '/haproxy.conf'
     conf_file = open(filename, 'w')
     conf_file.write(conf)
     return filename
+
+def _construct_config_block(lb_config, conf, custom_attr_section, custom_attributes):
+    for key, value in custom_attributes.iteritems():
+        cmd = custom_attributes_dict['global'][key]['cmd']
+        conf.append(cmd % value)
+
+    res = "\n\t".join(conf)
+    return res
 
 def _set_global_config(config, sock_path):
     global_custom_attributes = validator(config, 'global')
@@ -77,11 +91,9 @@ def _set_global_config(config, sock_path):
         'maxconn %d' % maxconn
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
-    for key, value in global_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['global'][key]['cmd']
-        conf.append(cmd % value)
 
-    return ("\n\t".join(conf))
+    return _construct_config_block(config, conf, "global", global_custom_attributes)
+
 
 def _set_defaults(config):
     default_custom_attributes = validator(config, 'default')
@@ -102,18 +114,21 @@ def _set_defaults(config):
         'timeout server %d' % server_timeout,
     ]
 
-    for key, value in default_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['default'][key]['cmd']
-        conf.append(cmd % value)
+    return _construct_config_block(config, conf, "default", default_custom_attributes)
 
-    return ("\n\t".join(conf))
-
-def _set_frontend(config):
+def _set_frontend(config, conf_dir, keystone_auth_conf_file):
     port = config['vip']['port']
-    vip_custom_attributes = validator(config, 'vip')
+    vip_custom_attributes = validator(config, 'vip', keystone_auth_conf_file)
     ssl = ''
+
+    if 'tls_container' in vip_custom_attributes:
+        data = vip_custom_attributes.pop('tls_container', None)
+        crt_file = _populate_pem_file(data, conf_dir)
+    else:
+        crt_file = config['ssl-crt']
+
     if config['vip']['protocol'] == PROTO_HTTPS:
-        ssl = 'ssl crt %s no-sslv3' % config['ssl-crt']
+        ssl = 'ssl crt %s no-sslv3' % crt_file
     conf = [
         'frontend %s' % config['vip']['id'],
         'option tcplog',
@@ -127,11 +142,7 @@ def _set_frontend(config):
             config['vip']['protocol'] == PROTO_HTTPS:
         conf.append('option forwardfor')
 
-    for key, value in vip_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['vip'][key]['cmd']
-        conf.append(cmd % value)
-
-    return ("\n\t".join(conf))
+    return _construct_config_block(config, conf, "vip", vip_custom_attributes)
 
 def _set_backend(config):
     pool_custom_attributes = validator(config, 'pool')
@@ -142,10 +153,6 @@ def _set_backend(config):
     ]
     if config['pool']['protocol'] == PROTO_HTTP:
         conf.append('option forwardfor')
-
-    for key, value in pool_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['pool'][key]['cmd']
-        conf.append(cmd % value)
 
     server_suffix, monitor_conf = _set_health_monitor(config)
     conf.extend(monitor_conf)
@@ -161,11 +168,7 @@ def _set_backend(config):
             server += ' cookie %d' % config['members'].index(member)
         conf.append(server)
 
-    for key, value in pool_custom_attributes.iteritems():
-        cmd = custom_attributes_dict['pool'][key]['cmd']
-        conf.append(cmd % value)
-
-    return ("\n\t".join(conf))
+    return _construct_config_block(config, conf, "pool", pool_custom_attributes)
 
 def _set_health_monitor(config):
     for monitor in config['healthmonitors']:
@@ -216,3 +219,10 @@ def _get_codes(codes):
         else:
             response.add(code)
     return response
+
+def _populate_pem_file(data, conf_dir):
+    crt_filename = conf_dir + '/crtbundle.pem'
+    with open(crt_filename, 'w+') as outfile:
+        outfile.write(data)
+
+    return crt_filename

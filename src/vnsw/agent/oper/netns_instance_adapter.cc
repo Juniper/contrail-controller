@@ -1,6 +1,8 @@
 #include "oper/netns_instance_adapter.h"
 #include "oper/service_instance.h"
 #include "oper/instance_task.h"
+#include "agent.h"
+#include "init/agent_param.h"
 
 InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Properties &props, bool update) {
     std::stringstream cmd_str;
@@ -36,6 +38,10 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/conf.json";
         cmd_str << " --pool-id " << props.pool_id;
+        if (!agent_->params()->si_lb_keystone_auth_conf_path().empty()) {
+            cmd_str << " --keystone-auth-cfg-file " <<
+                agent_->params()->si_lb_keystone_auth_conf_path();
+        }
     }
 
     if (update) {

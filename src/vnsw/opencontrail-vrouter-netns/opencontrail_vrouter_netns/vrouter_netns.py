@@ -59,7 +59,8 @@ class NetnsManager(object):
 
     def __init__(self, vm_uuid, nic_left, nic_right, other_nics=None,
                  root_helper='sudo', cfg_file=None, update=False,
-                 pool_id=None, gw_ip=None, namespace_name=None):
+                 pool_id=None, gw_ip=None, namespace_name=None,
+                 keystone_auth_cfg_file=None):
         self.vm_uuid = vm_uuid
         if namespace_name is None:
             self.namespace = self.NETNS_PREFIX + self.vm_uuid
@@ -84,6 +85,7 @@ class NetnsManager(object):
         self.cfg_file = cfg_file
         self.update = update
         self.gw_ip = gw_ip
+        self.keystone_auth_cfg_file = keystone_auth_cfg_file
 
     def _get_tap_name(self, uuid_str):
             return (self.TAP_PREFIX + uuid_str)[:self.DEV_NAME_LEN]
@@ -132,7 +134,8 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             self.create()
 
-        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True)
+        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True,
+                                             self.keystone_auth_cfg_file)
 
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
@@ -143,7 +146,7 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
-       
+
         haproxy_process.stop_haproxy(self.cfg_file, True)
 
         try:
@@ -320,6 +323,10 @@ class VRouterNetns(object):
             "--pool-id",
             default=None,
             help=("Loadbalancer Pool"))
+        create_parser.add_argument(
+            "--keystone-auth-cfg-file",
+            default=None,
+            help=("Keystone auth config file for lbaas"))
         create_parser.set_defaults(func=self.create)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -378,10 +385,11 @@ class VRouterNetns(object):
                 nic_right['ip'] = None
 
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
-                                 root_helper=self.args.root_helper,
-                                 cfg_file=self.args.cfg_file,
-                                 update=self.args.update, gw_ip=self.args.gw_ip,
-                                 pool_id=self.args.pool_id)
+                             root_helper=self.args.root_helper,
+                             cfg_file=self.args.cfg_file,
+                             update=self.args.update, gw_ip=self.args.gw_ip,
+                             pool_id=self.args.pool_id,
+                             keystone_auth_cfg_file=self.args.keystone_auth_cfg_file)
 
         if (self.args.update is False):
             if netns_mgr.is_netns_already_exists():
