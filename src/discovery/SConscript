@@ -82,6 +82,10 @@ env.Depends(local_sources_rules, autogen_infra_sources)
 env.Depends(sdist_gen, sdist_depends)
 env.Alias('src/discovery:discovery', sdist_gen)
 
+# Documentation
+doc_files = []
+doc_files += env.SandeshGenDoc('discovery_introspect.sandesh')
+
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
                               cd_cmd + 'python setup.py install %s' %
@@ -96,6 +100,8 @@ env.Alias('install', env.InstallAs(
     '/contrail-discovery', 'contrail-discovery.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-discovery.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-discovery/', doc_files))
 
 subdirs = [
            'client'
