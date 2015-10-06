@@ -2377,7 +2377,6 @@ class BgpRouterST(DBBaseST):
 
 class VirtualMachineInterfaceST(DBBaseST):
     _dict = {}
-    _service_vmi_list = []
     obj_type = 'virtual_machine_interface'
 
     def __init__(self, name, obj=None):
@@ -2416,11 +2415,6 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_single_ref('virtual_machine', {})
         self.update_multiple_refs('instance_ip', {})
         self.update_multiple_refs('floating_ip', {})
-
-        try:
-            self._service_vmi_list.remove(self)
-        except ValueError:
-            pass
     # end delete_obj
 
     def evaluate(self):
@@ -2429,10 +2423,6 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.process_analyzer()
         self.recreate_vrf_assign_table()
     # end evaluate
-
-    @classmethod
-    def get_service_interfaces(cls):
-        return cls._service_vmi_list
 
     def get_any_instance_ip_address(self):
         for ip_name in self.instance_ips:
@@ -2443,12 +2433,7 @@ class VirtualMachineInterfaceST(DBBaseST):
     # end get_any_instance_ip_address
 
     def set_service_interface_type(self, service_interface_type):
-        if self.service_interface_type == service_interface_type:
-            return
-        if service_interface_type is not None:
-            self._service_vmi_list.append(self)
         self.service_interface_type = service_interface_type
-        self._add_pbf_rules()
     # end set_service_interface_type
 
     def set_interface_mirror(self, interface_mirror):
