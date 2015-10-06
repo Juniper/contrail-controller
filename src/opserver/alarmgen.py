@@ -839,8 +839,7 @@ class Controller(object):
                 else:
                     alm_copy = copy.deepcopy(self.tab_alarms[tab][uv])
                     ustruct = UVEAlarms(name = uve_name,
-                            alarms = alm_copy.values(),
-                            deleted = False)
+                            alarms = alm_copy.values())
                 alarm_msg = AlarmTrace(data=ustruct, table=tab, \
                         sandesh=self._sandesh)
                 self._logger.info('send alarm: %s' % (alarm_msg.log()))

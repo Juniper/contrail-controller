@@ -230,12 +230,12 @@ class UVEServer(object):
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')
 
+        if flat and not sfilter and not mfilter and self._uvedbcache:
+            return self._uvedbcache.get_uve(key, filters)
+
         is_alarm = False
         if tfilter == "UVEAlarms": 
             is_alarm = True
-
-        if flat and not sfilter and not mfilter and self._uvedbcache:
-            return self._uvedbcache.get_uve(key, filters, is_alarm)
 
         state = {}
         state[key] = {}
@@ -383,10 +383,19 @@ class UVEServer(object):
             is_alarm = True
         uve_list = set()
         kfilter = filters.get('kfilt')
+        sfilter = filters.get('sfilt')
+        mfilter = filters.get('mfilt')
+
         if kfilter is not None:
             patterns = set()
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
+        else:
+            if not sfilter and not mfilter and self._uvedbcache:
+                rsp = self._uvedbcache.get_uve_list(table, filters)
+                if table in rsp:
+                    uve_list = rsp[table]
+                return uve_list
 
         for r_inst in self._redis_uve_map.keys():
             try:
@@ -408,17 +417,14 @@ class UVEServer(object):
                         if not kfilter_match:
                             continue
                     src = info[1]
-                    sfilter = filters.get('sfilt')
                     if sfilter is not None:
                         if sfilter != src:
                             continue
                     module = info[2]+':'+info[3]+':'+info[4]
-                    mfilter = filters.get('mfilt')
                     if mfilter is not None:
                         if mfilter != module:
                             continue
                     typ = info[5]
-                    tfilter = filters.get('cfilt')
                     if tfilter is not None:
                         if typ not in tfilter:
                             continue

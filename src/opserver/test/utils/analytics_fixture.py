@@ -2239,6 +2239,8 @@ class AnalyticsFixture(fixtures.Fixture):
                 for alarm in item['value']['UVEAlarms']['alarms']:
                     if 'token' in alarm:
                         del alarm['token']
+            if '__SOURCE__' in item['value']:
+                del item['value']['__SOURCE__']
     # end _remove_alarm_token
 
     def _verify_uves(self, exp_uves, actual_uves):
