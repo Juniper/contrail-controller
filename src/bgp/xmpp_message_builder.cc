@@ -199,6 +199,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     item.entry.version = 1;
     item.entry.virtual_network = GetVirtualNetwork(route);
     item.entry.local_preference = roattr->attr()->local_pref();
+    item.entry.med = roattr->attr()->med();
     item.entry.sequence_number = sequence_number_;
 
     assert(!roattr->nexthop_list().empty());
@@ -284,6 +285,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         integerToString(evpn_prefix.ip_address_length());
     item.entry.virtual_network = GetVirtualNetwork(route);
     item.entry.local_preference = roattr->attr()->local_pref();
+    item.entry.med = roattr->attr()->med();
     item.entry.sequence_number = sequence_number_;
 
     for (vector<int>::iterator it = security_group_list_.begin();

@@ -363,6 +363,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
 
     if (add) {
         rt_entry.entry.local_preference = attributes.local_pref;
+        rt_entry.entry.med = attributes.med;
         rt_entry.entry.sequence_number = attributes.sequence;
         if (attributes.sgids.size()) {
             rt_entry.entry.security_group_list.security_group = attributes.sgids;
@@ -951,12 +952,13 @@ bool NetworkAgentMock::IsEstablished() {
 
 void NetworkAgentMock::AddRoute(const string &network_name,
                                 const string &prefix, const string nexthop,
-                                int local_pref) {
+                                int local_pref, int med) {
     NextHops nexthops;
     if (!nexthop.empty()) {
         nexthops.push_back(NextHop(nexthop, 0));
     }
-    RouteAttributes attributes(local_pref);
+    RouteAttributes attributes(
+        local_pref, med, RouteAttributes::GetDefaultSequence());
 
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
