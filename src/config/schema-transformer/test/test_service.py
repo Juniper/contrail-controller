@@ -193,6 +193,13 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('virtual network %s still exists' % str(fq_name))
 
     @retries(5, hook=retry_exc_handler)
+    def check_st_vm_is_deleted(self, name):
+        vm_obj = config_db.VirtualMachineST.get(name)
+        if vm_obj is not None:
+            raise Exception('vm %s still exists' % name)
+        return
+
+    @retries(5, hook=retry_exc_handler)
     def check_lr_is_deleted(self, uuid):
         try:
             self._vnc_lib.logical_router_read(id=uuid)
@@ -1512,14 +1519,12 @@ class TestPolicy(test_case.STTestCase):
 
         self._security_group_rule_remove(sg1_obj, rule_in_obj)
         self._vnc_lib.security_group_update(sg1_obj)
+        self._vnc_lib.security_group_delete(fq_name=sg1_obj.get_fq_name())
         self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'ingress-access-control-list', 
                                                         sg1_obj.get_security_group_id())
         self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
                                                         sg1_obj.get_security_group_id())
-        self.check_no_policies_for_sg(sg1_obj.get_fq_name())
-
-        self._vnc_lib.security_group_delete(fq_name=sg1_obj.get_fq_name())
-    #end test_sg
+    #end test_delete_sg
 
     def test_asn(self):
         # create  vn1
@@ -1824,8 +1829,24 @@ class TestPolicy(test_case.STTestCase):
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
 
+        # create virtual machine and create VMI and set VM as parent of VMI
+        # perform delete operations
+        vm_name = self.id() + 'vm1'
+        vm = VirtualMachine(vm_name)
+        self._vnc_lib.virtual_machine_create(vm)
+
+        # create virtual machine interface
+        vmi_name = self.id() + 'vmi1'
+        vmi = VirtualMachineInterface(vmi_name, parent_type='virtual-machine',\
+                                     fq_name=[vm_name, vmi_name])
+        vmi.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        self.check_st_vm_is_deleted(vm_name)
 
     #end test_misc
 
