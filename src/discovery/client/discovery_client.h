@@ -214,6 +214,7 @@ private:
     bool shutdown_;
     std::string subscriber_name_;
     int heartbeat_interval_;
+    std::string local_addr_;
 };
 
 #endif  // __DISCOVERY_SERVICE_CLIENT_H__
