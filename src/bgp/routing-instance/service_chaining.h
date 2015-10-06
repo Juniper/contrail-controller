@@ -259,7 +259,7 @@ public:
     void Enqueue(ServiceChainRequestT *req);
 
 private:
-    friend class ServiceChainTest;
+    template <typename U> friend class ServiceChainTest;
 
     // All service chain related actions are performed in the context
     // of this task. This task has exclusion with db::DBTable task.
