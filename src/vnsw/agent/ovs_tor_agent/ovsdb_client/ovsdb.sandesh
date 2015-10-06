@@ -266,6 +266,7 @@ struct OvsdbMulticastMacLocalEntry {
     2: string mac;
     3: string logical_switch;
     4: i64 vxlan_id;
+    5: list<string> tor_ip;
 }
 
 response sandesh OvsdbMulticastMacLocalResp {

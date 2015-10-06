@@ -12,7 +12,6 @@ extern "C" {
 #include <physical_switch_ovsdb.h>
 #include <logical_switch_ovsdb.h>
 #include <physical_locator_ovsdb.h>
-#include <multicast_mac_local_ovsdb.h>
 
 #include <oper/vn.h>
 #include <oper/vrf.h>
@@ -25,34 +24,30 @@ using namespace OVSDB;
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
                                        const std::string &name) :
     OvsdbDBEntry(table), name_(name), device_name_(), vxlan_id_(0),
-    mcast_local_row_(NULL), mcast_remote_row_(NULL), tor_ip_(),
-    mc_flood_entry_(NULL) {
+    mcast_local_row_list_(), mcast_remote_row_(NULL) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
-    name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
-    mcast_remote_row_(NULL), mc_flood_entry_(NULL) {
+    name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_list_(),
+    mcast_remote_row_(NULL) {
     vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device_display_name();
-    tor_ip_ = entry->tor_ip();
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const LogicalSwitchEntry *entry) : OvsdbDBEntry(table),
-    mcast_local_row_(NULL), mcast_remote_row_(NULL),
-    mc_flood_entry_(NULL) {
+    mcast_local_row_list_(), mcast_remote_row_(NULL) {
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
     device_name_ = entry->device_name_;
-    tor_ip_ = entry->tor_ip_;
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
     name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
     vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
-    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL) {
 }
 
 LogicalSwitchEntry::~LogicalSwitchEntry() {
@@ -101,17 +96,6 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
                 pl_row, dest_ip.c_str());
     }
 
-    //Add flood route for multicast
-    MulticastMacLocalOvsdb *mc_table = table_->client_idl()->
-        multicast_mac_local_ovsdb();
-    if (mc_flood_entry_ == NULL) {
-        MulticastMacLocalEntry mc_key(mc_table, this);
-        mc_flood_entry_ =
-            static_cast<MulticastMacLocalEntry *>(mc_table->Create(&mc_key));
-    } else {
-        mc_table->Change(mc_flood_entry_);
-    }
-
     SendTrace(LogicalSwitchEntry::ADD_REQ);
 }
 
@@ -121,9 +105,6 @@ void LogicalSwitchEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
 
 void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     physical_switch_ = NULL;
-    if (mcast_local_row_ != NULL) {
-        ovsdb_wrapper_delete_mcast_mac_local(mcast_local_row_);
-    }
 
     // encode delete of entry if it is non-NULL
     if (mcast_remote_row_ != NULL) {
@@ -136,17 +117,15 @@ void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     }
 
     OvsdbIdlRowList::iterator it;
+    for (it = mcast_local_row_list_.begin();
+         it != mcast_local_row_list_.end(); ++it) {
+        ovsdb_wrapper_delete_mcast_mac_local(*it);
+    }
     for (it = ucast_local_row_list_.begin();
          it != ucast_local_row_list_.end(); ++it) {
         ovsdb_wrapper_delete_ucast_mac_local(*it);
     }
-    //Delete flood route for multicast
-    if (mc_flood_entry_) {
-        MulticastMacLocalOvsdb *mc_table = table_->client_idl()->
-            multicast_mac_local_ovsdb();
-        mc_table->Delete(mc_flood_entry_);
-        mc_flood_entry_ = NULL;
-    }
+
     SendTrace(LogicalSwitchEntry::DEL_REQ);
 }
 
@@ -171,10 +150,6 @@ std::string LogicalSwitchEntry::tor_service_node() const {
     return ovsdb_wrapper_mcast_mac_remote_dst_ip(mcast_remote_row_);
 }
 
-const IpAddress &LogicalSwitchEntry::tor_ip() const {
-    return tor_ip_;
-}
-
 bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
     PhysicalDeviceVn *entry =
         static_cast<PhysicalDeviceVn *>(db_entry);
@@ -185,10 +160,6 @@ bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
     }
     if (device_name_ != entry->device_display_name()) {
         device_name_ = entry->device_display_name();
-        change = true;
-    }
-    if (tor_ip_ != entry->tor_ip()) {
-        tor_ip_ = entry->tor_ip();
         change = true;
     }
     return change;
@@ -295,9 +266,6 @@ LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl) :
     OvsdbDBObject(idl, true) {
     idl->Register(OvsdbClientIdl::OVSDB_LOGICAL_SWITCH,
                   boost::bind(&LogicalSwitchTable::OvsdbNotify, this, _1, _2));
-    idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL,
-                  boost::bind(&LogicalSwitchTable::OvsdbMcastLocalMacNotify,
-                              this, _1, _2));
     idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_REMOTE,
                   boost::bind(&LogicalSwitchTable::OvsdbMcastRemoteMacNotify,
                       this, _1, _2));
@@ -340,21 +308,21 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         OVSDB_TRACE(Trace, "Delete : Local Mcast MAC " + std::string(mac) +
                 ", logical switch " + (entry != NULL ? entry->name() : ""));
         if (entry) {
-            entry->mcast_local_row_ = NULL;
+            entry->mcast_local_row_list_.erase(row);
         }
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
         OVSDB_TRACE(Trace, "Add : Local Mcast MAC " + std::string(mac) +
                 ", logical switch " + (ls ? std::string(ls) : ""));
         if (entry) {
             idl_row_map_[row] = entry;
-            entry->mcast_local_row_ = row;
+            entry->mcast_local_row_list_.insert(row);
         }
     } else {
         assert(0);
     }
 
     if (entry) {
-        if (entry->mcast_local_row_ != NULL ||
+        if (!entry->mcast_local_row_list_.empty() ||
             !entry->ucast_local_row_list_.empty()) {
             if (entry->IsActive())
                 entry->local_mac_ref_ = entry;
@@ -469,7 +437,7 @@ void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
     }
 
     if (entry) {
-        if (entry->mcast_local_row_ != NULL ||
+        if (!entry->mcast_local_row_list_.empty() ||
             !entry->ucast_local_row_list_.empty()) {
             if (entry->IsActive())
                 entry->local_mac_ref_ = entry;
