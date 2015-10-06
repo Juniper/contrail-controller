@@ -381,6 +381,8 @@ class OpServer(object):
         self._homepage_links = []
         self._homepage_links.append(
             LinkObject('documentation', '/documentation/index.html'))
+        self._homepage_links.append(
+            LinkObject('Message documentation', '/documentation/messages/index.html'))
         self._homepage_links.append(LinkObject('analytics', '/analytics'))
 
         super(OpServer, self).__init__()
@@ -584,6 +586,12 @@ class OpServer(object):
                              'GET', self.column_process)
         bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
                      'GET', self.send_trace_buffer)
+        bottle.route('/doc-style.css', 'GET',
+                     self.documentation_messages_css_get)
+        bottle.route('/documentation/messages/<module>',
+                     'GET', self.documentation_messages_http_get)
+        bottle.route('/documentation/messages/<module>/<sfilename>',
+                     'GET', self.documentation_messages_http_get)
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
 
@@ -827,6 +835,19 @@ class OpServer(object):
         return bottle.static_file(
             filename, root='/usr/share/doc/contrail-analytics-api/html')
     # end documentation_http_get
+
+    def documentation_messages_http_get(self, module, sfilename=None):
+        filename = module
+        if sfilename:
+            filename = module + '/' + sfilename
+        return bottle.static_file(
+            filename, root='/usr/share/doc/contrail-docs/html/messages')
+    # end documentation_messages_http_get
+
+    def documentation_messages_css_get(self):
+        return bottle.static_file('/doc-style.css',
+            root='/usr/share/doc/contrail-docs/html/messages')
+    # end documentation_messages_css_get
 
     def _http_get_common(self, request):
         return (True, '')
