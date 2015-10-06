@@ -12,6 +12,19 @@ Import('BuildEnv')
 
 CfgmEnv = BuildEnv.Clone()
 
+# Documentation
+CfgmDocFiles = []
+CfgmDocFiles += CfgmEnv['BASE_DOC_FILES']
+CfgmDocFiles += CfgmEnv['SANDESH_DOC_FILES']
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/acl.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/cfgm_cpuinfo.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/physical_router.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/service_instance.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/vnc_api.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/virtual_machine.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/virtual_network.sandesh')
+CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
+
 #
 # Deprecated
 # Builds into build/<optimization>

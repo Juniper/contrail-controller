@@ -219,6 +219,20 @@ env.Alias('contrail-control', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
+#
+# contrail-control message documentation
+#
+doc_files = []
+doc_files += env.SandeshGenDoc('sandesh/control_node.sandesh')
+doc_files += env['BGP_DOC_FILES']
+doc_files += env['BASE_DOC_FILES']
+doc_files += env['IO_DOC_FILES']
+doc_files += env['DB_DOC_FILES']
+doc_files += env['XMPP_DOC_FILES']
+doc_files += env['IFMAP_SERVER_DOC_FILES']
+doc_files += env['SANDESH_DOC_FILES']
+doc_files += env['DISCOVERY_CLIENT_DOC_FILES']
+
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 
@@ -231,3 +245,5 @@ env.Alias('install', env.Install(env['INSTALL_CONF'] +
     '/supervisord_control_files', 'contrail-control.rules'))
 env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
     '/contrail-control', 'contrail-control.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
+    '/contrail-control/', doc_files))

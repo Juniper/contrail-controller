@@ -318,6 +318,53 @@ subdirs = [
     'nexthop_server',
 ]
 
+AgentUveDocFiles = []
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/acl.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/vrouter.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/prouter.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/loadbalancer.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/virtual_machine.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/virtual_network.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/port_bmap.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/interface.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/stats_interval.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/agent_stats_interval.sandesh')
+AgentEnv['AGENT_UVE_DOC_FILES'] = AgentUveDocFiles
+
+AgentKsyncDocFiles = []
+AgentKsyncDocFiles += AgentEnv['KSYNC_DOC_FILES']
+AgentKsyncDocFiles += AgentEnv.SandeshGenDoc('kstate/kstate.sandesh')
+AgentKsyncDocFiles += AgentEnv.SandeshGenDoc('vrouter/ksync/agent_ksync.sandesh')
+AgentEnv['AGENT_KSYNC_DOC_FILES'] = AgentKsyncDocFiles
+
+AgentFlowDocFiles = []
+AgentFlowDocFiles += AgentEnv.SandeshGenDoc('#controller/src/sandesh/common/flow.sandesh', env['TOP'] + '/sandesh/common/')
+AgentFlowDocFiles += AgentEnv.SandeshGenDoc('vrouter/flow_stats/flow_stats_interval.sandesh')
+AgentEnv['AGENT_FLOW_DOC_FILES'] = AgentFlowDocFiles
+
+AgentCommonDocFiles = []
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('port_ipc/port_ipc.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('diag/diag.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('cmn/stats.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('controller/controller.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('cfg/cfg.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('oper/multicast.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('oper/agent.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('services/services.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('pkt/pkt.sandesh')
+AgentCommonDocFiles += AgentEnv['BASE_DOC_FILES']
+AgentCommonDocFiles += AgentEnv['IO_DOC_FILES']
+AgentCommonDocFiles += AgentEnv['DB_DOC_FILES']
+AgentCommonDocFiles += AgentEnv['IFMAP_CLIENT_DOC_FILES']
+AgentCommonDocFiles += AgentEnv['XMPP_DOC_FILES']
+AgentCommonDocFiles += AgentEnv['SANDESH_DOC_FILES']
+AgentCommonDocFiles += AgentEnv['DISCOVERY_CLIENT_DOC_FILES']
+AgentEnv['AGENT_COMMON_DOC_FILES'] = AgentCommonDocFiles
+
+AgentOvsDocFiles = []
+AgentOvsDocFiles += AgentEnv.SandeshGenDoc('ovs_tor_agent/ovsdb_client/ovsdb.sandesh')
+AgentEnv['AGENT_OVS_DOC_FILES'] = AgentOvsDocFiles
+
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports=['AgentEnv', 'BuildEnv'],
                    duplicate=0)

@@ -50,6 +50,11 @@ sdist_gen = env.Command('dist/device_manager-0.1dev.tar.gz', 'setup.py', cd_cmd 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
+# Documentation
+doc_files = []
+doc_files += env.SandeshGenDoc('dm_introspect.sandesh')
+doc_files += env['CFGM_DOC_FILES']
+
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
                               cd_cmd + 'python setup.py install %s' %
@@ -63,6 +68,8 @@ env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
           '/contrail-device-manager', 'contrail-device-manager.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF'] +
           '/supervisord_config_files', 'contrail-device-manager.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-device-manager/', doc_files))
 
 buildspace_link = os.environ.get('CONTRAIL_REPO')
 if buildspace_link:
