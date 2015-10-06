@@ -225,6 +225,17 @@ if AnalyticsEnv.get('OPT') == 'coverage':
     for test in test_suite:
         AnalyticsEnv.Depends(test_coverage, test)
 
+# Documentation
+CollectorDocFiles = []
+CollectorDocFiles += AnalyticsEnv['BASE_DOC_FILES']
+CollectorDocFiles += AnalyticsEnv['IO_DOC_FILES']
+CollectorDocFiles += AnalyticsEnv['SANDESH_DOC_FILES']
+CollectorDocFiles += AnalyticsEnv['DISCOVERY_CLIENT_DOC_FILES']
+CollectorDocFiles += AnalyticsEnv['ANALYTICS_DOC_FILES']
+CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('collector_uve.sandesh')
+CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('uflow.sandesh')
+CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('sflow.sandesh')
+
 # Please update sandesh/common/vns.sandesh on process name change
 AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
             AnalyticsEnv['INSTALL_BIN'] + '/contrail-collector', vizd))
@@ -241,6 +252,8 @@ AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
             AnalyticsEnv['INSTALL_CONF'] + 
             '/supervisord_analytics_files', 'contrail-collector.ini'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
+            AnalyticsEnv['INSTALL_DOC'] + '/messages/contrail-collector/', CollectorDocFiles))
 
 AnalyticsEnv.SConscript(dirs=['contrail-snmp-collector'],
         exports='AnalyticsEnv',

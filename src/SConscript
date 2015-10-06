@@ -75,6 +75,96 @@ elif sys.platform.startswith('darwin'):
 if sys.platform.startswith('freebsd'):
     BuildEnv.Prepend(LINKFLAGS = ['-lprocstat'])
 
+#
+# Message documentation for common modules
+#
+
+# base
+base_doc_files = []
+base_doc_target = BuildEnv['TOP'] + '/base/sandesh/'
+base_doc_files += BuildEnv.SandeshGenDoc('#controller/src/base/sandesh/cpuinfo.sandesh', base_doc_target)
+base_doc_files += BuildEnv.SandeshGenDoc('#controller/src/base/sandesh/process_info.sandesh', base_doc_target)
+BuildEnv['BASE_DOC_FILES'] = base_doc_files
+
+# IO
+io_doc_files = []
+io_doc_target = BuildEnv['TOP'] + '/io/'
+io_doc_files += BuildEnv.SandeshGenDoc('#controller/src/io/io.sandesh', io_doc_target)
+BuildEnv['IO_DOC_FILES'] = io_doc_files
+
+# DB
+db_doc_files = []
+db_doc_target = BuildEnv['TOP'] + '/db/'
+db_doc_files += BuildEnv.SandeshGenDoc('#controller/src/db/db.sandesh', db_doc_target)
+BuildEnv['DB_DOC_FILES'] = db_doc_files
+
+# sandesh
+sandesh_doc_files = []
+sandesh_doc_target = BuildEnv['TOP'] + '/sandesh/common/'
+sandesh_doc_files += BuildEnv.SandeshGenDoc('#controller/src/sandesh/common/vns.sandesh', sandesh_doc_target)
+BuildEnv['SANDESH_DOC_FILES'] = sandesh_doc_files
+
+# Discovery client
+discovery_client_doc_files = []
+discovery_client_doc_target = BuildEnv['TOP'] + '/discovery/client/'
+discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/client/discovery_client_stats.sandesh', discovery_client_doc_target)
+discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/client/discovery_client.sandesh', discovery_client_doc_target)
+discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/discovery_introspect.sandesh', discovery_client_doc_target)
+BuildEnv['DISCOVERY_CLIENT_DOC_FILES'] = discovery_client_doc_files
+
+# Ksync
+ksync_doc_files = []
+ksync_doc_target = BuildEnv['TOP'] + '/ksync/'
+ksync_doc_files += BuildEnv.SandeshGenDoc('#controller/src/ksync/ksync.sandesh', ksync_doc_target)
+BuildEnv['KSYNC_DOC_FILES'] = ksync_doc_files
+
+# BGP
+bgp_doc_files = []
+bgp_doc_target = BuildEnv['TOP'] + '/bgp/'
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_log.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/service_chaining.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/static_route.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/routing_instance_analytics.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_peer_internal.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/virtual_network.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/peer_info.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/vrouter.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_peer.sandesh', bgp_doc_target)
+BuildEnv['BGP_DOC_FILES'] = bgp_doc_files
+
+# XMPP
+xmpp_doc_files = []
+xmpp_doc_target = BuildEnv['TOP'] + '/xmpp/sandesh/'
+xmpp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/xmpp/sandesh/xmpp_peer_info.sandesh', xmpp_doc_target)
+xmpp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/xmpp/sandesh/xmpp_client_server_sandesh.sandesh', xmpp_doc_target)
+xmpp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/xmpp/sandesh/xmpp_trace_sandesh.sandesh', xmpp_doc_target)
+xmpp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/xmpp/sandesh/xmpp_state_machine_sandesh.sandesh', xmpp_doc_target)
+xmpp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/xmpp/sandesh/xmpp_server.sandesh', xmpp_doc_target)
+xmpp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/xmpp/sandesh/xmpp_message_sandesh.sandesh', xmpp_doc_target)
+BuildEnv['XMPP_DOC_FILES'] = xmpp_doc_files
+
+# IFMAP server
+ifmap_server_doc_files = []
+ifmap_server_doc_target = BuildEnv['TOP'] + '/ifmap/'
+ifmap_server_doc_files += BuildEnv.SandeshGenDoc('#controller/src/ifmap/ifmap_log.sandesh', ifmap_server_doc_target)
+ifmap_server_doc_files += BuildEnv.SandeshGenDoc('#controller/src/ifmap/ifmap_server_show_internal.sandesh', ifmap_server_doc_target)
+ifmap_server_doc_files += BuildEnv.SandeshGenDoc('#controller/src/ifmap/ifmap_server_show.sandesh', ifmap_server_doc_target)
+BuildEnv['IFMAP_SERVER_DOC_FILES'] = ifmap_server_doc_files
+
+# IFMAP client
+ifmap_client_doc_files = []
+ifmap_client_doc_target = BuildEnv['TOP'] + '/ifmap/'
+ifmap_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/ifmap/ifmap_agent.sandesh', ifmap_client_doc_target)
+BuildEnv['IFMAP_CLIENT_DOC_FILES'] = ifmap_client_doc_files
+
+# Analytics
+analytics_doc_files = []
+analytics_doc_target = BuildEnv['TOP'] + '/analytics/'
+analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/analytics.sandesh', analytics_doc_target)
+analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/viz.sandesh', analytics_doc_target)
+analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/redis.sandesh', analytics_doc_target)
+BuildEnv['ANALYTICS_DOC_FILES'] = analytics_doc_files
+
 BuildEnv.SConscript(dirs=['vnsw'], exports='BuildEnv')
 
 for dir in subdirs:

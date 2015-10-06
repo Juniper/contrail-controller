@@ -41,4 +41,8 @@ DatabaseEnv.Alias("contrail-database", sdist_gen)
 
 DatabaseEnv['DATABASE_PKG'] = sdist_gen
 
+doc_files = DatabaseEnv.SandeshGenDoc('database.sandesh')
+DatabaseEnv.Alias('install', DatabaseEnv.Install(
+    DatabaseEnv['INSTALL_DOC'] + '/messages/contrail-database/',
+    doc_files))
 DatabaseEnv.SConscript('utils/SConscript', exports='AnalyticsEnv', duplicate = 0)

@@ -175,6 +175,15 @@ env.Default(qed)
 
 test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)
 
+# Documentation
+doc_files = []
+doc_files += env['BASE_DOC_FILES']
+doc_files += env['IO_DOC_FILES']
+doc_files += env['SANDESH_DOC_FILES']
+doc_files += env['DISCOVERY_CLIENT_DOC_FILES']
+doc_files += env['ANALYTICS_DOC_FILES']
+doc_files += env.SandeshGenDoc('qe.sandesh')
+
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install',
         env.InstallAs(env['INSTALL_BIN'] + '/contrail-query-engine', qed))
@@ -187,3 +196,5 @@ env.Alias('install',
         env.InstallAs(env['INSTALL_CONF'] + 
         '/supervisord_analytics_files' + '/contrail-query-engine.ini',
         'contrail-query-engine.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_DOC'] + '/messages/contrail-query-engine/', doc_files))

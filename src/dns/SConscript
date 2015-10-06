@@ -48,6 +48,18 @@ contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
 env.Alias('contrail-dns', contrail_dns)
 env.Default(contrail_dns)
 
+# Documentation
+doc_files = []
+doc_files += env['BASE_DOC_FILES']
+doc_files += env['IO_DOC_FILES']
+doc_files += env['DB_DOC_FILES']
+doc_files += env['SANDESH_DOC_FILES']
+doc_files += env['IFMAP_CLIENT_DOC_FILES']
+doc_files += env['DISCOVERY_CLIENT_DOC_FILES']
+doc_files += env['XMPP_DOC_FILES']
+doc_files += env.SandeshGenDoc('uve/uve.sandesh')
+doc_files += env.SandeshGenDoc('bind/bind.sandesh')
+
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_dns))
 env.Alias('install', env.Install(env['INSTALL_CONF'] + '/dns', 'contrail-dns.conf'))
@@ -59,6 +71,8 @@ env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/contrail-dns', 'contrail-dns.initd.supervisord'))
 env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
     '/contrail-named', 'contrail-named.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_DOC'] +
+    '/messages/contrail-dns/', doc_files))
 
 DnsEnv = env.Clone()
 DnsEnv.CppDisableExceptions()
