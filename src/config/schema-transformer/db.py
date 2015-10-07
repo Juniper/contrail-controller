@@ -107,7 +107,7 @@ class SchemaTransformerDB(VncCassandraClient):
             self._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
                 self._zkclient,
                 (self._zk_path_prefix + self._SERVICE_CHAIN_VLAN_ALLOC_PATH +
-                 service_vm),
+                 service_vm + '/'),
                 self._SERVICE_CHAIN_MAX_VLAN)
 
         vlan_ia = self._sc_vlan_allocator_dict[service_vm]
