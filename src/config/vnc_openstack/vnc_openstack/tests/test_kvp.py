@@ -134,34 +134,23 @@ class NetworkKVPTest(test_case.ResouceDriverNetworkTestCase):
 
         # Test ref_update
         vn_name = 'my-ref'
-        subnet_3 = '99.1.1.0'
-        subnet_4 = '88.1.1.0'
-        print 'Test network update with ref_update: Creating network with name ' + vn_name + ' subnets ' + subnet_4
+        print 'Test network update with ref_update: Creating network with name ' + vn_name
         vn = VirtualNetwork(vn_name, self._proj_obj)
-        ipam_sn_4 = IpamSubnetType(subnet=SubnetType(subnet_4, prefix))
-        vn.add_network_ipam(self._ipam_obj, VnSubnetsType([ipam_sn_4]))
         self._vnc_lib.virtual_network_create(vn)
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
         print 'network created with uuid ' + net_obj.uuid
 
         # Ensure only ONE entry in KV 
         kvp = self._vnc_lib.kv_retrieve()
-        self.assertEqual(len(kvp), 2)
-        key = net_obj.uuid + " " + subnet_4 +'/'+str(prefix)
-        subnet_uuid = self._vnc_lib.kv_retrieve(key)
-        key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
-        self.assertEqual(key, key_tmp)
+        self.assertEqual(len(kvp), 0)
 
+        subnet_3 = '99.1.1.0'
         print 'ref_update with subnet ' + subnet_3
         ipam_sn_3 = IpamSubnetType(subnet=SubnetType(subnet_3, prefix))
         self._vnc_lib.ref_update('virtual-network', net_obj.uuid, 'network_ipam_refs', None, self._ipam_obj.get_fq_name(), 'ADD', VnSubnetsType([ipam_sn_3]))
         # Ensure only TWO entries in KV 
         kvp = self._vnc_lib.kv_retrieve()
-        self.assertEqual(len(kvp), 4)
-        key = net_obj.uuid + " " + subnet_4 +'/'+str(prefix)
-        subnet_uuid = self._vnc_lib.kv_retrieve(key)
-        key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
-        self.assertEqual(key, key_tmp)
+        self.assertEqual(len(kvp), 2)
         key = net_obj.uuid + " " + subnet_3 +'/'+str(prefix)
         subnet_uuid = self._vnc_lib.kv_retrieve(key)
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)

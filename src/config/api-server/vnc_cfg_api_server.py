@@ -662,7 +662,7 @@ class VncApiServer(VncApiServerGen):
             self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
             bottle.abort(404, read_result)
 
-        obj_dict = read_result
+        obj_dict = copy.deepcopy(read_result)
 
         # invoke the extension
         try:
@@ -706,7 +706,7 @@ class VncApiServer(VncApiServerGen):
         # invoke the extension
         try:
             post_func = 'post_'+obj_type+'_update'
-            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict)
+            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict, read_result)
         except Exception as e:
             pass
 
