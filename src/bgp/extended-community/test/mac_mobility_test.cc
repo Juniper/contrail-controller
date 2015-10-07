@@ -13,15 +13,21 @@ class MacMobilityTest : public ::testing::Test {
 };
 
 TEST_F(MacMobilityTest, ByteArray_1) {
-    MacMobility::bytes_type data =
-	    { { 0x06, 0x00, 0x01, 0x00, 0x0, 0x0, 0x0, 0x1 } };
+    MacMobility::bytes_type data = { {
+        BgpExtendedCommunityType::Evpn,
+        BgpExtendedCommunityEvpnSubType::MacMobility,
+        0x01, 0x00, 0x0, 0x0, 0x0, 0x1
+    } };
     MacMobility mac_mobility(data);
     EXPECT_EQ("mobility:1", mac_mobility.ToString());
 }
 
 TEST_F(MacMobilityTest, ByteArray_2) {
-    MacMobility::bytes_type data =
-	    { { 0x06, 0x00, 0x01, 0x00, 0x0, 0x1, 0x0, 0x0 } };
+    MacMobility::bytes_type data = { {
+        BgpExtendedCommunityType::Evpn,
+        BgpExtendedCommunityEvpnSubType::MacMobility,
+        0x01, 0x00, 0x0, 0x1, 0x0, 0x0
+    } };
     MacMobility mac_mobility(data);
     EXPECT_EQ("mobility:65536", mac_mobility.ToString());
 }

@@ -13,9 +13,10 @@
 #include <string>
 #include <vector>
 
-#include "bgp/bgp_attr_base.h"
 #include "base/parse_object.h"
 #include "base/util.h"
+#include "bgp/bgp_attr_base.h"
+#include "bgp/extended-community/types.h"
 
 class BgpAttr;
 class CommunityDB;
@@ -179,35 +180,40 @@ public:
         // Origin VN extended community
         // 2 Octet AS specific extended community
         //
-        return (val[0] == 0x80) && (val[1] == 0x71);
+        return (val[0] == BgpExtendedCommunityType::Experimental) &&
+               (val[1] == BgpExtendedCommunityExperimentalSubType::OriginVn);
     }
 
     static bool is_default_gateway(const ExtCommunityValue &val) {
         //
         // Default Gateway extended community
         //
-        return (val[0] == 0x06) && (val[1] == 0x0d);
+        return (val[0] == BgpExtendedCommunityType::Opaque) &&
+               (val[1] == BgpExtendedCommunityOpaqueSubType::DefaultGateway);
     }
 
     static bool is_es_import(const ExtCommunityValue &val) {
         //
         // ES Import extended community
         //
-        return (val[0] == 0x06) && (val[1] == 0x02);
+        return (val[0] == BgpExtendedCommunityType::Evpn) &&
+               (val[1] == BgpExtendedCommunityEvpnSubType::EsImport);
     }
 
     static bool is_esi_label(const ExtCommunityValue &val) {
         //
         // ESI Label extended community
         //
-        return (val[0] == 0x06) && (val[1] == 0x01);
+        return (val[0] == BgpExtendedCommunityType::Evpn) &&
+               (val[1] == BgpExtendedCommunityEvpnSubType::EsiMplsLabel);
     }
 
     static bool is_mac_mobility(const ExtCommunityValue &val) {
         //
         // MAC Mobility extended community
         //
-        return (val[0] == 0x06) && (val[1] == 0x00);
+        return (val[0] == BgpExtendedCommunityType::Evpn) &&
+               (val[1] == BgpExtendedCommunityEvpnSubType::MacMobility);
     }
 
     static bool is_route_target(const ExtCommunityValue &val) {
@@ -217,8 +223,10 @@ public:
         // 2. IPv4 Address specific extended community Route Target
         // 3. 4 Octet AS specific extended community Route Target
         //
-        return ((val[0] == 0x0 || (val[0] == 0x2) || (val[0] ==  0x1)) &&
-                (val[1] == 0x2));
+        return ((val[0] == BgpExtendedCommunityType::TwoOctetAS ||
+                (val[0] == BgpExtendedCommunityType::FourOctetAS) ||
+                (val[0] == BgpExtendedCommunityType::IPv4Address)) &&
+                (val[1] == BgpExtendedCommunitySubType::RouteTarget));
     }
 
     static bool is_security_group(const ExtCommunityValue &val) {
@@ -226,7 +234,8 @@ public:
         // SG ID extended community
         // 2 Octet AS specific extended community
         //
-        return (val[0] == 0x80) && (val[1] == 0x4);
+        return (val[0] == BgpExtendedCommunityType::Experimental) &&
+               (val[1] == BgpExtendedCommunityExperimentalSubType::SgId);
     }
 
     static bool is_site_of_origin(const ExtCommunityValue &val) {
@@ -236,13 +245,22 @@ public:
         // 2. IPv4 Address specific extended community
         // 3. 4 Octet AS specific extended community Route Target
         //
-        return ((val[0] == 0x00 || val[0] == 0x02 || val[0] ==  0x01) &&
-                (val[1] == 0x3));
+        return ((val[0] == BgpExtendedCommunityType::TwoOctetAS ||
+                (val[0] == BgpExtendedCommunityType::FourOctetAS) ||
+                (val[0] == BgpExtendedCommunityType::IPv4Address)) &&
+                (val[1] == BgpExtendedCommunitySubType::RouteOrigin));
     }
 
     static bool is_tunnel_encap(const ExtCommunityValue &val) {
         // Tunnel encap extended community
-        return (val[0] == 0x03) && (val[1] == 0x0C);
+        return (val[0] == BgpExtendedCommunityType::Opaque) &&
+               (val[1] == BgpExtendedCommunityOpaqueSubType::TunnelEncap);
+    }
+
+    static bool is_load_balance(const ExtCommunityValue &val) {
+        // Load Balance extended community
+        return (val[0] == BgpExtendedCommunityType::Opaque) &&
+               (val[1] == BgpExtendedCommunityOpaqueSubType::LoadBalance);
     }
 
     friend std::size_t hash_value(ExtCommunity const &comm) {

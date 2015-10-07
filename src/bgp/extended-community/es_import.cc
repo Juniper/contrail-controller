@@ -17,7 +17,8 @@ EsImport::EsImport(const bytes_type &data) {
 }
 
 MacAddress EsImport::mac_address() const {
-    if (data_[0] != 0x06 || data_[1] != 0x02)
+    if (data_[0] != BgpExtendedCommunityType::Evpn ||
+        data_[1] != BgpExtendedCommunityEvpnSubType::EsImport)
         return MacAddress();
     uint8_t mac_bytes[6];
     copy(data_.begin() + 2, data_.end(), mac_bytes);

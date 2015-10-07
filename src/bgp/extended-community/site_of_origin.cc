@@ -88,13 +88,13 @@ SiteOfOrigin SiteOfOrigin::FromString(const string &str,
             return SiteOfOrigin::null_soo;
         }
 
-        data[0] = 0x00;
-        data[1] = 0x03;
+        data[0] = BgpExtendedCommunityType::TwoOctetAS;
+        data[1] = BgpExtendedCommunitySubType::RouteOrigin;
         put_value(&data[2], 2, asn);
         offset = 4;
     } else {
-        data[0] = 0x01;
-        data[1] = 0x03;
+        data[0] = BgpExtendedCommunityType::IPv4Address;
+        data[1] = BgpExtendedCommunitySubType::RouteOrigin;
         uint32_t l_addr = addr.to_ulong();
         put_value(&data[2], 4, l_addr);
         offset = 6;
