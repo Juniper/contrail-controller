@@ -99,7 +99,32 @@ class SchemaTransformerDB(VncCassandraClient):
             self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
 
         self._sc_vlan_allocator_dict = {}
+        self._upgrade_vlan_alloc_path()
     # end __init__
+
+    def _upgrade_vlan_alloc_path(self):
+        # In earlier releases, allocation path for vlans did not end with '/'.
+        # This caused the allocated numbers to be just appended to the vm id
+        # instead of being created as a child of it. That caused the vlan ids
+        # to be leaked when process restarted. With that being fixed, we need
+        # to change any vlan ids that were allocated in prior releases to the
+        # new format.
+        vlan_alloc_path = (self._zk_path_prefix +
+                           self._SERVICE_CHAIN_VLAN_ALLOC_PATH)
+        for item in self._zkclient.get_children(vlan_alloc_path):
+            try:
+                # in the old format, item was vm id followed by 10 digit vlan
+                # id allocated. Try to parse it to determine if it is still in
+                # old format
+                vm_id = uuid.UUID(item[:-10])
+                vlan_id = int(item[-10:])
+            except ValueError:
+                continue
+            sc_id = self._zkclient.read_node(vlan_alloc_path+item)
+            self._zkclient.delete_node(vlan_alloc_path+item)
+            self._zkclient.create_node(
+                vlan_alloc_path+item[:-10]+'/'+item[-10:], sc_id)
+        # end for item
 
     def allocate_service_chain_vlan(self, service_vm, service_chain):
         alloc_new = False
@@ -107,7 +132,7 @@ class SchemaTransformerDB(VncCassandraClient):
             self._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
                 self._zkclient,
                 (self._zk_path_prefix + self._SERVICE_CHAIN_VLAN_ALLOC_PATH +
-                 service_vm),
+                 service_vm + '/'),
                 self._SERVICE_CHAIN_MAX_VLAN)
 
         vlan_ia = self._sc_vlan_allocator_dict[service_vm]
