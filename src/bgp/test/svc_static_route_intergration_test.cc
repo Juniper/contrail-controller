@@ -158,9 +158,9 @@ static const char *config_mx_vrf = "\
 </config>\
 ";
 
-class ServiceChainTest : public ::testing::Test {
+class ServiceChainIntegrationTest : public ::testing::Test {
 protected:
-    ServiceChainTest()
+    ServiceChainIntegrationTest()
         : thread_(&evm_),
           cn1_xmpp_server_(NULL),
           cn2_xmpp_server_(NULL),
@@ -953,7 +953,7 @@ protected:
 typedef tr1::tuple<bool, bool, bool> TestParams;
 
 class ServiceIntergrationParamTest :
-    public ServiceChainTest,
+    public ServiceChainIntegrationTest,
     public ::testing::WithParamInterface<TestParams> {
     virtual void SetUp() {
         connected_table_ =
@@ -961,11 +961,11 @@ class ServiceIntergrationParamTest :
         aggregate_enable_ = tr1::get<1>(GetParam());
         mx_push_connected_ = tr1::get<2>(GetParam());
         single_si_ = true;
-        ServiceChainTest::SetUp();
+        ServiceChainIntegrationTest::SetUp();
     }
 
     virtual void TearDown() {
-        ServiceChainTest::TearDown();
+        ServiceChainIntegrationTest::TearDown();
     }
 };
 
@@ -1281,7 +1281,7 @@ TEST_P(ServiceIntergrationParamTest, OriginVn) {
 typedef tr1::tuple<bool, bool> TestParams2;
 
 class ServiceIntergrationParamTest2 :
-    public ServiceChainTest,
+    public ServiceChainIntegrationTest,
     public ::testing::WithParamInterface<TestParams2> {
     virtual void SetUp() {
         connected_table_ = "blue";
@@ -1289,11 +1289,11 @@ class ServiceIntergrationParamTest2 :
         single_si_ = false;
         aggregate_enable_ = tr1::get<0>(GetParam());
         left_to_right_ = tr1::get<1>(GetParam());
-        ServiceChainTest::SetUp();
+        ServiceChainIntegrationTest::SetUp();
     }
 
     virtual void TearDown() {
-        ServiceChainTest::TearDown();
+        ServiceChainIntegrationTest::TearDown();
     }
 };
 
@@ -1516,7 +1516,7 @@ TEST_P(ServiceIntergrationParamTest2, MultipleInNetworkUnsubscribeSubscribe) {
 typedef tr1::tuple<bool, bool> TestParams3;
 
 class ServiceIntergrationParamTest3 :
-    public ServiceChainTest,
+    public ServiceChainIntegrationTest,
     public ::testing::WithParamInterface<TestParams3> {
     virtual void SetUp() {
         connected_table_ = "multiple";
@@ -1525,11 +1525,11 @@ class ServiceIntergrationParamTest3 :
         transparent_ = tr1::get<0>(GetParam());
         aggregate_enable_ = tr1::get<1>(GetParam());
         left_to_right_ = false;
-        ServiceChainTest::SetUp();
+        ServiceChainIntegrationTest::SetUp();
     }
 
     virtual void TearDown() {
-        ServiceChainTest::TearDown();
+        ServiceChainIntegrationTest::TearDown();
     }
 };
 
@@ -1699,7 +1699,7 @@ TEST_P(ServiceIntergrationParamTest3, BidirectionalChainWithTransitNetwork) {
 }
 
 class ServiceIntergrationParamTest4 :
-    public ServiceChainTest,
+    public ServiceChainIntegrationTest,
     public ::testing::WithParamInterface<bool> {
     virtual void SetUp() {
         connected_table_ = "blue";
@@ -1708,11 +1708,11 @@ class ServiceIntergrationParamTest4 :
         transparent_ = false;
         aggregate_enable_ = false;
         left_to_right_ = false;
-        ServiceChainTest::SetUp();
+        ServiceChainIntegrationTest::SetUp();
     }
 
     virtual void TearDown() {
-        ServiceChainTest::TearDown();
+        ServiceChainIntegrationTest::TearDown();
     }
 };
 
@@ -1859,7 +1859,7 @@ INSTANTIATE_TEST_CASE_P(Instance, ServiceIntergrationParamTest4,
 // Each Agent has multiple l3 interfaces and instance for static routes is
 // created on both compute nodes.
 //
-TEST_F(ServiceChainTest, StaticRouteMultipleL3Intf) {
+TEST_F(ServiceChainIntegrationTest, StaticRouteMultipleL3Intf) {
     auto_ptr<autogen::StaticRouteEntriesType> params =
         GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
 
@@ -1920,7 +1920,7 @@ TEST_F(ServiceChainTest, StaticRouteMultipleL3Intf) {
 // both compute nodes.
 // Tests both static route and service chain functionality.
 //
-TEST_F(ServiceChainTest, DISABLED_StaticRouteMultipleL3Intf) {
+TEST_F(ServiceChainIntegrationTest, DISABLED_StaticRouteMultipleL3Intf) {
     auto_ptr<autogen::StaticRouteEntriesType> params =
         GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
 
