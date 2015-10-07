@@ -3,6 +3,7 @@
  */
 
 #include <fstream>
+#include <sstream>
 #include <stdlib.h> 
 #include <base/misc_utils.h>
 #include <base/logging.h>
@@ -73,17 +74,16 @@ void MiscUtils::GetCoreFileList(string prog, vector<string> &list) {
     }
 }
 
-bool MiscUtils::GetVersionInfoInternal(const string &cmd, string &result) {
+bool MiscUtils::GetVersionInfoInternal(const string &cmd, string &rpm_version,
+                                       string &build_num) {
     FILE *fp;
     char line[512];
     fp = popen(cmd.c_str(), "r");
     if (fp == NULL) {
-        result.assign("unknown");
         return false;
     }
     char *ptr = fgets(line, sizeof(line), fp);
     if (ptr == NULL) {
-        result.assign("unknown");
         pclose(fp);
         return false;
     }
@@ -91,36 +91,35 @@ bool MiscUtils::GetVersionInfoInternal(const string &cmd, string &result) {
     if (ptr != NULL) {
         *ptr = '\0';
     }
-    result.assign(line);
+    istringstream iss(line);
+    if (iss) {
+        iss >> rpm_version;
+        if (iss)
+            iss >> build_num;
+    }
+
     pclose(fp);
     return true;
 }
 
 bool MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version, 
                                        string &build_num) {
-    bool ret1, ret2;
-    stringstream build_id_cmd;
+    bool ret;
+    stringstream cmd;
+    //Initialize the version info here. Overide its value on finding version
+    rpm_version.assign("unknown");
+    build_num.assign("unknown");
+
     ifstream f(ContrailVersionCmd.c_str());
     if (!f.good()) {
         f.close();
-        rpm_version.assign("unknown");
-        build_num.assign("unknown");
         return false;
     }
     f.close();
-    build_id_cmd << ContrailVersionCmd << " | grep '"
-                 << BuildModuleNames.at(id) << "' | awk '{ print $2 }'";
-    ret1 = GetVersionInfoInternal(build_id_cmd.str(), rpm_version);
-
-    stringstream build_num_cmd;
-    build_num_cmd << ContrailVersionCmd << " | grep '"
-                  << BuildModuleNames.at(id) << "' | awk '{ print $3 }'";
-    ret2 = GetVersionInfoInternal(build_num_cmd.str(), build_num);
-
-    if (!ret1 || !ret2) {
-        return false;
-    }
-    return true;
+    cmd << ContrailVersionCmd << " " << BuildModuleNames.at(id)
+        << " | tail -1 | awk '{ print $2 \" \" $3 }'";
+    ret = GetVersionInfoInternal(cmd.str(), rpm_version, build_num);
+    return ret;
 }
 
 bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info, 
@@ -150,4 +149,3 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
     result = strbuf.GetString();
     return ret;
 }
-
