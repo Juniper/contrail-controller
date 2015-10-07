@@ -62,7 +62,9 @@ public:
 private:
     static bool GetContrailVersionInfo(BuildModule id, std::string &rpm_version, std::string &build_num);
     static std::string BaseName(std::string filename);
-    static bool GetVersionInfoInternal(const std::string &cmd, std::string &result);
+    static bool GetVersionInfoInternal(const std::string &cmd,
+                                       std::string &rpm_version,
+                                       std::string &build_num);
 };
 
 #endif // ctrlplane_misc_utils_h 
