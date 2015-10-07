@@ -239,6 +239,7 @@ class TestAlarmGen(unittest.TestCase):
                 (str(expected), str(actual), str(match)))
         return result
 
+    @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
     @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
@@ -246,7 +247,7 @@ class TestAlarmGen(unittest.TestCase):
     # Test partition shutdown as well
     def test_00_init(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part):
+            mock_get_uve, mock_get_part, mock_send_agg_uve):
 
         m_get_part = Mock_get_part() 
         m_get_part[(1,("127.0.0.1",0,0))] = "127.0.0.1:0", \
@@ -274,6 +275,7 @@ class TestAlarmGen(unittest.TestCase):
             self._ag.ptab_info, False))
         
 
+    @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
     @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
@@ -281,7 +283,7 @@ class TestAlarmGen(unittest.TestCase):
     # Also test for deletetion of a boot-straped UVE
     def test_01_rxmsg(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part):
+            mock_get_uve, mock_get_part, mock_send_agg_uve):
 
         m_get_part = Mock_get_part() 
         m_get_part[(1,("127.0.0.1",0,0))] = "127.0.0.1:0", \
@@ -310,6 +312,7 @@ class TestAlarmGen(unittest.TestCase):
         self.assertTrue(self.checker_exact(\
             self._ag.ptab_info[1]["ObjectYY"]["uve2"].values(), {"type2" : {"yy": 1}}))
 
+    @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
     @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
@@ -317,7 +320,7 @@ class TestAlarmGen(unittest.TestCase):
     # Also test collector shutdown
     def test_02_collectorha(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part):
+            mock_get_uve, mock_get_part, mock_send_agg_uve):
 
         m_get_part = Mock_get_part() 
         m_get_part[(1,("127.0.0.1",0,0))] = "127.0.0.1:0", \

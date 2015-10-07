@@ -35,36 +35,59 @@ class UveCacheProcessor(object):
     def __init__(self, logger, partitions):
         self._logger = logger
         self._partkeys = {}
+        self._typekeys = {}
         for partno in range(0,partitions):
             self._partkeys[partno] = set()
         self._uvedb = {} 
 
-    def get_cache_uve(self, key, filters, is_alarm):
-        failures = False
-        rsp = {}
+    def get_cache_list(self, utab, filters):
+        tables = None
+        if utab:
+            tables = [ utab ]
+        else:
+            tables = self._uvedb.keys()
+
+        filters = filters or {}
+        tfilter = filters.get('cfilt')
+        ackfilter = filters.get('ackfilt')
+        uve_list = {}
         try:
-            filters = filters or {}
-            tfilter = filters.get('cfilt')
-            ackfilter = filters.get('ackfilt')
-            if is_alarm:
-                tfilter = tfilter or {}
-                # When returning only alarms, ignore non-alarm cfilt
-                for k in tfilter.keys():
-                    if k != "UVEAlarms":
-                        del tfilter[k]
-                if len(tfilter) == 0:
-                    tfilter["UVEAlarms"] = set(["alarms"])
-            barekey = key.split(":",1)[1]
-            table = key.split(":",1)[0]
-             
-            if table not in self._uvedb:
-                return failures, rsp
-            if barekey not in self._uvedb[table]:
-                return failures, rsp
-            
+            tqual = {}
+            tfilter = tfilter or {}
+
+            # Build a per-table set of all keys matching tfilter
+            for typ in tfilter:
+                for table in tables:
+                    if not table in tqual:
+                        tqual[table] = set()
+                    if typ in self._typekeys:
+                        if table in self._typekeys[typ]:
+                            tqual[table].update(self._typekeys[typ][table])
+                    
+            for table in tables:
+                if not table in self._uvedb:
+                    continue  
+                barekeys = set(self._uvedb[table].keys())
+                if len(tfilter) != 0:
+                    barekeys.intersection_update(tqual[table])
+                brsp = self._get_uve_content(table, barekeys,\
+                        tfilter, ackfilter, True)
+                if len(brsp) != 0:
+                    uve_list[table] = set(brsp.keys())
+        except Exception as ex:
+            template = "Exception {0} in uve list proc. Arguments:\n{1!r}"
+            messag = template.format(type(ex).__name__, ex.args)
+            self._logger.error("%s : traceback %s" % \
+                              (messag, traceback.format_exc()))
+        return uve_list
+
+    def _get_uve_content(self, table, barekeys, tfilter, ackfilter, keysonly):
+        brsp = {}
+        for barekey in barekeys:
+            rsp = {}
             for tkey,tval in self._uvedb[table][barekey].iteritems():
                 afilter_list = set()
-                if tfilter is not None:
+                if len(tfilter) != 0:
                     if tkey not in tfilter:
                         continue
                     else:
@@ -98,6 +121,36 @@ class UveCacheProcessor(object):
                         if not tkey in rsp:
                             rsp[tkey] = {}
                         rsp[tkey][akey] = aval
+
+            if len(rsp) != 0: 
+                if keysonly:
+                    brsp[barekey] = None
+                else:
+                    brsp[barekey] = rsp
+        return brsp
+      
+    def get_cache_uve(self, key, filters):
+        failures = False
+        rsp = {}
+        try:
+            filters = filters or {}
+            tfilter = filters.get('cfilt')
+            tfilter = tfilter or {}
+            ackfilter = filters.get('ackfilt')
+
+            barekey = key.split(":",1)[1]
+            table = key.split(":",1)[0]
+             
+            if table not in self._uvedb:
+                return failures, rsp
+            if barekey not in self._uvedb[table]:
+                return failures, rsp
+            
+            brsp = self._get_uve_content(table, set([barekey]),\
+                    tfilter, ackfilter, False)
+            if barekey in brsp:
+                rsp = brsp[barekey]
+
         except Exception as ex:
             template = "Exception {0} in uve cache proc. Arguments:\n{1!r}"
             messag = template.format(type(ex).__name__, ex.args)
@@ -105,11 +158,12 @@ class UveCacheProcessor(object):
                               (messag, traceback.format_exc()))
         return failures, rsp
 
-    def store_uve(self, partno, key, typ, value):
-        self._partkeys[partno].add(key)
-
+    def store_uve(self, partno, pi, key, typ, value):
         barekey = key.split(":",1)[1]
         table = key.split(":",1)[0]
+
+        self._partkeys[partno].add(key)
+
         if table not in self._uvedb:
             self._uvedb[table] = {}
         if barekey not in self._uvedb[table]:
@@ -119,21 +173,50 @@ class UveCacheProcessor(object):
             # delete the entire UVE
             self._partkeys[partno].remove("%s:%s" % \
                 (table, barekey))
+            for typ1 in self._typekeys.keys():
+                if table in self._typekeys[typ1]:
+                    if barekey in self._typekeys[typ1][table]:
+                        self._typekeys[typ1][table].remove(barekey)
+                    if len(self._typekeys[typ1][table]) == 0:
+                        del self._typekeys[typ1][table]
             del self._uvedb[table][barekey]
         else:
-            if typ not in self._uvedb[table][barekey]:
+            if not typ in self._typekeys:
+                self._typekeys[typ] = {}
+            if not typ in self._uvedb[table][barekey]:
                 self._uvedb[table][barekey][typ] = None
             if value is None:
                 # remove one type of this UVE
                 del self._uvedb[table][barekey][typ]
+                if table in self._typekeys[typ]:
+                    if barekey in self._typekeys[typ][table]:
+                        self._typekeys[typ][table].remove(barekey)
+                    if len(self._typekeys[typ][table]) == 0:
+                        del self._typekeys[typ][table]
             else:
                 self._uvedb[table][barekey][typ] = value
+                if not table in self._typekeys[typ]:
+                    self._typekeys[typ][table] = set()
+                self._typekeys[typ][table].add(barekey)
+            self._uvedb[table][barekey]["__SOURCE__"] = pi._asdict()
 
     def clear_partition(self, partno):
         for key in self._partkeys[partno]:
             barekey = key.split(":",1)[1]
             table = key.split(":",1)[0]
+
             del self._uvedb[table][barekey]
+            
+            # Look in the "types" index and remove this UVE
+            for tkey in self._typekeys.keys():
+                if table in self._typekeys[tkey]:
+                    if barekey in self._typekeys[tkey][table]:
+                        self._typekeys[tkey][table].remove(barekey)
+                        if len(self._typekeys[tkey][table]) == 0:
+                            del self._typekeys[tkey][table]
+                        if len(self._typekeys[tkey]) == 0:
+                            del self._typekeys[tkey]
+                
         self._partkeys[partno] = set()
 
 class UveStreamPart(gevent.Greenlet):
@@ -156,7 +239,7 @@ class UveStreamPart(gevent.Greenlet):
         idx=0
         for res in pperes:
             for tk,tv in res.iteritems():
-                self._cb(self._partno, keys[idx], tk, json.loads(tv))
+                self._cb(self._partno, self._pi, keys[idx], tk, json.loads(tv))
             idx += 1
         
     def _run(self):
@@ -209,7 +292,7 @@ class UveStreamPart(gevent.Greenlet):
                             else:
                                 vdata = json.loads(vjson)
 
-                        self._cb(self._partno, key, typ, vdata)
+                        self._cb(self._partno, self._pi, key, typ, vdata)
                         idx += 1
             except gevent.GreenletExit:
                 break
@@ -239,10 +322,13 @@ class UveStreamer(gevent.Greenlet):
         self._ccb = None
         self._uvedbcache = UveCacheProcessor(self._logger, partitions)
 
-    def get_uve(self, key, filters=None, is_alarm=False):
-        return self._uvedbcache.get_cache_uve(key, filters, is_alarm)
+    def get_uve(self, key, filters=None):
+        return self._uvedbcache.get_cache_uve(key, filters)
 
-    def partition_callback(self, partition, key, type, value):
+    def get_uve_list(self, utab, filters):
+        return self._uvedbcache.get_cache_list(utab, filters)
+
+    def partition_callback(self, partition, pi, key, type, value):
         # gevent is non-premptive; we don't need locks
         if self._q:
             dt = {'partition':partition, 'key':key, 'type':type}
@@ -254,9 +340,9 @@ class UveStreamer(gevent.Greenlet):
             # does not need to store the contents of "value"
             if not value is None:
                 value = {}
-            self._uvedbcache.store_uve(partition, key, type, value)
+            self._uvedbcache.store_uve(partition, pi, key, type, value)
         else:
-            self._uvedbcache.store_uve(partition, key, type, value)
+            self._uvedbcache.store_uve(partition, pi, key, type, value)
         
     def set_cleanup_callback(self, cb):
         self._ccb = cb
