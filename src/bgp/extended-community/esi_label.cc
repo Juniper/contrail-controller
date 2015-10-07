@@ -23,7 +23,8 @@ string EsiLabel::flags() const {
 }
 
 int EsiLabel::label() const {
-    if (data_[0] == 0x06 && data_[1] == 0x01) {
+    if (data_[0] == BgpExtendedCommunityType::Evpn &&
+        data_[1] == BgpExtendedCommunityEvpnSubType::EsiMplsLabel) {
         int value = get_value(&data_[5], 3);
         return value >> 4;
     }

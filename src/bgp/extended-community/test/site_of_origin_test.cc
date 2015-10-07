@@ -14,7 +14,9 @@ class SiteOfOriginTest : public ::testing::Test {
 
 TEST_F(SiteOfOriginTest, ByteArrayType0_1) {
     SiteOfOrigin::bytes_type data =
-    { { 0x00, 0x03, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 } };
+    { { BgpExtendedCommunityType::TwoOctetAS,
+          BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0x01, 0x02, 0x03, 0x04 } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(0, soo.Type());
@@ -23,8 +25,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType0_1) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType0_2) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x00, 0x03, 0xff, 0x84, 0x04, 0x03, 0x02, 0x01 } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::TwoOctetAS,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0x04, 0x03, 0x02, 0x01
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(0, soo.Type());
@@ -33,8 +38,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType0_2) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType0_3) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x00, 0x03, 0xff, 0x84, 0x00, 0x00, 0x00, 0x00 } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::TwoOctetAS,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0x00, 0x00, 0x00, 0x00
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(0, soo.Type());
@@ -43,8 +51,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType0_3) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType0_4) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x00, 0x03, 0xff, 0x84, 0xFF, 0xFF, 0xFF, 0xFF } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::TwoOctetAS,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0xFF, 0xFF, 0xFF, 0xFF
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(0, soo.Type());
@@ -53,8 +64,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType0_4) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType1_1) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x01, 0x03, 0x0a, 0x01, 0x01, 0x01, 0x12, 0x34 } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::IPv4Address,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0x0a, 0x01, 0x01, 0x01, 0x12, 0x34
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(1, soo.Type());
@@ -63,8 +77,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType1_1) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType1_2) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x01, 0x03, 0x0a, 0x01, 0x01, 0x01, 0x43, 0x21 } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::IPv4Address,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0x0a, 0x01, 0x01, 0x01, 0x43, 0x21
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(1, soo.Type());
@@ -73,8 +90,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType1_2) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType1_3) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x01, 0x03, 0x0a, 0x01, 0x01, 0x01, 0x00, 0x00 } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::IPv4Address,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0x0a, 0x01, 0x01, 0x01, 0x00, 0x00
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(1, soo.Type());
@@ -83,8 +103,11 @@ TEST_F(SiteOfOriginTest, ByteArrayType1_3) {
 }
 
 TEST_F(SiteOfOriginTest, ByteArrayType1_4) {
-    SiteOfOrigin::bytes_type data =
-	    { { 0x01, 0x03, 0x0a, 0x01, 0x01, 0x01, 0xFF, 0xFF } };
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::IPv4Address,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0x0a, 0x01, 0x01, 0x01, 0xFF, 0xFF
+    } };
     SiteOfOrigin soo(data);
     EXPECT_FALSE(soo.IsNull());
     EXPECT_EQ(1, soo.Type());

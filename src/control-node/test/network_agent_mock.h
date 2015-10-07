@@ -13,6 +13,7 @@
 #include <tbb/mutex.h>
 
 #include "base/queue_task.h"
+#include "bgp/extended-community/load_balance.h"
 
 namespace autogen {
 struct ItemType;
@@ -91,6 +92,10 @@ public:
           sequence(kDefaultSequence),
           sgids(sg) {
     }
+    RouteAttributes(const LoadBalance::LoadBalanceAttribute &lba)
+        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+          loadBalanceAttribute(lba) {
+    }
     RouteAttributes(const RouteParams &params)
         : local_pref(kDefaultLocalPref),
           med(kDefaultMed),
@@ -108,6 +113,7 @@ public:
     uint32_t med;
     uint32_t sequence;
     std::vector<int> sgids;
+    LoadBalance::LoadBalanceAttribute loadBalanceAttribute;
     RouteParams params;
 };
 

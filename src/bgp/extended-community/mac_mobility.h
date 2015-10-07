@@ -11,6 +11,7 @@
 #include <string>
 
 #include "base/parse_object.h"
+#include "bgp/extended-community/types.h"
 
 class MacMobility {
 public:

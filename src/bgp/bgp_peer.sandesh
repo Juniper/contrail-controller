@@ -114,6 +114,11 @@ struct ShowPmsiTunnel {
     5: list<string> flags;
 }
 
+struct ShowLoadBalance {
+    1: string decision_type;
+    2: list<string> fields;
+}
+
 struct ShowRoutePath {
     1: string protocol;
     3: string last_modified;
@@ -124,16 +129,17 @@ struct ShowRoutePath {
     9: string source;                   // neighbor ip address
     10: string as_path;
     11: string next_hop;
-    18: list<string> tunnel_encap;
     12: u32 label;
     13: bool replicated;
     14: string primary_table (link="ShowRouteReq");
     15: list<string> communities;
     16: string origin_vn;
+    17: u32 flags;
+    18: list<string> tunnel_encap;
+    19: string sequence_no;
     20: list<string> origin_vn_path;
     21: ShowPmsiTunnel pmsi_tunnel;
-    19: string sequence_no;
-    17: u32 flags;
+    22: ShowLoadBalance load_balance;
 }
 
 struct ShowRoute {

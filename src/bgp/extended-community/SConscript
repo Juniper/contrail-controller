@@ -7,11 +7,15 @@
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
+env.Append(CPPPATH = [ env['TOP'] ])
+env.Append(CPPPATH = [ env['TOP'] + '/db'])
+env.Append(CPPPATH = [ env['TOP'] + '/io'])
 
 libextended_community = env.Library('extended_community',
                                     ['default_gateway.cc',
                                      'es_import.cc',
                                      'esi_label.cc',
+                                     'load_balance.cc',
                                      'mac_mobility.cc',
                                      'site_of_origin.cc'])
 
