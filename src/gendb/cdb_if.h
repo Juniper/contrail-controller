@@ -233,6 +233,7 @@ private:
         const std::vector<DbQueueWaterMarkInfo> &vwmi);
     void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
         const DbQueueWaterMarkInfo &wmi);
+    bool set_keepalive();
 
     boost::shared_ptr<apache::thrift::transport::TTransport> socket_;
     boost::shared_ptr<apache::thrift::transport::TTransport> transport_;
@@ -262,6 +263,10 @@ private:
     std::vector<DbQueueWaterMarkInfo> cdbq_wm_info_;
     // Connection timeout to a server (before moving to next server)
     static const int connectionTimeout = 3000;
+    static const int keepaliveIdleSec = 15;
+    static const int keepaliveIntvlSec = 3;
+    static const int keepaliveProbeCount = 5;
+    static const int tcpUserTimeoutMs = 30000;
 };
 
 CdbIf::CdbIfStats::Errors operator+(const CdbIf::CdbIfStats::Errors &a,
