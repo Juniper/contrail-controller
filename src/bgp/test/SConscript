@@ -363,6 +363,18 @@ service_chain_test = env.UnitTest('service_chain_test',
                                      ['service_chain_test.cc'])
 env.Alias('src/bgp:service_chain_test', service_chain_test)
 
+service_chain_test1 = env.UnitTest('service_chain_test1',
+                                     ['service_chain_test1.cc'])
+env.Alias('src/bgp:service_chain_test1', service_chain_test1)
+
+service_chain_test2 = env.UnitTest('service_chain_test2',
+                                     ['service_chain_test2.cc'])
+env.Alias('src/bgp:service_chain_test2', service_chain_test2)
+
+service_chain_test3 = env.UnitTest('service_chain_test3',
+                                     ['service_chain_test3.cc'])
+env.Alias('src/bgp:service_chain_test3', service_chain_test3)
+
 svc_static_route_intergration_test = env.UnitTest('svc_static_route_intergration_test',
                                      ['svc_static_route_intergration_test.cc'])
 env.Alias('src/bgp:svc_static_route_intergration_test', svc_static_route_intergration_test)
@@ -448,6 +460,9 @@ test_suite = [
     rt_network_attr_test,
     scheduling_group_test,
     service_chain_test,
+    service_chain_test1,
+    service_chain_test2,
+    service_chain_test3,
     show_route_test,
     state_machine_test,
     static_route_test,
