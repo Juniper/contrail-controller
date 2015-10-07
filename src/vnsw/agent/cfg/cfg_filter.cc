@@ -33,22 +33,13 @@ CfgFilter::CfgFilter(AgentConfig *cfg) : agent_cfg_(cfg) {
 CfgFilter::~CfgFilter() {
 }
 
-bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
-                              int property_id) {
+bool CfgFilter::CheckIdPermsProperty(DBTable *table,
+                                     const IFMapIdentifier *req_id,
+                                     DBRequest *req,
+                                     int property_id) {
     if (property_id < 0) {
         return true;
     }
-
-    if (req->oper == DBRequest::DB_ENTRY_DELETE) {
-        return true;
-    }
-
-    assert(req->oper == DBRequest::DB_ENTRY_ADD_CHANGE);
-
-    IFMapAgentTable::IFMapAgentData *data = 
-        static_cast<IFMapAgentTable::IFMapAgentData *>(req->data.get());
-    IFMapObject *req_obj = static_cast<IFMapObject *>(data->content.get());
-    const IFMapIdentifier *req_id = static_cast<const IFMapIdentifier *>(req_obj);
 
     if (req_id->IsPropertySet(property_id)) {
         return true;
@@ -64,42 +55,98 @@ bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
     return true;
 }
 
+int CfgFilter::GetIdPermsPropertyId(DBTable *table) const {
+    if (table == agent_cfg_->cfg_vm_table())
+        return VirtualMachine::ID_PERMS;
+    if (table == agent_cfg_->cfg_vn_table())
+        return VirtualNetwork::ID_PERMS;
+    if (table == agent_cfg_->cfg_vm_interface_table())
+        return VirtualMachineInterface::ID_PERMS;
+    if (table == agent_cfg_->cfg_acl_table())
+        return AccessControlList::ID_PERMS;
+    if (table == agent_cfg_->cfg_loadbalancer_table())
+        return LoadbalancerPool::ID_PERMS;
+    if (table == agent_cfg_->cfg_service_instance_table())
+        return ServiceInstance::ID_PERMS;
+    if (table == agent_cfg_->cfg_security_group_table())
+        return SecurityGroup::ID_PERMS;
+    if (table == agent_cfg_->cfg_logical_port_table())
+        return LogicalInterface::ID_PERMS;
+    if (table == agent_cfg_->cfg_physical_device_table())
+        return PhysicalRouter::ID_PERMS;
+    return -1;
+}
+
+bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req) {
+    if (req->oper == DBRequest::DB_ENTRY_DELETE) {
+        return true;
+    }
+
+    assert(req->oper == DBRequest::DB_ENTRY_ADD_CHANGE);
+
+    IFMapAgentTable::IFMapAgentData *data =
+        static_cast<IFMapAgentTable::IFMapAgentData *>(req->data.get());
+    IFMapObject *req_obj = static_cast<IFMapObject *>(data->content.get());
+    const IFMapIdentifier *req_id = static_cast<const IFMapIdentifier *>(req_obj);
+
+    if (CheckIdPermsProperty(table, req_id, req,
+                             GetIdPermsPropertyId(table)) == false)
+        return false;
+
+    //Table specific property checks
+    if ((table == agent_cfg_->cfg_vm_interface_table()) &&
+        (CheckVmInterfaceProperty(table, req_id, req) == false)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool CfgFilter::CheckVmInterfaceProperty(DBTable *table,
+                                         const IFMapIdentifier *req_id,
+                                         DBRequest *req) {
+    if (req_id->IsPropertySet(VirtualMachineInterface::MAC_ADDRESSES) ==
+        false) {
+        return true;
+    }
+
+    const VirtualMachineInterface *vmi =
+        dynamic_cast<const VirtualMachineInterface *>(req_id);
+    if ((vmi->mac_addresses().at(0) == MacAddress::ZeroMac().ToString()) ||
+        (vmi->mac_addresses().size() == 0)) {
+        return false;
+    }
+
+    return true;
+}
+
 void CfgFilter::Init() {
     agent_cfg_->cfg_vm_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     VirtualMachine::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_vn_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     VirtualNetwork::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_vm_interface_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     VirtualMachineInterface::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_acl_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     AccessControlList::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_loadbalancer_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     LoadbalancerPool::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_service_instance_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     ServiceInstance::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_security_group_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     SecurityGroup::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_logical_port_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     LogicalInterface::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
     agent_cfg_->cfg_physical_device_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
-                     PhysicalRouter::ID_PERMS));
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 }
 
 void CfgFilter::Shutdown() {

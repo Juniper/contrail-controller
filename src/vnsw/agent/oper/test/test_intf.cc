@@ -154,7 +154,8 @@ public:
 
     void NovaPortAdd(struct PortInfo *input) {
         client->Reset();
-        IntfCfgAdd(input, 0);
+        IntfCfgAddThrift(input, 0);
+        //IntfCfgAdd(input, 0);
         EXPECT_TRUE(client->PortNotifyWait(1));
     }
 
@@ -3186,6 +3187,29 @@ TEST_F(IntfTest, MultipleIp3) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
                 == NULL));
+    client->Reset();
+}
+
+TEST_F(IntfTest, Add_vmi_with_zero_mac_and_update_with_correct_mac) {
+    struct PortInfo input[] = {
+        {"vnet10", 10, "1.1.1.1", "00:00:00:00:00:00", 10, 10},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(10));
+
+    struct PortInfo input2[] = {
+        {"vnet10", 10, "1.1.1.1", "00:00:00:00:00:10", 10, 10},
+    };
+
+    CreateVmportEnv(input2, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(10));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(10));
     client->Reset();
 }
 
