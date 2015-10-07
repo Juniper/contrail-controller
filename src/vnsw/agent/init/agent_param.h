@@ -112,7 +112,6 @@ public:
     bool dhcp_relay_mode() const {return dhcp_relay_mode_;}
     bool xmpp_auth_enabled() const {return xmpp_auth_enable_;}
     std::string xmpp_server_cert() const { return xmpp_server_cert_;}
-    const int tcp_hold_time() const {return tcp_hold_time_;}
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     std::string si_netns_command() const {return si_netns_command_;}
     std::string si_docker_command() const {return si_docker_command_;}
@@ -381,7 +380,6 @@ private:
     bool dhcp_relay_mode_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;
-    int tcp_hold_time_;
     //Simulate EVPN TOR mode moves agent into L2 mode. This mode is required
     //only for testing where MX and bare metal are simulated. VM on the
     //simulated compute node behaves as bare metal.
