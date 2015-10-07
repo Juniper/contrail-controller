@@ -97,11 +97,17 @@ bool AgentUtXmlValidate::ReadXml() {
         string name;
         AgentUtXmlValidationNode *val = NULL;
 
-        AgentUtXmlTest::AgentUtXmlTestValidateCreateFn fn =
-            test_case()->test()->GetValidateCreateFn(n.name());
-        if (CheckValidateNodeWithUuid(n.name(), n, &id, &name) == true) {
-            if (fn.empty() == false)
-                val = fn(n.name(), name, id, n);
+        if (strcmp(n.name(), "flow-export") == 0) {
+            val =  new AgentUtXmlFlowExportValidate(n);
+        } else if (strcmp(n.name(), "flow-threshold") == 0) {
+            val =  new AgentUtXmlFlowThresholdValidate(n);
+        } else {
+            AgentUtXmlTest::AgentUtXmlTestValidateCreateFn fn =
+                test_case()->test()->GetValidateCreateFn(n.name());
+            if (CheckValidateNodeWithUuid(n.name(), n, &id, &name) == true) {
+                if (fn.empty() == false)
+                    val = fn(n.name(), name, id, n);
+            }
         }
 
         if (val != NULL) {
@@ -189,4 +195,71 @@ bool AgentUtXmlValidationNode::ReadXml() {
 
 bool AgentUtXmlValidationNode::Validate() {
     return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlFlowExportValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlFlowExportValidate::AgentUtXmlFlowExportValidate(
+                                                        const xml_node &node) :
+    AgentUtXmlValidationNode("flow-export", node), count_(-1) {
+}
+
+AgentUtXmlFlowExportValidate::~AgentUtXmlFlowExportValidate() {
+}
+
+bool AgentUtXmlFlowExportValidate::ReadXml() {
+    GetIntAttribute(node(), "count", &count_);
+    return true;
+}
+
+bool AgentUtXmlFlowExportValidate::Validate() {
+    Agent *agent = Agent::GetInstance();
+
+    TestClient::WaitForIdle();
+    uint32_t count = (uint32_t)count_;
+    if (agent->flow_stats_collector()->flow_export_count() != count)
+        return false;
+
+    return true;
+}
+
+const string AgentUtXmlFlowExportValidate::ToString() {
+    return "flow-export";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlFlowThresholdValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlFlowThresholdValidate::AgentUtXmlFlowThresholdValidate(
+                                                        const xml_node &node) :
+    AgentUtXmlValidationNode("flow-threshold", node) {
+}
+
+AgentUtXmlFlowThresholdValidate::~AgentUtXmlFlowThresholdValidate() {
+}
+
+bool AgentUtXmlFlowThresholdValidate::ReadXml() {
+    uint16_t threshold;
+    if (GetUintAttribute(node(), "threshold", &threshold) == false) {
+        threshold_ = 0;
+    } else {
+        threshold_ = (uint32_t)threshold;
+    }
+    return true;
+}
+
+bool AgentUtXmlFlowThresholdValidate::Validate() {
+    Agent *agent = Agent::GetInstance();
+
+    TestClient::WaitForIdle();
+    FlowStatsCollector *fec = agent->flow_stats_collector();
+    if (fec->threshold_ != threshold_)
+        return false;
+
+    return true;
+}
+
+const string AgentUtXmlFlowThresholdValidate::ToString() {
+    return "flow-threshold";
 }

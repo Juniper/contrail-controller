@@ -40,7 +40,6 @@
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/route_common.h>
-#include <sandesh/common/flow_types.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -306,6 +305,7 @@ class FlowEntry {
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
     static const std::map<FlowPolicyState, const char*> FlowPolicyStateStr;
+    static const std::map<uint16_t, const char*> FlowDropReasonStr;
 
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
@@ -429,6 +429,7 @@ class FlowEntry {
     bool set_pending_recompute(bool value);
     const MacAddress &smac() const { return data_.smac; }
     const MacAddress &dmac() const { return data_.dmac; }
+    bool IsActionLog() const;
 
 private:
     friend class FlowTable;
@@ -700,8 +701,6 @@ public:
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
     bool ValidFlowMove(const FlowEntry *new_flow,
                        const FlowEntry *old_flow) const;
-    void FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
-    virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
     void IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb);
     RouteFlowInfo *FindRouteFlowInfo(RouteFlowInfo *key);
     void FlowRecompute(RouteFlowInfo *rt_info);
@@ -794,9 +793,6 @@ private:
     void SendFlowInternal(FlowEntry *fe, uint64_t time);
 
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
