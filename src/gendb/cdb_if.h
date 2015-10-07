@@ -20,6 +20,11 @@
 #include "gendb_if.h"
 #include "gendb_statistics.h"
 
+#define KEEPALIVE_IDLE_SEC 15
+#define KEEPALIVE_INTVL_SEC 3
+#define KEEPALIVE_PROBE_COUNT 5
+#define TCP_USER_TIMEOUT_MS 30000
+
 class CdbIf : public GenDb::GenDbIf {
 public:
     CdbIf(DbErrorHandler, const std::vector<std::string>&,
@@ -233,6 +238,7 @@ private:
         const std::vector<DbQueueWaterMarkInfo> &vwmi);
     void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
         const DbQueueWaterMarkInfo &wmi);
+    bool set_keepalive();
 
     boost::shared_ptr<apache::thrift::transport::TTransport> socket_;
     boost::shared_ptr<apache::thrift::transport::TTransport> transport_;

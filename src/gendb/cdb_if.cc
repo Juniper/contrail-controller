@@ -13,6 +13,9 @@
 #include <sandesh/sandesh.h>
 
 #include "cdb_if.h"
+#include <sys/socket.h>
+#include <errno.h>
+#include <string.h>
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
@@ -695,6 +698,10 @@ bool CdbIf::Db_Init(const std::string& task_id, int task_instance) {
     CDBIF_BEGIN_TRY {
         transport_->open();
     } CDBIF_END_TRY_RETURN_FALSE(errstr)
+
+    if(!set_keepalive()) {
+       return false;
+    }
 
     //Connect with passwd
     if (!cassandra_user_.empty() && !cassandra_password_.empty()) {
@@ -1773,3 +1780,57 @@ size_t CdbIf::CdbIfQueue::AtomicDecrementQueueCount(
     size_t size(gcolList->GetSize());
     return count_.fetch_and_add(0-size) - size;
 }
+
+bool CdbIf::set_keepalive() {
+
+    int keepalive_idle_sec = KEEPALIVE_IDLE_SEC;
+    int keepalive_intvl_sec = KEEPALIVE_INTVL_SEC;
+    int keepalive_probe_count = KEEPALIVE_PROBE_COUNT;
+    int tcp_user_timeout_ms = TCP_USER_TIMEOUT_MS;//30 seconds
+
+    boost::shared_ptr<TSocket> tsocket =
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+
+    //Set KeepAlive for the client connections to cassandra
+    int optval = 1;
+    int socket_fd = tsocket->getSocketFD();
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE, &optval,
+                   sizeof(int)) < 0) {
+        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set SO_KEEPALIVE option on"
+                                   "listen socket (" << strerror(errno) << ")");
+    }
+#ifdef TCP_KEEPIDLE
+    //Set the KEEPALIVE IDLE time
+    if (setsockopt(socket_fd, SOL_TCP, TCP_KEEPIDLE, &keepalive_idle_sec,
+                   sizeof(keepalive_idle_sec)) < 0) {
+        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPIDLE option on"
+                                   "listen socket (" << strerror(errno) << ")");
+    }
+#endif
+#ifdef TCP_KEEPINTVL
+    //Set the KEEPALIVE INTERVAL time between probes
+    if (setsockopt(socket_fd, SOL_TCP, TCP_KEEPINTVL, &keepalive_intvl_sec,
+                   sizeof(keepalive_intvl_sec)) < 0) {
+        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPINTVL option on"
+                                   "listen socket (" << strerror(errno) << ")");
+    }
+#endif
+#ifdef TCP_KEEPCNT
+    //Set the KEEPALIVE PROBE COUNT
+    if (setsockopt(socket_fd, SOL_TCP, TCP_KEEPCNT, &keepalive_probe_count,
+                   sizeof(keepalive_probe_count)) < 0) {
+        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPINTVL option on"
+                                   "listen socket (" << strerror(errno) << ")");
+    }
+#endif
+#ifdef TCP_USER_TIMEOUT
+    //Set TCP_USER_TIMEOUT so pending data on sockets
+    if (setsockopt(socket_fd, SOL_TCP, TCP_USER_TIMEOUT, &tcp_user_timeout_ms,
+                   sizeof(tcp_user_timeout_ms)) < 0) {
+        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_USER_TIMEOUT_MS option on"
+                                   "listen socket (" << strerror(errno) << ")");
+    }
+#endif
+    return true;
+}
+
