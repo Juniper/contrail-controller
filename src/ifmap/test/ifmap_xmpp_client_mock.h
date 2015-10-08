@@ -50,7 +50,7 @@ public:
     bool HasMessages() const { return count_ > 0; }
     bool Has2Messages() const { return count_ == 2; }
     bool HasNMessages(uint64_t n) const { return count_ == n; }
-    std::string& name() { return name_; }
+    const std::string& name() { return name_; }
 
     void ProcessNodeTag(pugi::xml_node xnode, ObjectSet *oset);
     void ProcessLinkTag(pugi::xml_node xnode) { return; }

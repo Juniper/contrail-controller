@@ -63,6 +63,9 @@ public:
     bool HasVms() {
         return (vm_map_.size() != 0);
     }
+    size_t VmCount() {
+        return vm_map_.size();
+    }
     // return vm_map_ as a list of strings
     std::vector<std::string> vm_list() const;
 
