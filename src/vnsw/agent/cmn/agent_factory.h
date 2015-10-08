@@ -16,12 +16,13 @@ class DB;
 class DBGraph;
 class IFMapDependencyManager;
 class InstanceManager;
-class FlowTable;
+class FlowStatsCollector;
 class NexthopManager;
 
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
-    FACTORY_TYPE_N1(AgentObjectFactory, FlowTable, Agent *);
+    FACTORY_TYPE_N4(AgentObjectFactory, FlowStatsCollector,
+                    boost::asio::io_service &, int, uint32_t, AgentUveBase *);
     FACTORY_TYPE_N4(AgentObjectFactory, AgentUveBase, Agent *, uint64_t,
                     uint32_t, uint32_t);
     FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);
