@@ -3436,6 +3436,11 @@ bool FlowEntry::IsActionLog() const {
     return false;
 }
 
+void FlowEntry::SetActionLog() {
+    data_.match_p.action_info.action = data_.match_p.action_info.action |
+        (1 << TrafficAction::LOG);
+}
+
 string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
     string uuid_str = UuidToString(acl->GetUuid());
     stringstream ss;
@@ -3554,5 +3559,3 @@ void FlowTable::Shutdown() {
     agent_->vrf_table()->Unregister(vrf_listener_id_);
     delete nh_listener_;
 }
-
-

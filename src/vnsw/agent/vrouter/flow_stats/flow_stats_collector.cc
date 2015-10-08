@@ -356,6 +356,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     s_flow.set_packets(stats.packets);
     s_flow.set_diff_bytes(diff_bytes);
     s_flow.set_diff_packets(diff_pkts);
+    s_flow.set_tcp_flags(stats.tcp_flags);
 
     // TODO: IPV6
     if (flow->key().family == Address::INET) {
@@ -599,6 +600,7 @@ bool FlowStatsCollector::Run() {
              * whenever flow action changes. To keep agent independent of this,
              * always copy UDP source port */
             entry->set_underlay_source_port(k_flow->fe_udp_src_port);
+            entry->set_tcp_flags(k_flow->fe_tcp_flags);
             /* Don't account for agent overflow bits while comparing change in
              * stats */
             if (bytes != k_bytes) {

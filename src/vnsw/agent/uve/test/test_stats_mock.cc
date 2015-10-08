@@ -11,7 +11,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 #include <uve/test/agent_stats_collector_test.h>
-#include <pkt/test/flow_table_test.h>
+#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
 #include "uve/test/test_uve_util.h"
 #include "pkt/test/test_flow_util.h"
 
@@ -453,6 +453,61 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
 
     //Restore flow aging time
     agent->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+}
+
+TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
+    hash_id = 1;
+
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
+
+    //Create flow in reverse direction and make sure it is linked to previous
+    //flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f2_rev->flow_handle());
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                        "vn5", "vn5", f2_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the TCP flags
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow TCP flags
+    EXPECT_TRUE((f2->tcp_flags() == 0));
+    EXPECT_TRUE((f2_rev->tcp_flags() == 0));
+
+    //Change the stats
+    KSyncSockTypeMap::SetFlowTcpFlags(1, VR_FLOW_TCP_SYN);
+    KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_SYN);
+
+    //Invoke FlowStatsCollector to update the TCP flags
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify the updated flow TCP flags
+    EXPECT_TRUE((f2->tcp_flags() == VR_FLOW_TCP_SYN));
+    EXPECT_TRUE((f2_rev->tcp_flags() == VR_FLOW_TCP_SYN));
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    WAIT_FOR(100, 10000,
+             (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, DeletedFlowStatsTest) {
@@ -979,8 +1034,8 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port
-    FlowTableUnitTest *f = static_cast<FlowTableUnitTest *>
-        (Agent::GetInstance()->pkt()->flow_table());
+    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
+        (Agent::GetInstance()->flow_stats_collector());
     FlowDataIpv4 flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 
