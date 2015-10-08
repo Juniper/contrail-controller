@@ -566,6 +566,9 @@ class Controller(object):
                     if outp is None:
                         self._logger.error("UVE Process failed for %d" % part)
                         self.handle_uve_notifq(part, pendingset[part])
+                    elif not part in self._workers:
+                        self._logger.error(
+                                "Part %d is gone, cannot process UVEs" % part)
                     else:
                         try:
                             if lredis is None:
