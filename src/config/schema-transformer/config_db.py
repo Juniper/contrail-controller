@@ -287,14 +287,11 @@ class VirtualNetworkST(DBBaseST):
                 nid = props.network_id
         if nid:
             self._cassandra.free_vn_id(nid - 1)
-        for policy in NetworkPolicyST.values():
-            if self.name in policy.analyzer_vn_set:
-                policy.analyzer_vn_set.discard(self.name)
 
         self.update_multiple_refs('route_table', {})
         self.update_route_table()
         self.uve_send(deleted=True)
-    # end delete
+    # end delete_obj
 
     def update_autonomous_system(self, new_asn):
         if (self.obj.get_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
@@ -1183,7 +1180,6 @@ class NetworkPolicyST(DBBaseST):
         self.service_instances = set()
         self.internal = False
         self.rules = []
-        self.analyzer_vn_set = set()
 
         # policies referred in this policy as src or dst
         self.referred_policies = set()
@@ -1231,17 +1227,12 @@ class NetworkPolicyST(DBBaseST):
         else:
             self.rules = entries.policy_rule
         np_set = set()
-        self.analyzer_vn_set = set()
         si_set = set()
         for prule in self.rules:
             if prule.action_list is None:
                 continue
             if (prule.action_list.mirror_to and
                 prule.action_list.mirror_to.analyzer_name):
-                (vn, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
-                    prule.action_list.mirror_to.analyzer_name)
-                if vn:
-                    self.analyzer_vn_set.add(vn)
                 si_set.add(prule.action_list.mirror_to.analyzer_name)
             if prule.action_list.apply_service:
                 si_set = si_set.union(prule.action_list.apply_service)
@@ -2385,6 +2376,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.interface_mirror = None
         self.virtual_network = None
         self.virtual_machine = None
+        self.logical_router = None
         self.uuid = None
         self.instance_ips = set()
         self.floating_ips = set()
@@ -2404,21 +2396,20 @@ class VirtualMachineInterfaceST(DBBaseST):
             self.virtual_machine = self.obj.get_parent_fq_name_str()
         else:
             self.update_single_ref('virtual_machine', self.obj)
-        props = self.obj.get_virtual_machine_interface_properties()
-        if props:
-            self.set_service_interface_type(props.get_service_interface_type())
-            self.set_interface_mirror(props.get_interface_mirror())
+        self.update_single_ref('logical_router', self.obj)
+        self.set_properties()
     # end update
 
     def delete_obj(self):
         self.update_single_ref('virtual_network', {})
         self.update_single_ref('virtual_machine', {})
+        self.update_single_ref('logical_router', {})
         self.update_multiple_refs('instance_ip', {})
         self.update_multiple_refs('floating_ip', {})
     # end delete_obj
 
     def evaluate(self):
-        self.set_virtual_network(self.virtual_network)
+        self.set_virtual_network()
         self._add_pbf_rules()
         self.process_analyzer()
         self.recreate_vrf_assign_table()
@@ -2432,13 +2423,15 @@ class VirtualMachineInterfaceST(DBBaseST):
         return None
     # end get_any_instance_ip_address
 
-    def set_service_interface_type(self, service_interface_type):
-        self.service_interface_type = service_interface_type
-    # end set_service_interface_type
-
-    def set_interface_mirror(self, interface_mirror):
-        self.interface_mirror = interface_mirror
-    # end set_interface_mirror
+    def set_properties(self):
+        props = self.obj.get_virtual_machine_interface_properties()
+        if props:
+            self.service_interface_type = props.service_interface_type
+            self.interface_mirror = props.interface_mirror
+        else:
+            self.service_interface_type = None
+            self.interface_mirror = None
+    # end set_properties
 
     def _add_pbf_rules(self):
         if (not self.virtual_machine or
@@ -2474,15 +2467,10 @@ class VirtualMachineInterfaceST(DBBaseST):
                                        sc_ip_address, vlan)
     # end _add_pbf_rules
 
-    def set_virtual_network(self, vn_name):
-        self.virtual_network = vn_name
-        virtual_network = VirtualNetworkST.locate(vn_name)
-        if virtual_network is not None:
-            virtual_network.virtual_machine_interfaces.add(self.name)
-
-        for lr in LogicalRouterST.values():
-            if self.name in lr.virtual_machine_interfaces:
-                lr.update_virtual_networks()
+    def set_virtual_network(self):
+        lr = LogicalRouterST.get(self.logical_router)
+        if lr is not None:
+            lr.update_virtual_networks()
     # end set_virtual_network
 
     def process_analyzer(self):
@@ -2494,14 +2482,15 @@ class VirtualMachineInterfaceST(DBBaseST):
         if vn is None:
             return
 
-        old_interface_mirror_mirror_to = copy.deepcopy(self.interface_mirror.mirror_to)
+        old_mirror_to = copy.deepcopy(self.interface_mirror.mirror_to)
 
         vn.process_analyzer(self.interface_mirror)
 
-        if old_interface_mirror_mirror_to == self.interface_mirror.mirror_to:
+        if old_mirror_to == self.interface_mirror.mirror_to:
             return
 
-        self.obj.set_virtual_machine_interface_properties(self.obj.get_virtual_machine_interface_properties())
+        self.obj.set_virtual_machine_interface_properties(
+            self.obj.get_virtual_machine_interface_properties())
         try:
             self._vnc_lib.virtual_machine_interface_update(self.obj)
         except NoIdError:
@@ -2726,20 +2715,21 @@ class LogicalRouterST(DBBaseST):
         if vn_set == self.virtual_networks:
             return
         self.set_virtual_networks(vn_set)
-    # end update_virtual_netwokrs
+    # end update_virtual_networks
 
     def set_virtual_networks(self, vn_set):
         for vn in self.virtual_networks - vn_set:
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_add=set(),
-                                                rt_del=self.rt_list|set([self.route_target]))
+                ri_obj.update_route_target_list(
+                    rt_add=set(), rt_del=self.rt_list|set([self.route_target]))
         for vn in vn_set - self.virtual_networks:
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_add=self.rt_list|set([self.route_target]))
+                ri_obj.update_route_target_list(
+                    rt_add=self.rt_list|set([self.route_target]))
         self.virtual_networks = vn_set
     # end set_virtual_networks
 
@@ -2778,8 +2768,7 @@ class LogicalRouterST(DBBaseST):
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_del=rt_del,
-                                                rt_add=rt_add)
+                ri_obj.update_route_target_list(rt_del=rt_del, rt_add=rt_add)
     # end set_route_target_list
 
 # end LogicalRouterST

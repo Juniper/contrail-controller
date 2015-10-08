@@ -63,3 +63,30 @@ response sandesh ServiceChainListResp {
 request sandesh ServiceChainList {
     1: string sc_name;
 }
+
+request sandesh StObjectReq {
+    1: string object_type;
+    2: string object_id_or_fq_name;
+}
+
+struct RefList {
+    1: string object_type;
+    2: list<string> object_fq_name;
+}
+
+struct PropList {
+    1: string property_name;
+    2: string property;
+}
+
+struct StObject {
+    1: string object_type;
+    2: string object_uuid;
+    3: string object_fq_name;
+    4: list<RefList> obj_refs;
+    5: list<PropList> properties;
+}
+
+response sandesh StObjectListResp {
+    1: list<StObject> objects;
+}

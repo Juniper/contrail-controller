@@ -427,10 +427,10 @@ class SchemaTransformer(object):
                 continue
             si_st.add_properties(props)
 
-        self.process_stale_objects()
         for cls in DBBaseST.get_obj_type_map().values():
             for obj in cls.values():
                 obj.evaluate()
+        self.process_stale_objects()
     # end reinit
 
     def cleanup(self):
