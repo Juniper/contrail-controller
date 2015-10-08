@@ -22,6 +22,7 @@ class BgpServer;
 class BgpRoute;
 class BgpPath;
 class Path;
+class PathResolver;
 class Route;
 class RoutingInstance;
 class SchedulingGroupManager;
@@ -99,6 +100,8 @@ public:
     void Shutdown();
     virtual bool MayDelete() const;
     bool IsDeleted() const { return deleter()->IsDeleted(); }
+    virtual PathResolver *CreatePathResolver();
+    void DestroyPathResolver();
 
     RoutingInstance *routing_instance() { return rtinstance_; }
     const RoutingInstance *routing_instance() const { return rtinstance_; }
@@ -132,6 +135,7 @@ private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
             const DBRequestKey *prefix) = 0;
     RoutingInstance *rtinstance_;
+    PathResolver *path_resolver_;
     RibOutMap ribout_map_;
 
     boost::scoped_ptr<DeleteActor> deleter_;

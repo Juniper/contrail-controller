@@ -14,6 +14,7 @@
 
 class Inet6Prefix;
 class BgpServer;
+class PathResolver;
 
 class Inet6Table : public BgpTable {
 public:
@@ -28,7 +29,7 @@ public:
         }
     };
 
-    Inet6Table(DB *db, const std::string &name) : BgpTable(db, name) { }
+    Inet6Table(DB *db, const std::string &name);
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
@@ -40,6 +41,7 @@ public:
 
     virtual bool Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
+    virtual PathResolver *CreatePathResolver();
 
     static size_t HashFunction(const Inet6Prefix &addr);
     static DBTableBase *CreateTable(DB *db, const std::string &name);

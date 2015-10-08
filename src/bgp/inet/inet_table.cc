@@ -9,19 +9,20 @@
 
 #include "base/util.h"
 #include "bgp/bgp_path.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
+#include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
 using std::auto_ptr;
 using std::string;
 
-size_t InetTable::HashFunction(const Ip4Prefix &prefix) {
-    return boost::hash_value(prefix.ip4_addr().to_ulong());
+InetTable::InetTable(DB *db, const string &name)
+    : BgpTable(db, name) {
 }
 
-InetTable::InetTable(DB *db, const string &name) : BgpTable(db, name) {
+size_t InetTable::HashFunction(const Ip4Prefix &prefix) {
+    return boost::hash_value(prefix.ip4_addr().to_ulong());
 }
 
 auto_ptr<DBEntry> InetTable::AllocEntry(const DBRequestKey *key) const {
@@ -143,6 +144,12 @@ bool InetTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
     uinfo_slist->push_front(*uinfo);
 
     return true;
+}
+
+PathResolver *InetTable::CreatePathResolver() {
+    if (routing_instance()->IsDefaultRoutingInstance())
+        return NULL;
+    return (new PathResolver(this));
 }
 
 static void RegisterFactory() {

@@ -148,6 +148,13 @@ protected:
         return table_a->GetListenerCount();
     }
 
+    void DestroyPathResolver(const char *inst) {
+        DB *db_a = a_.get()->database();
+        InetTable *table =
+            static_cast<InetTable *>(db_a->FindTable(string(inst) + ".inet.0"));
+        table->DestroyPathResolver();
+    }
+
     void AddInetRoute(std::string prefix_str, BgpPeer *peer,
                       const char *inst = NULL) {
         BgpAttrPtr attr_ptr;
@@ -610,6 +617,8 @@ TEST_F(ShowRouteTest1, Basic) {
 TEST_F(ShowRouteTest1, TableListeners) {
     Configure();
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, ListenerCount("blue"));
+    DestroyPathResolver("blue");
     TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
 
     AddInetRoute("192.240.11.0/12", peers_[0], "blue");
