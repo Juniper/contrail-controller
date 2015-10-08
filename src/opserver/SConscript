@@ -76,6 +76,20 @@ sdist_gen = OpEnv.Command('dist/opserver-0.1dev.tar.gz', 'setup.py',
 # install everything before building distribution
 OpEnv.Depends(sdist_gen, sdist_depends)
 
+# Documentation
+opserver_doc_files = []
+opserver_doc_files += OpEnv['BASE_DOC_FILES']
+opserver_doc_files += OpEnv['ANALYTICS_DOC_FILES']
+opserver_doc_files += OpEnv.SandeshGenDoc('discovery.sandesh')
+opserver_doc_files += OpEnv.SandeshGenDoc('analytics_database.sandesh')
+
+alarmgen_doc_files = []
+alarmgen_doc_files += OpEnv['BASE_DOC_FILES']
+alarmgen_doc_files += OpEnv['ANALYTICS_DOC_FILES']
+alarmgen_doc_files += OpEnv.SandeshGenDoc('discovery.sandesh')
+alarmgen_doc_files += OpEnv.SandeshGenDoc('alarmgen_ctrl.sandesh')
+alarmgen_doc_files += OpEnv.SandeshGenDoc('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', OpEnv['TOP'] + '/opserver/')
+
 if 'install' in BUILD_TARGETS:
     install_cmd = OpEnv.Command(None,
                                 'setup.py',
@@ -113,6 +127,12 @@ OpEnv.Alias('install', OpEnv.InstallAs(
 OpEnv.Alias('install', OpEnv.Install(
             OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
             'contrail-alarm-gen.ini'))
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_MESSAGE_DOC'] + '/contrail-analytics-api/',
+            opserver_doc_files))
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_MESSAGE_DOC'] + '/contrail-alarm-gen/',
+            alarmgen_doc_files))
 
 def clean_coverage(env, target, source):
     # rm -rf opserver/test/test_coverage

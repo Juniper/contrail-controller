@@ -107,6 +107,12 @@ env.Alias('tests', test_cmd)
 env.Alias('controller/src/analytics/contrail-snmp-collector:test', test_cmd)
 env.AlwaysBuild(test_cmd)
 
+doc_files = []
+doc_files += env['BASE_DOC_FILES']
+doc_files += env['SANDESH_DOC_FILES']
+doc_files += env['ANALYTICS_DOC_FILES']
+doc_files += env.SandeshGenDoc('prouter.sandesh')
+
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources + src_sandesh,
                               cd_cmd + 'python setup.py install %s' %
@@ -122,3 +128,5 @@ env.Alias('install', env.InstallAs(
 env.Alias('install', env.Install(
             env['INSTALL_CONF'] + '/supervisord_analytics_files',
             'contrail-snmp-collector.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-snmp-collector/', doc_files))

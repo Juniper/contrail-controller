@@ -82,6 +82,11 @@ def BuildPyTestSetup(env, target, source):
     file.close()
     return
 
+# Documentation
+doc_files = []
+doc_files += env.SandeshGenDoc('svc_mon_introspect.sandesh')
+doc_files += env['CFGM_DOC_FILES']
+
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources,
                               cd_cmd + 'python setup.py install %s' %
@@ -93,6 +98,8 @@ env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
     '/contrail-svc-monitor', 'contrail-svc-monitor.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-svc-monitor.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-svc-monitor/', doc_files))
 
 buildspace_link = os.environ.get('CONTRAIL_REPO')
 if buildspace_link:

@@ -45,7 +45,14 @@ contrail_tor_agent = env.Program(target = 'contrail-tor-agent',
 env.Alias('agent:contrail-tor-agent', contrail_tor_agent)
 env.SConscript('ovsdb_client/SConscript', exports='AgentEnv', duplicate=0)
 
+# Documentation
+doc_files = []
+doc_files += env['AGENT_COMMON_DOC_FILES']
+doc_files += env['AGENT_OVS_DOC_FILES']
+
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_tor_agent))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-tor-agent/', doc_files))
 
 # Local Variables:
 # mode: python

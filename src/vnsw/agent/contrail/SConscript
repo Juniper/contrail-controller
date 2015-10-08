@@ -111,6 +111,13 @@ contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
 env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
+# Documentation
+doc_files = []
+doc_files += env['AGENT_COMMON_DOC_FILES']
+doc_files += env['AGENT_UVE_DOC_FILES']
+doc_files += env['AGENT_KSYNC_DOC_FILES']
+doc_files += env['AGENT_FLOW_DOC_FILES']
+
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
 env.Alias('install', env.Install(env['INSTALL_CONF'],
@@ -124,3 +131,6 @@ env.Alias('install',
         '../contrail-vrouter.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 
     '../supervisord_vrouter.conf'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-vrouter-agent/',
+    doc_files))
