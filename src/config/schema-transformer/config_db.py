@@ -260,6 +260,9 @@ class VirtualNetworkST(DBBaseST):
             subnet = ipam_ref['attr']
             self.ipams[':'.join(ipam_ref['to'])] = subnet
         self.update_ipams()
+        prop = self.obj.get_virtual_network_properties(
+        ) or VirtualNetworkType()
+        self.set_properties(prop)
         self.set_route_target_list(self.obj.get_route_target_list())
     # end update
 
@@ -524,7 +527,8 @@ class VirtualNetworkST(DBBaseST):
         ri.update_route_target_list(rt_add, rt_del)
         for ri_name in self.routing_instances:
             if self._ri_needs_external_rt(self.name, ri_name):
-                ri_obj.update_route_target_list(rt_add, rt_del,
+                service_ri = RoutingInstanceST.get(ri_name)
+                service_ri.update_route_target_list(rt_add, rt_del,
                                                 import_export='export')
         for (prefix, nexthop) in self.routes.items():
             left_ri = self._get_routing_instance_from_route(nexthop)
@@ -1618,8 +1622,7 @@ class RoutingInstanceST(DBBaseST):
         ri_name = name.split(':')[-1]
         if not ri_name.startswith('service-'):
             return None
-        sc_id = ri_name[45:].replace('_', ':')
-        return sc_id
+        return ri_name[8:44]
     # end _get_service_id_from_ri
 
     def locate_route_target(self):

@@ -266,6 +266,12 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('Security Group Id is none %s' % str(sg_fq_name)) 
 
     @retries(5, hook=retry_exc_handler)
+    def check_rt_in_ri(self, ri_name, rt_id, is_present):
+        ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
+        ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
+        self.assertEqual(is_present, rt_id in ri_rt_refs)
+
+    @retries(5, hook=retry_exc_handler)
     def check_acl_match_dst_cidr(self, fq_name, ip_prefix, ip_len):
         acl = self._vnc_lib.access_control_list_read(fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
@@ -1731,6 +1737,114 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn2_obj.uuid)
 
     #end test_interface_mirror
+
+    def test_transit_vn(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        #basic checks
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
+
+        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
+                                       prefix='10.0.0.0/24')
+
+        #vn1 rt is in not sc ri
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', False)
+
+        #set transit and check vn1 rt is in sc ri
+        vn_props = VirtualNetworkType()
+        vn_props.allow_transit = True
+        vn1_obj.set_virtual_network_properties(vn_props)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
+
+        #unset transit and check vn1 rt is not in sc ri
+        vn_props.allow_transit = False
+        vn1_obj.set_virtual_network_properties(vn_props)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', False)
+
+        #set transit on both vn1, vn2 and check vn1 & vn2 rt's are in sc ri
+        vn_props.allow_transit = True
+        vn1_obj.set_virtual_network_properties(vn_props)
+        vn2_obj.set_virtual_network_properties(vn_props)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
+        self.check_rt_in_ri(self.get_ri_name(vn2_obj,sc_ri_name), 'target:64512:8000002', True)
+
+        #unset transit on both vn1, vn2 and check vn1 & vn2 rt's are not in sc ri
+        vn_props.allow_transit = False
+        vn1_obj.set_virtual_network_properties(vn_props)
+        vn2_obj.set_virtual_network_properties(vn_props)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', False)
+        self.check_rt_in_ri(self.get_ri_name(vn2_obj,sc_ri_name), 'target:64512:8000002', False)
+
+        #test external rt
+        rtgt_list = RouteTargetList(route_target=['target:1:1'])
+        vn1_obj.set_route_target_list(rtgt_list)
+        vn_props.allow_transit = True
+        vn1_obj.set_virtual_network_properties(vn_props)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:1', True)
+
+        #modify external rt
+        rtgt_list = RouteTargetList(route_target=['target:1:2'])
+        vn1_obj.set_route_target_list(rtgt_list)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:2', True)
+
+        #have more than one external rt
+        rtgt_list = RouteTargetList(route_target=['target:1:1', 'target:1:2'])
+        vn1_obj.set_route_target_list(rtgt_list)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:1', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:2', True)
+
+        #unset external rt
+        vn1_obj.set_route_target_list(RouteTargetList())
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:1', False)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:2', False)
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+
+    #end test_transit_vn
 
     def test_misc(self):
         # create a service chain
