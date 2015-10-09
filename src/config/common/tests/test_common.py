@@ -23,8 +23,7 @@ import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
 import cfgm_common.zkclient
-from cfgm_common.uve.vnc_api.ttypes import (VncApiConfigLog, VncApiError,
-    VncApiStatsLog)
+from cfgm_common.uve.vnc_api.ttypes import (VncApiConfigLog, VncApiError)
 from cfgm_common import imid
 
 from test_utils import *
@@ -239,7 +238,7 @@ def setup_common_flexmock():
     flexmock(kombu.Producer, __new__=FakeKombu.Producer)
 
     flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
-    flexmock(VncApiStatsLog, __new__=FakeVncApiStatsLog)
+    #flexmock(VncApiStatsLog, __new__=FakeVncApiStatsLog)
 #end setup_common_flexmock
 
 @contextlib.contextmanager
@@ -385,7 +384,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             gevent.sleep(2)
 
 
-    def setUp(self):
+    def setUp(self, extra_mocks=None, extra_config_knobs=None):
         super(TestCase, self).setUp()
         global cov_handle
         if not cov_handle:
@@ -395,6 +394,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
         setup_common_flexmock()
+        if extra_mocks:
+            setup_extra_flexmock(extra_mocks)
+        if extra_config_knobs:
+            self._config_knobs.extend(extra_config_knobs)
 
         self._api_server_ip = socket.gethostbyname(socket.gethostname())
         self._api_server_port = get_free_port()
