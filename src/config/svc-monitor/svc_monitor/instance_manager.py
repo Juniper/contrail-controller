@@ -519,7 +519,7 @@ class VRouterHostedManager(InstanceManager):
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
                 'virtual-machine', vm.uuid, None, 'DELETE')
             self.logger.log_info("vm %s deleted from vr %s" %
-                (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
+                (vm.fq_name, vm.virtual_router))
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
         VirtualMachineSM.delete(vm.uuid)
