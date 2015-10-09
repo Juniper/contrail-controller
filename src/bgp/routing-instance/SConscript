@@ -19,11 +19,12 @@ SandeshGenFiles += env.SandeshGenCpp('static_route.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 librouting_instance = env.Library('routing_instance', SandeshGenSrcs + 
-                                         ['peer_manager.cc', 
-                                         'routing_instance.cc', 
-                                         'routepath_replicator.cc', 
-                                         'rtarget_group.cc', 
-                                         'rtarget_group_mgr.cc', 
-                                         'service_chaining.cc', 
+                                         ['peer_manager.cc',
+                                         'path_resolver.cc',
+                                         'routing_instance.cc',
+                                         'routepath_replicator.cc',
+                                         'rtarget_group.cc',
+                                         'rtarget_group_mgr.cc',
+                                         'service_chaining.cc',
                                          'static_route.cc'])
 
