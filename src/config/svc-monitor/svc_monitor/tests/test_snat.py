@@ -93,4 +93,6 @@ class SnatInstanceManager(unittest.TestCase):
 
         self.netns_manager._vnc_lib.virtual_machine_delete\
             .assert_called_with(id='fake-vm-uuid')
-        mocked_vr.del_virtual_machine.assert_called_with(test_utils.VMObjMatcher('fake-vm-uuid', True))
+        self.netns_manager._vnc_lib.ref_update.\
+                assert_called_with('virtual-router', 'fake-vr-uuid',
+                        'virtual-machine', 'fake-vm-uuid', None, 'DELETE')
