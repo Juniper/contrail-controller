@@ -352,6 +352,17 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         break;
     }
 
+    case IPPROTO_SCTP : {
+        pkt_info->transp.sctp = (sctphdr *) (pkt + len);
+        len += sizeof(sctphdr);
+        pkt_info->data = (pkt + len);
+
+        pkt_info->dport = ntohs(pkt_info->transp.sctp->th_dport);
+        pkt_info->sport = ntohs(pkt_info->transp.sctp->th_sport);
+        pkt_type = PktType::SCTP;
+        break;
+    }
+
     case IPPROTO_ICMP: {
         pkt_info->transp.icmp = (struct icmp *) (pkt + len);
         pkt_type = PktType::ICMP;
@@ -849,6 +860,7 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     tcp_ack(false), tunnel(), l3_forwarding(false), l3_label(false), eth(),
     arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
+    transp.sctp = 0;
 }
 
 PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
@@ -865,6 +877,7 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
     max_pkt_len = packet_buffer_->buffer_len();
 
     transp.tcp = 0;
+    transp.sctp = 0;
 }
 
 PktInfo::PktInfo(InterTaskMsg *msg) :
@@ -874,6 +887,7 @@ PktInfo::PktInfo(InterTaskMsg *msg) :
     l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6(),
     packet_buffer_() {
     transp.tcp = 0;
+    transp.sctp = 0;
 }
 
 PktInfo::~PktInfo() {
@@ -901,6 +915,7 @@ void PktInfo::UpdateHeaderPtr() {
     eth = (struct ether_header *)(pkt);
     ip = (struct ip *)(eth + 1);
     transp.tcp = (struct tcphdr *)(ip + 1);
+    transp.sctp = (struct sctphdr *)(ip + 1);
 }
 
 std::size_t PktInfo::hash() const {

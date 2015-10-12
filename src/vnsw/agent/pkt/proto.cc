@@ -34,6 +34,7 @@ bool Proto::ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg) {
         msg->ip = NULL;
         msg->transp.tcp = NULL;
         msg->data = NULL;
+        msg->transp.sctp = NULL;
     }
 
     return work_queue_.Enqueue(msg);
