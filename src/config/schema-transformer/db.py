@@ -208,12 +208,14 @@ class SchemaTransformerDB(VncCassandraClient):
 
     def get_service_chain_ip(self, sc_name):
         try:
-            return self._sc_ip_cf.get(sc_name)['ip_address']
+            addresses = self._sc_ip_cf.get(sc_name)
+            return addresses['ip_address'], addresses['ipv6_address']
         except NotFoundException:
-            return None
+            return None, None
 
-    def add_service_chain_ip(self, sc_name, ip):
-        self._sc_ip_cf.insert(sc_name, {'ip_address': ip})
+    def add_service_chain_ip(self, sc_name, ip, ipv6):
+        self._sc_ip_cf.insert(sc_name, {'ip_address': ip,
+                                        'ipv6_address': ipv6})
 
     def remove_service_chain_ip(self, sc_name):
         try:

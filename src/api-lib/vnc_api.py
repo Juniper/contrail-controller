@@ -822,8 +822,8 @@ class VncApi(object):
 
     # reserve block of IP address from a VN
     # expected format {"subnet" : "2.1.1.0/24", "count" : 4}
-    def virtual_network_ip_alloc(self, vnobj, count=1, subnet=None):
-        json_body = json.dumps({'count': count, 'subnet': subnet})
+    def virtual_network_ip_alloc(self, vnobj, count=1, subnet=None, family=None):
+        json_body = json.dumps({'count': count, 'subnet': subnet, 'family':family})
         uri = self._action_uri['virtual-network-ip-alloc'] % vnobj.uuid
         content = self._request_server(rest.OP_POST, uri, data=json_body)
         return json.loads(content)['ip_addr']

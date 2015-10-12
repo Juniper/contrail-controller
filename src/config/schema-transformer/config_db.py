@@ -15,7 +15,7 @@ import uuid
 
 import re
 import cfgm_common as common
-
+from netaddr import IPNetwork, IPAddress
 from cfgm_common.exceptions import *
 from cfgm_common import svc_info
 from cfgm_common.vnc_db import DBBase
@@ -424,29 +424,42 @@ class VirtualNetworkST(DBBaseST):
 
     def allocate_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
-        sc_ip_address = self._cassandra.get_service_chain_ip(sc_name)
-        if sc_ip_address:
-            return sc_ip_address
+        v4_address, v6_address = self._cassandra.get_service_chain_ip(sc_name)
+        if v4_address or v6_address:
+            return v4_address, v6_address
         try:
-            sc_ip_address = self._vnc_lib.virtual_network_ip_alloc(
+            v4_address = self._vnc_lib.virtual_network_ip_alloc(
                 self.obj, count=1)[0]
         except (NoIdError, RefsExistError) as e:
             self._logger.error(
-                "Error while allocating ip in network %s: %s", self.name,
+                "Error while allocating ipv4 in network %s: %s", self.name,
                 str(e))
-            return None
-        self._cassandra.add_service_chain_ip(sc_name, sc_ip_address)
-        return sc_ip_address
+        try:
+            v6_address = self._vnc_lib.virtual_network_ip_alloc(
+                self.obj, count=1, family='v6')[0]
+        except (NoIdError, RefsExistError) as e:
+            self._logger.error(
+                "Error while allocating ipv6 in network %s: %s", self.name,
+                str(e))
+        if v4_address is None and v6_address is None:
+            return None, None
+        self._cassandra.add_service_chain_ip(sc_name, v4_address, v6_address)
+        return v4_address, v6_address
     # end allocate_service_chain_ip
 
     def free_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
-        sc_ip_address = self._cassandra.get_service_chain_ip(sc_name)
-        if sc_ip_address == None:
+        v4_address, v6_address = self._cassandra.get_service_chain_ip(sc_name)
+        ip_addresses = []
+        if v4_address:
+            ip_addresses.append(v4_address)
+        if v6_address:
+            ip_addresses.append(v6_address)
+        if not ip_addresses:
             return
         self._cassandra.remove_service_chain_ip(sc_name)
         try:
-            self._vnc_lib.virtual_network_ip_free(self.obj, [sc_ip_address])
+            self._vnc_lib.virtual_network_ip_free(self.obj, ip_addresses)
         except NoIdError:
             pass
     # end free_service_chain_ip
@@ -1143,6 +1156,19 @@ class VirtualNetworkST(DBBaseST):
         self.update_route_table()
         self.update_pnf_presence()
     # end evaluate
+
+    def get_prefixes(self, ip_version):
+        prefixes = []
+        for ipam in self.ipams.values():
+            for ipam_subnet in ipam.ipam_subnets:
+                prefix = '%s/%d' % (ipam_subnet.subnet.ip_prefix,
+                                    ipam_subnet.subnet.ip_prefix_len)
+                network = IPNetwork(prefix)
+                if network.version == ip_version:
+                    prefixes.append(prefix)
+        return prefixes
+    # end get_prefixes
+
 # end class VirtualNetworkST
 
 
@@ -1705,25 +1731,39 @@ class RoutingInstanceST(DBBaseST):
             return
     # end delete_connection
 
-    def add_service_info(self, remote_vn, service_instance=None,
-                         service_chain_address=None, source_ri=None):
-        service_info = self.obj.get_service_chain_information(
-        ) or ServiceChainInfo()
+    def fill_service_info(self, service_info, ip_version, remote_vn,
+                          service_instance, address, source_ri):
+        if service_info is None:
+            service_info = ServiceChainInfo()
         if service_instance:
             service_info.set_service_instance(service_instance)
-        if service_chain_address:
+        if address:
             service_info.set_routing_instance(
                 remote_vn.get_primary_routing_instance().get_fq_name_str())
-            service_info.set_service_chain_address(service_chain_address)
+            service_info.set_service_chain_address(address)
         if source_ri:
             service_info.set_source_routing_instance(source_ri)
-        prefix = []
-        ipams = remote_vn.ipams
-        prefix = [s.subnet.ip_prefix + '/' + str(s.subnet.ip_prefix_len)
-                  for ipam in ipams.values() for s in ipam.ipam_subnets]
-        if (prefix != service_info.get_prefix()):
-            service_info.set_prefix(prefix)
-        self.obj.set_service_chain_information(service_info)
+        prefixes = remote_vn.get_prefixes(ip_version)
+        service_info.set_prefix(prefixes)
+        if service_info.get_service_chain_address() is None:
+            self._logger.error(
+                "service chain ip adddress in None for : " + service_instance)
+            return None
+        return service_info
+    # fill_service_info
+
+    def add_service_info(self, remote_vn, service_instance=None,
+                         v4_address=None, v6_address=None, source_ri=None):
+        v4_info = self.obj.get_service_chain_information()
+        v4_info = self.fill_service_info(v4_info, 4, remote_vn,
+                                         service_instance, v4_address,
+                                         source_ri)
+        self.obj.set_service_chain_information(v4_info)
+        v6_info = self.obj.get_ipv6_service_chain_information()
+        v6_info = self.fill_service_info(v6_info, 6, remote_vn,
+                                         service_instance, v6_address,
+                                         source_ri)
+        self.obj.set_ipv6_service_chain_information(v6_info)
     # end add_service_info
 
     def update_route_target_list(self, rt_add, rt_del=None,
@@ -1979,14 +2019,17 @@ class ServiceChain(DBBaseST):
                     if interface.service_interface_type not in ['left',
                                                                 'right']:
                         continue
-                    ip_addr = None
+                    v4_addr = None
+                    v6_addr = None
                     if mode != 'transparent':
-                        ip_addr = interface.get_any_instance_ip_address()
-                        if ip_addr is None:
+                        v4_addr = interface.get_any_instance_ip_address(4)
+                        v6_addr = interface.get_any_instance_ip_address(6)
+                        if v4_addr is None and v6_addr is None:
                             self.log_error("No ip address found for interface "
                                            + interface_name)
                             return None
-                    vmi_info = {'vmi': interface, 'address': ip_addr}
+                    vmi_info = {'vmi': interface, 'v4-address': v4_addr,
+                                'v6-address': v6_addr}
                     vm_info[interface.service_interface_type] = vmi_info
 
                 if 'left' not in vm_info:
@@ -2079,20 +2122,22 @@ class ServiceChain(DBBaseST):
                               self.name, mode)
 
             if transparent:
-                sc_ip_address = vn1_obj.allocate_service_chain_ip(
+                v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
                     service_name1)
-                if sc_ip_address is None:
+                if v4_address is None and v6_address is None:
                     self.log_error('Cannot allocate service chain ip address')
                     return
-                service_ri1.add_service_info(vn2_obj, service, sc_ip_address)
+                service_ri1.add_service_info(vn2_obj, service, v4_address,
+                                             v6_address)
                 if self.direction == "<>":
-                    service_ri2.add_service_info(vn1_obj, service,
-                                                 sc_ip_address)
+                    service_ri2.add_service_info(vn1_obj, service, v4_address,
+                                                 v6_address)
 
             for vm_info in si_info[service]['vm_list']:
                 if transparent:
                     result = self.process_transparent_service(
-                        vm_info, sc_ip_address, service_ri1, service_ri2)
+                        vm_info, v4_address, v6_address, service_ri1,
+                        service_ri2)
                 else:
                     result = self.process_in_network_service(
                         vm_info, service, vn1_obj, vn2_obj, service_ri1,
@@ -2122,7 +2167,7 @@ class ServiceChain(DBBaseST):
         self._cassandra.add_service_chain_uuid(self.name, jsonpickle.encode(self))
     # end _create
 
-    def add_pbf_rule(self, vmi, ri1, ri2, ip_address, vlan):
+    def add_pbf_rule(self, vmi, ri1, ri2, v4_address, v6_address, vlan):
         if vmi.service_interface_type not in ["left", "right"]:
             return
         refs = vmi.obj.get_routing_instance_refs() or []
@@ -2131,7 +2176,8 @@ class ServiceChain(DBBaseST):
         pbf = PolicyBasedForwardingRuleType()
         pbf.set_direction('both')
         pbf.set_vlan_tag(vlan)
-        pbf.set_service_chain_address(ip_address)
+        pbf.set_service_chain_address(v4_address)
+        pbf.set_ipv6_service_chain_address(v6_address)
 
         update = False
         if vmi.service_interface_type == 'left':
@@ -2150,26 +2196,29 @@ class ServiceChain(DBBaseST):
             self._vnc_lib.virtual_machine_interface_update(vmi.obj)
     # end add_pbf_rule
 
-    def process_transparent_service(self, vm_info, sc_ip_address,
+    def process_transparent_service(self, vm_info, v4_address, v6_address,
                                     service_ri1, service_ri2):
         vm_uuid = vm_info['vm_obj'].uuid
         vlan = self._cassandra.allocate_service_chain_vlan(vm_uuid,
                                                            self.name)
         self.add_pbf_rule(vm_info['left']['vmi'], service_ri1, service_ri2,
-                          sc_ip_address, vlan)
+                          v4_address, v6_address, vlan)
         self.add_pbf_rule(vm_info['right']['vmi'], service_ri1, service_ri2,
-                          sc_ip_address, vlan)
+                          v4_address, v6_address, vlan)
         return True
     # end process_transparent_service
 
     def process_in_network_service(self, vm_info, service, vn1_obj, vn2_obj,
                                    service_ri1, service_ri2, nat_service):
         service_ri1.add_service_info(
-            vn2_obj, service, vm_info['left']['address'],
+            vn2_obj, service, vm_info['left'].get('v4-address'),
+            vm_info['left'].get('v6-address'),
             vn1_obj.get_primary_routing_instance().get_fq_name_str())
+
         if self.direction == '<>' and not nat_service:
             service_ri2.add_service_info(
-                vn1_obj, service, vm_info['right']['address'],
+                vn1_obj, service, vm_info['right'].get('v4-address'),
+                vm_info['right'].get('v6-address'),
                 vn2_obj.get_primary_routing_instance().get_fq_name_str())
         return True
     # end process_in_network_service
@@ -2418,10 +2467,12 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.recreate_vrf_assign_table()
     # end evaluate
 
-    def get_any_instance_ip_address(self):
+    def get_any_instance_ip_address(self, ip_version=0):
         for ip_name in self.instance_ips:
             ip = InstanceIpST.get(ip_name)
-            if ip and ip.address:
+            if ip.address is None:
+                continue
+            if not ip_version or IPAddress(ip.address).version == ip_version:
                 return ip.address
         return None
     # end get_any_instance_ip_address
@@ -2462,12 +2513,13 @@ class VirtualMachineInterfaceST(DBBaseST):
             service_name = vn_obj.get_service_name(service_chain.name,
                                                    vm_obj.service_instance)
             service_ri = RoutingInstanceST.get(service_name)
-            sc_ip_address = vn1_obj.allocate_service_chain_ip(service_name)
+            v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
+                service_name)
             vlan = self._cassandra.allocate_service_chain_vlan(
                 vm_obj.uuid, service_chain.name)
 
             service_chain.add_pbf_rule(self, service_ri, service_ri,
-                                       sc_ip_address, vlan)
+                                       v4_address, v6_address, vlan)
     # end _add_pbf_rules
 
     def set_virtual_network(self):

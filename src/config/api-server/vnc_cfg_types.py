@@ -698,8 +698,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
 
     @classmethod
-    def ip_alloc(cls, vn_fq_name, subnet_name, count):
+    def ip_alloc(cls, vn_fq_name, subnet_name, count, family=None):
+        ip_version = 6 if family == 'v6' else 4
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name,
+                                              asked_ip_version=ip_version,
                                               alloc_id='user-opaque-alloc')
                    for i in range(count)]
         msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \

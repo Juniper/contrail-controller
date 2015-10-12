@@ -4,8 +4,8 @@
 
 import copy
 import uuid
-from netaddr import *
-from vnc_quota import *
+from netaddr import IPNetwork, IPAddress, IPSet, IPRange
+from vnc_quota import QuotaHelper
 from pprint import pformat
 from cfgm_common import jsonutils as json
 import cfgm_common.exceptions
