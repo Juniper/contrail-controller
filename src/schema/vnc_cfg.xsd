@@ -154,12 +154,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="SimpleActionType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="alert"/>
-        <xsd:enumeration value="drop"/>
         <xsd:enumeration value="deny"/>
-        <xsd:enumeration value="log"/>
         <xsd:enumeration value="pass"/>
-        <xsd:enumeration value="reject"/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -180,6 +176,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="mirror-to" type="MirrorActionType"/>
         <xsd:element name="assign-routing-instance" type="xsd:string"/>
+        <xsd:element name="log" type="xsd:boolean"/>
+        <xsd:element name="alert" type="xsd:boolean"/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
