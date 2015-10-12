@@ -125,7 +125,8 @@ static bool connected_rt_is_vpn;
 // Template structure to pass to fixture class template. Needed because
 // gtest fixture class template can accept only one template parameter.
 //
-template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+template <typename T1, typename T2, typename T3, typename T4, typename T5,
+          typename T6>
 struct TypeDefinition {
   typedef T1 TableT;
   typedef T2 PrefixT;
@@ -136,8 +137,10 @@ struct TypeDefinition {
 };
 
 // TypeDefinitions that we want to test.
-typedef TypeDefinition<InetTable, Ip4Prefix, InetRoute, InetVpnTable, InetVpnPrefix, InetVpnRoute> InetDefinition;
-typedef TypeDefinition<Inet6Table, Inet6Prefix, Inet6Route, Inet6VpnTable, Inet6VpnPrefix, Inet6VpnRoute> Inet6Definition;
+typedef TypeDefinition<InetTable, Ip4Prefix, InetRoute, InetVpnTable,
+                       InetVpnPrefix, InetVpnRoute> InetDefinition;
+typedef TypeDefinition<Inet6Table, Inet6Prefix, Inet6Route, Inet6VpnTable,
+                       Inet6VpnPrefix, Inet6VpnRoute> Inet6Definition;
 
 //
 // Fixture class template - instantiated later for each TypeDefinition.
@@ -155,12 +158,13 @@ protected:
     ServiceChainTest()
         : bgp_server_(new BgpServer(&evm_)),
           family_(GetFamily()),
-          ipv6_prefix_("cafe::"),
+          ipv6_prefix_("::ffff:"),
           parser_(&config_db_),
           ri_mgr_(NULL),
           service_chain_mgr_(NULL),
           service_is_transparent_(service_is_transparent),
-          connected_rt_is_vpn_(connected_rt_is_vpn) {
+          connected_rt_is_vpn_(connected_rt_is_vpn),
+          validate_done_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
@@ -207,7 +211,10 @@ protected:
     }
 
     string ParseConfigFile(const string &filename) {
-        string content = FileRead(filename);
+        string content = GetConfigFileContents(filename);
+        if (family_ == Address::INET6)
+            boost::replace_all(content, "service-chain-info",
+                               "ipv6-service-chain-info");
         parser_.Parse(content);
         task_util::WaitForIdle();
         return content;
@@ -265,7 +272,8 @@ protected:
                       vector<uint32_t> sglist = vector<uint32_t>(),
                       set<string> encap = set<string>(),
                       const SiteOfOrigin &soo = SiteOfOrigin(),
-                      string nexthop_str = "", uint32_t flags = 0, int label = 0) {
+                      string nexthop_str = "", uint32_t flags = 0,
+                      int label = 0) {
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -386,7 +394,8 @@ protected:
         for (set<string>::iterator it = encap.begin();
             it != encap.end(); it++) {
             TunnelEncap tunnel_encap(*it);
-            extcomm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+            extcomm_spec.communities.push_back(
+                    tunnel_encap.GetExtCommunityValue());
         }
         const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
         TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
@@ -538,7 +547,8 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void DeleteConnectedRoute(int chain_idx, IPeer *peer, const string &prefix) {
+    void DeleteConnectedRoute(int chain_idx, IPeer *peer,
+                              const string &prefix) {
         assert(1 <= chain_idx && chain_idx <= 3);
         string connected_table;
         if (chain_idx == 1) {
@@ -843,10 +853,7 @@ protected:
         task_util::WaitForIdle();
     }
 
-    auto_ptr<autogen::ServiceChainInfo>
-        GetChainConfig(string filename) {
-        auto_ptr<autogen::ServiceChainInfo>
-            params (new autogen::ServiceChainInfo());
+    string GetConfigFileContents(string filename) {
         string content;
 
         // Convert IPv4 Prefix to IPv6 for IPv6 tests
@@ -873,6 +880,15 @@ protected:
         } else {
             content = FileRead(filename);
         }
+
+        return content;
+    }
+
+    auto_ptr<autogen::ServiceChainInfo>
+        GetChainConfig(string filename) {
+        auto_ptr<autogen::ServiceChainInfo>
+            params (new autogen::ServiceChainInfo());
+        string content = GetConfigFileContents(filename);
         EXPECT_FALSE(content.empty());
         istringstream sstream(content);
         xml_document xdoc;
@@ -891,13 +907,16 @@ protected:
         const string &filename) {
         auto_ptr<autogen::ServiceChainInfo> params = GetChainConfig(filename);
         ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-            instance, "service-chain-information", params.release(), 0);
+            instance, family_ == Address::INET ?
+                "service-chain-information" : "ipv6-service-chain-information",
+            params.release(), 0);
         task_util::WaitForIdle();
     }
 
     void ClearServiceChainInformation(const string &instance) {
         ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance",
-            instance, "service-chain-information");
+            instance, family_ == Address::INET ?
+                "service-chain-information" : "ipv6-service-chain-information");
         task_util::WaitForIdle();
     }
 
@@ -985,10 +1004,28 @@ protected:
         ShowServiceChainResp *resp =
             dynamic_cast<ShowServiceChainResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowServiceChainResp *)NULL, resp);
-        self->validate_done_ = 1;
+        self->validate_done_ = true;
 
         TASK_UTIL_EXPECT_EQ(result.size(),
-                              resp->get_service_chain_list().size());
+                            resp->get_service_chain_list().size());
+        int i = 0;
+        BOOST_FOREACH(const ShowServicechainInfo &info,
+                      resp->get_service_chain_list()) {
+            TASK_UTIL_EXPECT_EQ(info.get_src_rt_instance(), result[i]);
+            i++;
+        }
+    }
+
+    static void ValidateIpv6ShowServiceChainResponse(Sandesh *sandesh,
+                                                     ServiceChainTest *self,
+                                                     vector<string> &result) {
+        ShowIpv6ServiceChainResp *resp =
+            dynamic_cast<ShowIpv6ServiceChainResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowIpv6ServiceChainResp *)NULL, resp);
+        self->validate_done_ = true;
+
+        TASK_UTIL_EXPECT_EQ(result.size(),
+                            resp->get_service_chain_list().size());
         int i = 0;
         BOOST_FOREACH(const ShowServicechainInfo &info,
                       resp->get_service_chain_list()) {
@@ -1004,27 +1041,54 @@ protected:
             dynamic_cast<ShowPendingServiceChainResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowPendingServiceChainResp *)NULL, resp);
 
-        TASK_UTIL_EXPECT_TRUE((result == resp->get_pending_chains()));
+        EXPECT_EQ(result, resp->get_pending_chains());
 
-        self->validate_done_ = 1;
+        self->validate_done_ = true;
+    }
+
+    static void ValidateShowPendingIpv6ServiceChainResponse(Sandesh *sandesh,
+                                                 ServiceChainTest *self,
+                                                 vector<string> &result) {
+        ShowPendingIpv6ServiceChainResp *resp =
+            dynamic_cast<ShowPendingIpv6ServiceChainResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowPendingIpv6ServiceChainResp *)NULL, resp);
+
+        EXPECT_EQ(result, resp->get_pending_chains());
+
+        self->validate_done_ = true;
     }
 
 
-    void VerifyServiceChainSandesh(ServiceChainTest *self, vector<string> result,
+    void VerifyServiceChainSandesh(ServiceChainTest *self,
+                                   vector<string> result,
         bool filter = false, const string &search_string = string()) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
-        Sandesh::set_response_callback(
-            boost::bind(ValidateShowServiceChainResponse, _1, this, result));
-        ShowServiceChainReq *req = new ShowServiceChainReq;
-        self->validate_done_ = 0;
-        if (filter)
-            req->set_search_string(search_string);
-        req->HandleRequest();
-        req->Release();
-        TASK_UTIL_EXPECT_EQ(1, self->validate_done_);
+        self->validate_done_ = false;
+        if (family_ == Address::INET) {
+            Sandesh::set_response_callback(
+                    boost::bind(ValidateShowServiceChainResponse, _1, this,
+                                result));
+            ShowServiceChainReq *req = new ShowServiceChainReq;
+            if (filter)
+                req->set_search_string(search_string);
+            req->HandleRequest();
+            req->Release();
+        } else if (family_ == Address::INET6) {
+            Sandesh::set_response_callback(
+                    boost::bind(ValidateIpv6ShowServiceChainResponse, _1, this,
+                                result));
+            ShowIpv6ServiceChainReq *req = new ShowIpv6ServiceChainReq;
+            if (filter)
+                req->set_search_string(search_string);
+            req->HandleRequest();
+            req->Release();
+        } else {
+            assert(false);
+        }
+        TASK_UTIL_EXPECT_TRUE(self->validate_done_);
         task_util::WaitForIdle();
     }
 
@@ -1035,16 +1099,30 @@ protected:
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
-        Sandesh::set_response_callback(
-            boost::bind(ValidateShowPendingServiceChainResponse, _1, this,
-                        pending));
-        ShowPendingServiceChainReq *req = new ShowPendingServiceChainReq;
-        self->validate_done_ = 0;
-        if (filter)
-            req->set_search_string(search_string);
-        req->HandleRequest();
-        req->Release();
-        TASK_UTIL_EXPECT_EQ(1, self->validate_done_);
+        self->validate_done_ = false;
+        if (family_ == Address::INET) {
+            Sandesh::set_response_callback(
+                boost::bind(ValidateShowPendingServiceChainResponse, _1, this,
+                            pending));
+            ShowPendingServiceChainReq *req = new ShowPendingServiceChainReq;
+            if (filter)
+                req->set_search_string(search_string);
+            req->HandleRequest();
+            req->Release();
+        } else if (family_ == Address::INET6) {
+            Sandesh::set_response_callback(
+                boost::bind(ValidateShowPendingIpv6ServiceChainResponse, _1,
+                            this, pending));
+            ShowPendingIpv6ServiceChainReq *req =
+                new ShowPendingIpv6ServiceChainReq;
+            if (filter)
+                req->set_search_string(search_string);
+            req->HandleRequest();
+            req->Release();
+        } else {
+            assert(false);
+        }
+        TASK_UTIL_EXPECT_TRUE(self->validate_done_);
         task_util::WaitForIdle();
     }
 
@@ -1139,7 +1217,7 @@ protected:
     vector<BgpPeerMock *> peers_;
     bool service_is_transparent_;
     bool connected_rt_is_vpn_;
-    int validate_done_;
+    bool validate_done_;
 };
 
 // Specialization of GetFamily for INET.
@@ -1155,8 +1233,7 @@ Address::Family ServiceChainTest<Inet6Definition>::GetFamily() const {
 }
 
 // Instantiate fixture class template for each TypeDefinition.
-// typedef ::testing::Types <InetDefinition, Inet6Definition> TypeDefinitionList;
-typedef ::testing::Types <InetDefinition> TypeDefinitionList;
+typedef ::testing::Types <InetDefinition, Inet6Definition> TypeDefinitionList;
 TYPED_TEST_CASE(ServiceChainTest, TypeDefinitionList);
 
 TYPED_TEST(ServiceChainTest, Basic) {
@@ -1182,14 +1259,16 @@ TYPED_TEST(ServiceChainTest, Basic) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     this->VerifyServiceChainCount(1);
     this->VerifyDownServiceChainCount(0);
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1221,13 +1300,16 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd1) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.2.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Verify that service chain is on pending list.
     TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string());
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string("blue"));
 
     // Fix service chain address.
     this->SetServiceChainInformation("blue-i1",
@@ -1236,9 +1318,11 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd1) {
 
     // Check for aggregated routes
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete More specifics
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1268,12 +1352,15 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd2) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.2.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Verify that service chain is on pending list.
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string());
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string("blue"));
 
     // Fix service chain address.
     this->SetServiceChainInformation("blue-i1",
@@ -1281,9 +1368,11 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd2) {
 
     // Check for aggregated routes
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete More specifics
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1312,13 +1401,16 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46Subnets) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.2.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated routes
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete More specifics
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1345,7 +1437,8 @@ TYPED_TEST(ServiceChainTest, MoreSpecificAddDelete) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1386,7 +1479,8 @@ TYPED_TEST(ServiceChainTest, ConnectedAddDelete) {
 
     // Add More specific & connected
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1398,7 +1492,8 @@ TYPED_TEST(ServiceChainTest, ConnectedAddDelete) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1421,7 +1516,8 @@ TYPED_TEST(ServiceChainTest, DeleteConnected) {
 
     // Add More specific & connected
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1438,7 +1534,8 @@ TYPED_TEST(ServiceChainTest, DeleteConnected) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.2.0", 24));
 
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1462,7 +1559,8 @@ TYPED_TEST(ServiceChainTest, StopServiceChain) {
 
     // Add More specific & connected
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1493,7 +1591,8 @@ TYPED_TEST(ServiceChainTest, ServiceChainWithExistingRouteEntries) {
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.2.2", 32), 100);
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.2.3", 32), 100);
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.2.4", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
@@ -1532,17 +1631,21 @@ TYPED_TEST(ServiceChainTest, UpdateNexthop) {
 
     // Add More specific & Connected
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("3.4.5.6"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
 
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("3.4.5.6"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
 
     // Delete More specific & connected
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1562,17 +1665,23 @@ TYPED_TEST(ServiceChainTest, UpdateLabel) {
 
     // Add More specific & Connected
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"), 0, 16);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"), 0, 16);
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", 16);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                16);
 
     // Add Connected with updated label
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"), 0, 32);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"), 0, 32);
 
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", 32);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                32);
 
     // Delete More specific & connected
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1591,7 +1700,8 @@ TYPED_TEST(ServiceChainTest, DeleteRoutingInstance) {
 
     // Add More specific & Connected
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1618,7 +1728,8 @@ TYPED_TEST(ServiceChainTest, PendingChain) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     this->VerifyServiceChainCount(1);
     this->VerifyDownServiceChainCount(1);
@@ -1627,8 +1738,10 @@ TYPED_TEST(ServiceChainTest, PendingChain) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string());
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string("blue"));
 
     // Add "red" routing instance and create connection with "red-i2"
     instance_names = list_of("blue")("blue-i1")("red-i2")("red");
@@ -1664,11 +1777,14 @@ TYPED_TEST(ServiceChainTest, UnresolvedPendingChain) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true, string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string());
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
+                                           string("blue"));
 
     this->ClearServiceChainInformation("blue-i1");
 
@@ -1691,7 +1807,8 @@ TYPED_TEST(ServiceChainTest, UpdateChain) {
     this->AddRoute(NULL, "red", this->BuildPrefix("192.169.2.1", 32), 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
@@ -1699,7 +1816,8 @@ TYPED_TEST(ServiceChainTest, UpdateChain) {
 
     this->VerifyServiceChainSandesh(this, list_of("blue-i1"));
     this->VerifyServiceChainSandesh(this, list_of("blue-i1"), true, string());
-    this->VerifyServiceChainSandesh(this, list_of("blue-i1"), true, string("blue"));
+    this->VerifyServiceChainSandesh(this, list_of("blue-i1"), true,
+                                    string("blue"));
 
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_2.xml");
@@ -1710,7 +1828,8 @@ TYPED_TEST(ServiceChainTest, UpdateChain) {
 
     this->VerifyServiceChainSandesh(this, list_of("blue-i1"));
     this->VerifyServiceChainSandesh(this, list_of("blue-i1"), true, string());
-    this->VerifyServiceChainSandesh(this, list_of("blue-i1"), true, string("blue"));
+    this->VerifyServiceChainSandesh(this, list_of("blue-i1"), true,
+                                    string("blue"));
 
     // Delete More specific & connected
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1732,27 +1851,37 @@ TYPED_TEST(ServiceChainTest, PeerUpdate) {
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 90, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            90, this->BuildNextHopAddress("2.3.0.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.1.5"), "red");
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.1.5"), "red");
 
-    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32), 95, this->BuildNextHopAddress("2.3.2.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.1.5"), "red");
+    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32),
+                            95, this->BuildNextHopAddress("2.3.2.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.1.5"), "red");
 
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.2.5"), "red");
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.2.5"), "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
 
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[2],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 //
@@ -1783,27 +1912,34 @@ TYPED_TEST(ServiceChainTest, DuplicateForwardingPaths) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Add Connected with duplicate forwarding information
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete connected route from peers_[0]
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -1812,7 +1948,8 @@ TYPED_TEST(ServiceChainTest, DuplicateForwardingPaths) {
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
 
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPaths) {
@@ -1829,25 +1966,33 @@ TYPED_TEST(ServiceChainTest, EcmpPaths) {
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
 
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    vector<string> path_ids = list_of(this->BuildNextHopAddress(
+                "2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
 
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPathUpdate) {
@@ -1862,24 +2007,33 @@ TYPED_TEST(ServiceChainTest, EcmpPathUpdate) {
 
     // Add More specific
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    vector<string> path_ids = list_of(this->BuildNextHopAddress(
+                "2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.8"));
-    path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))(this->BuildNextHopAddress("2.3.1.8"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.8"));
+    path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))
+        (this->BuildNextHopAddress("2.3.1.8"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
 
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPathAdd) {
@@ -1894,27 +2048,42 @@ TYPED_TEST(ServiceChainTest, EcmpPathAdd) {
 
     // Add More specific
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
     this->DisableServiceChainQ();
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
-    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.2.5"));
-    this->AddConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.3.5"));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
+    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.2.5"));
+    this->AddConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.3.5"));
     this->EnableServiceChainQ();
 
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.1.5"))(this->BuildNextHopAddress("2.3.2.5"))(this->BuildNextHopAddress("2.3.3.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.1.5"))
+        (this->BuildNextHopAddress("2.3.2.5"))
+        (this->BuildNextHopAddress("2.3.3.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
     this->DisableServiceChainQ();
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32));
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"),
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[2],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[3],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->AddConnectedRoute(this->peers_[0],
+                            this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.0.5"),
         BgpPath::AsPathLooped);
     this->EnableServiceChainQ();
 
@@ -1924,7 +2093,8 @@ TYPED_TEST(ServiceChainTest, EcmpPathAdd) {
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, EcmpPathDelete) {
@@ -1940,29 +2110,42 @@ TYPED_TEST(ServiceChainTest, EcmpPathDelete) {
     // Add More specific
     this->DisableServiceChainQ();
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
-    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.2.5"));
-    this->AddConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32),  90, this->BuildNextHopAddress("2.3.3.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
+    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.2.5"));
+    this->AddConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32),
+                            90, this->BuildNextHopAddress("2.3.3.5"));
     this->EnableServiceChainQ();
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"))(this->BuildNextHopAddress("2.3.2.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.0.5"))
+        (this->BuildNextHopAddress("2.3.1.5"))
+        (this->BuildNextHopAddress("2.3.2.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
     this->DisableServiceChainQ();
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[2],
+                               this->BuildPrefix("1.1.2.3", 32));
     this->EnableServiceChainQ();
 
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.3.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.3.5"), "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[3],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 //
@@ -1991,34 +2174,48 @@ TYPED_TEST(ServiceChainTest, EcmpWithDuplicateForwardingPaths) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Add Connected with duplicate forwarding information F1
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.4.5"));
 
     // Add Connected with duplicate forwarding information F2
-    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.6"));
-    this->AddConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.6"));
+    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.4.6"));
+    this->AddConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.4.6"));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.4.5"))(this->BuildNextHopAddress("2.3.4.6"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.4.5"))
+        (this->BuildNextHopAddress("2.3.4.6"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), path_ids, "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                path_ids, "red");
 
     // Delete connected routes from peers_[0] and peers_[2]
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[2],
+                               this->BuildPrefix("1.1.2.3", 32));
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    path_ids = list_of(this->BuildNextHopAddress("2.3.4.5"))(this->BuildNextHopAddress("2.3.4.6"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
+    path_ids = list_of(
+        this->BuildNextHopAddress("2.3.4.5"))
+        (this->BuildNextHopAddress("2.3.4.6"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), path_ids, "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                path_ids, "red");
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -2027,8 +2224,10 @@ TYPED_TEST(ServiceChainTest, EcmpWithDuplicateForwardingPaths) {
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
 
     // Delete connected routes
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[3], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[3],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 //
@@ -2049,7 +2248,8 @@ TYPED_TEST(ServiceChainTest, IgnoreAggregateRoute) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Add MX leaked route
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.0", 24), 100);
@@ -2062,7 +2262,8 @@ TYPED_TEST(ServiceChainTest, IgnoreAggregateRoute) {
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete MX leaked, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.0", 24));
@@ -2089,14 +2290,16 @@ TYPED_TEST(ServiceChainTest, ValidateAggregateRoute) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Add MX leaked route
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.0", 24), 100);
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete MX leaked and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.0", 24));
@@ -2133,7 +2336,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRoute) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
@@ -2153,15 +2357,18 @@ TYPED_TEST(ServiceChainTest, ExtConnectRoute) {
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete ExtRoute, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -2193,14 +2400,16 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteNoAdvertiseCommunity) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
 
     // Change Ext connect route to have NO_ADVERTISE community
     vector<uint32_t> commlist = list_of(Community::NoAdvertise);
-    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100, commlist);
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   commlist);
 
     // Check for ExtConnect route
     this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.1.0", 24));
@@ -2210,7 +2419,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteNoAdvertiseCommunity) {
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete ExtRoute and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
@@ -2239,7 +2449,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnOnly) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Add more specific
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
@@ -2252,11 +2463,13 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnOnly) {
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Check for non-OriginVn route
     this->VerifyRouteNoExists("blue", this->BuildPrefix("20.1.1.0", 24));
@@ -2290,7 +2503,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved1) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Add Ext connect route with targets of both red and green.
     vector<string> instances = list_of("red")("green");
@@ -2301,7 +2515,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved1) {
 
     // Verify that ExtConnect route is present in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete ExtRoute and connected route
     this->DeleteVpnRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
@@ -2330,7 +2545,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteOriginVnUnresolved2) {
         "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Add Ext connect route with targets of green and yellow.
     vector<string> instances = list_of("green")("yellow");
@@ -2373,15 +2589,18 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteCoveringSubnetPrefix) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.0.0", 16));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.0.0", 16), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.0.0", 16),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete ExtRoute, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -2416,14 +2635,16 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteWithinSubnetPrefix) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.252", 30));
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete ExtRoute, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -2474,7 +2695,8 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteServiceChainUpdate) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.252", 30));
@@ -2544,25 +2766,34 @@ TYPED_TEST(ServiceChainTest, ExtConnectedEcmpPaths) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.10.1.0", 24), 100);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
 
     // Check for external connected route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.10.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24), path_ids, "red");
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.0.5"))
+        (this->BuildNextHopAddress("2.3.1.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                path_ids, "red");
 
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3",
+                               32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
     // Delete MX route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.10.1.0", 24));
 
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 
@@ -2580,50 +2811,65 @@ TYPED_TEST(ServiceChainTest, ExtConnectedMoreSpecificEcmpPaths) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
 
     // Add more specific
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
 
     // Check for Aggregate route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
 
     // Connected path is infeasible
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"),
-        BgpPath::AsPathLooped);
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"),
+                            BgpPath::AsPathLooped);
 
     // Verify that Aggregate route and ExtConnect route is gone
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
     this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.1.0", 24));
 
     // Connected path again from two peers
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"));
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"));
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
 
     // Check for Aggregate & ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))(this->BuildNextHopAddress("2.3.1.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), path_ids, "red");
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.0.5"))
+        (this->BuildNextHopAddress("2.3.1.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                path_ids, "red");
 
     // Connected path is infeasible
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"),
-        BgpPath::AsPathLooped);
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"),
+                            BgpPath::AsPathLooped);
 
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.1.5"), "red");
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.1.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.1.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.1.5"), "red");
 
     // Delete ExtRoute, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, ServiceChainRouteSGID) {
@@ -2643,37 +2889,46 @@ TYPED_TEST(ServiceChainTest, ServiceChainRouteSGID) {
     vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
 
     // Add Ext connect route
-    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100, vector<uint32_t>(),
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   vector<uint32_t>(),
         sgid_list_ext);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"), 0, 0,
+    this->AddConnectedRoute(this->peers_[0],
+                            this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.0.5"), 0, 0,
                       sgid_list_connected);
 
     // Add more specific
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100, vector<uint32_t>(),
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(),
         sgid_list_more_specific_1);
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32), 100, vector<uint32_t>(),
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32), 100,
+                   vector<uint32_t>(),
         sgid_list_more_specific_2);
 
     // Check for More specific routes leaked in src instance
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.1", 32), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_more_specific_1);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_more_specific_1);
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.2", 32));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.2", 32), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_more_specific_2);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.2", 32),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_more_specific_2);
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_ext);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_ext);
 
     // Delete ExtRoute, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, ServiceChainRouteUpdateSGID) {
@@ -2693,64 +2948,74 @@ TYPED_TEST(ServiceChainTest, ServiceChainRouteUpdateSGID) {
     vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
 
     // Add Ext connect route
-    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100, vector<uint32_t>(),
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   vector<uint32_t>(),
         sgid_list_ext);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"), 0, 0,
-                      sgid_list_connected);
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"), 0, 0,
+                            sgid_list_connected);
 
     // Add more specific
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100, vector<uint32_t>(),
-        sgid_list_more_specific_1);
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32), 100, vector<uint32_t>(),
-        sgid_list_more_specific_2);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), sgid_list_more_specific_1);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32), 100,
+                   vector<uint32_t>(), sgid_list_more_specific_2);
 
     // Check for More specific routes leaked in src instance
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.1", 32), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_more_specific_1);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_more_specific_1);
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.2", 32));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.2", 32), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_more_specific_2);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.2", 32),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_more_specific_2);
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_ext);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_ext);
 
     // Update Ext connect route with different SGID list
-    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100, vector<uint32_t>(),
-        sgid_list_more_specific_1);
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   vector<uint32_t>(), sgid_list_more_specific_1);
 
     // Add Connected
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.0.5"), 0, 0,
-                      sgid_list_more_specific_2);
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"), 0, 0,
+                            sgid_list_more_specific_2);
 
     // Add more specific
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100, vector<uint32_t>(),
-        sgid_list_ext);
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32), 100, vector<uint32_t>(),
-        sgid_list_connected);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), sgid_list_ext);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32), 100,
+                   vector<uint32_t>(), sgid_list_connected);
 
     // Check for More specific routes leaked in src rtinstance
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.1", 32), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_ext);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_ext);
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.2", 32));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.2", 32), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_connected);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.2", 32),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_connected);
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.0.5"), "red", sgid_list_more_specific_1);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red",
+                                sgid_list_more_specific_1);
 
     // Delete ExtRoute, More specific and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.2", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, ValidateTunnelEncapAggregate) {
@@ -2765,28 +3030,32 @@ TYPED_TEST(ServiceChainTest, ValidateTunnelEncapAggregate) {
 
     // Add More specific
     set<string> encap_more_specific = list_of("udp");
-    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100, vector<uint32_t>(),
-        vector<uint32_t>(), encap_more_specific);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), encap_more_specific);
 
     // Add Connected
     set<string> encap = list_of("vxlan");
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"), 0, 0,
-                      vector<uint32_t>(), encap);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"), 0, 0,
+                            vector<uint32_t>(), encap);
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", encap);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                encap);
 
     // Add Connected
     encap = list_of("gre");
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"), 0, 0,
-                      vector<uint32_t>(), encap);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"), 0, 0,
+                            vector<uint32_t>(), encap);
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", encap);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                encap);
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
@@ -2807,23 +3076,29 @@ TYPED_TEST(ServiceChainTest, ValidateTunnelEncapExtRoute) {
 
     // Add Ext connect route
     set<string> encap_ext = list_of("vxlan");
-    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100, vector<uint32_t>(),
-        vector<uint32_t>(), encap_ext);
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), encap_ext);
 
     // Add Connected
     set<string> encap = list_of("gre");
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"), 0, 0,
-                      vector<uint32_t>(), encap);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"), 0, 0,
+                            vector<uint32_t>(), encap);
 
     // Check for service Chain router
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", encap);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                encap);
 
     // Add Connected
     encap = list_of("udp");
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"), 0, 0,
-                      vector<uint32_t>(), encap);
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", encap);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"), 0, 0,
+                            vector<uint32_t>(), encap);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                encap);
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
@@ -2849,28 +3124,44 @@ TYPED_TEST(ServiceChainTest, MultiPathTunnelEncap) {
     set<string> encap_2 = list_of("udp");
     set<string> encap_3 = list_of("vxlan");
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
-    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.1.5"), 0, 0, vector<uint32_t>(), encap_1);
-    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.2.5"), 0, 0, vector<uint32_t>(), encap_2);
-    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.3.5"), 0, 0, vector<uint32_t>(), encap_3);
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"), 0, 0,
+                            vector<uint32_t>(), encap_1);
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.2.5"), 0, 0,
+                            vector<uint32_t>(), encap_2);
+    this->AddConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.3.5"), 0, 0,
+                            vector<uint32_t>(), encap_3);
 
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    vector<string> path_ids = list_of(this->BuildNextHopAddress("2.3.1.5"))(this->BuildNextHopAddress("2.3.2.5"))(this->BuildNextHopAddress("2.3.3.5"));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24), path_ids, "red");
-    this->VerifyPathAttributes(
-        "blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.1.5"), "red", encap_1);
-    this->VerifyPathAttributes(
-        "blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.2.5"), "red", encap_2);
-    this->VerifyPathAttributes(
-        "blue", this->BuildPrefix("192.168.1.0", 24), this->BuildNextHopAddress("2.3.3.5"), "red", encap_3);
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.1.5"))
+        (this->BuildNextHopAddress("2.3.2.5"))
+        (this->BuildNextHopAddress("2.3.3.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                path_ids, "red");
+    this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                               this->BuildNextHopAddress("2.3.1.5"), "red",
+                               encap_1);
+    this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                               this->BuildNextHopAddress("2.3.2.5"), "red",
+                               encap_2);
+    this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                               this->BuildNextHopAddress("2.3.3.5"), "red",
+                               encap_3);
 
     // Delete More specific
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
 
     // Delete connected route
-    this->DeleteConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32));
-    this->DeleteConnectedRoute(this->peers_[2], this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[1],
+                               this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute(this->peers_[2],
+                               this->BuildPrefix("1.1.2.3", 32));
 }
 
 TYPED_TEST(ServiceChainTest, ValidateSiteOfOriginExtRoute) {
@@ -2891,11 +3182,14 @@ TYPED_TEST(ServiceChainTest, ValidateSiteOfOriginExtRoute) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.1.0", 24));
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for service chain route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", soo1);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                soo1);
 
     // Update Ext connect route
     SiteOfOrigin soo2 = SiteOfOrigin::FromString("soo:65001:200");
@@ -2903,7 +3197,9 @@ TYPED_TEST(ServiceChainTest, ValidateSiteOfOriginExtRoute) {
 
     // Check for service chain route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", soo2);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                soo2);
 
     // Delete Ext connect route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
@@ -2936,14 +3232,16 @@ TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
 
     // Change Ext connect route to have some communities.
     vector<uint32_t> commlist = list_of(0xFFFFAA01)(0xFFFFAA02)(0xFFFFAA03);
-    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100, commlist);
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   commlist);
 
     // Check for ExtConnect route
     CommunitySpec commspec;
@@ -2951,8 +3249,9 @@ TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
     commspec.communities.insert(
         commspec.communities.end(), commlist.begin(), commlist.end());
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red", commspec);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red",
+                                commspec);
 
     // Change Ext connect route to not have communities.
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
@@ -2960,8 +3259,8 @@ TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
     // Check for ExtConnect route
     commspec.communities.clear();
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
-    this->VerifyRouteAttributes(
-        "blue", this->BuildPrefix("10.1.1.0", 24), this->BuildNextHopAddress("2.3.4.5"), "red");
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
 
     // Delete ExtRoute and connected route
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
@@ -2983,7 +3282,8 @@ TYPED_TEST(ServiceChainTest, DeleteConnectedWithExtConnectRoute) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.3", 32), 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.1", 32));
@@ -2991,7 +3291,8 @@ TYPED_TEST(ServiceChainTest, DeleteConnectedWithExtConnectRoute) {
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.3", 32));
 
     this->DisableServiceChainQ();
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 200, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 200,
+                            this->BuildNextHopAddress("2.3.4.5"));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.1", 32));
 
     this->VerifyRouteIsDeleted("red", this->BuildPrefix("10.1.1.1", 32));
@@ -3022,15 +3323,18 @@ TYPED_TEST(ServiceChainTest, DeleteEntryReuse) {
     this->SetServiceChainInformation("blue-i1",
         "controller/src/bgp/testdata/service_chain_1.xml");
 
-    vector<string> routes_to_play =
-        list_of(this->BuildPrefix("10.1.1.1", 32))(this->BuildPrefix("10.1.1.1", 32))(this->BuildPrefix("10.1.1.1", 32));
+    vector<string> routes_to_play = list_of(
+        this->BuildPrefix("10.1.1.1", 32))
+        (this->BuildPrefix("10.1.1.1", 32))
+        (this->BuildPrefix("10.1.1.1", 32));
     // Add Ext connect route
     for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         this->AddRoute(NULL, "red", *it, 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     for (vector<string>::iterator it = routes_to_play.begin();
@@ -3051,7 +3355,8 @@ TYPED_TEST(ServiceChainTest, DeleteEntryReuse) {
     for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         this->AddRoute(NULL, "red", *it, 100);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
 
     for (vector<string>::iterator it = routes_to_play.begin();
@@ -3081,8 +3386,8 @@ TYPED_TEST(ServiceChainTest, EntryAfterStop) {
     // Add Ext connect route
     for (int i = 0; i < 255; i++) {
         stringstream route;
-        route << "10.1.1." << i << "/32";
-        routes_to_play.push_back(route.str());
+        route << "10.1.1." << i;
+        routes_to_play.push_back(this->BuildPrefix(route.str(), 32));
     }
 
     for (vector<string>::iterator it = routes_to_play.begin();
@@ -3090,7 +3395,8 @@ TYPED_TEST(ServiceChainTest, EntryAfterStop) {
         this->AddRoute(NULL, "red", *it, 100);
 
     // Add Connected
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     // Check for ExtConnect route
     for (vector<string>::iterator it = routes_to_play.begin();
@@ -3104,14 +3410,15 @@ TYPED_TEST(ServiceChainTest, EntryAfterStop) {
     // Add more Ext connect route
     for (int i = 0; i < 255; i++) {
         stringstream route;
-        route << "10.2.1." << i << "/32";
-        routes_to_play.push_back(route.str());
+        route << "10.2.1." << i;
+        routes_to_play.push_back(this->BuildPrefix(route.str(), 32));
     }
 
     for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         this->AddRoute(NULL, "red", *it, 200);
-    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
 
     this->EnableServiceChainQ();
     TASK_UTIL_EXPECT_TRUE(this->IsServiceChainQEmpty());
@@ -3128,7 +3435,8 @@ TYPED_TEST(ServiceChainTest, EntryAfterStop) {
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkRemoteVMRoutes) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3138,14 +3446,17 @@ TYPED_TEST(ServiceChainTest, TransitNetworkRemoteVMRoutes) {
     this->AddRoute(NULL, "red", this->BuildPrefix("192.168.3.103", 32), 100);
 
     // Add Connected routes for the 2 chains
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
     vector<string> origin_vn_path = list_of("core-vn")("red-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete more specific routes and connected routes
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.3.101", 32));
@@ -3159,7 +3470,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkRemoteVMRoutes) {
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkLocalVMRoutes) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3169,13 +3481,15 @@ TYPED_TEST(ServiceChainTest, TransitNetworkLocalVMRoutes) {
     this->AddRoute(NULL, "core", this->BuildPrefix("192.168.2.103", 32), 100);
 
     // Add Connected routes for the blue-core chain
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
 
     // Check for Aggregate route in blue
     vector<string> origin_vn_path = list_of("core-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.2.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete more specific routes and connected routes
     this->DeleteRoute(NULL, "core", this->BuildPrefix("192.168.2.101", 32));
@@ -3188,7 +3502,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkLocalVMRoutes) {
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkRemoteExtConnectRoute) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3198,20 +3513,25 @@ TYPED_TEST(ServiceChainTest, TransitNetworkRemoteExtConnectRoute) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.3.3", 32), 100);
 
     // Add Connected routes for the 2 chains.
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for ExtConnect route in blue
     vector<string> origin_vn_path = list_of("core-vn")("red-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.3", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.3", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.3", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete Ext connect routes and connected routes
     this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.3.1", 32));
@@ -3222,7 +3542,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkRemoteExtConnectRoute) {
 }
 
 TYPED_TEST(ServiceChainTest, TransitNetworkLocalExtConnectRoute) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3232,19 +3553,23 @@ TYPED_TEST(ServiceChainTest, TransitNetworkLocalExtConnectRoute) {
     this->AddRoute(NULL, "core", this->BuildPrefix("10.1.2.3", 32), 100);
 
     // Add Connected routes for the blue-core chain
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
 
     // Check for ExtConnect route in blue
     vector<string> origin_vn_path = list_of("core-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.2.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.2.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.2.3", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.3", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.2.3", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete Ext connect routes and connected routes
     this->DeleteRoute(NULL, "core", this->BuildPrefix("10.1.2.1", 32));
@@ -3257,7 +3582,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkLocalExtConnectRoute) {
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute1) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3270,22 +3596,27 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute1) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.3.2", 32), 100);
 
     // Add Connected routes for the 2 chains
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
     vector<string> origin_vn_path = list_of("core-vn")("red-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Remove connected route for blue-core chain.
     this->DeleteConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32));
@@ -3298,20 +3629,24 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute1) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.3.2", 32));
 
     // Add connected route for blue-core chain.
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
 
     // Check for Aggregate route in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete Ext connect routes and connected routes
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.3.101", 32));
@@ -3326,7 +3661,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute1) {
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute2) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3339,22 +3675,27 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute2) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.3.2", 32), 100);
 
     // Add Connected routes for the 2 chains
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                           100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                           100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
     vector<string> origin_vn_path = list_of("core-vn")("red-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Remove connected route for core-red chain.
     this->DeleteConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32));
@@ -3367,20 +3708,24 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute2) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.3.2", 32));
 
     // Add connected route for core-red chain.
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
 
     // Check for Aggregate route in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete Ext connect routes and connected routes
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.3.101", 32));
@@ -3395,8 +3740,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkAddDeleteConnectedRoute2) {
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkToggleAllowTransit) {
-    string content =
-        this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
+    string content = this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_1.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3409,22 +3754,27 @@ TYPED_TEST(ServiceChainTest, TransitNetworkToggleAllowTransit) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.3.2", 32), 100);
 
     // Add Connected routes for the 2 chains
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in blue
     vector<string> origin_vn_path = list_of("core-vn")("red-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Disable allow-transit
     boost::replace_all(content,
@@ -3447,16 +3797,19 @@ TYPED_TEST(ServiceChainTest, TransitNetworkToggleAllowTransit) {
 
     // Check for Aggregate route in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path);
 
     // Delete Ext connect routes and connected routes
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.3.101", 32));
@@ -3472,7 +3825,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkToggleAllowTransit) {
 //                                             (core-i5)(green-i6)(green)
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkMultipleNetworks) {
-    this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_2.xml");
+    this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_2.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
     this->AddConnection("core", "core-i5");
@@ -3490,33 +3844,42 @@ TYPED_TEST(ServiceChainTest, TransitNetworkMultipleNetworks) {
     this->AddRoute(NULL, "green", this->BuildPrefix("10.1.4.2", 32), 100);
 
     // Add Connected routes for the 3 chains
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
-    this->AddConnectedRoute(3, NULL, this->BuildPrefix("192.168.2.252", 32), 100, this->BuildHostAddress("20.1.1.3"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.2"));
+    this->AddConnectedRoute(3, NULL, this->BuildPrefix("192.168.2.252", 32),
+                            100, this->BuildNextHopAddress("20.1.1.3"));
 
     // Check for Aggregate routes in blue
     vector<string> origin_vn_path_red = list_of("core-vn")("red-vn");
     vector<string> origin_vn_path_green = list_of("core-vn")("green-vn");
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path_red);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path_red);
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.4.0", 24));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.4.0", 24), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path_green);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.4.0", 24),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path_green);
 
     // Check for ExtConnect routes in blue
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path_red);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path_red);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path_red);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path_red);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.4.1", 32));
-    this->VerifyRouteAttributes( "blue", this->BuildPrefix("10.1.4.1", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path_green);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.4.1", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path_green);
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.4.2", 32));
-    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.4.2", 32), this->BuildHostAddress("20.1.1.1"), "core-vn",
-        origin_vn_path_green);
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.4.2", 32),
+                                this->BuildNextHopAddress("20.1.1.1"),
+                                "core-vn", origin_vn_path_green);
 
     // Delete Ext connect routes and connected routes
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.3.101", 32));
@@ -3537,8 +3900,8 @@ TYPED_TEST(ServiceChainTest, TransitNetworkMultipleNetworks) {
 // VN index for blue and red is same.
 //
 TYPED_TEST(ServiceChainTest, TransitNetworkOriginVnLoop) {
-    string content =
-        this->ParseConfigFile("controller/src/bgp/testdata/service_chain_test_3.xml");
+    string content = this->ParseConfigFile(
+            "controller/src/bgp/testdata/service_chain_test_3.xml");
     this->AddConnection("blue", "blue-i1");
     this->AddConnection("core", "core-i3");
 
@@ -3551,22 +3914,27 @@ TYPED_TEST(ServiceChainTest, TransitNetworkOriginVnLoop) {
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.3.2", 32), 100);
 
     // Add Connected routes for the 2 chains
-    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32), 100, this->BuildHostAddress("20.1.1.1"));
-    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32), 100, this->BuildHostAddress("20.1.1.2"));
+    this->AddConnectedRoute(1, NULL, this->BuildPrefix("192.168.1.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.1"));
+    this->AddConnectedRoute(2, NULL, this->BuildPrefix("192.168.2.253", 32),
+                            100, this->BuildNextHopAddress("20.1.1.2"));
 
     // Check for Aggregate route in core
     vector<string> origin_vn_path = list_of("red-vn");
     this->VerifyRouteExists("core", this->BuildPrefix("192.168.3.0", 24));
-    this->VerifyRouteAttributes("core", this->BuildPrefix("192.168.3.0", 24), this->BuildHostAddress("20.1.1.2"), "red-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("core", this->BuildPrefix("192.168.3.0", 24),
+                                this->BuildNextHopAddress("20.1.1.2"), "red-vn",
+                                origin_vn_path);
 
     // Check for ExtConnect routes in core
     this->VerifyRouteExists("core", this->BuildPrefix("10.1.3.1", 32));
-    this->VerifyRouteAttributes("core", this->BuildPrefix("10.1.3.1", 32), this->BuildHostAddress("20.1.1.2"), "red-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("core", this->BuildPrefix("10.1.3.1", 32),
+                                this->BuildNextHopAddress("20.1.1.2"), "red-vn",
+                                origin_vn_path);
     this->VerifyRouteExists("core", this->BuildPrefix("10.1.3.2", 32));
-    this->VerifyRouteAttributes("core", this->BuildPrefix("10.1.3.2", 32), this->BuildHostAddress("20.1.1.2"), "red-vn",
-        origin_vn_path);
+    this->VerifyRouteAttributes("core", this->BuildPrefix("10.1.3.2", 32),
+                                this->BuildNextHopAddress("20.1.1.2"), "red-vn",
+                                origin_vn_path);
 
     // Check for Aggregate route in blue
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.3.0", 24));
@@ -3639,4 +4007,5 @@ int service_chain_test_main(int argc, const char **argv) {
 int main(int argc, char **argv) {
     return service_chain_test_main(argc, const_cast<const char **>(argv));
 }
+
 #endif

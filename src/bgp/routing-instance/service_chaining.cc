@@ -892,8 +892,6 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             break;
         }
         case ServiceChainRequestT::SHOW_SERVICE_CHAIN: {
-            ShowServiceChainResp *resp =
-                static_cast<ShowServiceChainResp *>(req->snh_resp_);
             vector<ShowServicechainInfo> list;
             RoutingInstanceMgr *rim = server_->routing_instance_mgr();
             for (RoutingInstanceMgr::RoutingInstanceIterator rit = rim->begin();
@@ -926,20 +924,41 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             }
             ServiceChainInfoComp comp;
             sort(list.begin(), list.end(), comp);
-            resp->set_service_chain_list(list);
-            resp->Response();
+            if (GetFamily() == Address::INET) {
+                ShowServiceChainResp *resp =
+                    static_cast<ShowServiceChainResp *>(req->snh_resp_);
+                resp->set_service_chain_list(list);
+                resp->Response();
+            } else if (GetFamily() == Address::INET6) {
+                ShowIpv6ServiceChainResp *resp =
+                    static_cast<ShowIpv6ServiceChainResp *>(req->snh_resp_);
+                resp->set_service_chain_list(list);
+                resp->Response();
+            } else {
+                assert(false);
+            }
             break;
         }
         case ServiceChainRequestT::SHOW_PENDING_CHAIN: {
-            ShowPendingServiceChainResp *resp =
-                static_cast<ShowPendingServiceChainResp *>(req->snh_resp_);
             vector<string> pending_list;
             for (PendingServiceChainList::const_iterator it =
                  pending_chains_.begin(); it != pending_chains_.end(); ++it)
                 pending_list.push_back((*it)->name());
 
-            resp->set_pending_chains(pending_list);
-            resp->Response();
+            if (GetFamily() == Address::INET) {
+                ShowPendingServiceChainResp *resp =
+                    static_cast<ShowPendingServiceChainResp *>(req->snh_resp_);
+                resp->set_pending_chains(pending_list);
+                resp->Response();
+            } else if (GetFamily() == Address::INET6) {
+                ShowPendingIpv6ServiceChainResp *resp =
+                    static_cast<ShowPendingIpv6ServiceChainResp *>
+                        (req->snh_resp_);
+                resp->set_pending_chains(pending_list);
+                resp->Response();
+            } else {
+                assert(false);
+            }
             break;
         }
         default: {
@@ -1261,6 +1280,34 @@ void ShowPendingServiceChainReq::HandleRequest() const {
             resp , get_search_string());
     ServiceChainMgr<ServiceChainInet> *mgr =
         static_cast<ServiceChainMgr<ServiceChainInet> *>(imgr);
+    mgr->Enqueue(req);
+}
+
+void ShowIpv6ServiceChainReq::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET6);
+    ShowIpv6ServiceChainResp *resp = new ShowIpv6ServiceChainResp;
+    resp->set_context(context());
+    ServiceChainRequest<ServiceChainInet6> *req =
+        new ServiceChainRequest<ServiceChainInet6>(
+            ServiceChainRequest<ServiceChainInet6>::SHOW_SERVICE_CHAIN,
+            resp, get_search_string());
+    ServiceChainMgr<ServiceChainInet6> *mgr =
+        static_cast<ServiceChainMgr<ServiceChainInet6> *>(imgr);
+    mgr->Enqueue(req);
+}
+
+void ShowPendingIpv6ServiceChainReq::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET6);
+    ShowPendingIpv6ServiceChainResp *resp = new ShowPendingIpv6ServiceChainResp;
+    resp->set_context(context());
+    ServiceChainRequest<ServiceChainInet6> *req =
+        new ServiceChainRequest<ServiceChainInet6>(
+            ServiceChainRequest<ServiceChainInet6>::SHOW_PENDING_CHAIN,
+            resp , get_search_string());
+    ServiceChainMgr<ServiceChainInet6> *mgr =
+        static_cast<ServiceChainMgr<ServiceChainInet6> *>(imgr);
     mgr->Enqueue(req);
 }
 

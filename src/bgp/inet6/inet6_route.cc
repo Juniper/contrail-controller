@@ -113,6 +113,8 @@ void Inet6Route::SetKey(const DBRequestKey *reqkey) {
 bool Inet6Masks::initialized_ = false;
 vector<Inet6Prefix> Inet6Masks::masks_;
 
+MODULE_INITIALIZER(Inet6Masks::Init);
+
 const Inet6Prefix& Inet6Masks::PrefixlenToMask(uint8_t prefix_len) {
     assert(prefix_len <= Inet6Prefix::kMaxV6PrefixLen);
     return masks_.at(prefix_len);
