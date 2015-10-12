@@ -42,3 +42,11 @@ env.Alias('src/ksync:ksync_test', ksync_test)
 
 ksync_db_test = env.Program('ksync_db_test', ['ksync_db_test.cc'])
 env.Alias('src/ksync:ksync_db_test', ksync_db_test)
+
+test_suite = [
+    ksync_test,
+    ksync_db_test,
+    ]
+
+test = env.TestSuite('ksync-base-test', test_suite)
+env.Alias('controller/src/ksync:test', test)
