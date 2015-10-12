@@ -44,6 +44,7 @@ do {                                                             \
 const int IFMapSTOptions::kDEFAULT_NUM_EVENTS = 50;
 const int IFMapSTOptions::kDEFAULT_NUM_XMPP_CLIENTS = 5;
 const int IFMapSTOptions::kDEFAULT_PER_CLIENT_NUM_VMS = 24;
+const int IFMapSTOptions::kDEFAULT_NUM_VMIS_PER_VM = 8;
 const string IFMapSTOptions::kDEFAULT_EVENT_WEIGHTS_FILE=
         "controller/src/ifmap/testdata/ifmap_event_weights.txt";
 
@@ -56,6 +57,7 @@ IFMapSTOptions::IFMapSTOptions() :
         num_events_(kDEFAULT_NUM_EVENTS),
         num_xmpp_clients_(kDEFAULT_NUM_XMPP_CLIENTS),
         num_vms_(kDEFAULT_PER_CLIENT_NUM_VMS),
+        num_vmis_(kDEFAULT_NUM_VMIS_PER_VM),
         event_weight_file_(kDEFAULT_EVENT_WEIGHTS_FILE),
         desc_("Configuration options") {
     Initialize();
@@ -68,11 +70,14 @@ void IFMapSTOptions::Initialize() {
         + integerToString(IFMapSTOptions::kDEFAULT_NUM_XMPP_CLIENTS) + ")";
     string num_vms_msg = "Number of virtual machines per client (default "
         + integerToString(IFMapSTOptions::kDEFAULT_PER_CLIENT_NUM_VMS) + ")";
+    string num_vmis_msg = "Number of interfaces per VM (default "
+        + integerToString(IFMapSTOptions::kDEFAULT_NUM_VMIS_PER_VM) + ")";
     desc_.add_options()
         ("Help", "produce help message")
         ("nclients-xmpp", opt::value<int>(), ncli_xmpp_msg.c_str())
         ("nevents", opt::value<int>(), nevents_msg.c_str())
         ("num-vms", opt::value<int>(), num_vms_msg.c_str())
+        ("num-vmis", opt::value<int>(), num_vmis_msg.c_str())
         ("events-file", opt::value<string>(), "Events filename")
         ("event-weight-file", opt::value<string>(), "Event weights filename")
         ;
@@ -93,6 +98,9 @@ void IFMapSTOptions::Initialize() {
     }
     if (var_map.count("num-vms")) {
         num_vms_ = var_map["num-vms"].as<int>();
+    }
+    if (var_map.count("num-vmis")) {
+        num_vmis_ = var_map["num-vmis"].as<int>();
     }
     if (var_map.count("events-file")) {
         events_file_ = var_map["events-file"].as<string>();
@@ -122,10 +130,14 @@ int IFMapSTOptions::num_vms() const {
     return num_vms_;
 }
 
+int IFMapSTOptions::num_vmis() const {
+    return num_vmis_;
+}
+
 // **** Start IFMapSTEventMgr routines.
 
 IFMapSTEventMgr::IFMapSTEventMgr() :
-        events_from_file_(false), max_events_(0), events_processed_(0),
+        events_from_file_(false), max_events_(0), events_executed_(0),
         event_weights_sum_(0) {
 }
 
@@ -191,15 +203,12 @@ IFMapSTEventMgr::EventTypeMap IFMapSTEventMgr::InitEventTypeMap() {
     evmap[VR_NODE_ADD] = "VR_NODE_ADD";
     evmap[VR_NODE_DELETE] = "VR_NODE_DELETE";
     evmap[VR_SUB] = "VR_SUB";
-    evmap[CLIENT_READY_VR_ADD] = "CLIENT_READY_VR_ADD";
     evmap[VM_NODE_ADD] = "VM_NODE_ADD";
     evmap[VM_NODE_DELETE] = "VM_NODE_DELETE";
     evmap[VM_SUB] = "VM_SUB";
     evmap[VM_UNSUB] = "VM_UNSUB";
-    evmap[VM_ADD_VM_SUB] = "VM_ADD_VM_SUB";
-    evmap[VM_SUB_VM_ADD] = "VM_SUB_VM_ADD";
-    evmap[VM_DEL_VM_UNSUB] = "VM_DEL_VM_UNSUB";
-    evmap[VM_UNSUB_VM_DEL] = "VM_UNSUB_VM_DEL";
+    evmap[OTHER_CONFIG_ADD] = "OTHER_CONFIG_ADD";
+    evmap[OTHER_CONFIG_DELETE] = "OTHER_CONFIG_DELETE";
     evmap[XMPP_READY] = "XMPP_READY";
     evmap[XMPP_NOTREADY] = "XMPP_NOTREADY";
     evmap[IROND_CONN_DOWN] = "IROND_CONN_DOWN";
@@ -222,15 +231,12 @@ IFMapSTEventMgr::EventStringMap IFMapSTEventMgr::InitEventStringMap() {
     evmap["VR_NODE_ADD"] = VR_NODE_ADD;
     evmap["VR_NODE_DELETE"] = VR_NODE_DELETE;
     evmap["VR_SUB"] = VR_SUB;
-    evmap["CLIENT_READY_VR_ADD"] = CLIENT_READY_VR_ADD;
     evmap["VM_NODE_ADD"] = VM_NODE_ADD;
     evmap["VM_NODE_DELETE"] = VM_NODE_DELETE;
     evmap["VM_SUB"] = VM_SUB;
     evmap["VM_UNSUB"] = VM_UNSUB;
-    evmap["VM_ADD_VM_SUB"] = VM_ADD_VM_SUB;
-    evmap["VM_SUB_VM_ADD"] = VM_SUB_VM_ADD;
-    evmap["VM_DEL_VM_UNSUB"] = VM_DEL_VM_UNSUB;
-    evmap["VM_UNSUB_VM_DEL"] = VM_UNSUB_VM_DEL;
+    evmap["OTHER_CONFIG_ADD"] = OTHER_CONFIG_ADD;
+    evmap["OTHER_CONFIG_DELETE"] = OTHER_CONFIG_DELETE;
     evmap["XMPP_READY"] = XMPP_READY;
     evmap["XMPP_NOTREADY"] = XMPP_NOTREADY;
     evmap["VM_SUB"] = VM_SUB;
@@ -250,7 +256,7 @@ IFMapSTEventMgr::StringToEvent(string event) const {
 }
 
 bool IFMapSTEventMgr::EventAvailable() const {
-    return (events_processed_ < max_events_ ? true : false);
+    return (events_executed_ < max_events_ ? true : false);
 }
 
 IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
@@ -273,7 +279,7 @@ IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
         }
         event = static_cast<EventType>(event_type);
     }
-    ++events_processed_;
+    ++events_executed_;
 
     string event_log = "Event " + EventToString(event);
     event_log_.push_back(event_log);
@@ -285,7 +291,8 @@ IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
 
 IFMapStressTest::IFMapStressTest()
         : ifmap_server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL),
-          xmpp_server_(NULL), log_buffer_(kMAX_LOG_NUM_EVENTS) {
+          xmpp_server_(NULL), log_buffer_(kMAX_LOG_NUM_EVENTS),
+          events_ignored_(0) {
 }
 
 void IFMapStressTest::Log(string log_string) {
@@ -319,7 +326,6 @@ void IFMapStressTest::SetUp() {
 
 void IFMapStressTest::TearDown() {
     VerifyNodes();
-    PrintTestInfo();
     DeleteXmppClients();
 
     ifmap_server_.Shutdown();
@@ -340,19 +346,21 @@ void IFMapStressTest::TearDown() {
     if (thread_.get() != NULL) {
         thread_->Join();
     }
+    PrintTestInfo();
 }
 
 // Pick a random element from the set and return its value.
-int IFMapStressTest::PickRandomId(const IntSet &client_set) {
+template<typename SetType>
+SetType IFMapStressTest::PickRandomElement(const std::set<SetType> &client_set){
     assert(client_set.size() != 0);
     int random_id = (std::rand() % client_set.size());
-    IntSet::const_iterator iter = client_set.begin();
+    typename std::set<SetType>::const_iterator iter = client_set.begin();
     std::advance(iter, random_id);
     return *iter;
 }
 
 string IFMapStressTest::XmppClientNameCreate(int id) {
-    return kXMPP_CLIENT_PREFIX + "_" + integerToString(id);
+    return kXMPP_CLIENT_PREFIX + integerToString(id);
 }
 
 void IFMapStressTest::XmppClientInits() {
@@ -426,6 +434,10 @@ void IFMapStressTest::SetupEventCallbacks() {
         boost::bind(&IFMapStressTest::VirtualMachineSubscribe, this);
     callbacks_[IFMapSTEventMgr::VM_UNSUB] =
         boost::bind(&IFMapStressTest::VirtualMachineUnsubscribe, this);
+    callbacks_[IFMapSTEventMgr::OTHER_CONFIG_ADD] =
+        boost::bind(&IFMapStressTest::OtherConfigAdd, this);
+    callbacks_[IFMapSTEventMgr::OTHER_CONFIG_DELETE] =
+        boost::bind(&IFMapStressTest::OtherConfigDelete, this);
     callbacks_[IFMapSTEventMgr::XMPP_READY] =
         boost::bind(&IFMapStressTest::XmppConnect, this);
     /*
@@ -462,23 +474,71 @@ void IFMapStressTest::VerifyNodes() {
 }
 
 void IFMapStressTest::PrintTestInfo() {
+    uint32_t total_client_ignored_events = 0;
     for (int i = 0; i < config_options_.num_xmpp_clients(); ++i) {
         IFMapSTClientCounters counters = client_counters_.at(i);
         cout << "Client " << i << " counters" << endl;
-        cout << "\tvr_node_adds\t" << counters.vr_node_adds << endl;
-        cout << "\tvr_node_deletes\t" << counters.vr_node_deletes << endl;
-        cout << "\tvr_subscribes\t" << counters.vr_subscribes << endl;
-        cout << "\tvm_node_adds\t" << counters.vm_node_adds << endl;
-        cout << "\tvm_node_deletes\t" << counters.vm_node_deletes << endl;
-        cout << "\tvm_subscribes\t" << counters.vm_subscribes << endl;
-        cout << "\tvm_unsubscribes\t" << counters.vm_unsubscribes << endl;
-        cout << "\txmpp_connects\t" << counters.xmpp_connects << endl;
-        cout << "\txmpp_disconns\t" << counters.xmpp_disconnects << endl;
+        cout << "\t" << setw(30) << left << "vr_node_adds" << setw(9)
+             << right << counters.vr_node_adds << endl;
+        cout << "\t" << setw(30) << left << "vr_node_deletes" << setw(9)
+             << right << counters.vr_node_deletes << endl;
+        cout << "\t" << setw(39) << left << "vr_node_deletes_ignored" << setw(9)
+             << right << counters.vr_node_deletes_ignored << endl;
+        cout << "\t" << setw(30) << left << "vr_subscribes" << setw(9)
+             << right << counters.vr_subscribes << endl;
+        cout << "\t" << setw(39) << left << "vr_subscribes_ignored" << setw(9)
+             << right << counters.vr_subscribes_ignored << endl;
+        cout << "\t" << setw(30) << left << "vm_node_adds" << setw(9)
+             << right << counters.vm_node_adds << endl;
+        cout << "\t" << setw(39) << left << "vm_node_adds_ignored" << setw(9)
+             << right << counters.vm_node_adds_ignored << endl;
+        cout << "\t" << setw(30) << left << "vm_node_deletes" << setw(9)
+             << right << counters.vm_node_deletes << endl;
+        cout << "\t" << setw(39) << left << "vm_node_deletes_ignored" << setw(9)
+             << right << counters.vm_node_deletes_ignored << endl;
+        cout << "\t" << setw(30) << left << "other_cfg_adds" << setw(9)
+             << right << counters.other_config_adds << endl;
+        cout << "\t" << setw(39) << left << "other_cfg_adds_ignored" << setw(9)
+             << right << counters.other_config_adds_ignored << endl;
+        cout << "\t" << setw(30) << left << "other_cfg_dels" << setw(9)
+             << right << counters.other_config_deletes << endl;
+        cout << "\t" << setw(39) << left << "other_cfg_dels_ignored" << setw(9)
+             << right << counters.other_config_deletes_ignored << endl;
+        cout << "\t" << setw(30) << left << "vm_subscribes" << setw(9)
+             << right << counters.vm_subscribes << endl;
+        cout << "\t" << setw(39) << left << "vm_subscribes_ignored" << setw(9)
+             << right << counters.vm_subscribes_ignored << endl;
+        cout << "\t" << setw(30) << left << "vm_unsubscribes" << setw(9)
+             << right << counters.vm_unsubscribes << endl;
+        cout << "\t" << setw(39) << left << "vm_unsubscribes_ignored" << setw(9)
+             << right << counters.vm_unsubscribes_ignored << endl;
+        cout << "\t" << setw(30) << left << "xmpp_connects" << setw(9)
+             << right << counters.xmpp_connects << endl;
+        cout << "\t" << setw(39) << left << "xmpp_connects_ignored" << setw(9)
+             << right << counters.xmpp_connects_ignored << endl;
+        cout << "\t" << setw(30) << left << "xmpp_disconnects" << setw(9)
+             << right << counters.xmpp_disconnects << endl;
+        cout << "\t" << setw(39) << left << "xmpp_disconns_ignored" << setw(9)
+             << right << counters.xmpp_disconnects_ignored << endl;
+        cout << "\t" << setw(30) << left << "Ignored Events" << setw(9)
+             << right << counters.get_ignored_events() << endl;
+        total_client_ignored_events += counters.get_ignored_events();
     }
+    cout << setw(30) << left << "Events executed"
+         << event_generator_.events_executed() << endl;
+    cout << setw(30) << left << "Client events ignored"
+         << total_client_ignored_events << endl;
+    cout << setw(30) << left << "Other ignored events"
+         << events_ignored_ << endl;
+    float events_processed = event_generator_.events_executed() -
+                             events_ignored_ - total_client_ignored_events;
+    float percentage_processed =
+        (events_processed/float(event_generator_.events_executed())) * 100;
+    cout << setw(30) << "% processed" << percentage_processed << endl;
 }
 
 string IFMapStressTest::VirtualRouterNameCreate(int id) {
-    return "VR_"+ kXMPP_CLIENT_PREFIX + "_" + integerToString(id);
+    return "VR_"+ kXMPP_CLIENT_PREFIX + integerToString(id);
 }
 
 void IFMapStressTest::VirtualRouterNodeAdd() {
@@ -509,6 +569,7 @@ void IFMapStressTest::VirtualRouterNodeDelete() {
 
     // If the node is not created, we are done.
     if (vr_nodes_created_.find(vr_name) == vr_nodes_created_.end()) {
+        client_counters_.at(client_id).incr_vr_node_deletes_ignored();
         return;
     }
 
@@ -533,10 +594,11 @@ void IFMapStressTest::VirtualRouterNodeDelete() {
 void IFMapStressTest::VirtualRouterSubscribe() {
     // If none of the clients are connected to the xmpp-server, we are done.
     if (xmpp_connected_.empty()) {
+        incr_events_ignored();
         return;
     }
     // From the group of connected clients, pick one to send the VR-subscribe.
-    int client_id = PickRandomId(xmpp_connected_);
+    int client_id = PickRandomElement(xmpp_connected_);
     xmpp_clients_.at(client_id)->SendConfigSubscribe();
     string vr_name = xmpp_clients_.at(client_id)->name();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(vr_name) != NULL);
@@ -547,14 +609,50 @@ void IFMapStressTest::VirtualRouterSubscribe() {
     }
 }
 
+// EG: "VM_XmppClient0_VM23"
 string IFMapStressTest::VirtualMachineNameCreate(int client_id, int vm_id) {
-    return "VM_"+ kXMPP_CLIENT_PREFIX + "_" + integerToString(client_id) + "_"
-           + integerToString(vm_id);
+    return "VM_"+ kXMPP_CLIENT_PREFIX + integerToString(client_id) + "_"
+           + "VM" + integerToString(vm_id);
+}
+
+// EG: "VM_XmppClient4_VM23". Return 4.
+int IFMapStressTest::VmNameToClientId(const string &vm_name) {
+    size_t pos = vm_name.find(kXMPP_CLIENT_PREFIX);
+    assert(pos != string::npos);
+    size_t pos1 = pos + kXMPP_CLIENT_PREFIX.size();
+    size_t pos2 = vm_name.find("_", pos1);
+    assert(pos2 != string::npos);
+
+    string client_str = vm_name.substr(pos1, pos2 - pos1);
+    int client_id = -1;
+    bool retb = stringToInteger(client_str, client_id);
+    assert(retb);
+    assert(client_id != -1);
+    return client_id;
+}
+
+// EG: "VM_XmppClient0_VM23". Return 23.
+int IFMapStressTest::VmNameToVmId(const string &vm_name) {
+    string vm_prefix = string("_VM");
+    size_t pos1 = vm_name.find(vm_prefix);
+    string vm_str = vm_name.substr(pos1 + vm_prefix.size());
+    int vm_id = -1;
+    bool retb = stringToInteger(vm_str, vm_id);
+    assert(retb);
+    assert(vm_id != -1);
+    return vm_id;
+}
+
+// EG: "VM_XmppClient0_VM23". Return 0 and 23.
+void IFMapStressTest::VmNameToIds(const string &vm_name, int *client_id,
+                                  int *vm_id) {
+    *client_id = VmNameToClientId(vm_name);
+    *vm_id = VmNameToVmId(vm_name);
 }
 
 int IFMapStressTest::GetVmIdToAddNode(int client_id) {
     assert(!vm_to_add_ids_.at(client_id).empty());
-    int vm_id = PickRandomId(vm_to_add_ids_.at(client_id));
+    int vm_id = PickRandomElement(vm_to_add_ids_.at(client_id));
     vm_to_add_ids_.at(client_id).erase(vm_id);
     vm_to_delete_ids_.at(client_id).insert(vm_id);
     assert((int)(vm_to_add_ids_.at(client_id).size() +
@@ -564,7 +662,7 @@ int IFMapStressTest::GetVmIdToAddNode(int client_id) {
 
 int IFMapStressTest::GetVmIdToDeleteNode(int client_id) {
     assert(!vm_to_delete_ids_.at(client_id).empty());
-    int vm_id = PickRandomId(vm_to_delete_ids_.at(client_id));
+    int vm_id = PickRandomElement(vm_to_delete_ids_.at(client_id));
     vm_to_delete_ids_.at(client_id).erase(vm_id);
     vm_to_add_ids_.at(client_id).insert(vm_id);
     assert((int)(vm_to_add_ids_.at(client_id).size() +
@@ -577,6 +675,7 @@ void IFMapStressTest::VirtualMachineNodeAdd() {
     assert(client_id < config_options_.num_xmpp_clients());
     // If all the VM nodes are already created, we are done.
     if (vm_to_add_ids_.at(client_id).empty()) {
+        client_counters_.at(client_id).incr_vm_node_adds_ignored();
         return;
     }
     // Get a VM id from the to-add group.
@@ -606,13 +705,21 @@ void IFMapStressTest::VirtualMachineNodeDelete() {
     assert(client_id < config_options_.num_xmpp_clients());
     // If there are no VM nodes to delete, we are done.
     if (vm_to_delete_ids_.at(client_id).empty()) {
+        client_counters_.at(client_id).incr_vm_node_deletes_ignored();
         return;
     }
-    // Get a VM id from the to-delete group
+    // Get a VM id from the to-delete group. If this VM id has not been created
+    // yet, we are done.
     int vm_id = GetVmIdToDeleteNode(client_id);
     string vm_name = VirtualMachineNameCreate(client_id, vm_id);
     if (vm_nodes_created_.find(vm_name) == vm_nodes_created_.end()) {
+        client_counters_.at(client_id).incr_vm_node_deletes_ignored();
         return;
+    }
+
+    // If other config were added for this vm, delete it.
+    if (vm_configs_added_names_.find(vm_name) != vm_configs_added_names_.end()){
+        OtherConfigDeleteInternal(vm_name);
     }
 
     // Remove all the properties that were added during node add.
@@ -629,15 +736,130 @@ void IFMapStressTest::VirtualMachineNodeDelete() {
 
     vm_nodes_created_.erase(vm_name);
     client_counters_.at(client_id).incr_vm_node_deletes();
-    // xxx remove assert
     assert(vm_nodes_created_.find(vm_name) == vm_nodes_created_.end());
     Log("VM-node-delete " + vm_name + ", client id " +
         integerToString(client_id));
 }
 
+int IFMapStressTest::GetVmIdToAddOtherConfig(int client_id) {
+    assert(!vm_to_delete_ids_.at(client_id).empty());
+    int vm_id = PickRandomElement(vm_to_delete_ids_.at(client_id));
+    assert((int)(vm_to_add_ids_.at(client_id).size() +
+        vm_to_delete_ids_.at(client_id).size()) == config_options_.num_vms());
+    return vm_id;
+}
+
+string IFMapStressTest::VMINameCreate(int client_id, int vm_id, int vmi_id) {
+    return "VMI_"+ kXMPP_CLIENT_PREFIX + integerToString(client_id) + "_"
+           + "VM" + integerToString(vm_id) + "_"
+           + "VMI" + integerToString(vmi_id);
+}
+
+string IFMapStressTest::VirtualNetworkNameCreate(int client_id, int vm_id,
+                                                 int vmi_id) {
+    return "VN_"+ kXMPP_CLIENT_PREFIX + integerToString(client_id) + "_"
+           + "VM" + integerToString(vm_id) + "_"
+           + "VMI" + integerToString(vmi_id);
+}
+
+void IFMapStressTest::OtherConfigAdd() {
+    int client_id = (std::rand() % config_options_.num_xmpp_clients());
+    assert(client_id < config_options_.num_xmpp_clients());
+    // If no VM nodes have been added yet, we are done.
+    if (vm_to_delete_ids_.at(client_id).empty()) {
+        client_counters_.at(client_id).incr_other_config_adds_ignored();
+        return;
+    }
+    int vm_id = GetVmIdToAddOtherConfig(client_id);
+    string vm_name = VirtualMachineNameCreate(client_id, vm_id);
+    for (int vmi_id = 0; vmi_id < config_options_.num_vmis(); ++vmi_id) {
+        // Create the VMI node with uuid and display-name.
+        string vmi_name = VMINameCreate(client_id, vm_id, vmi_id);
+        autogen::IdPermsType *prop1 = new autogen::IdPermsType();
+        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine-interface",
+                                         vmi_name, 0, "id-perms", prop1);
+        autogen::VirtualMachine::StringProperty *prop2 =
+            new autogen::VirtualMachine::StringProperty();
+        prop2->data = vmi_name;
+        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine-interface",
+                                         vmi_name, 0, "display-name", prop2);
+        ifmap_test_util::IFMapMsgLink(&db_, "virtual-machine", vm_name,
+            "virtual-machine-interface", vmi_name,
+            "virtual-machine-virtual-machine-interface");
+
+        // Create the virtual network node with uuid and display-name.
+        string vn_name = VirtualNetworkNameCreate(client_id, vm_id, vmi_id);
+        prop1 = new autogen::IdPermsType();
+        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-network",
+                                         vn_name, 0, "id-perms", prop1);
+        prop2 = new autogen::VirtualMachine::StringProperty();
+        prop2->data = vn_name;
+        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-network",
+                                         vn_name, 0, "display-name", prop2);
+        ifmap_test_util::IFMapMsgLink(&db_, "virtual-machine-interface",
+            vmi_name, "virtual-network", vn_name,
+            "virtual-machine-interface-virtual-network");
+    }
+    vm_configs_added_names_.insert(vm_name);
+
+    client_counters_.at(client_id).incr_other_config_adds();
+    Log("Other-cfg-adds, client id " + integerToString(client_id) + "VM " +
+        vm_name);
+}
+
+void IFMapStressTest::OtherConfigDelete() {
+    if (vm_configs_added_names_.empty()) {
+        incr_events_ignored();
+        return;
+    }
+
+    string vm_name = PickRandomElement(vm_configs_added_names_);
+    OtherConfigDeleteInternal(vm_name);
+    int client_id = VmNameToClientId(vm_name);
+    client_counters_.at(client_id).incr_other_config_deletes();
+    Log("Other-cfg-deletes, client id " + integerToString(client_id) + "VM "
+        + vm_name);
+}
+
+void IFMapStressTest::OtherConfigDeleteInternal(const string &vm_name) {
+    int client_id = -1, vm_id = -1;
+    VmNameToIds(vm_name, &client_id, &vm_id);
+    assert(client_id != -1);
+    assert(vm_id != -1);
+
+    for (int vmi_id = 0; vmi_id < config_options_.num_vmis(); ++vmi_id) {
+        string vmi_name = VMINameCreate(client_id, vm_id, vmi_id);
+
+        ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-machine", vm_name,
+            "virtual-machine-interface", vmi_name,
+            "virtual-machine-virtual-machine-interface");
+        autogen::IdPermsType *prop1 = new autogen::IdPermsType();
+        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine-interface",
+                                            vmi_name, 0, "id-perms", prop1);
+        autogen::VirtualMachine::StringProperty *prop2 =
+            new autogen::VirtualMachine::StringProperty();
+        prop2->data = vmi_name;
+        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine-interface",
+                                            vmi_name, 0, "display-name", prop2);
+
+        string vn_name = VirtualNetworkNameCreate(client_id, vm_id, vmi_id);
+        ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-machine-interface",
+            vmi_name, "virtual-network", vn_name,
+            "virtual-machine-interface-virtual-network");
+        prop1 = new autogen::IdPermsType();
+        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-network",
+                                            vn_name, 0, "id-perms", prop1);
+        prop2 = new autogen::VirtualMachine::StringProperty();
+        prop2->data = vn_name;
+        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-network",
+                                            vn_name, 0, "display-name", prop2);
+    }
+    vm_configs_added_names_.erase(vm_name);
+}
+
 int IFMapStressTest::GetVmIdToSubscribe(int client_id) {
     assert(!vm_sub_pending_ids_.at(client_id).empty());
-    int vm_id = PickRandomId(vm_sub_pending_ids_.at(client_id));
+    int vm_id = PickRandomElement(vm_sub_pending_ids_.at(client_id));
     vm_sub_pending_ids_.at(client_id).erase(vm_id);
     vm_unsub_pending_ids_.at(client_id).insert(vm_id);
     assert((int)(vm_sub_pending_ids_.at(client_id).size() +
@@ -647,7 +869,7 @@ int IFMapStressTest::GetVmIdToSubscribe(int client_id) {
 
 int IFMapStressTest::GetVmIdToUnsubscribe(int client_id) {
     assert(!vm_unsub_pending_ids_.at(client_id).empty());
-    int vm_id = PickRandomId(vm_unsub_pending_ids_.at(client_id));
+    int vm_id = PickRandomElement(vm_unsub_pending_ids_.at(client_id));
     vm_unsub_pending_ids_.at(client_id).erase(vm_id);
     vm_sub_pending_ids_.at(client_id).insert(vm_id);
     assert((int)(vm_sub_pending_ids_.at(client_id).size() +
@@ -658,13 +880,15 @@ int IFMapStressTest::GetVmIdToUnsubscribe(int client_id) {
 void IFMapStressTest::VirtualMachineSubscribe() {
     // If none of the clients have VR-subscribed, we cant VM-subscribe.
     if (vr_subscribed_.empty()) {
+        incr_events_ignored();
         return;
     }
 
-    int client_id = PickRandomId(vr_subscribed_);
+    int client_id = PickRandomElement(vr_subscribed_);
     assert(client_id < config_options_.num_xmpp_clients());
     // If all the VMs are already subscribed, we are done.
     if (vm_sub_pending_ids_.at(client_id).empty()) {
+        client_counters_.at(client_id).incr_vm_subscribes_ignored();
         return;
     }
     TASK_UTIL_EXPECT_TRUE(
@@ -685,12 +909,14 @@ void IFMapStressTest::VirtualMachineSubscribe() {
 
 void IFMapStressTest::VirtualMachineUnsubscribe() {
     if (vr_subscribed_.empty()) {
+        incr_events_ignored();
         return;
     }
-    int client_id = PickRandomId(vr_subscribed_);
+    int client_id = PickRandomElement(vr_subscribed_);
     assert(client_id < config_options_.num_xmpp_clients());
     // If all the VMs are already unsubscribed, we are done.
     if (vm_unsub_pending_ids_.at(client_id).empty()) {
+        client_counters_.at(client_id).incr_vm_unsubscribes_ignored();
         return;
     }
     TASK_UTIL_EXPECT_TRUE(
@@ -711,7 +937,7 @@ void IFMapStressTest::VirtualMachineUnsubscribe() {
 
 int IFMapStressTest::GetXmppDisconnectedClientId() {
     assert(!xmpp_disconnected_.empty());
-    int client_id = PickRandomId(xmpp_disconnected_);
+    int client_id = PickRandomElement(xmpp_disconnected_);
     xmpp_disconnected_.erase(client_id);
     xmpp_connected_.insert(client_id);
     assert((int)(xmpp_connected_.size() + xmpp_disconnected_.size()) ==
@@ -721,7 +947,7 @@ int IFMapStressTest::GetXmppDisconnectedClientId() {
 
 int IFMapStressTest::GetXmppConnectedClientId() {
     assert(!xmpp_connected_.empty());
-    int client_id = PickRandomId(xmpp_connected_);
+    int client_id = PickRandomElement(xmpp_connected_);
     xmpp_connected_.erase(client_id);
     xmpp_disconnected_.insert(client_id);
     assert((int)(xmpp_connected_.size() + xmpp_disconnected_.size()) ==
@@ -732,6 +958,7 @@ int IFMapStressTest::GetXmppConnectedClientId() {
 void IFMapStressTest::XmppConnect() {
     // If all the clients are already connected, we are done.
     if (xmpp_disconnected_.empty()) {
+        incr_events_ignored();
         return;
     }
     int client_id = GetXmppDisconnectedClientId();
@@ -747,6 +974,7 @@ void IFMapStressTest::XmppConnect() {
 void IFMapStressTest::XmppDisconnect() {
     // If all the clients are already disconnected, we are done.
     if (xmpp_connected_.empty()) {
+        incr_events_ignored();
         return;
     }
     int client_id = GetXmppConnectedClientId();
