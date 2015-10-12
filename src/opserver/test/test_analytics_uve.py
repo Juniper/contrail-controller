@@ -33,6 +33,7 @@ from opserver.sandesh.viz.constants import *
 from opserver.sandesh.viz.constants import _OBJECT_TABLES
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
+import platform
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -43,8 +44,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     @classmethod
     def setUpClass(cls):
-        if AnalyticsUveTest._check_skip_test() is True:
-            return
 
         if (os.getenv('LD_LIBRARY_PATH', '').find('build/lib') < 0):
             if (os.getenv('DYLD_LIBRARY_PATH', '').find('build/lib') < 0):
@@ -52,13 +51,14 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.redis_port = AnalyticsUveTest.get_free_port()
         mockredis.start_redis(cls.redis_port)
+        cls.zk_port = AnalyticsUveTest.get_free_port()
+        mockzoo.start_zoo(cls.zk_port)
 
     @classmethod
     def tearDownClass(cls):
-        if AnalyticsUveTest._check_skip_test() is True:
-            return
 
         mockredis.stop_redis(cls.redis_port)
+        mockzoo.stop_zoo(cls.zk_port)
 
     #@unittest.skip('Skipping non-cassandra test with vizd')
     def test_00_nocassandra(self):
@@ -68,8 +68,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         can be accessed from opserver.
         '''
         logging.info("*** test_00_nocassandra ***")
-        if AnalyticsUveTest._check_skip_test() is True:
-            return True
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0)) 
@@ -87,8 +85,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         opserver.
         '''
         logging.info("*** test_01_vm_uve ***")
-        if AnalyticsUveTest._check_skip_test() is True:
-            return True
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0))
@@ -133,8 +129,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         opserver.
         '''
         logging.info("*** test_02_vm_uve_with_password ***")
-        if AnalyticsUveTest._check_skip_test() is True:
-            return True
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
@@ -207,8 +201,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
     #@unittest.skip('Skipping contrail-collector HA test')
     def test_05_collector_ha(self):
         logging.info('*** test_05_collector_ha ***')
-        if AnalyticsUveTest._check_skip_test() is True:
-            return True
         
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
@@ -332,12 +324,13 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         that it got enabled
         '''
         logging.info("*** test_06_alarmgen_basic ***")
-        if AnalyticsUveTest._check_skip_test() is True:
+
+        if AnalyticsUveTest._check_skip_kafka() is True:
             return True
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0,
-                             kafka_zk = True))
+            kafka_zk = self.__class__.zk_port))
         assert vizd_obj.verify_on_setup()
 
         assert(vizd_obj.verify_uvetable_alarm("ObjectCollectorInfo",
@@ -415,11 +408,16 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         retrieval of alarms from analytics-api.
         '''
         logging.info('*** test_07_alarm ***')
+
+        if AnalyticsUveTest._check_skip_kafka() is True:
+            return True
+
         # collector_ha_test flag is set to True, because we wanna test
         # retrieval of alarms across multiple redis servers.
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
-                             collector_ha_test=True, kafka_zk = True))
+                             collector_ha_test=True,
+                             kafka_zk = self.__class__.zk_port))
         assert vizd_obj.verify_on_setup()
 
         # create alarm-generator and attach it to the first collector.
@@ -527,9 +525,13 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         in the UVE/Alarm GET and POST methods.
         '''
         logging.info('*** test_08_uve_alarm_filter ***')
+
+        if AnalyticsUveTest._check_skip_kafka() is True:
+            return True
+
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
-                collector_ha_test=True, kafka_zk = True))
+                collector_ha_test=True, kafka_zk = self.__class__.zk_port))
         assert vizd_obj.verify_on_setup()
 
         collectors = [vizd_obj.collectors[0].get_addr(),
@@ -1720,10 +1722,15 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return cport
 
     @staticmethod
-    def _check_skip_test():
-        if (socket.gethostname() == 'build01'):
-            logging.info("Skipping test")
-            return True
+    def _check_skip_kafka():
+      
+        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+        if PLATFORM.lower() == 'ubuntu':
+            if VERSION.find('12.') == 0:
+                return True
+        if PLATFORM.lower() == 'centos':
+            if VERSION.find('6.') == 0:
+                return True
         return False
 
 def _term_handler(*_):

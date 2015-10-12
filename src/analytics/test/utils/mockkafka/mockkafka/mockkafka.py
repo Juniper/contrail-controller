@@ -19,35 +19,54 @@ import socket
 import platform
 import time
 from kafka import KafkaClient
+from kazoo.client import KazooClient
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
-kafka_version = '2.9.2-0.8.2.0'
+kafka_version = 'kafka_2.10-0.9.0.0-SNAPSHOT'
+kafka_dl = '/kafka_2.10-0.9.0.0-SNAPSHOT.tgz'
 kafka_bdir  = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
-kafka_src = ''
 
 def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     if not os.path.exists(kafka_bdir):
         output,_ = call_command_("mkdir " + kafka_bdir)
-    kafka_download = 'wget -P ' + kafka_bdir + ' https://launchpad.net/~opencontrail/+archive/ubuntu/ppa/+files/kafka_2.9.2-0.8.2.0.orig.tar.gz'
-    if not os.path.exists(kafka_bdir+'/kafka_2.9.2-0.8.2.0.orig.tar.gz'):
+    kafka_download = 'wget -O ' + kafka_bdir + kafka_dl + \
+        ' https://github.com/Juniper/contrail-third-party-cache/blob/master/kafka' + \
+        kafka_dl + '?raw=true'
+    if not os.path.exists(kafka_bdir + kafka_dl):
         process = subprocess.Popen(kafka_download.split(' '))
         process.wait()
         if process.returncode is not 0:
             return False
 
-    basefile = 'kafka_2.9.2-0.8.2.0'
+    basefile = kafka_version
     kafkabase = "/tmp/kafka.%s.%d/" % (os.getenv('USER', 'None'), broker_listen_port)
     confdir = kafkabase + basefile + "/config/"
     output,_ = call_command_("rm -rf " + kafkabase)
     output,_ = call_command_("mkdir " + kafkabase)
 
+    logging.info('Check zookeeper in %d' % zk_client_port)
+    zk = KazooClient(hosts='127.0.0.1:'+str(zk_client_port))
+    try:
+        zk.start()
+        zk.delete("/brokers", recursive=True) 
+        zk.delete("/consumers", recursive=True) 
+        zk.delete("/controller", recursive=True) 
+    except:
+        logging.info("Zookeeper client cannot connect")
+        zk.stop()
+        return False
+    zk.stop()
     logging.info('Installing kafka in ' + kafkabase)
-    os.system("cat " + kafka_bdir+'/kafka_2.9.2-0.8.2.0.orig.tar.gz' + " | tar -xpzf - -C " + kafkabase)
+    os.system("cat " + kafka_bdir + kafka_dl + " | tar -xpzf - -C " + kafkabase)
 
     logging.info('kafka Port %d' % broker_listen_port)
  
+    replace_string_(confdir+"server.properties",
+        [("#port=9092","port=9092"),
+         ("listeners=PLAINTEXT://:9092","#listeners=PLAINTEXT://:9092")])
+
     #Replace the brokerid and port # in the config file
     replace_string_(confdir+"server.properties",
         [("broker.id=0","broker.id="+str(broker_id)),
@@ -91,9 +110,21 @@ def stop_kafka(broker_listen_port):
         cport : The Kafka Port for the instance of cassandra to be stopped
     '''
     kafkabase = "/tmp/kafka.%s.%d/" % (os.getenv('USER', 'None'), broker_listen_port)
-    basefile = 'kafka_2.9.2-0.8.2.0'
+    basefile = kafka_version
     logging.info('Killing kafka in %s' % (kafkabase + basefile))
     output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-stop.sh")
+
+    count = 0
+    start_wait = os.getenv('CONTRIAL_ANALYTICS_TEST_MAX_START_WAIT_TIME', 15)
+    while count < start_wait:
+        try:
+            logging.info('Trying to connect...')
+            kk = KafkaClient("localhost:%d" % broker_listen_port)
+        except:
+            break
+        else:
+            count += 1
+            time.sleep(1)
 
     logging.info('Killed kafka for %d : server.log' % broker_listen_port)
     with open(kafkabase + basefile + "/logs/server.log", 'r') as fin:
