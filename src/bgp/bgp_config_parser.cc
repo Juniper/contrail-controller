@@ -282,7 +282,7 @@ static bool ParseSession(const string &identifier, const xml_node &node,
 }
 
 static bool ParseServiceChain(const string &instance, const xml_node &node,
-                              bool add_change,
+                              bool add_change, Address::Family family,
                               BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
@@ -290,10 +290,14 @@ static bool ParseServiceChain(const string &instance, const xml_node &node,
 
     if (add_change) {
         MapObjectSetProperty("routing-instance", instance,
-            "service-chain-information", property.release(), requests);
+            family == Address::INET ? "service-chain-information" :
+                                      "ipv6-service-chain-information",
+            property.release(), requests);
     } else {
         MapObjectClearProperty("routing-instance", instance,
-            "service-chain-information", requests);
+            family == Address::INET ? "service-chain-information" :
+                                      "ipv6-service-chain-information",
+            requests);
     }
 
     return true;
@@ -463,7 +467,11 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
         } else if (strcmp(node.name(), "virtual-network") == 0) {
             ParseInstanceVirtualNetwork(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "service-chain-info") == 0) {
-            ParseServiceChain(instance, node, add_change, requests);
+            ParseServiceChain(instance, node, add_change, Address::INET,
+                              requests);
+        } else if (strcmp(node.name(), "ipv6-service-chain-info") == 0) {
+            ParseServiceChain(instance, node, add_change, Address::INET6,
+                              requests);
         } else if (strcmp(node.name(), "static-route-entries") == 0) {
             ParseStaticRoute(instance, node, add_change, requests);
         }

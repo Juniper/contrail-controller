@@ -136,7 +136,7 @@ protected:
     StaticRouteTest()
         : bgp_server_(new BgpServer(&evm_)),
         family_(GetFamily()),
-        ipv6_prefix_("cafe::"),
+        ipv6_prefix_("::ffff:"),
         ri_mgr_(NULL) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);

@@ -2328,7 +2328,7 @@ TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister1) {
     uint32_t old_flap_count = agent_a_->flap_count();
 
     // Add a route without registering.
-    agent_a_->AddInet6Route("blue", "cafe::1/128");
+    agent_a_->AddInet6Route("blue", "::ffff:1/128");
 
     // Make sure session on agent flapped.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
@@ -2338,7 +2338,7 @@ TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister1) {
     old_flap_count = agent_a_->flap_count();
 
     // Delete a route without registering.
-    agent_a_->DeleteInet6Route("blue", "cafe::1/128");
+    agent_a_->DeleteInet6Route("blue", "::ffff:1/128");
 
     // Make sure session on agent flapped again.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
@@ -2357,7 +2357,7 @@ TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister2) {
     uint32_t old_flap_count = agent_a_->flap_count();
 
     // Add a route without registering.
-    agent_a_->AddInet6Route("blue", "cafe::1/128");
+    agent_a_->AddInet6Route("blue", "::ffff:1/128");
 
     // Make sure session on agent flapped.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
@@ -2367,7 +2367,7 @@ TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister2) {
     old_flap_count = agent_a_->flap_count();
 
     // Delete a route without registering.
-    agent_a_->DeleteInet6Route("blue", "cafe::1/128");
+    agent_a_->DeleteInet6Route("blue", "::ffff:1/128");
 
     // Make sure session on agent flapped again.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
@@ -2398,7 +2398,7 @@ TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister3) {
         PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
 
     // Add a route with pending unsubscribe.
-    agent_a_->AddInet6Route("blue", "cafe::1/128");
+    agent_a_->AddInet6Route("blue", "::ffff:1/128");
 
     // Make sure session on agent flapped.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
@@ -2408,7 +2408,7 @@ TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister3) {
     old_flap_count = agent_a_->flap_count();
 
     // Delete a route without registering.
-    agent_a_->DeleteInet6Route("blue", "cafe::1/128");
+    agent_a_->DeleteInet6Route("blue", "::ffff:1/128");
 
     // Make sure session on agent flapped again.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);

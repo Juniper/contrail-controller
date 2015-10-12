@@ -50,3 +50,19 @@ response sandesh ShowPendingServiceChainResp {
 request sandesh ShowPendingServiceChainReq {
     1: string search_string;
 }
+
+response sandesh ShowIpv6ServiceChainResp {
+    1: list<ShowServicechainInfo> service_chain_list;
+}
+
+request sandesh ShowIpv6ServiceChainReq {
+    1: string search_string;
+}
+
+response sandesh ShowPendingIpv6ServiceChainResp {
+    1: list<string> pending_chains;
+}
+
+request sandesh ShowPendingIpv6ServiceChainReq {
+    1: string search_string;
+}

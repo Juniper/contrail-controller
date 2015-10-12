@@ -169,7 +169,7 @@ protected:
         : evm_(new EventManager()),
           bgp_server_(new BgpServer(evm_.get())),
           family_(GetFamily()),
-          ipv6_prefix_("cafe::"),
+          ipv6_prefix_("::ffff:"),
           listener_(bgp_server_->condition_listener(GetFamily())) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
