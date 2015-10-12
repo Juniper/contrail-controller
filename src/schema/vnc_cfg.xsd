@@ -1024,6 +1024,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="dst-mac" type="xsd:string"/>
         <xsd:element name="mpls-label" type="xsd:integer"/>
         <xsd:element name="service-chain-address" type="smi:IpAddress"/>
+        <xsd:element name="ipv6-service-chain-address" type="IpAddressType"/>
         <xsd:element name="protocol" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
