@@ -14,7 +14,7 @@
 #include <vrouter/ksync/test/ksync_test.h>
 #include <uve/agent_uve.h>
 #include <uve/test/agent_uve_test.h>
-#include <pkt/test/flow_table_test.h>
+#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
 
 #include "test_agent_init.h"
 TestAgentInit::TestAgentInit() : ContrailInitCommon() {
@@ -60,7 +60,7 @@ void TestAgentInit::ProcessComputeAddress(AgentParam *param) {
 void TestAgentInit::FactoryInit() {
     AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUveBaseTest *>());
     AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
-    AgentObjectFactory::Register<FlowTable>(boost::factory<FlowTableUnitTest *>());
+    AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollectorTest *>());
 }
 
 // Create the basic modules for agent operation.
@@ -83,7 +83,8 @@ void TestAgentInit::CreateModules() {
                                 agent()));
     agent()->set_stats_collector(stats_collector_.get());
 
-    flow_stats_collector_.reset(new FlowStatsCollector(
+    flow_stats_collector_.reset
+        (AgentObjectFactory::Create<FlowStatsCollector>(
                                     *(agent()->event_manager()->io_service()),
                                     agent()->params()->flow_stats_interval(),
                                     agent()->params()->flow_cache_timeout(),

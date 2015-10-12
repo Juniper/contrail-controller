@@ -19,7 +19,7 @@
 #include <oper/vm.h>
 #include <oper/peer.h>
 #include <cmn/index_vector.h>
-//#include "base/queue_task.h"
+#include <oper/interface_common.h>
 
 //The container class for objects representing VMInterface UVEs
 //Defines routines for storing and managing (add, delete, change and send)

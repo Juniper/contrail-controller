@@ -151,6 +151,7 @@ struct FlowStats {
     uint64_t bytes;
     uint64_t packets;
     uint32_t intf_in;
+    uint16_t tcp_flags;
     bool exported;
     // Following fields are required for FIP stats accounting
     uint32_t fip;
@@ -424,12 +425,17 @@ class FlowEntry {
     void set_underlay_sport_exported(bool value) {
         underlay_sport_exported_ = value;
     }
+    uint16_t tcp_flags() const { return stats_.tcp_flags; }
+    void set_tcp_flags(uint16_t tflags) {
+        stats_.tcp_flags = tflags;
+    }
 
     uint16_t short_flow_reason() const { return short_flow_reason_; }
     bool set_pending_recompute(bool value);
     const MacAddress &smac() const { return data_.smac; }
     const MacAddress &dmac() const { return data_.dmac; }
     bool IsActionLog() const;
+    void SetActionLog();
 
 private:
     friend class FlowTable;

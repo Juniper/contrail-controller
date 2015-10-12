@@ -51,7 +51,7 @@ void ContrailAgentInit::FactoryInit() {
     } else {
         AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
     }
-    AgentObjectFactory::Register<FlowTable>(boost::factory<FlowTable *>());
+    AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollector *>());
 }
 
 void ContrailAgentInit::CreateModules() {
@@ -81,7 +81,8 @@ void ContrailAgentInit::CreateModules() {
                                      agent()));
         agent()->set_stats_collector(stats_collector_.get());
 
-        flow_stats_collector_.reset(new FlowStatsCollector(
+        flow_stats_collector_.reset
+            (AgentObjectFactory::Create<FlowStatsCollector>(
                                     *(agent()->event_manager()->io_service()),
                                     agent()->params()->flow_stats_interval(),
                                     agent()->params()->flow_cache_timeout(),

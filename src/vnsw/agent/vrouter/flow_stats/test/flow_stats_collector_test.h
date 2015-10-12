@@ -2,17 +2,19 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_flow_table_test_h
-#define vnsw_agent_flow_table_test_h
+#ifndef vnsw_agent_flow_stats_collector_test_h
+#define vnsw_agent_flow_stats_collector_test_h
 
 #include <vector>
-#include <pkt/flow_table.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 #include <sandesh/common/flow_types.h>
 
-class FlowTableUnitTest : public FlowTable {
+class FlowStatsCollectorTest : public FlowStatsCollector {
 public:
-    explicit FlowTableUnitTest(Agent *agent);
-    virtual ~FlowTableUnitTest();
+    FlowStatsCollectorTest(boost::asio::io_service &io, int intvl,
+                           uint32_t flow_cache_timeout,
+                           AgentUveBase *uve);
+    virtual ~FlowStatsCollectorTest();
     void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
     FlowDataIpv4 last_sent_flow_log() const;
     std::vector<FlowDataIpv4> ingress_flow_log_list() const {
@@ -25,4 +27,4 @@ private:
     std::vector<FlowDataIpv4> ingress_flow_log_list_;
 };
 
-#endif  //  vnsw_agent_flow_table_test_h
+#endif  //  vnsw_agent_flow_stats_collector_test_h
