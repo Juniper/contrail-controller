@@ -14,11 +14,8 @@
 
 class Inet6VpnRouteTest : public ::testing::Test {
     virtual void SetUp() {
-        // Needed primarily for IsMoreSpecific
-        Inet6Masks::Init();
     }
     virtual void TearDown() {
-        Inet6Masks::Clear();
     }
 };
 

@@ -13,10 +13,8 @@
 
 class Inet6VpnPrefixTest : public ::testing::Test {
     virtual void SetUp() {
-        Inet6Masks::Init();
     }
     virtual void TearDown() {
-        Inet6Masks::Clear();
     }
 };
 
