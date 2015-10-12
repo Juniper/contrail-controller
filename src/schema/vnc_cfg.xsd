@@ -837,6 +837,27 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('flood-unknown-unicast', 'virtual-network') -->
 
+<xsd:element name="multi-policy-service-chains-enabled" type="xsd:Boolean"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            Enable this flag for the ability to create multiple service chains
+            to the same remote network based on traffic. E.g. http traffic
+            takes one service chain, https traffic takes a different chain.
+
+            The limitation is with such networks is that for all service chains
+            that this network participates in,
+            1. If it is the left network, it cannot be extended to the SDN
+               gateway or beyond i.e. all source in lie within the DC.
+
+            2. If it is the right network, it cannot be extended to the SDN
+               gateway or beyond unless the last service in the chain is a NAT
+               service. This ensures that return traffic from outside the DC
+               will always go back to the correct service chain.
+        </xsd:documentation>
+    </xsd:annotation>
+<!-- #IFMAP-SEMANTICS-IDL
+    Property('multi-policy-service-chains-enabled', 'virtual-network') -->
+
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
