@@ -12,10 +12,8 @@
 
 class Inet6PrefixTest : public ::testing::Test {
     virtual void SetUp() {
-        Inet6Masks::Init();
     }
     virtual void TearDown() {
-        Inet6Masks::Clear();
     }
 };
 

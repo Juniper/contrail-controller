@@ -149,3 +149,7 @@ Inet6Prefix Inet6Masks::CalculateMaskFromPrefixlen(int prefixlen) {
     return Inet6Prefix(Ip6Address(addr_bytes), prefixlen);
 }
 
+static void Inet6InitRoutines() {
+    Inet6Masks::Init();
+}
+MODULE_INITIALIZER(Inet6InitRoutines);
