@@ -91,15 +91,20 @@ class TestPolicy(test_case.STTestCase):
         self.assertEqual(sci.prefix[0], prefix)
 
     @retries(5, hook=retry_exc_handler)
-    def check_service_chain_info(self, fq_name, ri_fq, si, src_ri):
+    def check_service_chain_info(self, fq_name, expected):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         sci = ri.get_service_chain_information()
         if sci is None:
-            print "retrying ... ", test_common.lineno()
             raise Exception('Service chain info not found for %s' % fq_name)
-        self.assertEqual(sci.routing_instance, ri_fq)
-        self.assertEqual(sci.source_routing_instance, src_ri)
-        self.assertEqual(sci.service_instance, si)
+        self.assertEqual(sci, expected)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_v6_service_chain_info(self, fq_name, expected):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        sci = ri.get_ipv6_service_chain_information()
+        if sci is None:
+            raise Exception('Ipv6 service chain info not found for %s' % fq_name)
+        self.assertEqual(sci, expected)
 
     @retries(5, hook=retry_exc_handler)
     def check_analyzer_ip(self, vmi_fq_name):
@@ -565,11 +570,11 @@ class TestPolicy(test_case.STTestCase):
     def test_service_policy(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
-        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24', '1000::/16'])
 
         # create vn2
         vn2_name = self.id() + 'vn2'
-        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+        vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.0/24', '2000::/16'])
 
         service_name = self.id() + 's1'
         np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
@@ -588,9 +593,25 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
                                       self.get_ri_name(vn2_obj))
 
-        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
-                                       prefix='10.0.0.0/24')
-
+        si_name = 'default-domain:default-project:' + service_name
+        sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
+                               service_chain_address = '10.0.0.252',
+                               service_instance = si_name,
+                              )
+        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+        sci.prefix = ['1000::/16']
+        sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+        sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
+                               service_chain_address = '10.0.0.252',
+                               service_instance = si_name,
+                              )
+        self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
+        sci.prefix = ['2000::/16']
+        sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
@@ -676,14 +697,21 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_names[2]),
                                       self.get_ri_name(vn2_obj))
 
-        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[2]),
-                                       prefix='20.0.0.0/24')
-
         si_name = 'default-domain:default-project:test.test_service.TestPolicy.test_multi_service_in_policys3'
-        self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_names[2]), 
-                       ':'.join(self.get_ri_name(vn2_obj)), si_name, ':'.join(self.get_ri_name(vn1_obj)))
-        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_names[2]), 
-                       ':'.join(self.get_ri_name(vn1_obj)), si_name, ':'.join(self.get_ri_name(vn2_obj)))
+        sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
+                               service_chain_address = '20.0.0.250',
+                               service_instance = si_name,
+                               source_routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
+                              )
+        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_names[2]), sci)
+        sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
+                               service_chain_address = '10.0.0.250',
+                               service_instance = si_name,
+                               source_routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
+                              )
+        self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_names[2]), sci)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
@@ -783,7 +811,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
-    # end test_service_policy
+    # end test_muliti_service_policy
 
 # end class TestPolicy
 

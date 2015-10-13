@@ -445,11 +445,14 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         ipam_fq_name = [
             'default-domain', 'default-project', 'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        cidr = vn_subnet.split('/')
-        pfx = cidr[0]
-        pfx_len = int(cidr[1])
-        subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
-        subnet_data = VnSubnetsType([subnet_info])
+        subnets = [vn_subnet] if isinstance(vn_subnet, basestring) else vn_subnet
+        subnet_infos = []
+        for subnet in subnets:
+            cidr = subnet.split('/')
+            pfx = cidr[0]
+            pfx_len = int(cidr[1])
+            subnet_infos.append(IpamSubnetType(subnet=SubnetType(pfx, pfx_len)))
+        subnet_data = VnSubnetsType(subnet_infos)
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
         self._vnc_lib.virtual_network_create(vn_obj)
         vn_obj.clear_pending_updates()

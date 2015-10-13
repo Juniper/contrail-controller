@@ -2575,11 +2575,12 @@ class VncApiServer(object):
 
         # expected format {"subnet_list" : "2.1.1.0/24", "count" : 4}
         req_dict = get_request().json
-        count = req_dict['count'] if 'count' in req_dict else 1
-        subnet = req_dict['subnet'] if 'subnet' in req_dict else None
+        count = req_dict.get('count', 1)
+        subnet = req_dict.get('subnet')
+        family = req_dict.get('family')
         try:
             result = vnc_cfg_types.VirtualNetworkServer.ip_alloc(
-                vn_fq_name, subnet, count)
+                vn_fq_name, subnet, count, family)
         except vnc_addr_mgmt.AddrMgmtSubnetUndefined as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
         except vnc_addr_mgmt.AddrMgmtSubnetExhausted as e:
