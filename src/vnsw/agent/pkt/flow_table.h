@@ -92,6 +92,17 @@ struct RouteFlowKey {
         }
     }
 
+    bool Match(const IpAddress &match_ip) const {
+        if (ip.is_v4()) {
+            return (Address::GetIp4SubnetAddress(ip.to_v4(), plen) ==
+                    Address::GetIp4SubnetAddress(match_ip.to_v4(), plen));
+        } else if (ip.is_v6()) {
+            return (Address::GetIp6SubnetAddress(ip.to_v6(), plen) ==
+                    Address::GetIp6SubnetAddress(match_ip.to_v6(), plen));
+        }
+        assert(0);
+        return false;
+    }
     virtual ~RouteFlowKey() {}
 
     uint32_t vrf;
@@ -698,7 +709,9 @@ private:
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
     void FlowReCompute(const RouteFlowInfo &rt_key);
-    void FlowReComputeInternal(RouteFlowInfo *rt_info);
+    bool NeedsReCompute(const FlowEntry *flow, const RouteFlowKey *key);
+    void FlowReComputeInternal(RouteFlowInfo *rt_info,
+                               const RouteFlowKey *rt_key);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe);
     void ResyncVmPortFlows(const VmInterface *intf);

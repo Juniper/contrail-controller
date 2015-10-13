@@ -2119,7 +2119,39 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     }
 }
 
-void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
+bool FlowTable::NeedsReCompute(const FlowEntry *flow,
+                               const RouteFlowKey *key) {
+    if (key == NULL)
+        return true;
+
+    if (key->Match(flow->key().src_addr)) {
+        return true;
+    }
+
+    if (key->Match(flow->key().dst_addr)) {
+        return true;
+    }
+
+    const FlowEntry *rflow = flow->reverse_flow_entry();
+    if (rflow == NULL)
+        return true;
+
+    if (key->Match(rflow->key().src_addr)) {
+        return true;
+    }
+
+    if (key->Match(rflow->key().dst_addr)) {
+        return true;
+    }
+
+    return false;
+}
+
+
+void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info,
+                                      const RouteFlowKey *rt_key)
+
+{
     if (rt_info == NULL) {
         return;
     }
@@ -2129,6 +2161,10 @@ void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
     for (;it != fet.end(); ++it) {
         FlowEntry *fe = (*it).get();
         if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+            continue;
+        }
+
+        if (NeedsReCompute(fe, rt_key) == false) {
             continue;
         }
         if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
@@ -2144,7 +2180,7 @@ void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
 
 void FlowTable::FlowReCompute(const RouteFlowInfo &rt_key) {
     RouteFlowInfo *rt_info = route_flow_tree_.LPMFind(&rt_key);
-    FlowReComputeInternal(rt_info);
+    FlowReComputeInternal(rt_info, &rt_key.key);
 }
 
 void FlowTable::ResyncRouteFlows(RouteFlowKey &key,
@@ -2246,7 +2282,7 @@ void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
     RouteFlowInfo *rt_info = route_flow_tree_.Find(&rt_key);
     FLOW_TRACE(ModuleInfo, "Delete Route flows");
     // On Route Delete trigger flow re-compute to use less specific route.
-    FlowReComputeInternal(rt_info);
+    FlowReComputeInternal(rt_info, NULL);
 }
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 

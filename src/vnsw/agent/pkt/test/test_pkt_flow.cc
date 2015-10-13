@@ -41,6 +41,9 @@ struct TestFlowKey {
 #define vm2_fip "14.1.1.100"
 #define ip6_vm2_fip "::14.1.1.100"
 #define remote_vm1_ip "11.1.1.3"
+#define remote_vm1_ip_5 "11.1.1.5"
+#define remote_vm1_ip_subnet "11.1.1.0"
+#define remote_vm1_ip_plen 24
 #define ip6_remote_vm1_ip "::11.1.1.3"
 #define remote_vm3_ip "12.1.1.3"
 #define ip6_remote_vm3_ip "::12.1.1.3"
@@ -137,30 +140,39 @@ public:
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
 
-    void CreateRemoteRoute(const char *vrf, const char *remote_vm, 
+    void CreateRemoteRoute(const char *vrf, const char *remote_vm, uint8_t plen,
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn,
+        Inet4TunnelRouteAdd(peer_, vrf, addr, plen, gw, TunnelType::MplsType(), label, vn,
                             SecurityGroupList(), PathPreference());
         client->WaitForIdle(2);
-        WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
+        WAIT_FOR(1000, 500, (RouteFind(vrf, addr, plen) == true));
+    }
+
+    void CreateRemoteRoute(const char *vrf, const char *remote_vm,
+                           const char *serv, int label, const char *vn) {
+        CreateRemoteRoute(vrf, remote_vm, 32, serv, label, vn);
+    }
+
+    void DeleteRoute(const char *vrf, const char *ip, uint8_t plen) {
+        Ip4Address addr = Ip4Address::from_string(ip);
+        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
+                                                vrf, addr, plen, NULL);
+        client->WaitForIdle();
+        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, plen) == false));
     }
 
     void DeleteRoute(const char *vrf, const char *ip) {
-        Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
-                                                vrf, addr, 32, NULL);
-        client->WaitForIdle();
-        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+        DeleteRoute(vrf, ip, 32);
     }
 
     void DeleteRemoteRoute(const char *vrf, const char *ip) {
-        Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
-                vrf, addr, 32, NULL);
-        client->WaitForIdle();
-        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+        DeleteRoute(vrf, ip, 32);
+    }
+
+    void DeleteRemoteRoute(const char *vrf, const char *ip, uint8_t plen) {
+        DeleteRoute(vrf, ip, plen);
     }
 
     static void RunFlowAudit() {
@@ -301,7 +313,7 @@ public:
         }
     }
 
-    void CheckSandeshResponse(Sandesh *sandesh, int flows) {
+    void CheckSandeshResponse(Sandesh *sandesh, uint32_t flows) {
         if (memcmp(sandesh->Name(), "FlowRecordsResp",
                    strlen("FlowRecordsResp")) == 0) {
             FlowRecordsResp *resp = static_cast<FlowRecordsResp *>(sandesh);
@@ -537,7 +549,6 @@ protected:
     virtual void TearDown() {
         FlushFlowTable();
         client->Reset();
-        VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
             Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);
@@ -1965,7 +1976,6 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     };
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
-    int nh_id = GetFlowKeyNH(input[0].intf_id);
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
     InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
@@ -2217,11 +2227,6 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
     nh_object->set_test_id(nh_listener);
     CreateFlow(flow, 1);
 
-    FlowEntry *fe = 
-        FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
-                GetFlowKeyNH(input[0].intf_id));
-
-
     EXPECT_TRUE((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != 0);
     DeleteFlow(flow, 1);
     EXPECT_TRUE(FlowTableWait(0));
@@ -2321,16 +2326,6 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
                         IPPROTO_TCP, 3000, linklocal_port,
                         GetFlowKeyNH(input[0].intf_id)));
     
-    // Check that a reverse pkt will not create a new flow
-    TestFlow reverse_flow[] = {
-        {
-            TestFlowPkt(Address::INET, fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port, "vrf5",
-                        flow0->id(), 1),
-            {
-                new VerifyNat(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port) 
-            }
-        }
-    };
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
                         fabric_port, linklocal_src_port,
@@ -3659,6 +3654,57 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
     DelIPAM("vn5");
+    client->WaitForIdle();
+}
+
+// If route changes, flows referring it must be revaluated
+TEST_F(FlowTest, FlowReval_1) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+
+    //Create PHYSICAL interface to receive GRE packets on it.
+    PhysicalInterfaceKey key(eth_itf);
+    Interface *intf = static_cast<Interface *>
+        (agent()->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    CreateRemoteRoute("vrf5", remote_vm1_ip_subnet, remote_vm1_ip_plen,
+                      remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {}
+        },
+        {
+            TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
+                    remote_router_ip, 16),
+            {}
+        }
+    };
+
+    CreateFlow(flow, 1);
+    // Add reverse flow
+    CreateFlow(flow + 1, 1);
+
+    FlowEntry *fe =
+        FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, remote_vm1_ip, 1, 0, 0,
+                GetFlowKeyNH(input[0].intf_id));
+    EXPECT_EQ(fe->data().dest_vn, "vn5");
+
+    // Add a non-matching /32 route and verify that flow is not modified
+    CreateRemoteRoute("vrf5", remote_vm1_ip_5, remote_router_ip, 30, "vn5_1");
+    EXPECT_EQ(fe->data().dest_vn, "vn5");
+
+    // Add more specific route and verify that flow is updated
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5_3");
+    EXPECT_EQ(fe->data().dest_vn, "vn5_3");
+
+    DeleteFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(0));
+
+    DeleteRemoteRoute("vrf5", remote_vm1_ip_subnet, remote_vm1_ip_plen);
+    DeleteRemoteRoute("vrf5", remote_vm1_ip_5);
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
     client->WaitForIdle();
 }
 
