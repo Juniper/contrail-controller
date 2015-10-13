@@ -298,10 +298,8 @@ void AgentParam::ParseVirtualHost() {
 void AgentParam::ParseDiscovery() {
     GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
     GetValueFromTree<uint16_t>(dss_port_, "DISCOVERY.port");
-    if (!GetValueFromTree<uint16_t>(xmpp_instance_count_,
-                                    "DISCOVERY.max_control_nodes")) {
-        xmpp_instance_count_ = 2;
-    }
+    GetValueFromTree<uint16_t>(xmpp_instance_count_,
+                               "DISCOVERY.max_control_nodes");
 }
 
 void AgentParam::ParseNetworks() {
@@ -1199,7 +1197,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Listen port of discovery server")
         ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
          "IP address of discovery server")
-        ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(),
+        ("DISCOVERY.max_control_nodes", opt::value<uint16_t>()->default_value(2),
          "Maximum number of control node info to be provided by discovery "
          "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
