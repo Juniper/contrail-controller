@@ -135,13 +135,15 @@ class SchemaTransformer(object):
         self._sandesh = Sandesh()
         # Reset the sandesh send rate limit value
         if args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit( \
+            SandeshSystem.set_sandesh_send_rate_limit(
                 args.sandesh_send_rate_limit)
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request = \
             self.sandesh_ri_handle_request
         sandesh.ServiceChainList.handle_request = \
             self.sandesh_sc_handle_request
+        sandesh.StObjectReq.handle_request = \
+            self.sandesh_st_object_handle_request
         module = Module.SCHEMA_TRANSFORMER
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -508,6 +510,28 @@ class SchemaTransformer(object):
             sc_resp.service_chains.append(sandesh_sc)
         sc_resp.response(req.context())
     # end sandesh_sc_handle_request
+
+    def sandesh_st_object_handle_request(self, req):
+        st_resp = sandesh.StObjectListResp()
+        obj_type_map = DBBaseST.get_obj_type_map()
+        if req.object_type is not None:
+            if req.object_type not in obj_type_map:
+                return st_resp
+            obj_cls_list = [obj_type_map[req.object_type]]
+        else:
+            obj_cls_list = obj_type_map.values()
+        for obj_cls in obj_cls_list:
+            id_or_name = req.object_id_or_fq_name
+            if id_or_name:
+                obj = obj_cls.get(id_or_name) or obj_cls.get_by_uuid(id_or_name)
+                if obj is None:
+                    continue
+                st_resp.objects.append(obj.handle_st_object_req())
+            else:
+                for obj in obj_cls.values():
+                    st_resp.objects.append(obj.handle_st_object_req())
+        return st_resp
+    # end sandesh_st_object_handle_request
 
     def reset(self):
         for cls in DBBaseST.get_obj_type_map().values():
