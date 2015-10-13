@@ -42,10 +42,13 @@ struct AgentXmppDnsData {
 }
 
 struct AgentDiscoveryXmppConnections {
-    1: string agent_controller_ip;
-    2: u32 agent_controller_port;
-    3: string discovery_controller_ip;
-    4: u32 discovery_controller_port;
+    1: string discovery_controller_ip;
+    2: u32 discovery_controller_port;
+}
+
+struct AgentXmppInUseConnections {
+    1: string controller_ip;
+    2: u32 controller_port;
 }
 
 traceobject sandesh AgentXmppTrace {
@@ -137,12 +140,14 @@ request sandesh AgentDiscoveryXmppConnectionsRequest {
 }
 
 response sandesh AgentDiscoveryXmppConnectionsResponse {
-    1: list<AgentDiscoveryXmppConnections>xmppc;
+    1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
+    2: list<AgentXmppInUseConnections>xmpp_inuse_connections;
 }
 
 request sandesh AgentDiscoveryDnsXmppConnectionsRequest {
 }
 
 response sandesh AgentDiscoveryDnsXmppConnectionsResponse {
-    1: list<AgentDiscoveryXmppConnections>xmppc;
+    1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
+    2: list<AgentXmppInUseConnections>xmpp_inuse_connections;
 }
