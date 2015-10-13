@@ -125,29 +125,41 @@ void AgentDnsXmppConnectionStatusReq::HandleRequest() const {
 }
 
 void AgentDiscoveryXmppConnectionsRequest::HandleRequest() const {
-    uint8_t count = 0;
+
     AgentDiscoveryXmppConnectionsResponse *resp =
         new AgentDiscoveryXmppConnectionsResponse();
 
-    while (count < MAX_XMPP_SERVERS) {
+    std::vector<DSResponse> ds_reponse =
+        Agent::GetInstance()->GetDiscoveryServerResponseList();
+
+    std::vector<DSResponse>::iterator iter;
+    for (iter = ds_reponse.begin(); iter != ds_reponse.end(); iter++) {
+        DSResponse dr = *iter;
 
         AgentDiscoveryXmppConnections data;
-        if (!Agent::GetInstance()->controller_ifmap_xmpp_server(count).empty()) {
-            data.set_agent_controller_ip(
-                Agent::GetInstance()->controller_ifmap_xmpp_server(count));
-            data.set_agent_controller_port(
-                Agent::GetInstance()->controller_ifmap_xmpp_port(count));
-        }
-        if (!Agent::GetInstance()->
-            controller_ifmap_discovery_xmpp_server(count).empty()) {
-            data.set_discovery_controller_ip(Agent::GetInstance()->
-                controller_ifmap_discovery_xmpp_server(count));
-            data.set_discovery_controller_port(Agent::GetInstance()->
-                controller_ifmap_discovery_xmpp_port(count));
-        }
+        data.set_discovery_controller_ip(dr.ep.address().to_string());
+        data.set_discovery_controller_port(dr.ep.port());
 
         std::vector<AgentDiscoveryXmppConnections> &list =
-            const_cast<std::vector<AgentDiscoveryXmppConnections>&>(resp->get_xmppc());
+            const_cast<std::vector<AgentDiscoveryXmppConnections>&>
+            (resp->get_xmpp_discovery_list());
+        list.push_back(data);
+    }
+
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+
+        AgentXmppInUseConnections data;
+        if (!Agent::GetInstance()->controller_ifmap_xmpp_server(count).empty()) {
+            data.set_controller_ip(
+                Agent::GetInstance()->controller_ifmap_xmpp_server(count));
+            data.set_controller_port(
+                Agent::GetInstance()->controller_ifmap_xmpp_port(count));
+        }
+
+        std::vector<AgentXmppInUseConnections> &list =
+            const_cast<std::vector<AgentXmppInUseConnections>&>
+            (resp->get_xmpp_inuse_connections());
         list.push_back(data);
 
         count++;
@@ -159,28 +171,41 @@ void AgentDiscoveryXmppConnectionsRequest::HandleRequest() const {
 }
 
 void AgentDiscoveryDnsXmppConnectionsRequest::HandleRequest() const {
-    uint8_t dns_count = 0;
+
     AgentDiscoveryDnsXmppConnectionsResponse *resp =
         new AgentDiscoveryDnsXmppConnectionsResponse();
 
-    while (dns_count < MAX_XMPP_SERVERS) {
+    std::vector<DSResponse> ds_reponse =
+        Agent::GetInstance()->GetDiscoveryDnsServerResponseList();
+
+    std::vector<DSResponse>::iterator iter;
+    for (iter = ds_reponse.begin(); iter != ds_reponse.end(); iter++) {
+        DSResponse dr = *iter;
 
         AgentDiscoveryXmppConnections data;
-        if (!Agent::GetInstance()->dns_server(dns_count).empty()) {
-            data.set_agent_controller_ip(
-                Agent::GetInstance()->dns_server(dns_count));
-            data.set_agent_controller_port(
-                Agent::GetInstance()->dns_server_port(dns_count));
-        }
-        if (!Agent::GetInstance()->dns_discovery_server(dns_count).empty()) {
-            data.set_discovery_controller_ip(
-                Agent::GetInstance()->dns_discovery_server(dns_count));
-            data.set_discovery_controller_port(
-                Agent::GetInstance()->dns_discovery_port(dns_count));
-        }
+        data.set_discovery_controller_ip(dr.ep.address().to_string());
+        data.set_discovery_controller_port(dr.ep.port());
 
         std::vector<AgentDiscoveryXmppConnections> &list =
-            const_cast<std::vector<AgentDiscoveryXmppConnections>&>(resp->get_xmppc());
+            const_cast<std::vector<AgentDiscoveryXmppConnections>&>
+            (resp->get_xmpp_discovery_list());
+        list.push_back(data);
+    }
+
+    uint8_t dns_count = 0;
+    while (dns_count < MAX_XMPP_SERVERS) {
+
+        AgentXmppInUseConnections data;
+        if (!Agent::GetInstance()->dns_server(dns_count).empty()) {
+            data.set_controller_ip(
+                Agent::GetInstance()->dns_server(dns_count));
+            data.set_controller_port(
+                Agent::GetInstance()->dns_server_port(dns_count));
+        }
+
+        std::vector<AgentXmppInUseConnections> &list =
+            const_cast<std::vector<AgentXmppInUseConnections>&>
+            (resp->get_xmpp_inuse_connections());
         list.push_back(data);
 
         dns_count++;
