@@ -81,9 +81,9 @@ public:
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
-    int intf_count_;
-    int nh_count_;
-    int vrf_count_;
+    uint32_t intf_count_;
+    uint32_t nh_count_;
+    uint32_t vrf_count_;
     Agent *agent_;
     InterfaceTable *interface_table_;
     NextHopTable *nh_table_;

@@ -91,13 +91,14 @@ public:
     void CreateVmPorts(struct PortInfo *input, int count) {
         CreateVmportEnv(input, count);
     }
-    void CreatePorts(int if_count, int nh_count, int rt_count, int num_ports = MAX_TEST_FD) {
+    void CreatePorts(uint32_t if_count, uint32_t nh_count, uint32_t rt_count,
+                     uint32_t num_ports = MAX_TEST_FD) {
         int idx;
         client->Reset();
         CreateVmPorts(input, num_ports);
         client->WaitForIdle(10);
 
-        for (int i = 0; i < num_ports; i++) {
+        for (uint32_t i = 0; i < num_ports; i++) {
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
         }
@@ -113,10 +114,10 @@ public:
                             Agent::GetInstance()->mpls_table()->Size()));
         if (!ksync_init_) {
             WAIT_FOR(1000, 1000, ((num_ports * 2) ==
-                                  KSyncSockTypeMap::MplsCount()));
+                                  (uint32_t)KSyncSockTypeMap::MplsCount()));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) == 
-                                    KSyncSockTypeMap::IfCount()));
+                                    (uint32_t)KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
                 //5 interface nexthops get created for each interface 
@@ -124,11 +125,11 @@ public:
                 // without policy and 1 multicast - mac as all f's)
                 //plus 4 Nexthops for each VRF (1 VRF NH and 2 Composite NHs)
                 WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 5) + 3) ==
-                                    KSyncSockTypeMap::NHCount()));
+                                    (uint32_t)KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
                 WAIT_FOR(1000, 1000, ((rt_count + (num_ports * 2) + 1) == 
-                                    KSyncSockTypeMap::RouteCount()));
+                                    (uint32_t)KSyncSockTypeMap::RouteCount()));
             }
         }
     }

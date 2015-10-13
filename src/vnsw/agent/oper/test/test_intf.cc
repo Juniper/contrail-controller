@@ -159,7 +159,7 @@ public:
     }
 
 
-    int intf_count;
+    uint32_t intf_count;
     Agent *agent;
 };
 
@@ -325,7 +325,6 @@ TEST_F(IntfTest, index_reuse) {
     struct PortInfo input2[] = {
         {"vnet9", 9, "9.1.1.1", "00:00:00:00:00:01", 1, 1}
     };
-    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     client->Reset();
     CreateVmportEnv(input1, 1);
@@ -367,7 +366,6 @@ TEST_F(IntfTest, entry_reuse) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
-    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     client->Reset();
     CreateVmportEnv(input1, 1);
@@ -2490,7 +2488,7 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     Agent::GetInstance()->interface_table()->Enqueue(&req2);
     client->WaitForIdle();
 
-    EXPECT_TRUE(vm_interface->vxlan_id() == vxlan_id);
+    EXPECT_TRUE(vm_interface->vxlan_id() == (int)vxlan_id);
 
     //Cleanup
     DeleteVmportEnv(input, 1, true);

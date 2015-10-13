@@ -254,7 +254,7 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     client->WaitForIdle();
 
     //wait for connection establishment
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs1->GetPort()); 
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == (uint32_t)xs1->GetPort()); 
     WAIT_FOR(1000, 10000, 
         agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
         == xmps::READY); 
@@ -302,7 +302,7 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     client->WaitForIdle();
 
     //wait for connection establishment
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs3->GetPort()); 
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == (uint32_t)xs3->GetPort()); 
     WAIT_FOR(1000, 10000, 
         agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
         == xmps::READY); 
@@ -323,12 +323,12 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     client->WaitForIdle();
 
     //wait for connection establishment
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs3->GetPort()); 
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == (uint32_t)xs3->GetPort()); 
     WAIT_FOR(1000, 10000, 
         agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
         == xmps::READY); 
 
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == xs4->GetPort()); 
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == (uint32_t)xs4->GetPort()); 
     WAIT_FOR(1000, 10000, 
         agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
         == xmps::READY); 
@@ -354,12 +354,12 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     client->WaitForIdle();
 
     //wait for connection establishment
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs5->GetPort()); 
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == (uint32_t)xs5->GetPort()); 
     WAIT_FOR(1000, 10000, 
         agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
         == xmps::READY); 
 
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == xs6->GetPort()); 
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == (uint32_t)xs6->GetPort()); 
     WAIT_FOR(1000, 10000, 
         agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
         == xmps::READY); 
@@ -395,7 +395,7 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_TimedOut) {
     std::vector<DSResponse> ds_response;
     DSResponse resp;
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
-    int port = xs1->GetPort();
+    uint32_t port = xs1->GetPort();
     resp.ep.port(xs1->GetPort());
     ds_response.push_back(resp);
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));

@@ -90,7 +90,7 @@ do {                                                                           \
 #define TASK_UTIL_EXPECT_VECTOR_EQ(actual, expected)             \
     do {                                                         \
         TASK_UTIL_EXPECT_EQ((expected).size(), (actual).size()); \
-        for (int i = 0; i < (expected).size(); i++) {            \
+        for (size_t i = 0; i < (expected).size(); i++) {            \
             TASK_UTIL_EXPECT_EQ((expected)[i], (actual)[i]);     \
         }                                                        \
     } while (false)

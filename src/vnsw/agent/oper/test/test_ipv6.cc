@@ -64,7 +64,7 @@ public:
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
-    int intf_count_;
+    uint32_t intf_count_;
     Agent *agent_;
 };
 
