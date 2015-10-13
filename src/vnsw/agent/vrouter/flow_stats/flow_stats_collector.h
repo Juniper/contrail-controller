@@ -28,6 +28,7 @@ public:
     static const uint32_t FlowStatsMinInterval = (100); // time in milliseconds
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
+    static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        uint32_t flow_cache_timeout,
@@ -37,6 +38,12 @@ public:
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
     uint32_t flow_age_time_intvl_in_secs() {
         return flow_age_time_intvl_/(1000 * 1000);
+    }
+    uint64_t flow_tcp_syn_age_time() const {
+        return flow_tcp_syn_age_time_;
+    }
+    void set_flow_tcp_syn_age_time(uint64_t interval) {
+        flow_tcp_syn_age_time_ = interval;
     }
     void UpdateFlowMultiplier();
     bool Run();
@@ -67,7 +74,9 @@ private:
     void UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes, uint64_t pkts);
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
-                      uint64_t curr_time);
+                      uint64_t curr_time, const FlowEntry *flow);
+    bool TcpFlowShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
+                             uint64_t curr_time, const FlowEntry *flow);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
     InterfaceUveTable::FloatingIp *ReverseFlowFip(const FlowEntry *flow);
@@ -83,12 +92,16 @@ private:
     // Should short-flow be deleted immediately?
     // Value will be set to false for test cases
     bool delete_short_flow_;
+<<<<<<< HEAD
     uint32_t flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
     uint32_t threshold_;
     uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
+=======
+    uint64_t flow_tcp_syn_age_time_;
+>>>>>>> 0bbbc6a... * Agent changes for TCP connection state awareness for faster flow aging
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 
