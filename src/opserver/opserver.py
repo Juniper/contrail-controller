@@ -486,18 +486,18 @@ class OpServer(object):
             self._args.partitions, self._args.redis_password)
         
         # TODO: For now, use DBCache during systemless test only
-        ucache = self._uvedbstream
+        usecache = True
         if self._args.disc_server_ip:
-            ucache = None
+            usecache = False
         else:
             if self._args.partitions == 0:
-                ucache = None
+                usecache = False
 
         self._uve_server = UVEServer(('127.0.0.1',
                                   self._args.redis_server_port),
                                  self._logger,
                                  self._args.redis_password,
-                                 ucache)
+                                 self._uvedbstream, usecache)
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
@@ -537,7 +537,7 @@ class OpServer(object):
                 self._state_server.update_redis_list(self.redis_uve_list)
                 self._uve_server.update_redis_uve_list(self.redis_uve_list)
 
-        self._analytics_links = ['uves', 'tables', 'queries', 'alarm-types']
+        self._analytics_links = ['uves', 'tables', 'queries', 'alarm-types', 'alarms']
 
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
@@ -665,6 +665,7 @@ class OpServer(object):
         bottle.route('/analytics/uves/<table>/<name:path>', 'GET', self.dyn_http_get)
         bottle.route('/analytics/uves/<tables>', 'POST', self.dyn_http_post)
         bottle.route('/analytics/alarm-types', 'GET', self.uve_alarm_http_types)
+        bottle.route('/analytics/alarms', 'GET', self.alarms_http_get)
 
         # start gevent to monitor disk usage and automatically purge
         if (self._args.auto_db_purge):
@@ -1328,6 +1329,11 @@ class OpServer(object):
         filters = {}
         filters['sfilt'] = req.get('sfilt')
         filters['mfilt'] = req.get('mfilt')
+        tf = req.get('tablefilt')
+        if tf and tf in UVE_MAP:
+            filters['tablefilt'] = UVE_MAP[tf]
+        else:
+            filters['tablefilt'] = tf
         if req.get('cfilt'):
             infos = req['cfilt'].split(',')
             filters['cfilt'] = OpServer._get_tfilter(infos)
@@ -1500,6 +1506,35 @@ class OpServer(object):
                 ret[aname] = avalue
         return json.dumps(ret)
 
+    def alarms_http_get(self):
+        # common handling for all resource get
+        (ok, result) = self._get_common(bottle.request)
+        if not ok:
+            (code, msg) = result
+            abort(code, msg)
+
+        bottle.response.set_header('Content-Type', 'application/json')
+
+        req = bottle.request.query
+        try:
+            filters = OpServer._uve_filter_set(req)
+        except Exception as e:
+            return bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
+        else:
+            filters['cfilt'] = { 'UVEAlarms':set() }
+            alarm_list = self._uve_server.get_alarms(filters)
+            alms = {}
+            for ak,av in alarm_list.iteritems():
+                alm_type = ak
+                if ak in _OBJECT_TABLES:
+                    alm_type = _OBJECT_TABLES[ak].log_query_name
+                ulist = []
+                for uk, uv in av.iteritems():
+                   ulist.append({'name':uk, 'value':uv})
+                alms[alm_type ] = ulist
+            return json.dumps(alms)
+    # end alarms_http_get
+
     def dyn_list_http_get(self, tables):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -1576,7 +1611,7 @@ class OpServer(object):
             
         bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(uvetype_links)
-    # end _uves_alarms_http_get
+    # end _uves_http_get
 
     def alarms_ack_http_post(self):
         self._post_common(bottle.request, None)

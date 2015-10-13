@@ -2196,6 +2196,8 @@ class AnalyticsFixture(fixtures.Fixture):
         filt = []
         if filters.get('kfilt') is not None:
             filt.append('kfilt=%s' % (','.join(filters['kfilt'])))
+        if filters.get('tablefilt') is not None:
+            filt.append('tablefilt=%s' % (filters['tablefilt']))
         if filters.get('sfilt') is not None:
             filt.append('sfilt=%s' % (filters['sfilt']))
         if filters.get('mfilt') is not None:
@@ -2251,8 +2253,16 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('Actual UVEs: %s' % (str(actual_uves)))
         if actual_uves is None:
             return False
-        exp_uve_value = exp_uves['value']
-        actual_uve_value = actual_uves['value']
+        etk = exp_uves.keys()
+        atk = actual_uves.keys() 
+        if len(etk):
+            exp_uve_value = exp_uves[etk[0]]
+        else:
+            exp_uve_value = []
+        if len(atk):
+            actual_uve_value = actual_uves[atk[0]]
+        else:
+            actual_uve_value = []
         self.logger.info('Remove token from alarms')
         self._remove_alarm_token(exp_uve_value)
         self._remove_alarm_token(actual_uve_value)
@@ -2262,6 +2272,20 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('Actual UVE value: %s' % (str(actual_uve_value)))
         return actual_uve_value == exp_uve_value
     # end _verify_uves
+
+    @retry(delay=1, tries=4)
+    def verify_get_alarms(self, table, filts=None, exp_uves=None):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filters = self._get_filters_string(filts)
+        self.logger.info('verify_get_alarms: %s' % (filters))
+        try:
+            actual_uves = vns.get_alarms(filters)
+        except Exception as err:
+            self.logger.error('Failed to get response for %s: %s' % \
+                              (query, str(err)))
+            assert(False)
+        return self._verify_uves(exp_uves, actual_uves)
+    # end verify_multi_uve_get
 
     @retry(delay=1, tries=4)
     def verify_multi_uve_get(self, table, filts=None, exp_uves=None):

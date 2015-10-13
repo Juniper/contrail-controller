@@ -27,12 +27,14 @@ import traceback
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger, redis_password=None, uvedbcache=None):
+    def __init__(self, redis_uve_server, logger, redis_password=None, \
+            uvedbcache=None, usecache=False):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_map = {}
         self._logger = logger
         self._redis = None
         self._uvedbcache = uvedbcache
+        self._usecache = usecache
         self._redis_password = redis_password
         self._uve_reverse_map = {}
         for h,m in UVE_MAP.iteritems():
@@ -64,7 +66,7 @@ class UVEServer(object):
                     r_ip+":"+str(r_port), ConnectionStatus.INIT)
         # Exercise redis connections to update health
         if len(newlist):
-            self.get_uve("ObjectCollectorInfo:__NONE__", True, None)
+            self.get_uve("ObjectCollectorInfo:__NONE__", False, None)
 
     # end update_redis_uve_list
 
@@ -230,7 +232,7 @@ class UVEServer(object):
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')
 
-        if flat and not sfilter and not mfilter and self._uvedbcache:
+        if flat and not sfilter and not mfilter and self._usecache:
             return self._uvedbcache.get_uve(key, filters)
 
         is_alarm = False
@@ -361,10 +363,41 @@ class UVEServer(object):
         return re.compile(regex)
     # end get_uve_regex
 
+    def get_alarms(self, filters):
+        tables = filters.get('tablefilt')
+        kfilter = filters.get('kfilt')
+        patterns = None
+        if kfilter is not None:
+            patterns = set()
+            for filt in kfilter:
+                patterns.add(self.get_uve_regex(filt))
+
+        rsp = self._uvedbcache.get_uve_list(tables, filters, patterns, False)
+        return rsp
+
+    # end multi_uve_get
     def multi_uve_get(self, table, flat, filters=None, base_url=None):
-        # get_uve_list cannot handle attribute names very efficiently,
-        # so we don't pass them here
-        uve_list = self.get_uve_list(table, filters, False)
+        sfilter = filters.get('sfilt')
+        mfilter = filters.get('mfilt')
+        kfilter = filters.get('kfilt')
+
+        patterns = None
+        if kfilter is not None:
+            patterns = set()
+            for filt in kfilter:
+                patterns.add(self.get_uve_regex(filt))
+
+        if not sfilter and not mfilter and self._usecache:
+            rsp = self._uvedbcache.get_uve_list(table, filters, patterns, True)
+            if table in rsp:
+                uve_list = rsp[table]
+            else:
+                uve_list = set()
+        else:
+            # get_uve_list cannot handle attribute names very efficiently,
+            # so we don't pass them here
+            uve_list = self.get_uve_list(table, filters, False)
+
         for uve_name in uve_list:
             _,uve_val = self.get_uve(
                 table + ':' + uve_name, flat, filters,  base_url)
@@ -373,6 +406,7 @@ class UVEServer(object):
             else:
                 uve = {'name': uve_name, 'value': uve_val}
                 yield uve
+
     # end multi_uve_get
 
     def get_uve_list(self, table, filters=None, parse_afilter=False):
@@ -386,16 +420,17 @@ class UVEServer(object):
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
 
+        patterns = None
         if kfilter is not None:
             patterns = set()
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
-        else:
-            if not sfilter and not mfilter and self._uvedbcache:
-                rsp = self._uvedbcache.get_uve_list(table, filters)
-                if table in rsp:
-                    uve_list = rsp[table]
-                return uve_list
+
+        if not sfilter and not mfilter and self._usecache:
+            rsp = self._uvedbcache.get_uve_list(table, filters, patterns)
+            if table in rsp:
+                uve_list = rsp[table]
+            return uve_list
 
         for r_inst in self._redis_uve_map.keys():
             try:
