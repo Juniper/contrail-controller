@@ -185,7 +185,7 @@ int VlanKSyncEntry::del_count_;
 
 class VlanKSyncObject : public KSyncDBObject {
 public:
-    VlanKSyncObject(DBTableBase *table) : KSyncDBObject(table),
+    VlanKSyncObject(DBTableBase *table) : KSyncDBObject("Vlan KSync", table),
                                           is_empty_count_(0) {
         evm_.reset(new EventManager());
         // set timer value to -1, and trigger timer callback explicitly

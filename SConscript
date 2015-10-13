@@ -26,6 +26,7 @@ env.Alias('controller/test', [
     'controller/src/api-lib:test',
     'controller/src/config/api-server:test',
     'controller/src/config/schema-transformer:test',
+    'controller/src/ksync:test',
 ])
 
 env.Alias('controller/flaky-test', [

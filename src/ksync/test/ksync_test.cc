@@ -116,7 +116,7 @@ uint32_t Vlan::free_wait_count_;
 
 class VlanTable : public KSyncObject {
 public:
-    VlanTable(int max_index) : KSyncObject(max_index), is_empty_count_(0) {
+    VlanTable(int max_index) : KSyncObject("Vlan KSync", max_index), is_empty_count_(0) {
         evm_.reset(new EventManager());
         // set timer value to -1, and trigger timer callback explicitly
         // set 1 entry processing per iteration
