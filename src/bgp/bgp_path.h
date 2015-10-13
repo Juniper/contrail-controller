@@ -23,6 +23,7 @@ public:
         Stale = 1 << 2,
         NoTunnelEncap = 1 << 3,
         OriginatorIdLooped = 1 << 4,
+        ResolveNexthop = 1 << 5,
     };
 
     // Ordered in the ascending order of path preference
@@ -34,8 +35,8 @@ public:
         Local = 4,
     };
 
-    static const uint32_t INFEASIBLE_MASK =
-        (AsPathLooped|NoNeighborAs|NoTunnelEncap|OriginatorIdLooped);
+    static const uint32_t INFEASIBLE_MASK = (AsPathLooped |
+        NoNeighborAs | NoTunnelEncap | OriginatorIdLooped | ResolveNexthop);
 
     static std::string PathIdString(uint32_t path_id);
     static std::string PathSourceString(PathSource source);
@@ -115,6 +116,8 @@ public:
     void ResetStale() {
         flags_ &= ~Stale;
     }
+
+    bool NeedsResolution() const { return ((flags_ & ResolveNexthop) != 0); }
 
     virtual std::string ToString() const {
         // Dump the peer name
