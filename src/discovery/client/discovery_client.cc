@@ -169,11 +169,19 @@ DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
           this, _1)),
       shutdown_(false),
       subscriber_name_(client_name),
-      heartbeat_interval_(DiscoveryServiceClient::kHeartBeatInterval) {
+      heartbeat_interval_(DiscoveryServiceClient::kHeartBeatInterval),
+      local_addr_("127.0.0.1") {
 }
 
 void DiscoveryServiceClient::Init() {
     http_client_->Init();
+
+    boost::system::error_code ec;
+    boost::asio::ip::tcp::socket socket(*evm_->io_service());
+    socket.connect(ds_endpoint_, ec);
+    if (ec == 0) {
+        local_addr_ = socket.local_endpoint().address().to_string();
+    }
 }
 
 void DiscoveryServiceClient::Shutdown() {
@@ -619,16 +627,8 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
                        subscriber_name_;
     pugi->AddChildNode("client", client_id);
     pugi->ReadNode(serviceName); //Reset parent
+    pugi->AddChildNode("remote-addr", local_addr_);
 
-    //Retrieve ip address
-    ip::udp::resolver resolver(*evm_->io_service());
-    ip::udp::resolver::query query(ip::udp::v4(), ip::host_name(error), "");
-    ip::udp::resolver::iterator endpoint_iter = resolver.resolve(query, error);
-    if (!error) {
-        ip::udp::endpoint ep = *endpoint_iter++;
-        pugi->AddChildNode("remote-addr", ep.address().to_string());
-    }
-        
     stringstream ss; 
     impl->PrintDoc(ss);
 
