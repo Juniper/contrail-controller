@@ -40,7 +40,7 @@ class UveCacheProcessor(object):
             self._partkeys[partno] = set()
         self._uvedb = {} 
 
-    def get_cache_list(self, utab, filters):
+    def get_cache_list(self, utab, filters, patterns, keysonly):
         tables = None
         if utab:
             tables = [ utab ]
@@ -63,17 +63,32 @@ class UveCacheProcessor(object):
                     if typ in self._typekeys:
                         if table in self._typekeys[typ]:
                             tqual[table].update(self._typekeys[typ][table])
-                    
+
             for table in tables:
                 if not table in self._uvedb:
                     continue  
-                barekeys = set(self._uvedb[table].keys())
-                if len(tfilter) != 0:
-                    barekeys.intersection_update(tqual[table])
+                barekeys = set()
+                for bk in self._uvedb[table].keys():
+                    if len(tfilter) != 0:
+                        if not bk in tqual[table]:
+                            continue
+                    if patterns:
+                        kfilter_match = False
+                        for pattern in patterns:
+                            if pattern.match(bk):
+                                kfilter_match = True
+                                break
+                        if not kfilter_match:
+                            continue
+                    barekeys.add(bk)
+                    
                 brsp = self._get_uve_content(table, barekeys,\
-                        tfilter, ackfilter, True)
+                        tfilter, ackfilter, keysonly)
                 if len(brsp) != 0:
-                    uve_list[table] = set(brsp.keys())
+                    if keysonly:
+                        uve_list[table] = set(brsp.keys())
+                    else:
+                        uve_list[table] = brsp
         except Exception as ex:
             template = "Exception {0} in uve list proc. Arguments:\n{1!r}"
             messag = template.format(type(ex).__name__, ex.args)
@@ -130,7 +145,6 @@ class UveCacheProcessor(object):
         return brsp
       
     def get_cache_uve(self, key, filters):
-        failures = False
         rsp = {}
         try:
             filters = filters or {}
@@ -142,9 +156,9 @@ class UveCacheProcessor(object):
             table = key.split(":",1)[0]
              
             if table not in self._uvedb:
-                return failures, rsp
+                return rsp
             if barekey not in self._uvedb[table]:
-                return failures, rsp
+                return rsp
             
             brsp = self._get_uve_content(table, set([barekey]),\
                     tfilter, ackfilter, False)
@@ -156,7 +170,7 @@ class UveCacheProcessor(object):
             messag = template.format(type(ex).__name__, ex.args)
             self._logger.error("%s : traceback %s" % \
                               (messag, traceback.format_exc()))
-        return failures, rsp
+        return rsp
 
     def store_uve(self, partno, pi, key, typ, value):
         barekey = key.split(":",1)[1]
@@ -198,7 +212,9 @@ class UveCacheProcessor(object):
                 if not table in self._typekeys[typ]:
                     self._typekeys[typ][table] = set()
                 self._typekeys[typ][table].add(barekey)
-            self._uvedb[table][barekey]["__SOURCE__"] = pi._asdict()
+            self._uvedb[table][barekey]["__SOURCE__"] = \
+                    {'instance_id':pi.instance_id, 'ip_address':pi.ip_address, \
+                     'partition':partno} 
 
     def clear_partition(self, partno):
         for key in self._partkeys[partno]:
@@ -309,7 +325,8 @@ class UveStreamPart(gevent.Greenlet):
         return None
 
 class UveStreamer(gevent.Greenlet):
-    def __init__(self, logger, q, rfile, agp_cb, partitions, rpass):
+    def __init__(self, logger, q, rfile, agp_cb, partitions, rpass,\
+            USP_class = UveStreamPart):
         gevent.Greenlet.__init__(self)
         self._logger = logger
         self._q = q
@@ -321,12 +338,13 @@ class UveStreamer(gevent.Greenlet):
         self._rpass = rpass
         self._ccb = None
         self._uvedbcache = UveCacheProcessor(self._logger, partitions)
+        self._USP_class = USP_class
 
     def get_uve(self, key, filters=None):
-        return self._uvedbcache.get_cache_uve(key, filters)
+        return False, self._uvedbcache.get_cache_uve(key, filters)
 
-    def get_uve_list(self, utab, filters):
-        return self._uvedbcache.get_cache_list(utab, filters)
+    def get_uve_list(self, utab, filters, patterns, keysonly = True):
+        return self._uvedbcache.get_cache_list(utab, filters, patterns, keysonly)
 
     def partition_callback(self, partition, pi, key, type, value):
         # gevent is non-premptive; we don't need locks
@@ -381,7 +399,7 @@ class UveStreamer(gevent.Greenlet):
                         self.partition_stop(elem)
                         self._uvedbcache.clear_partition(elem)
                         self.partition_start(elem, newagp[elem])
-                self._agp = newagp
+                self._agp = copy.deepcopy(newagp)
             except gevent.GreenletExit:
                 break
         self._logger.error("Stopping UveStreamer with %d partitions" % self._partitions)
@@ -400,14 +418,13 @@ class UveStreamer(gevent.Greenlet):
             msg = {'event': 'clear', 'data':\
                 json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
             self._q.put(sse_pack(msg))
-        self._parts[partno] = UveStreamPart(partno, self._logger,
+        self._parts[partno] = self._USP_class(partno, self._logger,
             self.partition_callback, pi, self._rpass)
         self._parts[partno].start()
 
     def partition_stop(self, partno):
         self._logger.error("Stopping agguve part %d" % partno)
         self._parts[partno].kill()
-        self._parts[partno].get()
         del self._parts[partno]
             
 class PartitionHandler(gevent.Greenlet):

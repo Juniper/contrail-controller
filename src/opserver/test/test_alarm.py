@@ -16,7 +16,8 @@ from collections import namedtuple
 from kafka.common import OffsetAndMessage,Message
 
 from opserver.uveserver import UVEServer
-from opserver.partition_handler import PartitionHandler, UveStreamProc
+from opserver.partition_handler import PartitionHandler, UveStreamProc, \
+    UveStreamer, UveStreamPart, PartInfo
 from opserver.alarmgen import Controller
 from opserver.alarmgen_cfg import CfgParser
 
@@ -30,92 +31,38 @@ PartHandlerInput = namedtuple("PartHandlerInput",
 PartHandlerOutput = namedtuple("PartHandlerOutput",
     ["callbacks", "uvedb"])
 
-# Tests for the PartitionHandler class
-class TestPartitionHandler(unittest.TestCase):
-
-    def setUp(self):
-        self.ph = None
-        self.test_spec = None
-        self.stage = 0
-        self.step = 0
-        #self.done = False
-        pass
-
-    def tearDown(self):
-        pass
-
-    def callback_proc(self, part, uves):
-        self.assertNotEqual(self.stage, len(self.test_spec))
-        stage = self.test_spec[self.stage]
-        o = stage.o.callbacks[self.step]
-        self.assertEqual(uves, o,
-            "Error in stage %d step %d\nActual   %s\nExpected %s" % \
-            (self.stage, self.step, str(uves), str(o)))
-        self.step += 1 
-        if len(stage.o.callbacks) == self.step:
-            self.step = 0
-            self.stage += 1
-          
-    @mock.patch('opserver.partition_handler.UVEServer', autospec=True)
-    @mock.patch('opserver.partition_handler.KafkaClient', autospec=True)
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
-    # Test intialization and shutdown, along with basic Kafka, partition start
-    # and UVE read operations
-    @unittest.skip('Skipping PartHandler test')
-    # TODO: Needs to be updated or removed
-    def test_00_init(self, mock_SimpleConsumer, mock_KafkaClient, mock_UVEServer):
-        self.test_spec = [
-            TestStage(
-                i = PartHandlerInput(
-                    redis_instances = set([("127.0.0.1",44444,0)]),
-                    get_part = ("127.0.0.1:44444",
-                        { "gen1" :
-                            { "ObjectXX:uve1" : set(["type1"])  }}),
-                    get_messages = [OffsetAndMessage(offset=0,
-                        message=Message(magic=0, attributes=0, key='',
-                        value=('{"message":"UVEUpdate","key":"ObjectYY:uve2",'
-                               '"type":"type2","gen":"gen1","coll":'
-                               '"127.0.0.1:44444","deleted":false}')))]),
-                o = PartHandlerOutput(
-                    callbacks = [
-                        { "ObjectXX:uve1" : None },
-                        { "ObjectYY:uve2" : set(["type2"])},
-                    ],
-                    uvedb = None)
-            ),
-            TestStage(
-                i = PartHandlerInput(
-                    redis_instances = gevent.GreenletExit(),
-                    get_part = None,
-                    get_messages = None),
-                o = PartHandlerOutput(
-                    callbacks = [
-                        { "ObjectXX:uve1" : None,
-                          "ObjectYY:uve2" : None },
-                    ],
-                    uvedb = {"127.0.0.1:44444" :
-                       { "gen1" :
-                          { "ObjectXX:uve1" : set(["type1"]),
-                            "ObjectYY:uve2" : set(["type2"])}}}),
-   
-            )
-        ]
-        mock_UVEServer.return_value.redis_instances.side_effect = \
-            [x.i.redis_instances for x in self.test_spec]
-
-        mock_UVEServer.return_value.get_part.side_effect = \
-            [x.i.get_part for x in self.test_spec if x.i.get_part is not None]  
-
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
-            [x.i.get_messages for x in self.test_spec]
-
-        self.ph = UveStreamProc('no-brokers', 1, "uve-1", logging,
-                self.callback_proc, "127.0.0.1", mock_UVEServer.return_value)
-        self.ph.start()
-        res,db = self.ph.get(timeout = 10)
-        if (isinstance(res,AssertionError)):
-            raise res
-        self.assertEqual(db, self.test_spec[-1].o.uvedb)
+class TestChecker(object):
+    @retry(delay=1, tries=3)
+    def checker_dict(self,expected,actual,match=True):
+        residual = actual
+        matched = True
+        result = False
+        for elem in expected:
+            if residual and elem in residual:
+                if isinstance(residual,dict):
+                    residual = residual[elem]
+                else:
+                    residual = None
+            else:
+                matched = False
+        if match:
+            result = matched
+        else:
+            result = not matched
+        logging.info("dict exp %s actual %s match %s" % \
+            (str(expected), str(actual), str(match)))
+        return result
+    
+    @retry(delay=1, tries=3)
+    def checker_exact(self,expected,actual,match=True):
+        result = False
+        logging.info("exact exp %s actual %s match %s" % \
+            (str(expected), str(actual), str(match)))
+        if expected == actual:
+            return match
+        else:
+            result = not match
+        return result
 
 class Mock_base(collections.Callable,collections.MutableMapping):
     def __init__(self, *args, **kwargs):
@@ -158,7 +105,7 @@ class Mock_get_uve(Mock_base):
 
 class Mock_get_messages(Mock_base):
     def __init__(self, *args, **kwargs):
-        Mock_base.__init__(self, *args, **kwargs)
+        Mock_base.__init__(self)
 
     def __call__(self, num, timeout):
         vals = []
@@ -171,10 +118,115 @@ class Mock_get_messages(Mock_base):
         else:
             return [None]
 
+class Mock_agp(Mock_base):
+    def __init__(self, *args, **kwargs):
+        Mock_base.__init__(self, *args, **kwargs)
+
+    def __call__(self):
+        logging.info("Reading AGP %s" % str(self.store))
+        val = self.store
+        return val
+
+class Mock_usp(object):
+    def __init__(self, partno, logger, cb, pi, rpass):
+        self._cb = cb
+        self._partno = partno
+        self._pi = pi
+        self._started = False
+
+    def start(self):
+        self._started = True
+
+    def kill(self):
+        self._started = False
+
+    def __call__(self, key, type, value):
+        if self._started:
+            self._cb(self._partno, self._pi, key, type, value) 
+
+# Tests for UveStreamer and UveCache
+class TestUveStreamer(unittest.TestCase, TestChecker):
+    @classmethod
+    def setUpClass(cls):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+    
+    def setUp(self):
+        self.mock_agp = Mock_agp()
+        self.ustr = UveStreamer(logging, None, None, self.mock_agp, 2, None, Mock_usp)
+        self.ustr.start()
+        self.mock_agp[0] = PartInfo(ip_address = "127.0.0.1", 
+                                    acq_time = 666,
+                                    instance_id = "0",
+                                    port = 6379)
+        self.mock_agp[1] = PartInfo(ip_address = "127.0.0.1", 
+                                    acq_time = 777,
+                                    instance_id = "0",
+                                    port = 6379)
+
+    def tearDown(self):
+        self.ustr.kill()
+
+    #@unittest.skip('Skipping UveStreamer')
+    def test_00_init(self):
+        self.assertTrue(self.checker_dict([0], self.ustr._parts))
+        self.ustr._parts[0]("ObjectXX:uve1","type1",{"xx": 0})
+        self.assertTrue(self.checker_dict(\
+                ["ObjectXX","uve1","type1","xx"],\
+                self.ustr._uvedbcache._uvedb))
+        self.assertTrue(self.checker_dict(\
+                ["type1","ObjectXX","uve1"],\
+                self.ustr._uvedbcache._typekeys))
+        self.assertTrue(self.checker_dict(\
+                [0,"ObjectXX:uve1"],\
+                self.ustr._uvedbcache._partkeys))
+
+        # remove partition. UVE should go too        
+        del self.mock_agp[0]
+        self.assertTrue(self.checker_dict(\
+                ["ObjectXX","uve1"],\
+                self.ustr._uvedbcache._uvedb, False))
+        self.assertTrue(self.checker_dict(\
+                ["type1"],\
+                self.ustr._uvedbcache._typekeys, False))
+        self.assertTrue(self.checker_exact(\
+                set(),
+                self.ustr._uvedbcache._partkeys[0]))
+
+    #@unittest.skip('Skipping UveStreamer')
+    def test_00_deluve(self):
+        self.assertTrue(self.checker_dict([0], self.ustr._parts))
+        self.ustr._parts[0]("ObjectXX:uve1","type1",{"xx": 0})
+        self.assertTrue(self.checker_dict(\
+                ["ObjectXX","uve1","type1","xx"],\
+                self.ustr._uvedbcache._uvedb))
+        self.assertTrue(self.checker_dict(\
+                ["type1","ObjectXX","uve1"],\
+                self.ustr._uvedbcache._typekeys))
+        self.assertTrue(self.checker_dict(\
+                [0,"ObjectXX:uve1"],\
+                self.ustr._uvedbcache._partkeys))
+
+        # remove UVE
+        self.ustr._parts[0]("ObjectXX:uve1",None,None)
+        self.assertTrue(self.checker_dict(\
+                ["ObjectXX","uve1"],\
+                self.ustr._uvedbcache._uvedb, False))
+        self.assertTrue(self.checker_dict(\
+                ["type1","ObjectXX"],\
+                self.ustr._uvedbcache._typekeys, False))
+        self.assertTrue(self.checker_exact(\
+                set(),
+                self.ustr._uvedbcache._partkeys[0]))
+
+
 # Tests for all AlarmGenerator code, using mocks for 
 # external interfaces for UVEServer, Kafka, libpartition
 # and Discovery
-class TestAlarmGen(unittest.TestCase):
+class TestAlarmGen(unittest.TestCase, TestChecker):
     @classmethod
     def setUpClass(cls):
         cls._pc = mock.patch('opserver.alarmgen.PartitionClient', autospec=True)
@@ -208,36 +260,6 @@ class TestAlarmGen(unittest.TestCase):
     def tearDown(self):
         self._agtask.kill()
 
-    @retry(delay=1, tries=3)
-    def checker_dict(self,expected,actual,match=True):
-        residual = actual
-        matched = True
-        result = False
-        for elem in expected:
-            if elem in residual:
-                residual = residual[elem]
-            else:
-                matched = False
-        if match:
-            result = matched
-        else:
-            result = not matched
-        if not result:
-            logging.info("exp %s actual %s match %s" % \
-                (str(expected), str(actual), str(match)))
-        return result
-    
-    @retry(delay=1, tries=3)
-    def checker_exact(self,expected,actual,match=True):
-        result = False
-        if expected == actual:
-            return match
-        else:
-            result = not match
-        if not result:
-            logging.info("exp %s actual %s match %s" % \
-                (str(expected), str(actual), str(match)))
-        return result
 
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')

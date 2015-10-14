@@ -59,6 +59,9 @@ class VerificationOpsSrv (IntrospectUtilBase):
     def uve_query(self, query):
         return self.dict_get('analytics/uves/%s' % query)
 
+    def get_alarms(self, filters):
+        return self.dict_get('analytics/alarms?%s' % filters)
+
     def post_uve_request(self, table, json_body):
         url = 'http://%s:%s/analytics/uves/%s' % (self._ip, str(self._port), table)
         try:
