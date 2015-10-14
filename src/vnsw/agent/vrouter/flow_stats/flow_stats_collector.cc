@@ -42,7 +42,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
             // Convert to usec
-            flow_age_time_intvl_ = 1000000 * flow_cache_timeout;
+            flow_age_time_intvl_ = 1000000L * (uint64_t)flow_cache_timeout;
         } else {
             flow_age_time_intvl_ = FlowAgeTime;
         }
@@ -58,7 +58,7 @@ void FlowStatsCollector::Shutdown() {
 }
 
 void FlowStatsCollector::UpdateFlowMultiplier() {
-    uint32_t age_time_millisec = flow_age_time_intvl_ / 1000;
+    uint64_t age_time_millisec = flow_age_time_intvl_ / 1000;
     if (age_time_millisec == 0) {
         age_time_millisec = 1;
     }
@@ -673,6 +673,9 @@ bool FlowStatsCollector::Run() {
     if (total_flows > 0) {
         flow_timer_interval = std::min((age_time_millisec * flow_multiplier_)/
                                         total_flows, 1000U);
+        if (flow_timer_interval < FlowStatsMinInterval) {
+            flow_timer_interval = FlowStatsMinInterval;
+        }
     } else {
         flow_timer_interval = flow_default_interval_;
     }
