@@ -49,3 +49,19 @@ bool del_ucast_mac_local(const string &logical_switch, const string &mac) {
                             " | grep " + mac);
 }
 
+bool add_mcast_mac_local(const string &logical_switch, const string &mac,
+                         const string &dest_ip) {
+    execute_vtep_cmd("add-mcast-local Contrail-" + logical_switch +
+                     " " + mac + " " + dest_ip);
+    return execute_vtep_cmd("list-local-macs Contrail-" + logical_switch +
+                            " | grep " + mac + " | grep " + dest_ip);
+}
+
+bool del_mcast_mac_local(const string &logical_switch, const string &mac,
+                         const string &dest_ip) {
+    execute_vtep_cmd("del-mcast-local Contrail-" + logical_switch +
+                     " " + mac + " " + dest_ip);
+    return !execute_vtep_cmd("list-local-macs Contrail-" + logical_switch +
+                            " | grep " + mac + " | grep " + dest_ip);
+}
+

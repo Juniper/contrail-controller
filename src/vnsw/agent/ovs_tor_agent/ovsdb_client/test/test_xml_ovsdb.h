@@ -93,23 +93,4 @@ private:
     std::string logical_switch_name_;
 };
 
-class AgentUtXmlMulticastLocalValidate : public AgentUtXmlValidationNode {
-public:
-    AgentUtXmlMulticastLocalValidate(const std::string &name,
-                                     const boost::uuids::uuid &id,
-                                     const pugi::xml_node &node);
-    virtual ~AgentUtXmlMulticastLocalValidate();
-
-    virtual bool ReadXml();
-    virtual bool Validate();
-    virtual const std::string ToString();
-    virtual uint32_t wait_count() const { return 2000; }
-    virtual uint32_t sleep_time() const { return 2000; }
-
-private:
-    const boost::uuids::uuid id_;
-    std::string mac_;
-    boost::uuids::uuid vn_uuid_;
-};
-
 #endif  // SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_TEST_TEST_XML_OVSDB_H_

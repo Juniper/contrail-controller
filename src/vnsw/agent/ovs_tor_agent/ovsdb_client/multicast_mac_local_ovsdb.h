@@ -18,12 +18,14 @@ class MulticastMacLocalOvsdb : public OvsdbObject {
 public:
     typedef std::pair<VrfEntry *, MulticastMacLocalEntry *> VrfDepEntry;
     typedef std::set<VrfDepEntry> VrfDepList;
+    typedef std::map<struct ovsdb_idl_row *, MulticastMacLocalEntry *> OvsdbIdlDepList;
 
     MulticastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer);
     ~MulticastMacLocalOvsdb();
 
     OvsPeer *peer();
     void Notify(OvsdbClientIdl::Op op, struct ovsdb_idl_row *row);
+    void LocatorSetNotify(OvsdbClientIdl::Op op, struct ovsdb_idl_row *row);
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
 
     void VrfReEvalEnqueue(VrfEntry *vrf);
@@ -33,15 +35,20 @@ private:
     OvsPeer *peer_;
     VrfDepList vrf_dep_list_;
     WorkQueue<VrfEntryRef> *vrf_reeval_queue_;
+    OvsdbIdlDepList locator_dep_list_;
     DISALLOW_COPY_AND_ASSIGN(MulticastMacLocalOvsdb);
 };
 
 class MulticastMacLocalEntry : public OvsdbEntry {
 public:
+    typedef std::set<struct ovsdb_idl_row *> OvsdbIdlRowList;
     MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
             const MulticastMacLocalEntry *key);
     MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
-                           const LogicalSwitchEntry *logical_switch);
+                           const std::string &logical_switch_name);
+    MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
+                           const std::string &logical_switch_name,
+                           struct ovsdb_idl_row *row);
 
     bool Add();
     bool Change();
@@ -51,8 +58,8 @@ public:
     std::string ToString() const {return "Multicast Mac Local";}
 
     const std::string &mac() const;
+    const Ip4Address &tor_ip() const;
     const std::string &logical_switch_name() const;
-    const LogicalSwitchEntry *logical_switch() {return logical_switch_;}
     const uint32_t vxlan_id() const {return vxlan_id_;}
     OVSDB::VnOvsdbEntry *GetVnEntry() const;
 
@@ -66,7 +73,8 @@ private:
     // of vrf pointer even if Add route request fails, due to any reason
     VrfEntryRef vrf_;
     uint32_t vxlan_id_;
-    const LogicalSwitchEntry *logical_switch_;
+    OvsdbIdlRowList row_list_;
+    Ip4Address tor_ip_;
     DISALLOW_COPY_AND_ASSIGN(MulticastMacLocalEntry);
 };
 

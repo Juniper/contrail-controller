@@ -29,14 +29,23 @@ using std::string;
 
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
         const MulticastMacLocalEntry *key) : OvsdbEntry(table),
-    logical_switch_name_(key->logical_switch_name_),
-    vrf_(NULL, this), logical_switch_(key->logical_switch_) {
+    logical_switch_name_(key->logical_switch_name_), vrf_(NULL, this),
+    vxlan_id_(key->vxlan_id_), row_list_(key->row_list_), tor_ip_() {
 }
 
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
-                                    const LogicalSwitchEntry *logical_switch) :
-    OvsdbEntry(table), logical_switch_name_(logical_switch->name()),
-    vrf_(NULL, this), logical_switch_(logical_switch) {
+        const std::string &logical_switch_name)
+    : OvsdbEntry(table), logical_switch_name_(logical_switch_name),
+    vrf_(NULL, this), vxlan_id_(0), row_list_(), tor_ip_() {
+}
+
+MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
+        const std::string &logical_switch_name, struct ovsdb_idl_row *row)
+    : OvsdbEntry(table), logical_switch_name_(logical_switch_name),
+    vrf_(NULL, this), vxlan_id_(0), row_list_(), tor_ip_() {
+    if (row) {
+        row_list_.insert(row);
+    }
 }
 
 OVSDB::VnOvsdbEntry *MulticastMacLocalEntry::GetVnEntry() const {
@@ -51,13 +60,14 @@ void MulticastMacLocalEntry::EvaluateVrfDependency(VrfEntry *vrf) {
     OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
     if ((vn_entry == NULL) || (vn_entry->vrf() == NULL)) {
         OnVrfDelete();
-        //Issue a ADD_CHANGE_REQ to push entry into defer state.
-        //Whenever VN entry is back this will be updated.
+        // Issue a ADD_CHANGE_REQ to push entry into defer state.
+        // Whenever VN entry is back this will be updated.
         table_->NotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
     }
 }
 
 void MulticastMacLocalEntry::OnVrfDelete() {
+    tor_ip_ = Ip4Address();
     if (vrf_ == NULL)
         return;
 
@@ -72,18 +82,40 @@ void MulticastMacLocalEntry::OnVrfDelete() {
 }
 
 bool MulticastMacLocalEntry::Add() {
+    // TODO(prabhjot) currently only take the first physical locator from the
+    // first multicast row for the logical switch, eventually needs to be
+    // converted into list of ToR IPs and export different routes for all
+    OvsdbIdlRowList::iterator it = row_list_.begin();
+    std::string tor_ip_str;
+    if (it != row_list_.end()) {
+        struct ovsdb_idl_row *l_set =
+            ovsdb_wrapper_mcast_mac_local_physical_locator_set(*it);
+        if (0 != ovsdb_wrapper_physical_locator_set_locator_count(l_set)) {
+            struct ovsdb_idl_row *locator =
+                ovsdb_wrapper_physical_locator_set_locators(l_set)[0];
+            tor_ip_str = ovsdb_wrapper_physical_locator_dst_ip(locator);
+        }
+        boost::system::error_code ec;
+        tor_ip_ = Ip4Address::from_string(tor_ip_str, ec);
+    }
+
+    if (tor_ip_.to_ulong() == 0) {
+        Delete();
+        return true;
+    }
+
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
     OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
     // Take vrf reference to genrate withdraw/delete route request
     vrf_ = vn_entry->vrf();
     OVSDB_TRACE(Trace, "Adding multicast Route VN uuid " + logical_switch_name_);
-    vxlan_id_ = logical_switch_->vxlan_id();
+    vxlan_id_ = vn_entry->vxlan_id();
     table->vrf_dep_list_.insert(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
                                                                     this));
     table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
                                             vn_entry->name(),
                                             table_->client_idl()->tsn_ip(),
-                                            logical_switch_->tor_ip().to_v4());
+                                            tor_ip_);
     return true;
 }
 
@@ -93,7 +125,6 @@ bool MulticastMacLocalEntry::Change() {
 
 bool MulticastMacLocalEntry::Delete() {
     OnVrfDelete();
-    logical_switch_ = NULL;
     return true;
 }
 
@@ -114,16 +145,30 @@ KSyncEntry *MulticastMacLocalEntry::UnresolvedReference() {
     return NULL;
 }
 
+const Ip4Address &MulticastMacLocalEntry::tor_ip() const {
+    return tor_ip_;
+}
+
 const std::string &MulticastMacLocalEntry::logical_switch_name() const {
     return logical_switch_name_;
 }
 
 MulticastMacLocalOvsdb::MulticastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
     OvsdbObject(idl), peer_(peer) {
-        vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
-                  TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
-                  boost::bind(&MulticastMacLocalOvsdb::VrfReEval, this, _1));
-    }
+    vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
+              TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+              boost::bind(&MulticastMacLocalOvsdb::VrfReEval, this, _1));
+    // register to listen updates for multicast mac local
+    idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL,
+                  boost::bind(&MulticastMacLocalOvsdb::Notify, this, _1, _2));
+    // registeration to physical locator set is also required, since
+    // an update for physical locators in the set can show up after
+    // multicast row update // during which we need to trigger
+    // re-evaluation of the exported multicast route
+    idl->Register(OvsdbClientIdl::OVSDB_PHYSICAL_LOCATOR_SET,
+                  boost::bind(&MulticastMacLocalOvsdb::LocatorSetNotify, this,
+                              _1, _2));
+}
 
 MulticastMacLocalOvsdb::~MulticastMacLocalOvsdb() {
     vrf_reeval_queue_->Shutdown();
@@ -152,6 +197,67 @@ bool MulticastMacLocalOvsdb::VrfReEval(VrfEntryRef vrf_ref) {
         m_entry->EvaluateVrfDependency(vrf_ref.get());
     }
     return true;
+}
+
+void MulticastMacLocalOvsdb::Notify(OvsdbClientIdl::Op op,
+        struct ovsdb_idl_row *row) {
+    const char *ls_name = ovsdb_wrapper_mcast_mac_local_logical_switch(row);
+
+    /* ignore if ls_name is not present */
+    if (ls_name == NULL) {
+        return;
+    }
+
+    LogicalSwitchTable *l_table = client_idl_->logical_switch_table();
+    l_table->OvsdbMcastLocalMacNotify(op, row);
+
+    std::string ls_name_str(ls_name);
+    MulticastMacLocalEntry key(this, ls_name, row);
+    MulticastMacLocalEntry *entry =
+        static_cast<MulticastMacLocalEntry*>(FindActiveEntry(&key));
+    struct ovsdb_idl_row *l_set =
+        ovsdb_wrapper_mcast_mac_local_physical_locator_set(row);
+    // physical locator set is immutable so it will not change
+    // for given multicast row, trigger delete for row and
+    // wait for locator set to be available
+    if (op == OvsdbClientIdl::OVSDB_DEL || l_set == NULL) {
+        if (entry != NULL) {
+            entry->row_list_.erase(row);
+            if (l_set != NULL) {
+                locator_dep_list_.erase(l_set);
+            }
+            if (entry->row_list_.empty()) {
+                // delete entry if the last idl row is removed
+                Delete(entry);
+            } else {
+                // trigger change on entry to remove the delete ToR IP
+                // from the list
+                Change(entry);
+            }
+        }
+    } else if (op == OvsdbClientIdl::OVSDB_ADD) {
+        if (entry == NULL) {
+            entry = static_cast<MulticastMacLocalEntry*>(Create(&key));
+        } else {
+            entry->row_list_.insert(row);
+            // trigger change on entry to add the new ToR IP
+            // to the list
+            Change(entry);
+        }
+        locator_dep_list_[l_set] = entry;
+    }
+}
+
+void MulticastMacLocalOvsdb::LocatorSetNotify(OvsdbClientIdl::Op op,
+        struct ovsdb_idl_row *row) {
+    if (op == OvsdbClientIdl::OVSDB_DEL) {
+        locator_dep_list_.erase(row);
+        return;
+    }
+    OvsdbIdlDepList::iterator it = locator_dep_list_.find(row);
+    if (it != locator_dep_list_.end()) {
+        Change(it->second);
+    }
 }
 
 KSyncEntry *MulticastMacLocalOvsdb::Alloc(const KSyncEntry *key, uint32_t index) {
@@ -209,6 +315,9 @@ void MulticastMacLocalSandeshTask::UpdateResp(KSyncEntry *kentry,
     oentry.set_mac("ff:ff:ff:ff:ff:ff");
     oentry.set_logical_switch(entry->logical_switch_name());
     oentry.set_vxlan_id(entry->vxlan_id());
+    std::vector<std::string> &tor_ip =
+        const_cast<std::vector<std::string>&>(oentry.get_tor_ip());
+    tor_ip.push_back(entry->tor_ip().to_string());
     OvsdbMulticastMacLocalResp *m_resp =
         static_cast<OvsdbMulticastMacLocalResp *>(resp);
     std::vector<OvsdbMulticastMacLocalEntry> &macs =

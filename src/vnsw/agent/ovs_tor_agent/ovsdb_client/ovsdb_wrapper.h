@@ -82,6 +82,10 @@ void ovsdb_wrapper_add_physical_locator(struct ovsdb_idl_txn *,
         struct ovsdb_idl_row *, const char *);
 void ovsdb_wrapper_delete_physical_locator(struct ovsdb_idl_row *);
 
+/* Physical Locator Set*/
+size_t ovsdb_wrapper_physical_locator_set_locator_count(struct ovsdb_idl_row *row);
+struct ovsdb_idl_row ** ovsdb_wrapper_physical_locator_set_locators(struct ovsdb_idl_row *row);
+
 /* unicast mac local */
 char *ovsdb_wrapper_ucast_mac_local_mac(struct ovsdb_idl_row *row);
 char *ovsdb_wrapper_ucast_mac_local_ip(struct ovsdb_idl_row *row);

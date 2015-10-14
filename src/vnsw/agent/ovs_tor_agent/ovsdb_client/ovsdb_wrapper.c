@@ -418,6 +418,33 @@ ovsdb_wrapper_delete_physical_locator(struct ovsdb_idl_row *row)
     vteprec_physical_locator_delete(p);
 }
 
+/* Physical Locator Set*/
+size_t
+ovsdb_wrapper_physical_locator_set_locator_count(struct ovsdb_idl_row *row)
+{
+    struct vteprec_physical_locator_set *p =
+        row ? CONTAINER_OF(row, struct vteprec_physical_locator_set,
+                           header_) : NULL;
+    if (p == NULL) {
+        return 0;
+    }
+
+    return p->n_locators;
+}
+
+struct ovsdb_idl_row **
+ovsdb_wrapper_physical_locator_set_locators(struct ovsdb_idl_row *row)
+{
+    struct vteprec_physical_locator_set *p =
+        row ? CONTAINER_OF(row, struct vteprec_physical_locator_set,
+                           header_) : NULL;
+    if (p == NULL) {
+        return NULL;
+    }
+
+    return (struct ovsdb_idl_row **)p->locators;
+}
+
 /* unicast mac local */
 char *
 ovsdb_wrapper_ucast_mac_local_mac(struct ovsdb_idl_row *row)

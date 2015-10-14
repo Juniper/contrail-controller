@@ -46,7 +46,9 @@
 #include "ovs_tor_agent/ovsdb_client/physical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/multicast_mac_local_ovsdb.h"
 #include "test_ovs_agent_init.h"
+#include "test_ovs_agent_util.h"
 #include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
 #include "test_xml_physical_device.h"
@@ -69,9 +71,18 @@ void RouterIdDepInit(Agent *agent) {
     Agent::GetInstance()->controller()->Connect();
 }
 
-class OvsBaseTest : public ::testing::Test {
+class MulticastLocalRouteTest : public ::testing::Test {
 protected:
-    OvsBaseTest() {
+    MulticastLocalRouteTest() {
+    }
+
+    MulticastMacLocalEntry *FindMcastLocal(const string &logical_switch) {
+        MulticastMacLocalOvsdb *table =
+            tcp_session_->client_idl()->multicast_mac_local_ovsdb();
+        MulticastMacLocalEntry key(table, logical_switch);
+        MulticastMacLocalEntry *entry =
+            static_cast<MulticastMacLocalEntry *> (table->Find(&key));
+        return entry;
     }
 
     virtual void SetUp() {
@@ -101,24 +112,50 @@ protected:
     OvsdbClientTcpSession *tcp_session_;
 };
 
-TEST_F(OvsBaseTest, MulticastLocalBasic) {
-    AgentUtXmlTest
-        test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/xml/multicast-local-base.xml");
+TEST_F(MulticastLocalRouteTest, MulticastLocalBasic) {
     // set current session in test context
     OvsdbTestSetSessionContext(tcp_session_);
-    AgentUtXmlOperInit(&test);
-    AgentUtXmlPhysicalDeviceInit(&test);
-    AgentUtXmlOvsdbInit(&test);
-    if (test.Load() == true) {
-        test.ReadXml();
-        string str;
-        test.ToString(&str);
-        cout << str << endl;
-        test.Run();
+    LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
+               "client/test/xml/ucast-local-test-setup.xml");
+    client->WaitForIdle();
+
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(100, 10000,
+                 (true == add_mcast_mac_local(entry->name(),
+                                              "unknow-dst",
+                                              "11.11.11.11")));
+        MulticastMacLocalEntry *mcast_entry;
+        // Wait for entry to add
+        WAIT_FOR(100, 10000,
+                 (NULL != (mcast_entry = FindMcastLocal(entry->name()))));
+
+        WAIT_FOR(100, 10000, mcast_entry->IsResolved());
+        OvsdbMulticastMacLocalReq *req = new OvsdbMulticastMacLocalReq();
+        req->HandleRequest();
+        client->WaitForIdle();
+        req->Release();
+
+        WAIT_FOR(100, 10000,
+                 (true == del_mcast_mac_local(entry->name(),
+                                              "unknow-dst", "11.11.11.11")));
+        // Wait for entry to del
+        WAIT_FOR(100, 10000,
+                 (NULL == FindMcastLocal(entry->name())));
     }
+
+    // set current session in test context
+    LoadAndRun("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_"
+               "client/test/xml/ucast-local-test-teardown.xml");
+    client->WaitForIdle();
 }
 
-TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
+TEST_F(MulticastLocalRouteTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
     //Add vrf
     VrfAddReq("vrf1");
     WAIT_FOR(100, 10000, (VrfGet("vrf1", false) != NULL));
@@ -138,6 +175,8 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
              (agent_->physical_device_table()->Find(MakeUuid(1)) != NULL));
     //Add device_vn
     AddPhysicalDeviceVn(agent_, 1, 1, true);
+
+    client->WaitForIdle();
 
     //Initialization done, now delete VRF VN link and then update VXLAN id in
     //VN.
@@ -145,6 +184,26 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
     VxLanNetworkIdentifierMode(true);
     TestClient::WaitForIdle();
 
+    std::string ls_name = UuidToString(MakeUuid(1));
+    WAIT_FOR(100, 10000,
+             (true == add_mcast_mac_local(ls_name, "unknow-dst",
+                                          "11.11.11.11")));
+    TestClient::WaitForIdle();
+    MulticastMacLocalEntry *mcast_entry;
+    // Wait for entry to add
+    WAIT_FOR(100, 10000,
+             (NULL != (mcast_entry = FindMcastLocal(ls_name))));
+    TestClient::WaitForIdle();
+
+    WAIT_FOR(100, 10000, mcast_entry->IsResolved());
+
+    WAIT_FOR(100, 10000,
+             (true == del_mcast_mac_local(ls_name, "unknow-dst",
+                                          "11.11.11.11")));
+    // Wait for entry to del
+    WAIT_FOR(100, 10000,
+             (NULL == FindMcastLocal(ls_name)));
+
     //Delete
     DelPhysicalDeviceVn(agent_, 1, 1, true);
     DBRequest del_dev_req(DBRequest::DB_ENTRY_DELETE);
@@ -160,7 +219,7 @@ TEST_F(OvsBaseTest, MulticastLocal_add_mcroute_without_vrf_vn_link_present) {
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
 
-TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_del_mcast) {
+TEST_F(MulticastLocalRouteTest, MulticastLocal_on_del_vrf_del_mcast) {
     //Add vrf
     VrfAddReq("vrf1");
     WAIT_FOR(100, 10000, (VrfGet("vrf1", false) != NULL));
@@ -180,6 +239,20 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_del_mcast) {
              (agent_->physical_device_table()->Find(MakeUuid(1)) != NULL));
     //Add device_vn
     AddPhysicalDeviceVn(agent_, 1, 1, true);
+    TestClient::WaitForIdle();
+
+    std::string ls_name = UuidToString(MakeUuid(1));
+    WAIT_FOR(100, 10000,
+             (true == add_mcast_mac_local(ls_name, "unknow-dst",
+                                          "11.11.11.11")));
+    TestClient::WaitForIdle();
+    MulticastMacLocalEntry *mcast_entry;
+    // Wait for entry to add
+    WAIT_FOR(100, 10000,
+             (NULL != (mcast_entry = FindMcastLocal(ls_name))));
+    TestClient::WaitForIdle();
+
+    WAIT_FOR(100, 10000, mcast_entry->IsResolved());
 
     //Delete
     VrfDelReq("vrf1");
@@ -188,6 +261,13 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_del_mcast) {
     //Since VRF is gone from VN even though VN is not gone, mcast entry shud be
     //gone.
     WAIT_FOR(1000, 10000, (L2RouteGet("vrf1", MacAddress::BroadcastMac()) == NULL));
+
+    WAIT_FOR(100, 10000,
+             (true == del_mcast_mac_local(ls_name, "unknow-dst",
+                                          "11.11.11.11")));
+    // Wait for entry to del
+    WAIT_FOR(100, 10000,
+             (NULL == FindMcastLocal(ls_name)));
 
     //Delete
     DelPhysicalDeviceVn(agent_, 1, 1, true);
@@ -203,7 +283,7 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_del_mcast) {
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
 
-TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
+TEST_F(MulticastLocalRouteTest, MulticastLocal_on_del_vrf_vn_link) {
     //Add vrf
     VrfAddReq("vrf1");
     WAIT_FOR(100, 10000, (VrfGet("vrf1", false) != NULL));
@@ -223,21 +303,44 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
              (agent_->physical_device_table()->Find(MakeUuid(1)) != NULL));
     //Add device_vn
     AddPhysicalDeviceVn(agent_, 1, 1, true);
+    TestClient::WaitForIdle();
+
+    std::string ls_name = UuidToString(MakeUuid(1));
+    WAIT_FOR(100, 10000,
+             (true == add_mcast_mac_local(ls_name, "unknow-dst",
+                                          "11.11.11.11")));
+    TestClient::WaitForIdle();
+    MulticastMacLocalEntry *mcast_entry;
+    // Wait for entry to add
+    WAIT_FOR(100, 10000,
+             (NULL != (mcast_entry = FindMcastLocal(ls_name))));
+    TestClient::WaitForIdle();
+
+    WAIT_FOR(100, 10000, mcast_entry->IsResolved());
 
     //To remove vrf from VN, add another non-existent vrf.
     VnAddReq(1, "vn1", "vrf2");
     //Since VRF is gone from VN even though VN is not gone, mcast entry shud be
     //gone.
     WAIT_FOR(1000, 10000, (L2RouteGet("vrf1", MacAddress::BroadcastMac()) == NULL));
+    WAIT_FOR(100, 10000, !mcast_entry->IsResolved());
     //Add back the VRF
     VnAddReq(1, "vn1", "vrf1");
     WAIT_FOR(1000, 10000, (L2RouteGet("vrf1", MacAddress::BroadcastMac()) != NULL));
+    WAIT_FOR(100, 10000, mcast_entry->IsResolved());
 
     OvsdbMulticastMacLocalReq *mcast_req = new OvsdbMulticastMacLocalReq();
     mcast_req->HandleRequest();
     client->WaitForIdle();
     mcast_req->Release();
 
+    WAIT_FOR(100, 10000,
+             (true == del_mcast_mac_local(ls_name, "unknow-dst",
+                                          "11.11.11.11")));
+    // Wait for entry to del
+    WAIT_FOR(100, 10000,
+             (NULL == FindMcastLocal(ls_name)));
+
     //Delete
     DelPhysicalDeviceVn(agent_, 1, 1, true);
     DBRequest del_dev_req(DBRequest::DB_ENTRY_DELETE);
@@ -253,7 +356,7 @@ TEST_F(OvsBaseTest, MulticastLocal_on_del_vrf_vn_link) {
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
 
-TEST_F(OvsBaseTest, tunnel_nh_ovs_multicast) {
+TEST_F(MulticastLocalRouteTest, tunnel_nh_ovs_multicast) {
     // Take reference to idl so that session object itself is not deleted.
     OvsdbClientIdlPtr tcp_idl = tcp_session_->client_idl();
     // disable reconnect to Ovsdb Server
@@ -347,6 +450,11 @@ int main(int argc, char *argv[]) {
     // override with true to initialize ovsdb server and client
     ksync_init = true;
     client = OvsTestInit(init_file, ksync_init);
+
+    // override signal handler to default for SIGCHLD, for system() api
+    // to work and return exec status appropriately
+    signal(SIGCHLD, SIG_DFL);
+
     boost::system::error_code ec;
     bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                               "xmpp channel");
