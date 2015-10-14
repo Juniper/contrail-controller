@@ -20,6 +20,7 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
+#include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
@@ -57,9 +58,10 @@ class BgpTable::DeleteActor : public LifetimeActor {
 };
 
 BgpTable::BgpTable(DB *db, const string &name)
-        : RouteTable(db, name),
-          rtinstance_(NULL),
-          instance_delete_ref_(this, NULL) {
+    : RouteTable(db, name),
+      rtinstance_(NULL),
+      path_resolver_(NULL),
+      instance_delete_ref_(this, NULL) {
     primary_path_count_ = 0;
     secondary_path_count_ = 0;
     infeasible_path_count_ = 0;
@@ -71,6 +73,7 @@ BgpTable::BgpTable(DB *db, const string &name)
 // via the reference.
 //
 BgpTable::~BgpTable() {
+    assert(path_resolver_ == NULL),
     instance_delete_ref_.Reset(NULL);
 }
 
@@ -79,6 +82,7 @@ void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     assert(rtinstance);
     deleter_.reset(new DeleteActor(this));
     instance_delete_ref_.Reset(rtinstance->deleter());
+    path_resolver_ = CreatePathResolver();
 }
 
 BgpServer *BgpTable::server() {
@@ -461,6 +465,17 @@ void BgpTable::RetryDelete() {
     if (!deleter()->IsDeleted())
         return;
     deleter()->RetryDelete();
+}
+
+PathResolver *BgpTable::CreatePathResolver() {
+    return NULL;
+}
+
+void BgpTable::DestroyPathResolver() {
+    if (!path_resolver_)
+        return;
+    delete path_resolver_;
+    path_resolver_ = NULL;
 }
 
 size_t BgpTable::GetPendingRiboutsCount(size_t *markers) const {

@@ -13,14 +13,15 @@
 #include <vector>
 
 #include "base/util.h"
-#include "db/db_entry.h"
 #include "bgp/bgp_condition_listener.h"
-#include "bgp/bgp_table.h"
 #include "net/address.h"
 
 class BgpPath;
 class BgpRoute;
 class BgpServer;
+class BgpTable;
+class DBEntryBase;
+class DBTablePartBase;
 class DeleteActor;
 class PathResolverPartition;
 class ResolverNexthop;
@@ -32,11 +33,12 @@ class TaskTrigger;
 // with BgpPaths that need resolution will have an instance of PathResolver.
 //
 // The [Start|Update|Stop]PathResolution APIs are invoked by PathResolution
-// clients as required. They have to be invoked in context of the db::DBTable
-// Task.
+// clients explicitly as required. They have to be invoked in context of the
+// db::DBTable Task.
 //
 // The listener_id is used by ResolverPath to set ResolverRouteState on the
-// BgpRoute for the BgpPaths in question.
+// BgpRoute for the BgpPaths in question. The PathResolver doesn't actually
+// listen to notifications for routes in the BgpTable.
 //
 // The nexthop map keeps track of all ResolverNexthop for this instance. In
 // addition, a given ResolverNexthop may be on the register/unregister list
@@ -51,6 +53,11 @@ class TaskTrigger;
 // the ConditionMatch from the BgpConditionListener.  This is done because
 // the BgpConditionListener expects these operations to be made in context
 // of bgp::Config Task.
+//
+// When a ResolverNexthop is removed the BgpConditionListener, it is added
+// to the delete list. This is required because remove call is asynchronous.
+// When BgpConditionListener invokes the remove request done callback, the
+// ResolverNexthop is removed from the delete list and deleted.
 //
 // The update list is processed in the context of bgp::ResolverNexthop Task.
 // When an entry on this list is processed all it's dependent ResolverPaths
@@ -70,31 +77,43 @@ class TaskTrigger;
 //
 class PathResolver {
 public:
-    PathResolver(BgpTable *table);
+    explicit PathResolver(BgpTable *table);
     ~PathResolver();
 
     void StartPathResolution(int part_id, const BgpPath *path, BgpRoute *route);
     void UpdatePathResolution(int part_id, const BgpPath *path);
     void StopPathResolution(int part_id, const BgpPath *path);
 
-    void RegisterUnregisterResolverNexthop(ResolverNexthop *rnexthop);
-    void UpdateResolverNexthop(ResolverNexthop *rnexthop);
-
     BgpTable *table() { return table_; }
-    Address::Family family() const { return table_->family(); }
+    Address::Family family() const;
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
 
+    bool IsDeleted() const;
     void ManagedDelete();
-    bool IsDeleted() const { return deleter()->IsDeleted(); }
-
-    LifetimeActor *deleter();
-    const LifetimeActor *deleter() const;
+    bool MayDelete() const;
+    void RetryDelete();
 
 private:
+    friend class PathResolverPartition;
+    friend class ResolverNexthop;
+
+    class DeleteActor;
     typedef std::map<IpAddress, ResolverNexthop *> ResolverNexthopMap;
     typedef std::set<ResolverNexthop *> ResolverNexthopList;
 
-    PathResolverPartition *GetPartition(int index);
+    PathResolverPartition *GetPartition(int part_id);
+
+    ResolverNexthop *LocateResolverNexthop(IpAddress address);
+    void RemoveResolverNexthop(ResolverNexthop *rnexthop);
+    void UpdateResolverNexthop(ResolverNexthop *rnexthop);
+    void RegisterUnregisterResolverNexthop(ResolverNexthop *rnexthop);
+
+    void UnregisterResolverNexthopDone(BgpTable *table, ConditionMatch *match);
+    bool ProcessResolverNexthopRegUnreg(ResolverNexthop *rnexthop);
+    bool ProcessResolverNexthopRegUnregList();
+    bool ProcessResolverNexthopUpdateList();
+
+    bool RouteListener(DBTablePartBase *root, DBEntryBase *entry);
 
     BgpTable *table_;
     BgpConditionListener *condition_listener_;
@@ -105,6 +124,7 @@ private:
     boost::scoped_ptr<TaskTrigger> nexthop_reg_unreg_trigger_;
     ResolverNexthopList nexthop_update_list_;
     boost::scoped_ptr<TaskTrigger> nexthop_update_trigger_;
+    ResolverNexthopList nexthop_delete_list_;
     std::vector<PathResolverPartition *> partitions_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<PathResolver> table_delete_ref_;
@@ -130,7 +150,7 @@ private:
 //
 class PathResolverPartition {
 public:
-    PathResolverPartition(int index, PathResolver *resolver);
+    PathResolverPartition(int part_id, PathResolver *resolver);
     ~PathResolverPartition();
 
     void StartPathResolution(const BgpPath *path, BgpRoute *route);
@@ -139,7 +159,7 @@ public:
 
     void TriggerPathResolution(ResolverPath *rpath);
 
-    int index() const { return index_; }
+    int part_id() const { return part_id_; }
     DBTableBase::ListenerId listener_id() const {
         return resolver_->listener_id();
     }
@@ -150,14 +170,17 @@ private:
     typedef std::map<const BgpPath *, ResolverPath *> PathToResolverPathMap;
     typedef std::set<ResolverPath *> ResolverPathList;
 
-    ResolverPath *LocateResolverPath(const BgpPath *path, BgpRoute *route);
+    ResolverPath *CreateResolverPath(const BgpPath *path, BgpRoute *route,
+        ResolverNexthop *rnexthop);
     ResolverPath *FindResolverPath(const BgpPath *path);
+    ResolverPath *RemoveResolverPath(const BgpPath *path);
+    bool ProcessResolverPathUpdateList();
 
-    int index_;
+    int part_id_;
     PathResolver *resolver_;
     PathToResolverPathMap rpath_map_;
-    ResolverPathList update_list_;
-    boost::scoped_ptr<TaskTrigger> update_list_trigger_;
+    ResolverPathList rpath_update_list_;
+    boost::scoped_ptr<TaskTrigger> rpath_update_trigger_;
 
     DISALLOW_COPY_AND_ASSIGN(PathResolverPartition);
 };
@@ -175,6 +198,9 @@ public:
     ResolverRouteState(PathResolverPartition *partition, BgpRoute *route);
     ~ResolverRouteState();
 
+    static ResolverRouteState *LocateState(PathResolverPartition *partition,
+        BgpRoute *route);
+
 private:
     friend void intrusive_ptr_add_ref(ResolverRouteState *state);
     friend void intrusive_ptr_release(ResolverRouteState *state);
@@ -190,12 +216,8 @@ inline void intrusive_ptr_add_ref(ResolverRouteState *state) {
 
 inline void intrusive_ptr_release(ResolverRouteState *state) {
     assert(state->refcount_ != 0);
-    if (--state->refcount_ == 0) {
-        BgpRoute *route = state->route_;
-        PathResolverPartition *partition = state->partition_;
-        route->ClearState(partition->table(), partition->listener_id());
+    if (--state->refcount_ == 0)
         delete state;
-    }
 }
 
 typedef boost::intrusive_ptr<ResolverRouteState> ResolverRouteStatePtr;
@@ -229,12 +251,15 @@ typedef boost::intrusive_ptr<ResolverRouteState> ResolverRouteStatePtr;
 class ResolverPath {
 public:
     ResolverPath(PathResolverPartition *partition, const BgpPath *path,
-        BgpRoute *route);
+        BgpRoute *route, ResolverNexthop *rnexthop);
     ~ResolverPath();
+
     bool UpdateResolvedPaths();
 
     PathResolverPartition *partition() const { return partition_; }
     BgpRoute *route() const { return route_; }
+    const ResolverNexthop *rnexthop() const { return rnexthop_; }
+    void clear_path() { path_ = NULL; }
 
 private:
     typedef std::list<BgpPath *> ResolvedPathList;
@@ -290,8 +315,9 @@ private:
 class ResolverNexthop : public ConditionMatch {
 public:
     ResolverNexthop(PathResolver *resolver, IpAddress address);
-    ~ResolverNexthop();
+    virtual ~ResolverNexthop();
 
+    virtual std::string ToString() const;
     virtual bool Match(BgpServer *server, BgpTable *table, BgpRoute *route,
         bool deleted);
     void AddResolverPath(int part_id, ResolverPath *rpath);
@@ -299,10 +325,12 @@ public:
 
     void TriggerAllResolverPaths() const;
 
+    IpAddress address() const { return address_; }
     const BgpRoute *route() { return route_; }
     bool empty() const;
     bool registered() const { return registered_; }
     void set_registered() { registered_ = true; }
+    void clear_registered() { registered_ = false; }
 
 private:
     typedef std::set<ResolverPath *> ResolverPathList;

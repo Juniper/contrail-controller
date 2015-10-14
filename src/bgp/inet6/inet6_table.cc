@@ -9,9 +9,14 @@
 
 #include "base/util.h"
 #include "bgp/bgp_path.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
+#include "bgp/routing-instance/path_resolver.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
+
+Inet6Table::Inet6Table(DB *db, const std::string &name)
+    : BgpTable(db, name) {
+}
 
 size_t Inet6Table::HashFunction(const Inet6Prefix &prefix) {
     const Ip6Address::bytes_type &addr_bytes = prefix.ToBytes();
@@ -129,6 +134,12 @@ bool Inet6Table::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
     assert(ribout->ExportPolicy().encoding == RibExportPolicy::XMPP);
     uinfo_slist->push_front(*uinfo);
     return true;
+}
+
+PathResolver *Inet6Table::CreatePathResolver() {
+    if (routing_instance()->IsDefaultRoutingInstance())
+        return NULL;
+    return (new PathResolver(this));
 }
 
 static void RegisterFactory() {

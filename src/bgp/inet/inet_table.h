@@ -14,6 +14,7 @@
 
 class Ip4Prefix;
 class BgpServer;
+class PathResolver;
 
 class InetTable : public BgpTable {
 public:
@@ -41,6 +42,7 @@ public:
     virtual bool Export(RibOut *ribout, Route *route,
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
+    virtual PathResolver *CreatePathResolver();
 
     static size_t HashFunction(const Ip4Prefix &addr);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
