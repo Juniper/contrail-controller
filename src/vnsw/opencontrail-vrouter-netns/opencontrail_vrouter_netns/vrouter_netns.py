@@ -124,16 +124,18 @@ class NetnsManager(object):
 
 
     def _get_lbaas_pid(self):
-        cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
-              """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
+        pid_file = self.cfg_file + ".pid"
+        cmd = """cat %(file)s """ % {'file':pid_file}
         try:
-            s = subprocess.check_output(cmd, shell=True)
+            if "check_output" not in dir(subprocess):
+                s = _check_output(cmd)
+            else:
+                s = subprocess.check_output(cmd, shell=True)
+
         except subprocess.CalledProcessError:
             return None
-        words = s.split()
-        pid = int(words[1])
-        return pid
 
+        return s
 
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
