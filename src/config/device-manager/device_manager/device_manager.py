@@ -40,6 +40,7 @@ from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
     GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
+from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -115,6 +116,8 @@ class DeviceManager(object):
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
                 ModuleNames[Module.DEVICE_MANAGER])
+
+        PushConfigState.set_config_push_interval(int(self._args.push_config_interval))
 
         self._sandesh = Sandesh()
         module = Module.DEVICE_MANAGER
@@ -378,6 +381,7 @@ def parse_args(args_str):
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
+                         --push_config_interval 16
                          [--reset_config]
     '''
 
@@ -412,6 +416,7 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
+        'push_config_interval': '16',
     }
     secopts = {
         'use_certs': False,
@@ -495,6 +500,8 @@ def parse_args(args_str):
                         help="Tenant name for keystone admin user")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument("--push_config_interval",
+                        help="time interval for config re push")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
