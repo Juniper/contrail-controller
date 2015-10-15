@@ -108,6 +108,7 @@ public:
     virtual void set_routing_instance(RoutingInstance *rtinstance);
     BgpServer *server();
     const BgpServer *server() const;
+    PathResolver *path_resolver() { return path_resolver_; }
 
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);

@@ -197,16 +197,15 @@ void PathResolver::RemoveResolverNexthop(ResolverNexthop *rnexthop) {
     assert(loc != nexthop_map_.end());
     nexthop_map_.erase(loc);
     nexthop_update_list_.erase(rnexthop);
-    if (rnexthop->registered())
-        nexthop_delete_list_.insert(rnexthop);
 }
 
 //
-// Callback for ConditionMatch remove operation to BgpConditionListener.
+// Callback for BgpConditionListener::RemoveMatchCondition operation for
+// a ResolverNexthop.
 //
-// It's safe to destroy the ResolverNexthop at this point. It may also now be
-// feasible to go ahead and proceed with deletion of the PathResolver itself
-// if this was the last ResolverNexthop pending removal.
+// It's safe to unregister the ResolverNexthop at this point. However the
+// operation cannot be done in the context of db::DBTable Task. Enqueue the
+// ResolverNexthop to the register/unregister list.
 //
 void PathResolver::UnregisterResolverNexthopDone(BgpTable *table,
     ConditionMatch *match) {
@@ -214,13 +213,10 @@ void PathResolver::UnregisterResolverNexthopDone(BgpTable *table,
 
     ResolverNexthop *rnexthop = dynamic_cast<ResolverNexthop *>(match);
     assert(rnexthop);
-    assert(!rnexthop->registered());
-
-    tbb::mutex::scoped_lock lock(mutex_);
-    nexthop_delete_list_.erase(rnexthop);
-    if (MayDelete())
-        RetryDelete();
-    delete rnexthop;
+    assert(rnexthop->registered());
+    assert(rnexthop->deleted());
+    assert(nexthop_delete_list_.find(rnexthop) != nexthop_delete_list_.end());
+    RegisterUnregisterResolverNexthop(rnexthop);
 }
 
 //
@@ -232,24 +228,37 @@ bool PathResolver::ProcessResolverNexthopRegUnreg(ResolverNexthop *rnexthop) {
     CHECK_CONCURRENCY("bgp::Config");
 
     if (rnexthop->registered()) {
-        // Unregister the ResolverNexthop from BgpConditionListener if there
-        // are no more ResolverPaths using it.
-        if (rnexthop->empty()) {
+        if (rnexthop->deleted()) {
+            // Unregister the ResolverNexthop from BgpConditionListener since
+            // remove operation has been completed. This is the final step in
+            // the lifetime of ResolverNexthop - the ResolverNexthop will get
+            // deleted when unregister is called.
+            nexthop_delete_list_.erase(rnexthop);
+            condition_listener_->UnregisterCondition(table_, rnexthop);
+        } else if (rnexthop->empty()) {
+            // Remove the ResolverNexthop from BgpConditionListener as there
+            // are no more ResolverPaths using it. Insert it into the delete
+            // list while remove and unregister operations are still pending.
+            // This prevents premature deletion of the PathResolver itself.
+            // Note that BgpConditionListener marks the ResolverNexthop as
+            // deleted as part of the remove operation.
             RemoveResolverNexthop(rnexthop);
+            nexthop_delete_list_.insert(rnexthop);
             BgpConditionListener::RequestDoneCb cb = boost::bind(
                 &PathResolver::UnregisterResolverNexthopDone, this, _1, _2);
             condition_listener_->RemoveMatchCondition(table_, rnexthop, cb);
-            rnexthop->clear_registered();
         }
     } else {
-        // Register the ResolverNexthop if there's at least one ResolverPath
-        // using it. It can be deleted right away if there's no ResolverPaths
-        // using it.
         if (!rnexthop->empty()) {
+            // Register ResolverNexthop to BgpConditionListener since there's
+            // one or more ResolverPaths using it.
             condition_listener_->AddMatchCondition(
                 table_, rnexthop, BgpConditionListener::RequestDoneCb());
             rnexthop->set_registered();
         } else {
+            // The ResolverNexthop can be deleted right away since there are
+            // no ResolverPaths using it. This happens in corner cases where
+            // ResolverPaths are added and deleted rapidly.
             RemoveResolverNexthop(rnexthop);
             return true;
         }
@@ -314,7 +323,8 @@ bool PathResolver::MayDelete() const {
         return false;
     if (!nexthop_delete_list_.empty())
         return false;
-    assert(nexthop_reg_unreg_list_.empty());
+    if (!nexthop_reg_unreg_list_.empty())
+        return false;
     assert(nexthop_update_list_.empty());
     return true;
 }
@@ -332,6 +342,22 @@ void PathResolver::RetryDelete() {
 // remove this method.
 bool PathResolver::RouteListener(DBTablePartBase *root, DBEntryBase *entry) {
     return true;
+}
+
+//
+// Disable processing of the register/unregister list.
+// For testing only.
+//
+void PathResolver::DisableRegUnregProcessing() {
+    nexthop_reg_unreg_trigger_->set_disable();
+}
+
+//
+// Enable processing of the register/unregister list.
+// For testing only.
+//
+void PathResolver::EnableRegUnregProcessing() {
+    nexthop_reg_unreg_trigger_->set_enable();
 }
 
 //

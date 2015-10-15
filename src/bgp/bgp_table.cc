@@ -279,6 +279,8 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                 (path->GetLabel() != label)) {
                 // Update Attributes and notify (if needed)
                 is_stale = path->IsStale();
+                if (path->NeedsResolution())
+                    path_resolver_->StopPathResolution(root->index(), path);
                 rt->DeletePath(path);
             } else {
                 // Ignore duplicate update.
@@ -296,6 +298,8 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             new_path->SetStale();
         }
 
+        if (new_path->NeedsResolution())
+            path_resolver_->StartPathResolution(root->index(), new_path, rt);
         rt->InsertPath(new_path);
         root->Notify(rt);
         break;
@@ -307,6 +311,8 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                           "Delete BGP path");
 
             // Remove the Path from the route
+            if (path->NeedsResolution())
+                path_resolver_->StopPathResolution(root->index(), path);
             rt->RemovePath(BgpPath::BGP_XMPP, peer, path_id);
 
             // Delete the route only if all paths are gone.

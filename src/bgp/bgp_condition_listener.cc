@@ -166,7 +166,7 @@ void BgpConditionListener::AddMatchCondition(BgpTable *table,
             table->Register(
                 boost::bind(&BgpConditionListener::BgpRouteNotify,
                     this, server(), _1, _2),
-                obj->ToString());
+                "BgpConditionListener");
         ts = new ConditionMatchTableState(table, id);
         map_.insert(make_pair(table, ts));
     } else {

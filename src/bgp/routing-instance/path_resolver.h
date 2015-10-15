@@ -50,14 +50,16 @@ class TaskTrigger;
 //
 // The register/unregister list is processed in the context of bgp::Config
 // Task. ResolverNexthops are added to this list when we need to add/remove
-// the ConditionMatch from the BgpConditionListener.  This is done because
+// or unregister them to/from the BgpConditionListener. This is done since
 // the BgpConditionListener expects these operations to be made in context
 // of bgp::Config Task.
 //
 // When a ResolverNexthop is removed the BgpConditionListener, it is added
 // to the delete list. This is required because remove call is asynchronous.
 // When BgpConditionListener invokes the remove request done callback, the
-// ResolverNexthop is removed from the delete list and deleted.
+// ResolverNexthop is added to the register/unregister list again. It gets
+// erased from the delete list and unregistered from BgpConditionListener
+// after the list is processed again.
 //
 // The update list is processed in the context of bgp::ResolverNexthop Task.
 // When an entry on this list is processed all it's dependent ResolverPaths
@@ -96,6 +98,7 @@ public:
 private:
     friend class PathResolverPartition;
     friend class ResolverNexthop;
+    friend class PathResolverTest;
 
     class DeleteActor;
     typedef std::map<IpAddress, ResolverNexthop *> ResolverNexthopMap;
@@ -115,6 +118,9 @@ private:
 
     bool RouteListener(DBTablePartBase *root, DBEntryBase *entry);
 
+    void DisableRegUnregProcessing();
+    void EnableRegUnregProcessing();
+
     BgpTable *table_;
     BgpConditionListener *condition_listener_;
     DBTableBase::ListenerId listener_id_;
@@ -126,6 +132,7 @@ private:
     boost::scoped_ptr<TaskTrigger> nexthop_update_trigger_;
     ResolverNexthopList nexthop_delete_list_;
     std::vector<PathResolverPartition *> partitions_;
+
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<PathResolver> table_delete_ref_;
 
@@ -299,8 +306,10 @@ private:
 // in the PathResolver. The list is processed in the bgp::Config Task. If
 // the ResolverNexthop is empty i.e. not being used by any ResolverPaths,
 // the ConditionMatch is removed from the BgpConditionListener and is also
-// erased from the map in the PathResolver. Deletion happens when remove
-// done callback is invoked from BgpConditionListener.
+// erased from the map in the PathResolver. When the remove done callback
+// gets invoked from BgpConditionListener, the ResolverNexthop is added to
+// the register/unregistration list again. It's finally unregistered when
+// the list is processed again.
 //
 // The registered flag keeps track of whether the ResolverNexthop has been
 // registered with the BgpConditionListener.  It's needed to handle corner
@@ -330,7 +339,6 @@ public:
     bool empty() const;
     bool registered() const { return registered_; }
     void set_registered() { registered_ = true; }
-    void clear_registered() { registered_ = false; }
 
 private:
     typedef std::set<ResolverPath *> ResolverPathList;
