@@ -575,7 +575,6 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
 
     stringstream pathgen;
     pathgen << loadbalancer_config_path() << lbid << "/conf.json";
-
     boost::filesystem::path config(pathgen.str());
     std::time_t old_time =
         boost::filesystem::last_write_time(pathgen.str());
