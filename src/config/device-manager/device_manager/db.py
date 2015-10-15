@@ -105,7 +105,8 @@ class PhysicalRouterDM(DBBase):
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
             self.management_ip, self.user_credentials, self.vendor,
-            self.product, self.vnc_managed, self._logger)
+            self.product, self._logger)
+        self.set_conf_sent_state(False)
         self.uve_send()
     # end __init__
 
@@ -129,7 +130,7 @@ class PhysicalRouterDM(DBBase):
         if self.config_manager is not None:
             self.config_manager.update(
                 self.management_ip, self.user_credentials, self.vendor,
-                self.product, self.vnc_managed)
+                self.product)
     # end update
 
     @classmethod
@@ -150,6 +151,14 @@ class PhysicalRouterDM(DBBase):
             return True
         return False
     #end is_junos_service_ports_enabled
+
+    def block_and_set_config_state(self, timeout):
+        try:
+            if self.nc_q.get(True, timeout) is not None:
+                self.set_config_state()
+        except queue.Empty:
+            self.set_config_state()
+    #end block_and_set_config_state
 
     def set_config_state(self):
         try:
@@ -296,7 +305,50 @@ class PhysicalRouterDM(DBBase):
         return vn_dict
     #end
 
+
+    def is_vnc_managed(self):
+
+        if (self.vendor is None or self.product is None or
+               self.vendor.lower() != "juniper" or self.product.lower()[:2] != "mx"):
+            self._logger.info("auto configuraion of physical router is not supported \
+               vendor family(%s:%s), ip: %s, not pushing netconf message" % \
+                     (str(self.vendor),  str(self.product), self.management_ip))
+            return False
+
+        if not self.vnc_managed:
+            self._logger.info("vnc managed property must be set for a physical router to get auto \
+                configured, ip: %s, not pushing netconf message" % (self.management_ip))
+            return False
+        return True
+
+    #end is_vnc_managed
+
+    def set_conf_sent_state(self, state):
+        self.config_sent = state
+    #end set_conf_sent_state
+
+    def is_conf_sent(self):
+        return self.config_sent
+    #end is_conf_sent
+
+    def delete_config(self):
+        if not self.is_vnc_managed() and self.is_conf_sent():
+            # user must have unset the vnc managed property
+            self.config_manager.delete_bgp_config()
+            if self.config_manager.retry():
+                self.block_and_set_config_state(self.config_manager.get_repush_interval())
+                return True
+            self.set_conf_sent_state(False)
+            self.uve_send()
+            return True
+        return False
+    #end delete_config
+
     def push_config(self):
+
+        if self.delete_config():
+            return
+
         self.config_manager.reset_bgp_config()
         bgp_router = BgpRouterDM.get(self.bgp_router)
         if bgp_router:
@@ -396,7 +448,10 @@ class PhysicalRouterDM(DBBase):
                                                          vn_obj.instance_ip_map, vn_obj.vn_network_id)
 
         self.config_manager.send_bgp_config()
+        self.set_conf_sent_state(True)
         self.uve_send()
+        if self.config_manager.retry():
+            self.block_and_set_config_state(self.config_manager.get_repush_interval())
     # end push_config
 
     def is_service_port_id_valid(self, service_port_id):
@@ -421,13 +476,14 @@ class PhysicalRouterDM(DBBase):
 
         commit_stats = self.config_manager.get_commit_stats()
 
-        if commit_stats['netconf_enabled'] is True:
+        if self.is_vnc_managed():
+            pr_trace.netconf_enabled_status = True
             pr_trace.last_commit_time = commit_stats['last_commit_time']
             pr_trace.last_commit_duration = commit_stats['last_commit_duration']
             pr_trace.commit_status_message = commit_stats['commit_status_message']
             pr_trace.total_commits_sent_since_up = commit_stats['total_commits_sent_since_up']
         else:
-            pr_trace.netconf_enabled_status = commit_stats['netconf_enabled_status']
+            pr_trace.netconf_enabled_status = False
 
         pr_msg = UvePhysicalRouterConfigTrace(data=pr_trace, sandesh=PhysicalRouterDM._sandesh)
         pr_msg.send(sandesh=PhysicalRouterDM._sandesh)
