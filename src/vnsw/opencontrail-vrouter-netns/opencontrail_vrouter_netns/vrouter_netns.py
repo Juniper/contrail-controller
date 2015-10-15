@@ -32,6 +32,7 @@ import uuid
 import subprocess
 import requests
 import json
+import os
 
 from linux import ip_lib
 
@@ -129,8 +130,8 @@ class NetnsManager(object):
                                  'dev', str(self.nic_left['name'])])
 
     def _get_lbaas_pid(self):
-        cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
-              """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
+        pid_file = self.cfg_file + ".pid"
+        cmd = """cat %(file)s """ % {'file':pid_file}
         try:
             if "check_output" not in dir(subprocess):
                 s = _check_output(cmd)
@@ -139,9 +140,7 @@ class NetnsManager(object):
                 
         except subprocess.CalledProcessError:
             return None
-        words = s.split()
-        pid = int(words[1])
-        return pid
+        return int(s)
 
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -179,9 +178,21 @@ class NetnsManager(object):
                     s = _check_output(cmd)
                 else:
                     s = subprocess.check_output(cmd, shell=True)
-                print ("Haproxy process with pid %d config file %s killed" %(pid, self.cfg_file), file=sys.stderr)
             except subprocess.CalledProcessError:
                 print ("SIGKILL Error for pid %d %s" %(pid, self.cfg_file), file=sys.stderr)
+
+            pfile = self.cfg_file + ".pid"
+            if not os.path.exists(pfile):
+                return
+
+            cmd = """rm -f %(pid_file)s""" % {'pid_file':pfile}
+            try:
+                if "check_output" not in dir(subprocess):
+                    s = _check_output(cmd)
+                else:
+                    s = subprocess.check_output(cmd, shell=True)
+            except subprocess.CalledProcessError:
+                print ("Error in deleting pidfile %s %s" %(pfile, self.cfg_file), file=sys.stderr)
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
