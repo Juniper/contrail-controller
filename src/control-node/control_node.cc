@@ -13,71 +13,62 @@ DiscoveryServiceClient* ControlNode::ds_client_;
 bool ControlNode::test_mode_;
 
 //
-// Default scheduler policy for control-node daemon and test processes
+// Default scheduler policy for control-node daemon and test processes.
 //
 void ControlNode::SetDefaultSchedulingPolicy() {
-    static bool policy_set_;
+    static bool policy_set;
 
-    if (policy_set_) return;
+    if (policy_set)
+        return;
+    policy_set = true;
 
-    policy_set_ = true;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    TaskPolicy exclude_all;
-    const char *task_ids[] = {
-        "bgp::Config",
-        "bgp::RTFilter",
-        "bgp::SendTask",
-        "bgp::ServiceChain",
-        "bgp::StateMachine",
-        "bgp::PeerMembership",
-        "db::DBTable",
-        "io::ReaderTask",
-        "ifmap::StateMachine",
-        "xmpp::StateMachine",
-        "timer::TimerTask",
-        "bgp::ShowCommand",
-        "bgp::SendReadyTask",
-        "bgp::StaticRoute",
-    };
-    int arraysize = sizeof(task_ids) / sizeof(char *);
-    for (int i = 0; i < arraysize; ++i) {
-        int task_id = scheduler->GetTaskId(task_ids[i]);
-        exclude_all.push_back(TaskExclusion(task_id));
-    }
-    scheduler->SetPolicy(scheduler->GetTaskId("bgp::Config"), exclude_all);
 
-    // Both ServiceChain and StaticRoute task have same mutual exclusion 
-    // task policy
-    TaskPolicy mutual_exc_service_chain;
-    const char *svc_chain_exclusion_task_ids[] = {
-        "bgp::Config",
-        "bgp::PeerMembership",
-        "bgp::ServiceChain",
-        "bgp::StaticRoute",
-        "db::DBTable",
-    };
-    arraysize = sizeof(svc_chain_exclusion_task_ids) / sizeof(char *);
-    for (int i = 0; i < arraysize; ++i) {
-        int task_id = scheduler->GetTaskId(svc_chain_exclusion_task_ids[i]);
-        mutual_exc_service_chain.push_back(TaskExclusion(task_id));
-    }
+    // Policy for bgp::Config Task.
+    TaskPolicy config_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
+        (TaskExclusion(scheduler->GetTaskId("ifmap::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("xmpp::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("timer::TimerTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendReadyTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::Config"), config_policy);
+
+    // Policy for bgp::ServiceChain and bgp::StaticRoute Tasks.
+    TaskPolicy static_service_chain_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::ServiceChain"),
-                            mutual_exc_service_chain);
+        static_service_chain_policy);
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StaticRoute"),
-                            mutual_exc_service_chain);
+        static_service_chain_policy);
 
 
-    // TODO: There should be exclusion between Reader and StateMachine
-    // tasks with the same index only (vs all indices).
-    TaskPolicy sm_task_policy = boost::assign::list_of
+    // Policy for bgp::StateMachine and xmpp::StateMachine Tasks.
+    // There should be exclusion between Reader and StateMachine
+    // tasks with the same index only (as opposed to all indices).
+    TaskPolicy sm_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StateMachine"),
-                            sm_task_policy);
+        sm_policy);
     scheduler->SetPolicy(scheduler->GetTaskId("xmpp::StateMachine"),
-                            sm_task_policy);
+        sm_policy);
 
-    TaskPolicy peer_membership_policy =
-        boost::assign::list_of
+    // Policy for bgp::PeerMembership Task.
+    TaskPolicy peer_membership_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -86,20 +77,37 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
         (TaskExclusion(scheduler->GetTaskId("xmpp::StateMachine")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::PeerMembership"),
-                            peer_membership_policy);
+        peer_membership_policy);
 
-    TaskPolicy exclude_send_ready = 
-        boost::assign::list_of
+    // Policy for bgp::SendReadyTask Task.
+    TaskPolicy send_ready_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")));
-    scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"), exclude_send_ready);
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"),
+        send_ready_policy);
 
-    TaskPolicy rtfilter_task_policy =
-        boost::assign::list_of
+    // Policy for bgp::RTFilter Task.
+    TaskPolicy rtfilter_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RTFilter"),
-                            rtfilter_task_policy);
+        rtfilter_policy);
+
+    // Policy for bgp::ResolverPath Task.
+    TaskPolicy resolver_path_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::ResolverPath"),
+        resolver_path_policy);
+
+    // Policy for bgp::ResolverNexthop Task.
+    TaskPolicy resolver_nexthop_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::ResolverNexthop"),
+        resolver_nexthop_policy);
 }

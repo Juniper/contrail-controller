@@ -5,6 +5,15 @@
 #include "bgp/routing-instance/path_resolver.h"
 
 #include "base/task_annotations.h"
+#include "base/lifetime.h"
+#include "base/set_util.h"
+#include "base/task.h"
+#include "base/task_annotations.h"
+#include "base/task_trigger.h"
+#include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
+#include "bgp/inet/inet_route.h"
+#include "bgp/inet6/inet6_route.h"
 
 using std::make_pair;
 using std::string;
@@ -229,7 +238,7 @@ bool PathResolver::ProcessResolverNexthopRegUnreg(ResolverNexthop *rnexthop) {
             // the lifetime of ResolverNexthop - the ResolverNexthop will get
             // deleted when unregister is called.
             nexthop_delete_list_.erase(rnexthop);
-            condition_listener_->UnregisterCondition(table_, rnexthop);
+            condition_listener_->UnregisterMatchCondition(table_, rnexthop);
         } else if (rnexthop->empty()) {
             // Remove the ResolverNexthop from BgpConditionListener as there
             // are no more ResolverPaths using it. Insert it into the delete
@@ -343,7 +352,7 @@ bool PathResolver::RouteListener(DBTablePartBase *root, DBEntryBase *entry) {
 // Disable processing of the register/unregister list.
 // For testing only.
 //
-void PathResolver::DisableRegUnregProcessing() {
+void PathResolver::DisableResolverNexthopRegUnregProcessing() {
     nexthop_reg_unreg_trigger_->set_disable();
 }
 
@@ -351,10 +360,75 @@ void PathResolver::DisableRegUnregProcessing() {
 // Enable processing of the register/unregister list.
 // For testing only.
 //
-void PathResolver::EnableRegUnregProcessing() {
+void PathResolver::EnableResolverNexthopRegUnregProcessing() {
     nexthop_reg_unreg_trigger_->set_enable();
 }
 
+//
+// Get size of the update list.
+// For testing only.
+//
+size_t PathResolver::GetResolverNexthopRegUnregListSize() const {
+    return nexthop_reg_unreg_list_.size();
+}
+
+//
+// Disable processing of the update list.
+// For testing only.
+//
+void PathResolver::DisableResolverNexthopUpdateProcessing() {
+    nexthop_update_trigger_->set_disable();
+}
+
+//
+// Enable processing of the update list.
+// For testing only.
+//
+void PathResolver::EnableResolverNexthopUpdateProcessing() {
+    nexthop_update_trigger_->set_enable();
+}
+
+//
+// Get size of the update list.
+// For testing only.
+//
+size_t PathResolver::GetResolverNexthopUpdateListSize() const {
+    return nexthop_update_list_.size();
+}
+
+//
+// Disable processing of the path update list in all partitions.
+// For testing only.
+//
+void PathResolver::DisableResolverPathUpdateProcessing() {
+    for (int part_id = 0; part_id < DB::PartitionCount(); ++part_id) {
+        partitions_[part_id]->DisableResolverPathUpdateProcessing();
+    }
+}
+
+//
+// Enable processing of the path update list in all partitions.
+// For testing only.
+//
+void PathResolver::EnableResolverPathUpdateProcessing() {
+    for (int part_id = 0; part_id < DB::PartitionCount(); ++part_id) {
+        partitions_[part_id]->EnableResolverPathUpdateProcessing();
+    }
+}
+
+//
+// Get size of the update list.
+// For testing only.
+//
+size_t PathResolver::GetResolverPathUpdateListSize() const {
+    size_t total = 0;
+    for (int part_id = 0; part_id < DB::PartitionCount(); ++part_id) {
+        total += partitions_[part_id]->GetResolverPathUpdateListSize();
+    }
+    return total;
+}
+
+//
 //
 // Constructor for PathResolverPartition.
 // A new PathResolverPartition is created when a PathResolver is created.
@@ -376,6 +450,8 @@ PathResolverPartition::PathResolverPartition(int part_id,
 // PathResolver is destroyed.
 //
 PathResolverPartition::~PathResolverPartition() {
+    assert(rpath_update_list_.empty());
+    rpath_update_trigger_->Reset();
 }
 
 //
@@ -487,6 +563,30 @@ bool PathResolverPartition::ProcessResolverPathUpdateList() {
 }
 
 //
+// Disable processing of the update list.
+// For testing only.
+//
+void PathResolverPartition::DisableResolverPathUpdateProcessing() {
+    rpath_update_trigger_->set_disable();
+}
+
+//
+// Enable processing of the update list.
+// For testing only.
+//
+void PathResolverPartition::EnableResolverPathUpdateProcessing() {
+    rpath_update_trigger_->set_enable();
+}
+
+//
+// Get size of the update list.
+// For testing only.
+//
+size_t PathResolverPartition::GetResolverPathUpdateListSize() const {
+    return rpath_update_list_.size();
+}
+
+//
 // Constructor for ResolverRouteState.
 // Gets called via static method LocateState when the first ResolverPath for
 // a BgpRoute is created.
@@ -560,19 +660,129 @@ ResolverPath::~ResolverPath() {
 }
 
 //
+// Add the BgpPath specified by the iterator to the resolved path list.
+// Also inserts the BgpPath to the BgpRoute.
+//
+void ResolverPath::AddResolvedPath(ResolvedPathList::const_iterator it) {
+    BgpPath *path = *it;
+    resolved_path_list_.insert(path);
+    route_->InsertPath(path);
+    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Added resolved path " << route_->ToString() <<
+        " path_id " << BgpPath::PathIdString(path->GetPathId()) <<
+        " nexthop " << path->GetAttr()->nexthop().to_string() <<
+        " label " << path->GetLabel() <<
+        " in table " << partition_->table()->name());
+}
+
+//
+// Delete the BgpPath specified by the iterator from the resolved path list.
+// Also deletes the BgpPath from the BgpRoute.
+//
+void ResolverPath::DeleteResolvedPath(ResolvedPathList::const_iterator it) {
+    BgpPath *path = *it;
+    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Deleted resolved path " << route_->ToString() <<
+        " path_id " << BgpPath::PathIdString(path->GetPathId()) <<
+        " nexthop " << path->GetAttr()->nexthop().to_string() <<
+        " label " << path->GetLabel() <<
+        " in table " << partition_->table()->name());
+    route_->DeletePath(path);
+    resolved_path_list_.erase(it);
+}
+
+//
+// Find or create the matching resolved BgpPath.
+//
+BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id, const BgpAttr *attr,
+    uint32_t label) {
+    for (ResolvedPathList::iterator it = resolved_path_list_.begin();
+         it != resolved_path_list_.end(); ++it) {
+        BgpPath *path = *it;
+        if (path->GetPathId() == path_id &&
+            path->GetAttr() == attr &&
+            path->GetLabel() == label) {
+            return path;
+        }
+    }
+    return (new BgpPath(path_id, BgpPath::ResolvedRoute, attr, 0, label));
+}
+
+//
 // Update resolved BgpPaths for the ResolverPath based on the BgpRoute for
 // the ResolverNexthop.
 //
 // Return true if the ResolverPath can be deleted.
 //
 // Note that the ResolverPath can only be deleted if resolution for it has
-// been stooped. It must not be deleted simply because there is no viable
+// been stopped. It must not be deleted simply because there is no viable
 // BgpRoute for the ResolverNexthop.
 //
 bool ResolverPath::UpdateResolvedPaths() {
     CHECK_CONCURRENCY("bgp::ResolverPath");
 
-    return (path_ == NULL);
+    BgpServer *server = partition_->table()->server();
+    BgpAttrDB *attr_db = server->attr_db();
+
+    // Go through paths of the nexthop route and build the list of future
+    // resolved paths.
+    ResolvedPathList future_resolved_path_list;
+    const BgpRoute *nh_route = rnexthop_->route();
+    Route::PathList::const_iterator it;
+    if (path_ && nh_route)
+        it = nh_route->GetPathList().begin();
+    for (; path_ && nh_route && it != nh_route->GetPathList().end(); ++it) {
+        const BgpPath *nh_path = static_cast<const BgpPath *>(it.operator->());
+
+        // Start with attributes of the original path.
+        BgpAttrPtr attr(path_->GetAttr());
+
+        // Infeasible nexthop paths are not considered.
+        if (!nh_path->IsFeasible())
+            break;
+
+        // Take snapshot of all ECMP nexthop paths.
+        if (nh_route->BestPath()->PathCompare(*nh_path, true))
+            break;
+
+        // Skip paths with duplicate forwarding information.  This ensures
+        // that we generate only one path with any given next hop and label
+        // when there are multiple nexthop paths from the original source
+        // received via different peers e.g. directly via XMPP and via BGP.
+        if (nh_route->DuplicateForwardingPath(nh_path))
+            continue;
+
+        // Skip if there's no source rd.
+        RouteDistinguisher source_rd = nh_path->GetSourceRouteDistinguisher();
+        if (source_rd.IsZero())
+            continue;
+
+        // Use source rd from the nexthop path.
+        attr = attr_db->ReplaceSourceRdAndLocate(attr.get(), source_rd);
+
+        // Use nexthop address from the nexthop path.
+        attr = attr_db->ReplaceNexthopAndLocate(attr.get(),
+            nh_path->GetAttr()->nexthop());
+
+        // Locate the resolved path.
+        uint32_t path_id = nh_path->GetAttr()->nexthop().to_v4().to_ulong();
+        BgpPath *resolved_path =
+            LocateResolvedPath(path_id, attr.get(), nh_path->GetLabel());
+        future_resolved_path_list.insert(resolved_path);
+    }
+
+    // Reconcile the current and future resolved paths and notify/delete the
+    // route as appropriate.
+    set_synchronize(&resolved_path_list_, &future_resolved_path_list,
+        boost::bind(&ResolverPath::AddResolvedPath, this, _1),
+        boost::bind(&ResolverPath::DeleteResolvedPath, this, _1));
+    if (route_->BestPath()) {
+        partition_->table_partition()->Notify(route_);
+    } else {
+        partition_->table_partition()->Delete(route_);
+    }
+
+    return (!path_);
 }
 
 //
@@ -606,7 +816,45 @@ string ResolverNexthop::ToString() const {
 //
 bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
     BgpRoute *route, bool deleted) {
-    return false;
+    CHECK_CONCURRENCY("db::DBTable");
+
+    // Ignore if the route doesn't match the address.
+    Address::Family family = table->family();
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        const InetRoute *inet_route = static_cast<InetRoute *>(route);
+        if (inet_route->GetPrefix().addr() != address_.to_v4() ||
+            inet_route->GetPrefix().prefixlen() != Address::kMaxV4PrefixLen) {
+            return false;
+        }
+    } else if (family == Address::INET6) {
+        const Inet6Route *inet6_route = static_cast<Inet6Route *>(route);
+        if (inet6_route->GetPrefix().addr() != address_.to_v6() ||
+            inet6_route->GetPrefix().prefixlen() != Address::kMaxV6PrefixLen) {
+            return false;
+        }
+    }
+
+    // Set or remove MatchState as appropriate.
+    BgpConditionListener *condition_listener = resolver_->condition_listener();
+    bool state_added = condition_listener->CheckMatchState(table, route, this);
+    if (deleted) {
+        if (state_added) {
+            route_ = NULL;
+            condition_listener->RemoveMatchState(table, route, this);
+        } else {
+            return false;
+        }
+    } else {
+        if (!state_added) {
+            route_ = route;
+            condition_listener->SetMatchState(table, route, this);
+        }
+    }
+
+    // Trigger re-evaluation of all dependent ResolverPaths.
+    resolver_->UpdateResolverNexthop(this);
+    return true;
 }
 
 //

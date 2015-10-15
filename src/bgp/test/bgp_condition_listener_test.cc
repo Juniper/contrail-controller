@@ -393,7 +393,7 @@ protected:
     }
 
     void DeleteDone(BgpTable *table, ConditionMatch *obj) {
-        listener_->UnregisterCondition(table, obj);
+        listener_->UnregisterMatchCondition(table, obj);
     }
 
     void RemoveMatchCondition(string name) {

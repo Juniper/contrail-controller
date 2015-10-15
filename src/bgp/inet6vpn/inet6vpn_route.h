@@ -55,6 +55,9 @@ public:
     const Inet6VpnPrefix &GetPrefix() const {
         return prefix_;
     }
+    virtual RouteDistinguisher GetRouteDistinguisher() const {
+        return prefix_.route_distinguisher();
+    }
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);

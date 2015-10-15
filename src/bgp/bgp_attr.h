@@ -825,8 +825,8 @@ public:
                                          const BgpOListSpec *leaf_olist_spec);
     BgpAttrPtr ReplacePmsiTunnelAndLocate(const BgpAttr *attr,
                                           const PmsiTunnelSpec *pmsi_spec);
-    BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi,
-                                      uint8_t safi, IpAddress &addr);
+    BgpAttrPtr ReplaceNexthopAndLocate(const BgpAttr *attr,
+                                       const IpAddress &addr);
     BgpServer *server() { return server_; }
 
 private:
