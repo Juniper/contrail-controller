@@ -100,17 +100,19 @@ public:
             //If Loadbalncer, delete the config files as well
             if (prop.service_type == ServiceInstance::LoadBalancer) {
 
-                std::stringstream cfg_dir_path;
-                cfg_dir_path <<
-                    manager_->loadbalancer_config_path_ << prop.pool_id;
+                std::stringstream cfg_path;
+                cfg_path <<
+                    manager_->loadbalancer_config_path_ << prop.pool_id
+                    << ".haproxy.cfg";
 
                 boost::system::error_code error;
-                if (fs::exists(cfg_dir_path.str())) {
-                    fs::remove_all(cfg_dir_path.str(), error);
-                    if (error) {
-                        LOG(ERROR, "Stale Haproxy cfg fle delete error"
-                                    << error.message());
-                    }
+                if (fs::exists(cfg_path.str())) {
+                    fs::remove_all(cfg_path.str(), error);
+                }
+
+                cfg_path << ".sock";
+                if (fs::exists(cfg_path.str())) {
+                    fs::remove_all(cfg_path.str(), error);
                 }
             }
         }
@@ -619,7 +621,7 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_default <<
-            props.pool_id << "/etc/haproxy/haproxy.cfg";
+            props.pool_id << ".haproxy.cfg";
         cmd_str << " --pool-id " << props.pool_id;
     }
 
@@ -710,36 +712,41 @@ void InstanceManager::LoadbalancerObserver(
     DBTablePartBase *db_part, DBEntryBase *entry) {
     Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
     std::stringstream pathgen;
-        pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
 
-        boost::system::error_code error;
-        if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
-            pathgen << "/etc/haproxy";
-            boost::filesystem::path dir(pathgen.str());
-            if (!boost::filesystem::exists(dir, error)) {
-#if 0
-                if (error) {
-                    LOG(ERROR, error.message());
-                    return;
-                }
-#endif
-                boost::filesystem::create_directories(dir, error);
-                if (error) {
-                    LOG(ERROR, error.message());
-                    return;
-                }
+    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
+    pathgen << ".haproxy.cfg";
+
+    boost::system::error_code error;
+    if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
+        boost::filesystem::path dir(loadbalancer_config_path_);
+        if (!boost::filesystem::exists(dir, error)) {
+            boost::filesystem::create_directories(dir, error);
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
             }
-            pathgen << "/haproxy.cfg";
-            haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
+        }
+
+        haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
                                      *loadbalancer->properties());
-        } else {
-             boost::filesystem::remove_all(pathgen.str(), error);
-             if (error) {
-                 LOG(ERROR, error.message());
-                 return;
-             }
+    } else {
+        boost::filesystem::path file(pathgen.str());
+        if (boost::filesystem::exists(file, error)) {
+            boost::filesystem::remove_all(pathgen.str(), error);
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
+            }
+
+            pathgen << ".sock";
+            boost::filesystem::remove_all(pathgen.str(), error);
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
+            }
         }
     }
+}
 
 bool InstanceManager::StaleTimeout() {
 
