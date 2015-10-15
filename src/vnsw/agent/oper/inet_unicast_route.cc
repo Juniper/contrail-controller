@@ -241,6 +241,64 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes(const InetUnicastRouteEntry 
     return false;
 }
 
+bool InetUnicastAgentRouteTable::ResyncEvpnInetRoutes(InetUnicastRouteEntry *rt,
+                                                      bool add_change)
+{
+    const IpAddress addr = rt->addr();
+    uint16_t plen = rt->plen();
+    InetUnicastRouteEntry *lpm_rt = GetNextNonConst(rt);
+    InetUnicastRouteEntry *parent_route = NULL;
+    if (add_change) {
+        parent_route = rt;
+    } else {
+        parent_route = rt->GetSuperNetRoute();
+    }
+
+    //Bail out the moment a non host route is seen.
+    if (!lpm_rt || (lpm_rt->IsHostRoute() == false))
+        return false;;
+
+    Ip4Address v4_parent_mask;
+    Ip6Address v6_parent_mask;
+
+    if (GetTableType() == Agent::INET4_UNICAST) {
+        v4_parent_mask = Address::GetIp4SubnetAddress(addr.to_v4(),
+                                                      plen);
+    } else {
+        v6_parent_mask = Address::GetIp6SubnetAddress(addr.to_v6(),
+                                                      plen);
+    }
+
+    while ((lpm_rt != NULL) && (plen < lpm_rt->plen())) {
+        if (GetTableType() == Agent::INET4_UNICAST) {
+            Ip4Address node_mask =
+                Address::GetIp4SubnetAddress(lpm_rt->addr().to_v4(),
+                                             plen);
+            if (v4_parent_mask != node_mask)
+                break;
+
+        } else {
+            Ip6Address node_mask =
+                Address::GetIp6SubnetAddress(lpm_rt->addr().to_v6(),
+                                             plen);
+            if (v6_parent_mask != node_mask)
+                break;
+        }
+
+        // Verify if it has a InetEvpnPeer path. If no, skip.
+        AgentPath *path = lpm_rt->FindPath(agent()->inet_evpn_peer());
+        if (path) {
+            path->set_gw_ip(parent_route ? parent_route->addr() : IpAddress());
+            path->ResetDependantRoute(parent_route);
+            if (path->Sync(lpm_rt))
+                NotifyEntry(lpm_rt);
+        }
+
+        lpm_rt = GetNextNonConst(lpm_rt);
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Inet4UnicastAgentRouteEntry functions
 /////////////////////////////////////////////////////////////////////////////
@@ -498,8 +556,13 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
  * gateway without having Ipam path, then search continues further
  */
 bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
+    return (GetSuperNetRoute() != NULL);
+}
+
+InetUnicastRouteEntry *
+InetUnicastRouteEntry::GetSuperNetRoute() const {
     if (plen_ == 0)
-        return false;
+        return NULL;
 
     //Local path present means that this route itself was programmed
     //because of IPAM add as well and hence its eligible for flood in
@@ -518,21 +581,29 @@ bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
         InetUnicastRouteEntry *supernet_rt = table->FindRouteUsingKey(key);
         
         if (supernet_rt == NULL)
-            return false;
+            return NULL;
 
         if (supernet_rt->ipam_subnet_route())
-            return true;
+            return supernet_rt;
 
         plen--;
     }
 
-    return false;
+    return NULL;
 }
 
 bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
+    bool ret = false;
+    InetUnicastAgentRouteTable *uc_rt_table =
+        static_cast<InetUnicastAgentRouteTable *>(get_table());
+
+    if (IsHostRoute() == false)
+        ret = uc_rt_table->ResyncEvpnInetRoutes(this, true);
+
     // ECMP path are managed by route module. Update ECMP path with
     // addition of new path
-    return EcmpAddPath(path);
+    ret |= EcmpAddPath(path);
+    return ret;
 }
 
 bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
@@ -545,6 +616,8 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
         proxy_arp_ = false;
         InetUnicastAgentRouteTable *uc_rt_table =
             static_cast<InetUnicastAgentRouteTable *>(get_table());
+        //TODO merge both evpn inet and subnet routes handling
+        uc_rt_table->ResyncEvpnInetRoutes(this, false);
         uc_rt_table->ResyncSubnetRoutes(this, false);
         return true;
     }
@@ -778,7 +851,7 @@ bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path,
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
         path->set_unresolved(true);
-        InetUnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_,
+        InetUnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_.to_v4(),
                                               nh->interface()->vrf()->GetName(),
                                               nh->interface(), nh->PolicyEnabled(),
                                               vn_name_, sg_list_);
@@ -804,6 +877,46 @@ bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path,
     }
 
     return true;
+}
+
+bool InetEvpnRoute::AddChangePath(Agent *agent,
+                                  AgentPath *path,
+                                  const AgentRoute *rt) {
+    bool ret = false;
+
+    path->set_vrf_name(vrf_name_);
+    uint32_t label = MplsLabel::INVALID;
+    bool unresolved = false;
+
+    if (parent_key_) {
+        if (parent_key_->plen() == 0)
+            unresolved = true;
+        label = parent_key_->GetActiveLabel();
+    } else {
+        unresolved = true;
+    }
+
+    path->set_unresolved(unresolved);
+    if (path->label() != label) {
+        path->set_label(label);
+    }
+
+    SecurityGroupList path_sg_list;
+    path_sg_list = path->sg_list();
+    if (path_sg_list != sg_list_) {
+        path->set_sg_list(sg_list_);
+    }
+
+    //Reset to new gateway route, no nexthop for indirect route
+    if (!unresolved) {
+        path->set_gw_ip(parent_key_->addr());
+        path->ResetDependantRoute(parent_key_);
+    }
+    if (path->dest_vn_name() != vn_name_) {
+        path->set_dest_vn_name(vn_name_);
+    }
+
+    return ret;
 }
 
 Inet4UnicastInterfaceRoute::Inet4UnicastInterfaceRoute
@@ -1461,6 +1574,26 @@ InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
     }
 }
 
+uint8_t InetUnicastAgentRouteTable::GetHostPlen(const IpAddress &ip_addr) const {
+    if (ip_addr.is_v4()) {
+        return 32;
+    } else {
+        return 128;
+    }
+}
+
+InetUnicastAgentRouteTable *InetUnicastAgentRouteTable::GetTable(const VrfEntry *vrf,
+                                                                 const IpAddress &ip_addr) {
+    if (ip_addr.is_v4()) {
+        return (static_cast<InetUnicastAgentRouteTable *>
+                (vrf->GetInet4UnicastRouteTable()));
+    } else { //v6
+        return (static_cast<InetUnicastAgentRouteTable *>
+                (vrf->GetInet6UnicastRouteTable()));
+    }
+    return NULL;
+}
+
 void
 InetUnicastAgentRouteTable::AddInterfaceRouteReq(Agent *agent, const Peer *peer,
                                                  const string &vrf_name,
@@ -1477,4 +1610,51 @@ InetUnicastAgentRouteTable::AddInterfaceRouteReq(Agent *agent, const Peer *peer,
         (interface);
     rt_req.data.reset(new Inet4UnicastInterfaceRoute(phy_intf, vn_name));
     Inet4UnicastTableEnqueue(agent, &rt_req);
+}
+
+void InetUnicastAgentRouteTable::AddEvpnRoute(const AgentRoute *route) {
+    const EvpnRouteEntry *evpn_route =
+        dynamic_cast<const EvpnRouteEntry *>(route);
+    const IpAddress &ip_addr = evpn_route->ip_addr();
+    if (ip_addr == IpAddress())
+        return;
+    //Get the LPM match for this route.
+    InetUnicastRouteEntry key(NULL, ip_addr, (GetHostPlen(ip_addr) - 1), false);
+    InetUnicastRouteEntry *parent_key = FindLPM(key);
+    //In case we find ourself as best match, then nullify parent.
+    if (parent_key && (parent_key->addr() == ip_addr) &&
+        parent_key->IsHostRoute())
+        parent_key = NULL;
+
+    //label and parent-ip for NH need to be picket from parent route
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    //Set key and data
+    req.key.reset(new InetUnicastRouteKey(agent()->inet_evpn_peer(),
+                                          evpn_route->vrf()->GetName(),
+                                          ip_addr,
+                                          GetHostPlen(ip_addr)));
+    const AgentPath *path = evpn_route->GetActivePath();
+    req.data.reset(new InetEvpnRoute(parent_key,
+                                     evpn_route->vrf()->GetName(),
+                                     path->dest_vn_name(),
+                                     path->sg_list()));
+    Process(req);
+}
+
+void InetUnicastAgentRouteTable::DeleteEvpnRoute(const AgentRoute *rt) {
+    const EvpnRouteEntry *evpn_route =
+        static_cast<const EvpnRouteEntry *>(rt);
+    const IpAddress &ip_addr = evpn_route->ip_addr();
+    if (ip_addr == IpAddress())
+        return;
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InetUnicastRouteKey(agent()->inet_evpn_peer(),
+                                          evpn_route->vrf()->GetName(),
+                                          ip_addr,
+                                          GetHostPlen(ip_addr)));
+    req.data.reset(new InetEvpnRoute(NULL,
+                                     evpn_route->vrf()->GetName(),
+                                     "", SecurityGroupList()));
+    Process(req);
 }

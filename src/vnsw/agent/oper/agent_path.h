@@ -134,7 +134,7 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;}
     TunnelType::Type tunnel_type() const {return tunnel_type_;}
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
-    const Ip4Address& gw_ip() const {return gw_ip_;}
+    const IpAddress& gw_ip() const {return gw_ip_;}
     const std::string &vrf_name() const {return vrf_name_;}
     bool force_policy() const {return force_policy_;}
     const bool unresolved() const {return unresolved_;}
@@ -151,7 +151,7 @@ public:
     void set_label(uint32_t label) {label_ = label;}
     void set_dest_vn_name(const std::string &dest_vn) {dest_vn_name_ = dest_vn;}
     void set_unresolved(bool unresolved) {unresolved_ = unresolved;};
-    void set_gw_ip(const Ip4Address &addr) {gw_ip_ = addr;}
+    void set_gw_ip(const IpAddress &addr) {gw_ip_ = addr;}
     void set_force_policy(bool force_policy) {force_policy_ = force_policy;}
     void set_vrf_name(const std::string &vrf_name) {vrf_name_ = vrf_name;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
@@ -170,6 +170,7 @@ public:
     void set_local_ecmp_mpls_label(MplsLabel *mpls);
     const MplsLabel* local_ecmp_mpls_label() const;
     void ResetDependantRoute(AgentRoute *rt) {dependant_rt_.reset(rt);}
+    const AgentRoute *dependant_rt() const {return dependant_rt_.get();}
     bool ChangeNH(Agent *agent, NextHop *nh);
     bool Sync(AgentRoute *sync_route); //vm_path sync
     void SyncRoute(bool sync) {sync_ = sync;}
@@ -248,7 +249,7 @@ private:
     // VRF for gw_ip_ in gateway route
     std::string vrf_name_;
     // gateway for the route
-    Ip4Address gw_ip_;
+    IpAddress gw_ip_;
     // gateway route is unresolved if,
     //    - no route present for gw_ip_
     //    - ARP not resolved for gw_ip_
@@ -605,7 +606,7 @@ private:
 
 class Inet4UnicastGatewayRoute : public AgentRouteData {
 public:
-    Inet4UnicastGatewayRoute(const Ip4Address &gw_ip,
+    Inet4UnicastGatewayRoute(const IpAddress &gw_ip,
                              const std::string &vrf_name,
                              const std::string &vn_name,
                              uint32_t label, const SecurityGroupList &sg) :
@@ -618,7 +619,7 @@ public:
     virtual std::string ToString() const {return "gateway";}
 
 private:
-    Ip4Address gw_ip_;
+    IpAddress gw_ip_;
     std::string vrf_name_;
     std::string vn_name_;
     uint32_t mpls_label_;
@@ -705,4 +706,25 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MacVmBindingPathData);
 };
 
+class InetEvpnRoute : public AgentRouteData {
+public:
+    InetEvpnRoute(InetUnicastRouteEntry *parent_key,
+                  const std::string &vrf_name,
+                  const std::string &vn_name,
+                  const SecurityGroupList &sg) :
+        AgentRouteData(false), parent_key_(parent_key), vrf_name_(vrf_name),
+        vn_name_(vn_name), sg_list_(sg) {
+    }
+    virtual ~InetEvpnRoute() { }
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "Derived Inet route from Evpn";}
+
+private:
+    InetUnicastRouteEntry *parent_key_;
+    std::string vrf_name_;
+    std::string vn_name_;
+    const SecurityGroupList sg_list_;
+    DISALLOW_COPY_AND_ASSIGN(InetEvpnRoute);
+};
 #endif // vnsw_agent_path_hpp

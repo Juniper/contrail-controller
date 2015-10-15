@@ -33,7 +33,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     sync_(false), force_policy_(false), sg_list_(),
     tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-    vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
+    vrf_name_(""), gw_ip_(), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
@@ -271,7 +271,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     InetUnicastRouteEntry *rt = NULL;
     table = agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
     if (table)
-        rt = table->FindRoute(gw_ip_);
+        rt = table->FindRoute(gw_ip_.to_v4());
 
     if (rt == sync_route) {
         rt = NULL;
@@ -282,8 +282,11 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
-        table->AddArpReq(vrf_name_, gw_ip_, nh->interface()->vrf()->GetName(),
-                         nh->interface(), nh->PolicyEnabled(), dest_vn_name_,
+        table->AddArpReq(vrf_name_, gw_ip_.to_v4(),
+                         nh->interface()->vrf()->GetName(),
+                         nh->interface(),
+                         nh->PolicyEnabled(),
+                         dest_vn_name_,
                          sg_list_);
         unresolved = true;
     } else {

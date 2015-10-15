@@ -262,6 +262,12 @@ void EvpnAgentRouteTable::UpdateDependants(AgentRoute *entry) {
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf_entry()->GetBridgeRouteTable());
     table->AddBridgeRoute(entry);
+    //Add in inet table
+    EvpnRouteEntry *evpn_entry = dynamic_cast<EvpnRouteEntry *>(entry);
+    InetUnicastAgentRouteTable* inet_table =
+        InetUnicastAgentRouteTable::GetTable(vrf_entry(),
+                                             evpn_entry->ip_addr());
+    inet_table->AddEvpnRoute(entry);
 }
 
 //Delete path from L2 route corresponding to MAC+IP in evpn route.
@@ -269,6 +275,12 @@ void EvpnAgentRouteTable::PreRouteDelete(AgentRoute *entry) {
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf_entry()->GetBridgeRouteTable());
     table->DeleteBridgeRoute(entry);
+    //Add in inet table
+    EvpnRouteEntry *evpn_entry = dynamic_cast<EvpnRouteEntry *>(entry);
+    InetUnicastAgentRouteTable* inet_table =
+        InetUnicastAgentRouteTable::GetTable(vrf_entry(),
+                                             evpn_entry->ip_addr());
+    inet_table->DeleteEvpnRoute(entry);
 }
 
 /////////////////////////////////////////////////////////////////////////////
