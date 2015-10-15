@@ -1436,27 +1436,7 @@ class RouteTableST(DBBaseST):
 class SecurityGroupST(DBBaseST):
     _dict = {}
     obj_type = 'security_group'
-
-    def update_acl(self, from_value, to_value):
-        def update_sg(addr):
-            if addr.security_group == from_value:
-                addr.security_group = to_value
-                return True
-            return False
-        # end update_sg
-
-        for acl in [self.ingress_acl, self.egress_acl]:
-            if acl is None:
-                continue
-            acl_entries = acl.get_access_control_list_entries()
-            update = False
-            for acl_rule in acl_entries.get_acl_rule() or []:
-                update |= update_sg(acl_rule.match_condition.src_address)
-                update |= update_sg(acl_rule.match_condition.dst_address)
-            if update:
-                acl.set_access_control_list_entries(acl_entries)
-                self._vnc_lib.access_control_list_update(acl)
-    # end update_acl
+    _sg_dict = {}
 
     def __init__(self, name, obj=None, acl_dict=None):
         def _get_acl(uuid):
@@ -1471,6 +1451,7 @@ class SecurityGroupST(DBBaseST):
         self.sg_id = None
         self.ingress_acl = None
         self.egress_acl = None
+        self.referred_sgs = set()
         acls = self.obj.get_access_control_lists()
         for acl in acls or []:
             if acl['to'][-1] == 'egress-access-control-list':
@@ -1480,16 +1461,52 @@ class SecurityGroupST(DBBaseST):
             else:
                 self._vnc_lib.access_control_list_delete(id=acl['uuid'])
         self.update(self.obj)
+        self.security_groups = SecurityGroupST._sg_dict.get(name, set())
     # end __init__
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(uuid=self.uuid)
         self.rule_entries = self.obj.get_security_group_entries()
         config_id = self.obj.get_configured_security_group_id() or 0
-        self.set_configured_security_group_id(config_id, False)
+        self.set_configured_security_group_id(config_id)
+        self.process_referred_sgs()
     # end update
 
-    def set_configured_security_group_id(self, config_id, update_acl=True):
+    def process_referred_sgs(self):
+        if self.rule_entries:
+            prules = self.rule_entries.get_policy_rule() or []
+        else:
+            prules = []
+
+        sg_refer_set = set()
+        for prule in prules:
+            for addr in prule.src_addresses + prule.dst_addresses:
+                if addr.security_group:
+                    if addr.security_group not in ['local', self.name, 'any']:
+                        sg_refer_set.add(addr.security_group)
+        # end for prule
+
+        for sg_name in self.referred_sgs - sg_refer_set:
+            sg_set = SecurityGroupST._sg_dict.get(sg_name)
+            if sg_set is None:
+                continue
+            sg_set.discard(self.name)
+            if not sg_set:
+                del self._sg_dict[sg_name]
+            sg = SecurityGroupST.get(sg_name)
+            if sg:
+                sg.security_groups = sg_set
+
+        for sg_name in sg_refer_set - self.referred_sgs:
+            sg_set = SecurityGroupST._sg_dict.setdefault(sg_name, set())
+            sg_set.add(self.name)
+            sg = SecurityGroupST.get(sg_name)
+            if sg:
+                sg.security_groups = sg_set
+        self.referred_sgs = sg_refer_set
+    # end process_referred_sgs
+
+    def set_configured_security_group_id(self, config_id):
         if self.config_sgid == config_id:
             return
         self.config_sgid = config_id
@@ -1519,12 +1536,6 @@ class SecurityGroupST(DBBaseST):
                 self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
         if sg_id != int(self.obj.get_security_group_id()):
             self._vnc_lib.security_group_update(self.obj)
-        from_value = self.sg_id or self.name
-        if update_acl:
-            for sg in self._dict.values():
-                sg.update_acl(from_value=from_value,
-                              to_value=self.obj.get_security_group_id())
-        # end for sg
         self.sg_id = self.obj.get_security_group_id()
     # end set_configured_security_group_id
 
@@ -1539,11 +1550,8 @@ class SecurityGroupST(DBBaseST):
                 self._cassandra.free_sg_id(sg_id)
             else:
                 self._cassandra.free_sg_id(sg_id-SGID_MIN_ALLOC)
-        for sg in self._dict.values():
-            if self.name == sg.name:
-                continue
-            sg.update_acl(from_value=sg_id, to_value=self.name)
-        # end for sg
+        self.rule_entries = None
+        self.process_referred_sgs()
     # end delete_obj
 
     def evaluate(self):
@@ -1574,7 +1582,7 @@ class SecurityGroupST(DBBaseST):
 
     def _convert_security_group_name_to_id(self, addr):
         if addr.security_group is None:
-            return
+            return True
         if addr.security_group in ['local', self.name]:
             addr.security_group = self.obj.get_security_group_id()
         elif addr.security_group == 'any':
@@ -1582,6 +1590,9 @@ class SecurityGroupST(DBBaseST):
         elif addr.security_group in self._dict:
             addr.security_group = self._dict[
                 addr.security_group].obj.get_security_group_id()
+        else:
+            return False
+        return True
     # end _convert_security_group_name_to_id
 
     def policy_to_acl_rule(self, prule):
@@ -1603,14 +1614,16 @@ class SecurityGroupST(DBBaseST):
         acl_rule_list = None
         for saddr in prule.src_addresses:
             saddr_match = copy.deepcopy(saddr)
-            self._convert_security_group_name_to_id(saddr_match)
+            if not self._convert_security_group_name_to_id(saddr_match):
+                continue
             if saddr.security_group == 'local':
                 saddr_match.security_group = None
                 acl_rule_list = egress_acl_rule_list
             for sp in prule.src_ports:
                 for daddr in prule.dst_addresses:
                     daddr_match = copy.deepcopy(daddr)
-                    self._convert_security_group_name_to_id(daddr_match)
+                    if not self._convert_security_group_name_to_id(daddr_match):
+                        continue
                     if daddr.security_group == 'local':
                         daddr_match.security_group = None
                         acl_rule_list = ingress_acl_rule_list

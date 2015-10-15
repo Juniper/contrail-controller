@@ -341,6 +341,10 @@ class TestPolicy(test_case.STTestCase):
             pass
 
     @retries(5, hook=retry_exc_handler)
+    def check_sg_refer_list(self, sg_referred_by, sg_referrer, is_present):
+        self.assertEqual(is_present, sg_referred_by in config_db.SecurityGroupST._sg_dict.get(sg_referrer, []))
+
+    @retries(5, hook=retry_exc_handler)
     def check_acl_not_match_sg(self, fq_name, acl_name, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(fq_name)
@@ -1323,26 +1327,21 @@ class TestPolicy(test_case.STTestCase):
         if verify_sg_id is not None and str(sg_id) != str(verify_sg_id):
             raise Exception('sg id is not same as passed value (%s, %s)' % (str(sg_id), str(verify_sg_id)))
 
-    def _security_group_rule_build(self, rule_info, sg_uuid):
+    def _security_group_rule_build(self, rule_info, sg_fq_name_str):
         protocol = rule_info['protocol']
         port_min = rule_info['port_min'] or 0
         port_max = rule_info['port_max'] or 65535 
         direction = rule_info['direction'] or 'ingress'
         ip_prefix = rule_info['ip_prefix']
         ether_type = rule_info['ether_type']
-        sg_id = rule_info['sg_id']
 
         if ip_prefix:
             cidr = ip_prefix.split('/')
             pfx = cidr[0]
             pfx_len = int(cidr[1])
             endpt = [AddressType(subnet=SubnetType(pfx, pfx_len))]
-        elif sg_id:
-            try:
-                sg_obj = self._vnc_lib.security_group_read(id=sg_uuid)
-            except NoIdError:
-                raise Exception('SecurityGroupNotFound %s' % sg_uuid)
-            endpt = [AddressType(security_group=sg_obj.get_fq_name_str())]
+        else:
+            endpt = [AddressType(security_group=sg_fq_name_str)]
 
         local = None
         remote = None
@@ -1366,7 +1365,7 @@ class TestPolicy(test_case.STTestCase):
             if protocol not in ['any', 'tcp', 'udp', 'icmp']:
                 raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
 
-        if not ip_prefix and not sg_id:
+        if not ip_prefix and not sg_fq_name_str:
             if not ether_type:
                 ether_type = 'IPv4'
 
@@ -1417,6 +1416,84 @@ class TestPolicy(test_case.STTestCase):
         return sg_obj
     #end security_group_create
 
+    def test_sg_reference(self):
+        #create sg and associate egress rules with sg names 
+        sg1_obj = self.security_group_create('sg-1', [u'default-domain', u'default-project'])
+        self.wait_to_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = {}
+        rule1['port_min'] = 0
+        rule1['port_max'] = 65535
+        rule1['direction'] = 'egress'
+        rule1['ip_prefix'] = None
+        rule1['protocol'] = 'any'
+        rule1['ether_type'] = 'IPv4'
+        #create rule with forward sg-names
+        sg_rule1 = self._security_group_rule_build(rule1, "default-domain:default-project:sg-2")
+        self._security_group_rule_append(sg1_obj, sg_rule1)
+        sg_rule3 = self._security_group_rule_build(rule1, "default-domain:default-project:sg-3")
+        self._security_group_rule_append(sg1_obj, sg_rule3)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_security_group_id(sg1_obj.get_fq_name())
+
+        #check ST SG refer dict for right association
+        self.check_sg_refer_list(sg1_obj.get_fq_name_str(), "default-domain:default-project:sg-2", True)
+        self.check_sg_refer_list(sg1_obj.get_fq_name_str(), "default-domain:default-project:sg-3", True)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+
+        #create another sg and associate ingress rule and check acls
+        sg2_obj = self.security_group_create('sg-2', [u'default-domain', u'default-project'])
+        self.wait_to_get_sg_id(sg2_obj.get_fq_name())
+        sg2_obj = self._vnc_lib.security_group_read(sg2_obj.get_fq_name())
+        rule2 = {}
+        rule2['port_min'] = 0
+        rule2['port_max'] = 65535
+        rule2['direction'] = 'ingress'
+        rule2['ip_prefix'] = None
+        rule2['protocol'] = 'any'
+        rule2['ether_type'] = 'IPv4'
+        #reference to SG1
+        sg_rule2 = self._security_group_rule_build(rule2, sg1_obj.get_fq_name_str())
+        self._security_group_rule_append(sg2_obj, sg_rule2)
+        self._vnc_lib.security_group_update(sg2_obj)
+        self.check_security_group_id(sg2_obj.get_fq_name())
+
+        #check acl updates sg2 should have sg1 id and sg1 should have sg2
+        self.check_acl_match_sg(sg2_obj.get_fq_name(), 'ingress-access-control-list', 
+                                                        sg1_obj.get_security_group_id())
+
+        self.check_acl_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg2_obj.get_security_group_id())
+
+        #create sg3
+        sg3_obj = self.security_group_create('sg-3', [u'default-domain', u'default-project'])
+        self.check_sg_refer_list(sg1_obj.get_fq_name_str(), sg3_obj.get_fq_name_str(), True)
+
+        #remove sg2 reference rule from sg1
+        self._security_group_rule_remove(sg1_obj, sg_rule1)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg2_obj.get_security_group_id())
+        self.check_sg_refer_list(sg1_obj.get_fq_name_str(), sg2_obj.get_fq_name_str(), False)
+
+        #delete sg3
+        self._vnc_lib.security_group_delete(fq_name=sg3_obj.get_fq_name())
+        #sg1 still should have sg3 ref
+        self.check_sg_refer_list(sg1_obj.get_fq_name_str(), sg3_obj.get_fq_name_str(), True)
+
+        #delete sg3 ref rule from sg1
+        self._security_group_rule_remove(sg1_obj, sg_rule3)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_not_match_sg(sg1_obj.get_fq_name(), 'egress-access-control-list', 
+                                                        sg3_obj.get_security_group_id())
+        self.check_sg_refer_list(sg1_obj.get_fq_name_str(), sg3_obj.get_fq_name_str(), False)
+
+        #delete all SGs
+        self._vnc_lib.security_group_delete(fq_name=sg1_obj.get_fq_name())
+        self._vnc_lib.security_group_delete(fq_name=sg2_obj.get_fq_name())
+
+    #end test_sg_reference
+
     def test_sg(self):
         #create sg and associate egress rule and check acls
         sg1_obj = self.security_group_create('sg-1', [u'default-domain', u'default-project'])
@@ -1429,8 +1506,7 @@ class TestPolicy(test_case.STTestCase):
         rule1['ip_prefix'] = None
         rule1['protocol'] = 'any'
         rule1['ether_type'] = 'IPv4'
-        rule1['sg_id'] = sg1_obj.get_security_group_id()
-        sg_rule1 = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+        sg_rule1 = self._security_group_rule_build(rule1, sg1_obj.get_fq_name_str())
         self._security_group_rule_append(sg1_obj, sg_rule1)
         self._vnc_lib.security_group_update(sg1_obj)
         self.check_security_group_id(sg1_obj.get_fq_name())
@@ -1456,8 +1532,7 @@ class TestPolicy(test_case.STTestCase):
         rule2['ip_prefix'] = None
         rule2['protocol'] = 'any'
         rule2['ether_type'] = 'IPv4'
-        rule2['sg_id'] = sg2_obj.get_security_group_id()
-        sg_rule2 = self._security_group_rule_build(rule2, sg2_obj.get_uuid())
+        sg_rule2 = self._security_group_rule_build(rule2, sg2_obj.get_fq_name_str())
         self._security_group_rule_append(sg2_obj, sg_rule2)
         self._vnc_lib.security_group_update(sg2_obj)
         self.check_security_group_id(sg2_obj.get_fq_name())
@@ -1465,8 +1540,7 @@ class TestPolicy(test_case.STTestCase):
                                                         sg2_obj.get_security_group_id())
 
         #add ingress and egress rules to same sg and check for both
-        rule1['sg_id'] = sg2_obj.get_security_group_id()
-        sg_rule3 = self._security_group_rule_build(rule1, sg2_obj.get_uuid())
+        sg_rule3 = self._security_group_rule_build(rule1, sg2_obj.get_fq_name_str())
         self._security_group_rule_append(sg2_obj, sg_rule3)
         self._vnc_lib.security_group_update(sg2_obj)
         self.check_security_group_id(sg2_obj.get_fq_name())
@@ -1479,11 +1553,11 @@ class TestPolicy(test_case.STTestCase):
         rule1['direction'] = 'ingress'
         rule1['port_min'] = 1
         rule1['port_max'] = 100
-        self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_uuid()))
+        self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_fq_name_str()))
         rule1['direction'] = 'egress'
         rule1['port_min'] = 101
         rule1['port_max'] = 200
-        self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_uuid()))
+        self._security_group_rule_append(sg2_obj, self._security_group_rule_build(rule1, sg2_obj.get_fq_name_str()))
         self._vnc_lib.security_group_update(sg2_obj)
         self.check_acl_match_sg(sg2_obj.get_fq_name(), 'egress-access-control-list', 
                                                         sg2_obj.get_security_group_id(), True)
@@ -1522,11 +1596,11 @@ class TestPolicy(test_case.STTestCase):
         rule1['direction'] = 'ingress'
         rule1['port_min'] = 1
         rule1['port_max'] = 100
-        rule_in_obj = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+        rule_in_obj = self._security_group_rule_build(rule1, sg1_obj.get_fq_name_str())
         rule1['direction'] = 'egress'
         rule1['port_min'] = 101
         rule1['port_max'] = 200
-        rule_eg_obj = self._security_group_rule_build(rule1, sg1_obj.get_uuid())
+        rule_eg_obj = self._security_group_rule_build(rule1, sg1_obj.get_fq_name_str())
 
         self._security_group_rule_append(sg1_obj, rule_in_obj)
         self._security_group_rule_append(sg1_obj, rule_eg_obj)
