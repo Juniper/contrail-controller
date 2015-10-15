@@ -1262,7 +1262,7 @@ class OpencontrailF5LoadbalancerDriver(
                 self.create_service(new_pool_svc)
             elif new_pool_svc is None:
                 self.delete_service(old_pool_svc)
-                self.db.pool_remove(pool['id'], ['f5'])
+                self.db.pool_remove(pool['id'], ['driver_info'])
                 return
             elif old_pool_svc and old_pool_svc != new_pool_svc:
                 self.update_service(old_pool_svc, new_pool_svc)
@@ -1290,7 +1290,7 @@ class OpencontrailF5LoadbalancerDriver(
                 self.create_service(new_pool_svc)
             elif new_pool_svc is None:
                 self.delete_service(old_pool_svc)
-                self.db.pool_remove(pool['id'], ['f5'])
+                self.db.pool_remove(pool['id'], ['driver_info'])
                 return
             elif old_pool_svc != new_pool_svc:
                 self.update_service(old_pool_svc, new_pool_svc)
@@ -1310,7 +1310,7 @@ class OpencontrailF5LoadbalancerDriver(
         old_pool_svc, new_pool_svc = self.locate_resources(pool['id'], False)
         if old_pool_svc:
             self.delete_service(old_pool_svc)
-            self.db.pool_remove(pool['id'], ['f5'])
+            self.db.pool_remove(pool['id'], ['driver_info'])
     # end  delete_pool
 
     def stats(self, pool_id):

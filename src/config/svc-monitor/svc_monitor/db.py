@@ -19,7 +19,7 @@ class ServiceMonitorDB(VncCassandraClient):
     _LB_CF = 'pool_table'
 
     def __init__(self, args, logger):
-        self._logger = logger
+        self._db_logger = logger
         if args.reset_config:
             reset_config = [self._KEYSPACE]
         else:
@@ -41,7 +41,7 @@ class ServiceMonitorDB(VncCassandraClient):
         super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
                                                None,
                                                self._keyspaces,
-                                               self._logger.log,
+                                               self._db_logger.log,
                                                reset_config=reset_config,
                                                credential=cred)
 
@@ -53,7 +53,7 @@ class ServiceMonitorDB(VncCassandraClient):
         try:
             entry = table.get(key)
         except Exception:
-            self._logger.log("DB: %s %s get failed" %
+            self._db_logger.log("DB: %s %s get failed" %
                              (inspect.stack()[1][3], key))
             return None
 
@@ -63,7 +63,7 @@ class ServiceMonitorDB(VncCassandraClient):
         try:
             table.insert(key, entry)
         except Exception:
-            self._logger.log("DB: %s %s insert failed" %
+            self._db_logger.log("DB: %s %s insert failed" %
                              (inspect.stack()[1][3], key))
             return False
 
@@ -76,7 +76,7 @@ class ServiceMonitorDB(VncCassandraClient):
             else:
                 table.remove(key)
         except Exception:
-            self._logger.log("DB: %s %s remove failed" %
+            self._db_logger.log("DB: %s %s remove failed" %
                              (inspect.stack()[1][3], key))
             return False
 
@@ -86,7 +86,7 @@ class ServiceMonitorDB(VncCassandraClient):
         try:
             entries = list(table.get_range())
         except Exception:
-            self._logger.log("DB: %s list failed" %
+            self._db_logger.log("DB: %s list failed" %
                              (inspect.stack()[1][3]))
             return None
 

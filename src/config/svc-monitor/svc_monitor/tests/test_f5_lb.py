@@ -34,11 +34,11 @@ class F5LBTest(unittest.TestCase):
         self._db = {}
         def read_db(id):
             if id in self._db:
-                return self._db[id]
+                return self._db[id].get('driver_info', None)
 
         def put_db(id, data):
             from copy import deepcopy
-            self._db[id] = deepcopy(data)
+            self._db[id] = {'driver_info': deepcopy(data)}
 
         def remove_db(id, data=None):
             if data is None:
@@ -452,6 +452,50 @@ OpencontrailLoadbalancerDriver")
         config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
     # end test_update_pool
+
+    # Test the case where vip is deleted before the pool
+    def test_update_pool_1(self):
+        project = self.create_project("fake-project", "project")
+        vip = self.create_vip('vip', project)
+        pool = self.create_pool("test-lb-pool",
+               "default-domain:admin:test-lb-pool", project, vip)
+        self.create_pool_members("test-lb-pool", 2)
+
+        pool.add()
+
+
+        # Delete the VIP
+        config_db.VirtualIpSM.delete('vip')
+
+        # update the pool with no vip
+        pool.add()
+
+        self._mock_BigIp.return_value.virtual_server.delete.assert_called_with(
+            folder='tenant', name='vip')
+
+        expected_calls_to_remove_member = \
+          [mock.call(folder='tenant', ip_address='10.1.1.1%0',
+                name='test-lb-pool', port=80),
+           mock.call(folder='tenant', ip_address='10.1.1.0%0',
+                name='test-lb-pool', port=80)]
+        call_list = self._mock_BigIp.return_value.pool.remove_member.call_args_list
+        self.assertEqual(call_list, expected_calls_to_remove_member)
+        self._mock_BigIp.return_value.pool.delete.assert_called_with(
+            folder='tenant', name='test-lb-pool')
+        self.assertEqual(len(self._db), 1)
+
+        # Cleanup
+        for i in range(2):
+            config_db.LoadbalancerMemberSM.delete('member_'+str(i))
+
+        self._mock_BigIp.reset_mock()
+
+        self.assertFalse(self._mock_BigIp.return_value.pool.delete.called)
+        self.assertFalse(self._mock_BigIp.return_value.pool.remove_member.called)
+        self.assertFalse(self._mock_BigIp.return_value.virtual_server.delete.called)
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
+    # end test_update_pool
+
 
     def test_update_pool_members_add_delete(self):
         project = self.create_project("fake-project", "project")
