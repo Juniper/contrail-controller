@@ -47,6 +47,7 @@ public:
         MULTICAST_FABRIC_TREE_BUILDER,
         OVS_PEER,
         MULTICAST_TOR_PEER,
+        INET_EVPN_PEER,
         MAC_VM_BINDING_PEER
     };
 
@@ -181,5 +182,19 @@ public:
     bool ExportToController() const {return false;}
 private:
     DISALLOW_COPY_AND_ASSIGN(EvpnPeer);
+};
+
+// Inet EVPN peer
+class InetEvpnPeer : public Peer {
+public:
+    typedef boost::shared_ptr<EvpnPeer> InetEvpnPeerRef;
+
+    InetEvpnPeer() : Peer(Peer::INET_EVPN_PEER, "INET-EVPN", false) { }
+    virtual ~InetEvpnPeer() { }
+
+    bool Compare(const Peer *rhs) const { return false; }
+    bool ExportToController() const {return false;}
+private:
+    DISALLOW_COPY_AND_ASSIGN(InetEvpnPeer);
 };
 #endif // vnsw_agent_peer_h_

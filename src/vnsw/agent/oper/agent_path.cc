@@ -35,7 +35,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     sync_(false), force_policy_(false), sg_list_(),
     tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-    vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
+    vrf_name_(""), gw_ip_(), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
@@ -271,10 +271,13 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
 
     InetUnicastAgentRouteTable *table = NULL;
     InetUnicastRouteEntry *rt = NULL;
-    table = agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
-    if (table)
-        rt = table->FindRoute(gw_ip_);
+    if (gw_ip_.is_v4()) {
+        table = agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
+    } else {
+        table = agent->vrf_table()->GetInet6UnicastRouteTable(vrf_name_);
+    }
 
+    rt = table ? table->FindRoute(gw_ip_) : NULL;
     if (rt == sync_route) {
         rt = NULL;
     }
@@ -324,6 +327,10 @@ bool AgentPath::IsLess(const AgentPath &r_path) const {
     }
 
     return peer()->IsLess(r_path.peer());
+}
+
+const AgentPath *AgentPath::UsablePath() const {
+    return this;
 }
 
 void AgentPath::set_nexthop(NextHop *nh) {

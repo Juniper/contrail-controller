@@ -270,6 +270,13 @@ InetUnicastAgentRouteTable *VrfEntry::GetInet6UnicastRouteTable() const {
     return static_cast<InetUnicastAgentRouteTable *>(GetRouteTable(Agent::INET6_UNICAST));
 }
 
+InetUnicastAgentRouteTable *VrfEntry::GetInetUnicastRouteTable(const IpAddress &addr) const {
+    if (addr.is_v4())
+        return static_cast<InetUnicastAgentRouteTable *>(GetInet4UnicastRouteTable());
+    else
+        return static_cast<InetUnicastAgentRouteTable *>(GetInet6UnicastRouteTable());
+}
+
 bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VrfListResp *resp = static_cast<VrfListResp *>(sresp);
 

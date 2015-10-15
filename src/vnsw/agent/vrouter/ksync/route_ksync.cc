@@ -272,15 +272,6 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         // ECMP flows have composite NH. We want to do routing for ECMP flows
         // So, set proxy_arp flag
         proxy_arp = true;
-
-        // There is an exception for ECMP routes
-        // The subnet route configured on a VN can potentially be exported by
-        // gateway route also. If gateway are redundant, then the subnet route
-        // can be an ECMP route.
-        if (rt->ipam_subnet_route()) {
-            proxy_arp = false;
-            flood = true;
-        }
         break;
 
     default:
@@ -896,6 +887,22 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
 
     if (IsGatewayOrServiceInterface(nh) == true)
         return false;
+
+    //Is this a IPAM gateway? It may happen that better path is present pointing
+    //to tunnel. In this case IPAM gateway path will not be active path and
+    //identifying same will be missed. Stitching has to be avoided on non-TSN
+    //node.
+    //This has to be done only when layer3 forwarding is enabled on VN,
+    //else mac binding should be done irrespective of IPAM gateway.
+    if (vn->layer3_forwarding()) {
+        const Agent *agent = ksync()->agent();
+        if (agent->tsn_enabled() == false) {
+            const AgentPath *path = rt->FindPath(agent->local_peer());
+            nh = path ? path->nexthop() : NULL;
+        }
+        if (nh && (IsGatewayOrServiceInterface(nh) == true))
+            return false;
+    }
 
     return true;
 }

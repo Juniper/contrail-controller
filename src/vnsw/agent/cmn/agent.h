@@ -755,6 +755,7 @@ public:
     const Peer *multicast_tree_builder_peer() const {
         return multicast_tree_builder_peer_.get();}
     const Peer *mac_vm_binding_peer() const {return mac_vm_binding_peer_.get();}
+    const Peer *inet_evpn_peer() const {return inet_evpn_peer_.get();}
 
     // Agent Modules
     AgentConfig *cfg() const; 
@@ -1120,6 +1121,7 @@ private:
     std::auto_ptr<Peer> multicast_tor_peer_;
     std::auto_ptr<Peer> multicast_tree_builder_peer_;
     std::auto_ptr<Peer> mac_vm_binding_peer_;
+    std::auto_ptr<Peer> inet_evpn_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 
