@@ -507,8 +507,11 @@ class PhysicalRouterConfig(object):
     def _add_family_etree(self, parent, params):
         if params.get('address_families') is None:
             return
+        families = params['address_families'].get('family', [])
+        if not families:
+            return
         family_etree = etree.SubElement(parent, "family")
-        for family in params['address_families'].get('family', []):
+        for family in families:
             if family in self._FAMILY_MAP:
                 family_subtree = etree.fromstring(self._FAMILY_MAP[family])
                 family_etree.append(family_subtree)
