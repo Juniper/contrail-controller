@@ -110,6 +110,7 @@ bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
         (rt->GetTableType() == Agent::INET6_UNICAST)) {
         InetUnicastRouteEntry *inet_rt =
             static_cast<InetUnicastRouteEntry *>(rt);
+
         //If its the IPAM route then no change required neither
         //super net needs to be searched.
         if (inet_rt->ipam_subnet_route())

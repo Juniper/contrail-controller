@@ -631,7 +631,11 @@ void AgentRoute::SquashStalePaths(const AgentPath *exception_path) {
 
 // First path in list is always treated as active path.
 const AgentPath *AgentRoute::GetActivePath() const {
-    return static_cast<const AgentPath *>(front());
+    const AgentPath *path = static_cast<const AgentPath *>(front());
+    if (path && path->dependant_rt()) {
+        path = path->dependant_rt()->GetActivePath();
+    }
+    return path;
 }
 
 const NextHop *AgentRoute::GetActiveNextHop() const {
