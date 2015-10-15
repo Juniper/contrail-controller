@@ -471,6 +471,7 @@ void Agent::InitPeers() {
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME, true));
     vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME, true));
     evpn_peer_.reset(new EvpnPeer());
+    inet_evpn_peer_.reset(new InetEvpnPeer());
     multicast_peer_.reset(new Peer(Peer::MULTICAST_PEER, MULTICAST_PEER_NAME,
                                    false));
     multicast_tor_peer_.reset(new Peer(Peer::MULTICAST_TOR_PEER,

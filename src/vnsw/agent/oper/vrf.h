@@ -113,6 +113,7 @@ public:
     AgentRouteTable *GetBridgeRouteTable() const;
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
+    InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
     void CreateTableLabel();
     bool AllRouteTableDeleted() const;
     bool RouteTableDeleted(uint8_t table_type) const;

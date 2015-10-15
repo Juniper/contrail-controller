@@ -126,6 +126,7 @@ public:
     const NextHop* GetLocalNextHop() const;
     bool IsHostRoute() const;
     bool IpamSubnetRouteAvailable() const;
+    InetUnicastRouteEntry *GetSuperNetRoute() const;
     bool ipam_subnet_route() const {return ipam_subnet_route_;}
     void set_ipam_subnet_route(bool ipam_subnet_route) {
         ipam_subnet_route_ = ipam_subnet_route;}
@@ -254,7 +255,7 @@ public:
                                   const VnListType &vn_list,
                                   const SecurityGroupList &sg);
     static void AddArpReq(const string &route_vrf_name,
-                          const Ip4Address &ip,
+                          const IpAddress &ip,
                           const string &nh_vrf_name,
                           const Interface *intf,
                           bool policy,
@@ -330,6 +331,11 @@ public:
                                uint8_t plen, ClonedLocalPath *data);
     bool ResyncSubnetRoutes(const InetUnicastRouteEntry *rt,
                             bool add_change);
+    uint8_t GetHostPlen(const IpAddress &ip_addr) const;
+    void AddEvpnRoute(const AgentRoute *evpn_entry);
+    void DeleteEvpnRoute(const AgentRoute *rt);
+    bool TraverseSubnetRoutes(InetUnicastRouteEntry *rt,
+                              const Peer *peer);
 
 private:
     Agent::RouteTableType type_;

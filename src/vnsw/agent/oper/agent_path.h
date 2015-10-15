@@ -167,6 +167,9 @@ public:
 
     virtual const NextHop *ComputeNextHop(Agent *agent) const;
     virtual bool IsLess(const AgentPath &right) const;
+    //UsablePath - Either it can return self or can redirect.
+    virtual const AgentPath *UsablePath() const;
+    virtual bool Sync(AgentRoute *sync_route); //vm_path sync
 
     const SecurityGroupList &sg_list() const {return sg_list_;}
     const CommunityList &communities() const {return communities_;}
@@ -186,7 +189,7 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;}
     TunnelType::Type tunnel_type() const {return tunnel_type_;}
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
-    const Ip4Address& gw_ip() const {return gw_ip_;}
+    const IpAddress& gw_ip() const {return gw_ip_;}
     const std::string &vrf_name() const {return vrf_name_;}
     bool force_policy() const {return force_policy_;}
     const bool unresolved() const {return unresolved_;}
@@ -203,7 +206,7 @@ public:
     void set_label(uint32_t label) {label_ = label;}
     void set_dest_vn_list(const VnListType &dest_vn_list) {dest_vn_list_ = dest_vn_list;}
     void set_unresolved(bool unresolved) {unresolved_ = unresolved;};
-    void set_gw_ip(const Ip4Address &addr) {gw_ip_ = addr;}
+    void set_gw_ip(const IpAddress &addr) {gw_ip_ = addr;}
     void set_force_policy(bool force_policy) {force_policy_ = force_policy;}
     void set_vrf_name(const std::string &vrf_name) {vrf_name_ = vrf_name;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
@@ -224,9 +227,10 @@ public:
     void set_local_ecmp_mpls_label(MplsLabel *mpls);
     bool dest_vn_match(const std::string &vn) const;
     const MplsLabel* local_ecmp_mpls_label() const;
+    void ClearDependantRoute() {dependant_rt_.clear();}
     void ResetDependantRoute(AgentRoute *rt) {dependant_rt_.reset(rt);}
+    const AgentRoute *dependant_rt() const {return dependant_rt_.get();}
     bool ChangeNH(Agent *agent, NextHop *nh);
-    bool Sync(AgentRoute *sync_route); //vm_path sync
     void SyncRoute(bool sync) {sync_ = sync;}
     bool RouteNeedsSync() {return sync_;}
     uint32_t GetTunnelBmap() const;
@@ -313,7 +317,7 @@ private:
     // VRF for gw_ip_ in gateway route
     std::string vrf_name_;
     // gateway for the route
-    Ip4Address gw_ip_;
+    IpAddress gw_ip_;
     // gateway route is unresolved if,
     //    - no route present for gw_ip_
     //    - ARP not resolved for gw_ip_
@@ -681,7 +685,7 @@ private:
 
 class Inet4UnicastGatewayRoute : public AgentRouteData {
 public:
-    Inet4UnicastGatewayRoute(const Ip4Address &gw_ip,
+    Inet4UnicastGatewayRoute(const IpAddress &gw_ip,
                              const std::string &vrf_name,
                              const std::string &vn_name,
                              uint32_t label, const SecurityGroupList &sg,
@@ -695,7 +699,7 @@ public:
     virtual std::string ToString() const {return "gateway";}
 
 private:
-    Ip4Address gw_ip_;
+    IpAddress gw_ip_;
     std::string vrf_name_;
     std::string vn_name_;
     uint32_t mpls_label_;
@@ -783,4 +787,29 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MacVmBindingPathData);
 };
 
+class InetEvpnRoutePath : public AgentPath {
+public:
+    InetEvpnRoutePath(const Peer *peer, AgentRoute *rt);
+    virtual ~InetEvpnRoutePath() { }
+    virtual std::string ToString() const { return "InetEvpnRoutePath"; }
+    virtual const AgentPath *UsablePath() const;
+    virtual bool Sync(AgentRoute *sync_route); //vm_path sync
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(InetEvpnRoutePath);
+};
+
+class InetEvpnRoute : public AgentRouteData {
+public:
+    InetEvpnRoute() : AgentRouteData(false) {
+    }
+    virtual ~InetEvpnRoute() { }
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "Derived Inet route from Evpn";}
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(InetEvpnRoute);
+};
 #endif // vnsw_agent_path_hpp
