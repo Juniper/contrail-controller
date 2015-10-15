@@ -363,23 +363,54 @@ void EvpnAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
 }
 
 //Notify L2 route corresponding to MAC in evpn route.
-void EvpnAgentRouteTable::UpdateDependants(AgentRoute *entry) {
+void EvpnAgentRouteTable::UpdateDependants(AgentRoute *entry,
+                                           const AgentPath *path) {
     EvpnRouteEntry *evpn_rt = dynamic_cast<EvpnRouteEntry *>(entry);
+    //As active path is picked from route, any modification in non-active
+    //path need not rebake agent route.
+    if ((path != NULL) && (path != evpn_rt->GetActivePath()))
+        return;
+
+    //VN not set so forwarding mode cant be checked.
+    //Will revisit once VN gets set.
+    if (vrf_entry()->vn() == false)
+        return;
+
     if (evpn_rt->publish_to_bridge_route_table()) {
-        BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-            (vrf_entry()->GetBridgeRouteTable());
-        table->AddBridgeRoute(entry);
+        //Get the forwarding mode and if its l2 enabled then program.
+        //if (vrf_entry()->vn()->bridging()) {
+            BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+                (vrf_entry()->GetBridgeRouteTable());
+            table->AddBridgeRoute(entry);
+        //}
+    }
+    if (evpn_rt->publish_to_inet_route_table()) {
+        //Get the forwarding mode and if its l3 enabled then program.
+        //if (vrf_entry()->vn()->layer3_forwarding()) {
+            VrfTable *vrf_table =
+                static_cast<VrfTable *>(vrf_entry()->get_table());
+            InetUnicastAgentRouteTable *table =
+                static_cast<InetUnicastAgentRouteTable *>(vrf_table->
+                            GetInetUnicastRouteTable(evpn_rt->ip_addr(),
+                                                     vrf_entry()));
+            table->AddEvpnRoute(entry);
+        //}
     }
 }
 
 //Delete path from L2 route corresponding to MAC+IP in evpn route.
 void EvpnAgentRouteTable::PreRouteDelete(AgentRoute *entry) {
     EvpnRouteEntry *evpn_rt = dynamic_cast<EvpnRouteEntry *>(entry);
-    if (evpn_rt->publish_to_bridge_route_table()) {
-        BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-            (vrf_entry()->GetBridgeRouteTable());
-        table->DeleteBridgeRoute(entry);
-    }
+    //Delete from bridge table
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf_entry()->GetBridgeRouteTable());
+    table->DeleteBridgeRoute(entry);
+    //Delete from Inet table
+    const VrfTable *vrf_table =
+        static_cast<const VrfTable *>(vrf_entry()->get_table());
+    vrf_table->GetInetUnicastRouteTable(evpn_rt->ip_addr(),
+                                        vrf_entry())->
+        DeleteEvpnRoute(entry);
 }
 
 /////////////////////////////////////////////////////////////////////////////

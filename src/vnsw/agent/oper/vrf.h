@@ -231,6 +231,9 @@ public:
     void DeleteRoutes();
     void Shutdown();
     void DeleteFromDbTree(int table_type, const std::string &vrf_name);
+    InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr,
+                                                         const VrfEntry *vrf) const;
+
 private:
     friend class VrfEntry;
 

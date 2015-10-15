@@ -398,6 +398,16 @@ VrfTable::~VrfTable() {
         delete vrf_delete_walker_;
 }
 
+InetUnicastAgentRouteTable *
+VrfTable::GetInetUnicastRouteTable(const IpAddress &addr,
+                                   const VrfEntry *vrf) const {
+    if (addr.is_v4())
+        return static_cast<InetUnicastAgentRouteTable *>
+            (vrf->GetInet4UnicastRouteTable());
+    return static_cast<InetUnicastAgentRouteTable *>
+        (vrf->GetInet6UnicastRouteTable());
+}
+
 DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     VrfData *data = static_cast<VrfData *>(req->data.get());

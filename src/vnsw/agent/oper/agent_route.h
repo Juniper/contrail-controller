@@ -123,7 +123,8 @@ public:
     //Entry notification
     virtual void NotifyEntry(AgentRoute *entry);
     //Can be used for operations related to updation of route.
-    virtual void UpdateDependants(AgentRoute *entry) { }
+    virtual void UpdateDependants(AgentRoute *entry,
+                                  const AgentPath *path) { }
     //Can be used for operations resulting from deletion of route.
     virtual void PreRouteDelete(AgentRoute *entry) { }
 
@@ -186,12 +187,12 @@ public:
     void StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
                            const Peer *peer);
     void SquashStalePaths(AgentRoute *rt, const AgentPath *path);
+    void EvaluateUnresolvedRoutes(void);
 
 private:
     class DeleteActor;
     void AddUnresolvedRoute(const AgentRoute *rt);
     void RemoveUnresolvedRoute(const AgentRoute *rt);
-    void EvaluateUnresolvedRoutes(void);
     void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
 
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
