@@ -32,6 +32,7 @@ import uuid
 import subprocess
 import requests
 import json
+import os
 
 from linux import ip_lib
 import haproxy_process
@@ -150,7 +151,6 @@ class NetnsManager(object):
                              'relasing lbaas')
 
         haproxy_process.stop_haproxy(self.cfg_file, True)
-
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
