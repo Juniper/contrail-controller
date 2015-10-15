@@ -33,7 +33,7 @@ class HaproxyStats(object):
         pass
 
     def get_stats(self, pool_id):
-        sock_path = os.path.join(LB_BASE_DIR, pool_id, 'etc/haproxy/haproxy.cfg.sock')
+        sock_path  = LB_BASE_DIR  + pool_id  + ".haproxy.cfg.sock";
         if not os.path.exists(sock_path):
             sys.stderr.write('\nStats socket not found for pool ' + pool_id)
             return {}
