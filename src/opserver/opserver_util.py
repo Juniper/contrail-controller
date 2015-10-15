@@ -416,6 +416,41 @@ class OpServerUtils(object):
     # end messages_xml_data_to_dict
 
     @staticmethod
+    def _messages_dict_remove_keys(data_dict, key_pattern):
+        for key, value in data_dict.items():
+            if key_pattern in key:
+                del data_dict[key]
+            if isinstance(value, list):
+                for elem in value:
+                    OpServerUtils._messages_dict_remove_keys(elem, key_pattern)
+            if isinstance(value, dict):
+                OpServerUtils._messages_dict_remove_keys(value, key_pattern)
+    # end _messages_dict_remove_keys
+
+    @staticmethod
+    def _messages_dict_flatten_key(data_dict, key_match):
+        for key, value in data_dict.items():
+            if isinstance(value, dict):
+                if key_match in value:
+                    data_dict[key] = value[key_match]
+                else:
+                    OpServerUtils._messages_dict_flatten_key(value, key_match)
+            if isinstance(value, list):
+                for elem in value:
+                    if isinstance(elem, dict):
+                        OpServerUtils._messages_dict_flatten_key(elem,
+                            key_match)
+    #end _messages_dict_flatten_key
+
+    # Scrubs the message dict to remove keys containing @, and will
+    # flatten out dicts containing #text
+    @staticmethod
+    def messages_dict_scrub(data_dict):
+        OpServerUtils._messages_dict_remove_keys(data_dict, '@')
+        OpServerUtils._messages_dict_flatten_key(data_dict, '#text')
+    # end messages_dict_scrub
+
+    @staticmethod
     def messages_data_dict_to_str(messages_dict, message_type, sandesh_type):
         data_dict = messages_dict[message_type]
         if sandesh_type == SandeshType.SYSLOG:
