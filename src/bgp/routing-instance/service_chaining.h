@@ -259,7 +259,7 @@ public:
     void Enqueue(ServiceChainRequestT *req);
 
 private:
-    friend class ServiceChainIntegrationTest;
+    template <typename U> friend class ServiceChainIntegrationTest;
     template <typename U> friend class ServiceChainTest;
 
     // All service chain related actions are performed in the context
