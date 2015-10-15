@@ -24,7 +24,7 @@ public:
     virtual bool IsQueueEmpty() const = 0;
 
 private:
-    friend class ServiceChainIntegrationTest;
+    template <typename U> friend class ServiceChainIntegrationTest;
     template <typename U> friend class ServiceChainTest;
 
     virtual void set_aggregate_host_route(bool value) = 0;

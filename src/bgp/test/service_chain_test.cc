@@ -1197,7 +1197,6 @@ protected:
     }
 
     string BuildNextHopAddress(const string &ipv4_addr) const {
-        // return BuildHostAddress(ipv4_addr);
         return ipv4_addr;
     }
 

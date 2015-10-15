@@ -19,7 +19,7 @@ std::string BgpPath::PathSourceString(PathSource source) {
         case StaticRoute:
             return "StaticRoute";
         case ServiceChain:
-            return "SericeChain";
+            return "ServiceChain";
         case Local:
             return "Local";
         default:
