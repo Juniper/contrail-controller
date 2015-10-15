@@ -1057,8 +1057,8 @@ BgpAttrPtr BgpAttrDB::ReplacePmsiTunnelAndLocate(const BgpAttr *attr,
 }
 
 // Return a clone of attribute with updated nexthop.
-BgpAttrPtr BgpAttrDB::UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi,
-                                             uint8_t safi, IpAddress &addr) {
+BgpAttrPtr BgpAttrDB::ReplaceNexthopAndLocate(const BgpAttr *attr,
+    const IpAddress &addr) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_nexthop(addr);
     return Locate(clone);

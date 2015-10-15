@@ -48,14 +48,15 @@ public:
             const IPeer *peer, uint32_t path_id);
     bool RemoveSecondaryPath(const BgpRoute *src_rt, BgpPath::PathSource src,
             const IPeer *peer, uint32_t path_id);
+    virtual RouteDistinguisher GetRouteDistinguisher() const {
+        return RouteDistinguisher::kZeroRd;
+    }
 
     // Get AFI and SAFI.
     virtual u_int16_t Afi() const = 0;
     virtual u_int8_t Safi() const = 0;
     virtual u_int8_t XmppSafi() const { return Safi(); }
-    virtual u_int16_t NexthopAfi() const {
-        return Afi();
-    }
+    virtual u_int16_t NexthopAfi() const { return Afi(); }
 
     virtual std::string ToXmppIdString() const { return ToString(); }
 

@@ -625,7 +625,7 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
         case StaticRouteRequest::DELETE_STATIC_ROUTE_DONE: {
             info->set_unregistered();
             if (!info->num_matchstate()) {
-                listener_->UnregisterCondition(table, info);
+                listener_->UnregisterMatchCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
                 if (static_route_map_.empty())
                     rtinstance_->server()->RemoveStaticRouteMgr(this);
@@ -648,7 +648,7 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
             listener_->RemoveMatchState(table, route, info);
             delete state;
             if (!info->num_matchstate() && info->unregistered()) {
-                listener_->UnregisterCondition(table, info);
+                listener_->UnregisterMatchCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
                 if (static_route_map_.empty())
                     rtinstance_->server()->RemoveStaticRouteMgr(this);

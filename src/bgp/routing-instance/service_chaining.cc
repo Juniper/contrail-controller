@@ -890,13 +890,13 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             if (table == info->connected_table()) {
                 info->set_connected_table_unregistered();
                 if (!info->num_matchstate()) {
-                    listener_->UnregisterCondition(table, info);
+                    listener_->UnregisterMatchCondition(table, info);
                 }
             }
             if (table == info->dest_table()) {
                 info->set_dest_table_unregistered();
                 if (!info->num_matchstate()) {
-                    listener_->UnregisterCondition(table, info);
+                    listener_->UnregisterMatchCondition(table, info);
                 }
             }
             if (info->unregistered()) {
@@ -988,10 +988,10 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             delete state;
             if (!info->num_matchstate()) {
                 if (info->dest_table_unregistered()) {
-                    listener_->UnregisterCondition(info->dest_table(), info);
+                    listener_->UnregisterMatchCondition(info->dest_table(), info);
                 }
                 if (info->connected_table_unregistered()) {
-                    listener_->UnregisterCondition(
+                    listener_->UnregisterMatchCondition(
                         info->connected_table(), info);
                 }
                 if (info->unregistered()) {

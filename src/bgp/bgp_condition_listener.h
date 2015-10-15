@@ -167,26 +167,27 @@ public:
     // DB table should be walked to match this deleting condition and
     // revert the action taken on previous match
     // DeleteDone callback indicates the calling application about Remove
-    // completion. Application should call UnregisterCondition to
+    // completion. Application should call UnregisterMatchCondition to
     // remove the ConditionMatch object from the table
     void RemoveMatchCondition(BgpTable *table, ConditionMatch *obj,
                               RequestDoneCb deleteDonecb);
 
     // Return the meta-data added by the module requested for Match
     ConditionMatchState *GetMatchState(BgpTable *table, BgpRoute *route,
-                                         ConditionMatch *obj);
+                                       ConditionMatch *obj);
+    bool CheckMatchState(BgpTable *table, BgpRoute *route, ConditionMatch *obj);
 
     // Set the module specific meta-data after the match/action
     void SetMatchState(BgpTable *table, BgpRoute *route,
                        ConditionMatch *obj,
-                       ConditionMatchState *state);
+                       ConditionMatchState *state = NULL);
 
     // Clear the module specific DBState
     void RemoveMatchState(BgpTable *table, BgpRoute *route,
                           ConditionMatch *obj);
 
     // API to remove condition object from the table
-    void UnregisterCondition(BgpTable *table, ConditionMatch *obj);
+    void UnregisterMatchCondition(BgpTable *table, ConditionMatch *obj);
 
     BgpServer *server() {
         return server_;

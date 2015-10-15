@@ -1606,8 +1606,7 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
     // NOP in cases <afi,safi> doesn't carry nexthop attribute.
     if (update_nh) {
         addr = Ip4Address(bt);
-        attr = server_->attr_db()->UpdateNexthopAndLocate(attr.get(), nlri->afi,
-                                                          nlri->safi, addr);
+        attr = server_->attr_db()->ReplaceNexthopAndLocate(attr.get(), addr);
     }
     return attr;
 }
