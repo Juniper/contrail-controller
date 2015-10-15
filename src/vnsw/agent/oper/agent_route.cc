@@ -690,7 +690,8 @@ AgentPath *AgentRoute::FindPath(const Peer *peer) const {
 
 // First path in list is always treated as active path.
 const AgentPath *AgentRoute::GetActivePath() const {
-    return static_cast<const AgentPath *>(front());
+    const AgentPath *path = static_cast<const AgentPath *>(front());
+    return (path ? path->UsablePath() : NULL);
 }
 
 const NextHop *AgentRoute::GetActiveNextHop() const {
