@@ -482,7 +482,10 @@ bool Dhcpv6Handler::FindLeaseData() {
             }
             if (IsIp6SubnetMember(ip, ipam[i].ip_prefix.to_v6(), 
                                   ipam[i].plen)) {
-                Ip6Address default_gw = ipam[i].default_gw.to_v6();
+                Ip6Address default_gw;
+                if (ipam[i].default_gw.is_v6()) {
+                    default_gw = ipam[i].default_gw.to_v6();
+                }
                 Ip6Address service_address;
                 if (ipam[i].dns_server.is_unspecified()) {
                     service_address = default_gw;
