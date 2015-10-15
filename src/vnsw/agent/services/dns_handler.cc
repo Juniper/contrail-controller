@@ -249,7 +249,7 @@ void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error
                 while (it != end) {
                     boost_udp::endpoint ep = *it;
                     if (ep.address().is_v6() && 
-                        !ep.address().to_v6().is_unspecified())
+                        !ep.address().is_unspecified())
                         item->data = ep.address().to_v6().to_string();
                     else {     
                         dns_->flags.ret = DNS_ERR_SERVER_FAIL;
