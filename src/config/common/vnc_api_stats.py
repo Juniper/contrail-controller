@@ -38,6 +38,10 @@ class VncApiStatistics(object):
 
     def collect(self):
         self.time_finish = datetime.now()
+        response_time = (self.time_finish - self.time_start)
+        response_time_in_usec = ((response_time.days*24*60*60) +
+                                 (response_time.seconds*1000000) +
+                                 response_time.microseconds)
         domain_name = bottle.request.headers.get('X-Domain-Name', 'None')
         if domain_name.lower() == 'none':
             domain_name = 'default-domain'
@@ -55,8 +59,7 @@ class VncApiStatistics(object):
             remote_ip=bottle.request.headers.get('Host'),
             domain_name=domain_name,
             project_name=project_name,
-            response_time_in_usec=(self.time_finish -
-                self.time_start).total_seconds() * 1000000,
+            response_time_in_usec=response_time_in_usec,
             response_size=self.response_size,
             response_code=self.response_code,
         )
