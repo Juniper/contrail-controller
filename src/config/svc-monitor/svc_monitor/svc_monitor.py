@@ -31,6 +31,7 @@ from cfgm_common import exceptions
 from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
+from cfgm_common import utils
 
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.vnc_cassandra import VncCassandraClient
@@ -60,6 +61,7 @@ _zookeeper_client = None
 
 class SvcMonitor(object):
 
+    _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
     """
     data + methods used/referred to by ssrc and arc greenlets
     """
@@ -302,7 +304,7 @@ class SvcMonitor(object):
 
         self._nova_client = importutils.import_object(
             'svc_monitor.nova_client.ServiceMonitorNovaClient',
-            self._args, self.logger)
+            self._args, self.logger,self._kscertbundle)
 
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
@@ -924,6 +926,7 @@ def parse_args(args_str):
                          --cassandra_server_list 10.1.2.3:9160
                          --api_server_ip 10.1.2.3
                          --api_server_port 8082
+                         --api_server_use_ssl False
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
                          --collectors 127.0.0.1:8086
@@ -965,6 +968,7 @@ def parse_args(args_str):
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
+        'api_server_use_ssl': False,
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
         'collectors': None,
@@ -997,7 +1001,10 @@ def parse_args(args_str):
         'auth_insecure': True,
         'admin_user': 'user1',
         'admin_password': 'password1',
-        'admin_tenant_name': 'default-domain'
+        'admin_tenant_name': 'default-domain',
+        'certfile': '',
+        'keyfile': '',
+        'cafile': ''
     }
     schedops = {
         'si_netns_scheduler_driver': \
@@ -1021,6 +1028,16 @@ def parse_args(args_str):
         if 'SCHEDULER' in config.sections():
             schedops.update(dict(config.items("SCHEDULER")))
 
+    kscertfile=config.get('KEYSTONE','certfile')
+    kskeyfile=config.get('KEYSTONE','keyfile')
+    kscafile=config.get('KEYSTONE','cafile')
+    ksauthproto=config.get('KEYSTONE','auth_protocol')
+    if kscertfile and kskeyfile and kscafile \
+    and ksauthproto == 'https':
+        certs=[kscertfile, kskeyfile, kscafile]
+        self._kscertbundle=utils.getCertKeyCaBundle(SvcMonitor._DEFAULT_KS_CERT_BUNDLE,certs)
+    else:
+        self._kscertbundle=''
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
@@ -1055,6 +1072,8 @@ def parse_args(args_str):
                         help="IP address of API server")
     parser.add_argument("--api_server_port",
                         help="Port of API server")
+    parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
@@ -1120,7 +1139,7 @@ def run_svc_monitor(args=None):
         try:
             vnc_api = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port)
+                args.api_server_ip, args.api_server_port, api_server_use_ssl=args.api_server_use_ssl)
             connected = True
             monitor.logger.api_conn_status_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
