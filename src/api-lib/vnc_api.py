@@ -12,6 +12,7 @@ import sys
 import time
 import platform
 import __main__ as main
+import ssl
 
 import gen.resource_common
 from gen.resource_xsd import *
@@ -20,6 +21,7 @@ from gen.vnc_api_client_gen import VncApiClientGen
 
 from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
+from cfgm_common import ssl_adapter
 
 from pprint import pformat
 
@@ -84,6 +86,15 @@ class VncApi(VncApiClientGen):
     _DEFAULT_AUTHN_TENANT = VncApiClientGen._tenant_name
     _DEFAULT_DOMAIN_ID = "default"
 
+    # Keystone and and vnc-api SSL support
+    # contrail-api will remain to be on http
+    # with LB (haproxy/F5/nginx..etc) configured for
+    # ssl termination on port 8082(default contrail-api port)
+    _DEFAULT_API_SERVER_CONNECT="http"
+    _DEFAULT_API_SERVER_SSL_CONNECT="https"
+    _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
+    _DEFAULT_API_CERT_BUNDLE="/tmp/apiservercertbundle.pem"
+
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
     _DEFAULT_BASE_URL = "/"
@@ -92,12 +103,16 @@ class VncApi(VncApiClientGen):
     # a POST /list-bulk-collection is issued
     POST_FOR_LIST_THRESHOLD = 25
 
+    # Number of pools and number of pool per conn to api-server
+    _DEFAULT_MAX_POOLS = 100
+    _DEFAULT_MAX_CONNS_PER_POOL = 100
+
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
                  auth_token=None, auth_host=None, auth_port=None,
                  auth_protocol = None, auth_url=None, auth_type=None,
-                 wait_for_connect=False):
+                 wait_for_connect=False, api_server_use_ssl=False):
         # TODO allow for username/password to be present in creds file
 
         super(VncApi, self).__init__(self._obj_serializer_diff)
@@ -109,6 +124,14 @@ class VncApi(VncApiClientGen):
         except Exception as e:
             logger = logging.getLogger(__name__)
             logger.warn("Exception: %s", str(e))
+
+        self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_CONNECT
+        # API server SSL Support
+        use_ssl = api_server_use_ssl
+        if isinstance(api_server_use_ssl, basestring):
+           use_ssl = (api_server_use_ssl.lower() == 'true')
+        if use_ssl:
+             self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_SSL_CONNECT
             
         # keystone
         self._authn_type = auth_type or \
@@ -137,6 +160,43 @@ class VncApi(VncApiClientGen):
             self._tenant_name = tenant_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
                           self._DEFAULT_AUTHN_TENANT)
+
+            #contrail-api SSL support
+            try:
+               self._apiinsecure = cfg_parser.getboolean('global','insecure')
+            except (AttributeError,
+                    ConfigParser.NoOptionError,
+                    ConfigParser.NoSectionError):
+               self._apiinsecure = False
+            apicertfile=_read_cfg(cfg_parser,'global','certfile','')
+            apikeyfile=_read_cfg(cfg_parser,'global','keyfile','')
+            apicafile=_read_cfg(cfg_parser,'global','cafile','')
+
+            self._use_api_certs=False
+            if apicertfile and apikeyfile \
+               and apicafile and api_server_use_ssl:
+                    certs=[apicertfile, apikeyfile, apicafile]
+                    self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
+                    self._use_api_certs=True
+
+            # keystone SSL support
+            try:
+              self._ksinsecure = cfg_parser.getboolean('auth', 'insecure')
+            except (AttributeError,
+                    ConfigParser.NoOptionError,
+                    ConfigParser.NoSectionError):
+              self._ksinsecure = False
+            kscertfile=_read_cfg(cfg_parser,'auth','certfile','')
+            kskeyfile=_read_cfg(cfg_parser,'auth','keyfile','')
+            kscafile=_read_cfg(cfg_parser,'auth','cafile','')
+
+            self._use_ks_certs=False
+            if kscertfile and kskeyfile and kscafile \
+               and self._authn_protocol == 'https':
+                   certs=[kscertfile, kskeyfile, kscafile]
+                   self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
+                   self._use_ks_certs=True
+
             if 'v2' in self._authn_url:
                  self._authn_body = \
                      '{"auth":{"passwordCredentials":{' + \
@@ -176,6 +236,13 @@ class VncApi(VncApiClientGen):
                                        self._DEFAULT_WEB_PORT)
         else:
             self._web_port = api_server_port
+
+        self._max_pools = int(_read_cfg(
+            cfg_parser, 'global', 'MAX_POOLS',
+            self._DEFAULT_MAX_POOLS))
+        self._max_conns_per_pool = int(_read_cfg(
+            cfg_parser, 'global', 'MAX_CONNS_PER_POOL',
+            self._DEFAULT_MAX_CONNS_PER_POOL))
 
         # Where client's view of world begins
         if not api_server_url:
@@ -253,10 +320,12 @@ class VncApi(VncApiClientGen):
     def _create_api_server_session(self):
         self._api_server_session = requests.Session()
 
-        adapter = requests.adapters.HTTPAdapter(pool_connections=100,
-                                                pool_maxsize=100)
+        adapter = requests.adapters.HTTPAdapter(pool_connections=self._max_conns_per_pool,
+                                                pool_maxsize=self._max_pools)
+        ssladapter = ssl_adapter.SSLAdapter(ssl.PROTOCOL_SSLv23)
+        ssladapter.init_poolmanager(connections=self._max_conns_per_pool,maxsize=self._max_pools)
         self._api_server_session.mount("http://", adapter)
-        self._api_server_session.mount("https://", adapter)
+        self._api_server_session.mount("https://", ssladapter)
     #end _create_api_server_session
 
     # Authenticate with configured service
@@ -267,8 +336,15 @@ class VncApi(VncApiClientGen):
                                   self._authn_url)
         new_headers = headers or {}
         try:
-            response = requests.post(url, data=self._authn_body,
-                                 headers=self._DEFAULT_AUTHN_HEADERS)
+            if self._ksinsecure:
+                response = requests.post(url, data=self._authn_body,
+                                     headers=self._DEFAULT_AUTHN_HEADERS, verify=False)
+            elif not self._ksinsecure and self._use_ks_certs:
+                response = requests.post(url, data=self._authn_body,
+                                         headers=self._DEFAULT_AUTHN_HEADERS, verify=self._kscertbundle)
+            else:
+                response = requests.post(url, data=self._authn_body,
+                                         headers=self._DEFAULT_AUTHN_HEADERS)
         except Exception as e:
             raise RuntimeError('Unable to connect to keystone for authentication. Verify keystone server details')
 
@@ -286,10 +362,17 @@ class VncApi(VncApiClientGen):
     #end _authenticate
 
     def _http_get(self, uri, headers=None, query_params=None):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
-        response = self._api_server_session.get(url, headers=headers,
-                                                params=query_params)
+        url = "%s://%s:%s%s" \
+              % (self._api_connect_protocol,self._web_host, self._web_port, uri)
+        if self._apiinsecure:
+             response = self._api_server_session.get(url, headers=headers,
+                                                      params=query_params,verify=False)
+        elif not self._apiinsecure and self._use_api_certs:
+             response = self._api_server_session.get(url, headers=headers,
+                                                     params=query_params,verify=self._apicertbundle)
+        else:
+             response = self._api_server_session.get(url, headers=headers,
+                                                      params=query_params)
         #print 'Sending Request URL: ' + pformat(url)
         #print '                Headers: ' + pformat(headers)
         #print '                QParams: ' + pformat(query_params)
@@ -300,26 +383,47 @@ class VncApi(VncApiClientGen):
     #end _http_get
 
     def _http_post(self, uri, body, headers):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
-        response = self._api_server_session.post(url, data=body,
-                                                 headers=headers)
+        url = "%s://%s:%s%s" \
+              % (self._api_connect_protocol, self._web_host, self._web_port, uri)
+        if self._apiinsecure:
+             response = self._api_server_session.post(url, data=body,
+                                                     headers=headers, verify=False)
+        elif not self._apiinsecure and self._use_api_certs:
+             response = self._api_server_session.post(url, data=body,
+                                                      headers=headers, verify=self._apicertbundle)
+        else:
+             response = self._api_server_session.post(url, data=body,
+                                                       headers=headers)
         return (response.status_code, response.text)
     #end _http_post
 
     def _http_delete(self, uri, body, headers):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
-        response = self._api_server_session.delete(url, data=body,
-                                                   headers=headers)
+        url = "%s://%s:%s%s" \
+              % (self._api_connect_protocol, self._web_host, self._web_port, uri)
+        if self._apiinsecure:
+            response = self._api_server_session.delete(url, data=body,
+                                                   headers=headers, verify=False)
+        elif not self._apiinsecure and self._use_api_certs:
+            response = self._api_server_session.delete(url, data=body,
+                                                       headers=headers, verify=self._apicertbundle)
+        else:
+            response = self._api_server_session.delete(url, data=body,
+                                                        headers=headers)
         return (response.status_code, response.text)
     #end _http_delete
 
     def _http_put(self, uri, body, headers):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
-        response = self._api_server_session.put(url, data=body,
-                                                headers=headers)
+        url = "%s://%s:%s%s" \
+              % (self._api_connect_protocol, self._web_host, self._web_port, uri)
+        if self._apiinsecure:
+             response = self._api_server_session.put(url, data=body,
+                                                headers=headers, verify=False)
+        elif not self._apiinsecure and self._use_api_certs:
+             response = self._api_server_session.put(url, data=body,
+                                                     headers=headers, verify=self._apicertbundle)
+        else:
+             response = self._api_server_session.put(url, data=body,
+                                                      headers=headers)
         return (response.status_code, response.text)
     #end _http_delete
 
