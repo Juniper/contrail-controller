@@ -91,8 +91,11 @@ class InstanceManager(object):
                                   (':'.join(proj_fq_name)))
         return proj_obj
 
-    def _allocate_iip(self, vn_obj, iip_name):
-        iip_obj = InstanceIp(name=iip_name)
+    def _allocate_iip_for_family(self, vn_obj, iip_name, iip_family):
+        if iip_family == 'v6':
+            iip_name = iip_name + '-' + iip_family
+
+        iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
         iip_obj.add_virtual_network(vn_obj)
         for iip in InstanceIpSM.values():
             if iip.name == iip_name:
@@ -104,9 +107,47 @@ class InstanceManager(object):
                 self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
                 iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
+            except HttpError:
+                return None
 
         InstanceIpSM.locate(iip_obj.uuid)
         return iip_obj
+
+    def _allocate_iip(self, vn_obj, iip_name):
+        iip_obj = self._allocate_iip_for_family(vn_obj, iip_name, 'v4')
+        iipv6_obj = self._allocate_iip_for_family(vn_obj, iip_name, 'v6')
+        return iip_obj, iipv6_obj
+
+    def _link_and_update_iip_for_family(self, si, vmi_obj, iip_obj):
+        iip_update = True
+        iip = InstanceIpSM.get(iip_obj.uuid)
+        if iip:
+            for vmi_id in iip.virtual_machine_interfaces:
+                vmi = VirtualMachineInterfaceSM.get(vmi_id)
+                if vmi and vmi.uuid == vmi_obj.uuid:
+                    iip_update = False
+        else:
+            vmi_refs = iip_obj.get_virtual_machine_interface_refs()
+            for vmi_ref in vmi_refs or []:
+                if vmi_obj.uuid == vmi_ref['uuid']:
+                    iip_update = False
+
+        if iip_update:
+            if si.ha_mode:
+                iip_obj.set_instance_ip_mode(si.ha_mode)
+            elif si.max_instances > 1:
+                iip_obj.set_instance_ip_mode(u'active-active')
+            else:
+                iip_obj.set_instance_ip_mode(u'active-standby')
+
+            iip_obj.add_virtual_machine_interface(vmi_obj)
+            self._vnc_lib.instance_ip_update(iip_obj)
+
+    def _link_and_update_iip(self, si, vmi_obj, iip_obj, iipv6_obj):
+        if iip_obj:
+            self._link_and_update_iip_for_family(si, vmi_obj, iip_obj)
+        if iipv6_obj:
+            self._link_and_update_iip_for_family(si, vmi_obj, iipv6_obj)
 
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']
@@ -425,11 +466,11 @@ class InstanceManager(object):
                 iip_obj.uuid = iip.uuid
         elif nic['shared-ip']:
             iip_name = "__".join(si.fq_name) + '-' + nic['type']
-            iip_obj = self._allocate_iip(vn_obj, iip_name)
+            iip_obj, iipv6_obj = self._allocate_iip(vn_obj, iip_name)
         else:
             iip_name = instance_name + '-' + nic['type'] + '-' + vmi_obj.uuid
-            iip_obj = self._allocate_iip(vn_obj, iip_name)
-        if not iip_obj:
+            iip_obj, iipv6_obj = self._allocate_iip(vn_obj, iip_name)
+        if not iip_obj and not iipv6_obj:
             self.logger.log_error(
                 "Instance IP not allocated for %s %s"
                 % (instance_name, proj_obj.name))
@@ -437,34 +478,16 @@ class InstanceManager(object):
 
         # set mac address
         if vmi_create:
-            mac_addrs_obj = MacAddressesType([self.mac_alloc(iip_obj.uuid)])
+            if iip_obj:
+                mac_addr = self.mac_alloc(iip_obj.uuid)
+            else:
+                mac_addr = self.mac_alloc(iipv6_obj.uuid)
+            mac_addrs_obj = MacAddressesType([mac_addr])
             vmi_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
-        # check if vmi already linked to iip
-        iip_update = True
-        iip = InstanceIpSM.get(iip_obj.uuid)
-        if iip:
-            for vmi_id in iip.virtual_machine_interfaces:
-                vmi = VirtualMachineInterfaceSM.get(vmi_id)
-                if vmi and vmi.uuid == vmi_obj.uuid:
-                    iip_update = False
-        else:
-            vmi_refs = iip_obj.get_virtual_machine_interface_refs()
-            for vmi_ref in vmi_refs or []:
-                if vmi_obj.uuid == vmi_ref['uuid']:
-                    iip_update = False
-
-        if iip_update:
-            if si.ha_mode:
-                iip_obj.set_instance_ip_mode(si.ha_mode)
-            elif si.max_instances > 1:
-                iip_obj.set_instance_ip_mode(u'active-active')
-            else:
-                iip_obj.set_instance_ip_mode(u'active-standby')
-
-            iip_obj.add_virtual_machine_interface(vmi_obj)
-            self._vnc_lib.instance_ip_update(iip_obj)
+        # link vmi to iip and set ha-mode
+        self._link_and_update_iip(si, vmi_obj, iip_obj, iipv6_obj)
 
         return vmi_obj
 
