@@ -342,6 +342,15 @@ void IFMapDependencyManager::SetNotify(IFMapNode *node, bool notify_flag) {
     state->set_notify(notify_flag);
 }
 
+void IFMapDependencyManager::SetRequestEnqueued(IFMapNode *node,
+        bool oper_db_request_enqueued) {
+
+    IFMapNodeState *state = IFMapNodeGet(node);
+    assert(state);
+
+    state->set_oper_db_request_enqueued(oper_db_request_enqueued);
+}
+
 IFMapDependencyManager::IFMapNodePtr
 IFMapDependencyManager::SetState(IFMapNode *node) {
     IFMapTable *table = node->table();
