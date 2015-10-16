@@ -86,7 +86,8 @@ public:
 
                     if (!strcmp(name, "virtual-router")) {
                         string id_name = "virtual-router";
-                        autogen::VirtualRouter *data = new autogen::VirtualRouter();
+                        autogen::VirtualRouter *data =
+                            new autogen::VirtualRouter();
                         assert(autogen::VirtualRouter::Decode(child, &id_name,
                                                               data));
                         id_name = "virtual-router:" + id_name;
@@ -95,7 +96,8 @@ public:
 
                     if (!strcmp(name, "virtual-machine")) {
                         string id_name = "virtual-machine";
-                        autogen::VirtualMachine *data = new autogen::VirtualMachine();
+                        autogen::VirtualMachine *data =
+                            new autogen::VirtualMachine();
                         assert(autogen::VirtualMachine::Decode(child, &id_name,
                                                                data));
                         id_name = "virtual-machine:" + id_name;
@@ -367,7 +369,8 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
         rt_entry.entry.med = attributes.med;
         rt_entry.entry.sequence_number = attributes.sequence;
         if (attributes.sgids.size()) {
-            rt_entry.entry.security_group_list.security_group = attributes.sgids;
+            rt_entry.entry.security_group_list.security_group =
+                attributes.sgids;
         } else {
             rt_entry.entry.security_group_list.security_group.push_back(101);
         }
@@ -684,10 +687,13 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
         }
         if (!encap.empty()) {
             if (encap == "all") {
-                item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
-                item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+                item_nexthop.tunnel_encapsulation_list.
+                    tunnel_encapsulation.push_back("gre");
+                item_nexthop.tunnel_encapsulation_list.
+                    tunnel_encapsulation.push_back("udp");
             } else if (!encap.empty()) {
-                item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back(encap);
+                item_nexthop.tunnel_encapsulation_list.
+                    tunnel_encapsulation.push_back(encap);
             }
         }
         rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
@@ -743,7 +749,8 @@ void NetworkAgentMock::Initialize() {
 
 NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
                                    int server_port, string local_address,
-                                   string server_address, bool xmpp_auth_enabled)
+                                   string server_address,
+                                   bool xmpp_auth_enabled)
     : impl_(new XmppDocumentMock(hostname)),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
                 boost::bind(&NetworkAgentMock::ProcessRequest, this, _1)),
@@ -1010,6 +1017,18 @@ void NetworkAgentMock::AddInet6Route(const string &network,
     peer->SendDocument(xdoc);
 }
 
+void NetworkAgentMock::AddInet6Route(const string &network,
+        const string &prefix, const string &nexthop_str, int local_pref,
+        int med) {
+    NextHops nexthops;
+    if (!nexthop_str.empty()) {
+        nexthops.push_back(NextHop(nexthop_str, 0));
+    }
+    RouteAttributes attributes(
+        local_pref, med, RouteAttributes::GetDefaultSequence());
+    AddInet6Route(network, prefix, nexthops, attributes);
+}
+
 void NetworkAgentMock::ChangeInet6Route(const string &network,
         const string &prefix, const NextHops &nexthops,
         const RouteAttributes &attributes) {
@@ -1199,7 +1218,8 @@ void NetworkAgentMock::InstanceMgr<T>::Subscribe(const std::string &network,
 }
 
 template<typename T>
-bool NetworkAgentMock::InstanceMgr<T>::HasSubscribed(const std::string &network) {
+bool NetworkAgentMock::InstanceMgr<T>::HasSubscribed(
+        const std::string &network) {
     // if (!parent_->IsEstablished()) return false;
 
     tbb::mutex::scoped_lock lock(parent_->get_mutex());
@@ -1311,8 +1331,8 @@ int NetworkAgentMock::InstanceMgr<T>::Count() const {
     int count = 0;
 
     tbb::mutex::scoped_lock lock(parent_->get_mutex());
-    for (typename InstanceMgr<T>::InstanceMap::const_iterator iter = instance_map_.begin();
-            iter != instance_map_.end(); ++iter) {
+    for (typename InstanceMgr<T>::InstanceMap::const_iterator iter =
+            instance_map_.begin(); iter != instance_map_.end(); ++iter) {
         count += iter->second->Count();
     }
 

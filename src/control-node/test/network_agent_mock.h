@@ -395,6 +395,8 @@ public:
     void AddInet6Route(const std::string &network, const std::string &prefix,
         const NextHops &nexthops = NextHops(),
         const RouteAttributes &attributes = RouteAttributes());
+    void AddInet6Route(const std::string &network, const std::string &prefix,
+        const std::string &nexthop_str, int local_pref = 100, int med = 0);
     void ChangeInet6Route(const std::string &network, const std::string &prefix,
         const NextHops &nexthops = NextHops(),
         const RouteAttributes &attributes = RouteAttributes());

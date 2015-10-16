@@ -387,6 +387,94 @@ svc_static_route_intergration_test = env.UnitTest('svc_static_route_intergration
                                      ['svc_static_route_intergration_test.cc'])
 env.Alias('src/bgp:svc_static_route_intergration_test', svc_static_route_intergration_test)
 
+svc_static_route_intergration_test1 = env.UnitTest('svc_static_route_intergration_test1',
+                                     ['svc_static_route_intergration_test1.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1', svc_static_route_intergration_test1)
+
+svc_static_route_intergration_test1_1 = env.UnitTest('svc_static_route_intergration_test1_1',
+                                     ['svc_static_route_intergration_test1_1.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_1', svc_static_route_intergration_test1_1)
+
+svc_static_route_intergration_test1_2 = env.UnitTest('svc_static_route_intergration_test1_2',
+                                     ['svc_static_route_intergration_test1_2.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_2', svc_static_route_intergration_test1_2)
+
+svc_static_route_intergration_test1_3 = env.UnitTest('svc_static_route_intergration_test1_3',
+                                     ['svc_static_route_intergration_test1_3.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_3', svc_static_route_intergration_test1_3)
+
+svc_static_route_intergration_test1_4 = env.UnitTest('svc_static_route_intergration_test1_4',
+                                     ['svc_static_route_intergration_test1_4.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_4', svc_static_route_intergration_test1_4)
+
+svc_static_route_intergration_test1_5 = env.UnitTest('svc_static_route_intergration_test1_5',
+                                     ['svc_static_route_intergration_test1_5.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_5', svc_static_route_intergration_test1_5)
+
+svc_static_route_intergration_test1_6 = env.UnitTest('svc_static_route_intergration_test1_6',
+                                     ['svc_static_route_intergration_test1_6.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_6', svc_static_route_intergration_test1_6)
+
+svc_static_route_intergration_test1_7 = env.UnitTest('svc_static_route_intergration_test1_7',
+                                     ['svc_static_route_intergration_test1_7.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_7', svc_static_route_intergration_test1_7)
+
+svc_static_route_intergration_test1_8 = env.UnitTest('svc_static_route_intergration_test1_8',
+                                     ['svc_static_route_intergration_test1_8.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test1_8', svc_static_route_intergration_test1_8)
+
+svc_static_route_intergration_test2 = env.UnitTest('svc_static_route_intergration_test2',
+                                     ['svc_static_route_intergration_test2.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test2', svc_static_route_intergration_test2)
+
+svc_static_route_intergration_test2_1 = env.UnitTest('svc_static_route_intergration_test2_1',
+                                     ['svc_static_route_intergration_test2_1.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test2_1', svc_static_route_intergration_test2_1)
+
+svc_static_route_intergration_test2_2 = env.UnitTest('svc_static_route_intergration_test2_2',
+                                     ['svc_static_route_intergration_test2_2.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test2_2', svc_static_route_intergration_test2_2)
+
+svc_static_route_intergration_test2_3 = env.UnitTest('svc_static_route_intergration_test2_3',
+                                     ['svc_static_route_intergration_test2_3.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test2_3', svc_static_route_intergration_test2_3)
+
+svc_static_route_intergration_test2_4 = env.UnitTest('svc_static_route_intergration_test2_4',
+                                     ['svc_static_route_intergration_test2_4.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test2_4', svc_static_route_intergration_test2_4)
+
+svc_static_route_intergration_test3 = env.UnitTest('svc_static_route_intergration_test3',
+                                     ['svc_static_route_intergration_test3.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test3', svc_static_route_intergration_test3)
+
+svc_static_route_intergration_test3_1 = env.UnitTest('svc_static_route_intergration_test3_1',
+                                     ['svc_static_route_intergration_test3_1.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test3_1', svc_static_route_intergration_test3_1)
+
+svc_static_route_intergration_test3_2 = env.UnitTest('svc_static_route_intergration_test3_2',
+                                     ['svc_static_route_intergration_test3_2.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test3_2', svc_static_route_intergration_test3_2)
+
+svc_static_route_intergration_test3_3 = env.UnitTest('svc_static_route_intergration_test3_3',
+                                     ['svc_static_route_intergration_test3_3.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test3_3', svc_static_route_intergration_test3_3)
+
+svc_static_route_intergration_test3_4 = env.UnitTest('svc_static_route_intergration_test3_4',
+                                     ['svc_static_route_intergration_test3_4.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test3_4', svc_static_route_intergration_test3_4)
+
+svc_static_route_intergration_test4 = env.UnitTest('svc_static_route_intergration_test4',
+                                     ['svc_static_route_intergration_test4.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test4', svc_static_route_intergration_test4)
+
+svc_static_route_intergration_test4_1 = env.UnitTest('svc_static_route_intergration_test4_1',
+                                     ['svc_static_route_intergration_test4_1.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test4_1', svc_static_route_intergration_test4_1)
+
+svc_static_route_intergration_test4_2 = env.UnitTest('svc_static_route_intergration_test4_2',
+                                     ['svc_static_route_intergration_test4_2.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test4_2', svc_static_route_intergration_test4_2)
+
 show_route_test = env.UnitTest('show_route_test',
                              ['show_route_test.cc'])
 env.Alias('src/bgp:show_route_test', show_route_test)
@@ -475,6 +563,24 @@ test_suite = [
     state_machine_test,
     static_route_test,
     svc_static_route_intergration_test,
+    svc_static_route_intergration_test1_1,
+    svc_static_route_intergration_test1_2,
+    svc_static_route_intergration_test1_3,
+    svc_static_route_intergration_test1_4,
+    svc_static_route_intergration_test1_5,
+    svc_static_route_intergration_test1_6,
+    svc_static_route_intergration_test1_7,
+    svc_static_route_intergration_test1_8,
+    svc_static_route_intergration_test2_1,
+    svc_static_route_intergration_test2_2,
+    svc_static_route_intergration_test2_3,
+    svc_static_route_intergration_test2_4,
+    svc_static_route_intergration_test3_1,
+    svc_static_route_intergration_test3_2,
+    svc_static_route_intergration_test3_3,
+    svc_static_route_intergration_test3_4,
+    svc_static_route_intergration_test4_1,
+    svc_static_route_intergration_test4_2,
     xmpp_ecmp_test,
     xmpp_sess_toggle_test,
 ]
@@ -542,6 +648,24 @@ sc_test_suite = [
     service_chain_test,
     static_route_test,
     svc_static_route_intergration_test,
+    svc_static_route_intergration_test1_1,
+    svc_static_route_intergration_test1_2,
+    svc_static_route_intergration_test1_3,
+    svc_static_route_intergration_test1_4,
+    svc_static_route_intergration_test1_5,
+    svc_static_route_intergration_test1_6,
+    svc_static_route_intergration_test1_7,
+    svc_static_route_intergration_test1_8,
+    svc_static_route_intergration_test2_1,
+    svc_static_route_intergration_test2_2,
+    svc_static_route_intergration_test2_3,
+    svc_static_route_intergration_test2_4,
+    svc_static_route_intergration_test3_1,
+    svc_static_route_intergration_test3_2,
+    svc_static_route_intergration_test3_3,
+    svc_static_route_intergration_test3_4,
+    svc_static_route_intergration_test4_1,
+    svc_static_route_intergration_test4_2,
 ]
 
 sc_test = env.TestSuite('bgp-sc-test', sc_test_suite)
