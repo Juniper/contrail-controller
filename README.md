@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### Overview
+## Overview
 
 The Contrail Controller repository contains the code for the configuration management, analytics and control-plane components of the Contrail network virtualization solution.
 
@@ -30,7 +30,7 @@ compute node and programs the data-plane in the host operating system.
 
 Data gathered from all these components is collected into a logically centralized database (src/{analytics,opserver}).
 
-### Contributing code
+## Contributing code
 * Sign the [CLA](https://secure.echosign.com/public/hostedForm?formid=6G36BHPX974EXY)
 * Submit change requests via gerrit at http://review.opencontrail.org.
 
