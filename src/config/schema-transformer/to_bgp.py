@@ -451,7 +451,8 @@ class SchemaTransformer(object):
     def sandesh_ri_build(self, vn_name, ri_name):
         vn = VirtualNetworkST.get(vn_name)
         sandesh_ri_list = []
-        for ri in vn.rinst.values():
+        for riname in vn.routing_instances:
+            ri = RoutingInstanceST.get(riname)
             sandesh_ri = sandesh.RoutingInstance(name=ri.obj.get_fq_name_str())
             sandesh_ri.service_chain = ri.service_chain
             sandesh_ri.connections = list(ri.connections)
@@ -477,7 +478,7 @@ class SchemaTransformer(object):
         sandesh_vn = sandesh.VirtualNetwork(name=vn_name)
         sandesh_vn.policies = vn.network_policys.keys()
         sandesh_vn.connections = list(vn.connections)
-        sandesh_vn.routing_instances = vn.rinst.keys()
+        sandesh_vn.routing_instances = vn.routing_instances
         if vn.acl:
             sandesh_vn.acl = vn.acl.get_fq_name_str()
         if vn.dynamic_acl:

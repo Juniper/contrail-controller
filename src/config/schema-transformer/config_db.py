@@ -1650,7 +1650,10 @@ class SecurityGroupST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = DBBaseST.handle_st_object_req()
-        resp.obj_refs = []
+        resp.obj_refs = [
+            sandesh.RefsList('security_group', self.security_groups),
+            sandesh.RefsList('referred_security_group', self.referred_sgs)
+        ]
         resp.properties = [
             sandesh.PropList('sg_id', self.sg_id),
             sandesh.PropList('configured_id', self.config_sgid)
