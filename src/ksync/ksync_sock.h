@@ -181,13 +181,14 @@ public:
 protected:
     static void Init(int count);
     static void SetSockTableEntry(int i, KSyncSock *sock);
+    bool ValidateAndEnqueue(char *data);
+
+    nl_client *nl_client_;
     // Tree of all KSyncEntries pending ack from Netlink socket
     Tree wait_tree_;
     WorkQueue<IoContext *> *async_send_queue_;
     tbb::mutex mutex_;
-
     WorkQueue<char *> *receive_work_queue[IoContext::MAX_WORK_QUEUES];
-    bool ValidateAndEnqueue(char *data);
 private:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(char *, uint32_t, uint32_t, HandlerCb) = 0;
@@ -248,13 +249,9 @@ public:
     virtual std::size_t SendTo(const char*, uint32_t, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
-    void InitNetlink();
-    void ResetNetlink();
-
     static void Init(boost::asio::io_service &ios, int count, int protocol);
 private:
     boost::asio::netlink::raw::socket sock_;
-    nl_client *nl_client_;
 };
 
 //udp socket class for interacting with user vrouter
