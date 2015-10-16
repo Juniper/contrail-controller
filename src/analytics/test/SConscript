@@ -26,23 +26,6 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
 env_noWerror_excep = env_noWerror.Clone()
 env_noWerror_excep.CppEnableExceptions()
 
-SandeshGenFiles  = env.SandeshGenCpp('viz_collector_test.sandesh')
-SandeshGenSrcs   = env.ExtractCpp(SandeshGenFiles)
-SandeshGenObjs   = env.Object(SandeshGenSrcs)
-
-vizd_collector_test = env.Program('vizd_collector_test',
-                                  SandeshGenObjs +
-                                  ['viz_collector_test.cc']
-                                  )
-env.Alias('src/analytics:vizd_collector_test', vizd_collector_test)
-
-viz_flow_test_obj = env_noWerror_excep.Object('viz_flow_test.o', 'viz_flow_test.cc')
-vizd_flow_test = env.Program('vizd_flow_test',
-                             SandeshGenObjs +
-                             [viz_flow_test_obj]
-                             )
-env.Alias('src/analytics:vizd_flow_test', vizd_flow_test)
-
 stat_walker_test = env.UnitTest('stat_walker_test',
                               ['stat_walker_test.cc',
                                '../stat_walker.o'])
@@ -58,7 +41,7 @@ env_boost_no_unreach = env.Clone()
 env_boost_no_unreach.AppendUnique(CCFLAGS='-DBOOST_NO_UNREACHABLE_RETURN_DETECTION')
 syslog_test_obj = env_boost_no_unreach.Object('syslog_test.cc')
 syslog_test = env.UnitTest('syslog_test',
-                                  SandeshGenObjs + syslog_test_obj +
+                                  syslog_test_obj +
                                   [
                                   '../generator.o',
                                   '../collector.o',
