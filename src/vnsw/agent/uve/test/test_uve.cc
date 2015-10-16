@@ -23,7 +23,7 @@
 #include <uve/agent_uve.h>
 #include <uve/stats_interval_types.h>
 #include <uve/agent_stats_interval_types.h>
-#include <vrouter/flow_stats/flow_stats_interval_types.h>
+#include <vrouter/flow_stats/flow_stats_types.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
