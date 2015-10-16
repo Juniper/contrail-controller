@@ -41,7 +41,7 @@
      sip="2.2.2.10" dip="1.1.1.1" proto="udp" sport="1" dport="1"
      type="flow"/>
 
-    <!-- Packet with unknown dest mac and unknown dest ip
+    <!-- Packet with unknown dest mac and unknown dest mac
          originating from VM -->
     <packet uuid="2" id="2" name="l2-vxlan-unknown-mac1" intf="1" fwd_mode="l2"
      smac="00:00:00:00:01:01" dmac="00:00:00:00:03:03"   

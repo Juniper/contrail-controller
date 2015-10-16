@@ -6,44 +6,65 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"
+#include "cmn/agent_stats.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
 Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
              boost::asio::io_service &io) 
-    : agent_(agent), io_(io),
+    : agent_(agent), module_(mod), trace_(true), free_buffer_(false), io_(io),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
                   boost::bind(&Proto::ProcessProto, this, _1)) {
-    agent->pkt()->pkt_handler()->Register(mod,
-           boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
+    agent->pkt()->pkt_handler()->Register(mod, this);
+}
+
+Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
+             boost::asio::io_service &io, uint32_t workq_iterations) :
+    agent_(agent), module_(mod), trace_(true), free_buffer_(false), io_(io),
+    work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
+                boost::bind(&Proto::ProcessProto, this, _1), workq_iterations,
+                workq_iterations) {
+    agent->pkt()->pkt_handler()->Register(mod, this);
 }
 
 Proto::~Proto() { 
-    work_queue_. Shutdown();
+    work_queue_.Shutdown();
 }
 
-bool Proto::ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg) {
-    if (!Validate(msg.get())) {
+void Proto::FreeBuffer(PktInfo *msg) {
+    msg->pkt = NULL;
+    msg->eth = NULL;
+    msg->arp = NULL;
+    msg->ip = NULL;
+    msg->transp.tcp = NULL;
+    msg->data = NULL;
+    msg->reset_packet_buffer();
+}
+
+bool Proto::Enqueue(boost::shared_ptr<PktInfo> msg) {
+    if (Validate(msg.get()) == false) {
         return true;
     }
 
-    if (RemovePktBuff()) {
-        msg->pkt = NULL;
-        msg->eth = NULL;
-        msg->arp = NULL;
-        msg->ip = NULL;
-        msg->transp.tcp = NULL;
-        msg->data = NULL;
+    if (free_buffer_) {
+        FreeBuffer(msg.get());
     }
 
     return work_queue_.Enqueue(msg);
 }
 
+// PktHandler enqueues the packet as-is without decoding based on "cmd" in
+// agent_hdr. Decode the pacekt first. Its possible that protocol handler may
+// change based on packet decode
 bool Proto::ProcessProto(boost::shared_ptr<PktInfo> msg_info) {
+    PktHandler *pkt_handler = agent_->pkt()->pkt_handler();
+    assert(msg_info->module != PktHandler::INVALID);
+    if (trace_) {
+        pkt_handler->AddPktTrace(module_, PktTrace::In, msg_info.get());
+    }
+
     ProtoHandler *handler = AllocProtoHandler(msg_info, io_);
     if (handler->Run())
         delete handler;
     return true;
 }
-
-///////////////////////////////////////////////////////////////////////////////

@@ -227,7 +227,7 @@ public:
         WAIT_FOR(1000, 3000, FlowStatus(false));
     };
 
-    const FlowEntry *FlowFetch() {
+    FlowEntry *FlowFetch() {
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
         return fe;
     }
@@ -463,10 +463,8 @@ public:
     void Verify(FlowEntry *fe) {
         FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
-        EXPECT_TRUE(fe->data().nh_state_.get()->nh()->id() ==
-                    forward_flow_rpf_nh_);
-        EXPECT_TRUE(rev->data().nh_state_.get()->nh()->id() ==
-                    reverse_flow_rpf_nh_);
+        EXPECT_TRUE(fe->data().nh->id() == forward_flow_rpf_nh_);
+        EXPECT_TRUE(rev->data().nh->id() == reverse_flow_rpf_nh_);
     }
 private:
     uint32_t forward_flow_rpf_nh_;

@@ -150,7 +150,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t action = 0;
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
 
-    if (flow_entry_->data().vrouter_evicted_flow_ == true) {
+    if (flow_entry_->data().vrouter_evicted_flow == true) {
         return 0;
     }
 
@@ -378,15 +378,14 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
-    if (flow_entry_->data().nh_state_.get() && 
-        flow_entry_->data().nh_state_->nh()) {
+    if (flow_entry_->data().nh.get()) {
         NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
         DBTableBase *table = nh_object->GetDBTable();
         NHKSyncEntry *nh;
-        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh_state_->nh()->
+        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh.get()->
                 GetState(table, nh_object->GetListenerId(table)));
         if (nh == NULL) {
-            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh_state_->nh());
+            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh.get());
             nh = static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
         }
         if (nh_ != nh) {
@@ -403,15 +402,14 @@ KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
     //We should ideally pick it up from ksync entry once
     //Sync() api gets called before event notify, similar to
     //netlink DB entry
-    if (flow_entry_->data().nh_state_.get() && 
-        flow_entry_->data().nh_state_->nh()) {
+    if (flow_entry_->data().nh.get()) {
         NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
         DBTableBase *table = nh_object->GetDBTable();
         NHKSyncEntry *nh;
-        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh_state_->nh()->
+        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh.get()->
                 GetState(table, nh_object->GetListenerId(table)));
         if (nh == NULL) {
-            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh_state_->nh());
+            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh.get());
             nh = static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
         }
         if (nh && !nh->IsResolved()) {
@@ -629,8 +627,7 @@ bool FlowTableKSyncObject::AuditProcess() {
                                 Find(key);
             if (flow_p == NULL) {
                 /* Create Short flow only for non-existing flows. */
-                FlowEntryPtr flow(ksync_->agent()->pkt()->flow_table()->
-                                  Allocate(key));
+                FlowEntryPtr flow(FlowEntry::Allocate(key));
                 flow->InitAuditFlow(flow_idx);
                 AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
                             "entry to short flow");

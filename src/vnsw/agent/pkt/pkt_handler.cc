@@ -54,8 +54,8 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
 PktHandler::~PktHandler() {
 }
 
-void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
-    enqueue_cb_.at(type) = cb;
+void PktHandler::Register(PktModuleName type, Proto *proto) {
+    proto_list_.at(type) = proto;
 }
 
 uint32_t PktHandler::EncapHeaderLen() const {
@@ -127,9 +127,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Packets needing flow
-    if ((hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-         hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE)) {
-        
+    if (IsFlowPacket(pkt_info)) {
         if ((pkt_info->ip && pkt_info->family == Address::INET) ||
             (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
             return FLOW;
@@ -189,22 +187,19 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 }
 
 void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
-    boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
-    uint8_t *pkt = buff->data();
-
-    PktModuleName mod = ParsePacket(hdr, pkt_info.get(), pkt);
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(buff));
+    PktModuleName mod = INVALID;
+    mod = ParsePacket(hdr, pkt_info.get(), pkt_info->packet_buffer()->data());
     pkt_info->packet_buffer()->set_module(mod);
+    pkt_info->module = mod;
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len, pkt_info->pkt,
-                                   &pkt_info->agent_hdr);
     if (mod == INVALID) {
+        AddPktTrace(mod, PktTrace::In, pkt_info.get());
         agent_->stats()->incr_pkt_dropped();
         return;
     }
 
-    if (!(enqueue_cb_.at(mod))(pkt_info)) {
-        stats_.PktQThresholdExceeded(mod);
-    }
+    Enqueue(mod, pkt_info);
     return;
 }
 
@@ -362,9 +357,8 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->icmp_id);
-        } else if ((pkt_info->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-                    pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) &&
-                   (icmp->icmp_type == ICMP_DEST_UNREACH)) {
+        } else if (IsFlowPacket(pkt_info) &&
+                   icmp->icmp_type == ICMP_DEST_UNREACH) {
             //Agent has to look at inner payload
             //and recalculate the parameter
             //Handle this only for packets requiring flow miss
@@ -601,8 +595,8 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 // Enqueue an inter-task message to the specified module
 void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
     if (mod < MAX_MODULES) {
-        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg));
-        if (!(enqueue_cb_.at(mod))(pkt_info)) {
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(mod, msg));
+        if (!(proto_list_.at(mod)->Enqueue(pkt_info))) {
             PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" <<
                       mod << ">");
         }
@@ -615,8 +609,7 @@ bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
 
     uint16_t offset = htons(pkt_info->ip->ip_off);
     if (((offset & IP_MF) || (offset & IP_OFFMASK)) &&
-        (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_FLOW_MISS) &&
-        (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ECMP_RESOLVE))
+        !IsFlowPacket(pkt_info))
         return true;
     return false;
 }
@@ -753,6 +746,15 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     return true;
 }
 
+bool PktHandler::IsFlowPacket(PktInfo *pkt_info) {
+    if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE ||
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_HOLD_ACTION) {
+        return true;
+    }
+    return false;
+}
+
 bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {
     if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ZERO_TTL ||
         pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR)
@@ -843,6 +845,7 @@ void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
 ///////////////////////////////////////////////////////////////////////////////
 
 PktInfo::PktInfo(const PacketBufferPtr &buff) :
+    module(PktHandler::INVALID),
     pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
@@ -851,8 +854,9 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     transp.tcp = 0;
 }
 
-PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
+PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
                  uint32_t mdata) :
+    module(mod),
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
@@ -867,7 +871,8 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
     transp.tcp = 0;
 }
 
-PktInfo::PktInfo(InterTaskMsg *msg) :
+PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
+    module(mod),
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
@@ -881,6 +886,10 @@ PktInfo::~PktInfo() {
 
 const AgentHdr &PktInfo::GetAgentHdr() const {
     return agent_hdr;
+}
+
+void PktInfo::reset_packet_buffer() {
+    packet_buffer_.reset();
 }
 
 void PktInfo::AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
@@ -929,6 +938,20 @@ std::size_t PktInfo::hash() const {
     boost::hash_combine(seed, sport);
     boost::hash_combine(seed, dport);
     return seed;
+}
+
+void PktHandler::AddPktTrace(PktModuleName module, PktTrace::Direction dir,
+                             const PktInfo *pkt) {
+    pkt_trace_.at(module).AddPktTrace(PktTrace::In, pkt->len, pkt->pkt,
+                                      &pkt->agent_hdr);
+}
+
+void PktHandler::Enqueue(PktModuleName module,
+                         boost::shared_ptr<PktInfo> pkt_info) {
+    if (!(proto_list_.at(module)->Enqueue(pkt_info))) {
+        stats_.PktQThresholdExceeded(module);
+    }
+    return;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -258,7 +258,8 @@ public:
         SecurityGroupList empty_sg_id_l;
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
-                                                        100, 0, 0));
+                                                        100, PktHandler::FLOW,
+                                                        0));
         PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();
 
@@ -266,7 +267,7 @@ public:
         ctrl.vn_ = vn;
         ctrl.intf_ = intf;
 
-        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl, NULL, Agent::GetInstance());
     }
     void NewFlow(FlowEntry *f) {
         Agent *agent = Agent::GetInstance();

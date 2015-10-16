@@ -31,6 +31,7 @@
 const std::string GlobalVrouter::kMetadataService = "metadata";
 const Ip4Address GlobalVrouter::kLoopBackIp = Ip4Address(0x7f000001);
 
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Link local service
@@ -385,7 +386,7 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->event_manager()->io_service()))),
       agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
-      forwarding_mode_(Agent::L2_L3) {
+      forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate){
 
     DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
               "global-vrouter-config");
@@ -437,10 +438,17 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
             resync_route = true;
             resync_vm_interface = true;
         }
+        if (cfg->IsPropertySet
+                (autogen::GlobalVrouterConfig::FLOW_EXPORT_RATE)) {
+            flow_export_rate_ = cfg->flow_export_rate();
+        } else {
+            flow_export_rate_ = kDefaultFlowExportRate;
+        }
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
-        resync_route= true;
+        resync_route = true;
+        flow_export_rate_ = kDefaultFlowExportRate;
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             

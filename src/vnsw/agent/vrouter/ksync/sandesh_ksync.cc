@@ -53,6 +53,7 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
 }
 
 void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
+    FlowTable *table = flow_ksync_->ksync()->agent()->pkt()->flow_table();
     assert(r->get_fr_op() == flow_op::FLOW_TABLE_GET || 
            r->get_fr_op() == flow_op::FLOW_SET);
 
@@ -71,8 +72,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                     r->get_fr_flow_proto(),
                     ntohs(r->get_fr_flow_sport()),
                     ntohs(r->get_fr_flow_dport()));
-        FlowEntry *entry = flow_ksync_->ksync()->agent()->pkt()->flow_table()->
-                           Find(key);
+        FlowEntry *entry = table->Find(key);
 
         if (GetErrno() == EBADF) {
             string op;
@@ -118,16 +118,13 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             bool update_rev_flow = false;
             if ((int)entry->flow_handle() != r->get_fr_index()) {
                 update_rev_flow = true;
+                table->AddIndexFlowInfo(entry, r->get_fr_index());
+                table->NotifyFlowStatsCollector(entry);
             }
 
-            entry->set_flow_handle(r->get_fr_index(),
-                       flow_ksync_->ksync()->agent()->pkt()->flow_table());
-
             FlowEntry *rev_flow = entry->reverse_flow_entry();
-            //Tie forward flow and reverse flow
             if (rev_flow && update_rev_flow) {
-                rev_flow->UpdateKSync(
-                        flow_ksync_->ksync()->agent()->pkt()->flow_table());
+                table->UpdateKSync(rev_flow);
             }
         }
     } else {

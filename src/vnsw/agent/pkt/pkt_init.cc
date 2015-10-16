@@ -14,6 +14,7 @@
 #include "pkt/flow_table.h"
 #include "pkt/packet_buffer.h"
 #include "pkt/control_interface.h"
+#include "pkt/flow_mgmt.h"
 
 SandeshTraceBufferPtr PacketTraceBuf(SandeshTraceBufferCreate("Packet", 1000));
 
@@ -40,6 +41,9 @@ void PktModule::Init(bool run_with_vrouter) {
 
     flow_proto_.reset(new FlowProto(agent_, io));
     flow_proto_->Init();
+
+    flow_mgmt_manager_.reset(new FlowMgmtManager(agent_, flow_table()));
+    flow_mgmt_manager_->Init();
 }
 
 void PktModule::InitDone() {
@@ -59,6 +63,9 @@ void PktModule::Shutdown() {
 
     control_interface_->Shutdown();
     control_interface_ = NULL;
+
+    flow_mgmt_manager_->Shutdown();
+    flow_mgmt_manager_.reset(NULL);
 }
 
 void PktModule::IoShutdown() {

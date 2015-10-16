@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <test_suite name="pkt-parse">
-<test name="vrf-vn-1" verbose="0">
+<test name="flow-export-1" verbose="0">
     <virtual-network uuid="1" name="vn1"/>
     <virtual-machine uuid="1" name="vm1"/>
     <vrf uuid="1" name="vrf1" />
@@ -15,23 +15,6 @@
         <virtual-network name="vn1" uuid="1" present="1" />
         <virtual-machine-interface name="tap1" uuid="1" present="1" active="1" />
         <virtual-machine name="vm1" uuid="1" present="1"/>
-    </validate>
-
-    <packet uuid="1" id="1" name="l2-udp-from-vm" intf="1" fwd_mode="l2"
-     smac="00:00:00:00:01:01" dmac="00:00:00:00:01:02"
-     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="1"
-     type="flow" />
-    <packet uuid="1" id="1" name="l2-udp-from-vm" intf="1" fwd_mode="l3"
-     smac="00:00:00:00:01:01" dmac="00:00:00:00:01:02"
-     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="2"
-     type="flow" />
-    <validate name="validate-2">
-        <flow name="l2-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
-         dip="1.1.1.2" proto="udp" sport="1" dport="1" svn="vn1"
-         dvn="__UNKNOWN__" action="drop"/> 
-        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
-         dip="1.1.1.2" proto="udp" sport="1" dport="2" svn="vn1"
-         dvn="__UNKNOWN__" action="drop"/> 
     </validate>
 
     <virtual-machine uuid="2" name="vm2"/>
@@ -62,6 +45,19 @@
          dvn="vn1" action="pass" rpf_nh="12"/>
     </validate>
 
+    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11"
+     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
+     bytes = "10000" pkts="100" />
+    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11"
+     sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="12"
+     bytes = "10000" pkts="100" />
+
+    <validate name="validate-4">
+        <!-- Each of two local flows are exported twice, once in each
+             direction -->
+        <flow-export name="l2-udp-from-vm-2" count="4" />
+    </validate>
+
     <virtual-machine-interface delete="1" nova="1"
      uuid="1" name="tap1" mac="00:00:00:00:01:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
@@ -77,7 +73,7 @@
     <virtual-machine delete="1" uuid="2" name="vm2"/>
     <vmi-vrf delete="1" uuid="1" name="tap1-vm1" />
     <vrf delete="1" uuid="1" name="vrf1" />
-    <validate name="validate-4">
+    <validate name="validate-5">
         <virtual-network uuid="1" name="vn1" present="no"/>
         <virtual-machine uuid="1" name="vm1" present="no"/>
         <virtual-machine uuid="2" name="vm2" present="no"/>
