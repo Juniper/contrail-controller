@@ -297,8 +297,10 @@ void AgentParam::ParseVirtualHost() {
 
 void AgentParam::ParseDiscovery() {
     ParseIp("DISCOVERY.server", &dss_server_);
-    GetValueFromTree<uint16_t>(xmpp_instance_count_,
-                               "DISCOVERY.max_control_nodes");
+    if (!GetValueFromTree<uint16_t>(xmpp_instance_count_,
+                               "DISCOVERY.max_control_nodes")) {
+        xmpp_instance_count_ = MAX_XMPP_SERVERS;
+    }
 }
 
 void AgentParam::ParseNetworks() {
@@ -526,8 +528,10 @@ void AgentParam::ParseVirtualHostArguments
 void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
     ParseIpArgument(var_map, dss_server_, "DISCOVERY.server");
-    GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
-                          "DISCOVERY.max_control_nodes");
+    if (!GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
+                          "DISCOVERY.max_control_nodes")) {
+        xmpp_instance_count_ = MAX_XMPP_SERVERS;
+    }
 }
 
 void AgentParam::ParseNetworksArguments
