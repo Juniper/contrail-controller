@@ -18,6 +18,8 @@
 // Forward declaration
 class AgentUtXmlFlowThreshold;
 class AgentUtXmlFlowThresholdValidate;
+class FlowStatsRecordsReq;
+class FetchFlowStatsRecord;
 
 //Defines the functionality to periodically read flow stats from
 //shared memory (between agent and Kernel) and export this stats info to
@@ -32,6 +34,7 @@ public:
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
+    static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
     // Comparator for FlowEntryPtr
     struct FlowEntryCmp {
@@ -60,6 +63,8 @@ public:
     }
     uint32_t flow_export_count()  const { return flow_export_count_; }
     void set_flow_export_count(uint32_t val) { flow_export_count_ = val; }
+    uint32_t flow_export_rate()  const { return flow_export_rate_; }
+    uint32_t threshold()  const { return threshold_; }
     uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
     void UpdateFlowMultiplier();
     bool Run();
@@ -87,11 +92,16 @@ public:
     void UpdateFloatingIpStats(const FlowExportInfo *flow,
                                uint64_t bytes, uint64_t pkts);
     void FlowIndexUpdateEvent(const FlowKey &key, uint32_t idx);
+    size_t Size() const { return flow_tree_.size(); }
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
+    friend class FlowStatsRecordsReq;
+    friend class FetchFlowStatsRecord;
 private:
     void FlowDeleteEnqueue(const FlowKey &key, bool rev);
-    void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
+    void EnqueueFlowMsg();
+    void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
+    void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
     void SetUnderlayInfo(FlowExportInfo *info, FlowDataIpv4 &s_flow);
@@ -121,6 +131,7 @@ private:
 
     void UpdateFlowStats(FlowExportInfo *flow, uint64_t &diff_bytes,
                          uint64_t &diff_pkts);
+    uint8_t GetFlowMsgIdx();
 
     AgentUveBase *agent_uve_;
     FlowKey flow_iteration_key_;
@@ -141,6 +152,8 @@ private:
     uint32_t threshold_;
     uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
+    std::vector<FlowDataIpv4> msg_list_;
+    uint8_t msg_index_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 
