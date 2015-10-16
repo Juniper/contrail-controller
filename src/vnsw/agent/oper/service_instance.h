@@ -178,7 +178,7 @@ class ServiceInstanceTable : public AgentDBTable {
      * the dependency manager directly.
      */
     void ChangeEventHandler(IFMapNode *node, DBEntry *entry);
-    bool HandleAddChange(ServiceInstance *svc_instance, const DBRequest *key);
+    bool HandleAddChange(ServiceInstance **svc_instance, const DBRequest *key);
 
     DBGraph *graph_;
     IFMapDependencyManager *dependency_manager_;
