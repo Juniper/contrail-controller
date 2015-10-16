@@ -17,8 +17,8 @@ InterfaceStatsIoContext::~InterfaceStatsIoContext() {
 }
 
 void InterfaceStatsIoContext::Handler() {
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                        (ctx_);
+    AgentStatsSandeshContext *ctx =
+        static_cast<AgentStatsSandeshContext *> (sandesh_context_);
     AgentStatsCollector *collector = ctx->agent()->stats_collector();
     /* (1) Reset the marker for query during next timer interval, if there is
      *     no additional records for the current query
