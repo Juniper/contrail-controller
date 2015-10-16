@@ -42,11 +42,18 @@ using process::ConnectionStatus;
 
 class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
  public:
+  unsigned int count;
+  // This is to count the number of successful
+  // kafka operations
+  KafkaDeliveryReportCb() : count(0) {}
+
   void dr_cb (RdKafka::Message &message) {
     if (message.err() != RdKafka::ERR_NO_ERROR) {
         LOG(ERROR, "Message delivery for " << message.key() << " " <<
             message.errstr() << " gen " <<
             string((char *)(message.msg_opaque())));
+    } else {
+        count++;
     }
     char * cc = (char *)message.msg_opaque();
     delete[] cc;
@@ -448,6 +455,11 @@ class OpServerProxy::OpServerImpl {
                 if (collector_ && redis_up_)
                     LOG(ERROR, "Kafka Restarting Redis");
                     collector_->RedisUpdate(true);
+            } else {
+                if (k_dr_cb.count==0) {
+                    LOG(ERROR, "No Kafka Callbacks");
+                }
+                k_dr_cb.count = 0;
             }
             if (producer_) {
                 producer_->poll(0);
