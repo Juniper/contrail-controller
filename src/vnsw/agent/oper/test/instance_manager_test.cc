@@ -544,7 +544,7 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
 
     stringstream pathgen;
     pathgen << loadbalancer_config_path() << lbid
-            << "/etc/haproxy/haproxy.cfg";
+            << ".haproxy.cfg";
     boost::filesystem::path config(pathgen.str());
     std::time_t old_time =
         boost::filesystem::last_write_time(pathgen.str());
@@ -554,7 +554,7 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
     pathgen.str("");
     pathgen.clear();
     pathgen << loadbalancer_config_path() << lbid
-            << "/etc/haproxy/haproxy.cfg";
+            << ".haproxy.cfg";
     boost::filesystem::path config1(pathgen.str());
 
     //Make sure that both files exists
