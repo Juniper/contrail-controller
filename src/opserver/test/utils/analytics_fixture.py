@@ -2285,7 +2285,7 @@ class AnalyticsFixture(fixtures.Fixture):
                               (query, str(err)))
             assert(False)
         return self._verify_uves(exp_uves, actual_uves)
-    # end verify_multi_uve_get
+    # end verify_get_alarms
 
     @retry(delay=1, tries=4)
     def verify_multi_uve_get(self, table, filts=None, exp_uves=None):
