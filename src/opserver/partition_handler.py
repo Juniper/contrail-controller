@@ -40,11 +40,8 @@ class UveCacheProcessor(object):
             self._partkeys[partno] = set()
         self._uvedb = {} 
 
-    def get_cache_list(self, utab, filters, patterns, keysonly):
-        tables = None
-        if utab:
-            tables = [ utab ]
-        else:
+    def get_cache_list(self, tables, filters, patterns, keysonly):
+        if not tables:
             tables = self._uvedb.keys()
 
         filters = filters or {}
@@ -216,7 +213,7 @@ class UveCacheProcessor(object):
                     {'instance_id':pi.instance_id, 'ip_address':pi.ip_address, \
                      'partition':partno} 
 
-    def clear_partition(self, partno):
+    def clear_partition(self, partno, clear_cb):
         for key in self._partkeys[partno]:
             barekey = key.split(":",1)[1]
             table = key.split(":",1)[0]
@@ -232,30 +229,46 @@ class UveCacheProcessor(object):
                             del self._typekeys[tkey][table]
                         if len(self._typekeys[tkey]) == 0:
                             del self._typekeys[tkey]
-                
+            clear_cb(key) 
         self._partkeys[partno] = set()
 
 class UveStreamPart(gevent.Greenlet):
-    def __init__(self, partno, logger, cb, pi, rpass):
+    def __init__(self, partno, logger, cb, pi, rpass, 
+                tablefilt = None, cfilter = None):
         gevent.Greenlet.__init__(self)
         self._logger = logger
         self._cb = cb
         self._pi = pi
         self._partno = partno
         self._rpass = rpass
+        self._tablefilt = None
+        if tablefilt:
+            self._tablefilt = set(tablefilt)
+        self._cfilter = None
+        if cfilter:
+            self._cfilter = set(cfilter.keys())
 
     def syncpart(self, redish):
         inst = self._pi.instance_id
         part = self._partno
         keys = list(redish.smembers("AGPARTKEYS:%s:%d" % (inst, part)))
         ppe = redish.pipeline()
+        lkeys = []
         for key in keys:
+            if self._tablefilt:
+                table = key.split(":",1)[0]
+                if not table in self._tablefilt:
+                    continue
+            lkeys.append(key)
             ppe.hgetall("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
         pperes = ppe.execute()
         idx=0
         for res in pperes:
             for tk,tv in res.iteritems():
-                self._cb(self._partno, self._pi, keys[idx], tk, json.loads(tv))
+                if self._cfilter:
+                    if not tk in self._cfilter:
+                        continue
+                self._cb(self._partno, self._pi, lkeys[idx], tk, json.loads(tv))
             idx += 1
         
     def _run(self):
@@ -285,7 +298,16 @@ class UveStreamPart(gevent.Greenlet):
                     else:
                          self._logger.info("AggUVE loading: %s" % str(elems))
                     ppe = lredis.pipeline()
+                    lelems = []
                     for elem in elems:
+                        if self._tablefilt:
+                            table = elem["key"].split(":",1)[0]
+                            if not table in self._tablefilt:
+                                continue
+                        if elem["type"] and self._cfilter:
+                            if not elem["type"] in self._cfilter:
+                                continue
+                        lelems.append(elem)
                         # This UVE was deleted
                         if elem["type"] is None:
                             ppe.exists("AGPARTVALUES:%s:%d:%s" % \
@@ -295,7 +317,7 @@ class UveStreamPart(gevent.Greenlet):
                                 (inst, part, elem["key"]), elem["type"])
                     pperes = ppe.execute()
                     idx = 0
-                    for elem in elems:
+                    for elem in lelems:
 
                         key = elem["key"]
                         typ = elem["type"]
@@ -326,6 +348,7 @@ class UveStreamPart(gevent.Greenlet):
 
 class UveStreamer(gevent.Greenlet):
     def __init__(self, logger, q, rfile, agp_cb, partitions, rpass,\
+            tablefilt = None, cfilter = None,
             USP_class = UveStreamPart):
         gevent.Greenlet.__init__(self)
         self._logger = logger
@@ -339,6 +362,8 @@ class UveStreamer(gevent.Greenlet):
         self._ccb = None
         self._uvedbcache = UveCacheProcessor(self._logger, partitions)
         self._USP_class = USP_class
+        self._tablefilt = tablefilt
+        self._cfilter = cfilter
 
     def get_uve(self, key, filters=None):
         return False, self._uvedbcache.get_cache_uve(key, filters)
@@ -346,10 +371,16 @@ class UveStreamer(gevent.Greenlet):
     def get_uve_list(self, utab, filters, patterns, keysonly = True):
         return self._uvedbcache.get_cache_list(utab, filters, patterns, keysonly)
 
+    def clear_callback(self, key):
+        if self._q:
+            dt = {'key':key, 'type':None}
+            msg = {'event': 'update', 'data':json.dumps(dt)}
+            self._q.put(sse_pack(msg))
+
     def partition_callback(self, partition, pi, key, type, value):
         # gevent is non-premptive; we don't need locks
         if self._q:
-            dt = {'partition':partition, 'key':key, 'type':type}
+            dt = {'key':key, 'type':type}
             if not type is None:
                 dt['value'] = value
             msg = {'event': 'update', 'data':json.dumps(dt)}
@@ -369,8 +400,7 @@ class UveStreamer(gevent.Greenlet):
         inputs = [ self._rfile ]
         outputs = [ ]
         if self._q:
-            msg = {'event': 'init', 'data':\
-                json.dumps({'partitions':self._partitions})}
+            msg = {'event': 'init', 'data':json.dumps(None)}
             self._q.put(sse_pack(msg))
         self._logger.error("Starting UveStreamer with %d partitions" % self._partitions)
         while True:
@@ -388,16 +418,16 @@ class UveStreamer(gevent.Greenlet):
                 # deleted parts
                 for elem in set_old - intersect:
                     self.partition_stop(elem)
-                    self._uvedbcache.clear_partition(elem)
+                    self._uvedbcache.clear_partition(elem, self.clear_callback)
                 # new parts
                 for elem in set_new - intersect:
-                    self._uvedbcache.clear_partition(elem)
+                    self._uvedbcache.clear_partition(elem, self.clear_callback)
                     self.partition_start(elem, newagp[elem])
                 # changed parts
                 for elem in intersect:
                     if self._agp[elem] != newagp[elem]:
                         self.partition_stop(elem)
-                        self._uvedbcache.clear_partition(elem)
+                        self._uvedbcache.clear_partition(elem, self.clear_callback)
                         self.partition_start(elem, newagp[elem])
                 self._agp = copy.deepcopy(newagp)
             except gevent.GreenletExit:
@@ -405,7 +435,7 @@ class UveStreamer(gevent.Greenlet):
         self._logger.error("Stopping UveStreamer with %d partitions" % self._partitions)
         for part, pi in self._agp.iteritems():
             self.partition_stop(part)
-            self._uvedbcache.clear_partition(elem)
+            self._uvedbcache.clear_partition(elem, self.clear_callback)
         if self._q:
             msg = {'event': 'stop', 'data':json.dumps(None)}
             self._q.put(sse_pack(msg))
@@ -413,13 +443,10 @@ class UveStreamer(gevent.Greenlet):
             self._ccb(self) #remove myself
 
     def partition_start(self, partno, pi):
-        self._logger.error("Starting agguve part %d using %s" %( partno, pi))
-        if self._q:
-            msg = {'event': 'clear', 'data':\
-                json.dumps({'partition':partno, 'acq_time':pi.acq_time})}
-            self._q.put(sse_pack(msg))
+        self._logger.error("Starting agguve part %d using %s" % (partno, pi))
         self._parts[partno] = self._USP_class(partno, self._logger,
-            self.partition_callback, pi, self._rpass)
+            self.partition_callback, pi, self._rpass,
+            self._tablefilt, self._cfilter)
         self._parts[partno].start()
 
     def partition_stop(self, partno):

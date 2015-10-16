@@ -374,8 +374,8 @@ class UVEServer(object):
 
         rsp = self._uvedbcache.get_uve_list(tables, filters, patterns, False)
         return rsp
+    # end get_alarms
 
-    # end multi_uve_get
     def multi_uve_get(self, table, flat, filters=None, base_url=None):
         sfilter = filters.get('sfilt')
         mfilter = filters.get('mfilt')
@@ -388,7 +388,7 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
 
         if not sfilter and not mfilter and self._usecache:
-            rsp = self._uvedbcache.get_uve_list(table, filters, patterns, True)
+            rsp = self._uvedbcache.get_uve_list([table], filters, patterns, True)
             if table in rsp:
                 uve_list = rsp[table]
             else:
@@ -427,7 +427,7 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
 
         if not sfilter and not mfilter and self._usecache:
-            rsp = self._uvedbcache.get_uve_list(table, filters, patterns)
+            rsp = self._uvedbcache.get_uve_list([table], filters, patterns)
             if table in rsp:
                 uve_list = rsp[table]
             return uve_list

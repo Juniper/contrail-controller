@@ -19,6 +19,7 @@ setup(
               'cfgm_common.uve.acl',
               'cfgm_common.uve.service_instance',
               'cfgm_common.uve.vnc_api',
+              'cfgm_common.uve.vnc_api.sandesh_dynamic_uve',
               'cfgm_common.uve.virtual_machine',
               'cfgm_common.uve.virtual_network',
               'cfgm_common.uve.physical_router',

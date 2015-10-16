@@ -5,6 +5,7 @@
 //
 // Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 //
+include "sandesh/library/common/sandesh_dynamic_uve.sandesh"
 
 struct VncApiCommon {
     1: string identifier_uuid // object identifier
@@ -36,18 +37,13 @@ systemlog sandesh VncApiError {
     1: string api_error_msg;
 }
 
-struct ContrailConfigElem {
-    1: string attribute
-    2: string value // This holds the JSON-encoded value of the attribute
-}
-
 struct ContrailConfig {
     1: string name (key="none")
-    2: list<ContrailConfigElem> properties
+    2: list<sandesh_dynamic_uve.DynamicElement> elements
     3: bool deleted
 }
 
-uve sandesh ContrailConfigTrace {
+dynamicuve sandesh ContrailConfigTrace {
     1: ContrailConfig data
 }
 

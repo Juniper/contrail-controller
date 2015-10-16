@@ -539,7 +539,9 @@ class OpServer(object):
                 self._state_server.update_redis_list(self.redis_uve_list)
                 self._uve_server.update_redis_uve_list(self.redis_uve_list)
 
-        self._analytics_links = ['uves', 'tables', 'queries', 'alarm-types', 'alarms']
+        self._analytics_links = ['uves', 'tables', 'queries',\
+                'alarm-types', 'alarms',\
+                'uve-stream', 'alarm-stream']
 
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
@@ -668,6 +670,7 @@ class OpServer(object):
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
         bottle.route('/analytics/uve-stream', 'GET', self.uve_stream)
+        bottle.route('/analytics/alarm-stream', 'GET', self.alarm_stream)
 
         bottle.route('/analytics/uves/<tables>', 'GET', self.dyn_list_http_get)
         bottle.route('/analytics/uves/<table>/<name:path>', 'GET', self.dyn_http_get)
@@ -902,7 +905,16 @@ class OpServer(object):
     def cleanup_uve_streamer(self, gv):
         self.gevs.remove(gv)
 
-    def uve_stream(self):
+    def _serve_streams(self, alarmsonly):
+        req = bottle.request.query
+        try:
+            filters = OpServer._uve_filter_set(req)
+        except Exception as e:
+            return bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
+
+        if alarmsonly:
+            filters['cfilt'] = {'UVEAlarms':set()}
+
         bottle.response.set_header('Content-Type', 'text/event-stream')
         bottle.response.set_header('Cache-Control', 'no-cache')
         # This is needed to detect when the client hangs up
@@ -910,11 +922,18 @@ class OpServer(object):
 
         body = gevent.queue.Queue()
         ph = UveStreamer(self._logger, body, rfile, self.get_agp,
-            self._args.partitions, self._args.redis_password)
+            self._args.partitions, self._args.redis_password,
+            filters['tablefilt'], filters['cfilt'])
         ph.set_cleanup_callback(self.cleanup_uve_streamer)
         self.gevs.append(ph)
         ph.start()
         return body
+
+    def uve_stream(self):
+        return self._serve_streams(False)
+
+    def alarm_stream(self):
+        return self._serve_streams(True)
 
     def documentation_http_get(self, filename):
         return bottle.static_file(
@@ -1350,11 +1369,17 @@ class OpServer(object):
         filters = {}
         filters['sfilt'] = req.get('sfilt')
         filters['mfilt'] = req.get('mfilt')
-        tf = req.get('tablefilt')
-        if tf and tf in UVE_MAP:
-            filters['tablefilt'] = UVE_MAP[tf]
+
+        if req.get('tablefilt'):
+            infos = req['tablefilt'].split(',')
+            filters['tablefilt'] = []
+            for tf in infos:
+                if tf and tf in UVE_MAP:
+                    filters['tablefilt'].append(UVE_MAP[tf])
+                else:
+                    filters['tablefilt'].append(tf)
         else:
-            filters['tablefilt'] = tf
+            filters['tablefilt'] = None
         if req.get('cfilt'):
             infos = req['cfilt'].split(',')
             filters['cfilt'] = OpServer._get_tfilter(infos)

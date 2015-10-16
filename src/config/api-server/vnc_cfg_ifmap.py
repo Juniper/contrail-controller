@@ -25,6 +25,7 @@ import socket
 from netaddr import IPNetwork
 
 from cfgm_common.uve.vnc_api.ttypes import *
+from cfgm_common.uve.vnc_api.sandesh_dynamic_uve.ttypes import DynamicElement
 from cfgm_common import ignore_exceptions
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, PublishRequest
@@ -37,6 +38,7 @@ from cfgm_common.imid import escape
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
+
 
 import copy
 from cfgm_common import jsonutils as json
@@ -1652,9 +1654,10 @@ class VncDbClient(object):
         trace_msg(db_trace, 'DBUVERequestTraceBuf', self._sandesh)
 
         attr_contents = None
+        elist = []
         if oo['value']:
-            attr_contents = json.dumps(oo['value'])
-        attr_name = 'value'
+            for ck,cv in oo['value'].iteritems():
+                elist.append(DynamicElement(ck, json.dumps(cv)))
 
         utype = oo['type']
         urawkey = ':'.join(oo['name'])
@@ -1669,11 +1672,10 @@ class VncDbClient(object):
         else:
             return
 
-        if attr_contents:
-            cce = ContrailConfigElem(attr_name, attr_contents)
-            cc = ContrailConfig(name=ukey, properties=[cce])
+        if oo['value']:
+            cc = ContrailConfig(name=ukey, elements=elist)
         else:
-            cc = ContrailConfig(name=ukey, properties=[], deleted=True)
+            cc = ContrailConfig(name=ukey, elements=[], deleted=True)
         cfg_msg = ContrailConfigTrace(data=cc, table=utab,
                                       sandesh=self._sandesh)
         cfg_msg.send(sandesh=self._sandesh)
