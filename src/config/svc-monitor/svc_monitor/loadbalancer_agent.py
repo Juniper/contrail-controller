@@ -36,27 +36,25 @@ class LoadbalancerAgent(Agent):
     def pre_create_service_vm(self, instance_index, si, st, vm):
         for nic in si.vn_info:
            if nic['type'] == svc_info.get_right_if_str():
-                iip_id, vn_id = self._get_vip_vmi_iip(si)
-                nic['iip-id'] = iip_id
+                vmi = self._get_vip_vmi(si)
+                nic['iip-id'] = vmi.instance_ip
+                nic['fip-id'] = vmi.floating_ip
                 nic['user-visible'] = False
 
-    def _get_vip_vmi_iip(self, si):
+    def _get_vip_vmi(self, si):
         if not si.loadbalancer_pool:
-            return None, None
+            return None
 
         pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
         if not pool.virtual_ip:
-            return None, None
+            return None
 
         vip = VirtualIpSM.get(pool.virtual_ip)
         if not vip.virtual_machine_interface:
-            return None, None
+            return None
 
         vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
-        if not vmi.instance_ip or not vmi.virtual_network:
-            return None, None
-
-        return vmi.instance_ip, vmi.virtual_network
+        return vmi
 
     # create default loadbalancer driver
     def _create_default_service_appliance_set(self, sa_set_name, driver_name):
