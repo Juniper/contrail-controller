@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <string>
 #include "base/os.h"
 #if defined(__linux__)
 #include <asm/types.h>
@@ -53,7 +54,7 @@ const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
                                                 {"Agent::KSync", "Agent::Uve"};
 
 KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) 
-    : sock_(ios, protocol) {
+    : sock_(ios, protocol), nl_client_(NULL) {
     ReceiveBuffForceSize set_rcv_buf;
     set_rcv_buf = KSYNC_SOCK_RECV_BUFF_SIZE;
     boost::system::error_code ec;
@@ -67,6 +68,30 @@ KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
     boost::system::error_code ec1;
     sock_.get_option(rcv_buf_size, ec);
     LOG(INFO, "Current receive sock buffer size is " << rcv_buf_size.value());
+}
+
+KSyncSockNetlink::~KSyncSockNetlink() {
+    if (nl_client_) {
+        if (nl_client_->cl_buf) {
+            free(nl_client_->cl_buf);
+        }
+        free(nl_client_);
+    }
+}
+
+void KSyncSockNetlink::InitNetlink() {
+    nl_client_ = (nl_client *)malloc(sizeof(nl_client));
+    nl_init_generic_client_req(nl_client_, GetNetlinkFamilyId());
+    unsigned char *nl_buf;
+    uint32_t nl_buf_len;
+    assert(nl_build_header(nl_client_, &nl_buf, &nl_buf_len) >= 0);
+}
+
+void KSyncSockNetlink::ResetNetlink() {
+    unsigned char *nl_buf;
+    uint32_t nl_buf_len;
+    nl_client_->cl_buf_offset = 0;
+    nl_build_header(nl_client_, &nl_buf, &nl_buf_len);
 }
 
 uint32_t KSyncSockNetlink::GetSeqno(char *data) {
@@ -173,33 +198,20 @@ void KSyncSockNetlink::AsyncSendTo(char *data, uint32_t data_len,
 }
 
 size_t KSyncSockNetlink::SendTo(const char *data, uint32_t data_len,
-                                uint32_t seq_no) {
-    struct nl_client cl;
-    unsigned char *nl_buf;
-    uint32_t nl_buf_len;
-    int ret;
+                                 uint32_t seq_no) {
     std::vector<const_buffers_1> iovec;
 
-    nl_init_generic_client_req(&cl, GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &nl_buf, &nl_buf_len)) < 0) {
-        LOG(ERROR, "Error creating netlink message. Error : " << ret);
-        free(cl.cl_buf);
-        return ((size_t) -1);
-    }
-
-    iovec.push_back(buffer((const char *)cl.cl_buf, cl.cl_buf_offset));
+    ResetNetlink();
+    iovec.push_back(buffer((const char *)nl_client_->cl_buf, nl_client_->cl_buf_offset));
     iovec.push_back(buffer((const char *)data, data_len));
 
-    nl_update_header(&cl, data_len);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
+    nl_update_header(nl_client_, data_len);
+    struct nlmsghdr *nlh = (struct nlmsghdr *)nl_client_->cl_buf;
     nlh->nlmsg_pid = KSyncSock::GetPid();
     nlh->nlmsg_seq = seq_no;
 
     boost::asio::netlink::raw::endpoint ep;
-    size_t ret_val = sock_.send_to(iovec, ep);
-    free(cl.cl_buf);
-    return ret_val;
+    return sock_.send_to(iovec, ep);
 }
 
 void KSyncSockNetlink::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
@@ -645,6 +657,16 @@ void KSyncSock::Shutdown() {
     STLDeleteValues(&sock_table_);
 }
 
+void KSyncSock::SetNetlinkFamilyId(int id) {
+    vnsw_netlink_family_id_ = id;
+    for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
+         it != sock_table_.end(); it++) {
+        KSyncSockNetlink *sock = dynamic_cast<KSyncSockNetlink *>(*it);
+        if (sock)
+            sock->InitNetlink();
+    }
+}
+
 // Read handler registered with boost::asio. Demux done based on seqno_
 void KSyncSock::ReadHandler(const boost::system::error_code& error,
                             size_t bytes_transferred) {
@@ -795,7 +817,8 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
                ioc->GetMsgLen(), ioc->GetSeqno());
         bool more_data = false;
         do {
-            char *rxbuf = new char[kBufLen];
+            int len = kBufLen;
+            char *rxbuf = new char[len];
             Receive(boost::asio::buffer(rxbuf, kBufLen));
             more_data = IsMoreData(rxbuf);
             ValidateAndEnqueue(rxbuf);

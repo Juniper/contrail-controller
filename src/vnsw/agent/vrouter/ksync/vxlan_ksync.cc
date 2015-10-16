@@ -89,14 +89,17 @@ bool VxLanIdKSyncEntry::Sync(DBEntry *e) {
 
 int VxLanIdKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_vxlan_req encoder;
-    int encode_len, error;
+    int encode_len;
     NHKSyncEntry *nexthop = nh();
 
     encoder.set_h_op(op);
     encoder.set_vxlanr_rid(0);
     encoder.set_vxlanr_vnid(label_);
     encoder.set_vxlanr_nhid(nexthop->nh_id());
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     return encode_len;
 }
 

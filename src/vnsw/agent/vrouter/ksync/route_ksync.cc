@@ -488,7 +488,7 @@ void RouteKSyncEntry::FillObjectLog(sandesh_op::type type,
 int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
                             char *buf, int buf_len) {
     vr_route_req encoder;
-    int encode_len, error;
+    int encode_len;
     NHKSyncEntry *nexthop = nh();
 
     encoder.set_h_op(op);
@@ -571,7 +571,10 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         encoder.set_rtr_replace_plen(replace_plen);
     }
 
+    int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
     return encode_len;
 }
 

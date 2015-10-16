@@ -30,6 +30,7 @@ public:
     // Generate netlink delete message for the object
     virtual int DeleteMsg(char *msg, int len) = 0;
 
+    virtual int MsgLen() { return kDefaultMsgSize; }
     bool Add();
     bool Change();
     bool Delete();
@@ -60,6 +61,7 @@ public:
     // Generate netlink delete message for the object
     virtual int DeleteMsg(char *msg, int len) = 0;
 
+    virtual int MsgLen() { return kDefaultMsgSize; }
     bool Add();
     bool Change();
     bool Delete();
