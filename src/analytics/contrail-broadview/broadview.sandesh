@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+namespace cpp broadview
+
+struct Device {
+    1: u32 data
+}
+
+struct IngressPortPriorityGroup {
+    1: string port
+    2: u32 priorityGroup
+    3: u32 umShareBufferCount
+    4: u32 umHeadroomBufferCount
+}
+
+struct IngressPortServicePool {
+    1: string port
+    2: u32 servicePool
+    3: u32 umShareBufferCount
+}
+
+struct IngressServicePool {
+    1: u32 servicePool
+    2: u32 umShareBufferCount
+}
+
+struct EgressPortServicePool {
+    1: string port
+    2: u32 servicePool
+    3: u32 ucShareBufferCount
+    4: u32 umShareBufferCount
+    5: u32 mcShareBufferCount
+    6: u32 mcShareQueueEntries
+}
+
+struct EgressServicePool {
+    1: u32 servicePool
+    2: u32 umShareBufferCount
+    3: u32 mcShareBufferCount
+    4: u32 mcShareQueueEntries
+}
+
+struct EgressUcQueue {
+    1: u32 queue
+    2: u32 ucBufferCount
+}
+
+struct EgressUcQueueGroup {
+    1: u32 queueGroup
+    2: u32 ucBufferCount
+}
+
+struct EgressMcQueue {
+    1: u32 queue
+    2: u32 mcBufferCount
+    3: u32 mcQueueEntries
+}
+
+struct EgressCpuQueue {
+    1: u32 queue
+    2: u32 cpuBufferCount
+}
+
+struct EgressRqeQueue {
+    1: u32 queue
+    2: u32 rqeBufferCount
+}
+
+objectlog sandesh PRouterBroadViewInfo {
+    1: string name (key="ObjectPRouter")
+    2: string asic_id
+    3: Device device
+    4: list<IngressPortPriorityGroup> ingressPortPriorityGroup (tags="name,asic_id,.port,.priorityGroup")
+    5: list<IngressPortServicePool> ingressPortServicePool (tags="name,asic_id,.port,.servicePool")
+    6: list<IngressServicePool> ingressServicePool (tags="name,asic_id,.servicePool")
+    7: list<EgressPortServicePool> egressPortServicePool (tags="name,asic_id,.port,.servicePool")
+    8: list<EgressServicePool> egressServicePool (tags="name,asic_id,.servicePool")
+    9: list<EgressUcQueue> egressUcQueue (tags="name,asic_id,.queue")
+   10: list<EgressUcQueueGroup> egressUcQueueGroup (tags="name,asic_id,.queueGroup")
+   11: list<EgressMcQueue> egressMcQueue (tags="name,asic_id,.queue")
+   12: list<EgressCpuQueue> egressCpuQueue (tags="name,asic_id,.queue")
+   13: list<EgressRqeQueue> egressRqeQueue (tags="name,asic_id,.queue")
+}
