@@ -149,6 +149,12 @@ class InstanceManager(object):
         if iipv6_obj:
             self._link_and_update_iip_for_family(si, vmi_obj, iipv6_obj)
 
+    def _link_fip_to_vmi(self, si, vmi_obj, fip_id):
+        fip = FloatingIpSM.get(fip_id)
+        if fip:
+            self._vnc_lib.ref_update('floating-ip', fip_id,
+                'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
+
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']
         if not static_routes:
@@ -457,10 +463,12 @@ class InstanceManager(object):
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
+
         # instance ip
+        iip_obj = None
+        iipv6_obj = None
         if 'iip-id' in nic:
             iip = InstanceIpSM.get(nic['iip-id'])
-            iip_obj = None
             if iip:
                 iip_obj = InstanceIp(name=iip.name)
                 iip_obj.uuid = iip.uuid
@@ -488,6 +496,10 @@ class InstanceManager(object):
 
         # link vmi to iip and set ha-mode
         self._link_and_update_iip(si, vmi_obj, iip_obj, iipv6_obj)
+
+        # link vmi to fip
+        if 'fip-id' in nic:
+            self._link_fip_to_vmi(si, vmi_obj, nic['fip-id'])
 
         return vmi_obj
 
