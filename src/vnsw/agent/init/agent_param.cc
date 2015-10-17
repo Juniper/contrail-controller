@@ -496,8 +496,10 @@ void AgentParam::ParseVirtualHostArguments
 void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
     ParseIpArgument(var_map, dss_server_, "DISCOVERY.server");
-    GetOptValue<uint16_t>(var_map, xmpp_instance_count_, 
-                          "DISCOVERY.max_control_nodes");
+    if (!GetOptValue<uint16_t>(var_map, xmpp_instance_count_, 
+                          "DISCOVERY.max_control_nodes")) {
+        xmpp_instance_count_ = 2;
+    }
 }
 
 void AgentParam::ParseNetworksArguments
@@ -939,7 +941,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Sandesh HTTP listener port")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
-        ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
+        ("DISCOVERY.server", opt::value<string>(),
          "IP address of discovery server")
         ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
          "Maximum number of control node info to be provided by discovery "
