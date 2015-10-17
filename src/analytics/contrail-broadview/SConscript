@@ -1,0 +1,125 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('AnalyticsEnv')
+env = AnalyticsEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'CHANGES.txt',
+    'LICENSE.txt',
+    'README.txt',
+    'contrail-broadview.conf',
+    'requirements.txt',
+    'setup.py',
+    'contrail_broadview/__init__.py',
+    'contrail_broadview/main.py',
+    'contrail_broadview/client.py',
+    'contrail_broadview/controller.py',
+    'contrail_broadview/config.py',
+    'contrail_broadview/bv_uve.py',
+    'contrail_broadview/device_config.py',
+    ]
+
+src_sandesh = env.SandeshGenPy('broadview.sandesh', 'contrail_broadview/')
+
+version = '0.0.1'
+#with open("CHANGES.txt") as f:
+#    version = f.read().split(",")[0][1:]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist/contrail-broadview-' \
+        + version + '.tar.gz',
+        sources + src_sandesh, cd_cmd + 'python setup.py sdist')
+env.Alias('controller/src/analytics/contrail-broadview/' + \
+        'contrail_broadview:sdist', sdist_gen)
+
+src_rules = [env.Install(Dir("."),
+    '#controller/src/analytics/contrail-broadview/' + f) for f in sources]
+src_rules.append(env.Install(Dir("."),
+        '#controller/src/opserver/run_tests.sh'))
+
+test_sources = [
+    'requirements.txt',
+    'test-requirements.txt',
+    '.testr.conf',
+    '.coveragerc',
+    'test',
+]
+
+src_rules += [env.Install(Dir("."),
+    '#controller/src/analytics/contrail-broadview/' + f) for f in test_sources]
+
+import os
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+testr_str = 'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + \
+            ' && tools_path=../config/common/tests/' + \
+            ' omit_list="contrail_broadview/gen_py"' \
+            ' build_top=' + Dir(env['TOP']).path + \
+            ' CFLAGS= LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:../../../build/lib' \
+            ' python setup.py run_tests %s 2>&1 |' \
+            ' tee %s.log"'
+
+env.Append(ENV = {'BUILDTOP': Dir(env['TOP']).abspath,
+                    'COVERAGERUN': str(env['OPT'] == 'coverage')})
+
+test_depends = [
+        '/config/common/dist/cfgm_common-0.1dev.tar.gz',
+        '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
+        '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
+        '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+        '/opserver/dist/opserver-0.1dev.tar.gz',
+]
+
+if env['OPT'] == 'coverage':
+    test_cmd = env.Command('coveragetest.log', sdist_gen,
+            testr_str % ('--coverage', 'coveragetest'))
+elif env['PYTESTARG']:
+    test_cmd = env.Command(env['PYTESTARG'] + '.log', sdist_gen,
+            testr_str % ('--testrun="%s"' % (env['PYTESTARG']),
+            env['PYTESTARG']))
+else:
+    test_cmd = env.Command('test.log', sdist_gen,
+            testr_str % ('', 'test'))
+
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+env.Depends(test_cmd, src_rules)
+env.Alias('tests', test_cmd)
+env.Alias('controller/src/analytics/contrail-broadview:test', test_cmd)
+env.AlwaysBuild(test_cmd)
+
+doc_files = []
+doc_files += env['BASE_DOC_FILES']
+doc_files += env['SANDESH_DOC_FILES']
+doc_files += env['ANALYTICS_DOC_FILES']
+doc_files += env.SandeshGenDoc('broadview.sandesh')
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, sources + src_sandesh,
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
+    env.Alias('install', install_cmd)
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+            'contrail-broadview.conf'))
+env.Alias('install', env.InstallAs(
+            env['INSTALL_INITD'] + '/contrail-broadview',
+            'contrail-broadview.initd.supervisord'))
+env.Alias('install', env.Install(
+            env['INSTALL_CONF'] + '/supervisord_analytics_files',
+            'contrail-broadview.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-broadview/', doc_files))
