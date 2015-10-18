@@ -1658,7 +1658,7 @@ static void SetAclListAceId(const AclDBEntry *acl,
 }
 
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
-        FlowSandeshData &fe_sandesh_data, FlowExportInfo *info) const {
+        FlowSandeshData &fe_sandesh_data, Agent *agent) const {
     fe_sandesh_data.set_vrf(integerToString(data_.vrf));
     fe_sandesh_data.set_src(key_.src_addr.to_string());
     fe_sandesh_data.set_dst(key_.dst_addr.to_string());
@@ -1679,6 +1679,8 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_source_vn(data_.source_vn);
     fe_sandesh_data.set_dest_vn(data_.dest_vn);
     std::vector<uint32_t> v;
+    FlowExportInfo *info = agent->flow_stats_collector()->
+        FindFlowExportInfo(key_);
     SecurityGroupList::const_iterator it;
     for (it = data_.source_sg_id_l.begin(); 
             it != data_.source_sg_id_l.end(); it++) {
