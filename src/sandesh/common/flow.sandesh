@@ -46,8 +46,9 @@ struct FlowDataIpv4 {
     33: optional u16       underlay_proto;
     34: optional u16       underlay_source_port;
     35: optional string    vmi_uuid;
+    36: optional string    drop_reason;
 }
 
 flowlog sandesh FlowDataIpv4Object {
-    1: FlowDataIpv4       flowdata;
+    1: list<FlowDataIpv4>       flowdata;
 }

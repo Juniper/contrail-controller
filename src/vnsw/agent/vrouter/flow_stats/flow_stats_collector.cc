@@ -27,7 +27,7 @@
 #include <pkt/flow_proto.h>
 #include <pkt/flow_mgmt.h>
 #include <vrouter/ksync/ksync_init.h>
-#include <vrouter/flow_stats/flow_stats_interval_types.h>
+#include <vrouter/flow_stats/flow_stats_types.h>
 
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        uint32_t flow_cache_timeout,
@@ -45,7 +45,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                    _1)),
         flow_export_count_(0), prev_flow_export_rate_compute_time_(0),
         flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
-        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0)  {
+        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0),
+        msg_list_(kMaxFlowMsgsPerSend, FlowDataIpv4()), msg_index_(0) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
@@ -418,6 +419,9 @@ bool FlowStatsCollector::Run() {
         }
     }
 
+    //Send any pending flow export messages
+    DispatchPendingFlowMsg();
+
     if (count == flow_count_per_pass_) {
         if (it != flow_tree_.end()) {
             key_updation_reqd = false;
@@ -456,32 +460,6 @@ bool FlowStatsCollector::Run() {
     }
     set_expiry_time(flow_timer_interval);
     return true;
-}
-
-void SetFlowStatsInterval_InSeconds::HandleRequest() const {
-    SandeshResponse *resp;
-    if (get_interval() > 0) {
-        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_collector();
-        fec->set_expiry_time(get_interval() * 1000);
-        resp = new FlowStatsCfgResp();
-    } else {
-        resp = new FlowStatsCfgErrResp();
-    }
-
-    resp->set_context(context());
-    resp->Response();
-    return;
-}
-
-void GetFlowStatsInterval::HandleRequest() const {
-    FlowStatsIntervalResp_InSeconds *resp =
-        new FlowStatsIntervalResp_InSeconds();
-    resp->set_flow_stats_interval((Agent::GetInstance()->flow_stats_collector()->
-        expiry_time())/1000);
-
-    resp->set_context(context());
-    resp->Response();
-    return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -597,9 +575,33 @@ void FlowStatsCollector::GetFlowSandeshActionParams
     }
 }
 
-void FlowStatsCollector::DispatchFlowMsg(SandeshLevel::type level,
-                                         FlowDataIpv4 &flow) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
+void FlowStatsCollector::EnqueueFlowMsg() {
+    msg_index_++;
+    if (msg_index_ == kMaxFlowMsgsPerSend) {
+        DispatchFlowMsg(msg_list_);
+    }
+}
+
+void FlowStatsCollector::DispatchPendingFlowMsg() {
+    if (msg_index_ == 0) {
+        return;
+    }
+
+    vector<FlowDataIpv4>::const_iterator first = msg_list_.begin();
+    vector<FlowDataIpv4>::const_iterator last = msg_list_.begin() + msg_index_;
+    vector<FlowDataIpv4> new_list(first, last);
+    DispatchFlowMsg(new_list);
+}
+
+void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst) {
+    FLOW_DATA_IPV4_OBJECT_LOG("", SandeshLevel::SYS_CRIT, lst);
+    msg_index_ = 0;
+}
+
+uint8_t FlowStatsCollector::GetFlowMsgIdx() {
+    FlowDataIpv4 &obj = msg_list_[msg_index_];
+    obj = FlowDataIpv4();
+    return msg_index_;
 }
 
 /* Flow Export Algorithm
@@ -645,8 +647,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
             diff_pkts = diff_pkts/probability;
         }
     }
-    FlowDataIpv4   s_flow;
-    SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
+    FlowDataIpv4 &s_flow = msg_list_[GetFlowMsgIdx()];
 
     s_flow.set_flowuuid(to_string(info->flow_uuid()));
     s_flow.set_bytes(info->bytes());
@@ -668,6 +669,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     s_flow.set_sourcevn(info->source_vn());
     s_flow.set_destvn(info->dest_vn());
     s_flow.set_vm(info->vm_cfg_name());
+    s_flow.set_drop_reason(info->drop_reason());
 
     s_flow.set_sg_rule_uuid(info->sg_rule_uuid());
     s_flow.set_nw_ace_uuid(info->nw_ace_uuid());
@@ -682,15 +684,11 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
 
     // Set flow action
     std::string action_str;
-    //GetFlowSandeshActionParams(flow->match_p().action_info, action_str);
     GetFlowSandeshActionParams(info->action_info(), action_str);
     s_flow.set_action(action_str);
-    // Flow setup(first) and teardown(last) messages are sent with higher
-    // priority.
     if (!info->exported()) {
         s_flow.set_setup_time(info->setup_time());
         info->set_exported(true);
-        level = SandeshLevel::SYS_ERR;
         SetUnderlayInfo(info, s_flow);
     } else {
         /* When the flow is being exported for first time, underlay port
@@ -703,20 +701,12 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
          *       populated yet
          */
         if (!info->underlay_sport_exported()) {
-            if (SetUnderlayPort(info, s_flow)) {
-                level = SandeshLevel::SYS_ERR;
-            }
+            SetUnderlayPort(info, s_flow);
         }
     }
 
     if (info->teardown_time()) {
-        // Teardown time will be set in flow only when flow is deleted.
-        // We need to reset the exported flag when flow is getting deleted to
-        // handle flow entry reuse case (Flow add request coming for flows
-        // marked as deleted)
         s_flow.set_teardown_time(info->teardown_time());
-        info->set_underlay_sport_exported(false);
-        level = SandeshLevel::SYS_ERR;
     }
 
     if (info->is_flags_set(FlowEntry::LocalFlow)) {
@@ -729,13 +719,13 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
          */
         s_flow.set_direction_ing(1);
         SourceIpOverride(key, info, s_flow);
-        DispatchFlowMsg(level, s_flow);
+        EnqueueFlowMsg();
         s_flow.set_direction_ing(0);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
         s_flow.set_flowuuid(to_string(info->egress_uuid()));
-        DispatchFlowMsg(level, s_flow);
+        EnqueueFlowMsg();
         flow_export_count_ += 2;
     } else {
         if (info->is_flags_set(FlowEntry::IngressDir)) {
@@ -744,7 +734,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
         } else {
             s_flow.set_direction_ing(0);
         }
-        DispatchFlowMsg(level, s_flow);
+        EnqueueFlowMsg();
         flow_export_count_++;
     }
 }
@@ -773,6 +763,7 @@ void FlowStatsCollector::UpdateFlowThreshold(uint64_t curr_time) {
     } else {
         prev_flow_export_rate_compute_time_ = curr_time;
         flow_export_count_ = 0;
+        return;
     }
 
     uint32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
@@ -791,11 +782,11 @@ void FlowStatsCollector::UpdateFlowThreshold(uint64_t curr_time) {
     } else if (flow_export_rate_ < cfg_rate/1.25) {
         UpdateThreshold((threshold_ / 2));
     } else if (flow_export_rate_ > (cfg_rate * 3)) {
-        UpdateThreshold((threshold_ * 8));
-    } else if (flow_export_rate_ > (cfg_rate * 2)) {
         UpdateThreshold((threshold_ * 4));
-    } else if (flow_export_rate_ > (cfg_rate * 1.25)) {
+    } else if (flow_export_rate_ > (cfg_rate * 2)) {
         UpdateThreshold((threshold_ * 3));
+    } else if (flow_export_rate_ > (cfg_rate * 1.25)) {
+        UpdateThreshold((threshold_ * 2));
     }
     prev_cfg_flow_export_rate_ = cfg_rate;
 }
@@ -874,4 +865,144 @@ void FlowStatsCollector::UpdateFlowIndex(const FlowKey &key, uint32_t idx) {
     if (info) {
         info->set_flow_handle(idx);
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Introspect routines
+/////////////////////////////////////////////////////////////////////////////
+void SetFlowStatsInterval_InSeconds::HandleRequest() const {
+    SandeshResponse *resp;
+    if (get_interval() > 0) {
+        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_collector();
+        fec->set_expiry_time(get_interval() * 1000);
+        resp = new FlowStatsCfgResp();
+    } else {
+        resp = new FlowStatsCfgErrResp();
+    }
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void GetFlowStatsInterval::HandleRequest() const {
+    FlowStatsIntervalResp_InSeconds *resp =
+        new FlowStatsIntervalResp_InSeconds();
+    resp->set_flow_stats_interval((Agent::GetInstance()->flow_stats_collector()->
+        expiry_time())/1000);
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void FlowStatsCollectionParamsReq::HandleRequest() const {
+    FlowStatsCollector *col = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsCollectionParamsResp *resp = new FlowStatsCollectionParamsResp();
+    resp->set_flow_export_rate(col->flow_export_rate());
+    resp->set_sampling_threshold(col->threshold());
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+static void KeyToSandeshFlowKey(const FlowKey &key, SandeshFlowKey &skey) {
+    skey.set_nh(key.nh);
+    skey.set_sip(key.src_addr.to_string());
+    skey.set_dip(key.dst_addr.to_string());
+    skey.set_src_port(key.src_port);
+    skey.set_dst_port(key.dst_port);
+    skey.set_protocol(key.protocol);
+}
+
+static void FlowExportInfoToSandesh(const FlowExportInfo &value,
+                                    SandeshFlowExportInfo &info) {
+    SandeshFlowKey rev_skey;
+    KeyToSandeshFlowKey(value.rev_flow_key(), rev_skey);
+    info.set_uuid(to_string(value.flow_uuid()));
+    info.set_egress_uuid(to_string(value.egress_uuid()));
+    info.set_rev_key(rev_skey);
+    info.set_source_vn(value.source_vn());
+    info.set_dest_vn(value.dest_vn());
+    info.set_sg_rule_uuid(value.sg_rule_uuid());
+    info.set_nw_ace_uuid(value.nw_ace_uuid());
+    info.set_setup_time(value.setup_time());
+    info.set_teardown_time(value.teardown_time());
+    info.set_last_modified_time(value.last_modified_time());
+    info.set_bytes(value.bytes());
+    info.set_packets(value.packets());
+    info.set_flags(value.flags());
+    info.set_flow_handle(value.flow_handle());
+    std::vector<ActionStr> action_str_l;
+    info.set_action(action_str_l);
+    SetActionStr(value.action_info(), action_str_l);
+    info.set_vm_cfg_name(value.vm_cfg_name());
+    info.set_peer_vrouter(value.peer_vrouter());
+    info.set_tunnel_type(value.tunnel_type().ToString());
+    const VmInterfaceKey &vmi = value.fip_vmi();
+    string vmi_str = to_string(vmi.uuid_) + vmi.name_;
+    info.set_fip_vmi(vmi_str);
+    Ip4Address ip(value.fip());
+    info.set_fip(ip.to_string());
+    info.set_underlay_source_port(value.underlay_source_port());
+}
+
+void FlowStatsRecordsReq::HandleRequest() const {
+    FlowStatsCollector::FlowEntryTree::iterator it;
+    vector<FlowStatsRecord> list;
+    FlowStatsCollector *col = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsRecordsResp *resp = new FlowStatsRecordsResp();
+    it = col->flow_tree_.begin();
+    while (it != col->flow_tree_.end()) {
+        const FlowKey &key = it->first;
+        const FlowExportInfo &value = it->second;
+        ++it;
+
+        SandeshFlowKey skey;
+        KeyToSandeshFlowKey(key, skey);
+
+        SandeshFlowExportInfo info;
+        FlowExportInfoToSandesh(value, info);
+
+        FlowStatsRecord rec;
+        rec.set_key(skey);
+        rec.set_info(info);
+        list.push_back(rec);
+    }
+    resp->set_records_list(list);
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void FetchFlowStatsRecord::HandleRequest() const {
+    FlowStatsCollector::FlowEntryTree::iterator it;
+    FlowStatsCollector *col = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsRecordResp *resp = new FlowStatsRecordResp();
+    resp->set_context(context());
+    boost::system::error_code ec;
+    IpAddress sip = IpAddress::from_string(get_sip(), ec);
+    if (ec) {
+        resp->Response();
+        return;
+    }
+    IpAddress dip = IpAddress::from_string(get_dip(), ec);
+    if (ec) {
+        resp->Response();
+        return;
+    }
+    FlowKey key(get_nh(), sip, dip, get_protocol(), get_src_port(),
+                get_dst_port());
+    it = col->flow_tree_.find(key);
+    if (it != col->flow_tree_.end()) {
+        const FlowExportInfo &info = it->second;
+        SandeshFlowExportInfo sinfo;
+        FlowExportInfoToSandesh(info, sinfo);
+        resp->set_info(sinfo);
+    }
+
+    resp->Response();
+    return;
 }

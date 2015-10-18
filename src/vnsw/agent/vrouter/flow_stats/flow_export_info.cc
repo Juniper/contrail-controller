@@ -8,9 +8,10 @@ FlowExportInfo::FlowExportInfo() :
     flow_handle_(FlowEntry::kInvalidFlowHandle), action_info_(),
     vm_cfg_name_(), peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
     underlay_source_port_(0), underlay_sport_exported_(false), exported_(false),
-    fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""),
-    interface_uuid_()  {
+    fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
+    drop_reason_ = FlowEntry::FlowDropReasonStr.at(FlowEntry::DROP_UNKNOWN);
     rev_flow_key_.Reset();
+    interface_uuid_ = boost::uuids::nil_uuid();
 }
 
 FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
@@ -27,16 +28,16 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
     egress_uuid_ = FlowTable::rand_gen_();
     FlowEntry *rflow = fe->reverse_flow_entry();
     if (rflow) {
-        rev_flow_key_ = fe->key();
+        rev_flow_key_ = rflow->key();
     } else {
         rev_flow_key_.Reset();
     }
-
     if (fe->intf_entry()) {
         interface_uuid_ = fe->intf_entry()->GetUuid();
     } else {
         interface_uuid_ = boost::uuids::nil_uuid();
     }
+    drop_reason_ = FlowEntry::FlowDropReasonStr.at(fe->data().drop_reason);
 }
 
 bool FlowExportInfo::IsActionLog() const {

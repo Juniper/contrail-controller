@@ -30,6 +30,7 @@ public:
     void set_bytes(uint64_t value) { bytes_ = value; }
     uint64_t packets() const { return packets_; }
     void set_packets(uint64_t value) { packets_ = value; }
+    uint32_t flags() const { return flags_; }
     uint32_t flow_handle() const { return flow_handle_; }
     void set_flow_handle(uint32_t value) { flow_handle_ = value; }
     FlowAction action_info() const { return action_info_; }
@@ -56,7 +57,7 @@ public:
     bool is_flags_set(const FlowEntry::FlowEntryFlags &value) const {
         return (flags_ & value);
     }
-
+    const std::string &drop_reason() const { return drop_reason_; }
 private:
     boost::uuids::uuid flow_uuid_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
@@ -86,6 +87,7 @@ private:
     uint32_t fip_;
     VmInterfaceKey fip_vmi_;
     boost::uuids::uuid interface_uuid_;
+    std::string drop_reason_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__

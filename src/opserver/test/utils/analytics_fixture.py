@@ -1404,8 +1404,8 @@ class AnalyticsFixture(fixtures.Fixture):
                     continue
                 elif f._timestamp > end_time:
                     break
-                stats['sum_bytes'] += f.flowdata.diff_bytes
-                stats['sum_pkts'] += f.flowdata.diff_packets
+                stats['sum_bytes'] += f.flowdata[0].diff_bytes
+                stats['sum_pkts'] += f.flowdata[0].diff_packets
             return stats 
         
         def _aggregate_flows_stats(flows, start_time, end_time):
@@ -1710,8 +1710,8 @@ class AnalyticsFixture(fixtures.Fixture):
             found = 0
             for r in res:
                 if r['T'] == f._timestamp:
-                      assert(r['packets'] == f.flowdata.diff_packets)
-                      assert(r['bytes'] == f.flowdata.diff_bytes)
+                      assert(r['packets'] == f.flowdata[0].diff_packets)
+                      assert(r['bytes'] == f.flowdata[0].diff_bytes)
                       found = 1
                       break
             assert(found)
@@ -1743,8 +1743,8 @@ class AnalyticsFixture(fixtures.Fixture):
         flow = []
         for f in generator_obj.flows:
             for s in f.samples:
-                flow.append({'packets':s.flowdata.diff_packets,
-                            'bytes':s.flowdata.diff_bytes})
+                flow.append({'packets':s.flowdata[0].diff_packets,
+                            'bytes':s.flowdata[0].diff_bytes})
         sorted_flow = sorted(flow, key=itemgetter('packets', 'bytes'))
         assert(sorted_res == sorted_flow)
 
@@ -1858,8 +1858,8 @@ class AnalyticsFixture(fixtures.Fixture):
                     if r['T'] == sample._timestamp and r['sport'] == sport:
                         assert(r['protocol'] == flow.protocol)
                         assert(r['dport'] == flow.dport)
-                        assert(r['bytes'] == sample.flowdata.diff_bytes)
-                        assert(r['packets'] == sample.flowdata.diff_packets)
+                        assert(r['bytes'] == sample.flowdata[0].diff_bytes)
+                        assert(r['packets'] == sample.flowdata[0].diff_packets)
                         found = 1
                         break
                 assert(found)
@@ -1890,11 +1890,13 @@ class AnalyticsFixture(fixtures.Fixture):
         exp_result = []
         for flow in generator_obj1.flows:
             for f in flow.samples:
-                dict = {'vrouter':f._source, 'destvn':f.flowdata.destvn, 'sourcevn':f.flowdata.sourcevn}
+                dict = {'vrouter':f._source, 'destvn':f.flowdata[0].destvn,
+                        'sourcevn':f.flowdata[0].sourcevn}
                 exp_result.append(dict)
         for flow in generator_obj.flows:
             for f in flow.samples:
-                dict = {'vrouter':f._source, 'destvn':f.flowdata.destvn, 'sourcevn':f.flowdata.sourcevn}
+                dict = {'vrouter':f._source, 'destvn':f.flowdata[0].destvn,
+                        'sourcevn':f.flowdata[0].sourcevn}
                 exp_result.append(dict)
         sorted_exp_result = sorted(exp_result, key=itemgetter('vrouter'))
         assert(sorted_res == sorted_exp_result)

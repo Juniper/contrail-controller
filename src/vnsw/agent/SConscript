@@ -339,7 +339,7 @@ AgentEnv['AGENT_KSYNC_DOC_FILES'] = AgentKsyncDocFiles
 
 AgentFlowDocFiles = []
 AgentFlowDocFiles += AgentEnv.SandeshGenDoc('#controller/src/sandesh/common/flow.sandesh', env['TOP'] + '/sandesh/common/')
-AgentFlowDocFiles += AgentEnv.SandeshGenDoc('vrouter/flow_stats/flow_stats_interval.sandesh')
+AgentFlowDocFiles += AgentEnv.SandeshGenDoc('vrouter/flow_stats/flow_stats.sandesh')
 AgentEnv['AGENT_FLOW_DOC_FILES'] = AgentFlowDocFiles
 
 AgentCommonDocFiles = []
