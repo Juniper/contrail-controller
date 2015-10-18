@@ -225,8 +225,6 @@ class FlowMgmtDbClient;
 //                   on the DBEntry
 //
 // - AclFlowMgmtTree        : FlowMgmtTree for ACL
-// - AceIdFlowMgmtTree      : FlowMgmtTree for ACE.
-//                            Used to track per ACE-ID counters
 // - InterfaceFlowMgmtTree  : FlowMgmtTree for VM-Interfaces
 // - VnFlowMgmtTree         : FlowMgmtTree for VN
 // - InetRouteFlowMgmtTree  : FlowMgmtTree for IPv4 routes
@@ -318,6 +316,7 @@ public:
     };
 
     typedef std::set<FlowEntry *> Tree;
+    static const int MaxResponses = 100;
 
     FlowMgmtEntry() : oper_state_(OPER_NOT_SEEN) {
     }
@@ -407,24 +406,37 @@ private:
 ////////////////////////////////////////////////////////////////////////////
 class AclFlowMgmtKey : public FlowMgmtKey {
 public:
-    AclFlowMgmtKey(const AclDBEntry *acl) :
-        FlowMgmtKey(FlowMgmtKey::ACL, acl) {
+    AclFlowMgmtKey(const AclDBEntry *acl, const AclEntryIDList *ace_id_list) :
+        FlowMgmtKey(FlowMgmtKey::ACL, acl), ace_id_list_(ace_id_list) {
     }
     virtual ~AclFlowMgmtKey() { }
     virtual FlowMgmtKey *Clone() {
-        return new AclFlowMgmtKey(static_cast<const AclDBEntry *>(db_entry()));
+        return new AclFlowMgmtKey(static_cast<const AclDBEntry *>(db_entry()),
+                                  ace_id_list_);
     }
-
+    const AclEntryIDList *ace_id_list() const { return ace_id_list_; }
 private:
+    const AclEntryIDList *ace_id_list_;
     DISALLOW_COPY_AND_ASSIGN(AclFlowMgmtKey);
 };
 
 class AclFlowMgmtEntry : public FlowMgmtEntry {
 public:
+    typedef std::map<int, int> AceIdFlowCntMap;
     AclFlowMgmtEntry() : FlowMgmtEntry() { }
     ~AclFlowMgmtEntry() { }
-
+    void FillAclFlowSandeshInfo(const AclDBEntry *acl, AclFlowResp &data,
+                                const int last_count, Agent *agent);
+    void FillAceFlowSandeshInfo(const AclDBEntry *acl, AclFlowCountResp &data,
+                                int ace_id);
+    bool Add(const AclEntryIDList *ace_id_list, FlowEntry *flow);
+    bool Delete(const AclEntryIDList *ace_id_list, FlowEntry *flow);
 private:
+    std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
+    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl,
+                                         const int last_count) const;
+    uint32_t flow_miss_;
+    AceIdFlowCntMap aceid_cnt_map_;
     DISALLOW_COPY_AND_ASSIGN(AclFlowMgmtEntry);
 };
 
@@ -433,60 +445,15 @@ public:
     AclFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) { }
     virtual ~AclFlowMgmtTree() { }
 
+    bool Add(FlowMgmtKey *key, FlowEntry *flow);
+    bool Delete(FlowMgmtKey *key, FlowEntry *flow);
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
                      const MatchAclParamsList *acl_list);
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
 
 private:
-    uint32_t flow_miss_;
     DISALLOW_COPY_AND_ASSIGN(AclFlowMgmtTree);
-};
-
-////////////////////////////////////////////////////////////////////////////
-// ACE-ID based tree. Stored only to copute #flows per ace-id
-////////////////////////////////////////////////////////////////////////////
-class AceIdFlowMgmtKey : public FlowMgmtKey {
-public:
-    AceIdFlowMgmtKey(uint32_t id) :
-        FlowMgmtKey(FlowMgmtKey::ACE_ID, NULL), ace_id_(id) {
-    }
-    virtual ~AceIdFlowMgmtKey() { }
-    virtual FlowMgmtKey *Clone() { return new AceIdFlowMgmtKey(ace_id_); }
-    // We dont enqueue request from ACL-ID to flow-table
-    virtual void KeyToFlowRequest(FlowMgmtResponse *req) { assert(0); }
-    bool Compare(const FlowMgmtKey *rhs) const {
-        return ace_id_ < (static_cast<const AceIdFlowMgmtKey *>(rhs))->ace_id_;
-    }
-
-private:
-    uint32_t ace_id_;
-    DISALLOW_COPY_AND_ASSIGN(AceIdFlowMgmtKey);
-};
-
-class AceIdFlowMgmtEntry : public FlowMgmtEntry {
-public:
-    AceIdFlowMgmtEntry() : FlowMgmtEntry() { }
-    ~AceIdFlowMgmtEntry() { }
-
-private:
-    DISALLOW_COPY_AND_ASSIGN(AceIdFlowMgmtEntry);
-};
-
-class AceIdFlowMgmtTree : public FlowMgmtTree {
-public:
-    AceIdFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) { }
-    virtual ~AceIdFlowMgmtTree() { }
-
-    void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
-                     const AclEntryIDList *ace_id_list);
-    void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
-                     const MatchAclParamsList *acl_list);
-    void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
-    FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
-
-private:
-    DISALLOW_COPY_AND_ASSIGN(AceIdFlowMgmtTree);
 };
 
 class VnFlowMgmtKey : public FlowMgmtKey {
@@ -1013,7 +980,6 @@ private:
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
     void LogFlow(FlowEntry *flow, const std::string &op);
-    std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                            int ace_id);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
@@ -1022,7 +988,6 @@ private:
     Agent *agent_;
     FlowTable *flow_table_;
     AclFlowMgmtTree acl_flow_mgmt_tree_;
-    AceIdFlowMgmtTree ace_id_flow_mgmt_tree_;
     InterfaceFlowMgmtTree interface_flow_mgmt_tree_;
     VnFlowMgmtTree vn_flow_mgmt_tree_;
     InetRouteFlowMgmtTree ip4_route_flow_mgmt_tree_;
