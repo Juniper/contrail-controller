@@ -246,10 +246,6 @@ protected:
     }
 
     virtual void SetUp() {
-        // TODO Fix this for IPv6
-        if (family_ == Address::INET6)
-            ServiceChainIntegrationTestGlobals::mx_push_connected_ = false;
-
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         bgp_schema_ParserInit(parser);
         vnc_cfg_ParserInit(parser);
