@@ -15,6 +15,7 @@
 #include <sandesh/sandesh.h>
 
 #include "base/parse_object.h"
+#include "bgp/bgp_path.h"
 #include "bgp/extended-community/types.h"
 #include "bgp/bgp_peer_types.h"
 #include "schema/xmpp_unicast_types.h"
@@ -124,12 +125,22 @@ public:
         return get_value(data_.begin(), 8);
     }
     const LoadBalanceAttribute ToAttribute() const;
+    bool Get(const BgpPath *path);
     void FillAttribute(LoadBalanceAttribute &attr);
     const bool IsDefault() const;
     void ShowAttribute(ShowLoadBalance &show_load_balance) const;
     std::string ToString() const;
+    void SetL2SourceAddress();
+    void SetL2DestinationAddress();
+    void SetL3SourceAddress();
+    void SetL3DestinationAddress();
+    void SetL4Protocol();
+    void SetL4SourcePort();
+    void SetL4DestinationPort();
 
 private:
+    void FillFromExtendedCommunityData(const bytes_type &data);
+
     bytes_type data_;
 };
 

@@ -18,6 +18,7 @@
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_factory.h"
@@ -242,7 +243,8 @@ protected:
                       string nexthop_str = "",
                       std::set<string> encap = std::set<string>(),
                       std::vector<uint32_t> sglist = std::vector<uint32_t>(),
-                      uint32_t flags=0, int label=0) {
+                      uint32_t flags=0, int label=0,
+                      const LoadBalance &lb = LoadBalance()) {
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -274,6 +276,10 @@ protected:
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
+
+        if (!lb.IsDefault())
+            ext_comm.communities.push_back(lb.GetExtCommunityValue());
+
         attr_spec.push_back(&ext_comm);
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
@@ -1650,6 +1656,96 @@ TYPED_TEST(StaticRouteTest, TunnelEncap) {
     tunnel_encap_list = this->GetTunnelEncapListFromRoute(static_path);
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(encap, tunnel_encap_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    // Delete nexthop route
+    this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32));
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+}
+
+TYPED_TEST(StaticRouteTest, LoadBalance) {
+    vector<string> instance_names = list_of("blue")("nat")("red")("green");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params = 
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance", 
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+
+    // Create non-default load balance attribute
+    LoadBalance lb = LoadBalance();
+    lb.SetL2SourceAddress();
+
+    // Add Nexthop Route
+    this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32),
+                   100, this->BuildNextHopAddress("2.3.4.5"),
+                   std::set<string>(), std::vector<uint32_t>(), 0, 0, lb);
+    task_util::WaitForIdle();
+
+     // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(
+            this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in nat instance..");
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(
+            this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+
+    BgpRoute *static_rt =
+        this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24));
+    const BgpPath *static_path = static_rt->BestPath();
+    BgpAttrPtr attr = static_path->GetAttr();
+    EXPECT_EQ(this->GetNextHopAddress(attr),
+              this->BuildNextHopAddress("2.3.4.5"));
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
+
+    static_rt =
+        this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
+    static_path = static_rt->BestPath();
+    set<string> list = this->GetRTargetFromPath(static_path);
+    set<string> config_list =
+        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    EXPECT_EQ(list, config_list);
+    LoadBalance static_path_lb;
+    static_path_lb.Get(static_path);
+    EXPECT_EQ(lb, static_path_lb);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    lb.SetL2DestinationAddress();
+    // Update Nexthop Route
+    this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32),
+                   100, this->BuildNextHopAddress("2.3.4.5"),
+                   std::set<string>(), std::vector<uint32_t>(), 0, 0, lb);
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(
+            this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in nat..");
+
+    static_rt =
+        this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
+    static_path = static_rt->BestPath();
+    list = this->GetRTargetFromPath(static_path);
+    EXPECT_EQ(list, config_list);
+    static_path_lb.Get(static_path);
+    EXPECT_EQ(lb, static_path_lb);
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
 
     // Delete nexthop route

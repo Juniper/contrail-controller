@@ -3,6 +3,7 @@
  */
 
 #include <algorithm>
+#include <boost/foreach.hpp>
 #include <arpa/inet.h>
 #include <string>
 #include <vector>
@@ -80,7 +81,7 @@ LoadBalance::LoadBalance() {
 }
 
 LoadBalance::LoadBalance(const bytes_type &data) {
-    copy(data.begin(), data.end(), data_.begin());
+    FillFromExtendedCommunityData(data);
 }
 
 LoadBalance::LoadBalance(const LoadBalanceAttribute &attr) {
@@ -138,6 +139,10 @@ LoadBalance::LoadBalance(const autogen::LoadBalanceType &item) {
     put_value(&data_[4], 4, attr.value2);
 }
 
+void LoadBalance::FillFromExtendedCommunityData(const bytes_type &data) {
+    copy(data.begin(), data.end(), data_.begin());
+}
+
 void LoadBalance::FillAttribute(LoadBalanceAttribute &attr) {
     attr.value1 = get_value(&data_[0], 4);
     attr.value2 = get_value(&data_[4], 4);
@@ -147,6 +152,82 @@ const LoadBalance::LoadBalanceAttribute LoadBalance::ToAttribute() const {
     return LoadBalanceAttribute(
             get_value_unaligned(&data_[0], 4),
             get_value_unaligned(&data_[4], 4));
+}
+
+void LoadBalance::SetL2SourceAddress() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l2_source_address = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+void LoadBalance::SetL2DestinationAddress() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l2_destination_address = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+void LoadBalance::SetL3SourceAddress() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l3_source_address = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+void LoadBalance::SetL3DestinationAddress() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l3_destination_address = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+void LoadBalance::SetL4Protocol() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l4_protocol = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+void LoadBalance::SetL4SourcePort() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l4_source_port = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+void LoadBalance::SetL4DestinationPort() {
+    LoadBalanceAttribute attr = ToAttribute();
+    attr.l4_destination_port = 1;
+
+    put_value(&data_[0], 4, attr.value1);
+    put_value(&data_[4], 4, attr.value2);
+}
+
+bool LoadBalance::Get(const BgpPath *path) {
+    if (!path)
+        return false;
+    const BgpAttr *attr = path->GetAttr();
+    if (!attr)
+        return false;
+    const ExtCommunity *ext_community = attr->ext_community();
+    if (!ext_community)
+        return false;
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                  ext_community->communities()) {
+        if (ExtCommunity::is_load_balance(comm)) {
+            FillFromExtendedCommunityData(comm);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 const bool LoadBalance::IsDefault() const {
