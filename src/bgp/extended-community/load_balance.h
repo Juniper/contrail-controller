@@ -15,6 +15,7 @@
 #include <sandesh/sandesh.h>
 
 #include "base/parse_object.h"
+#include "bgp/bgp_path.h"
 #include "bgp/extended-community/types.h"
 #include "bgp/bgp_peer_types.h"
 #include "schema/xmpp_unicast_types.h"
@@ -115,6 +116,7 @@ public:
     explicit LoadBalance(const bytes_type &data);
     explicit LoadBalance(const LoadBalanceAttribute &attr);
     explicit LoadBalance(const autogen::LoadBalanceType &item);
+    explicit LoadBalance(const BgpPath *path);
 
     bool operator==(const LoadBalance &other) const;
     uint8_t Type() const { return data_[0]; }
@@ -128,8 +130,19 @@ public:
     const bool IsDefault() const;
     void ShowAttribute(ShowLoadBalance &show_load_balance) const;
     std::string ToString() const;
+    void SetL2SourceAddress();
+    void SetL2DestinationAddress();
+    void SetL3SourceAddress();
+    void SetL3DestinationAddress();
+    void SetL4Protocol();
+    void SetL4SourcePort();
+    void SetL4DestinationPort();
+    void SetSourceBias();
+
+    static bool IsPresent(const BgpPath *path);
 
 private:
+
     bytes_type data_;
 };
 

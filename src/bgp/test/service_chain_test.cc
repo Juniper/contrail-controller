@@ -25,6 +25,7 @@
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
@@ -273,7 +274,7 @@ protected:
                       set<string> encap = set<string>(),
                       const SiteOfOrigin &soo = SiteOfOrigin(),
                       string nexthop_str = "", uint32_t flags = 0,
-                      int label = 0) {
+                      int label = 0, const LoadBalance &lb = LoadBalance()) {
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -312,6 +313,10 @@ protected:
         }
         if (!soo.IsNull())
             ext_comm.communities.push_back(soo.GetExtCommunityValue());
+
+        if (!lb.IsDefault())
+            ext_comm.communities.push_back(lb.GetExtCommunityValue());
+
         attr_spec.push_back(&ext_comm);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
@@ -350,7 +355,8 @@ protected:
                          vector<uint32_t> sglist = vector<uint32_t>(),
                          set<string> encap = set<string>(),
                          string nexthop_str = "",
-                         uint32_t flags = 0, int label = 0) {
+                         uint32_t flags = 0, int label = 0,
+                         const LoadBalance &lb = LoadBalance()) {
         BgpTable *table = GetTable(instance_name);
         ASSERT_TRUE(table != NULL);
         const RoutingInstance *rtinstance = table->routing_instance();
@@ -397,6 +403,10 @@ protected:
             extcomm_spec.communities.push_back(
                     tunnel_encap.GetExtCommunityValue());
         }
+
+        if (!lb.IsDefault())
+            extcomm_spec.communities.push_back(lb.GetExtCommunityValue());
+
         const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
         TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
         OriginVn origin_vn(0, rti->virtual_network_index());
@@ -414,7 +424,8 @@ protected:
     void AddVpnRoute(IPeer *peer, const vector<string> &instance_names,
                          const string &prefix, int localpref,
                          string nexthop_str = "",
-                         uint32_t flags = 0, int label = 0) {
+                         uint32_t flags = 0, int label = 0,
+                         const LoadBalance &lb = LoadBalance()) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_names[0]);
         ASSERT_TRUE(rtinstance != NULL);
@@ -453,6 +464,10 @@ protected:
             RouteTarget rtarget = *(rti->GetExportList().begin());
             extcomm_spec.communities.push_back(rtarget.GetExtCommunityValue());
         }
+
+        if (!lb.IsDefault())
+            extcomm_spec.communities.push_back(lb.GetExtCommunityValue());
+
         attr_spec.push_back(&extcomm_spec);
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
@@ -495,30 +510,20 @@ protected:
                    int localpref, string nexthop = "",
                    uint32_t flags = 0, int label = 0,
                    vector<uint32_t> sglist = vector<uint32_t>(),
-                   set<string> encap = set<string>()) {
-        if (nexthop.empty())
-            nexthop = BuildNextHopAddress("7.8.9.1");
-        string connected_table = service_is_transparent_ ? "blue-i1" : "blue";
-        if (connected_rt_is_vpn_) {
-            AddVpnRoute(peer, connected_table, prefix, localpref,
-                sglist, encap, nexthop, flags, label);
-        } else {
-            AddRoute(peer, connected_table, prefix, localpref,
-                vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
-                flags, label);
-        }
-        task_util::WaitForIdle();
+                   set<string> encap = set<string>(),
+                   const LoadBalance &lb = LoadBalance()) {
+        AddConnectedRoute(1, peer, prefix, localpref, nexthop, flags, label,
+                sglist, encap, lb);
     }
 
     void AddConnectedRoute(int chain_idx, IPeer *peer, const string &prefix,
                    int localpref, string nexthop = "",
                    uint32_t flags = 0, int label = 0,
                    vector<uint32_t> sglist = vector<uint32_t>(),
-                   set<string> encap = set<string>()) {
+                   set<string> encap = set<string>(),
+                   const LoadBalance &lb = LoadBalance()) {
         assert(1 <= chain_idx && chain_idx <= 3);
         string connected_table;
-        if (nexthop.empty())
-            nexthop = BuildNextHopAddress("7.8.9.1");
         if (chain_idx == 1) {
             connected_table = service_is_transparent_ ? "blue-i1" : "blue";
         } else if (chain_idx == 2) {
@@ -526,13 +531,15 @@ protected:
         } else if (chain_idx == 3) {
             connected_table = service_is_transparent_ ? "core-i5" : "core";
         }
+        if (nexthop.empty())
+            nexthop = BuildNextHopAddress("7.8.9.1");
         if (connected_rt_is_vpn_) {
             AddVpnRoute(peer, connected_table, prefix,
-                    localpref, sglist, encap, nexthop, flags, label);
+                    localpref, sglist, encap, nexthop, flags, label, lb);
         } else {
             AddRoute(peer, connected_table, prefix, localpref,
                 vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
-                flags, label);
+                flags, label, lb);
         }
         task_util::WaitForIdle();
     }
@@ -618,7 +625,7 @@ protected:
         const string &path_id, const string &origin_vn, uint32_t label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
-        const vector<string> &origin_vn_path) {
+        const vector<string> &origin_vn_path, const LoadBalance &lb) {
         BgpAttrPtr attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -653,6 +660,15 @@ protected:
             return false;
         }
 
+        LoadBalance lb2;
+        if (!lb.IsDefault()) {
+            if (!GetLoadBalanceFromRoute(path, lb2) || !(lb == lb2))
+                return false;
+        } else {
+            if (GetLoadBalanceFromRoute(path, lb2))
+                return false;
+        }
+
         vector<uint32_t> path_commlist = GetCommunityListFromRoute(path);
         if (path_commlist != commlist)
             return false;
@@ -664,7 +680,8 @@ protected:
         const string &path_id, const string &origin_vn, int label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
-        const vector<string> &origin_vn_path) {
+        const vector<string> &origin_vn_path,
+        const LoadBalance &lb = LoadBalance()) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix);
         if (!route)
@@ -675,7 +692,7 @@ protected:
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
             if (MatchPathAttributes(path, path_id, origin_vn, label,
-                sg_ids, tunnel_encaps, soo, commlist, origin_vn_path)) {
+                sg_ids, tunnel_encaps, soo, commlist, origin_vn_path, lb)) {
                 return true;
             }
             return false;
@@ -698,7 +715,8 @@ protected:
         const vector<string> &path_ids, const string &origin_vn, int label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encap,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
-        const vector<string> &origin_vn_path) {
+        const vector<string> &origin_vn_path,
+        const LoadBalance &lb = LoadBalance()) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix);
         if (!route)
@@ -714,7 +732,7 @@ protected:
                     continue;
                 found = true;
                 if (MatchPathAttributes(path, path_id, origin_vn, label,
-                    sg_ids, tunnel_encap, soo, commlist, origin_vn_path)) {
+                    sg_ids, tunnel_encap, soo, commlist, origin_vn_path, lb)) {
                     break;
                 }
                 return false;
@@ -724,6 +742,18 @@ protected:
         }
 
         return true;
+    }
+
+    void VerifyRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const LoadBalance &lb) {
+
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
+            set<string>(), SiteOfOrigin(), commlist, vector<string>(), lb));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -948,6 +978,19 @@ protected:
             list.insert(encap.ToXmppString());
         }
         return list;
+    }
+
+    bool GetLoadBalanceFromRoute(const BgpPath *path, LoadBalance &lb) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_load_balance(comm))
+                continue;
+            lb = LoadBalance(comm);
+            return true;
+        }
+        return false;
     }
 
     string GetOriginVnFromRoute(const BgpPath *path) {
@@ -1615,6 +1658,211 @@ TYPED_TEST(ServiceChainTest, ServiceChainWithExistingRouteEntries) {
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.2.2", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.2.3", 32));
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.2.4", 32));
+    this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+}
+
+TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttributeNoAggregates) {
+    this->DisableServiceChainAggregation();
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add More specific & Connected
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
+
+    // Check for aggregated route
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
+
+    // Add Connected
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
+
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Create non-default load balance attribute.
+    LoadBalance lbc;
+    lbc.SetL2SourceAddress();
+    LoadBalance lbo;
+    lbo.SetL2DestinationAddress();
+
+    // Add load-balance attribute to connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"),
+                            0, 0, vector<uint32_t>(), set<string>(), lbc);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Add load-balance attribute to original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), set<string>(),
+                   SiteOfOrigin(), "", 0, 0, lbo);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Remove load-balance attribute from original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Remove load-balance attribute from connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Add load-balance attribute to original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), set<string>(),
+                   SiteOfOrigin(), "", 0, 0, lbo);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbo);
+
+    // Add load-balance attribute to connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"), 0, 0,
+                            vector<uint32_t>(), set<string>(), lbc);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Remove load-balance attribute from connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbo);
+
+    // Remove load-balance attribute from original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Delete More specific & connected
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
+    this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+}
+
+TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttribute) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add More specific & Connected
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
+
+    // Check for aggregated route
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
+
+    // Add Connected
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
+
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Create non-default load balance attribute.
+    LoadBalance lbc;
+    lbc.SetL2SourceAddress();
+    LoadBalance lbo;
+    lbo.SetL2DestinationAddress();
+
+    // Add load-balance attribute to connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"),
+                            0, 0, vector<uint32_t>(), set<string>(), lbc);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Add load-balance attribute to original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), set<string>(),
+                   SiteOfOrigin(), "", 0, 0, lbo);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Remove load-balance attribute from original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Remove load-balance attribute from connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Add load-balance attribute to original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), set<string>(),
+                   SiteOfOrigin(), "", 0, 0, lbo);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Add load-balance attribute to connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"), 0, 0,
+                            vector<uint32_t>(), set<string>(), lbc);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                lbc);
+
+    // Remove load-balance attribute from connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"));
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Remove load-balance attribute from original route and verify
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+                                this->BuildNextHopAddress("3.4.5.6"), "red");
+
+    // Delete More specific & connected
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
 }
 
