@@ -1738,32 +1738,34 @@ class VncDbClient(object):
         def wrapper1(func):
             def wrapper2(self, obj_type, obj_ids, obj_dict):
 
+                obj_uuid = obj_ids['uuid']
+                try:
+                    fq_name = self.uuid_to_fq_name(obj_uuid)
+                except NoIdError as e:
+                    fq_name = obj_dict['fq_name']
+
+                # fetch current share information to identify what might have changed
+                try:
+                    cur_perms2 = self.uuid_to_obj_perms2(obj_uuid)
+                except Exception as e:
+                    cur_perms2 = self.get_default_perms2(obj_type)
+                    pass
+
                 # don't build sharing indexes if operation (create/update) failed
                 (ok, result) = func(self, obj_type, obj_ids, obj_dict)
                 if not ok:
                     return (ok, result)
 
-                """
-                fetch current sharing information to see what might have changed
-                Note that perms2 field may be missing if we are upgrading from earlier release
-                and this is called during synching of database on startup.
-                """
-                obj_uuid = obj_ids['uuid']
-                try:
-                    cur_perms2 = self.uuid_to_obj_perms2(obj_uuid)
-                except Exception as e:
-                    msg = 'RBAC: missing perms2 for obj %s, type %s' % (obj_uuid, obj_type)
-                    self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+                # many updates don't touch perms2
+                new_perms2 = obj_dict.get('perms2', None)
+                if not new_perms2:
                     return (ok, result)
 
-                try:
-                    new_perms2 = obj_dict['perms2']
-                    share_perms = new_perms2['share']
-                    global_access = new_perms2['global_access']
-                except Exception as e:
-                    msg = 'RBAC: missing perms2 in dict obj %s, type %s' % (obj_uuid, obj_type)
-                    self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-                    return (ok, result)
+                share_perms = new_perms2['share']
+                global_access = new_perms2['global_access']
+
+                # msg = 'RBAC: BSL perms new %s, cur %s' % (new_perms2, cur_perms2)
+                # self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
                 # change in global access?
                 if cur_perms2['global_access'] != global_access:
@@ -2017,6 +2019,9 @@ class VncDbClient(object):
     def get_resource_class(self, resource_type):
         return self._api_svr_mgr.get_resource_class(resource_type)
     # end get_resource_class
+
+    def get_default_perms2(self, obj_type):
+        return self._api_svr_mgr._get_default_perms2(obj_type)
 
     # Helper routines for REST
     def generate_url(self, obj_type, obj_uuid):
