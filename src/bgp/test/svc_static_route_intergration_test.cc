@@ -132,7 +132,7 @@ TYPED_TEST(ServiceChainIntegrationTest, DISABLED_StaticRouteMultipleL3Intf) {
 
     // Add external route from MX to a VN which is connected to dest
     // routing instance
-    this->AddInetRoute(this->mx_.get(), NULL, "public",
+    this->AddRoute(this->mx_.get(), NULL, "public",
         this->BuildPrefix("10.1.1.0", 24), 100);
     task_util::WaitForIdle();
 
@@ -229,7 +229,7 @@ TYPED_TEST(ServiceChainIntegrationTest, DISABLED_StaticRouteMultipleL3Intf) {
     this->VerifyServiceChainRoute(this->cn2_.get(),
         this->BuildPrefix("10.1.1.0", 24), path_list);
 
-    this->DeleteInetRoute(this->mx_.get(), NULL, "public",
+    this->DeleteRoute(this->mx_.get(), NULL, "public",
         this->BuildPrefix("10.1.1.0", 24));
     this->DeleteConnectedRoute(true);
 }

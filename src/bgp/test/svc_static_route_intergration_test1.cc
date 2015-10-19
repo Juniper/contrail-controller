@@ -183,7 +183,7 @@ TYPED_TEST(ServiceChainIntegrationTest, ExtRoute) {
     ServiceChainIntegrationTestGlobals::aggregate_enable_ = false;
 
     // Add external route from MX to dest routing instance
-    this->AddInetRoute(this->mx_.get(), NULL, "public",
+    this->AddRoute(this->mx_.get(), NULL, "public",
         this->BuildPrefix("10.1.1.0", 24), 100);
     task_util::WaitForIdle();
 
@@ -235,7 +235,7 @@ TYPED_TEST(ServiceChainIntegrationTest, ExtRoute) {
     this->VerifyServiceChainRouteOriginVnPath(this->cn2_.get(), "blue",
         this->BuildPrefix("10.1.1.0", 24), origin_vn_path);
 
-    this->DeleteInetRoute(this->mx_.get(), NULL, "public",
+    this->DeleteRoute(this->mx_.get(), NULL, "public",
         this->BuildPrefix("10.1.1.0", 24));
 
     this->DeleteConnectedRoute(true);
@@ -247,7 +247,7 @@ TYPED_TEST(ServiceChainIntegrationTest, SiteOfOrigin) {
 
     // Add external route from MX to dest routing instance
     SiteOfOrigin soo = SiteOfOrigin::FromString("soo:65001:100");
-    this->AddInetRoute(this->mx_.get(), NULL, "public",
+    this->AddRoute(this->mx_.get(), NULL, "public",
         this->BuildPrefix("10.1.1.0", 24), 100, soo);
     task_util::WaitForIdle();
 
@@ -303,7 +303,7 @@ TYPED_TEST(ServiceChainIntegrationTest, SiteOfOrigin) {
     this->VerifyServiceChainRouteOriginVnPath(this->cn2_.get(), "blue",
         this->BuildPrefix("10.1.1.0", 24), origin_vn_path);
 
-    this->DeleteInetRoute(this->mx_.get(), NULL, "public",
+    this->DeleteRoute(this->mx_.get(), NULL, "public",
         this->BuildPrefix("10.1.1.0", 24));
 
     this->DeleteConnectedRoute(true);
@@ -320,7 +320,7 @@ TYPED_TEST(ServiceChainIntegrationTest, RouteTarget) {
 
     // Add external route from MX to a VN which is connected to dest
     // routing instance
-    this->AddInetRoute(this->mx_.get(), NULL, "public-i1",
+    this->AddRoute(this->mx_.get(), NULL, "public-i1",
         this->BuildPrefix("10.1.1.0", 24), 100);
     task_util::WaitForIdle();
 
@@ -332,23 +332,23 @@ TYPED_TEST(ServiceChainIntegrationTest, RouteTarget) {
     TASK_UTIL_EXPECT_TRUE(this->IsServiceChainQEmpty(this->cn2_.get()));
 
     // Check for Replicated
-    TASK_UTIL_WAIT_NE_NO_MSG(this->InetRouteLookup(this->cn1_.get(), "red",
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup(this->cn1_.get(), "red",
                              this->BuildPrefix("10.1.1.0", 24)), NULL, 1000,
                              10000, "Wait for Replicated route in red..");
     // Check for Replicated
-    TASK_UTIL_WAIT_NE_NO_MSG(this->InetRouteLookup(this->cn2_.get(), "red",
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup(this->cn2_.get(), "red",
                              this->BuildPrefix("10.1.1.0", 24)), NULL, 1000,
                              10000, "Wait for Replicated route in red..");
 
     // Check for ServiceChainRoute
-    TASK_UTIL_WAIT_EQ_NO_MSG(this->InetRouteLookup(this->cn1_.get(), "blue",
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->RouteLookup(this->cn1_.get(), "blue",
                              this->BuildPrefix("10.1.1.0", 24)), NULL, 1000,
                              10000, "Wait for ServiceChain route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(this->InetRouteLookup(this->cn2_.get(), "blue",
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->RouteLookup(this->cn2_.get(), "blue",
                              this->BuildPrefix("10.1.1.0", 24)), NULL, 1000,
                              10000, "Wait for ServiceChain route in blue..");
 
-    this->DeleteInetRoute(this->mx_.get(), NULL, "public-i1",
+    this->DeleteRoute(this->mx_.get(), NULL, "public-i1",
                           this->BuildPrefix("10.1.1.0", 24));
 
     this->DeleteConnectedRoute(true);
@@ -383,20 +383,20 @@ TYPED_TEST(ServiceChainIntegrationTest, OriginVn) {
     TASK_UTIL_EXPECT_TRUE(this->IsServiceChainQEmpty(this->cn2_.get()));
 
     // Check for Replicated
-    TASK_UTIL_WAIT_NE_NO_MSG(this->InetRouteLookup(this->cn1_.get(),
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup(this->cn1_.get(),
         "red", this->BuildPrefix("192.168.1.1", 32)), NULL, 1000, 10000,
         "Wait for Replicated route in red..");
 
     // Check for Replicated
-    TASK_UTIL_WAIT_NE_NO_MSG(this->InetRouteLookup(this->cn2_.get(), "red",
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup(this->cn2_.get(), "red",
         this->BuildPrefix("192.168.1.1", 32)), NULL, 1000, 10000,
         "Wait for Replicated route in red..");
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(this->InetRouteLookup(this->cn1_.get(),
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->RouteLookup(this->cn1_.get(),
         "blue", this->BuildPrefix("192.168.1.1", 32)), NULL, 1000, 10000,
         "Wait for Aggregate route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(this->InetRouteLookup(this->cn2_.get(), "blue",
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->RouteLookup(this->cn2_.get(), "blue",
         this->BuildPrefix("192.168.1.1", 32)), NULL, 1000, 10000,
         "Wait for Aggregate route in blue..");
 
