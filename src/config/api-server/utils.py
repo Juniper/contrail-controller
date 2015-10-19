@@ -68,6 +68,7 @@ def parse_args(args_str):
         'max_requests': 1024,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'ifmap_health_check_interval': '60', # in seconds
+        'rbac_config_file': None,
     }
     # ssl options
     secopts = {
@@ -238,6 +239,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--multi_tenancy_with_rbac", action="store_true",
         help="Validate API and resource permissions (implies token validation)")
+    parser.add_argument(
+        "--rbac_config_file",
+        help="Filename to read startup RBAC configuration from")
     parser.add_argument(
         "--worker_id",
         help="Worker Id")

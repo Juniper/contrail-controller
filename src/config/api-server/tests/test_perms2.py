@@ -633,8 +633,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         for item in y['virtual-networks']:
             logger.info( '    %s: %s' % (item['uuid'], item['fq_name']))
         # need changes in auto code generation for lists
-        # expected = set(['alice-vn'])
-        expected = set([])
+        expected = set(['alice-vn'])
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
 
         self.assertEquals(expected, received)
