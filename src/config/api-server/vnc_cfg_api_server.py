@@ -2141,14 +2141,24 @@ class VncApiServer(object):
         if not ok:
             return
 
-        # allow full access to cloud admin
-        rge = {'rbac_rule' :
-            [
-            {'rule_object':'*',            'rule_field': '', 'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]},
-            {'rule_object':'fqname-to-id', 'rule_field': '', 'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]},
+        if self._args.rbac_config_file:
+            rbac_rules = self._rbac.read_default_rbac_rules(self._args.rbac_config_file)
+        else:
+            # allow full access to cloud admin
+            rbac_rules = [
+                {
+                    'rule_object':'*',
+                    'rule_field': '',
+                    'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]
+                },
+                {
+                    'rule_object':'fqname-to-id',
+                    'rule_field': '',
+                    'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+                },
             ]
-        }
-        obj_dict['api_access_list_entries'] = rge
+
+        obj_dict['api_access_list_entries'] = {'rbac_rule' : rbac_rules}
         self._db_conn.dbe_update(obj_type, {'uuid': id}, obj_dict)
     # end _create_default_rbac_rule
 
