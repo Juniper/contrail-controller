@@ -108,3 +108,12 @@ def CamelCase(input):
         name += w.capitalize()
     return name
 #end CamelCase
+
+def getCertKeyCaBundle(bundle, certs):
+    with open(bundle, 'w') as ofile:
+         for cert in certs:
+             with open(cert) as ifile:
+                  for line in ifile:
+                      ofile.write(line)
+    return bundle
+#end CreateCertKeyCaBundle
