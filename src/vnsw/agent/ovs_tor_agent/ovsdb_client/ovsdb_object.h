@@ -86,6 +86,7 @@ protected:
 private:
     friend class OvsdbDBEntry;
     DBTableWalker::WalkId walkid_;
+    bool delete_triggered_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbDBObject);
 };
 };
