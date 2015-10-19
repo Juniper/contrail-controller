@@ -3,6 +3,7 @@
 #
 from setuptools import setup, find_packages, Command
 import os
+import re
 
 class RunTestsCommand(Command):
     description = "Test command to run testr in virtualenv"
@@ -17,10 +18,15 @@ class RunTestsCommand(Command):
     def finalize_options(self):
         self.cwd = os.getcwd()
     def run(self):
+        logfname = 'test.log'
         args = '-V'
         if self.coverage:
+            logfname = 'coveragetest.log'
             args += ' -c'
         os.system('./run_tests.sh %s' % args)
+        with open(logfname) as f:
+            if not re.search('\nOK', ''.join(f.readlines())):
+                os._exit(1)
 
 setup(
     name='device_manager',
