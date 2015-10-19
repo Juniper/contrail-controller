@@ -661,7 +661,6 @@ void FlowTableKSyncObject::GetFlowTableSize() {
     int attr_len;
     int encode_len, error;
 
-    KSyncSock *sock = KSyncSock::Get(0);
     assert((cl = nl_register_client()) != NULL);
     cl->cl_genl_family_id = KSyncSock::GetNetlinkFamilyId();
     assert(nl_build_nlh(cl, cl->cl_genl_family_id, NLM_F_REQUEST) == 0);
@@ -709,7 +708,8 @@ void FlowTableKSyncObject::GetFlowTableSize() {
         }
     }
 
-    sock->Decoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
+    KSyncSockNetlink::NetlinkDecoder(cl->cl_buf,
+                                     KSyncSock::GetAgentSandeshContext());
     nl_free_client(cl);
 }
 
@@ -773,8 +773,8 @@ void FlowTableKSyncObject::MapFlowMem() {
     }
 
     while ((ret = nl_recvmsg(cl)) > 0) {
-        KSyncSock *sock = KSyncSock::Get(0);
-        sock->Decoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
+        KSyncSockNetlink::NetlinkDecoder(cl->cl_buf,
+                                         KSyncSock::GetAgentSandeshContext());
     }
     nl_free_client(cl);
 
