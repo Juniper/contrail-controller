@@ -9,6 +9,7 @@
 
 from cfgm_common import jsonutils as json
 import re
+import itertools
 import copy
 import bottle
 
@@ -1075,10 +1076,21 @@ def _check_policy_rules(entries, network_policy_rule=False):
             if protocol not in valids:
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
+
         if network_policy_rule:
             if rule.get('action_list') is None:
                 return (False, (400, 'Action is required'))
         else:
+            ethertype = rule.get('ethertype', 'IPv4')
+            for addr in itertools.chain(rule.get('src_addresses', []),
+                                        rule.get('dst_addresses', [])):
+                if addr.get('subnet') is not None:
+                    ip_prefix = addr["subnet"].get('ip_prefix')
+                    ip_prefix_len = addr["subnet"].get('ip_prefix_len')
+                    network = IPNetwork("%s/%s" % (ip_prefix, ip_prefix_len))
+                    if not ethertype == "IPv%s" % network.version:
+                        return (False, (400, "Rule subnet %s doesn't match ethertype %s" %
+                                        (network, ethertype)))
             src_sg = [addr.get('security_group') for addr in
                       rule.get('src_addresses', [])]
             dst_sg = [addr.get('security_group') for addr in
