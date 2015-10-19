@@ -20,11 +20,16 @@ import ConfigParser
 import keystoneclient.v2_0.client as keystone
 import keystoneclient.v3.client as keystonev3
 from netaddr import *
+import ssl
 import cfgm_common
 try:
     from cfgm_common import vnc_plugin_base
+    from cfgm_common import utils as cfgmutils
+    from cfgm_common import ssl_adapter
 except ImportError:
     from common import vnc_plugin_base
+    from cfgm_common import utils as cfgmutils
+    from cfgm_common import ssl_adapter
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
@@ -37,6 +42,8 @@ Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
+#Keystone SSL support
+_DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -55,6 +62,21 @@ def fill_keystone_opts(obj, conf_sections):
         obj._insecure = True
 
     try:
+        obj._certfile = conf_sections.get('KEYSTONE', 'certfile')
+    except ConfigParser.NoOptionError:
+        obj._certfile = ''
+
+    try:
+        obj._keyfile = conf_sections.get('KEYSTONE', 'keyfile')
+    except ConfigParser.NoOptionError:
+        obj._keyfile = ''
+
+    try:
+        obj._cafile= conf_sections.get('KEYSTONE', 'cafile')
+    except ConfigParser.NoOptionError:
+        obj._cafile = ''
+
+    try:
         obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
     except ConfigParser.NoOptionError:
         # deprecated knobs - for backward compat
@@ -63,6 +85,15 @@ def fill_keystone_opts(obj, conf_sections):
         obj._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         obj._auth_url = "%s://%s:%s/v2.0" % (obj._auth_proto, obj._auth_host,
                                              obj._auth_port)
+
+    obj._kscertbundle=''
+    obj._use_certs=False
+    if obj._certfile and obj._keyfile and obj._cafile \
+       and obj._auth_proto == 'https':
+           certs=[obj._certfile,obj._keyfile,obj._cafile]
+           obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+           obj._use_certs=True
+
     try:
         obj._err_file = conf_sections.get('DEFAULTS', 'trace_file')
     except ConfigParser.NoOptionError:
@@ -228,11 +259,33 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def _ksv2_get_conn(self):
         if not self._ks:
             if self._admin_token:
-                self._ks = keystone.Client(token=self._admin_token,
+               if self._insecure:
+                   self._ks = keystone.Client(token=self._admin_token,
+                                             endpoint=self._auth_url,
+                                             insecure=self._insecure)
+               elif not self._insecure and self._use_certs:
+                   self._ks =  keystone.Client(token=self._admin_token,
+                                              endpoint=self._auth_url,
+                                              cacert=self._kscertbundle)
+               else:
+                   self._ks = keystone.Client(token=self._admin_token,
                                            endpoint=self._auth_url,
                                            insecure=self._insecure)
             else:
-                self._ks = keystone.Client(username=self._auth_user,
+               if self._insecure:
+                    self._ks = keystone.Client(username=self._auth_user,
+                                              password=self._auth_passwd,
+                                              tenant_name=self._admin_tenant,
+                                              auth_url=self._auth_url,
+                                              insecure=self._insecure)
+               elif not self._insecure and self._use_certs:
+                    self._ks =  keystone.Client(username=self._auth_user,
+                                                password=self._auth_passwd,
+                                                tenant_name=self._admin_tenant,
+                                                auth_url=self._auth_url,
+                                                cacert=self._kscertbundle)
+               else:
+                    self._ks = keystone.Client(username=self._auth_user,
                                            password=self._auth_passwd,
                                            tenant_name=self._admin_tenant,
                                            auth_url=self._auth_url,
@@ -304,16 +357,36 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def _ksv3_get_conn(self):
         if not self._ks:
             if self._admin_token:
-                self._ks = keystonev3.Client(token=self._admin_token,
-                                             endpoint=self._auth_url,
-                                             insecure=self._insecure)
+               if self._insecure:
+                  self._ks = keystonev3.Client(token=self._admin_token,
+                                               endpoint=self._auth_url,
+                                               insecure=self._insecure)
+               elif not self._insecure and self._use_certs:
+                  self._ks =  keystonev3.Client(token=self._admin_token,
+                                                endpoint=self._auth_url,
+                                                cacert=self._kscertbundle)
+               else:
+                  self._ks =  keystonev3.Client(token=self._admin_token,
+                                                endpoint=self._auth_url)
             else:
-                self._ks = keystonev3.Client(user_domain_name=self._user_domain_name,
-                                             username=self._auth_user,
-                                             password=self._auth_passwd,
-                                             domain_id=self._domain_id,
-                                             auth_url=self._auth_url,
-                                             insecure=self._insecure)
+               if self._insecure:
+                  self._ks = keystonev3.Client(user_domain_name=self._user_domain_name,
+                                               username=self._auth_user,
+                                               password=self._auth_passwd,
+                                               domain_id=self._domain_id,
+                                               auth_url=self._auth_url,
+                                               insecure=self._insecure)
+               elif not self._insecure and self._use_certs:
+                     self._ks =  keystonev3.Client(username=self._auth_user,
+                                                   password=self._auth_passwd,
+                                                   tenant_name=self._admin_tenant,
+                                                   auth_url=self._auth_url,
+                                                   cacert=self._kscertbundle)
+               else:
+                     self._ks =  keystonev3.Client(username=self._auth_user,
+                                                   password=self._auth_passwd,
+                                                   tenant_name=self._admin_tenant,
+                                                   auth_url=self._auth_url)
     # end _ksv3_get_conn
 
     def _ksv3_domains_list(self):
