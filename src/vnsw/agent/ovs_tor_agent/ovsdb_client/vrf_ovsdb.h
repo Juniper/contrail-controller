@@ -43,14 +43,16 @@ public:
     VrfOvsdbEntry(OvsdbDBObject *table, const std::string &logical_switch);
     ~VrfOvsdbEntry();
 
-    void AddMsg(struct ovsdb_idl_txn *);
-    void ChangeMsg(struct ovsdb_idl_txn *);
-    void DeleteMsg(struct ovsdb_idl_txn *);
+    bool Add();
+    bool Change();
+    bool Delete();
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Vrf Ovsdb Entry";}
     KSyncEntry* UnresolvedReference();
+
+    void TriggerAck(UnicastMacRemoteTable *table);
 
     UnicastMacRemoteTable *route_table() {return route_table_;}
     const std::string &logical_switch_name() { return logical_switch_name_; }

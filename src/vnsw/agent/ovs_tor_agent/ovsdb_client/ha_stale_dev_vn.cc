@@ -27,26 +27,28 @@ using namespace OVSDB;
 
 HaStaleDevVnEntry::HaStaleDevVnEntry(OvsdbDBObject *table,
         const boost::uuids::uuid &vn_uuid) : OvsdbDBEntry(table),
-    vn_uuid_(vn_uuid), l2_table_(NULL), oper_bridge_table_(NULL), dev_ip_(),
-    vn_name_(""), vxlan_id_(0) {
+    vn_uuid_(vn_uuid), l2_table_(NULL), old_l2_table_(NULL),
+    oper_bridge_table_(NULL), dev_ip_(), vn_name_(""), vxlan_id_(0) {
 }
 
 HaStaleDevVnEntry::~HaStaleDevVnEntry() {
     assert(l2_table_ == NULL);
+    assert(old_l2_table_ == NULL);
 }
 
-void HaStaleDevVnEntry::AddMsg(struct ovsdb_idl_txn *txn) {
-    // if table is scheduled for delete, delete the entry
+bool HaStaleDevVnEntry::Add() {
+    // if table is scheduled for delete, return from here
+    // and wait for delete callback
     if (table_->delete_scheduled()) {
-        DeleteMsg(txn);
-        return;
+        return true;
     }
 
+    bool ret = true;
     // On device ip, vxlan id or Agent Route Table pointer change delete
     // previous route table and add new with updated vxlan id
     if (l2_table_ != NULL &&
         l2_table_->GetDBTable() != oper_bridge_table_) {
-        DeleteMsg(txn);
+        ret = Delete();
     }
 
     // create route table and register
@@ -56,18 +58,24 @@ void HaStaleDevVnEntry::AddMsg(struct ovsdb_idl_txn *txn) {
 
     // trigger update params for L2 Table to pick new vxlan id / tor ip
     l2_table_->UpdateParams(this);
+    return ret;
 }
 
-void HaStaleDevVnEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
-    AddMsg(txn);
+bool HaStaleDevVnEntry::Change() {
+    return Add();
 }
 
-void HaStaleDevVnEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
+bool HaStaleDevVnEntry::Delete() {
     // delete route table.
     if (l2_table_ != NULL) {
         l2_table_->DeleteTable();
+        assert(old_l2_table_ == NULL);
+        old_l2_table_ = l2_table_;
         l2_table_ = NULL;
+        return false;
     }
+
+    return true;
 }
 
 bool HaStaleDevVnEntry::Sync(DBEntry *db_entry) {
@@ -126,6 +134,18 @@ KSyncEntry* HaStaleDevVnEntry::UnresolvedReference() {
         vn_name_ = entry->vn_name();
     }
     return NULL;
+}
+
+void HaStaleDevVnEntry::TriggerAck(HaStaleL2RouteTable *table) {
+    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    assert(old_l2_table_ == table);
+    if (l2_table_ != NULL) {
+        old_l2_table_ = NULL;
+        object->NotifyEvent(this, KSyncEntry::ADD_ACK);
+    } else {
+        old_l2_table_ = NULL;
+        object->NotifyEvent(this, KSyncEntry::DEL_ACK);
+    }
 }
 
 Agent *HaStaleDevVnEntry::agent() const {

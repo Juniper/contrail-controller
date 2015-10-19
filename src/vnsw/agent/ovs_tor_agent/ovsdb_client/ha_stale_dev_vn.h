@@ -98,14 +98,16 @@ public:
     HaStaleDevVnEntry(OvsdbDBObject *table, const boost::uuids::uuid &vn_uuid);
     ~HaStaleDevVnEntry();
 
-    void AddMsg(struct ovsdb_idl_txn *);
-    void ChangeMsg(struct ovsdb_idl_txn *);
-    void DeleteMsg(struct ovsdb_idl_txn *);
+    bool Add();
+    bool Change();
+    bool Delete();
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Ha Stale Dev VN Entry";}
     KSyncEntry* UnresolvedReference();
+
+    void TriggerAck(HaStaleL2RouteTable *table);
 
     HaStaleL2RouteTable *l2_table() const {return l2_table_;}
     const boost::uuids::uuid &vn_uuid() const { return vn_uuid_; }
@@ -125,6 +127,14 @@ private:
     friend class HaStaleDevVnTable;
     boost::uuids::uuid vn_uuid_;
     HaStaleL2RouteTable *l2_table_;
+    // hold pointer to old l2_table which is already
+    // scheduled for deletion, this delete can be
+    // triggered due to delete or change of entry
+    // so we hold the ksync state to wait for an Ack
+    // on table cleanup and move the ksync state
+    // machine when HaStaleL2RouteTable triggerack
+    // at the time of table delete complete
+    HaStaleL2RouteTable *old_l2_table_;
     AgentRouteTable *oper_bridge_table_;
     IpAddress dev_ip_;
     std::string vn_name_;
