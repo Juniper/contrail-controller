@@ -19,12 +19,16 @@ import Queue
 import ConfigParser
 import keystoneclient.v2_0.client as keystone
 from netaddr import *
-
+import ssl
 import cfgm_common
 try:
     from cfgm_common import vnc_plugin_base
+    from cfgm_common import utils as cfgmutils
+    from cfgm_common import ssl_adapter
 except ImportError:
     from common import vnc_plugin_base
+    from cfgm_common import utils as cfgmutils
+    from cfgm_common import ssl_adapter
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
@@ -37,6 +41,8 @@ Q_CREATE = 'create'
 Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
+#Keystone SSL support
+_DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -55,6 +61,21 @@ def fill_keystone_opts(obj, conf_sections):
         obj._insecure = True
 
     try:
+        obj._certfile = conf_sections.get('KEYSTONE', 'certfile')
+    except ConfigParser.NoOptionError:
+        obj._certfile = ''
+
+    try:
+        obj._keyfile = conf_sections.get('KEYSTONE', 'keyfile')
+    except ConfigParser.NoOptionError:
+        obj._keyfile = ''
+
+    try:
+        obj._cafile= conf_sections.get('KEYSTONE', 'cafile')
+    except ConfigParser.NoOptionError:
+        obj._cafile = ''
+
+    try:
         obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
     except ConfigParser.NoOptionError:
         # deprecated knobs - for backward compat
@@ -63,6 +84,15 @@ def fill_keystone_opts(obj, conf_sections):
         obj._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         obj._auth_url = "%s://%s:%s/v2.0" % (obj._auth_proto, obj._auth_host,
                                              obj._auth_port)
+
+    obj._kscertbundle=''
+    obj._use_certs=False
+    if obj._certfile and obj._keyfile and obj._cafile \
+       and obj._auth_proto == 'https':
+           certs=[obj._certfile,obj._keyfile,obj._cafile]
+           obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+           obj._use_certs=True
+
     try:
         obj._err_file = conf_sections.get('DEFAULTS', 'trace_file')
     except ConfigParser.NoOptionError:
@@ -216,11 +246,33 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def _ksv2_get_conn(self):
         if not self._ks:
             if self._admin_token:
-                self._ks = keystone.Client(token=self._admin_token,
+               if self._insecure:
+                   self._ks = keystone.Client(token=self._admin_token,
+                                             endpoint=self._auth_url,
+                                             insecure=self._insecure)
+               elif not self._insecure and self._use_certs:
+                   self._ks =  keystone.Client(token=self._admin_token,
+                                              endpoint=self._auth_url,
+                                              cacert=self._kscertbundle)
+               else:
+                   self._ks = keystone.Client(token=self._admin_token,
                                            endpoint=self._auth_url,
                                            insecure=self._insecure)
             else:
-                self._ks = keystone.Client(username=self._auth_user,
+                if self._insecure:
+                    self._ks = keystone.Client(username=self._auth_user,
+                                              password=self._auth_passwd,
+                                              tenant_name=self._admin_tenant,
+                                              auth_url=self._auth_url,
+                                              insecure=self._insecure)
+               elif not self._insecure and self._use_certs:
+                    self._ks =  keystone.Client(username=self._auth_user,
+                                                password=self._auth_passwd,
+                                                tenant_name=self._admin_tenant,
+                                                auth_url=self._auth_url,
+                                                cacert=self._kscertbundle)
+               else:
+                    self._ks = keystone.Client(username=self._auth_user,
                                            password=self._auth_passwd,
                                            tenant_name=self._admin_tenant,
                                            auth_url=self._auth_url,
@@ -295,13 +347,26 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         self._ks = requests.Session()
         adapter = requests.adapters.HTTPAdapter()
+        ssladapter = ssl_adapter.SSLAdapter(ssl.PROTOCOL_SSLv23)
+        ssladapter.init_poolmanager(connections=25,maxsize=25)
         self._ks.mount("http://", adapter)
         self._ks.mount("https://", adapter)
     # end _ksv3_get_conn
 
+    def _ksv3_process_request(self, urn):
+        uri = "%s/%s" % (self._auth_url,urn)
+        headers="{'X-AUTH-TOKEN':%s}" % (self._admin_token)
+        if self._insecure:
+           resp = self._ks.get(uri,headers,verify=False)
+        elif not self._insecure and self._use_certs:
+           resp = self._ks.get(uri,headers,verify=self._kscertbundle)
+        else:
+           resp = self._ks.get(uri,headers)
+        return resp
+
     def _ksv3_domains_list(self):
-        resp = self._ks.get('%s/domains' %(self._auth_url),
-                            headers={'X-AUTH-TOKEN':self._admin_token})
+        urn="domains"
+        resp = self._ksv3_process_request(urn)
         if resp.status_code != 200:
             raise Exception(resp.text)
 
@@ -317,8 +382,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # _ksv3_domain_id_to_uuid
 
     def _ksv3_domain_get(self, id=None):
-        resp = self._ks.get('%s/domains/%s' %(self._auth_url, id),
-                            headers={'X-AUTH-TOKEN':self._admin_token})
+        urn="domains/%s" % (id)
+        resp = self._ksv3_process_request(urn)
         if resp.status_code != 200:
             raise Exception(resp.text)
 
@@ -327,8 +392,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv3_domain_get
 
     def _ksv3_projects_list(self):
-        resp = self._ks.get('%s/projects' %(self._auth_url),
-                            headers={'X-AUTH-TOKEN':self._admin_token})
+        urn="projects"
+        resp = self._ksv3_process_request(urn)
         if resp.status_code != 200:
             raise Exception(resp.text)
 
@@ -337,8 +402,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv3_projects_list
 
     def _ksv3_project_get(self, id=None):
-        resp = self._ks.get('%s/projects/%s' %(self._auth_url, id),
-                            headers={'X-AUTH-TOKEN':self._admin_token})
+        urn="projects/%s" % (id)
+        resp = self._ksv3_process_request(urn)
         if resp.status_code != 200:
             raise Exception(resp.text)
 
