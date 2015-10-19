@@ -60,7 +60,7 @@ class Query(object):
 class Collector(object):
     def __init__(self, analytics_fixture, redis_uve, 
                  logger, ipfix_port = False, sflow_port = False,
-                 syslog_port = False, protobuf_port = False,
+                 syslog_port = False, protobuf_port = True,
                  kafka = None, is_dup=False,
                  cassandra_user= None, cassandra_password= None):
         self.analytics_fixture = analytics_fixture
@@ -152,14 +152,14 @@ class Collector(object):
             self.protobuf_port = AnalyticsFixture.get_free_port()
             args.append('--COLLECTOR.protobuf_port')
             args.append(str(self.protobuf_port))
+        else:
+            self.protobuf_port = None
         if self.cassandra_user is not None and \
            self.cassandra_password is not None:
                args.append('--CASSANDRA.cassandra_user')
                args.append(self.cassandra_user)
                args.append('--CASSANDRA.cassandra_password')
                args.append(self.cassandra_password)
-        else:
-            self.protobuf_port = None
         if self.kafka_port:
             args.append('--DEFAULT.kafka_broker_list')
             args.append('127.0.0.1:%d' % self.kafka_port)        
