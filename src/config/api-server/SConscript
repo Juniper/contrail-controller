@@ -131,6 +131,7 @@ env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-api.ini'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-config.rules'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'rbac_config.conf'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-api/', doc_files))
 

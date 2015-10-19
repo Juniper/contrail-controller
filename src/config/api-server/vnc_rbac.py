@@ -27,6 +27,42 @@ class VncRbac(object):
         return id_perms.get('user_visible', True) is not False or is_admin
     # end
 
+    def read_default_rbac_rules(self, config_file):
+        rbac_rules = []
+        with open(config_file, 'r') as f:
+            for rule_str in f:
+                r = rule_str.split(" ") if rule_str else []
+                if len(r) < 2:
+                    continue
+
+                # [0] is object.field, [1] is list of perms
+                obj_field = r[0].split(".")
+                perms = r[1].split(",")
+
+                # perms ['foo:CRU', 'bar:CR']
+                role_to_crud_dict = {}
+                for perm in perms:
+                    p = perm.split(":")
+                    # both role and crud must be specified
+                    if len(p) < 2:
+                        continue
+                    # <crud> must be [CRUD]
+                    rn = p[0].strip()
+                    rc = p[1].strip()
+                    if not set(rc).issubset(set('CRUD')):
+                        continue
+                    role_to_crud_dict[rn] = rc
+                if len(role_to_crud_dict) == 0:
+                    continue
+
+                rule = {
+                    'rule_object': obj_field[0],
+                    'rule_field' : obj_field[1] if len(obj_field) > 1 else None,
+                    'rule_perms' : [{'role_name':rn, 'role_crud':rc} for rn,rc in role_to_crud_dict.items()],
+                }
+                rbac_rules.append(rule)
+        return rbac_rules
+
     def get_rbac_rules(self, request):
         rule_list = []
         env = request.headers.environ
@@ -96,6 +132,31 @@ class VncRbac(object):
         rule_list.extend(api_access_list_entries['rbac_rule'])
 
         # [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]
+
+        # collapse of rules might be needed as same object/field might be present in
+        # domain as well project rules
+        rule_dict = {}
+        for rule in rule_list:
+            o = rule['rule_object']
+            f = rule['rule_field']
+            p = rule['rule_perms']
+            o_f = "%s.%s" % (o,f) if f else o
+            if o_f not in rule_dict:
+                rule_dict[o_f] = rule
+            else:
+                role_to_crud_dict = {rp['role_name']:rp['role_crud'] for rp in rule_dict[o_f]['rule_perms']}
+                for incoming in rule['rule_perms']:
+                    role_name = incoming['role_name']
+                    role_crud = incoming['role_crud']
+                    if role_name in role_to_crud_dict:
+                        x = set(list(role_to_crud_dict[role_name])) | set(list(role_crud))
+                        role_to_crud_dict[role_name] = ''.join(x)
+                    else:
+                        role_to_crud_dict[role_name] = role_crud
+                # update perms in existing rule
+                rule_dict[o_f]['rule_perms'] = [{'role_crud': rc, 'role_name':rn} for rn,rc in role_to_crud_dict.items()]
+                # remove duplicate rule from list
+                rule_list.remove(rule)
 
         return rule_list
     # end

@@ -2141,14 +2141,24 @@ class VncApiServer(object):
         if not ok:
             return
 
-        # allow full access to cloud admin
-        rge = {'rbac_rule' :
-            [
-            {'rule_object':'*',            'rule_field': '', 'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]},
-            {'rule_object':'fqname-to-id', 'rule_field': '', 'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]},
+        if self._args.rbac_config_file:
+            rbac_rules = self._rbac.read_default_rbac_rules(self._args.rbac_config_file)
+        else:
+            # allow full access to cloud admin
+            rbac_rules = [
+                {
+                    'rule_object':'*',
+                    'rule_field': '',
+                    'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]
+                },
+                {
+                    'rule_object':'fqname-to-id',
+                    'rule_field': '',
+                    'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+                },
             ]
-        }
-        obj_dict['api_access_list_entries'] = rge
+
+        obj_dict['api_access_list_entries'] = {'rbac_rule' : rbac_rules}
         self._db_conn.dbe_update(obj_type, {'uuid': id}, obj_dict)
     # end _create_default_rbac_rule
 
@@ -2212,6 +2222,29 @@ class VncApiServer(object):
         # If only counting, return early
         if is_count:
             return {'%ss' %(resource_type): {'count': result}}
+
+        # filter out items not authorized
+        for fq_name, uuid in result:
+            (ok, status) = self._permissions.check_perms_read(get_request(), uuid)
+            if not ok and status[0] == 403:
+                result.remove((fq_name,iuuid))
+
+        # include objects shared with tenant
+        env = get_request().headers.environ
+        tenant_name = env.get(hdr_server_tenant(), 'default-project')
+        tenant_fq_name = ['default-domain', tenant_name]
+        try:
+            tenant_uuid = self._db_conn.fq_name_to_uuid('project', tenant_fq_name)
+            shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid)
+        except NoIdError:
+            shares = []
+        for (obj_uuid, obj_perm) in shares:
+            try:
+                fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+                result.append((fq_name, obj_uuid))
+            except NoIdError:
+                # uuid no longer valid. Delete?
+                pass
 
         fq_names_uuids = result
         obj_dicts = []
