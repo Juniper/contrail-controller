@@ -372,17 +372,13 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
 bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp) {
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
-    agent_->reset_controller_ifmap_discovery_xmpp_servers();
+    agent_->UpdateDiscoveryServerResponseList(resp);
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
         count ++;
 
         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
             count, dr.ep.address().to_string(), integerToString(dr.ep.port()));
-        agent_->set_controller_ifmap_discovery_xmpp_server(
-            dr.ep.address().to_string(), count);
-        agent_->set_controller_ifmap_discovery_xmpp_port(
-            dr.ep.port(), count);
 
         AgentXmppChannel *chnl = FindAgentXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
@@ -487,7 +483,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
 
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
-    agent_->reset_dns_discovery_servers();
+    agent_->UpdateDiscoveryDnsServerResponseList(resp);
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
         count++;
@@ -495,8 +491,6 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
                                    "DNS Discovery Server Response", count,
             dr.ep.address().to_string(), integerToString(dr.ep.port()));
-        agent_->set_dns_discovery_server(dr.ep.address().to_string(), count);
-        agent_->set_dns_discovery_port(dr.ep.port(), count);
 
         AgentDnsXmppChannel *chnl = FindAgentDnsXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
