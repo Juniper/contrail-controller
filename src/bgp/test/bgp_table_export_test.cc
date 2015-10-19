@@ -191,6 +191,7 @@ protected:
         if (internal_) {
             attr_spec.push_back(&path_spec);
             attr_spec.push_back(&local_pref);
+            attr_spec.push_back(&med);
         } else {
             AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
             path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
@@ -462,15 +463,14 @@ TEST_P(BgpTableExportParamTest1, CommunityNoExportSubconfed) {
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP, iBGP
 // RibOut: eBGP
-// Intent: LocalPref and Med are cleared for eBGP.
+// Intent: LocalPref is cleared for eBGP.
 //
-TEST_P(BgpTableExportParamTest1, EBgpNoLocalPrefMed) {
+TEST_P(BgpTableExportParamTest1, EBgpNoLocalPref) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
     AddPath();
     RunExport();
     VerifyExportAccept();
     VerifyAttrLocalPref(0);
-    VerifyAttrMed(0);
 }
 
 //
@@ -486,7 +486,6 @@ TEST_P(BgpTableExportParamTest1, EBgpAsPrepend1) {
     RunExport();
     VerifyExportAccept();
     VerifyAttrLocalPref(0);
-    VerifyAttrMed(0);
     VerifyAttrAsPrepend();
 }
 
@@ -504,7 +503,6 @@ TEST_P(BgpTableExportParamTest1, EBgpAsPrepend2) {
     RunExport();
     VerifyExportAccept();
     VerifyAttrLocalPref(0);
-    VerifyAttrMed(0);
     VerifyAttrAsPrepend();
 }
 
@@ -556,6 +554,55 @@ TEST_P(BgpTableExportParamTest2, IBgpSplitHorizon) {
     AddPath();
     RunExport();
     VerifyExportReject();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP (effectively XMPP since AsPath is NULL)
+// RibOut: eBGP
+// Intent: Med is retained if AsPath is NULL.
+//
+TEST_P(BgpTableExportParamTest2, EBgpRetainMed1) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
+    ResetAttrAsPath();
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(0);
+    VerifyAttrMed(100);
+    VerifyAttrAsPrepend();
+}
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: eBGP
+// Intent: Med is retained if AsPath is non-NULL but empty.
+//
+TEST_P(BgpTableExportParamTest2, EBgpRetainMed2) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(0);
+    VerifyAttrMed(100);
+    VerifyAttrAsPrepend();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: eBGP
+// Intent: Med is not retained since AsPath is non-empty.
+//
+TEST_P(BgpTableExportParamTest2, EBgpNoRetainMed) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
+    SetAttrAsPath(100);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(0);
+    VerifyAttrMed(0);
+    VerifyAttrAsPrepend();
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest2,
@@ -686,6 +733,22 @@ TEST_P(BgpTableExportParamTest3, IBgpNoOverwriteMed) {
     RunExport();
     VerifyExportAccept();
     VerifyAttrMed(100);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP
+// RibOut: eBGP
+// Intent: Med is not retained since AsPath is non-empty.
+//
+TEST_P(BgpTableExportParamTest3, EBgpNoRetainMed) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(0);
+    VerifyAttrMed(0);
+    VerifyAttrAsPrepend();
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest3,
