@@ -138,7 +138,8 @@ protected:
         : bgp_server_(new BgpServer(&evm_)),
         family_(GetFamily()),
         ipv6_prefix_("::ffff:"),
-        ri_mgr_(NULL) {
+        ri_mgr_(NULL),
+        validate_done_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
@@ -281,24 +282,19 @@ protected:
             ext_comm.communities.push_back(lb.GetExtCommunityValue());
 
         attr_spec.push_back(&ext_comm);
-        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
+        AsPathSpec path_spec;
+        AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
+        path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        path_seg->path_segment.push_back(64513);
+        path_seg->path_segment.push_back(64514);
+        path_seg->path_segment.push_back(64515);
+        path_spec.path_segments.push_back(path_seg);
+        attr_spec.push_back(&path_spec);
+
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
         request.data.reset(new BgpTable::RequestData(attr, flags, label));
 
-        /*
-         * IPv6 next-hops enoding, not supported yet.
-         */
-        /*
-        if (family_ == Address::INET6) {
-            typename TableT::RequestData::NextHops nexthops;
-            typename TableT::RequestData::NextHop nexthop;
-            nexthop.flags_ = flags;
-            nexthop.address_ = Ip6Address::from_string(nexthop_str, error);
-            nexthop.label_ = label;
-            nexthops.push_back(nexthop);
-            request.data.reset(new BgpTable::RequestData(attr, nexthops));
-        }
-         */
         BgpTable *table = GetTable(instance_name);
         ASSERT_TRUE(table != NULL);
         table->Enqueue(&request);
@@ -379,15 +375,6 @@ protected:
 
     string GetNextHopAddress(BgpAttrPtr attr) {
         return attr->nexthop().to_v4().to_string();
-
-        /*
-        if (family_ == Address::INET)
-            return attr->nexthop().to_v4().to_string();
-        if (family_ == Address::INET6)
-            return attr->nexthop().to_v6().to_string();
-        assert(false);
-        return "";
-        */
     }
 
     string FileRead(const string &filename) {
@@ -744,12 +731,12 @@ TYPED_TEST(StaticRouteTest, Basic) {
         this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24));
     const BgpPath *static_path = static_rt->BestPath();
     BgpAttrPtr attr = static_path->GetAttr();
-    TASK_UTIL_EXPECT_EQ(this->BuildNextHopAddress("2.3.4.5"),
-                        this->GetNextHopAddress(attr));
-    TASK_UTIL_EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
-    TASK_UTIL_EXPECT_TRUE(attr->community() != NULL);
-    TASK_UTIL_EXPECT_TRUE(
-            attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_EQ(this->BuildNextHopAddress("2.3.4.5"),
+              this->GetNextHopAddress(attr));
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->as_path() == NULL);
+    EXPECT_TRUE(attr->community() != NULL);
+    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
     static_rt =
         this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
@@ -819,6 +806,7 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
     EXPECT_EQ(this->BuildNextHopAddress("2.3.4.5"),
               this->GetNextHopAddress(attr));
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
     EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
@@ -851,6 +839,7 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
     config_list = list_of("target:1:1");
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+    EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
     EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
@@ -900,6 +889,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(this->BuildNextHopAddress("2.3.4.5"),
               this->GetNextHopAddress(attr));
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
     EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
@@ -912,6 +902,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     list_of("target:64496:1")("target:64496:2")("target:64496:3");
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+    EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
     EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
@@ -944,6 +935,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(this->GetNextHopAddress(attr),
               this->BuildNextHopAddress("5.4.3.2"));
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
+    EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
     EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 
@@ -955,6 +947,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     config_list = list_of("target:64496:1");
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+    EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
     EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
 

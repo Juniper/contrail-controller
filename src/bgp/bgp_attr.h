@@ -696,6 +696,7 @@ public:
     }
     void set_esi(const EthernetSegmentId &esi) { esi_ = esi; }
     void set_params(uint64_t params) { params_ = params; }
+    void set_as_path(AsPathPtr aspath);
     void set_as_path(const AsPathSpec *spec);
     void set_community(CommunityPtr comm);
     void set_community(const CommunitySpec *comm);
@@ -802,6 +803,8 @@ class BgpAttrDB : public BgpPathAttributeDB<BgpAttr, BgpAttrPtr, BgpAttrSpec,
                                             BgpAttrCompare, BgpAttrDB> {
 public:
     explicit BgpAttrDB(BgpServer *server);
+    BgpAttrPtr ReplaceAsPathAndLocate(const BgpAttr *attr,
+                                      AsPathPtr aspath);
     BgpAttrPtr ReplaceCommunityAndLocate(const BgpAttr *attr,
                                          CommunityPtr community);
     BgpAttrPtr ReplaceExtCommunityAndLocate(const BgpAttr *attr,

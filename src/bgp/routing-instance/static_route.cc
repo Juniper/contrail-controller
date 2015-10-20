@@ -450,6 +450,10 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
         new_attr =
             attr_db->ReplaceCommunityAndLocate(new_attr.get(), new_community);
 
+        // Strip aspath. This is required when the nexthop route is learnt
+        // via BGP.
+        new_attr = attr_db->ReplaceAsPathAndLocate(new_attr.get(), AsPathPtr());
+
         // Replace the source rd if the nexthop path is a secondary path
         // of a primary path in the l3vpn table. Use the RD of the primary.
         if (nexthop_route_path->IsReplicated()) {

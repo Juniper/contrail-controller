@@ -796,6 +796,10 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
     refcount_ = 0;
 }
 
+void BgpAttr::set_as_path(AsPathPtr aspath) {
+    as_path_ = aspath;
+}
+
 void BgpAttr::set_as_path(const AsPathSpec *spec) {
     if (spec) {
         as_path_ = attr_db_->server()->aspath_db()->Locate(*spec);
@@ -972,6 +976,14 @@ std::size_t hash_value(BgpAttr const &attr) {
 }
 
 BgpAttrDB::BgpAttrDB(BgpServer *server) : server_(server) {
+}
+
+// Return a clone of attribute with updated aspath.
+BgpAttrPtr BgpAttrDB::ReplaceAsPathAndLocate(const BgpAttr *attr,
+                                             AsPathPtr aspath) {
+    BgpAttr *clone = new BgpAttr(*attr);
+    clone->set_as_path(aspath);
+    return Locate(clone);
 }
 
 // Return a clone of attribute with updated community.

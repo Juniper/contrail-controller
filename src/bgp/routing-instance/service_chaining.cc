@@ -504,6 +504,10 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
         new_attr = attr_db->ReplaceOriginVnPathAndLocate(new_attr.get(),
             new_ovnpath);
 
+        // Strip aspath. This is required when the connected route is
+        // learnt via BGP.
+        new_attr = attr_db->ReplaceAsPathAndLocate(new_attr.get(), AsPathPtr());
+
         // If the connected path is learnt via XMPP, construct RD based on
         // the id registered with source table instead of connected table.
         // This allows chaining of multiple in-network service instances
