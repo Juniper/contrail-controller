@@ -221,7 +221,7 @@ struct FlowData {
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
         vrf_assign_evaluated(false), pending_recompute(false), enable_rpf(true),
-        l2_rpf_plen(Address::kMaxV4PrefixLen) {}
+        l2_rpf_plen(Address::kMaxV4PrefixLen), vrouter_evicted_flow_(false) {}
 
     MacAddress smac;
     MacAddress dmac;
@@ -260,6 +260,7 @@ struct FlowData {
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
     uint8_t l2_rpf_plen;
+    bool vrouter_evicted_flow_;
 };
 
 class FlowEntry {
@@ -596,6 +597,8 @@ public:
     typedef std::map<const VmEntry *, VmFlowInfo *> VmFlowTree;
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
 
+    typedef std::map<uint32_t, FlowEntryPtr> FlowIndexTree;
+
     typedef Patricia::Tree<RouteFlowInfo, &RouteFlowInfo::node, RouteFlowInfo::KeyCmp> RouteFlowTree;
     typedef boost::function<bool(FlowEntry *flow)> FlowEntryCb;
 
@@ -715,6 +718,11 @@ public:
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);
     void DeleteFlow(const FlowEntry *flow);
+    void DeleteByIndex(uint32_t flow_handle, FlowEntry *flow);
+    void InsertByIndex(uint32_t flow_handle, FlowEntry *flow);
+    FlowEntry *FindByIndex(uint32_t flow_handle);
+    void DeleteVrouterEvictedFlow(FlowEntry *flow);
+    void AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index);
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
@@ -748,6 +756,7 @@ private:
 
     InetUnicastRouteEntry inet4_route_key_;
     InetUnicastRouteEntry inet6_route_key_;
+    FlowIndexTree flow_index_tree_;
 
     // maintain the linklocal flow info against allocated fd, debug purpose only
     LinkLocalFlowInfoMap linklocal_flow_info_map_;
