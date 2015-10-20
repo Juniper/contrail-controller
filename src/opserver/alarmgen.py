@@ -445,8 +445,7 @@ class Controller(object):
 
         return disc_instances, coll_delete, chg_res            
 
-    @staticmethod
-    def send_agg_uve(redish, inst, part, acq_time, rows):
+    def send_agg_uve(self, redish, inst, part, acq_time, rows):
         """ 
         This function writes aggregated UVEs to redis
 
@@ -458,10 +457,13 @@ class Controller(object):
         """
         old_acq_time = redish.hget("AGPARTS:%s" % inst, part)
         if old_acq_time is None:
+            self._logger.error("Agg %s part %d new" % (inst, part))
             redish.hset("AGPARTS:%s" % inst, part, acq_time)
         else:
             # Is there stale information for this partition?
             if int(old_acq_time) != acq_time:
+                self._logger.error("Agg %s stale info part %d, acqs %d,%d" % \
+                        (inst, part, int(old_acq_time), acq_time))
                 ppe2 = redish.pipeline()
                 ppe2.hdel("AGPARTS:%s" % inst, part)
                 ppe2.smembers("AGPARTKEYS:%s:%d" % (inst, part))
@@ -560,7 +562,6 @@ class Controller(object):
             if len(gevs):
                 gevent.joinall(gevs.values())
                 for part in gevs.keys():
-                    acq_time = self._workers[part].acq_time()
                     # If UVE processing failed, requeue the working set
                     outp = gevs[part].get()
                     if outp is None:
@@ -570,6 +571,7 @@ class Controller(object):
                         self._logger.error(
                                 "Part %d is gone, cannot process UVEs" % part)
                     else:
+                        acq_time = self._workers[part].acq_time()
                         try:
                             if lredis is None:
                                 lredis = redis.StrictRedis(
@@ -586,7 +588,7 @@ class Controller(object):
                                         # Its used to indicate a delete of the entire UVE
                                         rows.append(OutputRow(key=ku, typ=None, val=None))
                                         if len(rows) >= max_out_rows:
-                                            Controller.send_agg_uve(lredis,
+                                            self.send_agg_uve(lredis,
                                                 self._instance_id,
                                                 part,
                                                 acq_time,
@@ -596,7 +598,7 @@ class Controller(object):
                                     for kt,vt in vu.iteritems():
                                         rows.append(OutputRow(key=ku, typ=kt, val=vt))
                                         if len(rows) >= max_out_rows:
-                                            Controller.send_agg_uve(lredis,
+                                            self.send_agg_uve(lredis,
                                                 self._instance_id,
                                                 part,
                                                 acq_time,
@@ -604,7 +606,7 @@ class Controller(object):
                                             rows[:] = []
                                 # Flush all remaining rows
                                 if len(rows):
-                                    Controller.send_agg_uve(lredis,
+                                    self.send_agg_uve(lredis,
                                         self._instance_id,
                                         part,
                                         acq_time,
