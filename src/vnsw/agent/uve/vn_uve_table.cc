@@ -63,7 +63,7 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
     if (SendUnresolvedVnMsg(FlowHandler::UnknownVn(), uve1)) {
         DispatchVnMsg(uve1);
     }
-    if (SendUnresolvedVnMsg(FlowHandler::LinkLocalVn(), uve1)) {
+    if (SendUnresolvedVnMsg(FlowHandler::LinkLocalVn(), uve2)) {
         DispatchVnMsg(uve2);
     }
 }

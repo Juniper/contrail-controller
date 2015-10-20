@@ -54,10 +54,15 @@ public:
     boost::uuids::uuid interface_uuid() const { return interface_uuid_; }
 
     bool IsActionLog() const;
+    void SetActionLog();
     bool is_flags_set(const FlowEntry::FlowEntryFlags &value) const {
         return (flags_ & value);
     }
     const std::string &drop_reason() const { return drop_reason_; }
+    uint16_t tcp_flags() const { return tcp_flags_; }
+    void set_tcp_flags(uint16_t tflags) {
+        tcp_flags_ = tflags;
+    }
 private:
     boost::uuids::uuid flow_uuid_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
@@ -88,6 +93,7 @@ private:
     VmInterfaceKey fip_vmi_;
     boost::uuids::uuid interface_uuid_;
     std::string drop_reason_;
+    uint16_t tcp_flags_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__

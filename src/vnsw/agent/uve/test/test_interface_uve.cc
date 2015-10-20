@@ -27,7 +27,6 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 #include "pkt/test/test_flow_util.h"
-#include "pkt/test/flow_table_test.h"
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
 #include <uve/test/interface_uve_table_test.h>

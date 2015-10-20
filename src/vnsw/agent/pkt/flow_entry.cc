@@ -64,30 +64,30 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
 const std::map<uint16_t, const char*>
     FlowEntry::FlowDropReasonStr = boost::assign::map_list_of
         ((uint16_t)DROP_UNKNOWN,                 "UNKNOWN")
-        ((uint16_t)FlowEntry::SHORT_UNAVIALABLE_INTERFACE,
+        ((uint16_t)SHORT_UNAVIALABLE_INTERFACE,
          "SHORT_UNAVIALABLE_INTERFACE")
-        ((uint16_t)FlowEntry::SHORT_IPV4_FWD_DIS,       "SHORT_IPV4_FWD_DIS")
-        ((uint16_t)FlowEntry::SHORT_UNAVIALABLE_VRF,
+        ((uint16_t)SHORT_IPV4_FWD_DIS,       "SHORT_IPV4_FWD_DIS")
+        ((uint16_t)SHORT_UNAVIALABLE_VRF,
          "SHORT_UNAVIALABLE_VRF")
-        ((uint16_t)FlowEntry::SHORT_NO_SRC_ROUTE,       "SHORT_NO_SRC_ROUTE")
-        ((uint16_t)FlowEntry::SHORT_NO_DST_ROUTE,       "SHORT_NO_DST_ROUTE")
-        ((uint16_t)FlowEntry::SHORT_AUDIT_ENTRY,        "SHORT_AUDIT_ENTRY")
-        ((uint16_t)FlowEntry::SHORT_VRF_CHANGE,         "SHORT_VRF_CHANGE")
-        ((uint16_t)FlowEntry::SHORT_NO_REVERSE_FLOW,    "SHORT_NO_REVERSE_FLOW")
-        ((uint16_t)FlowEntry::SHORT_REVERSE_FLOW_CHANGE,
+        ((uint16_t)SHORT_NO_SRC_ROUTE,       "SHORT_NO_SRC_ROUTE")
+        ((uint16_t)SHORT_NO_DST_ROUTE,       "SHORT_NO_DST_ROUTE")
+        ((uint16_t)SHORT_AUDIT_ENTRY,        "SHORT_AUDIT_ENTRY")
+        ((uint16_t)SHORT_VRF_CHANGE,         "SHORT_VRF_CHANGE")
+        ((uint16_t)SHORT_NO_REVERSE_FLOW,    "SHORT_NO_REVERSE_FLOW")
+        ((uint16_t)SHORT_REVERSE_FLOW_CHANGE,
          "SHORT_REVERSE_FLOW_CHANGE")
-        ((uint16_t)FlowEntry::SHORT_NAT_CHANGE,         "SHORT_NAT_CHANGE")
-        ((uint16_t)FlowEntry::SHORT_FLOW_LIMIT,         "SHORT_FLOW_LIMIT")
-        ((uint16_t)FlowEntry::SHORT_LINKLOCAL_SRC_NAT,
+        ((uint16_t)SHORT_NAT_CHANGE,         "SHORT_NAT_CHANGE")
+        ((uint16_t)SHORT_FLOW_LIMIT,         "SHORT_FLOW_LIMIT")
+        ((uint16_t)SHORT_LINKLOCAL_SRC_NAT,
          "SHORT_LINKLOCAL_SRC_NAT")
-        ((uint16_t)FlowEntry::SHORT_FAILED_VROUTER_INSTALL,
+        ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "SHORT_FAILED_VROUTER_INST")
-        ((uint16_t)FlowEntry::DROP_POLICY,              "DROP_POLICY")
-        ((uint16_t)FlowEntry::DROP_OUT_POLICY,          "DROP_OUT_POLICY")
-        ((uint16_t)FlowEntry::DROP_SG,                  "DROP_SG")
-        ((uint16_t)FlowEntry::DROP_OUT_SG,              "DROP_OUT_SG")
-        ((uint16_t)FlowEntry::DROP_REVERSE_SG,          "DROP_REVERSE_SG")
-        ((uint16_t)FlowEntry::DROP_REVERSE_OUT_SG,      "DROP_REVERSE_OUT_SG");
+        ((uint16_t)DROP_POLICY,              "DROP_POLICY")
+        ((uint16_t)DROP_OUT_POLICY,          "DROP_OUT_POLICY")
+        ((uint16_t)DROP_SG,                  "DROP_SG")
+        ((uint16_t)DROP_OUT_SG,              "DROP_OUT_SG")
+        ((uint16_t)DROP_REVERSE_SG,          "DROP_REVERSE_SG")
+        ((uint16_t)DROP_REVERSE_OUT_SG,      "DROP_REVERSE_OUT_SG");
 
 tbb::atomic<int> FlowEntry::alloc_count_;
 InetUnicastRouteEntry FlowEntry::inet4_route_key_(NULL, Ip4Address(), 32,

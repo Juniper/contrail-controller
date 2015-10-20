@@ -370,6 +370,7 @@ bool FlowStatsCollector::Run() {
              * whenever flow action changes. To keep agent independent of this,
              * always copy UDP source port */
             info->set_underlay_source_port(k_flow->fe_udp_src_port);
+            info->set_tcp_flags(k_flow->fe_tcp_flags);
             /* Don't account for agent overflow bits while comparing change in
              * stats */
             if (bytes != k_bytes) {
@@ -579,6 +580,7 @@ void FlowStatsCollector::EnqueueFlowMsg() {
     msg_index_++;
     if (msg_index_ == kMaxFlowMsgsPerSend) {
         DispatchFlowMsg(msg_list_);
+        msg_index_ = 0;
     }
 }
 
@@ -591,11 +593,11 @@ void FlowStatsCollector::DispatchPendingFlowMsg() {
     vector<FlowDataIpv4>::const_iterator last = msg_list_.begin() + msg_index_;
     vector<FlowDataIpv4> new_list(first, last);
     DispatchFlowMsg(new_list);
+    msg_index_ = 0;
 }
 
 void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst) {
     FLOW_DATA_IPV4_OBJECT_LOG("", SandeshLevel::SYS_CRIT, lst);
-    msg_index_ = 0;
 }
 
 uint8_t FlowStatsCollector::GetFlowMsgIdx() {
@@ -654,6 +656,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     s_flow.set_packets(info->packets());
     s_flow.set_diff_bytes(diff_bytes);
     s_flow.set_diff_packets(diff_pkts);
+    s_flow.set_tcp_flags(info->tcp_flags());
 
     // TODO: IPV6
     if (key.family == Address::INET) {
@@ -720,11 +723,13 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
         s_flow.set_direction_ing(1);
         SourceIpOverride(key, info, s_flow);
         EnqueueFlowMsg();
-        s_flow.set_direction_ing(0);
+        FlowDataIpv4 &s_flow2 = msg_list_[GetFlowMsgIdx()];
+        s_flow2 = s_flow;
+        s_flow2.set_direction_ing(0);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
-        s_flow.set_flowuuid(to_string(info->egress_uuid()));
+        s_flow2.set_flowuuid(to_string(info->egress_uuid()));
         EnqueueFlowMsg();
         flow_export_count_ += 2;
     } else {
@@ -815,6 +820,11 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
         info->set_teardown_time(req->time());
         UpdateFlowStats(info, diff_bytes, diff_packets);
         ExportFlow(req->key(), info, diff_bytes, diff_packets);
+        /* ExportFlow will enqueue FlowLog message for send. If we have not hit
+         * max messages to be sent, it will not dispatch. Invoke
+         * DispatchPendingFlowMsg to send any enqueued messages in the queue
+         * even if we don't have max messages to be sent */
+        DispatchPendingFlowMsg();
         /* Remove the entry from our tree */
         DeleteFlow(req->key());
         break;

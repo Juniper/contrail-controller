@@ -6,6 +6,29 @@
 
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
+#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
+
+class FlowActionLogTask : public Task {
+public:
+    FlowActionLogTask(FlowEntry *fe) :
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::StatsCollector")),
+              StatsCollector::FlowStatsCollector), fe_(fe) {
+    }
+    virtual bool Run() {
+        if (!fe_) {
+            return true;
+        }
+        FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
+            (Agent::GetInstance()->flow_stats_collector());
+        FlowExportInfo *info = f->FindFlowExportInfo(fe_->key());
+        if (info) {
+            info->SetActionLog();
+        }
+        return true;
+    }
+private:
+    FlowEntry *fe_;
+};
 
 class ProuterUveSendTask : public Task {
 public:
@@ -168,6 +191,12 @@ public:
     void EnqueueSendVmiUveTask() {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         VmiUveSendTask *task = new VmiUveSendTask();
+        scheduler->Enqueue(task);
+    }
+
+    void EnqueueFlowActionLogChange(FlowEntry *fe) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        FlowActionLogTask *task = new FlowActionLogTask(fe);
         scheduler->Enqueue(task);
     }
 

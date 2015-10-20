@@ -603,6 +603,13 @@ void KSyncSockTypeMap::SetTcpFlag(int idx, uint32_t flags) {
     }
 }
 
+void KSyncSockTypeMap::SetFlowTcpFlags(int idx, uint16_t flags) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_tcp_flags = flags;
+    }
+}
+
 void KSyncSockTypeMap::SetUnderlaySourcePort(int idx, int port) {
     vr_flow_entry *f = &flow_table_[idx];
     if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {

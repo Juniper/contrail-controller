@@ -27,7 +27,7 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 #include "pkt/test/test_flow_util.h"
-#include "pkt/test/flow_table_test.h"
+#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
 #include <uve/test/vm_uve_table_test.h>
@@ -950,8 +950,9 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     vmut->ClearCount();
 }
 
-//Verfiy Source IP overriden for NAT flows in flow-log messages exported by agent
-TEST_F(UveVmUveTest, DISABLED_SIP_override) {
+//Verfiy Source IP overriden for NAT flows in flow-log messages exported by
+//agent
+TEST_F(UveVmUveTest, SIP_override) {
     FlowSetUp();
     TestFlow flow[] = {
         {
@@ -967,19 +968,31 @@ TEST_F(UveVmUveTest, DISABLED_SIP_override) {
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify Floating IP flows are created.
-    const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
-    const FlowEntry *rev = f1->reverse_flow_entry();
+    FlowEntry *f1 = flow[0].pkt_.FlowFetch();
+    FlowEntry *rev = f1->reverse_flow_entry();
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
                         flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    FlowTableUnitTest *f = static_cast<FlowTableUnitTest *>
-        (Agent::GetInstance()->pkt()->flow_table());
+    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
+        (Agent::GetInstance()->flow_stats_collector());
     f->ClearList();
+    FlowExportInfo *info = f->FindFlowExportInfo(f1->key());
+    FlowExportInfo *rinfo = f->FindFlowExportInfo(rev->key());
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
 
     std::vector<FlowDataIpv4> list = f->ingress_flow_log_list();
     EXPECT_EQ(0U, list.size());
+
+    //Set the action as Log for the flow-entries to ensure that they are not
+    //dropped during export
+    util_.EnqueueFlowActionLogChange(f1);
+    util_.EnqueueFlowActionLogChange(rev);
+    client->WaitForIdle(10);
+    WAIT_FOR(1000, 500, ((info->IsActionLog() == true)));
+    WAIT_FOR(1000, 500, ((rinfo->IsActionLog() == true)));
 
     //Invoke FlowStatsCollector to export flow logs
     util_.EnqueueFlowStatsCollectorTask();
@@ -1006,8 +1019,10 @@ TEST_F(UveVmUveTest, DISABLED_SIP_override) {
     FlowTearDown();
     RemoveFipConfig();
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    client->WaitForIdle(10);
 
     //Verify that flow-logs are sent during flow delete
+    WAIT_FOR(1000, 500, ((f->ingress_flow_log_list().size() == 2U)));
     list = f->ingress_flow_log_list();
     EXPECT_EQ(2U, list.size());
 
