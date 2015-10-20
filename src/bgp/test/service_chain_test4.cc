@@ -7,7 +7,7 @@
 int main(int argc, char **argv) {
     const char *largv[] = {
         __FILE__,
-        "--address-family=vpn"
+        "--address-family=vpn",
         "--service-type=transparent",
     };
     return service_chain_test_main(sizeof(largv)/sizeof(largv[0]), largv);
