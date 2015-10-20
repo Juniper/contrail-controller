@@ -26,6 +26,7 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
@@ -402,6 +403,8 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
 
     SiteOfOrigin soo;
     ExtCommunity::ExtCommunityList sgid_list;
+    LoadBalance load_balance;
+    bool load_balance_present = false;
     const Community *orig_community = NULL;
     const OriginVnPath *orig_ovnpath = NULL;
     if (orig_route) {
@@ -422,6 +425,10 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
                     sgid_list.push_back(comm);
                 if (ExtCommunity::is_site_of_origin(comm) && soo.IsNull())
                     soo = SiteOfOrigin(comm);
+                if (ExtCommunity::is_load_balance(comm)) {
+                    load_balance = LoadBalance(comm);
+                    load_balance_present = true;
+                }
             }
         }
     }
@@ -475,6 +482,13 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
         } else {
             new_ext_community = extcomm_db->ReplaceSiteOfOriginAndLocate(
                 new_ext_community.get(), soo.GetExtCommunity());
+        }
+
+        // Inherit load balance attribute of orig_route if connected path
+        // does not have one already.
+        if (!LoadBalance::IsPresent(connected_path) && load_balance_present) {
+            new_ext_community = extcomm_db->AppendAndLocate(
+                    new_ext_community.get(), load_balance.GetExtCommunity());
         }
 
         // Replace the OriginVn with the value from the original route
