@@ -1143,7 +1143,7 @@ class FakeKazooClient(object):
     def create(self, path, value='', *args, **kwargs):
         if path in self._values:
             raise ResourceExistsError(path, str(self._values[path]))
-        self._values[path] = value
+        self._values[path] = (value, time.time()*1000)
     # end create
 
     def get(self, path):
@@ -1180,7 +1180,7 @@ class ZookeeperClientMock(object):
     def alloc_from_str(self, path, value=''):
         self._count = self._count + 1
         zk_val = "%(#)010d" % {'#': self._count}
-        self._values[path + zk_val] = value
+        self._values[path + zk_val] = (value, time.time()*1000)
         return zk_val
     # end alloc_from_str
 
@@ -1191,9 +1191,11 @@ class ZookeeperClientMock(object):
             raise kazoo.exceptions.NoNodeError()
     # end delete
 
-    def read(self, path):
+    def read(self, path, include_timestamp=False):
         try:
-            return self._values[path]
+            if include_timestamp:
+                return self._values[path]
+            return self._values[path][0]
         except Exception as err:
             raise pycassa.NotFoundException
     # end read
@@ -1202,9 +1204,9 @@ class ZookeeperClientMock(object):
         return []
     # end get_children
 
-    def read_node(self, path):
+    def read_node(self, path, include_timestamp=False):
         try:
-            return self.read(path)
+            return self.read(path, include_timestamp)
         except pycassa.NotFoundException:
             return None
     # end read_node
@@ -1212,7 +1214,7 @@ class ZookeeperClientMock(object):
     def create_node(self, path, value=''):
         if path in self._values:
             raise ResourceExistsError(path, str(self._values[path]))
-        self._values[path] = value
+        self._values[path] = (value, time.time()*1000)
     # end create_node
 
     def delete_node(self, path, recursive=False):

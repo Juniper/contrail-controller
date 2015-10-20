@@ -68,6 +68,7 @@ def parse_args(args_str):
         'max_requests': 1024,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'ifmap_health_check_interval': '60', # in seconds
+        'stale_lock_seconds': '5', # lock but no resource past this => stale
     }
     # ssl options
     secopts = {
@@ -279,6 +280,8 @@ def parse_args(args_str):
             help="Sandesh send rate limit in messages/sec.")
     parser.add_argument("--ifmap_health_check_interval",
             help="Interval seconds to check for ifmap health, default 60")
+    parser.add_argument("--stale_lock_seconds",
+            help="Time after which lock without resource is stale, default 60")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
