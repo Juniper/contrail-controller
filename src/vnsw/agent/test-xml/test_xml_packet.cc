@@ -22,6 +22,7 @@ using namespace std;
 using namespace pugi;
 using namespace boost::uuids;
 using namespace AgentUtXmlUtils;
+int hash_id = 1;
 
 AgentUtXmlPacketUtils::AgentUtXmlPacketUtils() {
     name_ = "pkt";
@@ -133,6 +134,11 @@ bool AgentUtXmlPacketUtils::ReadXml(const pugi::xml_node &node) {
     GetUintAttribute(node, "proto", &proto_id_);
     GetUintAttribute(node, "sport", &sport_);
     GetUintAttribute(node, "dport", &dport_);
+    GetUintAttribute(node, "hash_id", (uint16_t *)&hash_id_);
+
+    if (hash_id_ ==  0) {
+        hash_id_ = hash_id++;
+    }
     return true;
 }
 
