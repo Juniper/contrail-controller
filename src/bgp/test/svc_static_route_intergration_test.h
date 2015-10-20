@@ -195,7 +195,7 @@ struct PathVerify {
     set<string> encaps;
     string origin_vn;
     SiteOfOrigin soo;
-    PathVerify(string path_id, string path_src, string nexthop, 
+    PathVerify(string path_id, string path_src, string nexthop,
                set<string> encaps, string origin_vn)
         : path_id(path_id), path_src(path_src), nexthop(nexthop),
           encaps(encaps), origin_vn(origin_vn) {
@@ -291,24 +291,24 @@ protected:
         Configure();
         task_util::WaitForIdle();
 
-        // Create XMPP Agent on compute node 1 connected to XMPP server 
+        // Create XMPP Agent on compute node 1 connected to XMPP server
         // Control-node-1
-        agent_a_1_.reset(new test::NetworkAgentMock(&evm_, "agent-a", 
+        agent_a_1_.reset(new test::NetworkAgentMock(&evm_, "agent-a",
             cn1_xmpp_server_->GetPort(), "127.0.0.1"));
 
-        // Create XMPP Agent on compute node 1 connected to XMPP server 
+        // Create XMPP Agent on compute node 1 connected to XMPP server
         // Control-node-2
-        agent_a_2_.reset(new test::NetworkAgentMock(&evm_, "agent-a", 
+        agent_a_2_.reset(new test::NetworkAgentMock(&evm_, "agent-a",
             cn2_xmpp_server_->GetPort(), "127.0.0.1"));
 
-        // Create XMPP Agent on compute node 2 connected to XMPP server 
-        // Control-node-1 
-        agent_b_1_.reset(new test::NetworkAgentMock(&evm_, "agent-b", 
+        // Create XMPP Agent on compute node 2 connected to XMPP server
+        // Control-node-1
+        agent_b_1_.reset(new test::NetworkAgentMock(&evm_, "agent-b",
             cn1_xmpp_server_->GetPort(), "127.0.0.2"));
 
         // Create XMPP Agent on compute node 2 connected to XMPP server
         // Control-node-2
-        agent_b_2_.reset(new test::NetworkAgentMock(&evm_, "agent-b", 
+        agent_b_2_.reset(new test::NetworkAgentMock(&evm_, "agent-b",
             cn2_xmpp_server_->GetPort(), "127.0.0.2"));
 
         TASK_UTIL_EXPECT_TRUE(agent_a_1_->IsEstablished());
@@ -590,7 +590,7 @@ protected:
         return table->Size();
     }
 
-    BgpRoute *InetRouteLookup(BgpServerTest *server,
+    BgpRoute *RouteLookup(BgpServerTest *server,
                               const string &instance_name,
                               const string &prefix) {
         BgpTable *table = GetTable(server, instance_name);
@@ -606,14 +606,14 @@ protected:
         return rt;
     }
 
-    void AddInetRoute(BgpServerTest *server, IPeer *peer,
-                      const string &instance_name,
-                      const string &prefix, int localpref, 
-                      std::vector<uint32_t> sglist = std::vector<uint32_t>(),
-                      set<string> encap = set<string>(),
-                      const SiteOfOrigin &soo = SiteOfOrigin(),
-                      string nexthop="",
-                      uint32_t flags=0, int label=303) {
+    void AddRoute(BgpServerTest *server, IPeer *peer,
+                  const string &instance_name,
+                  const string &prefix, int localpref,
+                  std::vector<uint32_t> sglist = std::vector<uint32_t>(),
+                  set<string> encap = set<string>(),
+                  const SiteOfOrigin &soo = SiteOfOrigin(),
+                  string nexthop="",
+                  uint32_t flags=0, int label=303) {
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -625,12 +625,12 @@ protected:
             nexthop = BuildNextHopAddress("7.8.9.1");
 
         BgpAttrSpec attr_spec;
-        boost::scoped_ptr<BgpAttrLocalPref> 
+        boost::scoped_ptr<BgpAttrLocalPref>
             local_pref(new BgpAttrLocalPref(localpref));
         attr_spec.push_back(local_pref.get());
 
         IpAddress chain_addr = Ip4Address::from_string(nexthop, error);
-        boost::scoped_ptr<BgpAttrNextHop> 
+        boost::scoped_ptr<BgpAttrNextHop>
             nexthop_attr(new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
 
@@ -658,17 +658,17 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void AddInetRoute(BgpServerTest *server, IPeer *peer,
-                      const string &instance_name,
-                      const string &prefix, int localpref,
-                      const SiteOfOrigin &soo) {
-        AddInetRoute(server, peer, instance_name, prefix, localpref,
+    void AddRoute(BgpServerTest *server, IPeer *peer,
+                  const string &instance_name,
+                  const string &prefix, int localpref,
+                  const SiteOfOrigin &soo) {
+        AddRoute(server, peer, instance_name, prefix, localpref,
             std::vector<uint32_t>(), set<string>(), soo);
     }
 
-    void DeleteInetRoute(BgpServerTest *server, IPeer *peer,
-                         const string &instance_name,
-                         const string &prefix) {
+    void DeleteRoute(BgpServerTest *server, IPeer *peer,
+                     const string &instance_name,
+                     const string &prefix) {
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -684,7 +684,7 @@ protected:
         task_util::WaitForIdle();
     }
 
-    BgpRoute *InetVpnRouteLookup(BgpServerTest *server, const string &prefix) {
+    BgpRoute *VpnRouteLookup(BgpServerTest *server, const string &prefix) {
         BgpTable *table = GetVpnTable(server);
         EXPECT_TRUE(table != NULL);
         boost::system::error_code error;
@@ -695,14 +695,14 @@ protected:
         return rt;
     }
 
-    void VerifyInetVpnRouteExists(BgpServerTest *server, string prefix) {
-        TASK_UTIL_WAIT_NE_NO_MSG(InetVpnRouteLookup(server, prefix),
+    void VerifyVpnRouteExists(BgpServerTest *server, string prefix) {
+        TASK_UTIL_WAIT_NE_NO_MSG(VpnRouteLookup(server, prefix),
                                  NULL, 1000, 10000,
                                  "Wait for route in bgp.l3vpn.0..");
     }
 
-    void VerifyInetVpnRouteNoExists(BgpServerTest *server, string prefix) {
-        TASK_UTIL_WAIT_EQ_NO_MSG(InetVpnRouteLookup(server, prefix),
+    void VerifyVpnRouteNoExists(BgpServerTest *server, string prefix) {
+        TASK_UTIL_WAIT_EQ_NO_MSG(VpnRouteLookup(server, prefix),
                                  NULL, 1000, 10000,
                                  "Wait for route in bgp.l3vpn.0 to go away..");
     }
@@ -717,11 +717,11 @@ protected:
             nexthop2 = BuildNextHopAddress("99.99.99.99");
 
         if (ServiceChainIntegrationTestGlobals::mx_push_connected_) {
-            AddInetRoute(mx_.get(), NULL, "blue", prefix, 100);
+            AddRoute(mx_.get(), NULL, "blue", prefix, 100);
             if (ecmp)
-                AddInetRoute(mx_.get(), NULL, "ecmp", prefix, 100,
-                             std::vector<uint32_t>(), set<string>(),
-                             SiteOfOrigin(), BuildNextHopAddress("1.2.2.1"));
+                AddRoute(mx_.get(), NULL, "ecmp", prefix, 100,
+                         std::vector<uint32_t>(), set<string>(),
+                         SiteOfOrigin(), BuildNextHopAddress("1.2.2.1"));
         } else {
             if (family_ == Address::INET) {
                 agent_a_1_->AddRoute(
@@ -790,9 +790,9 @@ protected:
             prefix = BuildPrefix("1.1.2.3", 32);
         // Add Connected route
         if (ServiceChainIntegrationTestGlobals::mx_push_connected_) {
-            DeleteInetRoute(mx_.get(), NULL, "blue", prefix);
+            DeleteRoute(mx_.get(), NULL, "blue", prefix);
             if (ecmp)
-                DeleteInetRoute(mx_.get(), NULL, "ecmp", prefix);
+                DeleteRoute(mx_.get(), NULL, "ecmp", prefix);
         } else {
             if (family_ == Address::INET) {
                 agent_a_1_->DeleteRoute(
@@ -858,7 +858,7 @@ protected:
         task_util::TaskSchedulerLock lock;
 
         // Verify number of paths
-        BgpRoute *svc_route = InetRouteLookup(server, instance, prefix);
+        BgpRoute *svc_route = RouteLookup(server, instance, prefix);
         if (!svc_route || svc_route->count() != verify.size()) {
             return false;
         }
@@ -888,17 +888,17 @@ protected:
         return true;
     }
 
-    void VerifyServiceChainRoute(BgpServerTest *server, string prefix, 
+    void VerifyServiceChainRoute(BgpServerTest *server, string prefix,
                                  std::vector<PathVerify> verify) {
         // First wait for the route.
-        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(server, "blue", prefix),
-                                 NULL, 1000, 10000, 
+        TASK_UTIL_WAIT_NE_NO_MSG(RouteLookup(server, "blue", prefix),
+                                 NULL, 1000, 10000,
                                  "Wait for route in blue..");
 
         // Verify each path for specific attribute as per the PathVerify list
-        BgpRoute *rt = InetRouteLookup(server, "blue", prefix);
+        BgpRoute *rt = RouteLookup(server, "blue", prefix);
         TASK_UTIL_WAIT_EQ_NO_MSG(MatchResult(server, "blue", prefix, verify),
-                                 true, 1000, 10000, 
+                                 true, 1000, 10000,
                                  "Wait for correct route in blue..");
         LOG(DEBUG, "Prefix " << prefix << "has " << rt->GetPathList().size());
     }
@@ -907,7 +907,7 @@ protected:
         const string &prefix, const std::vector<PathVerify> verify) {
         // First wait for the route.
         TASK_UTIL_EXPECT_TRUE(
-            InetRouteLookup(server, instance, prefix) != NULL);
+            RouteLookup(server, instance, prefix) != NULL);
 
         // Verify each path for specific attribute as per the PathVerify list
         TASK_UTIL_EXPECT_TRUE(MatchResult(server, instance, prefix, verify));
@@ -917,7 +917,7 @@ protected:
         const string &instance, const string &prefix,
         const std::vector<string> &origin_vn_path) {
         task_util::TaskSchedulerLock lock;
-        BgpRoute *route = InetRouteLookup(server, instance, prefix);
+        BgpRoute *route = RouteLookup(server, instance, prefix);
         if (!route)
             return false;
         for (Route::PathList::const_iterator it = route->GetPathList().begin();
@@ -981,7 +981,7 @@ protected:
                 << result.status << ", offset=" << result.offset << ")");
             assert(0);
         }
-        xml_node node = xdoc.first_child(); 
+        xml_node node = xdoc.first_child();
         params->XmlParse(node);
         return params;
     }
@@ -999,7 +999,7 @@ protected:
                 << result.status << ", offset=" << result.offset << ")");
             assert(0);
         }
-        xml_node node = xdoc.first_child(); 
+        xml_node node = xdoc.first_child();
         params->XmlParse(node);
         return params;
     }

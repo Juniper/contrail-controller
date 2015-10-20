@@ -47,22 +47,22 @@ TYPED_TEST(ServiceChainIntegrationTest, MultipleInNetwork) {
     // Note that agents are registered to blue-i1 with instance id 1.
     // Note that agents are registered to blue-i3 with instance id 6.
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
             this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
             this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
             this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
             this->BuildPrefix("192.168.1.0", 24));
     } else {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
             this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
             this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
             this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
             this->BuildPrefix("192.168.1.1", 32));
     }
 
@@ -135,39 +135,39 @@ TYPED_TEST(ServiceChainIntegrationTest, MultipleInNetworkECMP) {
     // Note that agents are registered to blue-i1 with instance id 1.
     // Note that agents are registered to blue-i3 with instance id 6.
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "9.9.9.9:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "9.9.9.9:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "9.9.9.9:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "9.9.9.9:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "9.9.9.9:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "9.9.9.9:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "9.9.9.9:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "9.9.9.9:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
     } else {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "9.9.9.9:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "9.9.9.9:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "9.9.9.9:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "9.9.9.9:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "9.9.9.9:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "9.9.9.9:6:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "9.9.9.9:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "9.9.9.9:6:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
     }
 
     // Delete Connected routes for both service instances.
@@ -241,22 +241,22 @@ TYPED_TEST(ServiceChainIntegrationTest, MultipleInNetworkUnsubscribeSubscribe) {
     // Note that agents are registered to blue-i1 with instance id 1.
     // Note that agents are registered to blue-i3 with instance id 6.
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
     } else {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
                                        this->BuildPrefix("192.168.1.1", 32));
     }
 
@@ -268,23 +268,23 @@ TYPED_TEST(ServiceChainIntegrationTest, MultipleInNetworkUnsubscribeSubscribe) {
     // Note that agents are registered to blue-i1 with instance id 1.
     // Note that agents are registered to blue-i3 with instance id 6.
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
-        this->VerifyInetVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                     this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                     this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                     this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:6:" +
+                                     this->BuildPrefix("192.168.1.0", 24));
     } else {
-        this->VerifyInetVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                     this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteNoExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                     this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                     this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteNoExists(this->cn2_.get(), "8.8.8.8:6:" +
+                                     this->BuildPrefix("192.168.1.1", 32));
     }
 
     // Subscribe agents to blue-i1 and blue-i3.
@@ -295,22 +295,22 @@ TYPED_TEST(ServiceChainIntegrationTest, MultipleInNetworkUnsubscribeSubscribe) {
     // Note that agents are registered to blue-i1 with instance id 1.
     // Note that agents are registered to blue-i3 with instance id 6.
     if (ServiceChainIntegrationTestGlobals::aggregate_enable_) {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.0", 24));
     } else {
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
-                                       this->BuildPrefix("192.168.1.1", 32));
-        this->VerifyInetVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn1_.get(), "8.8.8.8:6:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:1:" +
+                                   this->BuildPrefix("192.168.1.1", 32));
+        this->VerifyVpnRouteExists(this->cn2_.get(), "8.8.8.8:6:" +
                                        this->BuildPrefix("192.168.1.1", 32));
     }
 
