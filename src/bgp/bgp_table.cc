@@ -217,10 +217,8 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             // The AS path is NULL if the originating xmpp peer is locally
             // connected. It's non-NULL but empty if the originating xmpp
             // peer is connected to another bgp speaker in the iBGP mesh.
-            if (attr->med() && attr->as_path() &&
-                !attr->as_path()->path().path_segments.empty()) {
+            if (attr->med() && attr->as_path() && !attr->as_path()->empty())
                 clone->set_med(0);
-            }
 
             // Prepend the local AS to AsPath.
             as_t local_as =
