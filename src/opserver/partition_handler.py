@@ -32,12 +32,10 @@ def sse_pack(d):
     return buffer + '\n'
 
 class UveCacheProcessor(object):
-    def __init__(self, logger, partitions):
+    def __init__(self, logger):
         self._logger = logger
         self._partkeys = {}
         self._typekeys = {}
-        for partno in range(0,partitions):
-            self._partkeys[partno] = set()
         self._uvedb = {} 
 
     def get_cache_list(self, tables, filters, patterns, keysonly):
@@ -173,6 +171,9 @@ class UveCacheProcessor(object):
         barekey = key.split(":",1)[1]
         table = key.split(":",1)[0]
 
+        if partno not in self._partkeys:
+            self._partkeys[partno] = set()
+
         self._partkeys[partno].add(key)
 
         if table not in self._uvedb:
@@ -214,6 +215,11 @@ class UveCacheProcessor(object):
                      'partition':partno} 
 
     def clear_partition(self, partno, clear_cb):
+
+        if partno not in self._partkeys:
+            self._partkeys[partno] = set()
+            return
+
         for key in self._partkeys[partno]:
             barekey = key.split(":",1)[1]
             table = key.split(":",1)[0]
@@ -347,7 +353,7 @@ class UveStreamPart(gevent.Greenlet):
         return None
 
 class UveStreamer(gevent.Greenlet):
-    def __init__(self, logger, q, rfile, agp_cb, partitions, rpass,\
+    def __init__(self, logger, q, rfile, agp_cb, rpass,\
             tablefilt = None, cfilter = None,
             USP_class = UveStreamPart):
         gevent.Greenlet.__init__(self)
@@ -357,10 +363,9 @@ class UveStreamer(gevent.Greenlet):
         self._agp_cb = agp_cb
         self._agp = {}
         self._parts = {}
-        self._partitions = partitions
         self._rpass = rpass
         self._ccb = None
-        self._uvedbcache = UveCacheProcessor(self._logger, partitions)
+        self._uvedbcache = UveCacheProcessor(self._logger)
         self._USP_class = USP_class
         self._tablefilt = tablefilt
         self._cfilter = cfilter
@@ -402,7 +407,7 @@ class UveStreamer(gevent.Greenlet):
         if self._q:
             msg = {'event': 'init', 'data':json.dumps(None)}
             self._q.put(sse_pack(msg))
-        self._logger.error("Starting UveStreamer with %d partitions" % self._partitions)
+        self._logger.error("Starting UveStreamer")
         while True:
             try:
                 if self._rfile is not None:
@@ -432,7 +437,7 @@ class UveStreamer(gevent.Greenlet):
                 self._agp = copy.deepcopy(newagp)
             except gevent.GreenletExit:
                 break
-        self._logger.error("Stopping UveStreamer with %d partitions" % self._partitions)
+        self._logger.error("Stopping UveStreamer")
         for part, pi in self._agp.iteritems():
             self.partition_stop(part)
             self._uvedbcache.clear_partition(elem, self.clear_callback)
