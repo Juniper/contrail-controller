@@ -43,6 +43,7 @@ public:
         ADD_ACK,
         CHANGE_ACK,
         DEL_REQ,
+        DEL_ADD_REQ,    // trigger delete followed by add for an entry
         DEL_ACK,
         RE_EVAL,
         INT_PTR_REL
@@ -59,12 +60,12 @@ public:
 
     // Use this constructor if automatic index allocation is *not* needed
     KSyncEntry() : index_(kInvalidIndex), state_(INIT), seen_(false),
-    stale_(false) {
+    stale_(false), del_add_pending_(false) {
         refcount_ = 0;
     };
     // Use this constructor if automatic index allocation is needed
     KSyncEntry(uint32_t index) : index_(index), state_(INIT), seen_(false),
-    stale_(false) {
+    stale_(false), del_add_pending_(false) {
         refcount_ = 0;
     };
     virtual ~KSyncEntry() { assert(refcount_ == 0);};
@@ -117,6 +118,7 @@ public:
 
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
+    bool del_add_pending() const {return del_add_pending_;}
     uint32_t GetRefCount() const {return refcount_;} 
     bool Seen() const {return seen_;}
     bool stale() const {return stale_;}
@@ -131,6 +133,8 @@ public:
     // is not deleted yet by the Creator.
     // this entry however may still be still in unresolved state.
     bool IsActive() { return (state_ != TEMP && !IsDeleted()); }
+
+    void set_del_add_pending(bool pending) {del_add_pending_ = pending;}
 
 protected:
     void SetIndex(size_t index) {index_ = index;};
@@ -151,6 +155,10 @@ private:
     // Stale Entry flag indicates an entry as stale, which will be
     // removed once stale entry timer cleanup gets triggered.
     bool                stale_;
+
+    // flag to indicate if a DelAdd operation on entry is pending
+    // on the entry
+    bool                del_add_pending_;
     DISALLOW_COPY_AND_ASSIGN(KSyncEntry);
 };
 

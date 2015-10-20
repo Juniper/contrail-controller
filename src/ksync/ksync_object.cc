@@ -559,6 +559,10 @@ std::string KSyncEntry::EventString(KSyncEvent event) {
         str << "Delete request";
         break;
 
+    case DEL_ADD_REQ:
+        str << "Delete followed by Add request";
+        break;
+
     case DEL_ACK:
         str << "Delete ack";
         break;
@@ -643,6 +647,7 @@ void intrusive_ptr_release(KSyncEntry *p) {
 // ADD_ACK,         : Ack from kernel for ADD request
 // CHANGE_ACK       : Ack from kernel for CHANGE request
 // DEL_REQ          : Request to DEL an entry
+// DEL_ADD_REQ      : Request to DEL an entry followed by ADD for the same
 // DEL_ACK          : Ack from kernel for DEL request
 // RE_EVAL          : Event to re-evaluate dependencies. 
 //                    Ex: If Obj-A is added into Obj-B back-ref tree
@@ -706,6 +711,24 @@ KSyncEntry::KSyncState KSyncSM_Delete(KSyncEntry *entry) {
     }
 }
 
+// Utility function to handle Delete followed by ADD of KSyncEntry.
+// delete is triggered irrespective of the references to the object
+// followed by ADD of the object
+// 
+// If operation is complete, move state to IN_SYNC. Else move to SYNC_WAIT
+KSyncEntry::KSyncState KSyncSM_DeleteAdd(KSyncObject *obj, KSyncEntry *entry) {
+    // NOTE this API doesnot support managing references for delete trigger
+    if (entry->Seen() || !entry->AllowDeleteStateComp()) {
+        if (!entry->Delete()) {
+            // move to renew wait to trigger Add on DEL_ACK
+            return KSyncEntry::RENEW_WAIT;
+        }
+    }
+
+    return KSyncSM_Add(obj, entry);
+}
+
+//
 //
 // ADD_CHANGE_REQ : 
 //      If entry has unresolved references, move it to ADD_DEFER
@@ -753,6 +776,7 @@ KSyncEntry::KSyncState KSyncSM_Temp(KSyncObject *obj, KSyncEntry *entry,
     assert(entry->GetRefCount());
     switch (event) {
     case KSyncEntry::ADD_CHANGE_REQ:
+    case KSyncEntry::DEL_ADD_REQ:
         state = KSyncSM_Add(obj, entry);
         break;
 
@@ -812,6 +836,11 @@ KSyncEntry::KSyncState KSyncSM_AddDefer(KSyncObject *obj, KSyncEntry *entry,
         }
         break;
 
+    case KSyncEntry::DEL_ADD_REQ:
+        obj->BackRefDel(entry);
+        state = KSyncSM_DeleteAdd(obj, entry);
+        break;
+
     case KSyncEntry::INT_PTR_REL:
         break;
 
@@ -854,6 +883,11 @@ KSyncEntry::KSyncState KSyncSM_ChangeDefer(KSyncObject *obj, KSyncEntry *entry,
         state = KSyncSM_Delete(entry);
         break;
 
+    case KSyncEntry::DEL_ADD_REQ:
+        obj->BackRefDel(entry);
+        state = KSyncSM_DeleteAdd(obj, entry);
+        break;
+
     case KSyncEntry::INT_PTR_REL:
         break;
 
@@ -886,6 +920,10 @@ KSyncEntry::KSyncState KSyncSM_InSync(KSyncObject *obj, KSyncEntry *entry,
         state = KSyncSM_Delete(entry);
         break;
 
+    case KSyncEntry::DEL_ADD_REQ:
+        state = KSyncSM_DeleteAdd(obj, entry);
+        break;
+
     case KSyncEntry::INT_PTR_REL:
         break;
 
@@ -912,11 +950,24 @@ KSyncEntry::KSyncState KSyncSM_SyncWait(KSyncObject *obj, KSyncEntry *entry,
 
     case KSyncEntry::ADD_ACK:
     case KSyncEntry::CHANGE_ACK:
-        state = KSyncEntry::IN_SYNC;
+        if (entry->del_add_pending()) {
+            // del_add_pending trigger DeleteAdd
+            entry->set_del_add_pending(false);
+            state = KSyncSM_DeleteAdd(obj, entry);
+        } else {
+            state = KSyncEntry::IN_SYNC;
+        }
         break;
 
     case KSyncEntry::DEL_REQ:
         state = KSyncEntry::DEL_DEFER_SYNC;
+        entry->set_del_add_pending(false);
+        break;
+
+    case KSyncEntry::DEL_ADD_REQ:
+        // entry is waiting for Ack, mark del_add_pending flag
+        // to trigger DeleteAdd on receiving Ack
+        entry->set_del_add_pending(true);
         break;
 
     case KSyncEntry::INT_PTR_REL:
@@ -944,12 +995,25 @@ KSyncEntry::KSyncState KSyncSM_NeedSync(KSyncObject *obj, KSyncEntry *entry,
     // Wait for ACK to arrive in DEL_DEFER_SYNC state
     case KSyncEntry::DEL_REQ:
         state = KSyncEntry::DEL_DEFER_SYNC;
+        entry->set_del_add_pending(false);
+        break;
+
+    case KSyncEntry::DEL_ADD_REQ:
+        // entry is waiting for Ack, mark del_add_pending flag
+        // to trigger DeleteAdd on receiving Ack
+        entry->set_del_add_pending(true);
         break;
 
     // Try to resend on getting ACK of pending operation
     case KSyncEntry::ADD_ACK:
     case KSyncEntry::CHANGE_ACK:
-        state = KSyncSM_Change(obj, entry);
+        if (entry->del_add_pending()) {
+            // del_add_pending trigger DeleteAdd
+            entry->set_del_add_pending(false);
+            state = KSyncSM_DeleteAdd(obj, entry);
+        } else {
+            state = KSyncSM_Change(obj, entry);
+        }
         break;
 
     case KSyncEntry::INT_PTR_REL:
@@ -974,6 +1038,13 @@ KSyncEntry::KSyncState KSyncSM_DelPending_Sync(KSyncObject *obj,
     assert(entry->GetRefCount());
     switch (event) {
     case KSyncEntry::ADD_CHANGE_REQ:
+        state = KSyncEntry::NEED_SYNC;
+        break;
+
+    case KSyncEntry::DEL_ADD_REQ:
+        // entry is waiting for Ack, mark del_add_pending flag
+        // to trigger DeleteAdd on receiving Ack
+        entry->set_del_add_pending(true);
         state = KSyncEntry::NEED_SYNC;
         break;
 
@@ -1017,6 +1088,11 @@ KSyncEntry::KSyncState KSyncSM_DelPending_Ref(KSyncObject *obj,
         assert(entry->GetRefCount()== 1);
         state = KSyncSM_Delete(entry);
         break;
+
+    case KSyncEntry::DEL_ADD_REQ:
+        state = KSyncSM_DeleteAdd(obj, entry);
+        break;
+
     default:
         assert(0);
         break;
@@ -1039,10 +1115,23 @@ KSyncEntry::KSyncState KSyncSM_DelPending_DelAck(KSyncObject *obj,
     switch (event) {
     case KSyncEntry::ADD_CHANGE_REQ:
         state = KSyncEntry::RENEW_WAIT;
+        entry->set_del_add_pending(false);
         break;
 
     case KSyncEntry::DEL_ACK:
-        state = KSyncSM_Delete(entry);
+        if (entry->del_add_pending()) {
+            // del_add_pending trigger DeleteAdd
+            entry->set_del_add_pending(false);
+            state = KSyncSM_DeleteAdd(obj, entry);
+        } else {
+            state = KSyncSM_Delete(entry);
+        }
+        break;
+
+    case KSyncEntry::DEL_ADD_REQ:
+        // entry is waiting for Ack, mark del_add_pending flag
+        // to trigger DeleteAdd on receiving Ack
+        entry->set_del_add_pending(true);
         break;
 
     case KSyncEntry::INT_PTR_REL:
@@ -1066,14 +1155,27 @@ KSyncEntry::KSyncState KSyncSM_DelAckWait(KSyncObject *obj, KSyncEntry *entry,
     switch (event) {
     case KSyncEntry::ADD_CHANGE_REQ:
         state = KSyncEntry::RENEW_WAIT;
+        entry->set_del_add_pending(false);
         break;
 
     case KSyncEntry::DEL_ACK:
-        if (entry->GetRefCount() > 1) {
-            state = KSyncEntry::TEMP;
+        if (entry->del_add_pending()) {
+            // del_add_pending trigger DeleteAdd
+            entry->set_del_add_pending(false);
+            state = KSyncSM_DeleteAdd(obj, entry);
         } else {
-            state = KSyncEntry::FREE_WAIT;
+            if (entry->GetRefCount() > 1) {
+                state = KSyncEntry::TEMP;
+            } else {
+                state = KSyncEntry::FREE_WAIT;
+            }
         }
+        break;
+
+    case KSyncEntry::DEL_ADD_REQ:
+        // entry is waiting for Ack, mark del_add_pending flag
+        // to trigger DeleteAdd on receiving Ack
+        entry->set_del_add_pending(true);
         break;
 
     case KSyncEntry::INT_PTR_REL:
@@ -1095,9 +1197,11 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
     assert(entry->GetRefCount());
     switch (event) {
     case KSyncEntry::ADD_CHANGE_REQ:
+        entry->set_del_add_pending(false);
         break;
 
     case KSyncEntry::DEL_REQ:
+        entry->set_del_add_pending(false);
         if (entry->AllowDeleteStateComp()) {
             state = KSyncEntry::DEL_ACK_WAIT;
         } else {
@@ -1105,8 +1209,20 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
         }
         break;
 
+    case KSyncEntry::DEL_ADD_REQ:
+        // entry is waiting for Ack, mark del_add_pending flag
+        // to trigger DeleteAdd on receiving Ack
+        entry->set_del_add_pending(true);
+        break;
+
     case KSyncEntry::DEL_ACK:
-        state = KSyncSM_Add(obj, entry);
+        if (entry->del_add_pending()) {
+            // del_add_pending trigger DeleteAdd
+            entry->set_del_add_pending(false);
+            state = KSyncSM_DeleteAdd(obj, entry);
+        } else {
+            state = KSyncSM_Add(obj, entry);
+        }
         break;
 
     case KSyncEntry::INT_PTR_REL:
