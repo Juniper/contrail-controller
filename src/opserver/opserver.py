@@ -32,6 +32,7 @@ import errno
 import copy
 import datetime
 import pycassa
+import platform
 from analytics_db import AnalyticsDb
 
 from pycassa.pool import ConnectionPool
@@ -484,22 +485,33 @@ class OpServer(object):
         self._state_server = OpStateServer(self._logger, self._args.redis_password)
 
         body = gevent.queue.Queue()
-        self._uvedbstream = UveStreamer(self._logger, None, None, self.get_agp,
-            self._args.partitions, self._args.redis_password)
-        
-        # TODO: For now, use DBCache during systemless test only
-        usecache = True
-        if self._args.disc_server_ip:
-            usecache = False
+
+        self._uvedbstream = UveStreamer(self._logger, None, None,
+                self.get_agp, self._args.redis_password)
+
+        # On olders version of linux, kafka cannot be
+        # relied upon. DO NOT use it to serve UVEs
+        self._usecache = True
+        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+        if PLATFORM.lower() == 'ubuntu':
+            if VERSION.find('12.') == 0:
+                self._usecache = False
+        if PLATFORM.lower() == 'centos':
+            if VERSION.find('6.') == 0:
+                self._usecache = False
+        if self._args.partitions == 0:
+            self._usecache = False
+
+        if not self._usecache:
+            self._logger.error("NOT using UVE Cache")
         else:
-            if self._args.partitions == 0:
-                usecache = False
+            self._logger.error("Initializing UVE Cache")
 
         self._uve_server = UVEServer(('127.0.0.1',
                                   self._args.redis_server_port),
                                  self._logger,
                                  self._args.redis_password,
-                                 self._uvedbstream, usecache)
+                                 self._uvedbstream, self._usecache)
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
@@ -513,9 +525,13 @@ class OpServer(object):
 
         self.disc = None
         self.agp = {}
-        # TODO: Fix kafka provisioning before setting connection state down
-        ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
-            name = 'UVE-Aggregation', status = ConnectionStatus.UP)
+        if self._usecache:
+            ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
+                name = 'UVE-Aggregation', status = ConnectionStatus.INIT)
+        else:
+            ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
+                name = 'UVE-Aggregation', status = ConnectionStatus.UP)
+
         if self._args.disc_server_ip:
             self.disc_publish()
         else:
@@ -922,7 +938,7 @@ class OpServer(object):
 
         body = gevent.queue.Queue()
         ph = UveStreamer(self._logger, body, rfile, self.get_agp,
-            self._args.partitions, self._args.redis_password,
+            self._args.redis_password,
             filters['tablefilt'], filters['cfilt'])
         ph.set_cleanup_callback(self.cleanup_uve_streamer)
         self.gevs.append(ph)
@@ -2177,6 +2193,8 @@ class OpServer(object):
     def disc_agp(self, clist):
         new_agp = {}
         for elem in clist:
+            if int(elem['acq-time']) == 0:
+                continue
             pi = PartInfo(instance_id = elem['instance-id'],
                           ip_address = elem['ip-address'],
                           acq_time = int(elem['acq-time']),
@@ -2192,8 +2210,7 @@ class OpServer(object):
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP,
                 message = 'Partitions:%d' % len(new_agp))
-        # TODO: Fix kafka provisioning before setting connection state down
-        if len(new_agp) != self._args.partitions:
+        if self._usecache and len(new_agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP,
                 message = 'Partitions:%d' % len(new_agp))
