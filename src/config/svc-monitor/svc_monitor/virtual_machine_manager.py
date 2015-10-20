@@ -38,6 +38,7 @@ class VirtualMachineManager(InstanceManager):
 
         image = self._nc.oper('images', 'find', proj_name, name=si.image)
         if not image:
+            self.logger.log_error("Image not found %s" % si.image)
             return None
 
         instance_name = self._get_instance_name(si, instance_index)
@@ -57,6 +58,7 @@ class VirtualMachineManager(InstanceManager):
             flavor=flavor, nics=nics_with_port,
             availability_zone=si.availability_zone)
         if not nova_vm:
+            self.logger.log_error("Nova vm create failed %s" % instance_name)
             return None
 
         nova_vm.get()
@@ -148,7 +150,7 @@ class VirtualMachineManager(InstanceManager):
         vmi_list = []
         for vmi_id in vm.virtual_machine_interfaces:
             vmi_list.append(vmi_id)
-        self.cleanup_svc_vm_ports(vmi_list, port_delete=False)
+        self.cleanup_svc_vm_ports(vmi_list)
 
         # nova vm delete
         proj_name = vm.proj_fq_name[-1]
