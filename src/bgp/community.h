@@ -166,6 +166,7 @@ public:
     void RemoveSiteOfOrigin();
     void RemoveOriginVn();
     void RemoveTunnelEncapsulation();
+    void RemoveLoadBalance();
 
     // Return vector of communities
     const ExtCommunityList &communities() const {
@@ -333,6 +334,8 @@ public:
     ExtCommunityPtr ReplaceTunnelEncapsulationAndLocate(
             const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &tunnel_encaps);
+    ExtCommunityPtr ReplaceLoadBalanceAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &lb);
 
 private:
 };
