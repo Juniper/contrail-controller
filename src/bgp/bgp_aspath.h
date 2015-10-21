@@ -118,6 +118,7 @@ public:
         return 0;
     }
     const AsPathSpec &path() const { return path_; }
+    bool empty() const { return path_.path_segments.empty(); }
 
     friend std::size_t hash_value(AsPath const &as_path) {
         size_t hash = 0;
