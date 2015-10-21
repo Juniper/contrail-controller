@@ -8,7 +8,7 @@ FlowExportInfo::FlowExportInfo() :
     flow_handle_(FlowEntry::kInvalidFlowHandle), action_info_(),
     vm_cfg_name_(), peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
     underlay_source_port_(0), underlay_sport_exported_(false), exported_(false),
-    fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
+    fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), tcp_flags_(0) {
     drop_reason_ = FlowEntry::FlowDropReasonStr.at(FlowEntry::DROP_UNKNOWN);
     rev_flow_key_.Reset();
     interface_uuid_ = boost::uuids::nil_uuid();
@@ -23,7 +23,7 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
     vm_cfg_name_(fe->data().vm_cfg_name), peer_vrouter_(fe->peer_vrouter()),
     tunnel_type_(fe->tunnel_type()), underlay_source_port_(0),
     underlay_sport_exported_(false), exported_(false), fip_(fe->fip()),
-    fip_vmi_(fe->fip_vmi()) {
+    fip_vmi_(fe->fip_vmi()), tcp_flags_(0) {
     flow_uuid_ = FlowTable::rand_gen_();
     egress_uuid_ = FlowTable::rand_gen_();
     FlowEntry *rflow = fe->reverse_flow_entry();
@@ -46,5 +46,9 @@ bool FlowExportInfo::IsActionLog() const {
         return true;
     }
     return false;
+}
+
+void FlowExportInfo::SetActionLog() {
+    action_info_.action = action_info_.action | (1 << TrafficAction::LOG);
 }
 

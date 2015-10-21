@@ -97,10 +97,12 @@ public:
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsRecordsReq;
     friend class FetchFlowStatsRecord;
+protected:
+    virtual void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
+
 private:
     void FlowDeleteEnqueue(const FlowKey &key, bool rev);
     void EnqueueFlowMsg();
-    void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
     void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
