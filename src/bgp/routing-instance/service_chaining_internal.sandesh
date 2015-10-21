@@ -1,0 +1,4 @@
+
+request sandesh ShowServiceChainReqIterate {
+    1: string iterate_info;
+}

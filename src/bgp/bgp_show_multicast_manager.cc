@@ -83,8 +83,6 @@ bool BgpShowHandler<ShowMulticastManagerReq, ShowMulticastManagerReqIterate,
     bool done = data->show_list.size() >= page_limit;
     SaveContextToData(it->second->name(), done, data);
     return done;
-
-    return done;
 }
 
 //
