@@ -214,8 +214,12 @@ class SchemaTransformerDB(VncCassandraClient):
             return None, None
 
     def add_service_chain_ip(self, sc_name, ip, ipv6):
-        self._sc_ip_cf.insert(sc_name, {'ip_address': ip,
-                                        'ipv6_address': ipv6})
+        val = {}
+        if ip:
+            val['address'] = ip
+        if ipv6:
+            val['ipv6_address'] = ipv6
+        self._sc_ip_cf.insert(sc_name, val)
 
     def remove_service_chain_ip(self, sc_name):
         try:
