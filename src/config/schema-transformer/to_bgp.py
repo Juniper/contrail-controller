@@ -1596,7 +1596,9 @@ class ServiceChain(DictST):
 
     def create(self):
         if self.created:
-            self.created_stale = False
+            if self.created_stale:
+                self.uve_send()
+                self.created_stale = False
             # already created
             return
 
@@ -1717,7 +1719,11 @@ class ServiceChain(DictST):
         self.created = True
         self._service_chain_uuid_cf.insert(self.name,
                                            {'value': jsonpickle.encode(self)})
+        self.uve_send()
+        return self.name
+    # end create
 
+    def uve_send(self):
         uve = UveServiceChainData(name=self.name)
         uve.source_virtual_network = self.left_vn
         uve.destination_virtual_network = self.right_vn
@@ -1732,9 +1738,7 @@ class ServiceChain(DictST):
         uve.services = copy.deepcopy(self.service_list)
         uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
         uve_msg.send(sandesh=_sandesh)
-
-        return self.name
-    # end process_service_chain
+    # end uve_send
 
     def add_pbf_rule(self, vmi_id, ri1, ri2, ip_address, vlan):
         if_obj = _vnc_lib.virtual_machine_interface_read(id=vmi_id)
