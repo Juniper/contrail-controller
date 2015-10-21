@@ -156,7 +156,7 @@ class TestUveStreamer(unittest.TestCase, TestChecker):
     
     def setUp(self):
         self.mock_agp = Mock_agp()
-        self.ustr = UveStreamer(logging, None, None, self.mock_agp, 2, None,\
+        self.ustr = UveStreamer(logging, None, None, self.mock_agp, None,\
                 None, None, Mock_usp)
         self.ustr.start()
         self.mock_agp[0] = PartInfo(ip_address = "127.0.0.1", 
