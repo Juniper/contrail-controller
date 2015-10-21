@@ -97,16 +97,16 @@ void Options::Initialize(EventManager &evm,
          "Listener port of Google Protocol Buffer collector server")
 
         ("DEFAULT.analytics_data_ttl",
-             opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
+             opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second),
              "global TTL(hours) for analytics data")
         ("DEFAULT.analytics_config_audit_ttl",
-             opt::value<int>()->default_value(g_viz_constants.AnalyticsConfigAuditTTL),
+             opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second),
              "global TTL(hours) for analytics config audit data")
         ("DEFAULT.analytics_statistics_ttl",
-             opt::value<int>()->default_value(g_viz_constants.AnalyticsStatisticsTTL),
+             opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second),
              "global TTL(hours) for analytics stats data")
         ("DEFAULT.analytics_flow_ttl",
-             opt::value<int>()->default_value(g_viz_constants.AnalyticsFlowTTL),
+             opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second),
              "global TTL(hours) for analytics flow data")
         ("DEFAULT.cassandra_server_list",
            opt::value<vector<string> >()->default_value(
@@ -282,23 +282,27 @@ void Options::Process(int argc, char *argv[],
     } else {
         collector_protobuf_port_configured_ = false;
     }
-    GetOptValue<int>(var_map, analytics_data_ttl_,
+
+    GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");
-    GetOptValue<int>(var_map, analytics_config_audit_ttl_,
+    if (analytics_data_ttl_ == (uint64_t)-1) {
+        analytics_data_ttl_ = g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second;
+    }   
+    GetOptValue<uint64_t>(var_map, analytics_config_audit_ttl_,
                      "DEFAULT.analytics_config_audit_ttl");
-    if (analytics_config_audit_ttl_ == -1) {
-        analytics_config_audit_ttl_ = analytics_data_ttl_;
-    }
-    GetOptValue<int>(var_map, analytics_statistics_ttl_,
+    if (analytics_config_audit_ttl_ == (uint64_t)-1) {
+        analytics_config_audit_ttl_ = g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second;
+    }   
+    GetOptValue<uint64_t>(var_map, analytics_statistics_ttl_,
                      "DEFAULT.analytics_statistics_ttl");
-    if (analytics_statistics_ttl_ == -1) {
-        analytics_statistics_ttl_ = analytics_data_ttl_;
-    }
-    GetOptValue<int>(var_map, analytics_flow_ttl_,
+    if (analytics_statistics_ttl_ == (uint64_t)-1) {
+        analytics_statistics_ttl_ = g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second;
+    }   
+    GetOptValue<uint64_t>(var_map, analytics_flow_ttl_,
                      "DEFAULT.analytics_flow_ttl");
-    if (analytics_flow_ttl_ == -1) {
-        analytics_flow_ttl_ = analytics_statistics_ttl_;
-    }
+    if (analytics_flow_ttl_ == (uint64_t)-1) {
+        analytics_flow_ttl_ = g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second;
+    }   
 
     GetOptValue< vector<string> >(var_map, cassandra_server_list_,
                                   "DEFAULT.cassandra_server_list");

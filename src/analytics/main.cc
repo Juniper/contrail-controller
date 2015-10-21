@@ -314,14 +314,14 @@ int main(int argc, char *argv[])
             options.analytics_statistics_ttl());
     LOG(INFO, "COLLECTOR analytics_config_audit_ttl: " <<
             options.analytics_config_audit_ttl());
-    DbHandler::TtlMap ttl_map;
-    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::FLOWDATA_TTL,
+    TtlMap ttl_map;
+    ttl_map.insert(std::make_pair(TtlType::FLOWDATA_TTL,
                 options.analytics_flow_ttl()));
-    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::STATSDATA_TTL,
+    ttl_map.insert(std::make_pair(TtlType::STATSDATA_TTL,
                 options.analytics_statistics_ttl()));
-    ttl_map.insert(std::pair<DbHandler::TtlType, int>
-            (DbHandler::CONFIGAUDIT_TTL, options.analytics_config_audit_ttl()));
-    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::GLOBAL_TTL,
+    ttl_map.insert(std::make_pair(TtlType::CONFIGAUDIT_TTL,
+                options.analytics_config_audit_ttl()));
+    ttl_map.insert(std::make_pair(TtlType::GLOBAL_TTL,
                 options.analytics_data_ttl()));
 
     VizCollector analytics(a_evm,
