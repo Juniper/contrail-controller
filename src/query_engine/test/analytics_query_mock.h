@@ -12,7 +12,7 @@ public:
     AnalyticsQueryMock() : 
         AnalyticsQuery(std::string(""), new CdbIfMock(),
                        std::map<std::string, std::string>(),
-                       uint64_t(0), int(0), int(0)) {
+                       TtlMap(), int(0), int(0)) {
     }
     
     ~AnalyticsQueryMock() {

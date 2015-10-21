@@ -539,25 +539,25 @@ class GenDbTest : public ::testing::Test {
 
 TEST_F(GenDbTest, NewColSizeSql) {
     // SQL - string
-    GenDb::NewCol tstring_col(tstring_, tstring_);
+    GenDb::NewCol tstring_col(tstring_, tstring_, 0);
     EXPECT_EQ(tstring_.length() + tstring_.length(), tstring_col.GetSize());
     // SQL - uint64_t
-    GenDb::NewCol tu64_col(tstring_, tu64_);
+    GenDb::NewCol tu64_col(tstring_, tu64_, 0);
     EXPECT_EQ(tstring_.length() + sizeof(tu64_), tu64_col.GetSize());
     // SQL - uint32_t
-    GenDb::NewCol tu32_col(tstring_, tu32_);
+    GenDb::NewCol tu32_col(tstring_, tu32_, 0);
     EXPECT_EQ(tstring_.length() + sizeof(tu32_), tu32_col.GetSize());
     // SQL - boost::uuids::uuid
-    GenDb::NewCol tuuid_col(tstring_, tuuid_);
+    GenDb::NewCol tuuid_col(tstring_, tuuid_, 0);
     EXPECT_EQ(tstring_.length() + tuuid_.size(), tuuid_col.GetSize());
     // SQL - uint8_t
-    GenDb::NewCol tu8_col(tstring_, tu8_);
+    GenDb::NewCol tu8_col(tstring_, tu8_, 0);
     EXPECT_EQ(tstring_.length() + sizeof(tu8_), tu8_col.GetSize());
     // SQL - uint16_t
-    GenDb::NewCol tu16_col(tstring_, tu16_);
+    GenDb::NewCol tu16_col(tstring_, tu16_, 0);
     EXPECT_EQ(tstring_.length() + sizeof(tu16_), tu16_col.GetSize());
     // SQL - double
-    GenDb::NewCol tdouble_col(tstring_, tdouble_);
+    GenDb::NewCol tdouble_col(tstring_, tdouble_, 0);
     EXPECT_EQ(tstring_.length() + sizeof(tdouble_), tdouble_col.GetSize());
 }
 
@@ -584,7 +584,7 @@ static GenDb::NewCol* CreateNewColNoSql(size_t *csize) {
     PopulateDbDataValueVec(name, csize);
     GenDb::DbDataValueVec *value(new GenDb::DbDataValueVec);
     PopulateDbDataValueVec(value, csize);
-    GenDb::NewCol *nosql_col(new GenDb::NewCol(name, value));
+    GenDb::NewCol *nosql_col(new GenDb::NewCol(name, value, 0));
     return nosql_col;
 }
 
@@ -600,7 +600,7 @@ TEST_F(GenDbTest, ColListSize) {
     size_t expected_size(0);
     PopulateDbDataValueVec(&colList.rowkey_, &expected_size);
     // SQL - string
-    GenDb::NewCol *tstring_col(new GenDb::NewCol(tstring_, tstring_));
+    GenDb::NewCol *tstring_col(new GenDb::NewCol(tstring_, tstring_, 0));
     expected_size += 2 * tstring_.length();
     colList.columns_.push_back(tstring_col);
     // No SQL

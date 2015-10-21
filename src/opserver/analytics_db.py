@@ -77,6 +77,39 @@ class AnalyticsDb(object):
         return None
     # end _get_sysm
 
+    def _get_analytics_ttls(self):
+        ret_row = {}
+        try:
+            col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
+            row = col_family.get(SYSTEM_OBJECT_ANALYTICS)
+        except Exception as e:
+            self._logger.error("Exception: analytics_start_time Failure %s" % e)
+            ret_row[SYSTEM_OBJECT_FLOW_DATA_TTL] = AnalyticsFlowTTL
+            ret_row[SYSTEM_OBJECT_STATS_DATA_TTL] = AnalyticsStatisticsTTL
+            ret_row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL] = AnalyticsConfigAuditTTL
+            ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = AnalyticsTTL
+            return ret_row
+
+        if (SYSTEM_OBJECT_FLOW_DATA_TTL not in row):
+            ret_row[SYSTEM_OBJECT_FLOW_DATA_TTL] = AnalyticsFlowTTL
+        else:
+            ret_row[SYSTEM_OBJECT_FLOW_DATA_TTL] = row[SYSTEM_OBJECT_FLOW_DATA_TTL]
+        if (SYSTEM_OBJECT_STATS_DATA_TTL not in row):
+            ret_row[SYSTEM_OBJECT_STATS_DATA_TTL] = AnalyticsStatisticsTTL
+        else:
+            ret_row[SYSTEM_OBJECT_STATS_DATA_TTL] = row[SYSTEM_OBJECT_STATS_DATA_TTL]
+        if (SYSTEM_OBJECT_CONFIG_AUDIT_TTL not in row):
+            ret_row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL] = AnalyticsConfigAuditTTL
+        else:
+            ret_row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL] = row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL]
+        if (SYSTEM_OBJECT_GLOBAL_DATA_TTL not in row):
+            ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = AnalyticsTTL
+        else:
+            ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = row[SYSTEM_OBJECT_GLOBAL_DATA_TTL]
+
+        return ret_row
+    # end _get_analytics_ttls
+
     def _get_analytics_start_time(self):
         try:
             col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
@@ -88,14 +121,22 @@ class AnalyticsDb(object):
         # Initialize the dictionary before returning
         if (SYSTEM_OBJECT_START_TIME not in row):
             return None
+        ret_row = {}
+        ret_row[SYSTEM_OBJECT_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
         if (SYSTEM_OBJECT_FLOW_START_TIME not in row):
-            row[SYSTEM_OBJECT_FLOW_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+            ret_row[SYSTEM_OBJECT_FLOW_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+        else:
+            ret_row[SYSTEM_OBJECT_FLOW_START_TIME] = row[SYSTEM_OBJECT_FLOW_START_TIME]
         if (SYSTEM_OBJECT_STAT_START_TIME not in row):
-            row[SYSTEM_OBJECT_STAT_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+            ret_row[SYSTEM_OBJECT_STAT_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+        else:
+            ret_row[SYSTEM_OBJECT_STAT_START_TIME] = row[SYSTEM_OBJECT_STAT_START_TIME]
         if (SYSTEM_OBJECT_MSG_START_TIME not in row):
-            row[SYSTEM_OBJECT_MSG_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+            ret_row[SYSTEM_OBJECT_MSG_START_TIME] = row[SYSTEM_OBJECT_START_TIME]
+        else:
+            ret_row[SYSTEM_OBJECT_MSG_START_TIME] = row[SYSTEM_OBJECT_MSG_START_TIME]
 
-        return row
+        return ret_row
     # end _get_analytics_start_time
 
     def _update_analytics_start_time(self, start_times):
