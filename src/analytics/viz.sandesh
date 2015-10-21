@@ -209,6 +209,7 @@ enum FlowRecordFields {
    FLOWREC_UNDERLAY_PROTO,
    FLOWREC_UNDERLAY_SPORT,
    FLOWREC_VMI_UUID,
+   FLOWREC_DROP_REASON,
    FLOWREC_MAX,
 }
 
@@ -251,6 +252,7 @@ const list<string> FlowRecordNames = [
     "underlay_proto",
     "underlay_source_port",
     "vmi_uuid",
+    "drop_reason",
     "invalid",
 ]
 
@@ -1375,6 +1377,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
                { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
                { 'name' : 'vmi_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'drop_reason', 'datatype' : 'string', 'index' : false },
                ]
          },
          'columnvalues' : [ ],
