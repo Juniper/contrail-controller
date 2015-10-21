@@ -26,5 +26,6 @@ librouting_instance = env.Library('routing_instance', SandeshGenSrcs +
                                          'rtarget_group.cc',
                                          'rtarget_group_mgr.cc',
                                          'service_chaining.cc',
+                                         'service_chaining_show.cc',
                                          'static_route.cc'])
 

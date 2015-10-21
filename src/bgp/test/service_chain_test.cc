@@ -1059,24 +1059,6 @@ protected:
         }
     }
 
-    static void ValidateIpv6ShowServiceChainResponse(Sandesh *sandesh,
-                                                     ServiceChainTest *self,
-                                                     vector<string> &result) {
-        ShowIpv6ServiceChainResp *resp =
-            dynamic_cast<ShowIpv6ServiceChainResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((ShowIpv6ServiceChainResp *)NULL, resp);
-        self->validate_done_ = true;
-
-        TASK_UTIL_EXPECT_EQ(result.size(),
-                            resp->get_service_chain_list().size());
-        int i = 0;
-        BOOST_FOREACH(const ShowServicechainInfo &info,
-                      resp->get_service_chain_list()) {
-            TASK_UTIL_EXPECT_EQ(info.get_src_rt_instance(), result[i]);
-            i++;
-        }
-    }
-
     static void ValidateShowPendingServiceChainResponse(Sandesh *sandesh,
                                                  ServiceChainTest *self,
                                                  vector<string> &result) {
@@ -1110,27 +1092,14 @@ protected:
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
         self->validate_done_ = false;
-        if (family_ == Address::INET) {
-            Sandesh::set_response_callback(
-                    boost::bind(ValidateShowServiceChainResponse, _1, this,
-                                result));
-            ShowServiceChainReq *req = new ShowServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
-            req->HandleRequest();
-            req->Release();
-        } else if (family_ == Address::INET6) {
-            Sandesh::set_response_callback(
-                    boost::bind(ValidateIpv6ShowServiceChainResponse, _1, this,
-                                result));
-            ShowIpv6ServiceChainReq *req = new ShowIpv6ServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
-            req->HandleRequest();
-            req->Release();
-        } else {
-            assert(false);
-        }
+
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowServiceChainResponse, _1, this, result));
+        ShowServiceChainReq *req = new ShowServiceChainReq;
+        if (filter)
+            req->set_search_string(search_string);
+        req->HandleRequest();
+        req->Release();
         TASK_UTIL_EXPECT_TRUE(self->validate_done_);
         task_util::WaitForIdle();
     }
@@ -1148,8 +1117,6 @@ protected:
                 boost::bind(ValidateShowPendingServiceChainResponse, _1, this,
                             pending));
             ShowPendingServiceChainReq *req = new ShowPendingServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
             req->HandleRequest();
             req->Release();
         } else if (family_ == Address::INET6) {
@@ -1158,8 +1125,6 @@ protected:
                             this, pending));
             ShowPendingIpv6ServiceChainReq *req =
                 new ShowPendingIpv6ServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
             req->HandleRequest();
             req->Release();
         } else {
