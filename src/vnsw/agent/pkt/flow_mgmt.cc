@@ -13,7 +13,6 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent, FlowTable *flow_table) :
     agent_(agent),
     flow_table_(flow_table),
     acl_flow_mgmt_tree_(this),
-    ace_id_flow_mgmt_tree_(this),
     interface_flow_mgmt_tree_(this),
     vn_flow_mgmt_tree_(this),
     ip4_route_flow_mgmt_tree_(this),
@@ -47,23 +46,29 @@ void FlowMgmtManager::Shutdown() {
 /////////////////////////////////////////////////////////////////////////////
 // Introspect routines
 /////////////////////////////////////////////////////////////////////////////
-string FlowMgmtManager::GetAceSandeshDataKey(const AclDBEntry *acl,
-                                             int ace_id) {
-    string uuid_str = UuidToString(acl->GetUuid());
-    stringstream ss;
-    ss << uuid_str << ":";
-    ss << ace_id;
-    return ss.str();
-}
-
 void FlowMgmtManager::SetAceSandeshData(const AclDBEntry *acl,
                                         AclFlowCountResp &data,
                                         int ace_id) {
+    AclFlowMgmtKey key(acl, NULL);
+    AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>
+        (acl_flow_mgmt_tree_.Find(&key));
+    if (entry == NULL) {
+        return;
+    }
+    entry->FillAceFlowSandeshInfo(acl, data, ace_id);
+
 }
 
 void FlowMgmtManager::SetAclFlowSandeshData(const AclDBEntry *acl,
                                             AclFlowResp &data,
                                             const int last_count) {
+    AclFlowMgmtKey key(acl, NULL);
+    AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>
+        (acl_flow_mgmt_tree_.Find(&key));
+    if (entry == NULL) {
+        return;
+    }
+    entry->FillAclFlowSandeshInfo(acl, data, last_count, agent_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -156,7 +161,7 @@ bool FlowMgmtManager::DBEntryRequestHandler(FlowMgmtRequest *req,
 
     const AclDBEntry *acl = dynamic_cast<const AclDBEntry *>(entry);
     if (acl) {
-        AclFlowMgmtKey key(acl);
+        AclFlowMgmtKey key(acl, NULL);
         return ProcessEvent(req, &key, &acl_flow_mgmt_tree_);
     }
 
@@ -292,7 +297,7 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
         FlowMgmtKey *new_key = *new_it;
         FlowMgmtKey *old_key = *old_it;
         if (new_key->IsLess(old_key)) {
-            AddFlowMgmtKey(flow.get(), old_info, new_key);
+            AddFlowMgmtKey(flow.get(), old_info, new_key, NULL);
             new_it++;
         } else if (old_key->IsLess(new_key)) {
             DeleteFlowMgmtKey(flow.get(), old_info, old_key);
@@ -301,7 +306,7 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
             old_tree->erase(tmp);
             delete key;
         } else {
-            AddFlowMgmtKey(flow.get(), old_info, new_key);
+            AddFlowMgmtKey(flow.get(), old_info, new_key, old_key);
             old_it++;
             new_it++;
         }
@@ -309,7 +314,7 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
 
     while (new_it != new_tree.end()) {
         FlowMgmtKey *new_key = *new_it;
-        AddFlowMgmtKey(flow.get(), old_info, new_key);
+        AddFlowMgmtKey(flow.get(), old_info, new_key, NULL);
         new_it++;
     }
 
@@ -426,11 +431,18 @@ void FlowMgmtManager::DeleteFlowEntryInfo(FlowEntryPtr &flow) {
 // Add a FlowMgmtKey into FlowMgmtKeyTree for an object
 // The FlowMgmtKeyTree for object is passed as argument
 void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
-                                     FlowMgmtKey *key) {
+                                     FlowMgmtKey *key, FlowMgmtKey *old_key) {
     FlowMgmtKey *tmp = key->Clone();
     std::pair<FlowMgmtKeyTree::iterator, bool> ret = info->tree_.insert(tmp);
     if (ret.second == false) {
         delete tmp;
+        if (key->type() == FlowMgmtKey::ACL) {
+            /* Copy the ACE Id list to existing key from new Key */
+            FlowMgmtKey *existing_key = *(ret.first);
+            AclFlowMgmtKey *akey = static_cast<AclFlowMgmtKey *>(existing_key);
+            AclFlowMgmtKey *new_key = static_cast<AclFlowMgmtKey *>(key);
+            akey->set_ace_id_list(new_key->ace_id_list());
+        }
     }
 
     switch (key->type()) {
@@ -439,7 +451,7 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         break;
 
     case FlowMgmtKey::ACL:
-        acl_flow_mgmt_tree_.Add(key, flow);
+        acl_flow_mgmt_tree_.Add(key, flow, old_key);
         break;
 
     case FlowMgmtKey::VN: {
@@ -763,11 +775,124 @@ bool FlowMgmtEntry::OperEntryDelete(FlowMgmtManager *mgr,
 /////////////////////////////////////////////////////////////////////////////
 // Acl Flow Management
 /////////////////////////////////////////////////////////////////////////////
+string AclFlowMgmtEntry::GetAclFlowSandeshDataKey(const AclDBEntry *acl,
+                                                  const int last_count) const {
+    string uuid_str = UuidToString(acl->GetUuid());
+    stringstream ss;
+    ss << uuid_str << ":";
+    ss << last_count;
+    return ss.str();
+}
+
+string AclFlowMgmtEntry::GetAceSandeshDataKey(const AclDBEntry *acl,
+                                              int ace_id) {
+    string uuid_str = UuidToString(acl->GetUuid());
+    stringstream ss;
+    ss << uuid_str << ":";
+    ss << ace_id;
+    return ss.str();
+}
+
+void AclFlowMgmtEntry::FillAceFlowSandeshInfo(const AclDBEntry *acl,
+                                              AclFlowCountResp &data,
+                                              int ace_id) {
+    int count = 0;
+    bool key_set = false;
+    AceIdFlowCntMap::iterator aceid_it = aceid_cnt_map_.upper_bound(ace_id);
+    std::vector<AceIdFlowCnt> id_cnt_l;
+    while (aceid_it != aceid_cnt_map_.end()) {
+        AceIdFlowCnt id_cnt_s;
+        id_cnt_s.ace_id = aceid_it->first;
+        id_cnt_s.flow_cnt = aceid_it->second;
+        id_cnt_l.push_back(id_cnt_s);
+        count++;
+        ++aceid_it;
+        if (count == MaxResponses && aceid_it != aceid_cnt_map_.end()) {
+            data.set_iteration_key(GetAceSandeshDataKey(acl, id_cnt_s.ace_id));
+            key_set = true;
+            break;
+        }
+    }
+    data.set_aceid_cnt_list(id_cnt_l);
+
+    data.set_flow_count(Size());
+    data.set_flow_miss(flow_miss_);
+
+    if (!key_set) {
+        data.set_iteration_key(GetAceSandeshDataKey(acl, 0));
+    }
+}
+
+void AclFlowMgmtEntry::FillAclFlowSandeshInfo(const AclDBEntry *acl,
+                                              AclFlowResp &data,
+                                              const int last_count,
+                                              Agent *agent) {
+    int count = 0;
+    bool key_set = false;
+    FlowMgmtEntry::Tree::iterator fe_tree_it = tree_.begin();
+    while (fe_tree_it != tree_.end() && (count + 1) < last_count) {
+        fe_tree_it++;
+        count++;
+    }
+    data.set_flow_count(Size());
+    data.set_flow_miss(flow_miss_);
+    std::vector<FlowSandeshData> flow_entries_l;
+    while(fe_tree_it != tree_.end()) {
+        const FlowEntry *fe = *fe_tree_it;
+        FlowSandeshData fe_sandesh_data;
+        fe->SetAclFlowSandeshData(acl, fe_sandesh_data, agent);
+
+        flow_entries_l.push_back(fe_sandesh_data);
+        count++;
+        ++fe_tree_it;
+        if (count == (MaxResponses + last_count) && fe_tree_it != tree_.end()) {
+            data.set_iteration_key(GetAclFlowSandeshDataKey(acl, count));
+            key_set = true;
+            break;
+        }
+    }
+    data.set_flow_entries(flow_entries_l);
+    if (!key_set) {
+        data.set_iteration_key(GetAclFlowSandeshDataKey(acl, 0));
+    }
+}
+
+void AclFlowMgmtEntry::DecrementAceIdCountMap(const AclEntryIDList *id_list) {
+    AclEntryIDList::const_iterator id_it;
+    for (id_it = id_list->begin(); id_it != id_list->end(); ++id_it) {
+        aceid_cnt_map_[*id_it] -= 1;
+    }
+}
+
+bool AclFlowMgmtEntry::Add(const AclEntryIDList *id_list, FlowEntry *flow,
+                           const AclEntryIDList *old_id_list) {
+    if (old_id_list) {
+        DecrementAceIdCountMap(old_id_list);
+    }
+    if (id_list->size()) {
+        AclEntryIDList::const_iterator id_it;
+        for (id_it = id_list->begin(); id_it != id_list->end(); ++id_it) {
+            aceid_cnt_map_[*id_it] += 1;
+        }
+    } else {
+        flow_miss_++;
+    }
+    return FlowMgmtEntry::Add(flow);
+}
+
+bool AclFlowMgmtEntry::Delete(const AclEntryIDList *id_list, FlowEntry *flow) {
+    if (id_list->size()) {
+        DecrementAceIdCountMap(id_list);
+    }
+    return FlowMgmtEntry::Delete(flow);
+}
+
 void AclFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
                                   const MatchAclParamsList *acl_list) {
     std::list<MatchAclParams>::const_iterator it;
     for (it = acl_list->begin(); it != acl_list->end(); it++) {
-        AclFlowMgmtKey *key = new AclFlowMgmtKey(it->acl.get());
+        AclFlowMgmtKey *key = new AclFlowMgmtKey(it->acl.get(),
+                                                 &it->ace_id_list);
         AddFlowMgmtKey(tree, key);
     }
 }
@@ -788,40 +913,34 @@ FlowMgmtEntry *AclFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
     return new AclFlowMgmtEntry();
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// AclId Flow Management
-/////////////////////////////////////////////////////////////////////////////
-void AceIdFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
-                                    const AclEntryIDList *ace_id_list) {
-    AclEntryIDList::const_iterator it;
-    for (it = ace_id_list->begin(); it != ace_id_list->end(); ++it) {
-        AceIdFlowMgmtKey *key = new AceIdFlowMgmtKey(*it);
-        AddFlowMgmtKey(tree, key);
+bool AclFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
+                          FlowMgmtKey *old_key) {
+    AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>(Locate(key));
+    if (entry == NULL) {
+        return false;
     }
-}
 
-void AceIdFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
-                                    const MatchAclParamsList *acl_list) {
-    std::list<MatchAclParams>::const_iterator it;
-    for (it = acl_list->begin(); it != acl_list->end(); it++) {
-        ExtractKeys(flow, tree, &it->ace_id_list);
+    AclFlowMgmtKey *acl_key = static_cast<AclFlowMgmtKey *>(key);
+    const AclEntryIDList *old_ace_id_list = NULL;
+    if (old_key) {
+        AclFlowMgmtKey *old_acl_key = static_cast<AclFlowMgmtKey *>(old_key);
+        old_ace_id_list = old_acl_key->ace_id_list();
     }
+    return entry->Add(acl_key->ace_id_list(), flow, old_ace_id_list);
 }
 
-void AceIdFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree) {
-    ExtractKeys(flow, tree, &flow->match_p().m_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_sg_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_out_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_out_sg_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_reverse_sg_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_reverse_out_sg_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_mirror_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_out_mirror_acl_l);
-    ExtractKeys(flow, tree, &flow->match_p().m_vrf_assign_acl_l);
-}
+bool AclFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
+    Tree::iterator it = tree_.find(key);
+    if (it == tree_.end()) {
+        return false;
+    }
 
-FlowMgmtEntry *AceIdFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
-    return new AceIdFlowMgmtEntry();
+    AclFlowMgmtKey *acl_key = static_cast<AclFlowMgmtKey *>(key);
+    AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>(it->second);
+    bool ret = entry->Delete(acl_key->ace_id_list(), flow);
+
+    TryDelete(it->first, entry);
+    return ret;
 }
 
 /////////////////////////////////////////////////////////////////////////////

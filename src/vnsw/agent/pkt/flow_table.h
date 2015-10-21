@@ -118,7 +118,6 @@ struct Inet4FlowKeyCmp {
 class FlowTable {
 public:
     static const std::string kTaskName;
-    static const int MaxResponses = 100;
     static boost::uuids::random_generator rand_gen_;
 
     typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
@@ -242,9 +241,6 @@ public:
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
-    std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
-    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl,
-                                         const int last_count);
 
     void DeleteInternal(FlowEntryMap::iterator &it);
     void ResyncAFlow(FlowEntry *fe);

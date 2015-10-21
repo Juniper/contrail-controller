@@ -438,7 +438,7 @@ class FlowEntry {
     void UpdateReflexiveAction();
     void SetAclFlowSandeshData(const AclDBEntry *acl,
                                FlowSandeshData &fe_sandesh_data,
-                               FlowExportInfo *info) const;
+                               Agent *agent) const;
     uint32_t InterfaceKeyToId(Agent *agent, const VmInterfaceKey &key);
 private:
     friend class FlowTable;
