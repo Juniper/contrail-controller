@@ -43,10 +43,8 @@ private:
     friend class HaStaleL2RouteEntry;
 
     LifetimeRef<HaStaleL2RouteTable> table_delete_ref_;
-    // take reference to a dummy dev_vn entry to hold peer till
-    // route table is deleted. route object cannot hold reference
-    // to dev_vn entry creating it, as it will cause cyclic dependency
-    KSyncEntry::KSyncEntryPtr dev_vn_ref_;
+    // DevVn entry will not be deleted till we del_ack for it
+    HaStaleDevVnEntry *dev_vn_;
     ConnectionStateEntry *state_;
     Ip4Address dev_ip_;
     uint32_t vxlan_id_;

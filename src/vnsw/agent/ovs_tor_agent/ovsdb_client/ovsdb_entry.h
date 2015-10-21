@@ -66,11 +66,11 @@ public:
     // after we are done with the current transaction
     virtual void PostDelete() {}
     // Encode add message for entry
-    virtual void AddMsg(struct ovsdb_idl_txn *) = 0;
+    virtual void AddMsg(struct ovsdb_idl_txn *) {}
     // Encode change message for entry
-    virtual void ChangeMsg(struct ovsdb_idl_txn *) = 0;
+    virtual void ChangeMsg(struct ovsdb_idl_txn *) {}
     // Encode delete message for entry
-    virtual void DeleteMsg(struct ovsdb_idl_txn *) = 0;
+    virtual void DeleteMsg(struct ovsdb_idl_txn *) {}
 
     virtual void OvsdbChange() {}
 
@@ -78,9 +78,9 @@ public:
     virtual void NotifyAdd(struct ovsdb_idl_row *);
     virtual void NotifyDelete(struct ovsdb_idl_row *);
 
-    bool Add();
-    bool Change();
-    bool Delete();
+    virtual bool Add();
+    virtual bool Change();
+    virtual bool Delete();
 
     virtual bool IsDataResolved();
     bool IsDelAckWaiting();
