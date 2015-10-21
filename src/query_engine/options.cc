@@ -80,7 +80,7 @@ void Options::Initialize(EventManager &evm,
     opt::options_description config("Configuration options");
     config.add_options()
         ("DEFAULT.analytics_data_ttl",
-             opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
+             opt::value<int>()->default_value(0),
              "global TTL(hours) for analytics data")
         ("DEFAULT.collectors",
            opt::value<vector<string> >()->default_value(

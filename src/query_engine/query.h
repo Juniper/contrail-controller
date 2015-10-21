@@ -726,14 +726,14 @@ class StatsQuery;
 class AnalyticsQuery: public QueryUnit {
 public:
     AnalyticsQuery(std::string qid, std::map<std::string, 
-            std::string>& json_api_data, uint64_t analytics_start_time,
+            std::string>& json_api_data, const TtlMap& ttlmap,
             EventManager *evm, std::vector<std::string> cassandra_ips, 
             std::vector<int> cassandra_ports, int batch,
             int total_batches, const std::string& cassandra_user,
             const std::string &cassandra_password);
     AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif, 
             std::map<std::string, std::string> json_api_data,
-            uint64_t analytics_start_time, int batch, int total_batches);
+            const TtlMap& ttlmap, int batch, int total_batches);
     virtual ~AnalyticsQuery() {}
 
     virtual query_status_t process_query();
@@ -760,6 +760,7 @@ public:
 
     std::map<std::string, std::string> json_api_data_;
 
+    TtlMap ttlmap_;
     uint64_t where_start_;
     uint64_t select_start_;
     uint64_t postproc_start_;
@@ -826,12 +827,12 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     
     // validation functions
     bool is_valid_from_field(const std::string& from_field);
-    virtual bool is_object_table_query();
-    virtual bool is_stat_table_query() { return (stats_.get()!=NULL); }
+    static bool is_object_table_query(const std::string& tname);
+    static bool is_stat_table_query(const std::string& tname);
+    static bool is_flow_query(const std::string& tname); // either flow-series or flow-records query
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);
-    virtual bool is_flow_query(); // either flow-series or flow-records query
     virtual bool is_query_parallelized() { return parallelize_query_; }
 
     const StatsQuery& stats(void) const { return *stats_; }
@@ -856,8 +857,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     bool parallelize_query_;
     // Init function
     void Init(GenDb::GenDbIf *db_if, std::string qid,
-    std::map<std::string, std::string>& json_api_data, 
-    uint64_t analytics_start_time);
+    std::map<std::string, std::string>& json_api_data);
     bool can_parallelize_query();
 };
 
@@ -888,15 +888,14 @@ public:
             std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password,
-            int max_tasks, int max_slice, uint64_t anal_ttl,
+            int max_tasks, int max_slice,
             const std::string & cassandra_name,
-            const std::string & cassandra_password,
-            uint64_t start_time=0);
+            const std::string & cassandra_password);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password, int max_tasks,
-            int max_slice, uint64_t anal_ttl,
+            int max_slice,
             const std::string  & cassandra_user,
             const std::string  & cassandra_password);
     
@@ -930,6 +929,7 @@ public:
     void QueryEngine_Test();
 
     void db_err_handler() {};
+    TtlMap& GetTTlMap() { return ttlmap_; }
 private:
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;
@@ -938,6 +938,7 @@ private:
     std::vector<std::string> cassandra_ips_;
     std::string cassandra_user_;
     std::string cassandra_password_;
+    TtlMap ttlmap_;
 };
 
 #endif

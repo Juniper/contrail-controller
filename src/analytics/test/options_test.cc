@@ -79,10 +79,10 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
-    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.AnalyticsTTL);
-    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.AnalyticsConfigAuditTTL);
-    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.AnalyticsStatisticsTTL);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -123,10 +123,10 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.AnalyticsTTL);
-    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.AnalyticsConfigAuditTTL);
-    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.AnalyticsStatisticsTTL);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -171,10 +171,10 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.AnalyticsTTL);
-    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.AnalyticsConfigAuditTTL);
-    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.AnalyticsStatisticsTTL);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -217,10 +217,10 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.AnalyticsTTL);
-    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.AnalyticsConfigAuditTTL);
-    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.AnalyticsStatisticsTTL);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
@@ -318,10 +318,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.log_file_size(), 1024);
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
-    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.AnalyticsTTL);
-    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.AnalyticsConfigAuditTTL);
-    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.AnalyticsStatisticsTTL);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_data_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), 101);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
@@ -448,9 +448,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), 30);
-    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.AnalyticsConfigAuditTTL);
-    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.AnalyticsStatisticsTTL);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::CONFIGAUDIT_TTL)->second);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::STATSDATA_TTL)->second);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), 102);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
@@ -508,7 +508,7 @@ TEST_F(OptionsTest, MultiTtlOption) {
     EXPECT_EQ(options_.analytics_data_ttl(), 2);
     EXPECT_EQ(options_.analytics_config_audit_ttl(), 240);
     EXPECT_EQ(options_.analytics_statistics_ttl(), 4);
-    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.AnalyticsFlowTTL);
+    EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
 }
 
 int main(int argc, char **argv) {

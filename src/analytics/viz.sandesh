@@ -47,6 +47,10 @@ const string SYSTEM_OBJECT_START_TIME = "SystemObjectStartTime"
 const string SYSTEM_OBJECT_FLOW_START_TIME = "SystemObjectFlowStartTime"
 const string SYSTEM_OBJECT_STAT_START_TIME = "SystemObjectStatStartTime"
 const string SYSTEM_OBJECT_MSG_START_TIME = "SystemObjectMsgStartTime"
+const string SYSTEM_OBJECT_FLOW_DATA_TTL = "SystemObjectFlowDataTtl"
+const string SYSTEM_OBJECT_STATS_DATA_TTL = "SystemObjectStatsDataTtl"
+const string SYSTEM_OBJECT_CONFIG_AUDIT_TTL = "SystemObjectConfigAuditTtl"
+const string SYSTEM_OBJECT_GLOBAL_DATA_TTL = "SystemObjectGlobalDataTtl"
 
 // Master object table which contains all object tables combined
 const string OBJECT_TABLE       = "ObjectTable"
@@ -133,6 +137,22 @@ const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV3"
 const string STATS_TABLE_BY_DBL_TAG         = "StatsTableByDblTagV3"
 const string STATS_TABLE_BY_STR_TAG         = "StatsTableByStrTagV3"
 const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
+
+enum TtlType {
+    FLOWDATA_TTL,
+    STATSDATA_TTL,
+    CONFIGAUDIT_TTL,
+    GLOBAL_TTL,
+}
+
+typedef map<TtlType, u64> TtlMap
+
+const map<TtlType, u64> TtlValuesDefault = {
+    TtlType.FLOWDATA_TTL : 2,
+    TtlType.STATSDATA_TTL : 168,
+    TtlType.CONFIGAUDIT_TTL : 2160,
+    TtlType.GLOBAL_TTL : 48,
+}
 
 const list<string> _FLOW_TABLES = [
     FLOW_TABLE_SVN_SIP,
@@ -330,12 +350,6 @@ const string ANALYTICS_START        = "ANALYTICS_START_TIME"
 // each row will have equivalent of 2^23 = 8388608 usec
 const i32 RowTimeInBits             = 23
 const i32 RowTimeInMask             = 0x7fffff
-
-// analytics data ttl in the db in hours 
-const i32 AnalyticsTTL              = 48 
-const i32 AnalyticsConfigAuditTTL   = 2160
-const i32 AnalyticsStatisticsTTL    = 168
-const i32 AnalyticsFlowTTL          = 2
 
 enum PartType {
     PART_TYPE_INVALID= 0,

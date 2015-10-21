@@ -53,10 +53,10 @@ public:
     const bool use_syslog() const { return use_syslog_; }
     const std::string syslog_facility() const { return syslog_facility_; }
     const bool dup() const { return dup_; }
-    const int analytics_data_ttl() const { return analytics_data_ttl_; }
-    const int analytics_flow_ttl() const { return analytics_flow_ttl_; }
-    const int analytics_statistics_ttl() const { return analytics_statistics_ttl_; }
-    const int analytics_config_audit_ttl() const { return analytics_config_audit_ttl_; }
+    const uint64_t analytics_data_ttl() const { return analytics_data_ttl_; }
+    const uint64_t analytics_flow_ttl() const { return analytics_flow_ttl_; }
+    const uint64_t analytics_statistics_ttl() const { return analytics_statistics_ttl_; }
+    const uint64_t analytics_config_audit_ttl() const { return analytics_config_audit_ttl_; }
     const int syslog_port() const { return syslog_port_; }
     const int sflow_port() const { return sflow_port_; }
     const int ipfix_port() const { return ipfix_port_; }
@@ -119,10 +119,10 @@ private:
     int ipfix_port_;
     bool test_mode_;
     bool dup_;
-    int analytics_data_ttl_;
-    int analytics_config_audit_ttl_;
-    int analytics_flow_ttl_;
-    int analytics_statistics_ttl_;
+    uint64_t analytics_data_ttl_;
+    uint64_t analytics_config_audit_ttl_;
+    uint64_t analytics_flow_ttl_;
+    uint64_t analytics_statistics_ttl_;
     std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> kafka_broker_list_;
     uint16_t partitions_;

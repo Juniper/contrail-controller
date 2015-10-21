@@ -68,7 +68,7 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
         std::string& sname, match_op& sop, GenDb::DbDataValue& sval, GenDb::DbDataValue& sval2) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    QE_ASSERT(m_query->is_stat_table_query());
+    QE_ASSERT(m_query->is_stat_table_query(m_query->table()));
 
     std::string srvalstr, srval2str;
 
@@ -346,7 +346,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             db_query->cr.finish_.push_back((uint8_t)0xff);
             db_query->cr.finish_.push_back((uint16_t)0xffff);
 
-        } else if (m_query->is_object_table_query()) {
+        } else if (m_query->is_object_table_query(m_query->table())) {
             // These values will encompass all possible ascii strings in their range
             GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
 
@@ -486,7 +486,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 }
             }
 
-            bool isStat = m_query->is_stat_table_query();
+            bool isStat = m_query->is_stat_table_query(m_query->table());
             if ((name == g_viz_constants.SOURCE) && (!isStat))
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
@@ -939,7 +939,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             }
         }
 
-        if (m_query->is_object_table_query())
+        if (m_query->is_object_table_query(m_query->table()))
         {
             // object id table query
             if (!object_id_specified)
