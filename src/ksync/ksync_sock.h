@@ -30,6 +30,8 @@ class KSyncIoContext;
 class KSyncSockTcpSession;
 struct nl_client;
 
+typedef std::vector<boost::asio::mutable_buffers_1> KSyncBufferList;
+
 /* Base class to hold sandesh context information which is passed to 
  * Sandesh decode
  */
@@ -50,10 +52,9 @@ public:
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req) = 0;
     virtual void VxLanMsgHandler(vr_vxlan_req *req) = 0;
     virtual void VrouterOpsMsgHandler(vrouter_ops *req) = 0;
+    virtual void SetErrno(int err) {errno_ = err;}
 
-    void SetErrno(int err) {errno_ = err;}
     int GetErrno() const {return errno_;}
-
     void set_ksync_io_ctx(const KSyncIoContext *ioc) {ksync_io_ctx_ = ioc;}
     const KSyncIoContext *ksync_io_ctx() const {return ksync_io_ctx_;}
 private:
@@ -103,7 +104,7 @@ public:
     char *GetMsg() const { return msg_; }
     uint32_t GetMsgLen() const { return msg_len_; }
 
-    boost::intrusive::set_member_hook<> node_;
+    boost::intrusive::list_member_hook<> node_;
 
 protected:
     AgentSandeshContext *sandesh_context_;
@@ -135,30 +136,107 @@ private:
 };
 
 typedef boost::intrusive::member_hook<IoContext,
-        boost::intrusive::set_member_hook<>,
+        boost::intrusive::list_member_hook<>,
         &IoContext::node_> KSyncSockNode;
-typedef boost::intrusive::set<IoContext, KSyncSockNode> Tree;
+typedef boost::intrusive::list<IoContext, KSyncSockNode> IoContextList;
+
+/*
+ * SandeshContext implementation to handle IoContextList
+ *
+ * When we do bulk sandesh messaging, netlink request and response will contain
+ * more than one sandesh message. KSyncBulkSandeshContext is used to,
+ * - Build the bulk context before sending. The list of IoContext bunched is
+ *   stored in IoContextList
+ * - Maps the sanesh response to the right IoContext in the list
+ *
+ * The KSync entries are bunched from async_send_queue_ WorkQueue. The bunching
+ * is capped by,
+ * - Number of KSync entries
+ * - Size of buffer
+ * Bunching is also limited by the task spawned for the WorkQueue. When task
+ * exits, all entries pending bunching are sent to VRouter.
+ *
+ * When response is received from VRouter we assume following,
+ * - The sequence of response is same as sequence of IoContext entries
+ * - Response for each IoContext can itself be more than one Sandesh Response.
+ * - Response for each IoContext starts with VrResponseMsg followed optionally
+ *   by other response
+ *
+ * In KSyncBulkSandeshContext, we store IoContextList and iterate thru the
+ * responses seeking VrResponseMsg. For ever VrResponseMsg, we take-out one
+ * IoContext from the list
+ */
+class KSyncBulkSandeshContext : public AgentSandeshContext {
+public:
+    KSyncBulkSandeshContext();
+    KSyncBulkSandeshContext(const KSyncBulkSandeshContext &rhs);
+    virtual ~KSyncBulkSandeshContext();
+
+    void IfMsgHandler(vr_interface_req *req);
+    void NHMsgHandler(vr_nexthop_req *req);
+    void RouteMsgHandler(vr_route_req *req);
+    void MplsMsgHandler(vr_mpls_req *req);
+    int VrResponseMsgHandler(vr_response *resp);
+    void MirrorMsgHandler(vr_mirror_req *req);
+    void FlowMsgHandler(vr_flow_req *req);
+    void VrfAssignMsgHandler(vr_vrf_assign_req *req);
+    void VrfStatsMsgHandler(vr_vrf_stats_req *req);
+    void DropStatsMsgHandler(vr_drop_stats_req *req);
+    void VxLanMsgHandler(vr_vxlan_req *req);
+    void VrouterOpsMsgHandler(vrouter_ops *req);
+    void SetErrno(int err);
+
+    bool Decoder(char *buff, uint32_t buff_len, uint32_t alignment, bool more);
+    AgentSandeshContext *GetSandeshContext();
+    void IoContextStart();
+    void IoContextDone();
+    void Insert(IoContext *ioc);
+    void Data(KSyncBufferList *iovec);
+private:
+
+    // Number of VrResponseMsg seen
+    uint32_t vr_response_count_;
+    // Iterator to IoContext being processed
+    IoContextList::iterator io_context_list_it_;
+    // List of IoContext to be processed in this context
+    IoContextList io_context_list_;
+};
 
 class KSyncSock {
 public:
     const static int kMsgGrowSize = 16;
-    const static unsigned kBufLen = 4096;
+    const static unsigned kBufLen = (4*1024);
 
+    // Number of messages that can be bunched together
+    const static unsigned kMaxBulkMsgCount = 20;
+    // Max size of buffer that can be bunched together
+    const static unsigned kMaxBulkMsgSize = (3*1024);
+
+    typedef std::map<int, KSyncBulkSandeshContext> WaitTree;
+    typedef std::pair<int, KSyncBulkSandeshContext> WaitTreePair;
     typedef boost::function<void(const boost::system::error_code &, size_t)>
         HandlerCb;
+
     KSyncSock();
     virtual ~KSyncSock();
 
     // Virtual methods
-    virtual void Decoder(char *data, SandeshContext *ctxt) = 0;
+    virtual bool BulkDecoder(char *data, KSyncBulkSandeshContext *ctxt) = 0;
+    virtual bool Decoder(char *data, AgentSandeshContext *ctxt) = 0;
 
     // Write a KSyncEntry to kernel
     void SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                    KSyncEntry::KSyncEvent event);
-    std::size_t BlockingSend(const char *msg, int msg_len);
+    std::size_t BlockingSend(char *msg, int msg_len);
     void GenericSend(IoContext *ctx);
     bool BlockingRecv();
     int AllocSeqNo(bool is_uve);
+
+    // Bulk Messaging methods
+    KSyncBulkSandeshContext *LocateBulkContext(uint32_t seqno);
+    int SendBulkMessage(KSyncBulkSandeshContext *bulk_context, uint32_t seqno);
+    bool TryAddToBulk(KSyncBulkSandeshContext *bulk_context, IoContext *ioc);
+    void SendTaskExit(bool done);
 
     // Start Ksync Asio operations
     static void Start(bool read_inline);
@@ -185,14 +263,31 @@ protected:
 
     nl_client *nl_client_;
     // Tree of all KSyncEntries pending ack from Netlink socket
-    Tree wait_tree_;
+    WaitTree wait_tree_;
     WorkQueue<IoContext *> *async_send_queue_;
     tbb::mutex mutex_;
     WorkQueue<char *> *receive_work_queue[IoContext::MAX_WORK_QUEUES];
+
+    // Information maintained for bulk processing
+
+    // Max messages in one bulk context
+    uint32_t max_bulk_msg_count_;
+    // Max buffer size in one bulk context
+    uint32_t max_bulk_buf_size_;
+
+    // Sequence number of first message in bulk context. Entry in WaitTree is
+    // added based on this sequence number
+    int      bulk_seq_no_;
+    // Current buffer size in bulk context
+    uint32_t bulk_buf_size_;
+    // Current message count in bulk context
+    uint32_t bulk_msg_count_;
+
 private:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
-    virtual void AsyncSendTo(char *, uint32_t, uint32_t, HandlerCb) = 0;
-    virtual std::size_t SendTo(const char *, uint32_t, uint32_t) = 0;
+    virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                             HandlerCb cb) = 0;
+    virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no) = 0;
     virtual void Receive(boost::asio::mutable_buffers_1) = 0;
     virtual uint32_t GetSeqno(char *data) = 0;
     virtual bool IsMoreData(char *data) = 0;
@@ -212,7 +307,6 @@ private:
         tbb::mutex::scoped_lock lock(mutex_);
         return (wait_tree_.size() <= KSYNC_ACK_WAIT_THRESHOLD);
     }
-    Tree::iterator GetIoContext(char *data);
 
 private:
     char *rx_buff_;
@@ -242,13 +336,17 @@ public:
 
     virtual uint32_t GetSeqno(char *data);
     virtual bool IsMoreData(char *data);
-    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool BulkDecoder(char *data, KSyncBulkSandeshContext *ctxt);
+    virtual bool Decoder(char *data, AgentSandeshContext *ctxt);
     virtual bool Validate(char *data);
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(char *, uint32_t, uint32_t,  HandlerCb);
-    virtual std::size_t SendTo(const char*, uint32_t, uint32_t);
+    virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                             HandlerCb cb);
+    virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
+    static void NetlinkDecoder(char *data, SandeshContext *ctxt);
+    static void NetlinkBulkDecoder(char *data, SandeshContext *ctxt, bool more);
     static void Init(boost::asio::io_service &ios, int count, int protocol);
 private:
     boost::asio::netlink::raw::socket sock_;
@@ -262,11 +360,13 @@ public:
 
     virtual uint32_t GetSeqno(char *data);
     virtual bool IsMoreData(char *data);
-    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool BulkDecoder(char *data, KSyncBulkSandeshContext *ctxt);
+    virtual bool Decoder(char *data, AgentSandeshContext *ctxt);
     virtual bool Validate(char *data);
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(char *, uint32_t, uint32_t, HandlerCb);
-    virtual std::size_t SendTo(const char *, uint32_t, uint32_t);
+    virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                             HandlerCb cb);
+    virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
     static void Init(boost::asio::io_service &ios, int count, int port);
@@ -313,11 +413,13 @@ public:
 
     virtual uint32_t GetSeqno(char *data);
     virtual bool IsMoreData(char *data);
-    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool BulkDecoder(char *data, KSyncBulkSandeshContext *ctxt);
+    virtual bool Decoder(char *data, AgentSandeshContext *ctxt);
     virtual bool Validate(char *data);
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(char *, uint32_t, uint32_t, HandlerCb);
-    virtual std::size_t SendTo(const char *, uint32_t, uint32_t);
+    virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                             HandlerCb cb);
+    virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
     virtual TcpSession *AllocSession(Socket *socket);
 
