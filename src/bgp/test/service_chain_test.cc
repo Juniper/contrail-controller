@@ -413,6 +413,15 @@ protected:
         extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
         attr_spec.push_back(&extcomm_spec);
 
+        AsPathSpec path_spec;
+        AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
+        path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        path_seg->path_segment.push_back(64513);
+        path_seg->path_segment.push_back(64514);
+        path_seg->path_segment.push_back(64515);
+        path_spec.path_segments.push_back(path_seg);
+        attr_spec.push_back(&path_spec);
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
         request.data.reset(new BgpTable::RequestData(attr, flags, label));
@@ -632,6 +641,8 @@ protected:
         if (GetOriginVnFromRoute(path) != origin_vn)
             return false;
         if (label && path->GetLabel() != label)
+            return false;
+        if (attr->as_path_count())
             return false;
         if (sg_ids.size()) {
             vector<uint32_t> path_sg_ids = GetSGIDListFromRoute(path);
