@@ -3,6 +3,7 @@
  */
  
 include "bgp/bgp_peer.sandesh"
+include "bgp/routing-instance/static_route_internal.sandesh"
 
 struct StaticRouteInfo {
     1: string prefix;
@@ -19,8 +20,10 @@ struct StaticRouteEntriesInfo {
 
 response sandesh ShowStaticRouteResp {
     1: list<StaticRouteEntriesInfo> static_route_entries;
+    2: optional string next_batch (link="ShowStaticRouteReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowStaticRouteReq {
-    1: string ri_name;
+    1: string search_string;
 }
