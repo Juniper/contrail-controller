@@ -827,9 +827,8 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
-// TODO(nsheth): Return the left-most AS number in the path.
-uint32_t BgpAttr::neighbor_as() const {
-    return 0;
+as_t BgpAttr::neighbor_as() const {
+    return (as_path_.get() ? as_path_->neighbor_as() : 0);
 }
 
 uint32_t BgpAttr::sequence_number() const {

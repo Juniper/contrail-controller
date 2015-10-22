@@ -717,7 +717,7 @@ public:
     uint32_t local_pref() const { return local_pref_; }
     bool atomic_aggregate() const { return atomic_aggregate_; }
     as_t aggregator_as_num() const { return aggregator_as_num_; }
-    uint32_t neighbor_as() const;
+    as_t neighbor_as() const;
     const IpAddress &aggregator_adderess() const { return aggregator_address_; }
     const Ip4Address &originator_id() const { return originator_id_; }
     const RouteDistinguisher &source_rd() const { return source_rd_; }
