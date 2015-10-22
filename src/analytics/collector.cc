@@ -54,29 +54,17 @@ DiscoveryServiceClient *Collector::ds_client_;
 
 bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
-const int Collector::kQSizeHighWaterMarkEmerg   = 150 * 1024 * 1024;
-const int Collector::kQSizeHighWaterMarkError   = 100 * 1024 * 1024;
-const int Collector::kQSizeHighWaterMarkDebug   =  50 * 1024 * 1024;
-const int Collector::kQSizeLowWaterMarkError    = 125 * 1024 * 1024;
-const int Collector::kQSizeLowWaterMarkDebug    =  75 * 1024 * 1024;
-const int Collector::kQSizeLowWaterMarkNoDrop   =  25 * 1024 * 1024;
+const int Collector::kQSizeHighWaterMark = 7 * 1024 * 1024;
+const int Collector::kQSizeLowWaterMark  = 3 * 1024 * 1024;
 
 const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kDbQueueWaterMarkInfo =
     boost::assign::tuple_list_of
-        (Collector::kQSizeHighWaterMarkEmerg, SandeshLevel::SYS_EMERG, true, true)
-        (Collector::kQSizeHighWaterMarkError, SandeshLevel::SYS_ERR, true, false)
-        (Collector::kQSizeHighWaterMarkDebug, SandeshLevel::SYS_DEBUG, true, false)
-        (Collector::kQSizeLowWaterMarkError, SandeshLevel::SYS_ERR, false, false)
-        (Collector::kQSizeLowWaterMarkDebug, SandeshLevel::SYS_DEBUG, false, false)
-        (Collector::kQSizeLowWaterMarkNoDrop, SandeshLevel::INVALID, false, true);
+        (Collector::kQSizeHighWaterMark, SandeshLevel::INVALID, true, true)
+        (Collector::kQSizeLowWaterMark, SandeshLevel::INVALID, false, true);
 const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo =
     boost::assign::tuple_list_of
-        (Collector::kQSizeHighWaterMarkEmerg, SandeshLevel::SYS_EMERG, true, true)
-        (Collector::kQSizeHighWaterMarkError, SandeshLevel::SYS_ERR, true, false)
-        (Collector::kQSizeHighWaterMarkDebug, SandeshLevel::SYS_DEBUG, true, false)
-        (Collector::kQSizeLowWaterMarkError, SandeshLevel::SYS_ERR, false, false)
-        (Collector::kQSizeLowWaterMarkDebug, SandeshLevel::SYS_DEBUG, false, false)
-        (Collector::kQSizeLowWaterMarkNoDrop, SandeshLevel::INVALID, false, true);
+        (Collector::kQSizeHighWaterMark, SandeshLevel::INVALID, true, true)
+        (Collector::kQSizeLowWaterMark, SandeshLevel::INVALID, false, true);
 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
