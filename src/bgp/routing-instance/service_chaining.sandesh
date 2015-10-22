@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 include "bgp/bgp_peer.sandesh"
-
+include "bgp/routing-instance/service_chaining_internal.sandesh"
 
 struct ConnectedRouteInfo {
     1: string service_chain_addr;
@@ -37,32 +37,10 @@ struct ShowServicechainInfo {
 
 response sandesh ShowServiceChainResp {
     1: list<ShowServicechainInfo> service_chain_list;
+    2: optional string next_batch (link="ShowServiceChainReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowServiceChainReq {
-    1: string search_string;
-}
-
-response sandesh ShowPendingServiceChainResp {
-    1: list<string> pending_chains;
-}
-
-request sandesh ShowPendingServiceChainReq {
-    1: string search_string;
-}
-
-response sandesh ShowIpv6ServiceChainResp {
-    1: list<ShowServicechainInfo> service_chain_list;
-}
-
-request sandesh ShowIpv6ServiceChainReq {
-    1: string search_string;
-}
-
-response sandesh ShowPendingIpv6ServiceChainResp {
-    1: list<string> pending_chains;
-}
-
-request sandesh ShowPendingIpv6ServiceChainReq {
     1: string search_string;
 }

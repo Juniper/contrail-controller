@@ -1054,7 +1054,8 @@ protected:
 
     static void ValidateShowServiceChainResponse(Sandesh *sandesh,
                                                  ServiceChainTest *self,
-                                                 vector<string> &result) {
+                                                 vector<string> &result,
+                                                 const string &search_string) {
         ShowServiceChainResp *resp =
             dynamic_cast<ShowServiceChainResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowServiceChainResp *)NULL, resp);
@@ -1062,56 +1063,16 @@ protected:
 
         TASK_UTIL_EXPECT_EQ(result.size(),
                             resp->get_service_chain_list().size());
-        int i = 0;
-        BOOST_FOREACH(const ShowServicechainInfo &info,
-                      resp->get_service_chain_list()) {
-            TASK_UTIL_EXPECT_EQ(info.get_src_rt_instance(), result[i]);
-            i++;
+
+        if (search_string != "pending") {
+            int i = 0;
+            BOOST_FOREACH(const ShowServicechainInfo &info,
+                          resp->get_service_chain_list()) {
+                TASK_UTIL_EXPECT_EQ(info.get_src_rt_instance(), result[i]);
+                i++;
+            }
         }
     }
-
-    static void ValidateIpv6ShowServiceChainResponse(Sandesh *sandesh,
-                                                     ServiceChainTest *self,
-                                                     vector<string> &result) {
-        ShowIpv6ServiceChainResp *resp =
-            dynamic_cast<ShowIpv6ServiceChainResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((ShowIpv6ServiceChainResp *)NULL, resp);
-        self->validate_done_ = true;
-
-        TASK_UTIL_EXPECT_EQ(result.size(),
-                            resp->get_service_chain_list().size());
-        int i = 0;
-        BOOST_FOREACH(const ShowServicechainInfo &info,
-                      resp->get_service_chain_list()) {
-            TASK_UTIL_EXPECT_EQ(info.get_src_rt_instance(), result[i]);
-            i++;
-        }
-    }
-
-    static void ValidateShowPendingServiceChainResponse(Sandesh *sandesh,
-                                                 ServiceChainTest *self,
-                                                 vector<string> &result) {
-        ShowPendingServiceChainResp *resp =
-            dynamic_cast<ShowPendingServiceChainResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((ShowPendingServiceChainResp *)NULL, resp);
-
-        EXPECT_EQ(result, resp->get_pending_chains());
-
-        self->validate_done_ = true;
-    }
-
-    static void ValidateShowPendingIpv6ServiceChainResponse(Sandesh *sandesh,
-                                                 ServiceChainTest *self,
-                                                 vector<string> &result) {
-        ShowPendingIpv6ServiceChainResp *resp =
-            dynamic_cast<ShowPendingIpv6ServiceChainResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((ShowPendingIpv6ServiceChainResp *)NULL, resp);
-
-        EXPECT_EQ(result, resp->get_pending_chains());
-
-        self->validate_done_ = true;
-    }
-
 
     void VerifyServiceChainSandesh(ServiceChainTest *self,
                                    vector<string> result,
@@ -1121,63 +1082,22 @@ protected:
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
         self->validate_done_ = false;
-        if (family_ == Address::INET) {
-            Sandesh::set_response_callback(
-                    boost::bind(ValidateShowServiceChainResponse, _1, this,
-                                result));
-            ShowServiceChainReq *req = new ShowServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
-            req->HandleRequest();
-            req->Release();
-        } else if (family_ == Address::INET6) {
-            Sandesh::set_response_callback(
-                    boost::bind(ValidateIpv6ShowServiceChainResponse, _1, this,
-                                result));
-            ShowIpv6ServiceChainReq *req = new ShowIpv6ServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
-            req->HandleRequest();
-            req->Release();
-        } else {
-            assert(false);
-        }
+
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowServiceChainResponse, _1, this, result,
+                search_string));
+        ShowServiceChainReq *req = new ShowServiceChainReq;
+        if (filter)
+            req->set_search_string(search_string);
+        req->HandleRequest();
+        req->Release();
         TASK_UTIL_EXPECT_TRUE(self->validate_done_);
         task_util::WaitForIdle();
     }
 
     void VerifyPendingServiceChainSandesh(ServiceChainTest *self,
-             vector<string> pending, bool filter = false,
-             const string &search_string = string()) {
-        BgpSandeshContext sandesh_context;
-        sandesh_context.bgp_server = bgp_server_.get();
-        sandesh_context.xmpp_peer_manager = NULL;
-        Sandesh::set_client_context(&sandesh_context);
-        self->validate_done_ = false;
-        if (family_ == Address::INET) {
-            Sandesh::set_response_callback(
-                boost::bind(ValidateShowPendingServiceChainResponse, _1, this,
-                            pending));
-            ShowPendingServiceChainReq *req = new ShowPendingServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
-            req->HandleRequest();
-            req->Release();
-        } else if (family_ == Address::INET6) {
-            Sandesh::set_response_callback(
-                boost::bind(ValidateShowPendingIpv6ServiceChainResponse, _1,
-                            this, pending));
-            ShowPendingIpv6ServiceChainReq *req =
-                new ShowPendingIpv6ServiceChainReq;
-            if (filter)
-                req->set_search_string(search_string);
-            req->HandleRequest();
-            req->Release();
-        } else {
-            assert(false);
-        }
-        TASK_UTIL_EXPECT_TRUE(self->validate_done_);
-        task_util::WaitForIdle();
+             vector<string> pending) {
+        VerifyServiceChainSandesh(self, pending, true, "pending");
     }
 
     void VerifyServiceChainCount(uint32_t count) {
@@ -1359,10 +1279,8 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd1) {
     // Verify that service chain is on pending list.
     TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
 
     // Fix service chain address.
     this->SetServiceChainInformation("blue-i1",
@@ -1410,10 +1328,8 @@ TYPED_TEST(ServiceChainTest, IgnoreNonInetv46ServiceChainAdd2) {
 
     // Verify that service chain is on pending list.
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
 
     // Fix service chain address.
     this->SetServiceChainInformation("blue-i1",
@@ -1996,10 +1912,8 @@ TYPED_TEST(ServiceChainTest, PendingChain) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
 
     // Add "red" routing instance and create connection with "red-i2"
     instance_names = list_of("blue")("blue-i1")("red-i2")("red");
@@ -2039,10 +1953,8 @@ TYPED_TEST(ServiceChainTest, UnresolvedPendingChain) {
                             this->BuildNextHopAddress("2.3.4.5"));
 
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string());
-    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"), true,
-                                           string("blue"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
+    this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
 
     this->ClearServiceChainInformation("blue-i1");
 

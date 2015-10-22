@@ -630,9 +630,11 @@ void ServiceChain<T>::FillServiceChainInfo(ShowServicechainInfo *info) const {
     info->set_src_rt_instance(src_routing_instance()->name());
     info->set_connected_rt_instance(connected_routing_instance()->name());
     info->set_dest_rt_instance(dest_routing_instance()->name());
+    info->set_state(deleted() ? "deleted" : "active");
 
     ConnectedRouteInfo connected_rt_info;
-    connected_rt_info.set_service_chain_addr(service_chain_addr().to_string());
+    connected_rt_info.set_service_chain_addr(
+        service_chain_addr().to_string());
     if (connected_route()) {
         ShowRoute show_route;
         connected_route()->FillRouteInfo(connected_table(), &show_route);
@@ -691,47 +693,6 @@ void ServiceChain<T>::FillServiceChainInfo(ShowServicechainInfo *info) const {
     info->set_aggregate_enable(aggregate_enable());
 }
 
-static void FillServiceChainConfigInfo(ShowServicechainInfo *info,
-    const ServiceChainConfig *config) {
-    info->set_dest_virtual_network(
-        GetVNFromRoutingInstance(config->routing_instance));
-    info->set_service_instance(config->service_instance);
-}
-
-struct ServiceChainInfoComp {
-    bool operator()(const ShowServicechainInfo &lhs,
-                    const ShowServicechainInfo &rhs) {
-        string lnetwork;
-        string rnetwork;
-
-        if (lhs.src_virtual_network < lhs.dest_virtual_network) {
-            lnetwork = lhs.src_virtual_network + lhs.dest_virtual_network;
-        } else {
-            lnetwork = lhs.dest_virtual_network + lhs.src_virtual_network;
-        }
-
-        if (rhs.src_virtual_network < rhs.dest_virtual_network) {
-            rnetwork = rhs.src_virtual_network + rhs.dest_virtual_network;
-        } else {
-            rnetwork = rhs.dest_virtual_network + rhs.src_virtual_network;
-        }
-
-        if (lnetwork != rnetwork) {
-            return (lnetwork < rnetwork);
-        }
-
-        if (lhs.src_virtual_network != rhs.src_virtual_network) {
-            return (lhs.src_virtual_network < rhs.src_virtual_network);
-        }
-
-        if (lhs.service_instance != rhs.service_instance) {
-            return (lhs.service_instance < rhs.service_instance);
-        }
-
-        return false;
-    }
-};
-
 template <typename T>
 bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
@@ -740,14 +701,12 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
     PrefixT aggregate_match = req->aggregate_match_;
     ServiceChainT *info = NULL;
 
-    if (req->type_ != ServiceChainRequestT::SHOW_SERVICE_CHAIN &&
-        req->type_ != ServiceChainRequestT::SHOW_PENDING_CHAIN) {
-        table = req->table_;
-        route = req->rt_;
-        info = static_cast<ServiceChainT *>(req->info_.get());
-        // Table where the aggregate route needs to be added
-        aggregate_match = req->aggregate_match_;
-    }
+    table = req->table_;
+    route = req->rt_;
+    info = static_cast<ServiceChainT *>(req->info_.get());
+
+    // Table where the aggregate route needs to be added
+    aggregate_match = req->aggregate_match_;
 
     ServiceChainState *state = NULL;
     if (route) {
@@ -909,76 +868,6 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             }
             break;
         }
-        case ServiceChainRequestT::SHOW_SERVICE_CHAIN: {
-            vector<ShowServicechainInfo> list;
-            RoutingInstanceMgr *rim = server_->routing_instance_mgr();
-            for (RoutingInstanceMgr::RoutingInstanceIterator rit = rim->begin();
-                rit != rim->end(); ++rit) {
-                if (rit->deleted())
-                    continue;
-                if (!req->search_string_.empty() &&
-                    rit->name().find(req->search_string_) == string::npos) {
-                    continue;
-                }
-                ShowServicechainInfo info;
-                const BgpInstanceConfig *rtc = rit->config();
-                const ServiceChainConfig *sc_config =
-                    rtc->service_chain_info(GetFamily());
-                if (sc_config) {
-                    info.set_src_virtual_network(rit->virtual_network());
-                    FillServiceChainConfigInfo(&info, sc_config);
-                    ServiceChainT *chain = FindServiceChain(rit->name());
-                    if (chain) {
-                        if (chain->deleted())
-                            info.set_state("Deleted");
-                        else
-                            info.set_state("Active");
-                        chain->FillServiceChainInfo(&info);
-                    } else {
-                        info.set_state("Pending");
-                    }
-                    list.push_back(info);
-                }
-            }
-            ServiceChainInfoComp comp;
-            sort(list.begin(), list.end(), comp);
-            if (GetFamily() == Address::INET) {
-                ShowServiceChainResp *resp =
-                    static_cast<ShowServiceChainResp *>(req->snh_resp_);
-                resp->set_service_chain_list(list);
-                resp->Response();
-            } else if (GetFamily() == Address::INET6) {
-                ShowIpv6ServiceChainResp *resp =
-                    static_cast<ShowIpv6ServiceChainResp *>(req->snh_resp_);
-                resp->set_service_chain_list(list);
-                resp->Response();
-            } else {
-                assert(false);
-            }
-            break;
-        }
-        case ServiceChainRequestT::SHOW_PENDING_CHAIN: {
-            vector<string> pending_list;
-            for (PendingServiceChainList::const_iterator it =
-                 pending_chains_.begin(); it != pending_chains_.end(); ++it)
-                pending_list.push_back((*it)->name());
-
-            if (GetFamily() == Address::INET) {
-                ShowPendingServiceChainResp *resp =
-                    static_cast<ShowPendingServiceChainResp *>(req->snh_resp_);
-                resp->set_pending_chains(pending_list);
-                resp->Response();
-            } else if (GetFamily() == Address::INET6) {
-                ShowPendingIpv6ServiceChainResp *resp =
-                    static_cast<ShowPendingIpv6ServiceChainResp *>
-                        (req->snh_resp_);
-                resp->set_pending_chains(pending_list);
-                resp->Response();
-            } else {
-                assert(false);
-            }
-            break;
-        }
         default: {
             assert(false);
             break;
@@ -1055,6 +944,25 @@ Address::Family ServiceChainMgr<ServiceChainInet6>::GetFamily() const {
 template <typename T>
 void ServiceChainMgr<T>::Enqueue(ServiceChainRequestT *req) {
     process_queue_->Enqueue(req);
+}
+
+template <typename T>
+bool ServiceChainMgr<T>::IsPending(RoutingInstance *rtinstance) const {
+    return pending_chains_.find(rtinstance) != pending_chains_.end();
+}
+
+template <typename T>
+bool ServiceChainMgr<T>::FillServiceChainInfo(RoutingInstance *rtinstance,
+        ShowServicechainInfo *info) const {
+    if (IsPending(rtinstance)) {
+        info->set_state("pending");
+        return true;
+    }
+    const ServiceChain<T> *service_chain = FindServiceChain(rtinstance);
+    if (!service_chain)
+        return false;
+    service_chain->FillServiceChainInfo(info);
+    return true;
 }
 
 template <typename T>
@@ -1158,12 +1066,13 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
 
 
 template <typename T>
-ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(const string &instance) {
+ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(
+        const string &instance) const {
     RoutingInstance *rtinstance =
         server_->routing_instance_mgr()->GetRoutingInstance(instance);
     if (!rtinstance)
         return NULL;
-    ServiceChainMap::iterator it = chain_set_.find(rtinstance);
+    ServiceChainMap::const_iterator it = chain_set_.find(rtinstance);
     if (it == chain_set_.end())
         return NULL;
     ServiceChainT *chain = static_cast<ServiceChainT *>(it->second.get());
@@ -1172,8 +1081,8 @@ ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(const string &instance) {
 
 template <typename T>
 ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(
-    RoutingInstance *rtinstance) {
-    ServiceChainMap::iterator it = chain_set_.find(rtinstance);
+    RoutingInstance *rtinstance) const {
+    ServiceChainMap::const_iterator it = chain_set_.find(rtinstance);
     if (it == chain_set_.end())
         return NULL;
     ServiceChainT *chain = static_cast<ServiceChainT *>(it->second.get());
@@ -1271,62 +1180,6 @@ uint32_t ServiceChainMgr<T>::GetDownServiceChainCount() const {
             count++;
     }
     return count;
-}
-
-void ShowServiceChainReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET);
-    ShowServiceChainResp *resp = new ShowServiceChainResp;
-    resp->set_context(context());
-    ServiceChainRequest<ServiceChainInet> *req =
-        new ServiceChainRequest<ServiceChainInet>(
-            ServiceChainRequest<ServiceChainInet>::SHOW_SERVICE_CHAIN,
-            resp, get_search_string());
-    ServiceChainMgr<ServiceChainInet> *mgr =
-        static_cast<ServiceChainMgr<ServiceChainInet> *>(imgr);
-    mgr->Enqueue(req);
-}
-
-void ShowPendingServiceChainReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET);
-    ShowPendingServiceChainResp *resp = new ShowPendingServiceChainResp;
-    resp->set_context(context());
-    ServiceChainRequest<ServiceChainInet> *req =
-        new ServiceChainRequest<ServiceChainInet>(
-            ServiceChainRequest<ServiceChainInet>::SHOW_PENDING_CHAIN,
-            resp , get_search_string());
-    ServiceChainMgr<ServiceChainInet> *mgr =
-        static_cast<ServiceChainMgr<ServiceChainInet> *>(imgr);
-    mgr->Enqueue(req);
-}
-
-void ShowIpv6ServiceChainReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET6);
-    ShowIpv6ServiceChainResp *resp = new ShowIpv6ServiceChainResp;
-    resp->set_context(context());
-    ServiceChainRequest<ServiceChainInet6> *req =
-        new ServiceChainRequest<ServiceChainInet6>(
-            ServiceChainRequest<ServiceChainInet6>::SHOW_SERVICE_CHAIN,
-            resp, get_search_string());
-    ServiceChainMgr<ServiceChainInet6> *mgr =
-        static_cast<ServiceChainMgr<ServiceChainInet6> *>(imgr);
-    mgr->Enqueue(req);
-}
-
-void ShowPendingIpv6ServiceChainReq::HandleRequest() const {
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
-    IServiceChainMgr *imgr = bsc->bgp_server->service_chain_mgr(Address::INET6);
-    ShowPendingIpv6ServiceChainResp *resp = new ShowPendingIpv6ServiceChainResp;
-    resp->set_context(context());
-    ServiceChainRequest<ServiceChainInet6> *req =
-        new ServiceChainRequest<ServiceChainInet6>(
-            ServiceChainRequest<ServiceChainInet6>::SHOW_PENDING_CHAIN,
-            resp , get_search_string());
-    ServiceChainMgr<ServiceChainInet6> *mgr =
-        static_cast<ServiceChainMgr<ServiceChainInet6> *>(imgr);
-    mgr->Enqueue(req);
 }
 
 // Explicit instantiation of ServiceChainMgr for INET and INET6.

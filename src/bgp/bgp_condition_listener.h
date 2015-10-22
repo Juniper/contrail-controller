@@ -40,9 +40,7 @@ public:
                        BgpRoute *route, bool deleted) = 0;
     virtual std::string ToString() const = 0;
 
-    bool deleted() {
-        return deleted_;
-    }
+    bool deleted() const { return deleted_; }
 
     void IncrementNumMatchstate() {
         tbb::mutex::scoped_lock lock(mutex_);
