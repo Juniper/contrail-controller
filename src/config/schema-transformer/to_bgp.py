@@ -703,8 +703,15 @@ class VirtualNetworkST(DictST):
         self.allow_transit = properties.allow_transit
         for sc_list in self.service_chains.values():
             for service_chain in sc_list:
-                ri_name = self.get_service_name(service_chain.name,
-                                                service_chain.service_list[0])
+                if not service_chain.created:
+                    continue
+                if self.name == service_chain.left_vn:
+                    si_name = service_chain.service_list[0]
+                elif self.name == service_chain.right_vn:
+                    si_name = service_chain.service_list[-1]
+                else:
+                    continue
+                ri_name = self.get_service_name(service_chain.name, si_name)
                 ri = self.rinst.get(ri_name)
                 if not ri:
                     continue
@@ -716,8 +723,7 @@ class VirtualNetworkST(DictST):
                 else:
                     # if the network is not a transit network any more, then we
                     # need to delete the route target from service RIs
-                    ri.update_route_target_list([], [self.get_route_target()],
-                                                import_export='export')
+                    ri.update_route_target_list([], [self.get_route_target()])
     # end set_properties
 
     def set_route_target_list(self, rt_list):
