@@ -39,6 +39,7 @@ class LoadbalancerAgent(object):
             sa_set_obj = ServiceApplianceSet(sa_set_name, gsc_obj)
             sa_set_obj.set_service_appliance_driver(driver_name)
             sa_set_uuid = self._vnc_lib.service_appliance_set_create(sa_set_obj)
+            ServiceApplianceSetSM.locate(sa_set_uuid)
 
     def load_drivers(self):
         for sas in ServiceApplianceSetSM.values():

@@ -262,18 +262,24 @@ class SvcMonitor(object):
                 si.state = 'launch'
                 self._create_service_instance(si)
             else:
+                self.logger.log_info("Deleting SI %s" % si_id)
                 for vm_id in dependency_tracker.resources.get(
                         'virtual_machine', []):
                     vm = VirtualMachineSM.get(vm_id)
                     self._delete_service_instance(vm)
+                self.logger.log_info("SI %s deletion succeed" % si_id)
 
         for vn_id in dependency_tracker.resources.get('virtual_network', []):
             vn = VirtualNetworkSM.get(vn_id)
             if vn:
                 for si_id in ServiceInstanceSM:
                     si = ServiceInstanceSM.get(si_id)
-                    if (':').join(vn.fq_name) in si.params.values():
-                        self._create_service_instance(si)
+                    intf_list = []
+                    if si.params:
+                        intf_list = si.params.get('interface_list', [])
+                    for intf in intf_list:
+                        if (':').join(vn.fq_name) in intf.values():
+                            self._create_service_instance(si)
 
         for vmi_id in dependency_tracker.resources.get('virtual_machine_interface', []):
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
@@ -769,6 +775,8 @@ class SvcMonitor(object):
                 ((':').join(si.fq_name)))
             return
 
+        self.logger.log_info("Creating SI %s (%s)" %
+                             ((':').join(si.fq_name), st.virtualization_type))
         try:
             if st.virtualization_type == 'virtual-machine':
                 self.vm_manager.create_service(st, si)
@@ -782,6 +790,7 @@ class SvcMonitor(object):
         except Exception:
             cgitb_error_log(self)
         si.launch_count += 1
+        self.logger.log_info("SI %s creation success" % (':').join(si.fq_name))
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
@@ -822,6 +831,7 @@ class SvcMonitor(object):
     def _delete_interface_route_table(self, irt_uuid):
         try:
             self._vnc_lib.interface_route_table_delete(id=irt_uuid)
+            InterfaceRouteTableSM.delete(irt_uuid)
         except (NoIdError, RefsExistError):
             return
 
@@ -829,6 +839,7 @@ class SvcMonitor(object):
         try:
             self.logger.log_info("Deleting vn %s" % (vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
+            VirtualNetworkSM.delete(vn_uuid)
         except (NoIdError, RefsExistError):
             pass
 

@@ -63,7 +63,7 @@ class InstanceManager(object):
                 return sg_obj
 
         self.logger.log_error(
-            "Security group not found %s" % (sg_fq_name.join(':')))
+            "Security group not found %s" % (':'.join(sg_fq_name)))
         return None
 
     def _get_instance_name(self, si, inst_count):
@@ -87,7 +87,7 @@ class InstanceManager(object):
                 break
         if not proj_obj:
             self.logger.log_error("%s project not found" %
-                (proj_fq_name.join(':')))
+                (':'.join(proj_fq_name)))
         return proj_obj
 
     def _allocate_iip(self, vn_obj, iip_name):
@@ -104,6 +104,7 @@ class InstanceManager(object):
             except RefsExistError:
                 iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
 
+        InstanceIpSM.locate(iip_obj.uuid)
         return iip_obj
 
     def _set_static_routes(self, nic, si):
@@ -128,6 +129,7 @@ class InstanceManager(object):
             self._vnc_lib.interface_route_table_create(rt_obj)
         except RefsExistError:
             self._vnc_lib.interface_route_table_update(rt_obj)
+        InterfaceRouteTableSM.locate(rt_obj.uuid)
         return rt_obj
 
     def update_static_routes(self, si):
@@ -138,8 +140,11 @@ class InstanceManager(object):
     def link_si_to_vm(self, si, st, instance_index, vm_uuid):
         vm_obj = VirtualMachine()
         vm_obj.uuid = vm_uuid
-        vm_obj.fq_name = [vm_uuid]
         instance_name = self._get_instance_name(si, instance_index)
+        if st.virtualization_type == 'virtual-machine':
+            vm_obj.fq_name = [vm_uuid]
+        else:
+            vm_obj.fq_name = [instance_name]
         vm_obj.set_display_name(instance_name + '__' + st.virtualization_type)
         si_obj = ServiceInstance()
         si_obj.uuid = si.uuid
@@ -150,6 +155,7 @@ class InstanceManager(object):
         except RefsExistError:
             self._vnc_lib.virtual_machine_update(vm_obj)
 
+        VirtualMachineSM.locate(vm_obj.uuid)
         self.logger.log_info("Info: VM %s updated SI %s" %
             (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
@@ -217,9 +223,9 @@ class InstanceManager(object):
 
         st_if_list = st.params.get('interface_type', [])
         si_if_list = si.params.get('interface_list', [])
-        if not (len(st_if_list) or len(si_if_list)):
+        if not len(st_if_list) or not len(si_if_list):
             self.logger.log_notice("Interface list empty for ST %s SI %s" %
-                (st.fq_name, si.fq_name))
+                ((':').join(st.fq_name), (':').join(si.fq_name)))
             return False
 
         si.vn_info = []
@@ -278,19 +284,21 @@ class InstanceManager(object):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_id)
+                    id=vmi_id, fields = ['instance_ip_back_refs'])
             except NoIdError:
                 continue
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
                 try:
                     self._vnc_lib.instance_ip_delete(id=iip['uuid'])
+                    InstanceIpSM.delete(iip['uuid'])
                 except NoIdError:
                     pass
 
             if port_delete:
                 try:
                     self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
+                    VirtualMachineInterfaceSM.delete(vmi_id)
                 except (NoIdError, RefsExistError):
                     pass
 
@@ -340,7 +348,7 @@ class InstanceManager(object):
         vmi_create = False
         vmi_updated = False
         if_properties = None
-        
+
         port_name = ('__').join([instance_name, nic['type'], nic['index']])
         port_fq_name = proj_obj.fq_name + [port_name]
         vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
@@ -407,6 +415,8 @@ class InstanceManager(object):
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+        VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
 
         # instance ip
         if 'iip-id' in nic:
@@ -514,9 +524,10 @@ class VRouterHostedManager(InstanceManager):
             vr_obj.del_virtual_machine(vm_obj)
             self._vnc_lib.virtual_router_update(vr_obj)
             self.logger.log_info("vm %s deleted from vr %s" %
-                (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
+                (vm.fq_name, vm.virtual_router))
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        VirtualMachineSM.delete(vm.uuid)
 
     def check_service(self, si):
         service_up = True
