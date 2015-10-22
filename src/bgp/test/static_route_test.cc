@@ -453,7 +453,7 @@ protected:
                 boost::bind(ValidateShowStaticRouteResponse, _1, ri_name,
                     this));
         ShowStaticRouteReq *req = new ShowStaticRouteReq;
-        req->set_ri_name(ri_name);
+        req->set_search_string(ri_name);
         validate_done_ = false;
         req->HandleRequest();
         req->Release();

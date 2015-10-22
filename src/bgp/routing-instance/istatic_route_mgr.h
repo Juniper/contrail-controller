@@ -7,6 +7,9 @@
 
 #include <stdint.h>
 
+class RoutingInstance;
+class StaticRouteEntriesInfo;
+
 class IStaticRouteMgr {
 public:
     virtual ~IStaticRouteMgr() { }
@@ -17,6 +20,8 @@ public:
     virtual void NotifyAllRoutes() = 0;
     virtual uint32_t GetRouteCount() const = 0;
     virtual uint32_t GetDownRouteCount() const = 0;
+    virtual bool FillStaticRouteInfo(RoutingInstance *rtinstance,
+                                     StaticRouteEntriesInfo *info) const = 0;
 
 private:
     template <typename U> friend class StaticRouteTest;
