@@ -87,6 +87,7 @@ protected:
 
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        agent_->set_tor_agent_enabled(true);
         init_ = static_cast<TestOvsAgentInit *>(client->agent_init());
         tcp_server_ =
             static_cast<OvsdbClientTcpTest *>(init_->ovsdb_client());
@@ -370,7 +371,6 @@ TEST_F(MulticastLocalRouteTest, tunnel_nh_ovs_multicast) {
     tcp_idl = NULL;
 
     client->WaitForIdle();
-    agent_->set_tor_agent_enabled(true);
 
     IpAddress server = Ip4Address::from_string("1.1.1.1");
     OvsPeer *peer = peer_manager_->Allocate(server);
@@ -378,35 +378,36 @@ TEST_F(MulticastLocalRouteTest, tunnel_nh_ovs_multicast) {
 
     AddEncapList("MPLSoUDP", "VXLAN", NULL);
     client->WaitForIdle();
-    VrfAddReq("vrf1");
+    AddVrf("vrf1", 1);
     WAIT_FOR(100, 10000, (VrfGet("vrf1", false) != NULL));
-    VnAddReq(1, "vn1", "vrf1");
+    AddVn("vn1", 1, true);
     WAIT_FOR(100, 10000, (VnGet(1) != NULL));
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
 
     MacAddress mac("ff:ff:ff:ff:ff:ff");
     Ip4Address tor_ip = Ip4Address::from_string("111.111.111.111");
     Ip4Address tsn_ip = Ip4Address::from_string("127.0.0.1");
 
     VrfEntry *vrf = VrfGet("vrf1");
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (vrf->GetBridgeRouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
     WAIT_FOR(100, 100, (vrf->GetBridgeRouteTable() != NULL));
     WAIT_FOR(100, 100, (L2RouteFind("vrf1", mac)));
     client->WaitForIdle();
 
-    BridgeRouteEntry *rt = L2RouteGet("vrf1", mac);
-    EXPECT_FALSE(((BgpPeer *)bgp_peer_)->
-                 GetRouteExportState(rt->get_table_partition(), rt));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, IpAddress(), 100);
+    EXPECT_TRUE(evpn_rt == NULL);
 
     //Add OVS path
     table->AddOvsPeerMulticastRouteReq(peer, 100, "dummy", tsn_ip, tor_ip);
     WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
     client->WaitForIdle();
+    evpn_rt = EvpnRouteGet("vrf1", mac, tor_ip, 100);
     EXPECT_TRUE(((BgpPeer *)bgp_peer_)->
-                GetRouteExportState(rt->get_table_partition(), rt));
+                GetRouteExportState(evpn_rt->get_table_partition(), evpn_rt));
 
-    rt = L2RouteGet("vrf1", mac);
-    const AgentPath *path = rt->FindPath(peer);
+    const AgentPath *path = evpn_rt->FindPath(peer);
     EXPECT_TRUE(path->tunnel_dest() == tor_ip);
     const TunnelNH *nh = dynamic_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh != NULL);
@@ -417,8 +418,8 @@ TEST_F(MulticastLocalRouteTest, tunnel_nh_ovs_multicast) {
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
 
-    rt = L2RouteGet("vrf1", mac);
-    path = rt->FindPath(peer);
+    evpn_rt = EvpnRouteGet("vrf1", mac, tor_ip, 100);
+    path = evpn_rt->FindPath(peer);
     EXPECT_TRUE(path->tunnel_dest() == tor_ip);
     nh = dynamic_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh != NULL);
@@ -429,14 +430,16 @@ TEST_F(MulticastLocalRouteTest, tunnel_nh_ovs_multicast) {
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (L2RouteGet("vrf1", mac) != NULL));
 
-    table->DeleteOvsPeerMulticastRouteReq(peer, 100);
+    table->DeleteOvsPeerMulticastRouteReq(peer, 100, tor_ip);
     client->WaitForIdle();
 
     // Change tunnel-type order
     peer_manager_->Free(peer);
     client->WaitForIdle();
-    VrfDelReq("vrf1");
-    VnDelReq(1);
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelVrf("vrf1");
+    DelVn("vn1");
+    client->WaitForIdle();
     WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) == NULL));
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 
