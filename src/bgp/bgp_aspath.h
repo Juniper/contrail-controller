@@ -53,15 +53,8 @@ struct AsPathSpec : public BgpAttribute {
         std::vector<as_t> path_segment;
     };
 
-    // Return true if left most AS matches the input
-    bool AsLeftMostMatch(as_t as) const {
-        if (path_segments.empty())
-            return false;
-        if (path_segments[0]->path_segment.empty())
-            return false;
-        return (path_segments[0]->path_segment[0] == as);
-    }
-
+    as_t AsLeftMost() const;
+    bool AsLeftMostMatch(as_t as) const;
     bool AsPathLoop(as_t as) const;
 
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
@@ -118,6 +111,8 @@ public:
         return 0;
     }
     const AsPathSpec &path() const { return path_; }
+    bool empty() const { return path_.path_segments.empty(); }
+    as_t neighbor_as() const { return path_.AsLeftMost(); }
 
     friend std::size_t hash_value(AsPath const &as_path) {
         size_t hash = 0;

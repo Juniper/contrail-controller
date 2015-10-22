@@ -142,6 +142,158 @@ TEST_F(BgpRouteTest, Paths) {
 
 }  // namespace
 
+//
+// Path with lower med is better.
+//
+TEST_F(BgpRouteTest, PathCompareMed1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrMultiExitDisc med_spec1(100);
+    spec1.push_back(&med_spec1);
+    AsPathSpec aspath_spec1;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps1->path_segment.push_back(64512);
+    ps1->path_segment.push_back(64513);
+    aspath_spec1.path_segments.push_back(ps1);
+    spec1.push_back(&aspath_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::EBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrMultiExitDisc med_spec2(200);
+    spec2.push_back(&med_spec2);
+    AsPathSpec aspath_spec2;
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps2->path_segment.push_back(64512);
+    ps2->path_segment.push_back(64514);
+    aspath_spec2.path_segments.push_back(ps2);
+    spec2.push_back(&aspath_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// Paths with different neighbor as are not compared w.r.t med.
+// Path with higher med happens to win since it has lower router id.
+// Both paths have as paths, but the leftmost as is different.
+//
+TEST_F(BgpRouteTest, PathCompareMed2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrMultiExitDisc med_spec1(100);
+    spec1.push_back(&med_spec1);
+    AsPathSpec aspath_spec1;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps1->path_segment.push_back(64514);
+    ps1->path_segment.push_back(64513);
+    aspath_spec1.path_segments.push_back(ps1);
+    spec1.push_back(&aspath_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::EBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrMultiExitDisc med_spec2(200);
+    spec2.push_back(&med_spec2);
+    AsPathSpec aspath_spec2;
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps2->path_segment.push_back(64512);
+    ps2->path_segment.push_back(64513);
+    aspath_spec2.path_segments.push_back(ps2);
+    spec2.push_back(&aspath_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+}
+
+//
+// Paths with different neighbor as are not compared w.r.t med.
+// Path with higher med happens to win since it has lower router id.
+// Both paths have nil as path.
+//
+TEST_F(BgpRouteTest, PathCompareMed3) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrMultiExitDisc med_spec1(100);
+    spec1.push_back(&med_spec1);
+    AsPathSpec aspath_spec1;
+    spec1.push_back(&aspath_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::EBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrMultiExitDisc med_spec2(200);
+    spec2.push_back(&med_spec2);
+    AsPathSpec aspath_spec2;
+    spec2.push_back(&aspath_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+}
+
+//
+// Paths with 0 neighbor as are not compared w.r.t med.
+// Path with higher med happens to win since it has lower router id.
+// First segment in both paths is an AS_SET.
+//
+TEST_F(BgpRouteTest, PathCompareMed4) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrMultiExitDisc med_spec1(100);
+    spec1.push_back(&med_spec1);
+    AsPathSpec aspath_spec1;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ps1->path_segment.push_back(64512);
+    ps1->path_segment.push_back(64513);
+    aspath_spec1.path_segments.push_back(ps1);
+    spec1.push_back(&aspath_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::EBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrMultiExitDisc med_spec2(200);
+    spec2.push_back(&med_spec2);
+    AsPathSpec aspath_spec2;
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ps2->path_segment.push_back(64512);
+    ps2->path_segment.push_back(64513);
+    aspath_spec2.path_segments.push_back(ps2);
+    spec2.push_back(&aspath_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+}
+
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
