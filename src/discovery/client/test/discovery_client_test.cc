@@ -41,6 +41,17 @@ public:
         xmpp_instances_ = dr.size();
     }
 
+    void AsyncSubscribeXmppHandlerWithPubId(std::vector<DSResponse> dr) {
+        //Connect handler for the service
+        xmpp_cb_count_++; 
+        xmpp_instances_ = dr.size();
+        std::vector<DSResponse>::iterator it;
+        for (it = dr.begin(); it != dr.end(); it++) {
+            DSResponse ds_resp = *it;
+            AddSubscribeInUseServiceList("xmpp-server-test", ds_resp.ep);
+        }
+    }
+
     void AsyncSubscribeIfMapHandler(std::vector<DSResponse> dr) {
         //Connect handler for the service
         ifmap_cb_count_++; 
@@ -88,9 +99,7 @@ public:
         return false;
     }
 
-
-
-    void BuildServiceResponseMessage(std::string serviceNameTag, uint num_instances,
+    void BuildSubscribeResponseMessage(std::string serviceNameTag, uint num_instances,
                                        std::string &msg) {
         auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
@@ -113,6 +122,39 @@ public:
         impl->PrintDoc(ss);
         msg = ss.str(); 
     }
+
+    void BuildSubscribeResponseMessageWithPubliserId(std::string serviceNameTag, 
+                                                     uint num_instances,
+                                                     std::string &msg) {
+        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        impl->LoadDoc("");
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        
+        int count=0;
+        pugi->AddChildNode("response", "");
+        if (num_instances) {
+            while (num_instances--) {
+                count++;
+                pugi->AddChildNode(serviceNameTag.c_str(), "");
+                stringstream ss;
+                ss << serviceNameTag << count;
+                pugi->AddAttribute("publisher-id", ss.str());
+                stringstream ip;
+                ip << "127.0.0." << count;
+                pugi->AddChildNode("ip-address", ip.str());
+                pugi->ReadNode(serviceNameTag.c_str());
+                pugi->AddChildNode("port", "5555");
+                pugi->ReadNode("response");
+            }
+        }
+        pugi->ReadNode("response");
+        pugi->AddChildNode("ttl", "0"); //ttl is per subscribe in seconds
+
+        stringstream ss;
+        impl->PrintDoc(ss);
+        msg = ss.str(); 
+    }
+
 
     void BuildHeartBeatResponseMessage(std::string serviceNameTag, 
                                        std::string &msg) {
@@ -519,7 +561,7 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service) {
 
     //subscribe response 
     std::string msg;
-    dsc->BuildServiceResponseMessage("ifmap-server-test", ifmap_instances, msg); 
+    dsc->BuildSubscribeResponseMessage("ifmap-server-test", ifmap_instances, msg); 
     boost::system::error_code ec; 
     dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapCbCount() == 1);
@@ -592,11 +634,11 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_Services) {
 
     std::string msg;
     boost::system::error_code ec; 
-    dsc->BuildServiceResponseMessage("ifmap-server-test", ifmap_instances, msg); 
+    dsc->BuildSubscribeResponseMessage("ifmap-server-test", ifmap_instances, msg); 
     dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapInstances() == ifmap_instances);
 
-    dsc->BuildServiceResponseMessage("xmpp-server-test", xmpp_instances, msg); 
+    dsc->BuildSubscribeResponseMessage("xmpp-server-test", xmpp_instances, msg); 
     dsc->SubscribeResponseHandler(msg, ec, "xmpp-server-test", NULL);
     EXPECT_TRUE(dsc->XmppInstances() == xmpp_instances);
 
@@ -652,6 +694,54 @@ TEST_F(DiscoveryServiceClientTest, Publish_Services) {
     task_util::WaitForIdle(); 
 }
 
+TEST_F(DiscoveryServiceClientTest, SubscribeWithPubId) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5998);
+    DiscoveryServiceClientMock *dsc_subscribe = 
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test2"));
+    dsc_subscribe->Init();
+
+    //subscribe a service
+    dsc_subscribe->Subscribe("xmpp-server-test", 2, 
+        boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandlerWithPubId,
+                    dsc_subscribe, _1));
+    task_util::WaitForIdle(); 
+
+    //subscribe response 
+    std::string msg;
+    dsc_subscribe->BuildSubscribeResponseMessageWithPubliserId(
+                   "xmpp-server-test", 2, msg); 
+    boost::system::error_code ec; 
+    dsc_subscribe->SubscribeResponseHandler(msg, ec, "xmpp-server-test", NULL);
+    EXPECT_TRUE(dsc_subscribe->XmppInstances() == 2);
+
+    DSSubscribeResponse *resp = dsc_subscribe->GetSubscribeResponse("xmpp-server-test");
+    TASK_UTIL_EXPECT_EQ(2, resp->sub_sent_);
+    EXPECT_TRUE(2 == resp->inuse_service_list_.size());
+
+    boost::asio::ip::tcp::endpoint ep;
+    ep.address(ip::address::from_string("127.0.0.1"));
+    dsc_subscribe->DeleteSubscribeInUseServiceList("xmpp-server-test", ep); 
+
+    //wait for next subscribe
+    TASK_UTIL_EXPECT_EQ(3, resp->sub_sent_);
+    EXPECT_TRUE(1 == resp->inuse_service_list_.size());
+
+    EvmShutdown();
+
+    //unsubscribe to service
+    dsc_subscribe->Unsubscribe("xmpp-server-test"); 
+
+    dsc_subscribe->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle(); 
+    delete dsc_subscribe;
+    task_util::WaitForIdle(); 
+}
+
+
 TEST_F(DiscoveryServiceClientTest, Publish_Subscribe_1_Service) {
 
     ip::tcp::endpoint dss_ep;
@@ -684,7 +774,7 @@ TEST_F(DiscoveryServiceClientTest, Publish_Subscribe_1_Service) {
     task_util::WaitForIdle(); 
 
     //subscribe response 
-    dsc_subscribe->BuildServiceResponseMessage("xmpp-server-test", 1, msg); 
+    dsc_subscribe->BuildSubscribeResponseMessage("xmpp-server-test", 1, msg); 
     dsc_subscribe->SubscribeResponseHandler(msg, ec, "xmpp-server-test", NULL);
     EXPECT_TRUE(dsc_subscribe->XmppInstances() == 1);
 
@@ -726,7 +816,7 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
 
     //subscribe response with no publisher
     std::string msg;
-    dsc->BuildServiceResponseMessage("ifmap-server-test", 0, msg); 
+    dsc->BuildSubscribeResponseMessage("ifmap-server-test", 0, msg); 
     boost::system::error_code ec; 
     dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapCbCount() == 0);
@@ -738,7 +828,7 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
     task_util::WaitForIdle(); 
    
     //subscribe response with no publisher
-    dsc->BuildServiceResponseMessage("ifmap-server-test", ifmap_instances, msg); 
+    dsc->BuildSubscribeResponseMessage("ifmap-server-test", ifmap_instances, msg); 
     dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapCbCount() == 1);
     EXPECT_TRUE(dsc->IfMapInstances() == ifmap_instances);
