@@ -81,7 +81,7 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
         std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, const DbHandler::TtlMap& ttl_map) :
+        std::vector<int> cassandra_ports, const TtlMap& ttl_map) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -340,7 +340,7 @@ void Collector::TestDatabaseConnection() {
     // try to instantiate a new dbif instance for testing db connection
     testdbif_.reset( GenDb::GenDbIf::GenDbIfImpl(
         boost::bind(&Collector::TestDbConnErrHandler, this),
-        cassandra_ips_, cassandra_ports_, 3600, db_handler_->GetName(), true));
+        cassandra_ips_, cassandra_ports_, db_handler_->GetName(), true));
 
     if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_)) {
         if (dbConnStatus_ != ConnectionStatus::DOWN) {
