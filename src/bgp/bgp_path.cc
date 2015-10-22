@@ -82,9 +82,9 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 
     KEY_COMPARE(attr_->origin(), rattr->origin());
 
-    if (attr_->neighbor_as() == rattr->neighbor_as()) {
+    // Compare med if both paths are learnt from the same neighbor as.
+    if (attr_->neighbor_as() && attr_->neighbor_as() == rattr->neighbor_as())
         KEY_COMPARE(attr_->med(), rattr->med());
-    }
 
     // Prefer locally generated routes over bgp and xmpp routes.
     BOOL_COMPARE(peer_ == NULL, rhs.peer_ == NULL);
