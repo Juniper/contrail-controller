@@ -491,6 +491,10 @@ class LogQuerier(object):
             logger.addHandler(syslog_handler)
             self._logger = logger
 
+        # For json we will be outputting list of dicts so open the list here
+        if self._args.json:
+            first = True
+            self.output('[', SandeshLevel.INVALID)
         for messages_dict in messages_dict_list:
 
             if VizConstants.TIMESTAMP in messages_dict:
@@ -504,6 +508,7 @@ class LogQuerier(object):
                 message_ts = message_dt.strftime(OpServerUtils.TIME_FORMAT_STR)
             else:
                 message_ts = 'Time: NA'
+            messages_dict[VizConstants.TIMESTAMP] = message_ts
             if VizConstants.SOURCE in messages_dict:
                 source = messages_dict[VizConstants.SOURCE]
             else:
@@ -540,6 +545,7 @@ class LogQuerier(object):
                     level = SandeshLevel._VALUES_TO_NAMES[sandesh_level]
                 else:
                     level = 'Level: NA'
+                messages_dict[VizConstants.LEVEL] = level
                 if VizConstants.SEQUENCE_NUM in messages_dict:
                     seq_num = messages_dict[VizConstants.SEQUENCE_NUM]
                 else:
@@ -560,6 +566,11 @@ class LogQuerier(object):
                 else:
                     data_str = 'Data not present'
                 if self._args.json:
+                    if not first:
+                        self.output(", ", sandesh_level)
+                    else:
+                        first = False
+                    OpServerUtils.messages_dict_scrub(messages_dict)
                     self.output(messages_dict, sandesh_level)
                 else:
                     if self._args.trace is not None:
@@ -599,9 +610,17 @@ class LogQuerier(object):
                                 message_ts, source, node_type, module,
                                 instance_id, message_type, data_str)
                             if self._args.json:
-                                self.output(messages_dict[obj_sel_field], sandesh_level)
+                                if not first:
+                                    self.output(", ", sandesh_level)
+                                else:
+                                    first = False
+                                OpServerUtils.messages_dict_scrub(messages_dict)
+                                self.output(messages_dict, sandesh_level)
                             else:
                                 self.output(obj_str, sandesh_level)
+        # For json we will be outputting list of dicts so close the list here
+        if self._args.json:
+            self.output(']', SandeshLevel.INVALID)
     # end display
 
 # end class LogQuerier

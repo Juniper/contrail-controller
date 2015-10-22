@@ -20,6 +20,7 @@ import gevent
 import socket, struct
 import copy
 import traceback
+import ast
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -414,6 +415,84 @@ class OpServerUtils(object):
             except:
                 pass
     # end messages_xml_data_to_dict
+
+    @staticmethod
+    def _messages_dict_remove_keys(messages_dict, key_pattern):
+        for key, value in messages_dict.items():
+            if key_pattern in key:
+                del messages_dict[key]
+            if isinstance(value, list):
+                for elem in value:
+                    OpServerUtils._messages_dict_remove_keys(elem, key_pattern)
+            if isinstance(value, dict):
+                OpServerUtils._messages_dict_remove_keys(value, key_pattern)
+    # end _messages_dict_remove_keys
+
+    @staticmethod
+    def _messages_dict_flatten_key(messages_dict, key_match):
+        for key, value in messages_dict.items():
+            if isinstance(value, dict):
+                if key_match in value:
+                    messages_dict[key] = value[key_match]
+                else:
+                    OpServerUtils._messages_dict_flatten_key(value, key_match)
+            if isinstance(value, list):
+                for elem in value:
+                    if isinstance(elem, dict):
+                        OpServerUtils._messages_dict_flatten_key(elem,
+                            key_match)
+    #end _messages_dict_flatten_key
+
+    @staticmethod
+    def _json_loads_check(value):
+        try:
+            json_value = json.loads(value)
+        except:
+            return False, None
+        else:
+            return True, json_value
+    # end _json_loads_check
+
+    @staticmethod
+    def _eval_check(value):
+        try:
+            eval_value = ast.literal_eval(value)
+        except:
+            return False, None
+        else:
+            return True, eval_value
+    # end _eval_check
+
+    # Evaluate messages dict using json.loads() or ast.literal_eval()
+    @staticmethod
+    def _messages_dict_eval(messages_dict):
+        for key, value in messages_dict.iteritems():
+            if isinstance(value, basestring):
+                # First try json.loads
+                success, json_value = OpServerUtils._json_loads_check(value)
+                if success:
+                    messages_dict[key] = json_value
+                    continue
+                # Next try ast.literal_eval
+                success, eval_value = OpServerUtils._eval_check(value)
+                if success:
+                    messages_dict[key] = eval_value
+                    continue
+            if isinstance(value, dict):
+                OpServerUtils._messages_dict_eval(value)
+            if isinstance(value, list):
+                for elem in value:
+                    OpServerUtils._messages_dict_eval(elem)
+    # end _messages_dict_eval
+
+    # Scrubs the message dict to remove keys containing @, and will
+    # flatten out dicts containing #text and eval strings
+    @staticmethod
+    def messages_dict_scrub(messages_dict):
+        OpServerUtils._messages_dict_remove_keys(messages_dict, '@')
+        OpServerUtils._messages_dict_flatten_key(messages_dict, '#text')
+        OpServerUtils._messages_dict_eval(messages_dict)
+    # end messages_dict_scrub
 
     @staticmethod
     def messages_data_dict_to_str(messages_dict, message_type, sandesh_type):
