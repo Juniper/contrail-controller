@@ -19,7 +19,7 @@ query_status_t DbQueryUnit::process_query()
             << " column_start size:" << cr.start_.size()
             << " column_end size:" << cr.finish_.size());
 
-    if (m_query->is_object_table_query())
+    if (m_query->is_object_table_query(m_query->table()))
     {    
         GenDb::DbDataValue timestamp_start = (uint32_t)0x0;
         cr.start_.push_back(timestamp_start);
@@ -35,9 +35,10 @@ query_status_t DbQueryUnit::process_query()
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_flow_query() || m_query->is_stat_table_query() ||
-            (m_query->is_object_table_query() && 
-             cfname == g_viz_constants.OBJECT_TABLE)) {
+        if (m_query->is_flow_query(m_query->table()) ||
+                m_query->is_stat_table_query(m_query->table()) ||
+                (m_query->is_object_table_query(m_query->table()) && 
+                 cfname == g_viz_constants.OBJECT_TABLE)) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
@@ -91,7 +92,7 @@ query_status_t DbQueryUnit::process_query()
                     query_result_unit_t result_unit;
                     uint32_t t1;
                     
-                    if (m_query->is_stat_table_query()) {
+                    if (m_query->is_stat_table_query(m_query->table())) {
                         assert(i->value->size()==1);
                         assert((i->name->size()==4)||(i->name->size()==3));
                         try {
@@ -99,7 +100,7 @@ query_status_t DbQueryUnit::process_query()
                         } catch (boost::bad_get& ex) {
                             assert(0);
                         }
-                    } else if (m_query->is_flow_query()) {
+                    } else if (m_query->is_flow_query(m_query->table())) {
                         int ts_at = i->name->size() - 2;
                         assert(ts_at >= 0);
                         
@@ -130,7 +131,7 @@ query_status_t DbQueryUnit::process_query()
                     }
 
                     // Add to result vector
-                    if (m_query->is_stat_table_query()) {
+                    if (m_query->is_stat_table_query(m_query->table())) {
                         std::string attribstr;
                         boost::uuids::uuid uuid;
 

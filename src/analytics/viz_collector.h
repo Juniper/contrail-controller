@@ -37,7 +37,7 @@ public:
             const std::string &brokers,
             int syslog_port, int sflow_port, int ipfix_port,
             uint16_t partitions,
-            bool dup, const DbHandler::TtlMap &ttlmap);
+            bool dup, const TtlMap &ttlmap);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
     ~VizCollector();

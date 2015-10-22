@@ -17,7 +17,7 @@ const std::string ProtobufCollector::kDbTaskName("protobuf_collector::Db");
 ProtobufCollector::ProtobufCollector(EventManager *evm,
     uint16_t protobuf_udp_port,
     const std::vector<std::string> &cassandra_ips,
-    const std::vector<int> &cassandra_ports, const DbHandler::TtlMap& ttl_map) :
+    const std::vector<int> &cassandra_ports, const TtlMap& ttl_map) :
     db_initializer_(new DbHandlerInitializer(evm, kDbName, kDbTaskInstance,
         kDbTaskName, boost::bind(&ProtobufCollector::DbInitializeCb, this),
         cassandra_ips, cassandra_ports, ttl_map)),

@@ -31,6 +31,7 @@
 #include "sandesh/sandesh.h"
 #include "viz_message.h"
 #include "uflow_types.h"
+#include "viz_constants.h"
 
 class DbHandler {
 public:
@@ -75,15 +76,6 @@ public:
             const Var& value);
     };
 
-    typedef enum {
-        INVALID_TTL = 0,
-        FLOWDATA_TTL = 1,
-        STATSDATA_TTL = 2,
-        CONFIGAUDIT_TTL = 3,
-        GLOBAL_TTL = 4,
-    } TtlType;
-    typedef std::map<TtlType, int> TtlMap;
-
     typedef std::map<std::string, std::string> RuleMap;
 
     typedef std::map<std::string, Var > AttribMap;
@@ -96,8 +88,10 @@ public:
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
-    static int GetTtlFromMap(const TtlMap& ttl_map,
-            TtlType type);
+    static uint64_t GetTtlInHourFromMap(const TtlMap& ttl_map,
+            TtlType::type type);
+    static uint64_t GetTtlFromMap(const TtlMap& ttl_map,
+            TtlType::type type);
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial, int instance);
     void UnInit(int instance);
@@ -163,7 +157,7 @@ private:
         const std::pair<std::string,DbHandler::Var>& stag,
         uint32_t t1, const boost::uuids::uuid& unm,
         const std::string& jsonline, int ttl);
-    int GetTtl(TtlType type) {
+    uint64_t GetTtl(TtlType::type type) {
         return GetTtlFromMap(ttl_map_, type);
     }
 
@@ -211,7 +205,7 @@ class DbHandlerInitializer {
         const std::string &timer_task_name, InitializeDoneCb callback,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        const DbHandler::TtlMap& ttl_map);
+        const TtlMap& ttl_map);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,

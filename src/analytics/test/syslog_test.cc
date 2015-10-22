@@ -15,10 +15,7 @@ using ::testing::StrEq;
 using ::testing::Pointee;
 using ::testing::_;
 
-DbHandler::TtlMap ttl_map = boost::assign::map_list_of(DbHandler::FLOWDATA_TTL, 2)
-    (DbHandler::STATSDATA_TTL, 4)
-    (DbHandler::CONFIGAUDIT_TTL, 240)
-    (DbHandler::GLOBAL_TTL, 48);
+TtlMap ttl_map = g_viz_constants.TtlValuesDefault;
 
 class SyslogParserTestHelper : public SyslogParser
 {
