@@ -34,7 +34,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const std::string &brokers,
             int syslog_port, int sflow_port, int ipfix_port,
             uint16_t partitions,
-            bool dup, const DbHandler::TtlMap& ttl_map) :
+            bool dup, const TtlMap& ttl_map) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),

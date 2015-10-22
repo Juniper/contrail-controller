@@ -27,7 +27,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     // initialize Cassandra related fields
     if (
             (m_query->table() == g_viz_constants.COLLECTOR_GLOBAL_TABLE) ||
-            (m_query->is_object_table_query())
+            (m_query->is_object_table_query(m_query->table()))
        )
     {
         cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
@@ -55,7 +55,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     QE_PARSE_ERROR(json_select_fields.IsArray());
     QE_TRACE(DEBUG, "# of select fields is " << json_select_fields.Size());
 
-    if (m_query->is_stat_table_query()) {
+    if (m_query->is_stat_table_query(m_query->table())) {
         for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
             select_column_fields.push_back(json_select_fields[i].GetString());
         }
@@ -78,8 +78,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         {
             provide_timeseries = true;
             select_column_fields.push_back(TIMESTAMP_FIELD);
-            QE_INVALIDARG_ERROR(m_query->is_flow_query() ||
-                m_query->is_stat_table_query());
+            QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()) ||
+                m_query->is_stat_table_query(m_query->table()));
         } else if (boost::starts_with(json_select_fields[i].GetString(),
                     TIMESTAMP_GRANULARITY))
         {
@@ -91,19 +91,19 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             select_column_fields.push_back(TIMESTAMP_GRANULARITY);
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE ||
-                m_query->is_stat_table_query());
+                m_query->is_stat_table_query(m_query->table()));
         } 
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_PACKETS)) {
             agg_stats_t agg_stats_entry = {RAW, PKT_STATS};
             agg_stats.push_back(agg_stats_entry);
-            QE_INVALIDARG_ERROR(m_query->is_flow_query());
+            QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()));
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_BYTES)) {
             agg_stats_t agg_stats_entry = {RAW, BYTE_STATS};
             agg_stats.push_back(agg_stats_entry);
-            QE_INVALIDARG_ERROR(m_query->is_flow_query());
+            QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()));
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_SUM_PACKETS)) {
@@ -496,7 +496,7 @@ query_status_t SelectQuery::process_query() {
             }
             result_->push_back(std::make_pair(cmap, nullmetadata));
         }
-    } else if (m_query->is_stat_table_query()) {
+    } else if (m_query->is_stat_table_query(m_query->table())) {
         QE_ASSERT(stats_.get());
         // can not handle query result of huge size
         if (query_result.size() > (size_t)query_result_size_limit)
@@ -689,7 +689,7 @@ query_status_t SelectQuery::process_query() {
                  jt != select_column_fields.end(); jt++) {
                 std::map<std::string, GenDb::DbDataValue>::iterator kt = col_res_map.find(*jt);
                 if (kt == col_res_map.end()) {
-                    if (m_query->is_object_table_query()) {
+                    if (m_query->is_object_table_query(m_query->table())) {
                         if (process_object_query_specific_select_params(
                                         *jt, col_res_map, cmap) == false) {
                             // Exit the loop. User is not interested 
