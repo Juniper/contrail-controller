@@ -31,7 +31,9 @@ class OvsPeer : public Peer {
                                   const std::string &vn_name_,
                                   const Ip4Address &tsn_ip,
                                   const Ip4Address &tor_ip);
-    void DeleteOvsPeerMulticastRoute(const VrfEntry *vrf, uint32_t vxlan_id);
+    void DeleteOvsPeerMulticastRoute(const VrfEntry *vrf,
+                                     uint32_t vxlan_id,
+                                     const Ip4Address &tor_ip);
     const IpAddress &peer_ip() const {return peer_ip_;}
 
     void set_ha_stale_export(bool ha_stale_export) {

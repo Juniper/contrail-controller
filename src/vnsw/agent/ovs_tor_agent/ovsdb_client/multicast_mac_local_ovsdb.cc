@@ -67,16 +67,16 @@ void MulticastMacLocalEntry::EvaluateVrfDependency(VrfEntry *vrf) {
 }
 
 void MulticastMacLocalEntry::OnVrfDelete() {
-    tor_ip_ = Ip4Address();
     if (vrf_ == NULL)
         return;
 
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
     OVSDB_TRACE(Trace, "Deleting Multicast Route VN uuid " + logical_switch_name_);
-    table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_);
+    table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_, tor_ip_);
     table->vrf_dep_list_.erase(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
                                                                    this));
     // remove vrf reference after deleting route
+    tor_ip_ = Ip4Address();
     vrf_ = NULL;
     return;
 }
@@ -87,6 +87,8 @@ bool MulticastMacLocalEntry::Add() {
     // converted into list of ToR IPs and export different routes for all
     OvsdbIdlRowList::iterator it = row_list_.begin();
     std::string tor_ip_str;
+    Ip4Address idl_tor_ip = Ip4Address();
+
     if (it != row_list_.end()) {
         struct ovsdb_idl_row *l_set =
             ovsdb_wrapper_mcast_mac_local_physical_locator_set(*it);
@@ -96,13 +98,14 @@ bool MulticastMacLocalEntry::Add() {
             tor_ip_str = ovsdb_wrapper_physical_locator_dst_ip(locator);
         }
         boost::system::error_code ec;
-        tor_ip_ = Ip4Address::from_string(tor_ip_str, ec);
+        idl_tor_ip = Ip4Address::from_string(tor_ip_str, ec);
     }
 
-    if (tor_ip_.to_ulong() == 0) {
+    if (idl_tor_ip.to_ulong() == 0) {
         Delete();
         return true;
     }
+    tor_ip_ = idl_tor_ip;
 
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
     OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
