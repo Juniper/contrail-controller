@@ -1768,7 +1768,9 @@ class ServiceChain(DictST):
 
     def create(self):
         if self.created:
-            self.created_stale = False
+            if self.created_stale:
+                self.uve_send()
+                self.created_stale = False
             # already created
             return
 
@@ -1779,7 +1781,10 @@ class ServiceChain(DictST):
         if self.partially_created:
             self.destroy()
             return
+        self.uve_send()
+    # end create
 
+    def uve_send(self):
         uve = UveServiceChainData(name=self.name)
         uve.source_virtual_network = self.left_vn
         uve.destination_virtual_network = self.right_vn
@@ -1794,7 +1799,7 @@ class ServiceChain(DictST):
         uve.services = copy.deepcopy(self.service_list)
         uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
         uve_msg.send(sandesh=_sandesh)
-    # end create
+    # end uve_send
 
     def _create(self, si_info):
         self.partially_created = True
