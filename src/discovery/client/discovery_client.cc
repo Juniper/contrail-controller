@@ -31,9 +31,10 @@ SandeshTraceBufferPtr DiscoveryClientTraceBuf(SandeshTraceBufferCreate(
     "DiscoveryClient", 1000));
 
 /*************** Discovery Service Subscribe Response Message Header **********/
-DSResponseHeader::DSResponseHeader(std::string serviceName, uint8_t numbOfInstances, 
-                                   EventManager *evm,
-                                   DiscoveryServiceClient *ds_client) 
+DSSubscribeResponse::DSSubscribeResponse(std::string serviceName, 
+                                         uint8_t numbOfInstances, 
+                                         EventManager *evm,
+                                         DiscoveryServiceClient *ds_client) 
     : serviceName_(serviceName), numbOfInstances_(numbOfInstances),
       chksum_(0),
       subscribe_timer_(TimerManager::CreateTimer(*evm->io_service(), "Subscribe Timer",
@@ -43,28 +44,60 @@ DSResponseHeader::DSResponseHeader(std::string serviceName, uint8_t numbOfInstan
       subscribe_cb_called_(false) {
 }
 
-DSResponseHeader::~DSResponseHeader() {
+DSSubscribeResponse::~DSSubscribeResponse() {
     service_list_.clear();
     TimerManager::DeleteTimer(subscribe_timer_);
 }
 
-int DSResponseHeader::GetConnectTime() const {
+int DSSubscribeResponse::GetConnectTime() const {
     int backoff = min(attempts_, 6);
     // kConnectInterval = 30secs 
     return std::min(backoff ? 1 << (backoff - 1) : 0, 30);
 }
 
-bool DSResponseHeader::SubscribeTimerExpired() {
+bool DSSubscribeResponse::SubscribeTimerExpired() {
     // Resend subscription request
     ds_client_->Subscribe(serviceName_, numbOfInstances_); 
     return false;
 }
 
-void DSResponseHeader::StartSubscribeTimer(int seconds) {
+void DSSubscribeResponse::StartSubscribeTimer(int seconds) {
     subscribe_timer_->Cancel(); 
     subscribe_timer_->Start(seconds * 1000,
-        boost::bind(&DSResponseHeader::SubscribeTimerExpired, this));
+        boost::bind(&DSSubscribeResponse::SubscribeTimerExpired, this));
 }
+
+void DSSubscribeResponse::AddInUseServiceList(
+                          boost::asio::ip::tcp::endpoint ep) {
+    inuse_service_list_.push_back(ep);
+}
+
+void DSSubscribeResponse::DeleteInUseServiceList(
+                          boost::asio::ip::tcp::endpoint ep) {
+    std::vector<boost::asio::ip::tcp::endpoint>::iterator it;
+    for (it = inuse_service_list_.begin(); 
+         it != inuse_service_list_.end(); it++) {
+        boost::asio::ip::tcp::endpoint endpoint = *it;
+        if (ep.address().to_string().compare(
+            endpoint.address().to_string()) == 0) {
+            inuse_service_list_.erase(it);
+            break;
+        }
+    }
+}
+
+std::string DSSubscribeResponse::GetPublisherId(string ip_address) { 
+
+    std::vector<DSResponse>::iterator it = service_list_.begin();
+    for (; it != service_list_.end(); it++) {
+        DSResponse resp = *it;
+        if (resp.ep.address().to_string().compare(ip_address) == 0) {
+            return (resp.publisher_id);
+        }
+    }
+    return (NULL);
+}
+
 
 /**************** Discovery Service Publish Response Message ******************/
 DSPublishResponse::DSPublishResponse(std::string serviceName, 
@@ -635,7 +668,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
     // Create Response Header
     ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
     if (loc == service_response_map_.end()) {
-        DSResponseHeader *resp = new DSResponseHeader(serviceName, numbOfInstances,
+        DSSubscribeResponse *resp = new DSSubscribeResponse(serviceName, numbOfInstances,
                                                       evm_, this);
         //cache the request
         resp->subscribe_msg_ = ss.str();
@@ -658,10 +691,36 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
     ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
     if (loc != service_response_map_.end()) {
 
-        DSResponseHeader *resp = loc->second;
+        DSSubscribeResponse *resp = loc->second;
         resp->subscribe_timer_->Cancel();
         resp->sub_sent_++;
-        SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
+
+        if (resp->inuse_service_list_.size()) {
+            auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+            if (impl->LoadDoc(resp->subscribe_msg_) != -1) {
+                XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+                pugi::xml_node node_service = pugi->FindNode(serviceName);
+                if (!pugi->IsNull(node_service)) {
+                    pugi->AddNode("service-in-use-list", "");
+                    std::vector<boost::asio::ip::tcp::endpoint>::iterator it;
+                    for (it = resp->inuse_service_list_.begin();
+                         it != resp->inuse_service_list_.end(); it++) {
+                        boost::asio::ip::tcp::endpoint ep = *it;
+                        std::string pub_id = 
+                            resp->GetPublisherId(ep.address().to_string());
+                        pugi->AddChildNode("publiser-id", pub_id);
+                        pugi->ReadNode("service-in-use-list");
+                    } 
+                }
+            }
+ 
+            // Convert to string
+            stringstream ss;
+            impl->PrintDoc(ss);
+            SendHttpPostMessage("subscribe", serviceName, ss.str());
+        } else {
+            SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
+        }
     }
 }
 
@@ -669,7 +728,7 @@ void DiscoveryServiceClient::UnsubscribeInternal(std::string serviceName) {
 
     ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
     if (loc != service_response_map_.end()) {
-        DSResponseHeader *resp = loc->second;
+        DSSubscribeResponse *resp = loc->second;
 
         service_response_map_.erase(loc);
         delete resp;
@@ -678,7 +737,6 @@ void DiscoveryServiceClient::UnsubscribeInternal(std::string serviceName) {
         UnRegisterSubscribeResponseHandler(serviceName);
     }
 }
-
 
 void DiscoveryServiceClient::Unsubscribe(std::string serviceName) {
     assert(shutdown_ == false);
@@ -695,7 +753,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     // on indication by the http client code.
 
     // Get Response Header
-    DSResponseHeader *hdr = NULL; 
+    DSSubscribeResponse *hdr = NULL; 
     ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
     if (loc != service_response_map_.end()) {
         hdr = loc->second;
@@ -786,8 +844,8 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     if (!pugi->IsNull(node)) {
         std::string serviceTag = node.first_child().name();
         for (node = node.first_child(); node; node = node.next_sibling()) {
-       
             DSResponse resp;
+            resp.publisher_id = node.attribute("publisher-id").value(); 
             /* TODO: autogenerate with <choice> support */
             for (pugi::xml_node subnode = node.first_child(); subnode; 
                  subnode = subnode.next_sibling()) {
@@ -833,7 +891,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
                 serviceName, ConnectionStatus::UP, ds_endpoint_,
                 "SubscribeResponse");
 
-        // Update DSResponseHeader for first response or change in response
+        // Update DSSubscribeResponse for first response or change in response
         hdr->chksum_ = gen_chksum;
 
         hdr->service_list_.clear();
@@ -997,6 +1055,36 @@ void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type,
 
 }
 
+DSSubscribeResponse *DiscoveryServiceClient::GetSubscribeResponse(
+                                          std::string serviceName) {
+
+    DSSubscribeResponse *resp = NULL;
+    ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
+    if (loc != service_response_map_.end()) {
+        resp = loc->second;
+    }
+
+    return resp;
+}
+
+void DiscoveryServiceClient::AddSubscribeInUseServiceList(
+        std::string serviceName, boost::asio::ip::tcp::endpoint ep) {
+
+    DSSubscribeResponse *resp = GetSubscribeResponse(serviceName);
+    if (resp) {
+        resp->AddInUseServiceList(ep);
+    }
+}
+
+void DiscoveryServiceClient::DeleteSubscribeInUseServiceList(
+        std::string serviceName, boost::asio::ip::tcp::endpoint ep) {
+
+    DSSubscribeResponse *resp = GetSubscribeResponse(serviceName);
+    if (resp) {
+        resp->DeleteInUseServiceList(ep);
+    }
+}
+                                           
 DSPublishResponse *DiscoveryServiceClient::GetPublishResponse(
                                              std::string serviceName) {
 
@@ -1040,7 +1128,7 @@ void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
          next = iter;
          iter != service_response_map_.end(); iter = next)  {  
 
-         DSResponseHeader *sub_resp = iter->second; 
+         DSSubscribeResponse *sub_resp = iter->second; 
 
          DiscoveryClientSubscriberStats stats; 
          stats.set_serviceName(sub_resp->serviceName_); 

@@ -26,13 +26,14 @@ struct DiscoveryClientPublisherStats;
 struct DiscoveryClientSubscriberStats;
 
 struct DSResponse {
-   boost::asio::ip::tcp::endpoint  ep;
+    std::string publisher_id;
+    boost::asio::ip::tcp::endpoint ep;
 };
 
-struct DSResponseHeader {
-    DSResponseHeader(std::string serviceName, uint8_t numbOfInstances, 
+struct DSSubscribeResponse {
+    DSSubscribeResponse(std::string serviceName, uint8_t numbOfInstances, 
                      EventManager *evm, DiscoveryServiceClient *);
-    ~DSResponseHeader();
+    ~DSSubscribeResponse();
 
     bool SubscribeTimerExpired();
     void StartSubscribeTimer(int);
@@ -57,6 +58,13 @@ struct DSResponseHeader {
     int sub_fail_;
 
     bool subscribe_cb_called_;
+
+    // Save in-use server list
+    void AddInUseServiceList(boost::asio::ip::tcp::endpoint ep);
+    void DeleteInUseServiceList(boost::asio::ip::tcp::endpoint ep);
+    std::vector<boost::asio::ip::tcp::endpoint> inuse_service_list_;
+
+    std::string GetPublisherId(std::string ip_address);
 };
 
 struct DSPublishResponse {
@@ -124,6 +132,7 @@ public:
     static bool ParseDiscoveryServerConfig(std::string discovery_server,
                 uint16_t port, boost::asio::ip::tcp::endpoint *);
 
+    /* Publish api's */
     typedef boost::function<bool(std::string&)> ReEvalPublishCbHandler;
     void Publish(std::string serviceName, std::string &msg,
                  ReEvalPublishCbHandler);
@@ -131,22 +140,26 @@ public:
     void PublishResponseHandler(std::string &msg, boost::system::error_code, 
                                 std::string serviceName, HttpConnection *);
     void WithdrawPublish(std::string serviceName);
+    DSPublishResponse *GetPublishResponse(std::string serviceName);
 
+    /* Subscribe api's */
     typedef boost::function<void(std::vector<DSResponse>)> ServiceHandler;
     void Subscribe(std::string serviceName, 
                    uint8_t numbOfInstances, ServiceHandler);
     void Subscribe(std::string serviceName, uint8_t numbOfInstances);
     void SubscribeResponseHandler(std::string &msg, boost::system::error_code &, 
                                   std::string serviceName, HttpConnection *);
-
+    void AddSubscribeInUseServiceList(std::string serviceName,
+                                      boost::asio::ip::tcp::endpoint ep);
+    void DeleteSubscribeInUseServiceList(std::string serviceName,
+                                         boost::asio::ip::tcp::endpoint ep);
     void Unsubscribe(std::string serviceName);
+    DSSubscribeResponse *GetSubscribeResponse(std::string serviceName);
 
+    /* HeartBeat api's */
     virtual void SendHeartBeat(std::string serviceName, std::string msg);
     void HeartBeatResponseHandler(std::string &msg, boost::system::error_code, 
                                   std::string serviceName, HttpConnection *);
-
-    DSPublishResponse *GetPublishResponse(std::string serviceName);
-
     void SetHeartBeatInterval(int seconds) {
         heartbeat_interval_ = seconds;
     }
@@ -167,7 +180,7 @@ public:
     // Map of <ServiceName, PublishResponseHeader> for publish
     typedef std::map<std::string, DSPublishResponse *> PublishResponseMap;
     // Map of <ServiceName, SubscribeResponseHeader> for subscribe
-    typedef std::map<std::string, DSResponseHeader *> ServiceResponseMap;
+    typedef std::map<std::string, DSSubscribeResponse *> ServiceResponseMap;
     // Map of <ServiceName, ReEvalPublishCbHandler> for reeval publish
     typedef std::map<std::string, ReEvalPublishCbHandler> ReEvalPublishCbHandlerMap;
 
@@ -180,7 +193,7 @@ public:
     ReEvalPublishCbHandlerMap reeval_publish_map_;
 
 private:
-    friend struct DSResponseHeader;
+    friend struct DSSubscribeResponse;
     friend struct DSPublishResponse;
 
     //Build and send http post message
