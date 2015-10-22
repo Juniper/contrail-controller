@@ -76,7 +76,6 @@ public:
         EXT_CONNECT_ROUTE_DELETE,
         UPDATE_ALL_ROUTES,
         STOP_CHAIN_DONE,
-        SHOW_SERVICE_CHAIN,
         SHOW_PENDING_CHAIN
     };
 
@@ -90,13 +89,11 @@ public:
           snh_resp_(NULL) {
     }
 
-    ServiceChainRequest(RequestType type, SandeshResponse *resp,
-        const std::string &search_string)
+    ServiceChainRequest(RequestType type, SandeshResponse *resp)
         : type_(type),
           table_(NULL),
           rt_(NULL),
-          snh_resp_(resp),
-          search_string_(search_string) {
+          snh_resp_(resp) {
     }
 
     RequestType type_;
@@ -105,7 +102,6 @@ public:
     PrefixT aggregate_match_;
     ServiceChainPtr info_;
     SandeshResponse *snh_resp_;
-    std::string search_string_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(ServiceChainRequest);
@@ -257,6 +253,8 @@ public:
 
     Address::Family GetFamily() const;
     void Enqueue(ServiceChainRequestT *req);
+    virtual bool FillServiceChainInfo(RoutingInstance *rtinstance,
+                                      ShowServicechainInfo *info) const;
 
 private:
     template <typename U> friend class ServiceChainIntegrationTest;
@@ -276,8 +274,8 @@ private:
 
     bool RequestHandler(ServiceChainRequestT *req);
     void StopServiceChainDone(BgpTable *table, ConditionMatch *info);
-    ServiceChainT *FindServiceChain(const std::string &instance);
-    ServiceChainT *FindServiceChain(RoutingInstance *rtinstance);
+    ServiceChainT *FindServiceChain(const std::string &instance) const;
+    ServiceChainT *FindServiceChain(RoutingInstance *rtinstance) const;
 
     void AddPendingServiceChain(RoutingInstance *rtinstance) {
         pending_chains_.insert(rtinstance);

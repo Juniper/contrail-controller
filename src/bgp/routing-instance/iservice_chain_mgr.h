@@ -10,6 +10,7 @@
 
 class RoutingInstance;
 class ServiceChainConfig;
+class ShowServicechainInfo;
 
 class IServiceChainMgr {
 public:
@@ -22,6 +23,8 @@ public:
     virtual size_t ResolvedQueueSize() const = 0;
     virtual uint32_t GetDownServiceChainCount() const = 0;
     virtual bool IsQueueEmpty() const = 0;
+    virtual bool FillServiceChainInfo(RoutingInstance *rtinstance,
+                                      ShowServicechainInfo *info) const = 0;
 
 private:
     template <typename U> friend class ServiceChainIntegrationTest;
