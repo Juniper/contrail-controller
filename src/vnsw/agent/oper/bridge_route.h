@@ -30,16 +30,6 @@ public:
                       const std::string &vrf_name,
                       const MacAddress &mac,
                       const VmInterface *vm_intf);
-    void AddOvsPeerMulticastRoute(const Peer* peer,
-                                  uint32_t vxlan_id,
-                                  const std::string &vn_name,
-                                  Ip4Address vtep,
-                                  Ip4Address tor_ip);
-    void AddOvsPeerMulticastRouteReq(const Peer* peer,
-                                     uint32_t vxlan_id,
-                                     const std::string &vn_name,
-                                     Ip4Address vtep,
-                                     Ip4Address tor_ip);
     void AddBridgeRoute(const AgentRoute *rt);
     static AgentRouteData *BuildNonBgpPeerData(const string &vrf_name,
                                                const std::string &vn_name,
@@ -85,10 +75,6 @@ public:
                                    uint32_t ethernet_tag,
                                    COMPOSITETYPE type);
     void DeleteBridgeRoute(const AgentRoute *rt);
-    void DeleteOvsPeerMulticastRouteReq(const Peer *peer,
-                                        uint32_t vxlan_id);
-    void DeleteOvsPeerMulticastRoute(const Peer *peer,
-                                     uint32_t vxlan_id);
     void DeleteMacVmBindingRoute(const Peer *peer,
                          const std::string &vrf_name,
                          const MacAddress &mac,
@@ -97,16 +83,6 @@ public:
     BridgeRouteEntry *FindRoute(const MacAddress &mac);
 
 private:
-    void AddOvsPeerMulticastRouteInternal(const Peer* peer,
-                                          uint32_t vxlan_id,
-                                          const std::string &vn_name,
-                                          Ip4Address vtep,
-                                          Ip4Address tor_ip,
-                                          bool enqueue);
-    void DeleteOvsPeerMulticastRouteInternal(const Peer *peer,
-                                             uint32_t vxlan_id,
-                                             bool enqueue);
-
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(BridgeAgentRouteTable);
 };

@@ -215,7 +215,8 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                     continue;
                 }
 
-                if (mac == MacAddress::BroadcastMac()) {
+                if (mac == MacAddress::BroadcastMac() &&
+                    !(agent_->tor_agent_enabled())) {
                     //Deletes the peer path for all boradcast and
                     //traverses the subnet route in VRF to issue delete of peer
                     //for them as well.
@@ -741,7 +742,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
 
     boost::system::error_code ec;
     MacAddress mac(mac_str);
-    if (mac == MacAddress::BroadcastMac()) {
+    if (mac == MacAddress::BroadcastMac() &&
+        !(agent_->tor_agent_enabled())) {
         AddMulticastEvpnRoute(vrf_name, mac, item);
         return;
     }
@@ -1841,7 +1843,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
                                                 const std::string &destination,
                                                 const std::string &source,
                                                 bool associate) {
-    assert(route->GetTableType() == Agent::BRIDGE);
+    assert(route->GetTableType() == Agent::EVPN);
     const AgentPath *path = NULL;
     BridgeRouteEntry *l2_route =
         dynamic_cast<BridgeRouteEntry *>(route);
@@ -2356,6 +2358,8 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                               uint32_t label,
                                               TunnelType::TypeBmap bmap,
                                               const SecurityGroupList *sg_list,
+                                              const std::string &destination,
+                                              const std::string &source,
                                               Agent::RouteTableType type,
                                               const PathPreference
                                               &path_preference)
@@ -2378,7 +2382,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
     if (type == Agent::EVPN) {
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
                                                   sg_list, label, bmap,
-                                                  "", "",
+                                                  destination, source,
                                                   path_preference, true);
     }
     return ret;
@@ -2390,6 +2394,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
                                           uint32_t label,
                                           TunnelType::TypeBmap bmap,
                                           const SecurityGroupList *sg_list,
+                                          const std::string &destination,
+                                          const std::string &source,
                                           Agent::RouteTableType type,
                                           const PathPreference
                                           &path_preference)
@@ -2414,7 +2420,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
     if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn, NULL,
-                                                  label, bmap, "", "",
+                                                  label, bmap,
+                                                  destination, source,
                                                   path_preference, false);
     }
     return ret;

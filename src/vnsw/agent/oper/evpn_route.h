@@ -27,6 +27,16 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
     //Add routines
+    void AddOvsPeerMulticastRouteReq(const Peer* peer,
+                                     uint32_t vxlan_id,
+                                     const std::string &vn_name,
+                                     Ip4Address vtep,
+                                     Ip4Address tor_ip);
+    void AddOvsPeerMulticastRoute(const Peer* peer,
+                                  uint32_t vxlan_id,
+                                  const std::string &vn_name,
+                                  Ip4Address vtep,
+                                  Ip4Address tor_ip);
     void AddReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
                             uint32_t label, const MacAddress &mac,
                             const IpAddress &ip_addr, uint32_t ethernet_tag,
@@ -70,6 +80,10 @@ public:
                                  AgentRouteData *data);
 
     //Delete routines
+    void DeleteOvsPeerMulticastRouteReq(const Peer *peer,
+                                        uint32_t vxlan_id);
+    void DeleteOvsPeerMulticastRoute(const Peer *peer,
+                                     uint32_t vxlan_id);
     void DelLocalVmRoute(const Peer *peer, const std::string &vrf_name,
                          const MacAddress &mac, const VmInterface *intf,
                          const IpAddress &ip, uint32_t ethernet_tag);
@@ -89,6 +103,16 @@ public:
 
 private:
     DISALLOW_COPY_AND_ASSIGN(EvpnAgentRouteTable);
+    void AddOvsPeerMulticastRouteInternal(const Peer* peer,
+                                          uint32_t vxlan_id,
+                                          const std::string &vn_name,
+                                          Ip4Address vtep,
+                                          Ip4Address tor_ip,
+                                          bool enqueue);
+    void DeleteOvsPeerMulticastRouteInternal(const Peer *peer,
+                                             uint32_t vxlan_id,
+                                             bool enqueue);
+
 };
 
 class EvpnRouteEntry : public AgentRoute {
@@ -118,20 +142,34 @@ public:
     const IpAddress &ip_addr() const {return ip_addr_;}
     const uint32_t GetVmIpPlen() const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
+    void set_publish_to_bridge_route_table(bool publish_to_bridge_route_table) {
+        publish_to_bridge_route_table_ = publish_to_bridge_route_table;
+    }
+    bool publish_to_bridge_route_table() const {
+        return publish_to_bridge_route_table_;
+    }
+    void set_publish_to_inet_route_table(bool publish_to_inet_route_table) {
+        publish_to_inet_route_table_ = publish_to_inet_route_table;
+    }
+    bool publish_to_inet_route_table() const {
+        return publish_to_inet_route_table_;
+    }
 
 private:
 
     MacAddress mac_;
     IpAddress ip_addr_;
     uint32_t ethernet_tag_;
+    bool publish_to_inet_route_table_;
+    bool publish_to_bridge_route_table_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRouteEntry);
 };
 
 class EvpnRouteKey : public AgentRouteKey {
 public:
     EvpnRouteKey(const Peer *peer, const std::string &vrf_name,
-                   const MacAddress &mac, const IpAddress &ip_addr,
-                   uint32_t ethernet_tag) :
+                 const MacAddress &mac, const IpAddress &ip_addr,
+                 uint32_t ethernet_tag) :
         AgentRouteKey(peer, vrf_name), dmac_(mac), ip_addr_(ip_addr),
         ethernet_tag_(ethernet_tag) {
     }

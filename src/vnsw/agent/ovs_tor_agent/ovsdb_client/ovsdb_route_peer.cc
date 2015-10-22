@@ -124,15 +124,15 @@ void OvsPeer::AddOvsPeerMulticastRoute(const VrfEntry *vrf,
                                        const std::string &vn_name,
                                        const Ip4Address &tsn_ip,
                                        const Ip4Address &tor_ip) {
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (vrf->GetBridgeRouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
     table->AddOvsPeerMulticastRoute(this, vxlan_id, vn_name, tsn_ip, tor_ip);
 }
 
 void OvsPeer::DeleteOvsPeerMulticastRoute(const VrfEntry *vrf,
                                           uint32_t vxlan_id) {
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (vrf->GetBridgeRouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
     table->DeleteOvsPeerMulticastRoute(this, vxlan_id);
 }
 

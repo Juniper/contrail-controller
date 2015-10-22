@@ -559,6 +559,7 @@ public:
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "multicast";}
+    virtual bool UpdateRoute(AgentRoute *rt);
     uint32_t vxlan_id() const {return vxlan_id_;}
     COMPOSITETYPE comp_nh_type() const {return comp_nh_type_;}
     static bool CopyPathParameters(Agent *agent,

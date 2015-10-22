@@ -168,12 +168,19 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     if (path) {
         if (state->Changed(route, path)) {
             state->Update(route, path);
+            const TunnelNH *tnh =
+                dynamic_cast<const TunnelNH *>(route->GetActiveNextHop());
+            if (tnh) {
+                state->destination_ = tnh->GetDip()->to_string();
+                state->source_ = tnh->GetSip()->to_string();
+            }
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route),
                         path->NexthopIp(table->agent()), state->vn_,
-                        state->label_, path->GetTunnelBmap(),
-                        &path->sg_list(), type, state->path_preference_);
+                        state->label_, path->GetTunnelBmap(), &path->sg_list(),
+                        state->destination_, state->source_,
+                        type, state->path_preference_);
         }
     } else {
         if (state->exported_ == true) {
@@ -182,6 +189,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                     (state->tunnel_type_ == TunnelType::VXLAN ?
                      state->label_ : 0),
                     TunnelType::AllType(), NULL,
+                    state->destination_, state->source_,
                     type, state->path_preference_);
             state->exported_ = false;
         }
@@ -198,13 +206,6 @@ done:
 static const AgentPath *GetMulticastExportablePath(const Agent *agent,
                                                    const AgentRoute *route) {
     const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
-    //OVS peer path
-    if (active_path == NULL) {
-        const BridgeRouteEntry *bridge_route =
-            dynamic_cast<const BridgeRouteEntry *>(route);
-        if (bridge_route)
-            active_path = bridge_route->FindOvsPath();
-    }
     //If no loca peer, then look for tor peer as that should also result
     //in export of route.
     if (active_path == NULL)
@@ -399,13 +400,6 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
         (state->force_chg_ == true))) {
         state->label_ = active_path->GetActiveLabel();
         state->vn_ = route->dest_vn_name();
-        const TunnelNH *tnh =
-            dynamic_cast<const TunnelNH *>(active_path->nexthop());
-        if (tnh) {
-            state->destination_ = tnh->GetDip()->to_string();
-            state->source_ = tnh->GetSip()->to_string();
-        }
-
         SecurityGroupList sg;
         state->ingress_replication_exported_ =
             AgentXmppChannel::ControllerSendEvpnRouteAdd

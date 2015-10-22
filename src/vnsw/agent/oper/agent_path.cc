@@ -836,6 +836,22 @@ bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
     return ret;
 }
 
+bool MulticastRoute::UpdateRoute(AgentRoute *rt) {
+    bool ret = false;
+    EvpnRouteEntry *evpn_rt = dynamic_cast<EvpnRouteEntry *>(rt);
+    if (evpn_rt) {
+        if (evpn_rt->publish_to_inet_route_table()) {
+            evpn_rt->set_publish_to_inet_route_table(false);
+            ret = true;
+        }
+        if (evpn_rt->publish_to_bridge_route_table()) {
+            evpn_rt->set_publish_to_bridge_route_table(false);
+            ret = true;
+        }
+    }
+    return ret;
+}
+
 bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path,
                                    const AgentRoute *rt) {
     bool ret = false;

@@ -71,6 +71,8 @@ public:
                                        uint32_t label,
                                        uint32_t tunnel_bmap,
                                        const SecurityGroupList *sg_list,
+                                       const std::string &destination,
+                                       const std::string &source,
                                        Agent::RouteTableType type,
                                        const PathPreference &path_preference);
     static bool ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
@@ -92,6 +94,8 @@ public:
                                           uint32_t label,
                                           uint32_t tunnel_bmap,
                                           const SecurityGroupList *sg_list,
+                                          const std::string &destination,
+                                          const std::string &source,
                                           Agent::RouteTableType type,
                                           const PathPreference &path_preference);
     static bool ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
