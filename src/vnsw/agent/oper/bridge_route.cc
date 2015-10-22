@@ -129,49 +129,7 @@ void BridgeAgentRouteTable::AddBridgeRoute(const AgentRoute *rt) {
     BridgeTableProcess(agent(), vrf_name(), req);
 }
 
-void BridgeAgentRouteTable::AddOvsPeerMulticastRouteInternal(const Peer *peer,
-                                                             uint32_t vxlan_id,
-                                                             const std::string &vn_name,
-                                                             Ip4Address tsn,
-                                                             Ip4Address tor_ip,
-                                                             bool enqueue) {
-    const VrfEntry *vrf = vrf_entry();
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new TunnelNHKey(vrf->GetName(), tsn, tor_ip,
-                                     false, TunnelType::VXLAN));
-    nh_req.data.reset(new TunnelNHData());
 
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new BridgeRouteKey(peer,
-                                     vrf->GetName(),
-                                     MacAddress::BroadcastMac(),
-                                     vxlan_id));
-    req.data.reset(new MulticastRoute(vn_name, 0, vxlan_id,
-                                      TunnelType::VxlanType(),
-                                      nh_req, Composite::L2COMP));
-    if (enqueue) {
-        BridgeTableEnqueue(agent(), &req);
-    } else {
-        BridgeTableProcess(agent(), vrf_name(), req);
-    }
-}
-
-void BridgeAgentRouteTable::AddOvsPeerMulticastRoute(const Peer *peer,
-                                                     uint32_t vxlan_id,
-                                                     const std::string &vn_name,
-                                                     Ip4Address tsn,
-                                                     Ip4Address tor_ip) {
-    AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip, false);
-}
-
-void BridgeAgentRouteTable::AddOvsPeerMulticastRouteReq(const Peer *peer,
-                                                        uint32_t vxlan_id,
-                                                        const std::string &vn_name,
-                                                        Ip4Address tsn,
-                                                        Ip4Address tor_ip) {
-    AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip, true);
-}
- 
 void BridgeAgentRouteTable::AddMacVmBindingRoute(const Peer *peer,
                                                  const std::string &vrf_name,
                                                  const MacAddress &mac,
@@ -220,33 +178,6 @@ void BridgeAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
     req.data.reset(NULL);
     BridgeTableProcess(Agent::GetInstance(), vrf_name, req);
-}
-
-void BridgeAgentRouteTable::DeleteOvsPeerMulticastRouteInternal(const Peer *peer,
-                                                                uint32_t vxlan_id,
-                                                                bool enqueue) {
-    const VrfEntry *vrf = vrf_entry();
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new BridgeRouteKey(peer,
-                                     vrf->GetName(),
-                                     MacAddress::BroadcastMac(),
-                                     vxlan_id));
-    req.data.reset(NULL);
-    if (enqueue) {
-        BridgeTableEnqueue(agent(), &req);
-    } else {
-        BridgeTableProcess(agent(), vrf->GetName(), req);
-    }
-}
-
-void BridgeAgentRouteTable::DeleteOvsPeerMulticastRouteReq(const Peer *peer,
-                                                           uint32_t vxlan_id) {
-    DeleteOvsPeerMulticastRouteInternal(peer, vxlan_id, true);
-}
-
-void BridgeAgentRouteTable::DeleteOvsPeerMulticastRoute(const Peer *peer,
-                                                        uint32_t vxlan_id) {
-    DeleteOvsPeerMulticastRouteInternal(peer, vxlan_id, false);
 }
 
 AgentRouteData *BridgeAgentRouteTable::BuildNonBgpPeerData(const string &vrf_name,
@@ -533,17 +464,6 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
 const MacVmBindingPath *BridgeRouteEntry::FindMacVmBindingPath() const {
     Agent *agent = (static_cast<AgentRouteTable *> (get_table()))->agent();
     return dynamic_cast<MacVmBindingPath*>(FindPath(agent->mac_vm_binding_peer()));
-}
-
-const AgentPath *BridgeRouteEntry::FindOvsPath() const {
-    for(Route::PathList::const_iterator it = GetPathList().begin();
-        it != GetPathList().end(); it++) {
-        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
-        if (path->peer()->GetType() == Peer::OVS_PEER) {
-            return const_cast<AgentPath *>(path);
-        }
-    }
-    return NULL;
 }
 
 bool BridgeRouteEntry::ReComputePathAdd(AgentPath *path) {

@@ -168,12 +168,19 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     if (path) {
         if (state->Changed(route, path)) {
             state->Update(route, path);
+            const TunnelNH *tnh =
+                dynamic_cast<const TunnelNH *>(route->GetActiveNextHop());
+            if (tnh) {
+                state->destination_ = tnh->GetDip()->to_string();
+                state->source_ = tnh->GetSip()->to_string();
+            }
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route),
                         path->NexthopIp(table->agent()), state->vn_,
-                        state->label_, path->GetTunnelBmap(),
-                        &path->sg_list(), type, state->path_preference_);
+                        state->label_, path->GetTunnelBmap(), &path->sg_list(),
+                        state->destination_, state->source_,
+                        type, state->path_preference_);
         }
     } else {
         if (state->exported_ == true) {
@@ -182,6 +189,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                     (state->tunnel_type_ == TunnelType::VXLAN ?
                      state->label_ : 0),
                     TunnelType::AllType(), NULL,
+                    state->destination_, state->source_,
                     type, state->path_preference_);
             state->exported_ = false;
         }
@@ -200,10 +208,9 @@ static const AgentPath *GetMulticastExportablePath(const Agent *agent,
     const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
     //OVS peer path
     if (active_path == NULL) {
-        const BridgeRouteEntry *bridge_route =
-            dynamic_cast<const BridgeRouteEntry *>(route);
-        if (bridge_route)
-            active_path = bridge_route->FindOvsPath();
+        const EvpnRouteEntry *evpn_route =
+            dynamic_cast<const EvpnRouteEntry *>(route);
+        active_path = evpn_route ? evpn_route->FindOvsPath() : NULL;
     }
     //If no loca peer, then look for tor peer as that should also result
     //in export of route.
@@ -276,11 +283,6 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     AgentRoute *route = static_cast<AgentRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(), id_));
     bool route_can_be_dissociated = MulticastRouteCanDissociate(route);
-
-    //Currently only bridge flood route is taken, though there is a seperate
-    //multicast table as well. In future if multicats table is populated, get
-    //rid of this assert or expand it.
-    assert(route->GetTableType() == Agent::BRIDGE);
 
     //Handle withdraw for following cases:
     //- Route is not having any active multicast exportable path or is deleted.
@@ -405,7 +407,6 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
             state->destination_ = tnh->GetDip()->to_string();
             state->source_ = tnh->GetSip()->to_string();
         }
-
         SecurityGroupList sg;
         state->ingress_replication_exported_ =
             AgentXmppChannel::ControllerSendEvpnRouteAdd
