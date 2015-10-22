@@ -127,6 +127,43 @@ TEST_F(BgpAttrTest, AggregatorToString) {
     EXPECT_EQ("Aggregator <code: 7, flags: c0> : 100:0101010a", agg.ToString());
 }
 
+TEST_F(BgpAttrTest, AsPathLeftMost1) {
+    AsPathSpec spec;
+    EXPECT_EQ(0, spec.AsLeftMost());
+}
+
+TEST_F(BgpAttrTest, AsPathLeftMost2) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps);
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    EXPECT_EQ(0, spec.AsLeftMost());
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    EXPECT_EQ(0, spec.AsLeftMost());
+}
+
+TEST_F(BgpAttrTest, AsPathLeftMost3) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps);
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ps->path_segment.push_back(64512);
+    ps->path_segment.push_back(64513);
+    ps->path_segment.push_back(64514);
+    EXPECT_EQ(0, spec.AsLeftMost());
+}
+
+TEST_F(BgpAttrTest, AsPathLeftMost4) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps);
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps->path_segment.push_back(64512);
+    ps->path_segment.push_back(64513);
+    ps->path_segment.push_back(64514);
+    EXPECT_EQ(64512, spec.AsLeftMost());
+}
+
 TEST_F(BgpAttrTest, AsPathCompare_Sequence) {
     AsPathSpec spec1;
     AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;

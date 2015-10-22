@@ -13,6 +13,30 @@ using std::copy;
 using std::ostringstream;
 using std::string;
 
+//
+// Return the left most AS.
+//
+as_t AsPathSpec::AsLeftMost() const {
+    if (path_segments.empty())
+        return 0;
+    if (path_segments[0]->path_segment_type == PathSegment::AS_SET)
+        return 0;
+    if (path_segments[0]->path_segment.empty())
+        return 0;
+    return (path_segments[0]->path_segment[0]);
+}
+
+//
+// Return true if left most AS matches the input.
+//
+bool AsPathSpec::AsLeftMostMatch(as_t as) const {
+    if (path_segments.empty())
+        return false;
+    if (path_segments[0]->path_segment.empty())
+        return false;
+    return (path_segments[0]->path_segment[0] == as);
+}
+
 int AsPathSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
