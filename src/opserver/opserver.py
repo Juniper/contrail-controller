@@ -783,14 +783,6 @@ class OpServer(object):
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
 
-        # update ttls
-        if (defaults['analytics_config_audit_ttl'] == -1):
-            defaults['analytics_config_audit_ttl'] = defaults['analytics_data_ttl']
-        if (defaults['analytics_statistics_ttl'] == -1):
-            defaults['analytics_statistics_ttl'] = defaults['analytics_data_ttl']
-        if (defaults['analytics_flow_ttl'] == -1):
-            defaults['analytics_flow_ttl'] = defaults['analytics_data_ttl']
-
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
 
@@ -1650,19 +1642,21 @@ class OpServer(object):
         current_time = UTCTimestampUsec()
 
         self._logger.error("start times:" + str(start_times))
+
+        analytics_ttls = self._analytics_db._get_analytics_ttls()
         analytics_time_range = min(
                 (current_time - start_times[SYSTEM_OBJECT_START_TIME]),
-                60*60*1000000*self._args.analytics_data_ttl)
+                60*60*1000000*analytics_ttls[SYSTEM_OBJECT_GLOBAL_DATA_TTL])
         flow_time_range = min(
                 (current_time - start_times[SYSTEM_OBJECT_FLOW_START_TIME]),
-                60*60*1000000*self._args.analytics_flow_ttl)
+                60*60*1000000*analytics_ttls[SYSTEM_OBJECT_FLOW_DATA_TTL])
         stat_time_range = min(
                 (current_time - start_times[SYSTEM_OBJECT_STAT_START_TIME]),
-                60*60*1000000*self._args.analytics_statistics_ttl)
+                60*60*1000000*analytics_ttls[SYSTEM_OBJECT_STATS_DATA_TTL])
         # currently using config audit TTL for message table (to be changed)
         msg_time_range = min(
                 (current_time - start_times[SYSTEM_OBJECT_MSG_START_TIME]),
-                60*60*1000000*self._args.analytics_config_audit_ttl)
+                60*60*1000000*analytics_ttls[SYSTEM_OBJECT_CONFIG_AUDIT_TTL])
 
         purge_cutoff['flow_cutoff'] = int(current_time - (float(100 - purge_input)*
                 float(flow_time_range)/100.0))

@@ -619,7 +619,7 @@ private:
 
 CdbIf::CdbIf(DbErrorHandler errhandler,
         const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports, int ttl,
+        const std::vector<int> &cassandra_ports,
         std::string name, bool only_sync) :
     socket_(new TSocketPool(cassandra_ips, cassandra_ports)),
     transport_(new TFramedTransport(socket_)),
@@ -629,7 +629,6 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
     name_(name),
     init_task_(NULL),
     cleanup_task_(NULL),
-    cassandra_ttl_(ttl),
     only_sync_(only_sync),
     task_instance_(-1),
     prev_task_instance_(-1),
@@ -646,7 +645,6 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
 CdbIf::CdbIf() : 
     init_task_(NULL), 
     cleanup_task_(NULL),
-    cassandra_ttl_(-1), 
     only_sync_(false), 
     task_instance_(-1),
     prev_task_instance_(-1),
@@ -1329,11 +1327,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
             c.__set_value(col_value);
             // Timestamp and TTL
             c.__set_timestamp(ts);
-            if (it->ttl == -1) {
-                if (cassandra_ttl_) {
-                    c.__set_ttl(cassandra_ttl_);
-                }
-            } else if (it->ttl) {
+            if (it->ttl > 0) {
                 c.__set_ttl(it->ttl);
             }
             c_or_sc.__set_column(c);
@@ -1354,11 +1348,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
             c.__set_value(col_value);
             // Timestamp and TTL
             c.__set_timestamp(ts);
-            if (it->ttl == -1) {
-                if (cassandra_ttl_) {
-                    c.__set_ttl(cassandra_ttl_);
-                }
-            } else if (it->ttl) {
+            if (it->ttl > 0) {
                 c.__set_ttl(it->ttl);
             }
             c_or_sc.__set_column(c);
@@ -1434,7 +1424,7 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
                     " Decode FAILED");
                 continue;
             }
-            GenDb::NewCol *col(new GenDb::NewCol(citer->column.name, res));
+            GenDb::NewCol *col(new GenDb::NewCol(citer->column.name, res, 0));
             columns.push_back(col);
         }
     } else if (cf->cftype_ == NewCf::COLUMN_FAMILY_NOSQL) {
@@ -1453,7 +1443,7 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
                 CDBIF_LOG_ERR(cfname << ": Column Value Decode FAILED");
                 continue;
             }
-            GenDb::NewCol *col(new GenDb::NewCol(name.release(), value.release()));
+            GenDb::NewCol *col(new GenDb::NewCol(name.release(), value.release(), 0));
             columns.push_back(col);
         }
     }

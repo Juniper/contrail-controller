@@ -120,6 +120,14 @@ void init_vizd_tables() {
                        GenDb::DbDataType::Unsigned64Type)
                       (g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME,
                        GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_FLOW_DATA_TTL,
+                       GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_STATS_DATA_TTL,
+                       GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_CONFIG_AUDIT_TTL,
+                       GenDb::DbDataType::Unsigned64Type)
+                      (g_viz_constants.SYSTEM_OBJECT_GLOBAL_DATA_TTL,
+                       GenDb::DbDataType::Unsigned64Type)
                       ))
         (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
                       boost::assign::list_of

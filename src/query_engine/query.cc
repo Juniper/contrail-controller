@@ -119,7 +119,7 @@ PostProcessingQuery::PostProcessingQuery(
                 std::string sort_str(json_sort_fields[i].GetString());
                 QE_TRACE(DEBUG, sort_str);
                 std::string datatype(m_query->get_column_field_datatype(sort_str));
-                if (!m_query->is_stat_table_query()) {
+                if (!m_query->is_stat_table_query(m_query->table())) {
                     QE_INVALIDARG_ERROR(datatype != std::string(""));
                 } else if (m_query->stats().is_stat_table_static()) {
                     // This is a static StatTable. We can check the schema
@@ -367,7 +367,7 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     parse_status = status_details;
     if (parse_status != 0) return;
     
-    if (is_stat_table_query()) {
+    if (is_stat_table_query(table_)) {
         is_merge_needed = selectquery_->stats_->IsMergeNeeded();
     } else {
         is_merge_needed = merge_needed;
@@ -376,7 +376,7 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     where = wherequery_->json_string_;
     select = selectquery_->json_string_;
     post = postprocess_->json_string_;
-    is_map_output = is_stat_table_query();
+    is_map_output = is_stat_table_query(table_);
 }
 
 bool AnalyticsQuery::can_parallelize_query() {
@@ -388,8 +388,7 @@ bool AnalyticsQuery::can_parallelize_query() {
 }
 
 void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
-    std::map<std::string, std::string>& json_api_data, 
-    uint64_t analytics_start_time)
+    std::map<std::string, std::string>& json_api_data)
 {
     std::map<std::string, std::string>::iterator iter;
 
@@ -405,6 +404,7 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
 
     sandesh_moduleid = 
         g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
+
     {
         std::stringstream json_string; json_string << " { ";
         for (std::map<std::string, 
@@ -429,11 +429,26 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
 
         // boost::to_upper(table);
         QE_TRACE(DEBUG,  " table is " << table_);
-        if (StatsQuery::is_stat_table_query(table_)) {
+        if (is_stat_table_query(table_)) {
             stats_.reset(new StatsQuery(table_));
         }
         QE_INVALIDARG_ERROR(is_valid_from_field(table_));
     }
+
+    uint64_t ttl;
+    uint64_t min_start_time = UTCTimestampUsec();
+    uint64_t max_end_time = min_start_time;
+
+    if (is_stat_table_query(table_)) {
+        ttl = ttlmap_.find(TtlType::STATSDATA_TTL)->second;
+    } else if (is_flow_query(table_)) {
+        ttl = ttlmap_.find(TtlType::FLOWDATA_TTL)->second;
+    } else if (is_object_table_query(table_)) {
+        ttl = ttlmap_.find(TtlType::CONFIGAUDIT_TTL)->second;
+    } else {
+        ttl = ttlmap_.find(TtlType::GLOBAL_TTL)->second;
+    }
+    min_start_time = min_start_time-ttl*60*60*1000000;
 
     // Start time
     {
@@ -441,9 +456,9 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         QE_PARSE_ERROR(iter != json_api_data.end());
         req_from_time_ = parse_time(iter->second);
         QE_TRACE(DEBUG,  " from_time is " << req_from_time_);
-        if (req_from_time_ < analytics_start_time) 
+        if (req_from_time_ < min_start_time) 
         {
-            from_time_ = analytics_start_time;
+            from_time_ = min_start_time;
             QE_TRACE(DEBUG, "updated start_time to:" << from_time_);
         } else {
             from_time_ = req_from_time_;
@@ -460,11 +475,8 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         req_end_time_ = parse_time(iter->second);
         QE_TRACE(DEBUG,  " end_time is " << req_end_time_);
 
-        if (req_end_time_ < analytics_start_time) {
-            end_time_ = analytics_start_time;
-        } else if (req_end_time_ > 
-                (uint64_t)(curr_time.tv_sec*1000000+curr_time.tv_usec)) {
-            end_time_ = curr_time.tv_sec*1000000+curr_time.tv_usec;
+        if (req_end_time_ > max_end_time) {
+            end_time_ = max_end_time;
             QE_TRACE(DEBUG, "updated end_time to:" << end_time_);
         } else {
             end_time_ = req_end_time_;
@@ -517,7 +529,7 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
          * ObjectId queries are special, they are requested from Object* tables,
          * but the values are extrated from g_viz_constants.OBJECT_VALUE_TABLE
          */
-        if (is_object_table_query()) {
+        if (is_object_table_query(table_)) {
             if (selectquery_->ObjectIdQuery()) {
                 object_value_key = table_;
                 table_ = g_viz_constants.OBJECT_VALUE_TABLE;
@@ -535,7 +547,7 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         return;
     }
 
-    if (this->is_stat_table_query()) {
+    if (is_stat_table_query(table_)) {
         selectquery_->stats_->SetSortOrder(postprocess_->sort_fields);
     }
 
@@ -901,16 +913,17 @@ query_status_t AnalyticsQuery::process_query()
 }
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string, 
-        std::string>& json_api_data, uint64_t analytics_start_time,
+        std::string>& json_api_data, const TtlMap &ttlmap,
         EventManager *evm, std::vector<std::string> cassandra_ips, 
         std::vector<int> cassandra_ports, int batch,
         int total_batches):
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
+            cassandra_ips, cassandra_ports, "QueryEngine", true)),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
+        ttlmap_(ttlmap),
         where_start_(0),
         select_start_(0),
         postproc_start_(0),        
@@ -974,16 +987,17 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             std::string(), ConnectionStatus::UP, db_endpoint, std::string());
     }
     dbif->Db_SetInitDone(true);
-    Init(dbif, qid, json_api_data, analytics_start_time);
+    Init(dbif, qid, json_api_data);
 }
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
     std::map<std::string, std::string> json_api_data, 
-    uint64_t analytics_start_time, int batch, int total_batches) :
+    const TtlMap &ttlmap, int batch, int total_batches) :
     QueryUnit(NULL, this),
     dbif_(dbif),
     query_id(qid),
     json_api_data_(json_api_data),
+    ttlmap_(ttlmap),
     where_start_(0), 
     select_start_(0), 
     postproc_start_(0),
@@ -992,13 +1006,12 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
     total_parallel_batches(total_batches),
     processing_needed(true),
     stats_(NULL) {
-    Init(dbif, qid, json_api_data, analytics_start_time);
+    Init(dbif, qid, json_api_data);
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
-            const std::string & redis_password, int max_tasks, int max_slice,
-            uint64_t anal_ttl) :
+            const std::string & redis_password, int max_tasks, int max_slice) :
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, redis_password, max_tasks)),
         evm_(evm),
@@ -1010,22 +1023,17 @@ QueryEngine::QueryEngine(EventManager *evm,
     // Initialize database connection
     QE_LOG_NOQID(DEBUG, "Initializing QE without database!");
 
-    uint64_t curr_time = UTCTimestampUsec();
-    QE_LOG_NOQID(DEBUG, "Could not find analytics start time");
-    uint64_t ttl = anal_ttl*60*60*1000000;
-    stime = curr_time - ttl;
-    QE_LOG_NOQID(DEBUG, "set stime to " << stime << "and AnalyticsTTL to " << g_viz_constants.AnalyticsTTL);
+    ttlmap_ = g_viz_constants.TtlValuesDefault;
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
             std::vector<std::string> cassandra_ips,
             std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port,
-            const std::string & redis_password, int max_tasks, int max_slice, 
-            uint64_t anal_ttl, uint64_t start_time) :
+            const std::string & redis_password, int max_tasks, int max_slice) :
         dbif_(GenDb::GenDbIf::GenDbIfImpl( 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
+            cassandra_ips, cassandra_ports, "QueryEngine", true)),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, redis_password, max_tasks)),
         evm_(evm),
@@ -1091,16 +1099,20 @@ QueryEngine::QueryEngine(EventManager *evm,
             sleep(5);
         }
     }
-    if (start_time != 0) {
-        stime = start_time;
-    } else {
+    {
         bool init_done = false;
         retries = 0;
-        while (!init_done && retries < 5) {
+        while (!init_done && retries < 12) {
+            init_done = true;
+
             GenDb::ColList col_list;
             std::string cfname = g_viz_constants.SYSTEM_OBJECT_TABLE;
             GenDb::DbDataValueVec key;
             key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
+
+            bool ttl_cached[TtlType::GLOBAL_TTL+1];
+            for (int ttli=0; ttli<=TtlType::GLOBAL_TTL; ttli++)
+                ttl_cached[ttli] = false;
 
             if (dbif_->Db_GetRow(col_list, cfname, key)) {
                 for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
@@ -1110,28 +1122,50 @@ QueryEngine::QueryEngine(EventManager *evm,
                         col_name = boost::get<std::string>(it->name->at(0));
                     } catch (boost::bad_get& ex) {
                         QE_LOG_NOQID(ERROR, __func__ << ": Exception on col_name get");
+                        break;
                     }
-
-                    if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
-                        try {
-                            stime = boost::get<uint64_t>(it->value->at(0));
-                            init_done = true;
-                        } catch (boost::bad_get& ex) {
-                            QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
-                            break;
-                        }
+                    if (col_name == g_viz_constants.SYSTEM_OBJECT_GLOBAL_DATA_TTL) {
+                            try {
+                                ttlmap_.insert(std::make_pair(TtlType::GLOBAL_TTL, boost::get<uint64_t>(it->value->at(0))));
+                                ttl_cached[TtlType::GLOBAL_TTL] = true;
+                            } catch (boost::bad_get& ex) {
+                                QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
+                            }
+                    } else if (col_name == g_viz_constants.SYSTEM_OBJECT_CONFIG_AUDIT_TTL) {
+                            try {
+                                ttlmap_.insert(std::make_pair(TtlType::CONFIGAUDIT_TTL, boost::get<uint64_t>(it->value->at(0))));
+                                ttl_cached[TtlType::CONFIGAUDIT_TTL] = true;
+                            } catch (boost::bad_get& ex) {
+                                QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
+                            }
+                    } else if (col_name == g_viz_constants.SYSTEM_OBJECT_STATS_DATA_TTL) {
+                            try {
+                                ttlmap_.insert(std::make_pair(TtlType::STATSDATA_TTL, boost::get<uint64_t>(it->value->at(0))));
+                                ttl_cached[TtlType::STATSDATA_TTL] = true;
+                            } catch (boost::bad_get& ex) {
+                                QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
+                            }
+                    } else if (col_name == g_viz_constants.SYSTEM_OBJECT_FLOW_DATA_TTL) {
+                            try {
+                                ttlmap_.insert(std::make_pair(TtlType::FLOWDATA_TTL, boost::get<uint64_t>(it->value->at(0))));
+                                ttl_cached[TtlType::FLOWDATA_TTL] = true;
+                            } catch (boost::bad_get& ex) {
+                                QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
+                            }
                     }
                 }
             }
+            for (int ttli=0; ttli<=TtlType::GLOBAL_TTL; ttli++)
+                if (ttl_cached[ttli] == false)
+                    init_done = false;
+
             retries++;
             if (!init_done)
                 sleep(5);
         }
         if (!init_done) {
-            uint64_t ttl = anal_ttl*60*60*1000000;
-            uint64_t curr_time = UTCTimestampUsec();
-            stime = curr_time - ttl;
-            QE_LOG_NOQID(ERROR, __func__ << "setting start_time manually to" << stime);
+            ttlmap_ = g_viz_constants.TtlValuesDefault;
+            QE_LOG_NOQID(ERROR, __func__ << "ttls are set manually");
         }
     }
     dbif_->Db_SetInitDone(true);
@@ -1164,7 +1198,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
         table = string("ObjectCollectorInfo");
     } else {
 
-        AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
+        AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, ttlmap_, evm_,
                 cassandra_ips_, cassandra_ports_, 0, qp.maxChunks);
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
@@ -1181,7 +1215,7 @@ QueryEngine::QueryAccumulate(QueryParams qp,
         QEOpServerProxy::BufferT& output) {
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
-    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
+    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
         cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling merge_processing");
     bool ret = q->merge_processing(input, output);
@@ -1195,7 +1229,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         QEOpServerProxy::BufferT& output) {
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
-    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
+    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
         cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing");
     bool ret = q->final_merge_processing(inputs, output);
@@ -1208,10 +1242,10 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         const std::vector<boost::shared_ptr<QEOpServerProxy::OutRowMultimapT> >& inputs,
         QEOpServerProxy::OutRowMultimapT& output) {
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
-    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
+    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
         cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
 
-    if (!q->is_stat_table_query()) {
+    if (!q->is_stat_table_query(q->table())) {
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
         delete q;
         return false;
@@ -1249,7 +1283,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
         return true;
     }
 
-    AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
+    AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, ttlmap_, evm_,
             cassandra_ips_, cassandra_ports_, chunk, qp.maxChunks);
 
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting processing for QID " << qid << " chunk:" << chunk); 
@@ -1302,15 +1336,30 @@ std::ostream &operator<<(std::ostream &out, query_result_unit_t& res)
     return out;
 }
 
+bool
+AnalyticsQuery::is_stat_table_query(const std::string & tname) {
+    if (tname.compare(0, g_viz_constants.STAT_VT_PREFIX.length(),
+            g_viz_constants.STAT_VT_PREFIX)) {
+        return false;
+    }
+    return true;
+}
+
+bool AnalyticsQuery::is_flow_query(const std::string & tname)
+{
+    return ((tname == g_viz_constants.FLOW_SERIES_TABLE) ||
+        (tname == g_viz_constants.FLOW_TABLE));
+}
+
 // validation functions
-bool AnalyticsQuery::is_object_table_query()
+bool AnalyticsQuery::is_object_table_query(const std::string & tname)
 {
     return (
-        (this->table_ != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
-        (this->table_ != g_viz_constants.FLOW_TABLE) &&
-        (this->table_ != g_viz_constants.FLOW_SERIES_TABLE) &&
-        (this->table_ != g_viz_constants.OBJECT_VALUE_TABLE) &&
-        !is_stat_table_query());
+        (tname != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
+        (tname != g_viz_constants.FLOW_TABLE) &&
+        (tname != g_viz_constants.FLOW_SERIES_TABLE) &&
+        (tname != g_viz_constants.OBJECT_VALUE_TABLE) &&
+        !is_stat_table_query(tname));
 }
 
 
@@ -1328,7 +1377,7 @@ bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
         if (it->first == from_field)
             return true;
     }
-    if (is_stat_table_query())
+    if (is_stat_table_query(table_))
         return true;
 
     return false;
@@ -1366,7 +1415,7 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
         }
     }
 
-    if (is_stat_table_query()) {
+    if (is_stat_table_query(table_)) {
         AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
         if (m_query->stats().is_stat_table_static()) {
             StatsQuery::column_t cdesc = m_query->stats().get_column_desc(where_field);
@@ -1429,121 +1478,6 @@ std::string AnalyticsQuery::get_column_field_datatype(
             return string("");
     }
     return std::string("");
-}
-
-bool AnalyticsQuery::is_flow_query()
-{
-    return ((this->table_ == g_viz_constants.FLOW_SERIES_TABLE) ||
-        (this->table_ == g_viz_constants.FLOW_TABLE));
-}
-
-#define UNIT_TEST_MESSAGE_FILTERS
-
-void QueryEngine::QueryEngine_Test()
-{
-#if 0
-    GenDb::GenDbIf *db_if = dbif_.get();
-
-    // Create the query first
-    std::string qid("TEST-QUERY");
-    std::map<std::string, std::string> json_api_data;
-
-#ifdef UNIT_TEST_MESSAGES
-    QE_TRACE_NOQID(DEBUG,  " Testing messages ");
-    QE_TRACE_NOQID(DEBUG,  " Parsing sample query");
-        // Flow-Series Query
-        json_api_data.insert(std::pair<std::string, std::string>(
-                    "table", "\"MessageTable\""
-        ));
-
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "start_time", "1363918451328671"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "end_time",   "1363918651330163" 
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "where", "[[{\"name\":\"Source\", \"value\":\"127.0.0.1\", \"op\":1} , {\"name\":\"Messagetype\", \"value\":\"UveVirtualMachineConfigTrace\", \"op\":1} ]]"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"Module\", \"Source\", \"Messagetype\"]"
-        ));
-
-        AnalyticsQuery *q = 
-            new AnalyticsQuery(db_if, qid, json_api_data, "0");
-    QE_TRACE_NOQID(DEBUG,  " Parsing of messages query done");  
-
-    QE_TRACE_NOQID(DEBUG,  " Invoking messages query");  
-        q->process_query();
-    QE_TRACE_NOQID(DEBUG,  " Processed messages query");  
-#endif
-
-#ifdef UNIT_TEST_MESSAGE_FILTERS
-    QE_TRACE_NOQID(DEBUG,  " Testing messages ");
-    QE_TRACE_NOQID(DEBUG,  " Parsing sample query");
-        // Flow-Series Query
-        json_api_data.insert(std::pair<std::string, std::string>(
-                    "table", "\"MessageTable\""
-        ));
-
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "start_time", "1365021325382585"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "end_time",   "1365025325382585" 
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"ModuleId\", \"Source\", \"Level\", \"Messagetype\"]"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>("filter", "[{\"name\":\"Level\", \"value\":\"6\", \"op\":5}]"));
-
-#if 0
-        AnalyticsQuery *q = 
-            new AnalyticsQuery(db_if, qid, json_api_data, "0");
-#endif
-    QE_TRACE_NOQID(DEBUG,  " Parsing of messages query done");  
-
-    QE_TRACE_NOQID(DEBUG,  " Invoking messages query");  
-        q->process_query();
-    QE_TRACE_NOQID(DEBUG, "# of rows: " << q->final_result->size());
-    QE_TRACE_NOQID(DEBUG,  " Processed messages query");  
-#endif
-
-
-#ifdef UNIT_TEST_FLOW_SERIES
-    QE_TRACE_NOQID(DEBUG,  " Testing flow series");
-    QE_TRACE_NOQID(DEBUG,  " Parsing sample query");
-        // Flow-Series Query
-        json_api_data.insert(std::pair<std::string, std::string>(
-                    "table", "\"FlowSeriesTable\""
-        ));
-
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "start_time", "1363816971234206"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "end_time",   "1363816971284356" 
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "where", "[[{\"name\":\"sourcevn\", \"value\":\"default-domain:admin:vn0\", \"op\":1},{\"name\":\"destvn\", \"value\":\"default-domain:admin:vn1\", \"op\":1}],[{\"name\":\"protocol\", \"value\":\"17\", \"op\":1},{\"name\":\"dport\", \"value\":\"80\", \"op\":1}]]"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"T=5\", \"sourcevn\", \"destvn\", \"sum(packets)\"]"
-        ));
-        json_api_data.insert(std::pair<std::string, std::string>(
-        "dir", "1"
-        ));
-
-        AnalyticsQuery *q = 
-            new AnalyticsQuery(db_if, qid, json_api_data, "0");
-    QE_TRACE_NOQID(DEBUG,  " Parsing of flow series query done");  
-
-    QE_TRACE_NOQID(DEBUG,  " Invoking flow series query");  
-        q->process_query();
-    QE_TRACE_NOQID(DEBUG,  " Processed flow series query");  
-#endif
-#endif
-
 }
 
 std::map< std::string, int > trace_enable_map;

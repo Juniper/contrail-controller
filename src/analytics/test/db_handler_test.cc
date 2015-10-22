@@ -30,10 +30,7 @@ using ::testing::ElementsAreArray;
 using namespace pugi;
 using namespace GenDb;
 
-DbHandler::TtlMap ttl_map = boost::assign::map_list_of(DbHandler::FLOWDATA_TTL, 2)
-    (DbHandler::STATSDATA_TTL, 4)
-    (DbHandler::CONFIGAUDIT_TTL, 240)
-    (DbHandler::GLOBAL_TTL, 48);
+TtlMap ttl_map = g_viz_constants.TtlValuesDefault;
 
 class DbHandlerTest : public ::testing::Test {
 public:
@@ -143,7 +140,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
     GenDb::DbDataValueVec rowkey;
     rowkey.push_back(unm);
 
-    int ttl = ttl_map.find(DbHandler::GLOBAL_TTL)->second;
+    int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second;
     boost::ptr_vector<GenDb::NewCol> msg_table_expected_vector = 
         boost::assign::ptr_list_of<GenDb::NewCol>
         (GenDb::NewCol(g_viz_constants.SOURCE, hdr.get_Source(), ttl))
@@ -186,12 +183,13 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
     hdr.set_Timestamp(UTCTimestampUsec());
     boost::uuids::uuid unm(rgen_());
 
+    int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second;
     DbDataValueVec *colname(new DbDataValueVec(1,
         (uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask)));
     DbDataValueVec *colvalue(new DbDataValueVec(1, unm));
     boost::ptr_vector<GenDb::NewCol> idx_expected_vector =
         boost::assign::ptr_list_of<GenDb::NewCol> 
-        (GenDb::NewCol(colname, colvalue));
+        (GenDb::NewCol(colname, colvalue, ttl));
 
     GenDb::DbDataValueVec src_idx_rowkey;
     src_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
@@ -235,24 +233,24 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
 
     boost::ptr_vector<GenDb::NewCol> msg_table_expected_vector = 
         boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(g_viz_constants.SOURCE, hdr.get_Source()))
-        (GenDb::NewCol(g_viz_constants.NAMESPACE, std::string()))
-        (GenDb::NewCol(g_viz_constants.MODULE, hdr.get_Module()))
-        (GenDb::NewCol(g_viz_constants.INSTANCE_ID, hdr.get_InstanceId()))
-        (GenDb::NewCol(g_viz_constants.NODE_TYPE, hdr.get_NodeType()))
+        (GenDb::NewCol(g_viz_constants.SOURCE, hdr.get_Source(), 0))
+        (GenDb::NewCol(g_viz_constants.NAMESPACE, std::string(), 0))
+        (GenDb::NewCol(g_viz_constants.MODULE, hdr.get_Module(), 0))
+        (GenDb::NewCol(g_viz_constants.INSTANCE_ID, hdr.get_InstanceId(), 0))
+        (GenDb::NewCol(g_viz_constants.NODE_TYPE, hdr.get_NodeType(), 0))
         (GenDb::NewCol(g_viz_constants.TIMESTAMP,
-            static_cast<uint64_t>(hdr.get_Timestamp())))
-        (GenDb::NewCol(g_viz_constants.CATEGORY, std::string()))
+            static_cast<uint64_t>(hdr.get_Timestamp()), 0))
+        (GenDb::NewCol(g_viz_constants.CATEGORY, std::string(), 0))
         (GenDb::NewCol(g_viz_constants.LEVEL,
-            static_cast<uint32_t>(0)))
-        (GenDb::NewCol(g_viz_constants.MESSAGE_TYPE, messagetype))
+            static_cast<uint32_t>(0), 0))
+        (GenDb::NewCol(g_viz_constants.MESSAGE_TYPE, messagetype, 0))
         (GenDb::NewCol(g_viz_constants.SEQUENCE_NUM,
-            static_cast<uint32_t>(0)))
+            static_cast<uint32_t>(0), 0))
         (GenDb::NewCol(g_viz_constants.VERSION,
-            static_cast<uint32_t>(0)))
+            static_cast<uint32_t>(0), 0))
         (GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
-            static_cast<uint8_t>(SandeshType::SYSTEM)))
-        (GenDb::NewCol(g_viz_constants.DATA, xmlmessage));
+            static_cast<uint8_t>(SandeshType::SYSTEM), 0))
+        (GenDb::NewCol(g_viz_constants.DATA, xmlmessage, 0));
 
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
@@ -269,7 +267,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     DbDataValueVec *colvalue(new DbDataValueVec(1, unm));
     boost::ptr_vector<GenDb::NewCol> idx_expected_vector = 
         boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(colname, colvalue));
+        (GenDb::NewCol(colname, colvalue, 0));
 
     GenDb::DbDataValueVec src_idx_rowkey;
     src_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
@@ -384,7 +382,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         DbDataValueVec *colvalue(new DbDataValueVec(1, unm));
         boost::ptr_vector<GenDb::NewCol> expected_vector = 
             boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue));
+            (GenDb::NewCol(colname, colvalue, 0));
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
@@ -408,7 +406,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
             "ObjectTableInsertTestRowkey"));
         boost::ptr_vector<GenDb::NewCol> expected_vector =
             boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue));
+            (GenDb::NewCol(colname, colvalue, 0));
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
@@ -435,7 +433,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         DbDataValueVec *colvalue(new DbDataValueVec(1,""));
         boost::ptr_vector<GenDb::NewCol> expected_vector =
             boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue));
+            (GenDb::NewCol(colname, colvalue, 0));
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
@@ -463,7 +461,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         DbDataValueVec *colvalue(new DbDataValueVec(1,""));
         boost::ptr_vector<GenDb::NewCol> expected_vector =
             boost::assign::ptr_list_of<GenDb::NewCol> 
-            (GenDb::NewCol(colname, colvalue));
+            (GenDb::NewCol(colname, colvalue, 0));
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
@@ -531,7 +529,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     ocolvalue.push_back((uint16_t)-24590); //dport
     ocolvalue.push_back(""); //json
 
-    int ttl = ttl_map.find(DbHandler::FLOWDATA_TTL)->second;
+    int ttl = ttl_map.find(TtlType::FLOWDATA_TTL)->second;
 
       {
         GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
