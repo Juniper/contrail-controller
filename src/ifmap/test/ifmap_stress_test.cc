@@ -440,10 +440,8 @@ void IFMapStressTest::SetupEventCallbacks() {
         boost::bind(&IFMapStressTest::OtherConfigDelete, this);
     callbacks_[IFMapSTEventMgr::XMPP_READY] =
         boost::bind(&IFMapStressTest::XmppConnect, this);
-    /*
     callbacks_[IFMapSTEventMgr::XMPP_NOTREADY] =
         boost::bind(&IFMapStressTest::XmppDisconnect, this);
-        */
 }
 
 IFMapStressTest::EvCb
@@ -482,59 +480,59 @@ void IFMapStressTest::PrintTestInfo() {
              << right << counters.vr_node_adds << endl;
         cout << "\t" << setw(30) << left << "vr_node_deletes" << setw(9)
              << right << counters.vr_node_deletes << endl;
-        cout << "\t" << setw(39) << left << "vr_node_deletes_ignored" << setw(9)
-             << right << counters.vr_node_deletes_ignored << endl;
         cout << "\t" << setw(30) << left << "vr_subscribes" << setw(9)
              << right << counters.vr_subscribes << endl;
-        cout << "\t" << setw(39) << left << "vr_subscribes_ignored" << setw(9)
-             << right << counters.vr_subscribes_ignored << endl;
         cout << "\t" << setw(30) << left << "vm_node_adds" << setw(9)
              << right << counters.vm_node_adds << endl;
-        cout << "\t" << setw(39) << left << "vm_node_adds_ignored" << setw(9)
-             << right << counters.vm_node_adds_ignored << endl;
         cout << "\t" << setw(30) << left << "vm_node_deletes" << setw(9)
              << right << counters.vm_node_deletes << endl;
-        cout << "\t" << setw(39) << left << "vm_node_deletes_ignored" << setw(9)
-             << right << counters.vm_node_deletes_ignored << endl;
         cout << "\t" << setw(30) << left << "other_cfg_adds" << setw(9)
              << right << counters.other_config_adds << endl;
-        cout << "\t" << setw(39) << left << "other_cfg_adds_ignored" << setw(9)
-             << right << counters.other_config_adds_ignored << endl;
         cout << "\t" << setw(30) << left << "other_cfg_dels" << setw(9)
              << right << counters.other_config_deletes << endl;
-        cout << "\t" << setw(39) << left << "other_cfg_dels_ignored" << setw(9)
-             << right << counters.other_config_deletes_ignored << endl;
         cout << "\t" << setw(30) << left << "vm_subscribes" << setw(9)
              << right << counters.vm_subscribes << endl;
-        cout << "\t" << setw(39) << left << "vm_subscribes_ignored" << setw(9)
-             << right << counters.vm_subscribes_ignored << endl;
         cout << "\t" << setw(30) << left << "vm_unsubscribes" << setw(9)
              << right << counters.vm_unsubscribes << endl;
-        cout << "\t" << setw(39) << left << "vm_unsubscribes_ignored" << setw(9)
-             << right << counters.vm_unsubscribes_ignored << endl;
         cout << "\t" << setw(30) << left << "xmpp_connects" << setw(9)
              << right << counters.xmpp_connects << endl;
-        cout << "\t" << setw(39) << left << "xmpp_connects_ignored" << setw(9)
-             << right << counters.xmpp_connects_ignored << endl;
         cout << "\t" << setw(30) << left << "xmpp_disconnects" << setw(9)
              << right << counters.xmpp_disconnects << endl;
-        cout << "\t" << setw(39) << left << "xmpp_disconns_ignored" << setw(9)
+        cout << "\t" << setw(35) << left << "vr_node_deletes_ignored" << setw(9)
+             << right << counters.vr_node_deletes_ignored << endl;
+        cout << "\t" << setw(35) << left << "vr_subscribes_ignored" << setw(9)
+             << right << counters.vr_subscribes_ignored << endl;
+        cout << "\t" << setw(35) << left << "vm_node_adds_ignored" << setw(9)
+             << right << counters.vm_node_adds_ignored << endl;
+        cout << "\t" << setw(35) << left << "vm_node_deletes_ignored" << setw(9)
+             << right << counters.vm_node_deletes_ignored << endl;
+        cout << "\t" << setw(35) << left << "other_cfg_adds_ignored" << setw(9)
+             << right << counters.other_config_adds_ignored << endl;
+        cout << "\t" << setw(35) << left << "other_cfg_dels_ignored" << setw(9)
+             << right << counters.other_config_deletes_ignored << endl;
+        cout << "\t" << setw(35) << left << "vm_subscribes_ignored" << setw(9)
+             << right << counters.vm_subscribes_ignored << endl;
+        cout << "\t" << setw(35) << left << "vm_unsubscribes_ignored" << setw(9)
+             << right << counters.vm_unsubscribes_ignored << endl;
+        cout << "\t" << setw(35) << left << "xmpp_connects_ignored" << setw(9)
+             << right << counters.xmpp_connects_ignored << endl;
+        cout << "\t" << setw(35) << left << "xmpp_disconns_ignored" << setw(9)
              << right << counters.xmpp_disconnects_ignored << endl;
-        cout << "\t" << setw(30) << left << "Ignored Events" << setw(9)
+        cout << "\t" << setw(35) << left << "Total ignored Events" << setw(9)
              << right << counters.get_ignored_events() << endl;
         total_client_ignored_events += counters.get_ignored_events();
     }
-    cout << setw(30) << left << "Events executed"
+    cout << endl << setw(40) << left << "Events executed"
          << event_generator_.events_executed() << endl;
-    cout << setw(30) << left << "Client events ignored"
-         << total_client_ignored_events << endl;
-    cout << setw(30) << left << "Other ignored events"
-         << events_ignored_ << endl;
+    cout << setw(40) << left << "Events ignored (client + other)"
+         << total_client_ignored_events << " + " << events_ignored_ << " = "
+         << (total_client_ignored_events + events_ignored_)
+         << endl;
     float events_processed = event_generator_.events_executed() -
                              events_ignored_ - total_client_ignored_events;
     float percentage_processed =
         (events_processed/float(event_generator_.events_executed())) * 100;
-    cout << setw(30) << "% processed" << percentage_processed << endl;
+    cout << setw(40) << "% processed" << percentage_processed << "%" << endl;
 }
 
 string IFMapStressTest::VirtualRouterNameCreate(int id) {
@@ -980,7 +978,7 @@ void IFMapStressTest::XmppDisconnect() {
     int client_id = GetXmppConnectedClientId();
     xmpp_clients_.at(client_id)->UnRegisterWithXmpp();
     client_counters_.at(client_id).incr_xmpp_disconnects();
-    Log("Xmpp-connect for client " + integerToString(client_id) +
+    Log("Xmpp-disconnect for client " + integerToString(client_id) +
         ", connected-count " + integerToString(xmpp_connected_.size()) +
         ", disconnected-count " + integerToString(xmpp_disconnected_.size()));
 }
@@ -991,6 +989,13 @@ bool IFMapStressTest::ConnectedToXmppServer(const string &client_name) {
         return false;
     }
     return (connection->GetStateMcState() == xmsm::ESTABLISHED);
+}
+
+void IFMapStressTest::TimeToSleep(uint32_t count, uint32_t total,
+                                  uint32_t usec_time) {
+    if ((count % total) == 0) {
+        usleep(usec_time);
+    }
 }
 
 string IFMapStressTest::EventToString(IFMapStressTest::EventType event) const {
@@ -1021,6 +1026,7 @@ TEST_F(IFMapStressTest, TestEventCreate) {
 TEST_F(IFMapStressTest, xxx) {
     IFMapSTEventMgr::EventType event;
     cout << "List of events:" << endl;
+    uint32_t event_count = 0;
     while (event_generator_.EventAvailable()) {
         event = event_generator_.GetNextEvent();
         EvCb callback = GetCallback(event);
@@ -1030,6 +1036,7 @@ TEST_F(IFMapStressTest, xxx) {
         } else {
             cout << "No routine for event " << EventToString(event) << endl;
         }
+        TimeToSleep(++event_count);
     }
     TASK_UTIL_EXPECT_EQ((int)event_generator_.GetEventLogSize(),
                         event_generator_.max_events());
