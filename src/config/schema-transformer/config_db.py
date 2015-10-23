@@ -1706,7 +1706,9 @@ class RoutingInstanceST(DBBaseST):
                 remote_ri_fq_name = connection.split(':')
                 if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
                     vn.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
-  
+        vmi_refs = self.obj.get_virtual_machine_interface_back_refs() or []
+        self.virtual_machine_interfaces = set([':'.join(ref['to'])
+                                              for ref in vmi_refs])
     # end __init__
 
     def update(self, obj=None):
@@ -1798,7 +1800,7 @@ class RoutingInstanceST(DBBaseST):
         conn_data = ConnectionType()
         self.obj.add_routing_instance(ri2.obj, conn_data)
         self._vnc_lib.ref_update('routing-instance', self.obj.uuid,
-                                 'routing_instance_refs', ri2.obj.uuid,
+                                 'routing-instance', ri2.obj.uuid,
                                  None, 'ADD', conn_data)
     # end add_connection
 
@@ -1807,7 +1809,7 @@ class RoutingInstanceST(DBBaseST):
         ri2.connections.discard(self.name)
         try:
             self._vnc_lib.ref_update('routing-instance', self.obj.uuid,
-                                     'routing_instance_refs', ri2.obj.uuid,
+                                     'routing-instance', ri2.obj.uuid,
                                      None, 'DELETE')
         except NoIdError:
             return
@@ -1904,9 +1906,8 @@ class RoutingInstanceST(DBBaseST):
             if ri2:
                 ri2.connections.discard(self.name)
 
-        # refresh the ri object because it could have changed
         rtgt_list = self.obj.get_route_target_refs()
-        DBBaseST._cassandra.free_route_target(self.name)
+        self._cassandra.free_route_target(self.name)
 
         service_chain = self.service_chain
         vn_obj = VirtualNetworkST.get(self.virtual_network)
@@ -1914,25 +1915,18 @@ class RoutingInstanceST(DBBaseST):
             vn_obj.free_service_chain_ip(self.obj.name)
 
             uve = UveServiceChainData(name=service_chain, deleted=True)
-            uve_msg = UveServiceChain(data=uve, sandesh=DBBaseST._sandesh)
-            uve_msg.send(sandesh=DBBaseST._sandesh)
+            uve_msg = UveServiceChain(data=uve, sandesh=self._sandesh)
+            uve_msg.send(sandesh=self._sandesh)
 
-        # read-back to get vmi backrefs on RI
-        try:
-            obj = self.read_vnc_obj(self.obj.uuid)
-            self.obj = obj
-            vmi_refs = self.obj.get_virtual_machine_interface_back_refs() or []
-            for vmi in vmi_refs:
-                vmi_obj = self.read_vnc_obj(
-                    vmi['uuid'], obj_type='virtual_machine_interface')
-                if service_chain is not None:
-                    DBBaseST._cassandra.free_service_chain_vlan(
-                        vmi_obj.get_parent_fq_name_str(), service_chain)
-                vmi_obj.del_routing_instance(self.obj)
-                DBBaseST._vnc_lib.virtual_machine_interface_update(vmi_obj)
-            # end for vmi
-        except NoIdError:
-            pass
+            for vmi_name in list(self.virtual_machine_interfaces):
+                vmi = VirtualMachineInterfaceST.get(vmi_name)
+                if vmi:
+                    vm = VirtualMachineST.get(vmi.virtual_machine)
+                    if vm is not None:
+                        self._cassandra.free_service_chain_vlan(vm.uuid,
+                                                                service_chain)
+                    vmi.delete_routing_instance(self)
+            # end for vmi_name
 
         try:
             DBBaseST._vnc_lib.routing_instance_delete(id=self.obj.uuid)
@@ -2106,7 +2100,7 @@ class ServiceChain(DBBaseST):
                 if vm_obj is None:
                     self.log_error('virtual machine %s not found' % service_vm)
                     return None
-                vm_info = {'vm_obj': vm_obj}
+                vm_info = {'vm_uuid': vm_obj.uuid}
 
                 for interface_name in vm_obj.virtual_machine_interfaces:
                     interface = VirtualMachineInterfaceST.get(interface_name)
@@ -2268,43 +2262,31 @@ class ServiceChain(DBBaseST):
         self._cassandra.add_service_chain_uuid(self.name, jsonpickle.encode(self))
     # end _create
 
-    def add_pbf_rule(self, vmi, ri1, ri2, v4_address, v6_address, vlan):
+    def add_pbf_rule(self, vmi, ri, v4_address, v6_address, vlan):
         if vmi.service_interface_type not in ["left", "right"]:
             return
-        refs = vmi.obj.get_routing_instance_refs() or []
-        ri_refs = [ref['to'] for ref in refs]
 
-        pbf = PolicyBasedForwardingRuleType()
-        pbf.set_direction('both')
-        pbf.set_vlan_tag(vlan)
-        pbf.set_service_chain_address(v4_address)
-        pbf.set_ipv6_service_chain_address(v6_address)
+        pbf = PolicyBasedForwardingRuleType(
+            direction='both', vlan_tag=vlan, service_chain_address=v4_address,
+            ipv6_service_chain_address=v6_address)
 
-        update = False
         if vmi.service_interface_type == 'left':
             pbf.set_src_mac('02:00:00:00:00:01')
             pbf.set_dst_mac('02:00:00:00:00:02')
-            if (ri1.get_fq_name() not in ri_refs):
-                vmi.obj.add_routing_instance(ri1.obj, pbf)
-                update = True
-        if vmi.service_interface_type == 'right' and self.direction == '<>':
+        else:
             pbf.set_src_mac('02:00:00:00:00:02')
             pbf.set_dst_mac('02:00:00:00:00:01')
-            if (ri2.get_fq_name() not in ri_refs):
-                vmi.obj.add_routing_instance(ri2.obj, pbf)
-                update = True
-        if update:
-            self._vnc_lib.virtual_machine_interface_update(vmi.obj)
+
+        vmi.add_routing_instance(ri, pbf)
     # end add_pbf_rule
 
     def process_transparent_service(self, vm_info, v4_address, v6_address,
                                     service_ri1, service_ri2):
-        vm_uuid = vm_info['vm_obj'].uuid
-        vlan = self._cassandra.allocate_service_chain_vlan(vm_uuid,
+        vlan = self._cassandra.allocate_service_chain_vlan(vm_info['vm_uuid'],
                                                            self.name)
-        self.add_pbf_rule(vm_info['left']['vmi'], service_ri1, service_ri2,
+        self.add_pbf_rule(vm_info['left']['vmi'], service_ri1,
                           v4_address, v6_address, vlan)
-        self.add_pbf_rule(vm_info['right']['vmi'], service_ri1, service_ri2,
+        self.add_pbf_rule(vm_info['right']['vmi'], service_ri2,
                           v4_address, v6_address, vlan)
         return True
     # end process_transparent_service
@@ -2562,6 +2544,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.uuid = None
         self.instance_ips = set()
         self.floating_ips = set()
+        self.routing_instances = {}
         self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.uuid = self.obj.uuid
         self.update_multiple_refs('instance_ip', self.obj)
@@ -2580,6 +2563,7 @@ class VirtualMachineInterfaceST(DBBaseST):
             self.update_single_ref('virtual_machine', self.obj)
         self.update_single_ref('logical_router', self.obj)
         self.set_properties()
+        self.update_routing_instances(self.obj.get_routing_instance_refs())
     # end update
 
     def delete_obj(self):
@@ -2588,6 +2572,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_single_ref('logical_router', {})
         self.update_multiple_refs('instance_ip', {})
         self.update_multiple_refs('floating_ip', {})
+        self.update_routing_instances([])
     # end delete_obj
 
     def evaluate(self):
@@ -2616,6 +2601,42 @@ class VirtualMachineInterfaceST(DBBaseST):
             self.service_interface_type = None
             self.interface_mirror = None
     # end set_properties
+
+    def update_routing_instances(self, ri_refs):
+        routing_instances = dict((':'.join(ref['to']), ref['attr'])
+                                 for ref in ri_refs or [])
+        old_ri_set = set(self.routing_instances.keys())
+        new_ri_set = set(routing_instances.keys())
+        for ri_name in old_ri_set - new_ri_set:
+            ri = RoutingInstanceST.get(ri_name)
+            if ri:
+                ri.virtual_machine_interfaces.discard(self.name)
+        for ri_name in new_ri_set - old_ri_set:
+            ri = RoutingInstanceST.get(ri_name)
+            if ri:
+                ri.virtual_machine_interfaces.add(self.name)
+        self.routing_instances = routing_instances
+    # end update_routing_instances
+
+    def add_routing_instance(self, ri, pbf):
+        if self.routing_instances.get(ri.name) == pbf:
+            return
+        self._vnc_lib.ref_update(
+            'virtual-machine-interface', self.uuid, 'routing-instance',
+            ri.obj.uuid, None, 'ADD', pbf)
+        self.routing_instances[ri.name] = pbf
+        ri.virtual_machine_interfaces.add(self.name)
+    # end add_routing_instance
+
+    def delete_routing_instance(self, ri):
+        if ri.name not in self.routing_instances:
+            return
+        self._vnc_lib.ref_update(
+            'virtual-machine-interface', self.uuid, 'routing-instance',
+            ri.obj.uuid, None, 'DELETE')
+        del self.routing_instances[ri.name]
+        ri.virtual_machine_interfaces.discard(self.name)
+    # end delete_routing_instance
 
     def _add_pbf_rules(self):
         if (not self.virtual_machine or
@@ -2648,8 +2669,8 @@ class VirtualMachineInterfaceST(DBBaseST):
             vlan = self._cassandra.allocate_service_chain_vlan(
                 vm_obj.uuid, service_chain.name)
 
-            service_chain.add_pbf_rule(self, service_ri, service_ri,
-                                       v4_address, v6_address, vlan)
+            service_chain.add_pbf_rule(self, service_ri, v4_address,
+                                       v6_address, vlan)
     # end _add_pbf_rules
 
     def set_virtual_network(self):
