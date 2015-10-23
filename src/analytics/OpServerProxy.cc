@@ -107,6 +107,9 @@ class OpServerProxy::OpServerImpl {
             RAC_UP = 1,
             RAC_DOWN = 2
         };
+
+        static const int kActivityCheckPeriod_ = 60;
+
         const unsigned int partitions_;
 
         static const char* RacStatusToString(RacStatus status) {
@@ -447,6 +450,14 @@ class OpServerProxy::OpServerImpl {
             return from_ops_conn_;
         }
         bool KafkaTimer() {
+            if (kafka_count_++ == kActivityCheckPeriod_) kafka_count_ = 0;
+            if (kafka_count_ == 0) {
+                if (k_dr_cb.count==0) {
+                    LOG(ERROR, "No Kafka Callbacks");
+                }
+                k_dr_cb.count = 0;
+            }
+            
             if (k_event_cb.disableKafka) {
                 LOG(ERROR, "Kafka Restart");
                 StopKafka();
@@ -455,11 +466,6 @@ class OpServerProxy::OpServerImpl {
                 if (collector_ && redis_up_)
                     LOG(ERROR, "Kafka Restarting Redis");
                     collector_->RedisUpdate(true);
-            } else {
-                if (k_dr_cb.count==0) {
-                    LOG(ERROR, "No Kafka Callbacks");
-                }
-                k_dr_cb.count = 0;
             }
             if (producer_) {
                 producer_->poll(0);
@@ -588,6 +594,7 @@ class OpServerProxy::OpServerImpl {
         std::string brokers_;
         std::string topicpre_;
         bool redis_up_;
+        uint16_t kafka_count_;
         Timer *kafka_timer_;
 };
 
