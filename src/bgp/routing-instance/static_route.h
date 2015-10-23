@@ -85,6 +85,8 @@ public:
     virtual void NotifyAllRoutes();
     virtual uint32_t GetRouteCount() const;
     virtual uint32_t GetDownRouteCount() const;
+    virtual bool FillStaticRouteInfo(RoutingInstance *rtinstance,
+                                     StaticRouteEntriesInfo *info) const;
 
     Address::Family GetFamily() const;
     AddressT GetAddress(IpAddress addr) const;
