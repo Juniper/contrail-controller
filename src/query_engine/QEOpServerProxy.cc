@@ -882,16 +882,20 @@ public:
     }
 
     void ConnectCallbackProcess(uint8_t cnum, const redisAsyncContext *c, void *r, void *privdata) {
-        QE_LOG_NOQID(DEBUG,"In ConnectCallbackProcess..");
+        if (r == NULL) {
+            QE_LOG_NOQID(DEBUG, "In ConnectCallbackProcess.. NULL Reply");
+            return;
+        }
         redisReply reply = *reinterpret_cast<redisReply*>(r);
         if (reply.type != REDIS_REPLY_ERROR) {
+             QE_LOG_NOQID(DEBUG, "In ConnectCallbackProcess..");
              ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
                 "Query", ConnectionStatus::UP, conns_[cnum]->Endpoint(),
                 std::string());
              qosp_->evm_->io_service()->post(
                      boost::bind(&QEOpServerImpl::ConnUpPostProcess,
                      this, cnum));
-        }else {
+        } else {
             QE_LOG_NOQID(ERROR,"In connectCallbackProcess.. Error");
             QE_ASSERT(reply.type != REDIS_REPLY_ERROR);
         }

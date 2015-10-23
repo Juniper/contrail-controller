@@ -224,7 +224,11 @@ class OpServerProxy::OpServerImpl {
         }
 
         void toConnectCallbackProcess(const redisAsyncContext *c, void *r, void *privdata) {
-           //Handle the AUTH callback
+            if (r == NULL) {
+                LOG(DEBUG, "In toConnectCallbackProcess.. NULL Reply");
+                return;
+            }
+            // Handle the AUTH callback
             redisReply reply = *reinterpret_cast<redisReply*>(r);
             if (reply.type != REDIS_REPLY_ERROR) {
                 {
@@ -245,7 +249,11 @@ class OpServerProxy::OpServerImpl {
        }
 
         void fromConnectCallbackProcess(const redisAsyncContext *c, void *r, void *privdata) {
-            //Handle the AUTH callback
+            if (r == NULL) {
+                LOG(DEBUG, "In fromConnectCallbackProcess.. NULL Reply");
+                return;
+            }
+            // Handle the AUTH callback
             redisReply reply = *reinterpret_cast<redisReply*>(r);
             if (reply.type != REDIS_REPLY_ERROR) {
                 ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
