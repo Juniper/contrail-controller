@@ -36,7 +36,7 @@ from vnc_api.common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
+from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, ServiceInstanceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
     GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
 from cfgm_common.dependency_tracker import DependencyTracker
@@ -63,9 +63,13 @@ class DeviceManager(object):
             'physical_router': [],
         },
         'physical_interface': {
-            'self': ['physical_router', 'logical_interface'],
+            'self': ['physical_router', 'physical_interface', 'logical_interface'],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
+            'physical_interface': ['physical_router'],
+            'virtual_machine_interface':[
+                'physical_interface'
+            ],
         },
         'logical_interface': {
             'self': ['physical_router', 'physical_interface',
@@ -76,11 +80,18 @@ class DeviceManager(object):
             'physical_router': ['virtual_machine_interface']
         },
         'virtual_machine_interface': {
-            'self': ['logical_interface', 'virtual_network', 'floating_ip', 'instance_ip'],
+            'self': ['logical_interface', 
+                    'physical_interface', 'virtual_network', 'floating_ip', 'instance_ip','service_instance'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface'],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
+            'routing_instance':['physical_interface'],
+            'service_instance':['physical_interface']
+        },
+        'service_instance':{
+            'self': ['virtual_machine_interface'],
+            'virtual_machine_interface':[]
         },
         'virtual_network': {
             'self': ['physical_router', 'virtual_machine_interface'],
@@ -90,8 +101,8 @@ class DeviceManager(object):
             'virtual_machine_interface': ['physical_router'],
         },
         'routing_instance': {
-            'self': ['routing_instance', 'virtual_network'],
-            'routing_instance': ['virtual_network'],
+            'self': ['routing_instance', 'virtual_network','virtual_machine_interface'],
+            'routing_instance': ['virtual_network','virtual_machine_interface'],
             'virtual_network': []
         },
         'floating_ip': {
@@ -202,17 +213,25 @@ class DeviceManager(object):
         for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
             li_set = pr.logical_interfaces
+            vmi_set = set()
             for pi_id in pr.physical_interfaces:
                 pi = PhysicalInterfaceDM.locate(pi_id)
                 if pi:
                     li_set |= pi.logical_interfaces
-            vmi_set = set()
+                    vmi_set |= pi.virtual_machine_interfaces
             for li_id in li_set:
                 li = LogicalInterfaceDM.locate(li_id)
                 if li and li.virtual_machine_interface:
                     vmi_set |= set([li.virtual_machine_interface])
             for vmi_id in vmi_set:
                 vmi = VirtualMachineInterfaceDM.locate(vmi_id)
+
+        si_obj_list = ServiceInstanceDM.list_obj()
+        si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
+        self._cassandra.handle_pnf_resource_deletes(si_uuid_set)
+
+        for obj in si_obj_list:
+            ServiceInstanceDM.locate(obj['uuid'], obj)
 
         for obj in InstanceIpDM.list_obj():
             InstanceIpDM.locate(obj['uuid'], obj)

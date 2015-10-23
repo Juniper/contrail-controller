@@ -115,6 +115,32 @@ class PhysicalRouterConfig(object):
                     self.commit_stats['last_commit_duration'] = str(time.time() - start_time)
     # end send_config
 
+    def add_pnf_logical_interface(self, junos_interface):
+
+        if not self.logical_interface_config:
+            self.logical_interface_config = etree.Element('interfaces')
+        li_config=etree.fromstring("""
+            <interface>
+                <name>{physical_interface_name}</name>
+                <unit>
+                    <name>{logical_interface_id}</name>
+                    <vlan-id>{vlan_id}</vlan-id>
+                    <family>
+                        <inet>
+                            <address>{ip}</address>
+                        </inet>
+                    </family>
+                </unit>
+            </interface>
+        """.format(
+                physical_interface_name=junos_interface.ifd_name,
+                logical_interface_id=junos_interface.unit,
+                vlan_id=junos_interface.vlan_tag,
+                ip = junos_interface.ip
+            )
+        )
+        self.logical_interface_config.append(li_config)
+
     def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets, bgp_router_ips):
         self.tunnel_config = etree.Element("routing-options")
         dynamic_tunnels = etree.SubElement(self.tunnel_config, "dynamic-tunnels")
@@ -146,7 +172,8 @@ class PhysicalRouterConfig(object):
     '''
     def add_routing_instance(self, ri_name, is_l2, is_l2_l3, import_targets, export_targets,
                              prefixes=[], gateways=[], router_external=False,
-                             interfaces=[], vni=None, fip_map=None, network_id=None):
+                             interfaces=[], vni=None, fip_map=None, network_id=None,
+                             static_routes={}, no_vrf_table_label = False):
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
                                         'prefixes': prefixes,
@@ -185,13 +212,30 @@ class PhysicalRouterConfig(object):
                         self.add_to_global_ri_opts(prefix)
 
             etree.SubElement(ri, "instance-type").text = "vrf"
-            etree.SubElement(ri, "vrf-table-label")  #only for l3
+            if not no_vrf_table_label:
+                etree.SubElement(ri, "vrf-table-label")  #only for l3
             if fip_map is None:
                 for interface in interfaces:
                     if_element = etree.SubElement(ri, "interface")
                     etree.SubElement(if_element, "name").text = interface.name
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
+            if static_routes:
+                static_config = etree.SubElement(ri_opt, "static")
+            for dest,next_hops in static_routes.items():
+                route_config = etree.SubElement(static_config, "route")
+                etree.SubElement(route_config, "name").text = dest
+                for next_hop in next_hops:
+                    next_hop_str = next_hop.get("next-hop")
+                    preference = next_hop.get("preference")
+                    if not next_hop_str:
+                        continue
+                    if preference:
+                        qualified = etree.SubElement(route_config, "qualified-next-hop")
+                        qualified.text = next_hop_str
+                        etree.SubElement(qualified,"preference").text = preference
+                    else:
+                        etree.SubElement(route_config, "next-hop").text = next_hop_str
             auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
             ri_opt.append(etree.fromstring(auto_export))
         else:
@@ -567,9 +611,11 @@ class PhysicalRouterConfig(object):
         self.forwarding_options_config = None
         self.global_routing_options_config = None
         self.proto_config = None
+        self.logical_interface_config = None
         self.route_targets = set()
         self.bgp_peers = {}
         self.external_peers = {}
+
     # ene reset_bgp_config
 
     def delete_bgp_config(self):
@@ -664,6 +710,8 @@ class PhysicalRouterConfig(object):
             config_list.append(self.global_routing_options_config)
         if self.proto_config is not None:
             config_list.append(self.proto_config)
+        if self.logical_interface_config is not None:
+            config_list.append(self.logical_interface_config)
         self.send_netconf(config_list)
         self.bgp_config_sent = True
     # end send_bgp_config
@@ -671,13 +719,14 @@ class PhysicalRouterConfig(object):
 # end PhycalRouterConfig
 
 class JunosInterface(object):
-    def __init__(self, if_name, if_type, if_vlan_tag = 0):
+    def __init__(self, if_name, if_type, if_vlan_tag = 0, if_ip = None):
         self.name = if_name
         self.if_type = if_type
         self.vlan_tag = if_vlan_tag
         ifparts = if_name.split('.')
         self.ifd_name = ifparts[0]
         self.unit = ifparts[1]
+        self.ip = if_ip
     #end __init__
 
     def is_untagged(self):
