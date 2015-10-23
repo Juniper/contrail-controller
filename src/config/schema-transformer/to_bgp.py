@@ -1888,6 +1888,7 @@ class ServiceChain(DictST):
     def add_pbf_rule(self, vmi, ri1, ri2, ip_address, vlan):
         if vmi.service_interface_type not in ["left", "right"]:
             return
+        vmi.obj = _vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
         refs = vmi.obj.get_routing_instance_refs() or []
         ri_refs = [ref['to'] for ref in refs]
 
