@@ -80,6 +80,13 @@ int ErmVpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
     return 0;
 }
 
+int ErmVpnPrefix::FromProtoPrefix(BgpServer *server,
+                                  const BgpProtoPrefix &proto_prefix,
+                                  const BgpAttr *attr, ErmVpnPrefix *prefix,
+                                  BgpAttrPtr *new_attr, uint32_t *label) {
+    return FromProtoPrefix(proto_prefix, prefix);
+}
+
 void ErmVpnPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix) const {
     assert(IsValidForBgp(type_));
 

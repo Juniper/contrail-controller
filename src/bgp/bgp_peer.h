@@ -279,6 +279,9 @@ private:
 
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
+    template <typename TableT, typename PrefixT>
+    void ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
+        const BgpMpNlri *nlri, BgpAttrPtr attr, uint32_t flags);
 
     bool GetBestAuthKey(AuthenticationKey *auth_key, KeyType *key_type) const;
     void ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);

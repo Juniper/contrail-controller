@@ -379,30 +379,36 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
              iter != data->nexthops().end(); iter = next, ++count) {
             next++;
             RequestData::NextHop nexthop = *iter;
-            path = rt->FindPath(BgpPath::BGP_XMPP, peer,
-                                nexthop.address_.to_v4().to_ulong());
 
+            // Don't support multi path with v6 nexthops for the time being.
+            uint32_t path_id = 0;
+            if (nexthop.address_.is_v4()) {
+                path_id = nexthop.address_.to_v4().to_ulong();
+            } else if (count > 0) {
+                break;
+            }
+
+            path = rt->FindPath(BgpPath::BGP_XMPP, peer, path_id);
             if (path && req->oper != DBRequest::DB_ENTRY_DELETE) {
                 if (path->IsStale()) {
                     path->ResetStale();
                 }
                 deleted_paths.erase(path);
             }
-            if (data && data->attrs() && count > 0) {
+
+            if (data->attrs() && count > 0) {
                 BgpAttr *clone = new BgpAttr(*data->attrs());
                 clone->set_ext_community(
                     extcomm_db->ReplaceTunnelEncapsulationAndLocate(
                         clone->ext_community(),
                         nexthop.tunnel_encapsulations_));
-                clone->set_nexthop(IpAddress(Ip4Address(
-                                    nexthop.address_.to_v4().to_ulong())));
+                clone->set_nexthop(nexthop.address_);
                 clone->set_source_rd(nexthop.source_rd_);
                 attr = data->attrs()->attr_db()->Locate(clone);
             }
 
-            InputCommon(root, rt, path, peer, req, req->oper, attr,
-                        nexthop.address_.to_v4().to_ulong(), nexthop.flags_,
-                        nexthop.label_);
+            InputCommon(root, rt, path, peer, req, req->oper, attr, path_id,
+                nexthop.flags_, nexthop.label_);
         }
     }
 

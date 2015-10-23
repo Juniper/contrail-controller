@@ -1776,10 +1776,12 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
     vector<string> families_a;
     vector<string> families_b;
     families_a.push_back("inet");
+    families_a.push_back("inet6");
     families_a.push_back("inet-vpn");
     families_a.push_back("e-vpn");
     families_a.push_back("erm-vpn");
     families_b.push_back("inet");
+    families_b.push_back("inet6");
     families_b.push_back("inet-vpn");
     families_b.push_back("e-vpn");
     families_b.push_back("erm-vpn");
@@ -1802,6 +1804,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
                                              uuid);
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INET6));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INET6));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::ERMVPN));

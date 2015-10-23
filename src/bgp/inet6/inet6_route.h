@@ -33,8 +33,14 @@ public:
 
     int prefixlen() const { return prefixlen_; }
 
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               Inet6Prefix *prefix);
+    static int FromProtoPrefix(BgpServer *server,
+                               const BgpProtoPrefix &proto_prefix,
+                               const BgpAttr *attr, Inet6Prefix *prefix,
+                               BgpAttrPtr *new_attr, uint32_t *label);
     static Inet6Prefix FromString(const std::string &str,
-                                boost::system::error_code *errorp = NULL);
+                                  boost::system::error_code *errorp = NULL);
     std::string ToString() const;
 
     bool operator==(const Inet6Prefix &rhs) const {
@@ -76,6 +82,12 @@ public:
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
+
+    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
+                                  const BgpAttr *attr = NULL,
+                                  uint32_t label = 0) const;
+    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
+                                      IpAddress nexthop) const;
 
     virtual bool IsLess(const DBEntry &genrhs) const {
         const Inet6Route &rhs = static_cast<const Inet6Route &>(genrhs);

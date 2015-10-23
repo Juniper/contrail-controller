@@ -9,9 +9,11 @@
 
 #include <string>
 
-#include "bgp/bgp_attr_base.h"
+#include "bgp/bgp_attr.h"
 #include "net/address.h"
 #include "net/rd.h"
+
+class BgpServer;
 
 class InetVpnPrefix {
 public:
@@ -23,6 +25,10 @@ public:
 
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                InetVpnPrefix *prefix, uint32_t *label);
+    static int FromProtoPrefix(BgpServer *server,
+                               const BgpProtoPrefix &proto_prefix,
+                               const BgpAttr *attr, InetVpnPrefix *prefix,
+                               BgpAttrPtr *new_attr, uint32_t *label);
     static InetVpnPrefix FromString(const std::string &str,
                                     boost::system::error_code *errorp = NULL);
 

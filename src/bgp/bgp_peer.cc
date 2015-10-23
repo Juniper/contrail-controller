@@ -22,11 +22,13 @@
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/rtarget/rtarget_table.h"
 
 using boost::assign::list_of;
+using boost::assign::map_list_of;
 using boost::system::error_code;
 using namespace std;
 
@@ -622,8 +624,12 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
     case Address::ERMVPN:
         return MpNlriAllowed(BgpAf::IPv4, BgpAf::ErmVpn);
         break;
+    case Address::INET6:
+        return MpNlriAllowed(BgpAf::IPv6, BgpAf::Unicast);
+        break;
     case Address::INET6VPN:
         return MpNlriAllowed(BgpAf::IPv6, BgpAf::Vpn);
+        break;
     default:
         break;
     }
@@ -793,6 +799,17 @@ void BgpPeer::RegisterAllTables() {
         }
     }
 
+    if (IsFamilyNegotiated(Address::INET6)) {
+        BgpTable *table = instance->GetTable(Address::INET6);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                           table, "Register peer with the table");
+        if (table) {
+            membership_mgr->Register(this, table, policy_, -1,
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+            membership_req_pending_++;
+        }
+    }
+
     vpn_tables_registered_ = false;
     if (!IsFamilyNegotiated(Address::RTARGET)) {
         RegisterToVpnTables();
@@ -824,68 +841,45 @@ void BgpPeer::SendOpen(TcpSession *session) {
     openmsg.as_num = local_as_;
     openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
     openmsg.identifier = ntohl(local_bgp_id_);
-    static const uint8_t cap_mp[6][4] = {
+    BgpProto::OpenMessage::OptParam *opt_param =
+        new BgpProto::OpenMessage::OptParam;
+
+    static const uint8_t cap_mp[][4] = {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
         { 0, BgpAf::L2Vpn, 0, BgpAf::EVpn },
         { 0, BgpAf::IPv4,  0, BgpAf::RTarget },
         { 0, BgpAf::IPv4,  0, BgpAf::ErmVpn },
+        { 0, BgpAf::IPv6,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv6,  0, BgpAf::Vpn },
     };
 
-    BgpProto::OpenMessage::OptParam *opt_param =
-            new BgpProto::OpenMessage::OptParam;
-    if (LookupFamily(Address::INET)) {
-        BgpProto::OpenMessage::Capability *cap =
-                new BgpProto::OpenMessage::Capability(
-                        BgpProto::OpenMessage::Capability::MpExtension,
-                        cap_mp[0], 4);
+    typedef map<Address::Family, const uint8_t *> FamilyToCapabilityMap;
+    static const FamilyToCapabilityMap family_to_cap_map = map_list_of
+        (Address::INET,     cap_mp[0])
+        (Address::INETVPN,  cap_mp[1])
+        (Address::EVPN,     cap_mp[2])
+        (Address::RTARGET,  cap_mp[3])
+        (Address::ERMVPN,   cap_mp[4])
+        (Address::INET6,    cap_mp[5])
+        (Address::INET6VPN, cap_mp[6]);
 
-        opt_param->capabilities.push_back(cap);
-    }
-    if (LookupFamily(Address::INETVPN)) {
+    // Add capabilities for configured address families.
+    BOOST_FOREACH(const FamilyToCapabilityMap::value_type &val,
+        family_to_cap_map) {
+        if (!LookupFamily(val.first))
+            continue;
         BgpProto::OpenMessage::Capability *cap =
-                new BgpProto::OpenMessage::Capability(
-                        BgpProto::OpenMessage::Capability::MpExtension,
-                        cap_mp[1], 4);
-        opt_param->capabilities.push_back(cap);
-    }
-    if (LookupFamily(Address::EVPN)) {
-        BgpProto::OpenMessage::Capability *cap =
-                new BgpProto::OpenMessage::Capability(
-                        BgpProto::OpenMessage::Capability::MpExtension,
-                        cap_mp[2], 4);
-        opt_param->capabilities.push_back(cap);
-    }
-    if (LookupFamily(Address::RTARGET)) {
-        BgpProto::OpenMessage::Capability *cap =
-                new BgpProto::OpenMessage::Capability(
-                        BgpProto::OpenMessage::Capability::MpExtension,
-                        cap_mp[3], 4);
-        opt_param->capabilities.push_back(cap);
-    }
-    if (LookupFamily(Address::ERMVPN)) {
-        BgpProto::OpenMessage::Capability *cap =
-                new BgpProto::OpenMessage::Capability(
-                        BgpProto::OpenMessage::Capability::MpExtension,
-                        cap_mp[4], 4);
+            new BgpProto::OpenMessage::Capability(
+                BgpProto::OpenMessage::Capability::MpExtension, val.second, 4);
         opt_param->capabilities.push_back(cap);
     }
 
-    if (LookupFamily(Address::INET6VPN)) {
-        BgpProto::OpenMessage::Capability *cap =
-                new BgpProto::OpenMessage::Capability(
-                        BgpProto::OpenMessage::Capability::MpExtension,
-                        cap_mp[5], 4);
-        opt_param->capabilities.push_back(cap);
-    }
-
-    // Add restart capability for generating End-Of-Rib
+    // Add restart capability for generating end-of-rib.
     const uint8_t restart_cap[2] = { 0x0, 0x0 };
     BgpProto::OpenMessage::Capability *cap =
         new BgpProto::OpenMessage::Capability(
-                          BgpProto::OpenMessage::Capability::GracefulRestart,
-                          restart_cap, 2);
+            BgpProto::OpenMessage::Capability::GracefulRestart, restart_cap, 2);
     opt_param->capabilities.push_back(cap);
 
     if (opt_param->capabilities.size()) {
@@ -1049,6 +1043,39 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
     return false;
 }
 
+template <typename TableT, typename PrefixT>
+void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
+    const BgpMpNlri *nlri, BgpAttrPtr attr, uint32_t flags) {
+    TableT *table = static_cast<TableT *>(rtinstance_->GetTable(family));
+    assert(table);
+
+    for (vector<BgpProtoPrefix *>::const_iterator it = nlri->nlri.begin();
+         it != nlri->nlri.end(); ++it) {
+        PrefixT prefix;
+        BgpAttrPtr new_attr(attr);
+        uint32_t label = 0;
+        int result = PrefixT::FromProtoPrefix(server_, **it,
+            (oper == DBRequest::DB_ENTRY_ADD_CHANGE ? attr.get() : NULL),
+            &prefix, &new_attr, &label);
+        if (result) {
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                "MP NLRI parse error for " <<
+                Address::FamilyToString(family) << " route");
+            continue;
+        }
+
+        DBRequest req;
+        req.oper = oper;
+        if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+            req.data.reset(
+                new typename TableT::RequestData(new_attr, flags, label));
+        }
+        req.key.reset(new typename TableT::RequestKey(prefix, this));
+        table->Enqueue(&req);
+    }
+}
+
 void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
     BgpAttrPtr attr = server_->attr_db()->Locate(msg->path_attributes);
     // Check as path loop and neighbor-as
@@ -1147,10 +1174,10 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
         Address::Family family = BgpAf::AfiSafiToFamily(nlri->afi, nlri->safi);
         if (!IsFamilyNegotiated(family)) {
-            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
-                         BGP_PEER_DIR_IN,
-                         "AFI "<< nlri->afi << " SAFI " << (int) nlri->safi <<
-                         " not allowed");
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_NOTICE,
+                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                "AFI "<< nlri->afi << " SAFI " << (int) nlri->safi <<
+                " not allowed");
             continue;
         }
 
@@ -1164,190 +1191,36 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             attr = GetMpNlriNexthop(nlri, attr);
 
         switch (family) {
-        case Address::INET: {
-            InetTable *table =
-                static_cast<InetTable *>(instance->GetTable(family));
-            assert(table);
-
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                Ip4Prefix prefix;
-                int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
-                if (result) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "MP NLRI parse error for inet route");
-                    continue;
-                }
-
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new InetTable::RequestData(attr, flags, 0));
-                req.key.reset(new InetTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
+        case Address::INET:
+            ProcessNlri<InetTable, Ip4Prefix>(
+                family, oper, nlri, attr, flags);
             break;
-        }
-
-        case Address::INETVPN: {
-            InetVpnTable *table =
-              static_cast<InetVpnTable *>(instance->GetTable(family));
-            assert(table);
-
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                InetVpnPrefix prefix;
-                uint32_t label = 0;
-                int result =
-                    InetVpnPrefix::FromProtoPrefix((**it), &prefix, &label);
-                if (result) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "MP NLRI parse error for inet-vpn route");
-                    continue;
-                }
-
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-                    req.data.reset(
-                        new InetVpnTable::RequestData(attr, flags, label));
-                }
-                req.key.reset(new InetVpnTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
+        case Address::INETVPN:
+            ProcessNlri<InetVpnTable, InetVpnPrefix>(
+                family, oper, nlri, attr, flags);
             break;
-        }
-
-        case Address::INET6VPN: {
-            Inet6VpnTable *table =
-                static_cast<Inet6VpnTable *>(instance->GetTable(family));
-            assert(table);
-
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                Inet6VpnPrefix prefix;
-                uint32_t label = 0;
-                int result =
-                    Inet6VpnPrefix::FromProtoPrefix((**it), &prefix, &label);
-                if (result) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "MP NLRI parse error for inet6-vpn route");
-                    continue;
-                }
-
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-                    req.data.reset(
-                        new Inet6VpnTable::RequestData(attr, flags, label));
-                }
-                req.key.reset(new Inet6VpnTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
+        case Address::INET6:
+            ProcessNlri<Inet6Table, Inet6Prefix>(
+                family, oper, nlri, attr, flags);
             break;
-        }
-
-
-        case Address::EVPN: {
-            EvpnTable *table =
-                static_cast<EvpnTable *>(instance->GetTable(family));
-            assert(table);
-
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                EvpnPrefix prefix;
-                BgpAttrPtr new_attr;
-                uint32_t label = 0;
-                int result = EvpnPrefix::FromProtoPrefix(server_, (**it),
-                    (oper == DBRequest::DB_ENTRY_ADD_CHANGE) ? attr.get() : NULL,
-                    &prefix, &new_attr, &label);
-                if (result) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "MP NLRI parse error for e-vpn route type " << (*it)->type);
-                    continue;
-                }
-
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-                    req.data.reset(
-                        new EvpnTable::RequestData(new_attr, flags, label));
-                }
-                req.key.reset(new EvpnTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
+        case Address::INET6VPN:
+            ProcessNlri<Inet6VpnTable, Inet6VpnPrefix>(
+                family, oper, nlri, attr, flags);
             break;
-        }
-
-        case Address::ERMVPN: {
-            ErmVpnTable *table;
-            table = static_cast<ErmVpnTable *>(instance->GetTable(family));
-            assert(table);
-
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                if (!ErmVpnPrefix::IsValidForBgp((*it)->type)) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "ERMVPN: Unsupported route type " << (*it)->type);
-                    continue;
-                }
-
-                ErmVpnPrefix prefix;
-                int result = ErmVpnPrefix::FromProtoPrefix((**it), &prefix);
-                if (result) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "MP NLRI parse error for erm-vpn route type " << (*it)->type);
-                    continue;
-                }
-
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-                    req.data.reset(
-                        new ErmVpnTable::RequestData(attr, flags, 0));
-                }
-                req.key.reset(new ErmVpnTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
+        case Address::EVPN:
+            ProcessNlri<EvpnTable, EvpnPrefix>(
+                family, oper, nlri, attr, flags);
             break;
-        }
-
-        case Address::RTARGET: {
-            RTargetTable *table =
-                static_cast<RTargetTable *>(instance->GetTable(family));
-            assert(table);
-
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                RTargetPrefix prefix;
-                int result = RTargetPrefix::FromProtoPrefix((**it), &prefix);
-                if (result) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "MP NLRI parse error for rtarget route");
-                    continue;
-                }
-
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-                    req.data.reset(
-                        new RTargetTable::RequestData(attr, flags, 0));
-                }
-                req.key.reset(new RTargetTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
+        case Address::ERMVPN:
+            ProcessNlri<ErmVpnTable, ErmVpnPrefix>(
+                family, oper, nlri, attr, flags);
             break;
-        }
-
+        case Address::RTARGET:
+            ProcessNlri<RTargetTable, RTargetPrefix>(
+                family, oper, nlri, attr, flags);
+            break;
         default:
-            continue;
+            break;
         }
     }
 
@@ -1547,38 +1420,50 @@ string BgpPeer::ToUVEKey() const {
     return out.str();
 }
 
-
+//
+// Extract nexthop address from BgpMpNlri if appropriate and return updated
+// BgpAttrPtr. The original attribute is returned for cases where there's no
+// nexthop attribute in the BgpMpNlri.
+//
 BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
     bool update_nh = false;
     IpAddress addr;
-    Ip4Address::bytes_type bt = { { 0 } };
 
     if (nlri->afi == BgpAf::IPv4) {
         if (nlri->safi == BgpAf::Unicast || nlri->safi == BgpAf::RTarget) {
-            std::copy(nlri->nexthop.begin(), nlri->nexthop.end(),
-                      bt.begin());
+            Ip4Address::bytes_type bt = { { 0 } };
+            copy(nlri->nexthop.begin(), nlri->nexthop.end(), bt.begin());
+            addr = Ip4Address(bt);
             update_nh = true;
         } else if (nlri->safi == BgpAf::Vpn) {
+            Ip4Address::bytes_type bt = { { 0 } };
             size_t rdsize = RouteDistinguisher::kSize;
-            std::copy(nlri->nexthop.begin() + rdsize,
-                      nlri->nexthop.end(), bt.begin());
+            copy(nlri->nexthop.begin() + rdsize, nlri->nexthop.end(),
+                bt.begin());
+            addr = Ip4Address(bt);
             update_nh = true;
         }
     } else if (nlri->afi == BgpAf::L2Vpn) {
         if (nlri->safi == BgpAf::EVpn) {
-            std::copy(nlri->nexthop.begin(), nlri->nexthop.end(),
-                      bt.begin());
+            Ip4Address::bytes_type bt = { { 0 } };
+            copy(nlri->nexthop.begin(), nlri->nexthop.end(), bt.begin());
+            addr = Ip4Address(bt);
             update_nh = true;
         }
     } else if (nlri->afi == BgpAf::IPv6) {
-        if (nlri->safi == BgpAf::Vpn) {
-            Ip6Address::bytes_type v6_bt = { { 0 } };
+        if (nlri->safi == BgpAf::Unicast) {
+            Ip6Address::bytes_type bt = { { 0 } };
+            copy(nlri->nexthop.begin(), nlri->nexthop.end(), bt.begin());
+            addr = Ip6Address(bt);
+            update_nh = true;
+        } else if (nlri->safi == BgpAf::Vpn) {
+            Ip6Address::bytes_type bt = { { 0 } };
             size_t rdsize = RouteDistinguisher::kSize;
-            std::copy(nlri->nexthop.begin() + rdsize,
-                      nlri->nexthop.end(), v6_bt.begin());
-            Ip6Address v6_address(v6_bt);
-            if (v6_address.is_v4_mapped()) {
-                bt = Address::V4FromV4MappedV6(v6_address).to_bytes();
+            copy(nlri->nexthop.begin() + rdsize, nlri->nexthop.end(),
+                bt.begin());
+            Ip6Address v6_addr(bt);
+            if (v6_addr.is_v4_mapped()) {
+                addr = Address::V4FromV4MappedV6(v6_addr);
                 update_nh = true;
             }
         }
@@ -1587,7 +1472,6 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
     // Always update the nexthop in BgpAttr with MpReachNlri->nexthop.
     // NOP in cases <afi,safi> doesn't carry nexthop attribute.
     if (update_nh) {
-        addr = Ip4Address(bt);
         attr = server_->attr_db()->ReplaceNexthopAndLocate(attr.get(), addr);
     }
     return attr;

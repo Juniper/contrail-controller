@@ -39,7 +39,11 @@ int BgpAttrNextHop::CompareTo(const BgpAttribute &rhs_attr) const {
 }
 
 void BgpAttrNextHop::ToCanonical(BgpAttr *attr) {
-    attr->set_nexthop(Ip4Address(nexthop));
+    if (v6_nexthop.is_unspecified()) {
+        attr->set_nexthop(Ip4Address(nexthop));
+    } else {
+        attr->set_nexthop(v6_nexthop);
+    }
 }
 
 std::string BgpAttrNextHop::ToString() const {

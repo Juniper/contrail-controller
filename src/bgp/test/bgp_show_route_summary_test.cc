@@ -132,6 +132,7 @@ protected:
             table_names->push_back("bgp.l3vpn.0");
             table_names->push_back("bgp.rtarget.0");
             table_names->push_back("inet.0");
+            table_names->push_back("inet6.0");
         } else {
             table_names->push_back(name + ".ermvpn.0");
             table_names->push_back(name + ".evpn.0");
@@ -232,11 +233,11 @@ TEST_P(BgpShowRouteSummaryParamTest, Request2) {
 
 //
 // Next instance = empty
-// Page limit = 18
-// Should return first 18 tables.
+// Page limit = 19
+// Should return first 19 tables.
 //
 TEST_P(BgpShowRouteSummaryParamTest, Request3) {
-    sandesh_context_.set_page_limit(18);
+    sandesh_context_.set_page_limit(19);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
@@ -257,11 +258,11 @@ TEST_P(BgpShowRouteSummaryParamTest, Request3) {
 
 //
 // Next instance = empty
-// Page limit = 15
-// Should return first 18 tables.
+// Page limit = 16
+// Should return first 19 tables.
 //
 TEST_P(BgpShowRouteSummaryParamTest, Request4) {
-    sandesh_context_.set_page_limit(15);
+    sandesh_context_.set_page_limit(16);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
@@ -514,12 +515,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch9) {
 
 //
 // Next instance = empty
-// Page limit = 18
+// Page limit = 19
 // Search string = "deleted"
-// Should return first 18 tables (they are marked deleted)
+// Should return first 19 tables (they are marked deleted)
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch10) {
-    sandesh_context_.set_page_limit(18);
+    sandesh_context_.set_page_limit(19);
     sandesh_context_.set_iter_limit(GetParam());
     PauseTableDeletion();
     server_->Shutdown(false);
@@ -545,12 +546,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch10) {
 
 //
 // Next instance = empty
-// Page limit = 15
+// Page limit = 16
 // Search string = "deleted"
-// Should return first 18 tables (they are marked deleted)
+// Should return first 19 tables (they are marked deleted)
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch11) {
-    sandesh_context_.set_page_limit(15);
+    sandesh_context_.set_page_limit(16);
     sandesh_context_.set_iter_limit(GetParam());
     PauseTableDeletion();
     server_->Shutdown(false);

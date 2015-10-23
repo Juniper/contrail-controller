@@ -83,6 +83,34 @@ TEST_F(Inet6RouteTest, CompareTo) {
     EXPECT_LT(0, prefix2.CompareTo(prefix));
 }
 
+TEST_F(Inet6RouteTest, FromProtoPrefix1) {
+    std::string prefix_str = "2001:db8:85a3::d:e:a/128";
+    Inet6Prefix prefix1(Inet6Prefix::FromString(prefix_str));
+    Inet6Route route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 0);
+    Inet6Prefix prefix2;
+    int result = Inet6Prefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(16 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(16, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+}
+
+TEST_F(Inet6RouteTest, FromProtoPrefix2) {
+    std::string prefix_str = "2001:db8:85a3:d36f::/64";
+    Inet6Prefix prefix1(Inet6Prefix::FromString(prefix_str));
+    Inet6Route route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 0);
+    Inet6Prefix prefix2;
+    int result = Inet6Prefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(8 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(8, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);

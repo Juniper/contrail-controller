@@ -122,8 +122,8 @@ BgpPeer *BgpServerTest::FindPeer(const char *routing_instance,
     return rti->peer_manager()->PeerLookup(name);
 }
 
-BgpPeer *BgpServerTest::FindMatchingPeer(const char *routing_instance,
-                                               const std::string &name) {
+BgpPeer *BgpServerTest::FindMatchingPeer(const string &routing_instance,
+                                         const std::string &name) {
     RoutingInstance *rti = inst_mgr_->GetRoutingInstance(routing_instance);
     PeerManager *peer_manager = rti->peer_manager();
     BOOST_FOREACH(PeerManager::BgpPeerNameMap::value_type &it,
