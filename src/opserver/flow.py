@@ -62,6 +62,8 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_UNDERLAY_SPORT]
         self._VMI_UUID = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_VMI_UUID]
+        self._DROP_REASON = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_DROP_REASON]
     # end __init__
 
     # Public functions
@@ -309,6 +311,7 @@ class FlowQuerier(object):
             self._VROUTER_IP,
             self._OTHER_VROUTER_IP,
             self._VMI_UUID,
+            self._DROP_REASON
         ]
         if self._args.tunnel_info:
             select_list.append(self._UNDERLAY_PROTO)
@@ -344,6 +347,7 @@ class FlowQuerier(object):
         vrouter_ip = output_dict['vrouter_ip']
         direction = output_dict['direction']
         action = output_dict['action']
+        drop_reason = output_dict['drop_reason']
         setup_ts = output_dict['setup_ts']
         teardown_ts = output_dict['teardown_ts']
         protocol = output_dict['protocol']
@@ -362,12 +366,12 @@ class FlowQuerier(object):
         tunnel_info = output_dict['tunnel_info']
         flow_uuid = output_dict['flow_uuid']
 
-        print '[SRC-VR:{0}{1}] {2} {3} ({4} -- {5}) {6} '\
-                '{7}:{8}:{9}:{10} ---> {11}:{12}:{13}{14} <{15} P ({16} B)>'\
-                ' : SG:{17} ACL:{18} {19}{20}'.format(
-               vrouter, vrouter_ip, direction, action, setup_ts, teardown_ts,
-               protocol, source_vn, source_ip, source_port, src_vmi_uuid,
-               destination_vn, destination_ip, destination_port,
+        print '[SRC-VR:{0}{1}] {2} {3} {4} ({5} -- {6}) {7} '\
+                '{8}:{9}:{10}:{11} ---> {12}:{13}:{14}{15} <{16} P ({17} B)>'\
+                ' : SG:{18} ACL:{19} {20}{21}'.format(
+               vrouter, vrouter_ip, direction, action, drop_reason, setup_ts,
+               teardown_ts, protocol, source_vn, source_ip, source_port,
+               src_vmi_uuid, destination_vn, destination_ip, destination_port,
                other_vrouter_ip, agg_pkts, agg_bytes, sg_rule_uuid,
                nw_ace_uuid, tunnel_info, flow_uuid)
 
@@ -548,11 +552,19 @@ class FlowQuerier(object):
                     tunnel_info = tunnel_proto
                 else:
                     tunnel_info = ''
+            # Drop Reason
+            if self._DROP_REASON in flow_dict and\
+                flow_dict[self._DROP_REASON] is not None:
+                drop_reason = flow_dict[self._DROP_REASON]
+            else:
+                drop_reason = ''
+
             output_dict = {}
             output_dict['vrouter'] = vrouter
             output_dict['vrouter_ip'] = vrouter_ip
             output_dict['direction'] = direction
             output_dict['action'] = action
+            output_dict['drop_reason'] = drop_reason
             output_dict['setup_ts'] = setup_ts
             output_dict['teardown_ts'] = teardown_ts
             output_dict['protocol'] = protocol

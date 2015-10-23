@@ -1349,7 +1349,7 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query('FlowRecordTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
-                             select_fields=['UuidKey', 'action'],
+                             select_fields=['UuidKey', 'action', 'drop_reason'],
                              where_clause='vrouter=%s'% vrouter,
                              filter='action=pass')
         self.logger.info(str(res))
@@ -1386,8 +1386,17 @@ class AnalyticsFixture(fixtures.Fixture):
                              filter='vmi_uuid=%s'% str(uuid.uuid1()))
         self.logger.info(str(res))
         assert(len(res) == 0)
-        return True
 
+        # Filter by drop_reason
+        res = vns.post_query('FlowRecordTable',
+                  start_time=str(generator_obj.egress_flow_start_time),
+                  end_time=str(generator_obj.egress_flow_end_time),
+                  select_fields=['UuidKey', 'drop_reason'],
+                  where_clause='vrouter=%s'% vrouter,
+                  filter='drop_reason=Reason1', dir=0)
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+        return True
     # end verify_flow_table
 
     def verify_flow_series_aggregation_binning(self, generator_object):
