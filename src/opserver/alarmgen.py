@@ -506,20 +506,26 @@ class Controller(object):
            ppe4.exists("AGPARTVALUES:%s:%d:%s" % (inst, part, kk))
         pperes4 = ppe4.execute()
 
+        retry = False
         # From the index, removes keys for which there are now no contents
         ppe5 = redish.pipeline()
         idx = 0
         for res in pperes4:
             if not res:
+                self._logger.error("Agg unexpected key %s from inst:part %s:%d" % \
+                        (check_keys_list[idx], inst, part))
                 ppe5.srem("AGPARTKEYS:%s:%d" % (inst, part), check_keys_list[idx])
                 # TODO: alarmgen should have already figured out if all structs of 
                 #       the UVE are gone, and should have sent a UVE delete
                 #       We should not need to figure this out again
-                assert()
+                retry = True
             idx += 1
         ppe5.execute()
 
         redish.publish('AGPARTPUB:%s:%d' % (inst, part), json.dumps(pub_list))
+
+        if retry:
+            assert()
         
     def run_uve_processing(self):
         """
