@@ -1006,12 +1006,6 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
                 continue;
             no_valid_tunnel_encap = false;
             ext.communities.push_back(tun_encap.GetExtCommunityValue());
-
-            string alt_encap_string = *eit + "-contrail";
-            TunnelEncap alt_tun_encap(alt_encap_string);
-            if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                continue;
-            ext.communities.push_back(alt_tun_encap.GetExtCommunityValue());
         }
 
         // Mark the path as infeasible if all tunnel encaps published
@@ -1149,17 +1143,6 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
-
-                string alt_encap_string = *eit + "-contrail";
-                TunnelEncap alt_tun_encap(alt_encap_string);
-                if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                    continue;
-                if (first_nh) {
-                    ext.communities.push_back(
-                        alt_tun_encap.GetExtCommunityValue());
-                }
-                nexthop.tunnel_encapsulations_.push_back(
-                    alt_tun_encap.GetExtCommunity());
             }
 
             // Mark the path as infeasible if all tunnel encaps published
@@ -1355,17 +1338,6 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
-
-                string alt_encap_string = *eit + "-contrail";
-                TunnelEncap alt_tun_encap(alt_encap_string);
-                if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                    continue;
-                if (first_nh) {
-                    ext.communities.push_back(
-                        alt_tun_encap.GetExtCommunityValue());
-                }
-                nexthop.tunnel_encapsulations_.push_back(
-                    alt_tun_encap.GetExtCommunity());
             }
 
             // Mark the path as infeasible if all tunnel encaps published
@@ -1614,17 +1586,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
-
-                string alt_encap_string = *eit + "-contrail";
-                TunnelEncap alt_tun_encap(alt_encap_string);
-                if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                    continue;
-                if (first_nh) {
-                    ext.communities.push_back(
-                        alt_tun_encap.GetExtCommunityValue());
-                }
-                nexthop.tunnel_encapsulations_.push_back(
-                    alt_tun_encap.GetExtCommunity());
             }
 
             // Mark the path as infeasible if all tunnel encaps published
