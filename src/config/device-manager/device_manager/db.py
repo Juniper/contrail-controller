@@ -9,6 +9,7 @@ configuration manager
 from vnc_api.common.exceptions import NoIdError
 from physical_router_config import PhysicalRouterConfig
 from physical_router_config import JunosInterface
+from physical_router_config import PushConfigState
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 from cfgm_common.uve.physical_router.ttypes import *
@@ -102,13 +103,15 @@ class PhysicalRouterDM(DBBaseDM):
         self.bgp_router = None
         self.config_manager = None
         self.nc_q = queue.Queue(maxsize=1)
-        self.nc_handler_gl = gevent.spawn(self.nc_handler)
         self.vn_ip_map = {}
         self.init_cs_state()
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
             self.management_ip, self.user_credentials, self.vendor,
-            self.product, self.vnc_managed, self._logger)
+            self.product, self._logger)
+        self.set_conf_sent_state(False)
+        self.config_repush_interval = PushConfigState.get_repush_interval()
+        self.nc_handler_gl = gevent.spawn(self.nc_handler)
         self.uve_send()
     # end __init__
 
@@ -132,7 +135,7 @@ class PhysicalRouterDM(DBBaseDM):
         if self.config_manager is not None:
             self.config_manager.update(
                 self.management_ip, self.user_credentials, self.vendor,
-                self.product, self.vnc_managed)
+                self.product)
     # end update
 
     @classmethod
@@ -140,7 +143,7 @@ class PhysicalRouterDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        obj._cassandra.delete_pr(uuid) 
+        obj._cassandra.delete_pr(uuid)
         obj.config_manager.delete_bgp_config()
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
@@ -153,6 +156,14 @@ class PhysicalRouterDM(DBBaseDM):
             return True
         return False
     #end is_junos_service_ports_enabled
+
+    def block_and_set_config_state(self, timeout):
+        try:
+            if self.nc_q.get(True, timeout) is not None:
+                self.set_config_state()
+        except queue.Empty:
+            self.set_config_state()
+    #end block_and_set_config_state
 
     def set_config_state(self):
         try:
@@ -285,6 +296,7 @@ class PhysicalRouterDM(DBBaseDM):
             if pi is None:
                 continue
             li_set |= pi.logical_interfaces
+
         for li_uuid in li_set:
             li = LogicalInterfaceDM.get(li_uuid)
             if li is None:
@@ -298,7 +310,55 @@ class PhysicalRouterDM(DBBaseDM):
         return vn_dict
     #end
 
+
+    def is_vnc_managed(self):
+
+        if (self.vendor is None or self.product is None or
+               self.vendor.lower() != "juniper" or self.product.lower()[:2] != "mx"):
+            self._logger.info("auto configuraion of physical router is not supported \
+               vendor family(%s:%s), ip: %s, not pushing netconf message" % \
+                     (str(self.vendor),  str(self.product), self.management_ip))
+            return False
+
+        if not self.vnc_managed:
+            self._logger.info("vnc managed property must be set for a physical router to get auto \
+                configured, ip: %s, not pushing netconf message" % (self.management_ip))
+            return False
+        return True
+
+    #end is_vnc_managed
+
+    def set_conf_sent_state(self, state):
+        self.config_sent = state
+    #end set_conf_sent_state
+
+    def is_conf_sent(self):
+        return self.config_sent
+    #end is_conf_sent
+
+    def delete_config(self):
+        if not self.is_vnc_managed() and self.is_conf_sent():
+            # user must have unset the vnc managed property
+            self.config_manager.delete_bgp_config()
+            if self.config_manager.retry():
+                #failed commit: set repush interval upto max value
+                self.config_repush_interval = min([2 * self.config_repush_interval,
+                                              PushConfigState.get_repush_max_interval()])
+                self.block_and_set_config_state(self.config_repush_interval)
+                return True
+            #succesful commit: reset repush interval
+            self.config_repush_interval = PushConfigState.get_repush_interval()
+            self.set_conf_sent_state(False)
+            self.uve_send()
+            return True
+        return False
+    #end delete_config
+
     def push_config(self):
+
+        if self.delete_config() or not self.is_vnc_managed():
+            return
+
         self.config_manager.reset_bgp_config()
         bgp_router = BgpRouterDM.get(self.bgp_router)
         if bgp_router:
@@ -322,7 +382,6 @@ class PhysicalRouterDM(DBBaseDM):
         vn_dict = self.get_vn_li_map()
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()))
         vn_irb_ip_map = self.get_vn_irb_ip_map()
-
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
             if vn_obj is None or vn_obj.vxlan_vni is None or vn_obj.vn_network_id is None:
@@ -398,9 +457,27 @@ class PhysicalRouterDM(DBBaseDM):
                                                          None,
                                                          vn_obj.instance_ip_map, vn_obj.vn_network_id)
 
-        self.config_manager.send_bgp_config()
+        config_size = self.config_manager.send_bgp_config()
+        self.set_conf_sent_state(True)
         self.uve_send()
+        if self.config_manager.retry():
+            #failed commit: set repush interval upto max value
+            self.config_repush_interval = min([2 * self.config_repush_interval,
+                                               PushConfigState.get_repush_max_interval()])
+            self.block_and_set_config_state(self.config_repush_interval)
+        else:
+            #successful commit: reset repush interval to base
+            self.config_repush_interval = PushConfigState.get_repush_interval()
+            if PushConfigState.get_push_delay_enable():
+                # sleep, delay=compute max delay between two successive commits
+                gevent.sleep(self.get_push_config_interval(config_size))
     # end push_config
+
+    def get_push_config_interval(self, last_config_size):
+        config_delay = int((last_config_size/1000) * PushConfigState.get_push_delay_per_kb())
+        delay = min([PushConfigState.get_push_delay_max(), config_delay])
+        return delay
+    #end get_push_config_interval
 
     def is_service_port_id_valid(self, service_port_id):
         #mx allowed ifl unit number range is (1, 16385) for service ports
@@ -424,13 +501,14 @@ class PhysicalRouterDM(DBBaseDM):
 
         commit_stats = self.config_manager.get_commit_stats()
 
-        if commit_stats['netconf_enabled'] is True:
+        if self.is_vnc_managed():
+            pr_trace.netconf_enabled_status = True
             pr_trace.last_commit_time = commit_stats['last_commit_time']
             pr_trace.last_commit_duration = commit_stats['last_commit_duration']
             pr_trace.commit_status_message = commit_stats['commit_status_message']
             pr_trace.total_commits_sent_since_up = commit_stats['total_commits_sent_since_up']
         else:
-            pr_trace.netconf_enabled_status = commit_stats['netconf_enabled_status']
+            pr_trace.netconf_enabled_status = False
 
         pr_msg = UvePhysicalRouterConfigTrace(data=pr_trace, sandesh=PhysicalRouterDM._sandesh)
         pr_msg.send(sandesh=PhysicalRouterDM._sandesh)
