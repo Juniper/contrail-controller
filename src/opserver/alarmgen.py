@@ -637,6 +637,8 @@ class Controller(object):
                 gevent.sleep(0)
              
     def stop_uve_partition(self, part):
+        if not part in self.ptab_info:
+            return
         for tk in self.ptab_info[part].keys():
             for rkey in self.ptab_info[part][tk].keys():
                 uk = tk + ":" + rkey
