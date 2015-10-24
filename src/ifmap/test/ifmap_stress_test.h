@@ -180,6 +180,8 @@ protected:
     static const uint64_t kUUID_LSLONG = 1324108391580000000;
     static const std::string kDefaultXmppServerName;
     static const int kMAX_LOG_NUM_EVENTS = 100000; // events in circular buffer
+    static const uint32_t kNUM_EVENTS_BEFORE_SLEEP = 100;
+    static const uint32_t kSLEEP_TIME_USEC = 50000; // 50ms
 
     typedef IFMapSTEventMgr::EventType EventType;
     typedef boost::function<void(void)> EvCb;
@@ -237,6 +239,8 @@ protected:
     int VmNameToVmId(const std::string &vm_name);
     void VmNameToIds(const std::string &vm_name, int *client_id, int *vm_id);
     void incr_events_ignored() { ++events_ignored_; }
+    void TimeToSleep(uint32_t count, uint32_t total = kNUM_EVENTS_BEFORE_SLEEP,
+                     uint32_t usec_time = kSLEEP_TIME_USEC);
 
     DB db_;
     DBGraph db_graph_;
