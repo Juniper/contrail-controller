@@ -4,7 +4,6 @@
 
 #include "bgp/extended-community/site_of_origin.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 using namespace std;

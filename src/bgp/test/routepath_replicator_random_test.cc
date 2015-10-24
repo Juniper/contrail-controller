@@ -4,11 +4,7 @@
 
 #include "bgp/routing-instance/routepath_replicator.h"
 
-#include <algorithm> 
-#include <iostream>
-#include <sstream>
-#include <set>
-#include <string>
+#include <algorithm>
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
@@ -17,7 +13,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-variable"
 #endif
-#include <boost/lambda/lambda.hpp> 
+#include <boost/lambda/lambda.hpp>
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
@@ -26,15 +22,12 @@
 #include <boost/program_options.hpp>
 
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
@@ -43,10 +36,8 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 
 using namespace std;
@@ -181,14 +172,14 @@ protected:
     void DeleteRoutingInstance(string name, bool wait = true) {
         BGP_DEBUG_UT("DELETE routing instance " << name);
         // Remove All connections
-        for(ConnectionMap::iterator it = connections_.find(name); 
+        for(ConnectionMap::iterator it = connections_.find(name);
             ((it != connections_.end()) && (it->first == name)); it++) {
             RemoveConnection(name, it->second);
         }
         connections_.erase(name);
 
         // Remove All connections to this VRF
-        for(ConnectionMap::iterator it = connections_.begin(), next; 
+        for(ConnectionMap::iterator it = connections_.begin(), next;
             it != connections_.end(); it = next) {
             next = it;
             next++;
@@ -199,7 +190,7 @@ protected:
         }
 
         // Delete Route
-        for(RouteAddMap::iterator it = routes_added_.begin(), next; 
+        for(RouteAddMap::iterator it = routes_added_.begin(), next;
             it != routes_added_.end(); it = next) {
             next = it;
             next++;
@@ -244,7 +235,7 @@ protected:
         stringstream target;
         target << "target:64496:" << (vrfs_.size()+1);
 
-        BGP_DEBUG_UT("ADD routing instance " << name << " Route Target " 
+        BGP_DEBUG_UT("ADD routing instance " << name << " Route Target "
                      << target.str());
         ifmap_test_util::IFMapMsgLink(&config_db_,
                                       "routing-instance", name,
@@ -257,7 +248,7 @@ protected:
     }
 
     void RemoveConnection(string src, string tgt, bool wait = true) {
-        BGP_DEBUG_UT("DELETE connection " << src << "<->" << tgt); 
+        BGP_DEBUG_UT("DELETE connection " << src << "<->" << tgt);
         ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                         "routing-instance", src,
                                         "routing-instance", tgt,
@@ -267,7 +258,7 @@ protected:
     }
 
     void AddConnection(string src, string tgt, bool wait = true) {
-        BGP_DEBUG_UT("ADD connection " << src << "<->" << tgt); 
+        BGP_DEBUG_UT("ADD connection " << src << "<->" << tgt);
         ifmap_test_util::IFMapMsgLink(&config_db_,
                                       "routing-instance", src,
                                       "routing-instance", tgt,
@@ -293,7 +284,7 @@ protected:
         request.data.reset(new BgpTable::RequestData(attr, 0, 0));
 
         string tbl_name(vrf+".inet.0");
-        TASK_UTIL_WAIT_NE_NO_MSG(bgp_server_->database()->FindTable(tbl_name), 
+        TASK_UTIL_WAIT_NE_NO_MSG(bgp_server_->database()->FindTable(tbl_name),
                                  NULL, 1000, 10000, "Wait for Inet table..");
         TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
                             static_cast<BgpTable *>(
@@ -340,7 +331,7 @@ protected:
         return rt;
     }
 
-    BgpRoute *InetRouteLookup(const string &instance_name, 
+    BgpRoute *InetRouteLookup(const string &instance_name,
                               const string &prefix) {
         BgpTable *table = static_cast<BgpTable *>(
             bgp_server_->database()->FindTable(instance_name + ".inet.0"));
@@ -368,13 +359,13 @@ protected:
             uint32_t src = 0;
             uint32_t dest = 0;
             do {
-                do { 
+                do {
                     src = rand() % num_vrf_to_begin;
                     dest = rand() % num_vrf_to_begin;
                 } while (src == dest);
-                ConnectionMap::iterator it = 
+                ConnectionMap::iterator it =
                     connections.find(list_vrf[src]);
-                while (it != connections.end() && 
+                while (it != connections.end() &&
                        (it->first == list_vrf[src])) {
                     if (it->second == list_vrf[dest]) {
                         break;
@@ -385,7 +376,7 @@ protected:
                 if (it != connections.end() && it->second == list_vrf[dest]) {
                     continue;
                 }
-                connections.insert(std::pair<string, string>(list_vrf[src], 
+                connections.insert(std::pair<string, string>(list_vrf[src],
                                                              list_vrf[dest]));
                 break;
             } while (1);
@@ -396,54 +387,54 @@ protected:
     void WalkDone(DBTableBase *table) {
     }
 
-    bool TableVerify(BgpServer *server, 
+    bool TableVerify(BgpServer *server,
                      DBTablePartBase *root,
                      DBEntryBase *entry) {
         BgpRoute *rt = static_cast<BgpRoute *> (entry);
         BgpTable *table = static_cast<BgpTable *>(root->parent());
         RoutePathReplicator *replicator = server->replicator(Address::INETVPN);
 
-        const RtReplicated *dbstate = 
+        const RtReplicated *dbstate =
             replicator->GetReplicationState(table, rt);
 
         if (entry->IsDeleted()) {
             assert(!dbstate);
             return true;
-        } 
+        }
 
-        for (Route::PathList::iterator path_it = rt->GetPathList().begin(); 
+        for (Route::PathList::iterator path_it = rt->GetPathList().begin();
             path_it != rt->GetPathList().end(); path_it++) {
             BgpPath *path = static_cast<BgpPath *>(path_it.operator->());
             if (path->IsReplicated()) {
-                const BgpSecondaryPath *secpath = 
+                const BgpSecondaryPath *secpath =
                     static_cast<const BgpSecondaryPath *>(path);
                 const BgpTable *pri_tbl = secpath->src_table();
                 const BgpRoute *pri_rt = secpath->src_rt();
                 BgpRoute *rt_to_check =  NULL;
                 if (pri_tbl->family() == Address::INETVPN) {
-                    // In this test the routes are added only to inet table, 
+                    // In this test the routes are added only to inet table,
                     // hence it is an assert to have primary route from VPN table
                     assert(0);
                 } else {
                     if (table->family() == Address::INETVPN) {
                         InetVpnRoute *vpn = static_cast<InetVpnRoute *>(rt);
-                        Ip4Prefix prefix(vpn->GetPrefix().addr(), 
+                        Ip4Prefix prefix(vpn->GetPrefix().addr(),
                                          vpn->GetPrefix().prefixlen());
-                        RouteAddMap::iterator it = 
+                        RouteAddMap::iterator it =
                             routes_added_.find(prefix.ToString());
                         assert(it != routes_added_.end());
-                        assert(it->second == 
+                        assert(it->second ==
                                pri_tbl->routing_instance()->name());
-                        rt_to_check = 
+                        rt_to_check =
                             InetRouteLookup(pri_tbl->routing_instance()->name(),
                                             prefix.ToString());
                     } else {
-                        RouteAddMap::iterator it = 
+                        RouteAddMap::iterator it =
                             routes_added_.find(rt->ToString());
                         assert(it != routes_added_.end());
-                        assert(it->second == 
+                        assert(it->second ==
                                pri_tbl->routing_instance()->name());
-                        rt_to_check = 
+                        rt_to_check =
                             InetRouteLookup(pri_tbl->routing_instance()->name(),
                                             rt->ToString());
                     }
@@ -469,12 +460,12 @@ protected:
                     export_list.push_back(rtarget.GetExtCommunity());
                 }
 
-                new_ext_community = 
-                    server->extcomm_db()->AppendAndLocate(ext_community, 
+                new_ext_community =
+                    server->extcomm_db()->AppendAndLocate(ext_community,
                                                           export_list);
                 ext_community = new_ext_community.get();
             } else {
-                // In this test the routes are added only to inet table, 
+                // In this test the routes are added only to inet table,
                 // hence it is an assert to have primary route from VPN table
                 assert(0);
             }
@@ -486,15 +477,15 @@ protected:
 
             RtGroup::RtGroupMemberList super_set;
 
-            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
+            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                           ext_community->communities()) {
-                RtGroup *rtgroup = 
+                RtGroup *rtgroup =
                     server->rtarget_group_mgr()->GetRtGroup(comm);
                 if (rtgroup) {
-                    RtGroup::RtGroupMemberList import_list = 
+                    RtGroup::RtGroupMemberList import_list =
                         rtgroup->GetImportTables(replicator->family());
-                    if (!import_list.empty()) 
-                        super_set.insert(import_list.begin(), 
+                    if (!import_list.empty())
+                        super_set.insert(import_list.begin(),
                                          import_list.end());
 
                 }
@@ -517,11 +508,11 @@ protected:
 
                         replicated_route = VPNRouteLookup(vpn.ToString());
                     } else {
-                        replicated_route = 
-                            InetRouteLookup(dest->routing_instance()->name(), 
+                        replicated_route =
+                            InetRouteLookup(dest->routing_instance()->name(),
                                             rt->ToString());
                     }
-                    assert(replicated_route->FindSecondaryPath(rt, 
+                    assert(replicated_route->FindSecondaryPath(rt,
                                            path->GetSource(), path->GetPeer(),
                                            path->GetPathId()));
                     string route_to_insert(dest->routing_instance()->name());
@@ -544,7 +535,7 @@ protected:
                 route_to_find += rinfo.peer_->ToString();
                 route_to_find += ":";
                 route_to_find += rinfo.rt_->ToString();
-                set<string>::iterator it = 
+                set<string>::iterator it =
                     replicated_routes.find(route_to_find);
 
                 assert(it != replicated_routes.end());
@@ -557,9 +548,9 @@ protected:
     }
 
     void DumpConnections() {
-        for(ConnectionMap::iterator con_verify_it = connections_.begin(); 
+        for(ConnectionMap::iterator con_verify_it = connections_.begin();
             con_verify_it != connections_.end(); con_verify_it++) {
-            BGP_DEBUG_UT(con_verify_it->first << "<->" 
+            BGP_DEBUG_UT(con_verify_it->first << "<->"
                          << con_verify_it->second);
         }
     }
@@ -569,11 +560,11 @@ protected:
             return true;
         }
 
-        for(ConnectionMap::iterator con_verify_it = connections_.begin(); 
+        for(ConnectionMap::iterator con_verify_it = connections_.begin();
             con_verify_it != connections_.end(); con_verify_it++) {
-            if (((con_verify_it->first == from_rt) && 
-                 (con_verify_it->second == to_rt)) || 
-                ((con_verify_it->first == to_rt) && 
+            if (((con_verify_it->first == from_rt) &&
+                 (con_verify_it->second == to_rt)) ||
+                ((con_verify_it->first == to_rt) &&
                  (con_verify_it->second == from_rt))) {
                 return true;
             }
@@ -582,20 +573,20 @@ protected:
     }
 
     bool VerifyReplicationState() {
-        DBTableWalker::WalkCompleteFn walk_complete 
+        DBTableWalker::WalkCompleteFn walk_complete
             = boost::bind(&ReplicationTest::WalkDone, this, _1);
 
-        DBTableWalker::WalkFn walker 
-            = boost::bind(&ReplicationTest::TableVerify, this, 
+        DBTableWalker::WalkFn walker
+            = boost::bind(&ReplicationTest::TableVerify, this,
                           bgp_server_.get(), _1, _2);
 
         DB *db = bgp_server_->database();
         RoutingInstanceMgr *rtinst_mgr = bgp_server_->routing_instance_mgr();
 
-        for (RoutingInstanceMgr::RoutingInstanceIterator it = 
+        for (RoutingInstanceMgr::RoutingInstanceIterator it =
              rtinst_mgr->begin(); it != rtinst_mgr->end(); it++) {
             BOOST_FOREACH(RouteTarget tgt, it->GetImportList()) {
-                const RoutingInstance *from_rt 
+                const RoutingInstance *from_rt
                     = rtinst_mgr->GetInstanceByTarget(tgt);
                 assert(from_rt);
                 assert(VerifyConnection(from_rt->name(), it->name()));
@@ -629,14 +620,14 @@ protected:
 
 TEST_P(ReplicationTest, RandomTest) {
     boost::system::error_code ec;
-    peers_.push_back(new BgpPeerMock(Ip4Address::from_string("192.168.0.1", 
+    peers_.push_back(new BgpPeerMock(Ip4Address::from_string("192.168.0.1",
                                                              ec)));
     GenerateVrfs(vrfs_, connections_);
     NetworkConfig(vrfs_, connections_);
     task_util::WaitForIdle();
     // Start with random number of routes in VRFs
-    for (uint32_t num_iteration = 0; 
-         num_iteration < max_iterations_; 
+    for (uint32_t num_iteration = 0;
+         num_iteration < max_iterations_;
          num_iteration++) {
         uint32_t vrf_index = rand() % vrfs_.size();
         while(true) {
@@ -645,8 +636,8 @@ TEST_P(ReplicationTest, RandomTest) {
             oss << (rand() % 255) << ".";
             oss << (rand() % 255) << "/32";
             // Add Route
-            pair<RouteAddMap::iterator, bool> ret = 
-                routes_added_.insert(pair<string, string>(oss.str(), 
+            pair<RouteAddMap::iterator, bool> ret =
+                routes_added_.insert(pair<string, string>(oss.str(),
                                                           vrfs_[vrf_index]));
             if (ret.second == false) {
                 continue;
@@ -658,8 +649,8 @@ TEST_P(ReplicationTest, RandomTest) {
 
     task_util::WaitForIdle();
 
-    for (uint32_t num_iteration = 0; 
-         num_iteration < max_iterations_; 
+    for (uint32_t num_iteration = 0;
+         num_iteration < max_iterations_;
          num_iteration++) {
         uint32_t vrf_index = 0;
         do {
@@ -674,12 +665,12 @@ TEST_P(ReplicationTest, RandomTest) {
                 // VRF
                 uint8_t add_or_del_vrf = rand() % 2;
                 if (add_or_del_vrf) {
-                    // Add 
+                    // Add
                     stringstream oss;
                     oss << "vrf_" << vrfs_.size();
                     AddRoutingInstance(oss.str());
                 } else {
-                    size_t count = count_if(vrfs_.begin(), vrfs_.end(), 
+                    size_t count = count_if(vrfs_.begin(), vrfs_.end(),
                                             (boost::lambda::_1 == "DELETED"));
                     if (count < (vrfs_.size() - 2)) {
                         DeleteRoutingInstance(vrfs_[vrf_index]);
@@ -689,16 +680,16 @@ TEST_P(ReplicationTest, RandomTest) {
                 // Connections
                 uint8_t add_or_del_link = rand() % 2;
                 if (add_or_del_link) {
-                    // Add 
+                    // Add
                     uint32_t dest = 0;
                     do {
-                        do { 
+                        do {
                             dest = rand() % vrfs_.size();
-                        } while ((vrfs_[dest] == "DELETED") || 
+                        } while ((vrfs_[dest] == "DELETED") ||
                                  (vrf_index == dest));
-                        ConnectionMap::iterator it = 
+                        ConnectionMap::iterator it =
                             connections_.find(vrfs_[vrf_index]);
-                        while (it != connections_.end() && 
+                        while (it != connections_.end() &&
                                (it->first == vrfs_[vrf_index])) {
                             if (it->second == vrfs_[dest]) {
                                 break;
@@ -706,7 +697,7 @@ TEST_P(ReplicationTest, RandomTest) {
                             it++;
                         }
 
-                        if (it != connections_.end() && 
+                        if (it != connections_.end() &&
                             it->second == vrfs_[dest]) {
                             continue;
                         }
@@ -715,7 +706,7 @@ TEST_P(ReplicationTest, RandomTest) {
                     AddConnection(vrfs_[vrf_index], vrfs_[dest]);
                 } else {
                     // Delete a Link
-                    ConnectionMap::iterator it = 
+                    ConnectionMap::iterator it =
                         connections_.find(vrfs_[vrf_index]);
                     if (it != connections_.end()) {
                         RemoveConnection(it->first, it->second);
@@ -733,9 +724,9 @@ TEST_P(ReplicationTest, RandomTest) {
                     oss << (rand() % 255) << ".";
                     oss << (rand() % 255) << "/32";
                     // Add Route
-                    pair<RouteAddMap::iterator, bool> ret = 
-                        routes_added_.insert(pair<string, 
-                                             string>(oss.str(), 
+                    pair<RouteAddMap::iterator, bool> ret =
+                        routes_added_.insert(pair<string,
+                                             string>(oss.str(),
                                                      vrfs_[vrf_index]));
                     if (ret.second == false) {
                         continue;
@@ -750,7 +741,7 @@ TEST_P(ReplicationTest, RandomTest) {
                 uint32_t at_index = rand() % routes_added_.size();
                 uint32_t count = 0;
                 // Delete Route
-                for(RouteAddMap::iterator it = routes_added_.begin(); 
+                for(RouteAddMap::iterator it = routes_added_.begin();
                     it != routes_added_.end(); it++, count++) {
                     if (count == at_index) {
                         DeleteInetRoute(peers_[0], it->second, it->first);
@@ -766,7 +757,7 @@ TEST_P(ReplicationTest, RandomTest) {
                 uint32_t at_index = rand() % routes_added_.size();
                 uint32_t count = 0;
                 // Delete Route
-                for(RouteAddMap::iterator it = routes_added_.begin(); 
+                for(RouteAddMap::iterator it = routes_added_.begin();
                     it != routes_added_.end(); it++, count++) {
                     if (count == at_index) {
                         AddInetRoute(peers_[0], it->second, it->first, 10);
@@ -872,7 +863,7 @@ static vector<int> GetTestParam() {
             ValuesIn(n_connections), \
             ValuesIn(n_iterations))
 
-INSTANTIATE_TEST_CASE_P(ReplicatorRandomTestWithParams, ReplicationTest, 
+INSTANTIATE_TEST_CASE_P(ReplicatorRandomTestWithParams, ReplicationTest,
                         COMBINE_PARAMS);
 
 int main(int argc, char **argv) {

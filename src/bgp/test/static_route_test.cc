@@ -5,31 +5,22 @@
 #include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-#include <algorithm>
 #include <boost/regex.hpp>
 #include <fstream>
-#include <iostream>
-#include <string>
 
 
 #include <boost/foreach.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/extended-community/load_balance.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
-#include "bgp/inet6vpn/inet6vpn_route.h"
-#include "bgp/inet6vpn/inet6vpn_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
-#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/static_route_types.h"
 #include "bgp/security_group/security_group.h"
@@ -41,12 +32,9 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
-#include "net/address.h"
 #include <pugixml/pugixml.hpp>
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using namespace std;
 using boost::assign::list_of;

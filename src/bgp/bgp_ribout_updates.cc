@@ -4,10 +4,8 @@
 
 #include "bgp/bgp_ribout_updates.h"
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/bgp_update_monitor.h"

@@ -2,32 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_session_manager.h"
 
-#include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
-#include <fstream>
 
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/util.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_path.h"
-#include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "db/db_table_partition.h"
-#include "io/test/event_manager_test.h"
 
-#include "testing/gunit.h"
 
 using namespace boost::asio;
 using namespace boost;
@@ -79,17 +63,17 @@ protected:
             server_.database()->FindTable("blue.inet.0"));
         purple_ = static_cast<DBTable *>(
             server_.database()->FindTable("purple.inet.0"));
-        red_ = 
+        red_ =
             static_cast<DBTable *>(server_.database()->FindTable("red.inet.0"));
 
         vpn_l_ = vpn_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
                                             this, _1, _2));
         red_l_ = red_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
                                             this, _1, _2));
-        blue_l_ 
+        blue_l_
             = blue_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
                                           this, _1, _2));
-        purple_l_ 
+        purple_l_
             = purple_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
                                             this, _1, _2));
 
@@ -119,7 +103,7 @@ protected:
         notification_count_[root->parent()]++;
 
         Route *rt = static_cast<Route *>(entry);
-        BGP_DEBUG_UT("Route " << rt->ToString() << " Deleted " 
+        BGP_DEBUG_UT("Route " << rt->ToString() << " Deleted "
             << rt->IsDeleted());
     }
 
@@ -142,7 +126,7 @@ protected:
 
         TASK_UTIL_EXPECT_EQ(1, vpn_rt->GetPathList().size());
         // Walk the Path and verify ..
-        Route::PathList::const_iterator it = vpn_rt->GetPathList().begin(); 
+        Route::PathList::const_iterator it = vpn_rt->GetPathList().begin();
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
 
         // Verify that it is Replicated Route
@@ -161,9 +145,9 @@ protected:
             BOOST_FOREACH(RouteTarget rtarget, from_instance->GetExportList()) {
                 rt_inst_list.insert(rtarget.ToString());
             }
-            // For each extended community, verify that it matches 
+            // For each extended community, verify that it matches
             // RoutingInstance
-            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &community, 
+            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &community,
                           ext_community->communities()) {
                 RouteTarget rt(community);
                 rt_pathattr_list.insert(rt.ToString());
@@ -173,7 +157,7 @@ protected:
         }
     }
 
-    void VerifyInetTable(DBTable *table, std::string route, 
+    void VerifyInetTable(DBTable *table, std::string route,
                          bool missing=false) {
         // Verify the route in Table
         Ip4Prefix prefix(Ip4Prefix::FromString(route));
@@ -187,7 +171,7 @@ protected:
         }
         // One Path
         TASK_UTIL_EXPECT_EQ(1, rt->GetPathList().size());
-        Route::PathList::const_iterator it = rt->GetPathList().begin(); 
+        Route::PathList::const_iterator it = rt->GetPathList().begin();
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
         // Verify that it is Replicated Route
         EXPECT_TRUE(path->IsReplicated());
@@ -232,11 +216,11 @@ namespace {
 TEST_F(RoutingInstanceModuleTest, Connection) {
     ConcurrencyScope scope("bgp::Config");
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    RoutingInstance *red = 
+    RoutingInstance *red =
         server_.routing_instance_mgr()->GetRoutingInstance("red");
-    RoutingInstance *blue = 
+    RoutingInstance *blue =
         server_.routing_instance_mgr()->GetRoutingInstance("blue");
-    RoutingInstance *purple = 
+    RoutingInstance *purple =
         server_.routing_instance_mgr()->GetRoutingInstance("purple");
 
     EXPECT_TRUE(purple != NULL);
@@ -348,7 +332,7 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
                                                     8));
     BgpAttrSpec multi_comm_vpn_attrs;
     multi_comm_vpn_attrs.push_back(&multi_rts);
-    BgpAttrPtr multi_comm_vpn_attr 
+    BgpAttrPtr multi_comm_vpn_attr
         = server_.attr_db()->Locate(multi_comm_vpn_attrs);
 
     // Attribute is located correct?
@@ -360,7 +344,7 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     // Enqueue the update
     DBRequest vpnAddReq_1;
     vpnAddReq_1.key.reset(new InetVpnTable::RequestKey(prefix_1, NULL));
-    vpnAddReq_1.data.reset(new InetVpnTable::RequestData(multi_comm_vpn_attr, 
+    vpnAddReq_1.data.reset(new InetVpnTable::RequestData(multi_comm_vpn_attr,
                                                          0, 20));
     vpnAddReq_1.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     // Add Entry to the bgp.l3vpn.0
@@ -379,11 +363,11 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     green_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("green",
             "target:1:2", "target:1:2"));
     server_.routing_instance_mgr()->CreateRoutingInstance(green_cfg_.get());
-    RoutingInstance *green = 
+    RoutingInstance *green =
         server_.routing_instance_mgr()->GetRoutingInstance("green");
     EXPECT_TRUE(green != NULL);
 
-    green_ = 
+    green_ =
         static_cast<DBTable *>(server_.database()->FindTable("green.inet.0"));
     EXPECT_TRUE(green_ != NULL);
 
@@ -406,15 +390,15 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     orange_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("orange",
             "target:1:2 target:1.2.3.4:1", "target:1:2"));
     server_.routing_instance_mgr()->CreateRoutingInstance(orange_cfg_.get());
-    RoutingInstance *orange = 
+    RoutingInstance *orange =
         server_.routing_instance_mgr()->GetRoutingInstance("orange");
     EXPECT_TRUE(orange != NULL);
 
-    orange_ = 
+    orange_ =
         static_cast<DBTable *>(server_.database()->FindTable("orange.inet.0"));
     EXPECT_TRUE(orange_ != NULL);
 
-    orange_l_ = 
+    orange_l_ =
         orange_->Register(boost::bind(&RoutingInstanceModuleTest_Connection_Test::TableListener,
                                         this, _1, _2));
     ClearCounters();

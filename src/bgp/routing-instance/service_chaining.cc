@@ -4,28 +4,12 @@
 
 #include "bgp/routing-instance/service_chaining.h"
 
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_trace.h>
 
-#include <algorithm>
 
-#include "base/queue_task.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "bgp/bgp_condition_listener.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_origin_vn_path.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_route.h"
-#include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_table.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
@@ -33,9 +17,6 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/service_chaining_types.h"
-#include "db/db_table_partition.h"
-#include "net/address.h"
-#include "net/address_util.h"
 
 using boost::bind;
 using boost::system::error_code;

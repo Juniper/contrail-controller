@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/message_builder.h"
 #include "bgp/bgp_message_builder.h"
 #include "bgp/xmpp_message_builder.h"
 #include "bgp/bgp_factory.h"

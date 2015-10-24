@@ -5,32 +5,16 @@
 #include "bgp/routing-instance/static_route.h"
 
 #include <boost/assign/list_of.hpp>
-#include <boost/bind.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
-#include <algorithm>
-#include <string>
-#include <vector>
 
-#include "base/queue_task.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_route.h"
 #include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_table.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/static_route_types.h"
-#include "db/db_table_partition.h"
-#include "net/address.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -633,7 +617,7 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
                 static_route_map_.erase(info->static_route_prefix());
                 if (static_route_map_.empty())
                     rtinstance_->server()->RemoveStaticRouteMgr(this);
-                if (!routing_instance()->deleted() && 
+                if (!routing_instance()->deleted() &&
                     routing_instance()->config()) {
                     resolve_trigger_->Set();
                 }
@@ -656,7 +640,7 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
                 static_route_map_.erase(info->static_route_prefix());
                 if (static_route_map_.empty())
                     rtinstance_->server()->RemoveStaticRouteMgr(this);
-                if (!routing_instance()->deleted() && 
+                if (!routing_instance()->deleted() &&
                     routing_instance()->config()) {
                     resolve_trigger_->Set();
                 }
@@ -790,7 +774,7 @@ void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
     sort(static_route_list.begin(), static_route_list.end(),
               CompareStaticRouteConfig);
 
-    StaticRouteList::const_iterator static_route_cfg_it = 
+    StaticRouteList::const_iterator static_route_cfg_it =
             static_route_list.begin();
     typename StaticRouteMap::iterator oper_it = static_route_map_.begin();
 

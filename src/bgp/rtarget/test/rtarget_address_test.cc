@@ -4,7 +4,6 @@
 
 #include "bgp/rtarget/rtarget_address.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 using namespace std;

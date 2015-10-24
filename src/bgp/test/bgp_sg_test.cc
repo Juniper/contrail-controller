@@ -4,23 +4,14 @@
 
 #include "bgp/scheduling_group.h"
 
-#include <string>
-#include <vector>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/util.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/inet/inet_table.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace std;
 using namespace ::testing;

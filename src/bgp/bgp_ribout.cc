@@ -2,16 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/bind.hpp>
-#include <algorithm>
 
-#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
-#include "bgp/bgp_update.h"
 #include "bgp/scheduling_group.h"
 
 using std::find;

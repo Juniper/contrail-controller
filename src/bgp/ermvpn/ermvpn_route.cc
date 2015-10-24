@@ -2,13 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/ermvpn/ermvpn_route.h"
 
-#include <algorithm>
-#include <string>
-#include <vector>
 
-#include "base/parse_object.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 
 using std::copy;

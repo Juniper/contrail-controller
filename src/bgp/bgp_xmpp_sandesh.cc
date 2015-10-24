@@ -1,18 +1,14 @@
 /*
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
-#include "bgp/bgp_xmpp_sandesh.h"
 
-#include <sandesh/sandesh.h>
 
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "xmpp/xmpp_connection.h"
-#include "xmpp/xmpp_server.h"
 
 using std::string;
 using std::vector;

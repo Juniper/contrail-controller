@@ -1,10 +1,8 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
@@ -15,15 +13,13 @@
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
 #include "schema/xmpp_enet_types.h"
-#include "testing/gunit.h"
-#include "xmpp/xmpp_server.h"
 
 using namespace std;
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
+    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server,
+            BgpXmppChannelManager *manager) :
         BgpXmppChannel(channel, server, manager), count_(0) {
             bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
                                           RibExportPolicy::XMPP, -1, 0);

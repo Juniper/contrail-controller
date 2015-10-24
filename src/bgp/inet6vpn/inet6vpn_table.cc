@@ -4,16 +4,8 @@
 
 #include "bgp/inet6vpn/inet6vpn_table.h"
 
-#include "base/util.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_route.h"
-#include "bgp/bgp_server.h"
-#include "bgp/inet6/inet6_route.h"
 #include "bgp/inet6/inet6_table.h"
-#include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 Inet6VpnTable::Inet6VpnTable(DB *db, const std::string &name)
     : BgpTable(db, name) {

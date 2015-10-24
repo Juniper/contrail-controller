@@ -4,25 +4,12 @@
 
 #include "bgp/bgp_config_parser.h"
 
-#include <boost/algorithm/string/trim.hpp>
-#include <boost/asio/ip/address.hpp>
 #include <boost/uuid/name_generator.hpp>
-#include <boost/uuid/nil_generator.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <pugixml/pugixml.hpp>
 
-#include <map>
-#include <set>
-#include <sstream>
-#include <utility>
-#include <vector>
 
-#include "base/logging.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
 #include "bgp/rtarget/rtarget_address.h"
-#include "ifmap/ifmap_origin.h"
 #include "ifmap/ifmap_server_table.h"
 
 #include "schema/bgp_schema_types.h"

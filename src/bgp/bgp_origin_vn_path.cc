@@ -2,12 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_origin_vn_path.h"
 
-#include <boost/foreach.hpp>
 
-#include <algorithm>
-#include <string>
 
 #include "bgp/bgp_proto.h"
 

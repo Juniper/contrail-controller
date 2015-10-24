@@ -7,13 +7,7 @@
 #include <boost/foreach.hpp>
 #include <pugixml/pugixml.hpp>
 
-#include <string>
-#include <vector>
 
-#include "base/parse_object.h"
-#include "base/logging.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_table.h"
 #include "bgp/extended-community/load_balance.h"
@@ -22,8 +16,6 @@
 #include "bgp/evpn/evpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
-#include "net/bgp_af.h"
-#include "schema/xmpp_unicast_types.h"
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
 #include "xmpp/xmpp_init.h"

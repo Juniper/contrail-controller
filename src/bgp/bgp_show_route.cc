@@ -5,16 +5,12 @@
 #include "bgp/bgp_sandesh.h"
 
 #include <boost/assign/list_of.hpp>
-#include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
-#include "base/time_util.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 using boost::assign::list_of;
 using std::auto_ptr;

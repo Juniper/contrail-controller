@@ -4,13 +4,8 @@
 
 #include "bgp/bgp_session.h"
 
-#include <algorithm>
-#include <string>
 
-#include "base/logging.h"
-#include "base/parse_object.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
 

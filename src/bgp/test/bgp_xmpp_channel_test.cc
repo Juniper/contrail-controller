@@ -2,36 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <unistd.h>
 #include <fstream>
-#include <sstream>
-#include <boost/algorithm/string.hpp>
-#include <boost/assign/list_of.hpp>
 
-#include <pugixml/pugixml.hpp>
 
-#include "base/logging.h"
-#include "base/queue_task.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/test/task_test_util.h"
-#include "base/util.h"
 #include "control-node/control_node.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
-#include "io/test/event_manager_test.h"
-#include "xmpp/xmpp_channel.h"
-#include "xmpp/xmpp_channel_mux.h"
-#include "xmpp/xmpp_connection.h"
-#include "testing/gunit.h"
 
 using namespace std;
 using namespace boost;
@@ -292,7 +274,7 @@ protected:
             enc_->UnsubscribeXmlDoc(rt_instance_name, 1);
         msg->action = string(subscribe ? "subscribe" : "unsubscribe");
         msg->node = rt_instance_name;
-        msg->dom.reset(GetXmlDoc(doc));  
+        msg->dom.reset(GetXmlDoc(doc));
 
         return msg;
     }
@@ -301,7 +283,7 @@ protected:
                                          const string &ipa) {
         std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
         pugi::xml_document *doc = enc_->RouteAddXmlDoc(rt_instance_name, ipa);
-        msg->dom.reset(GetXmlDoc(doc));  
+        msg->dom.reset(GetXmlDoc(doc));
         msg->node = rt_instance_name;
         msg->is_as_node = true;
         return msg;
@@ -471,7 +453,6 @@ static void TearDown() {
     scheduler->Terminate();
 }
 
-#include <log4cplus/configurator.h>
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();

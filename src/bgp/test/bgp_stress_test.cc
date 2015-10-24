@@ -2,64 +2,32 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/algorithm/string.hpp>
-#include <boost/assign/std/vector.hpp>
 #include <boost/assign/list_of.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/foreach.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>
-#include <iostream>
-#include <list>
-#include <map>
-#include <string>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/test/addr_test_util.h"
-#include "base/test/task_test_util.h"
-#include "base/util.h"
 
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
-#include "bgp/bgp_debug.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
-#include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 
-#include "db/db.h"
-#include "io/event_manager.h"
 
-#include "sandesh/common/vns_types.h"
-#include "sandesh/sandesh_http.h"
-#include "sandesh/sandesh_types.h"
 #include "schema/bgp_schema_types.h"
-#include "schema/xmpp_unicast_types.h"
 #include "schema/vnc_cfg_types.h"
 
-#include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_factory.h"
-#include "xmpp/xmpp_state_machine.h"
 
 #include "bgp/test/bgp_stress_test.h"
 
@@ -87,8 +55,6 @@ do {                                                             \
 
 #if defined(__BGP_PROFILE__) && ! defined(__APPLE__)
 
-#include "gperftools/heap-profiler.h"
-#include "gperftools/heap-checker.h"
 
 #define HEAP_PROFILER_START(prefix)  \
     do {                             \
@@ -512,7 +478,7 @@ void BgpStressTest::SetUp() {
 
         boost::system::error_code error;
         string hostname(boost::asio::ip::host_name(error));
-        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, 
+        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname,
                                "BgpTest", "Test", &evm_,
                                 d_http_port_, sandesh_context_.get());
         Sandesh::ConnectToCollector("127.0.0.1",
@@ -1657,7 +1623,7 @@ Inet6Prefix BgpStressTest::CreateAgentInet6Prefix(int agent_id, int instance_id,
     Inet6Prefix prefix = Inet6Prefix::FromString(prefix_str);
     return prefix;
 }
- 
+
 Inet6VpnPrefix BgpStressTest::CreateInet6VpnPrefix(string pre_prefix,
         int agent_id, int instance_id, int route_id) {
     assert((agent_id < 65535) || (instance_id < 65535) || (route_id < 65535));
@@ -1671,7 +1637,7 @@ Inet6VpnPrefix BgpStressTest::CreateInet6VpnPrefix(string pre_prefix,
     Inet6VpnPrefix prefix = Inet6VpnPrefix::FromString(prefix_str);
     return prefix;
 }
- 
+
 void BgpStressTest::AddXmppRoute(vector<int> instance_ids,
                                  vector<int> agent_ids,
                                  vector<int> route_ids) {
@@ -1850,7 +1816,7 @@ bool BgpStressTest::XmppClientIsEstablished(const string &client_name) {
     if (connection == NULL) {
         return false;
     }
-    return (connection->GetStateMcState() == xmsm::ESTABLISHED); 
+    return (connection->GetStateMcState() == xmsm::ESTABLISHED);
 }
 
 void BgpStressTest::BringUpXmppAgent(vector<int> agent_ids, bool verify_state) {

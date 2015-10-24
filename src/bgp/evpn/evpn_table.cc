@@ -4,21 +4,11 @@
 
 #include "bgp/evpn/evpn_table.h"
 
-#include <boost/functional/hash.hpp>
-#include <boost/scoped_ptr.hpp>
 
-#include "base/util.h"
-#include "bgp/bgp_attr.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_evpn.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_route.h"
-#include "bgp/ipeer.h"
-#include "bgp/evpn/evpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 using std::auto_ptr;
 using std::string;

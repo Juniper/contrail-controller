@@ -4,16 +4,9 @@
 
 #include "bgp/bgp_condition_listener.h"
 
-#include <boost/bind.hpp>
 
-#include <utility>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/task_trigger.h"
-#include "db/db_table_partition.h"
-#include "db/db_table_walker.h"
 
 using std::make_pair;
 using std::map;

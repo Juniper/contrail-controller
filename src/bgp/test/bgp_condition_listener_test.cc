@@ -8,7 +8,6 @@
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
@@ -22,10 +21,8 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using std::auto_ptr;
 using std::make_pair;

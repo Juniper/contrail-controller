@@ -4,15 +4,10 @@
 
 #include "bgp/inet/inet_table.h"
 
-#include <boost/functional/hash.hpp>
-#include <boost/scoped_ptr.hpp>
 
-#include "base/util.h"
-#include "bgp/bgp_path.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 using std::auto_ptr;
 using std::string;

@@ -2,28 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/state_machine.h"
 
 #include <boost/assign.hpp>
-#include <boost/asio.hpp>
-#include <boost/foreach.hpp>
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
-#include "base/test/task_test_util.h"
 #include "net/bgp_af.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/bgp_proto.h"
 #include "control-node/control_node.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 #include "bgp_message_test.h"
 #include "bgp_server_test_util.h"

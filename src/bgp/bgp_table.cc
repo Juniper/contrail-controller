@@ -2,27 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_table.h"
 
 #include <boost/foreach.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 
 #include "base/task_annotations.h"
-#include "db/db_table_partition.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
-#include "bgp/bgp_route.h"
-#include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 
 using std::map;

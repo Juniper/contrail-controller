@@ -4,9 +4,7 @@
 
 #include <boost/assign/list_of.hpp>
 
-#include <sstream>
 
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -16,16 +14,14 @@
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
 #include "schema/xmpp_enet_types.h"
-#include "testing/gunit.h"
-#include "xmpp/xmpp_server.h"
 
 using namespace std;
 using boost::assign::list_of;
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
+    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server,
+            BgpXmppChannelManager *manager) :
         BgpXmppChannel(channel, server, manager), count_(0) {
             bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
                                           RibExportPolicy::XMPP, -1, 0);
@@ -127,7 +123,7 @@ protected:
         xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
 
         bs_x_->session_manager()->Initialize(0);
-        LOG(DEBUG, "Created server at port: " << 
+        LOG(DEBUG, "Created server at port: " <<
             bs_x_->session_manager()->GetPort());
         xs_x_->Initialize(0, false);
 

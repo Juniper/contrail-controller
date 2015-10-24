@@ -4,7 +4,6 @@
 
 #include "bgp/bgp_peer_key.h"
 
-#include <boost/uuid/nil_generator.hpp>
 
 #include "base/string_util.h"
 #include "bgp/bgp_config.h"

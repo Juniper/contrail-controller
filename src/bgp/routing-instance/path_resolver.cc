@@ -4,12 +4,7 @@
 
 #include "bgp/routing-instance/path_resolver.h"
 
-#include "base/lifetime.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/task_trigger.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_table.h"
 
 using std::make_pair;
 using std::string;
