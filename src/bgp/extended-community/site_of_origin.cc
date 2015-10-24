@@ -4,7 +4,6 @@
 
 #include "bgp/extended-community/site_of_origin.h"
 
-#include <algorithm>
 
 #include "net/address.h"
 

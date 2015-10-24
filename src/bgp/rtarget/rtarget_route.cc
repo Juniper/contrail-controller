@@ -2,10 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/rtarget/rtarget_route.h"
 #include "bgp/rtarget/rtarget_table.h"
 
-#include <algorithm>
 
 using std::copy;
 using std::string;

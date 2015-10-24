@@ -4,7 +4,6 @@
 
 #include "bgp/test/bgp_ribout_updates_test.h"
 
-#include "base/logging.h"
 
 using namespace std;
 

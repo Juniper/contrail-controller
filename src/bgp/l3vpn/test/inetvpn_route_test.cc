@@ -2,10 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/l3vpn/inetvpn_route.h"
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "bgp/bgp_log.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"

@@ -4,15 +4,10 @@
 
 #include "bgp/inet6/inet6_table.h"
 
-#include <boost/functional/hash.hpp>
-#include <boost/scoped_ptr.hpp>
 
-#include "base/util.h"
-#include "bgp/bgp_path.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 Inet6Table::Inet6Table(DB *db, const std::string &name)
     : BgpTable(db, name) {

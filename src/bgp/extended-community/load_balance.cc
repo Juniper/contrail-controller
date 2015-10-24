@@ -2,13 +2,8 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <algorithm>
 #include <boost/foreach.hpp>
-#include <arpa/inet.h>
-#include <string>
-#include <vector>
 
-#include "base/parse_object.h"
 #include "bgp/extended-community/load_balance.h"
 
 using namespace std;

@@ -2,19 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_proto.h"
 
-#include <algorithm>
-#include <list>
-#include <map>
-#include <utility>
 
 #include "base/proto.h"
-#include "base/logging.h"
-#include "bgp/bgp_common.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_server.h"
 #include "net/bgp_af.h"
 
 using boost::system::error_code;

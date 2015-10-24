@@ -2,26 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <unistd.h>
 #include <fstream>
-#include <sstream>
-#include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 
-#include <pugixml/pugixml.hpp>
 
-#include "base/util.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -29,16 +15,10 @@
 #include "io/test/event_manager_test.h"
 #include "control-node/test/network_agent_mock.h"
 
-#include "schema/xmpp_unicast_types.h"
 
-#include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
-#include "xmpp/xmpp_state_machine.h"
 
-#include "xml/xml_pugi.h"
 
-#include "testing/gunit.h"
 
 using namespace boost::asio;
 using namespace boost::assign;
@@ -49,8 +29,8 @@ using namespace autogen;
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
+    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server,
+            BgpXmppChannelManager *manager) :
         BgpXmppChannel(channel, server, manager), count_(0) {
             bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
                                           RibExportPolicy::XMPP, -1, 0);
@@ -74,7 +54,7 @@ public:
     BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
         BgpXmppChannelManager(x, b), channel_(NULL) { }
 
-    virtual void XmppHandleChannelEvent(XmppChannel *channel, 
+    virtual void XmppHandleChannelEvent(XmppChannel *channel,
                                         xmps::PeerState state) {
 
          BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
@@ -107,7 +87,7 @@ protected:
         xs_a_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
 
         a_->session_manager()->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " << 
+        BGP_DEBUG_UT("Created server at port: " <<
                 a_->session_manager()->GetPort());
         xs_a_->Initialize(0, false);
 
@@ -147,7 +127,7 @@ protected:
     }
 
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const string &from, 
+                                            const string &from,
                                             const string &to,
                                             bool isClient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isClient);
@@ -165,7 +145,7 @@ protected:
         Configure();
         task_util::WaitForIdle();
 
-        // Verify XmppChannel object creation on client connect. 
+        // Verify XmppChannel object creation on client connect.
         bgp_channel_manager_ = new BgpXmppChannelManagerMock(xs_a_, a_.get());
 
         // create an XMPP client in server A

@@ -4,19 +4,14 @@
 
 #include <boost/foreach.hpp>
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
-#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -42,7 +37,7 @@ private:
 
 class SchedulingGroupManagerTest : public ::testing::Test {
 protected:
-    SchedulingGroupManagerTest() 
+    SchedulingGroupManagerTest()
         : inetvpn_table_(static_cast<InetVpnTable *>(db_.CreateTable("bgp.l3vpn.0"))) {
     }
 
@@ -413,22 +408,22 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
 }
 
 TEST_F(SchedulingGroupManagerTest, Merge) {
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_, 
+    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_, 
+    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp3(new RibOut(inetvpn_table_, &sgman_, 
+    auto_ptr<RibOut> rp3(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
     auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
     auto_ptr<BgpTestPeer> p2(new BgpTestPeer());
     auto_ptr<BgpTestPeer> p3(new BgpTestPeer());
-    
+
     Join(rp1.get(), p1.get());
     Join(rp2.get(), p2.get());
     Join(rp3.get(), p3.get());
     EXPECT_EQ(3, sgman_.size());
     sgman_.CheckInvariants();
-    
+
     Join(rp1.get(), p3.get());
     EXPECT_EQ(2, sgman_.size());
     EXPECT_EQ(sgman_.PeerGroup(p1.get()), sgman_.PeerGroup(p3.get()));
@@ -463,7 +458,7 @@ TEST_F(SchedulingGroupManagerTest, Merge) {
     EXPECT_TRUE(rlist.back() != rlist.front());
     EXPECT_TRUE(rlist.back() != rp1.get());
 
-    
+
     Leave(rp2.get(), p2.get());
     EXPECT_EQ(2, sgman_.size());
     sg1 = sgman_.PeerGroup(p1.get());
@@ -476,15 +471,15 @@ TEST_F(SchedulingGroupManagerTest, Merge) {
 
     GetRibOutList(sg2, &rlist);
     EXPECT_EQ(2, rlist.size());
-    
+
     Leave(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
 
     EXPECT_TRUE(sgman_.PeerGroup(p1.get()) == NULL);
-    
+
     Leave(rp3.get(), p3.get());
     EXPECT_EQ(1, sgman_.size());
-    
+
     Leave(rp2.get(), p3.get());
     EXPECT_EQ(0, sgman_.size());
 }
@@ -513,7 +508,7 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesMultiplePeers) {
     peers.push_back(peer);
     Register(&tbl1, peer);
     Register(&tbl2, peer);
-    
+
     STLDeleteValues(&peers);
 }
 

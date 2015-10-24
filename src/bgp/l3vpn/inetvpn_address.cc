@@ -4,7 +4,6 @@
 
 #include "bgp/l3vpn/inetvpn_address.h"
 
-#include <algorithm>
 
 #include "bgp/inet/inet_route.h"
 

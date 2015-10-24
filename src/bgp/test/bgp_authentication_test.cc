@@ -2,37 +2,22 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sstream>
-#include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
 #include <pugixml/pugixml.hpp>
 
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
 
-#include "db/db_graph.h"
-#include "db/test/db_test_util.h"
-#include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
 
 #include "schema/bgp_schema_types.h"
-#include "schema/vnc_cfg_types.h"
 
-#include "testing/gunit.h"
 
 using std::string;
 using std::vector;
@@ -112,7 +97,7 @@ void BgpServerAuthTestMock::Initialize(int port) {
     db_ = cn_->config_db();
     db_graph_ = cn_->config_graph();
     cn_->session_manager()->Initialize(port);
-    LOG(DEBUG, "Created CN " << ifmap_id_ << " at port: " 
+    LOG(DEBUG, "Created CN " << ifmap_id_ << " at port: "
         << cn_->session_manager()->GetPort());
     port_ = cn_->session_manager()->GetPort();
     cfg_mgr_ = static_cast<BgpIfmapConfigManager *>(cn_->config_manager());
@@ -242,7 +227,7 @@ protected:
     BgpServerAuthTestMock *cn3_;
 };
 
-BgpAuthenticationTest::BgpAuthenticationTest() : 
+BgpAuthenticationTest::BgpAuthenticationTest() :
     thread_(&evm_),
     cn1_(new BgpServerAuthTestMock(evm_,
          "default-domain:default-project:ip-fabric:__default__:CN1", "CN1",
@@ -811,7 +796,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 }
 
 // 2 keys. Change keys so that sometimes the keys are the same and sometimes
-// they are different. Check that peering is up when they are the keys are the 
+// they are different. Check that peering is up when they are the keys are the
 // same and that peering is degraded when the keys are different.
 TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     StateMachineTest::set_keepalive_time_msecs(10);

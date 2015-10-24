@@ -2,12 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/evpn/evpn_route.h"
 
-#include <algorithm>
 
 #include "bgp/evpn/evpn_table.h"
-#include "bgp/bgp_server.h"
 
 using std::copy;
 using std::string;

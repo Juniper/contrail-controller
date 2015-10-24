@@ -5,28 +5,15 @@
 #include "bgp/bgp_sandesh.h"
 
 #include <boost/assign/list_of.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/foreach.hpp>
-#include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
-#include "base/time_util.h"
-#include "base/util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
-#include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_route.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/bgp_table.h"
 #include "bgp/ermvpn/ermvpn_table.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "control-node/control_node.h"
 
 using namespace boost::assign;
 using namespace std;
@@ -320,13 +307,13 @@ public:
         show_route.set_last_modified(duration_usecs_to_string(
                        UTCTimestampUsec() - route->last_change_at()));
         vector<ShowRoutePath> show_route_paths;
-        for(Route::PathList::const_iterator it = route->GetPathList().begin(); 
+        for(Route::PathList::const_iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
             ShowRoutePath srp;
             srp.set_protocol("BGP");
             const BgpAttr *attr = path->GetAttr();
-            if (attr->as_path() != NULL) 
+            if (attr->as_path() != NULL)
                 srp.set_as_path(attr->as_path()->path().ToString());
             srp.set_local_preference(attr->local_pref());
             if (path->GetPeer()) srp.set_source(path->GetPeer()->ToString());

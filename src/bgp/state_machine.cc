@@ -2,30 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/state_machine.h"
 
-#include <boost/bind.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/statechart/custom_reaction.hpp>
-#include <boost/statechart/event.hpp>
-#include <boost/statechart/simple_state.hpp>
 #include <boost/statechart/state.hpp>
-#include <boost/statechart/state_machine.hpp>
 #include <boost/statechart/transition.hpp>
-#include <sandesh/sandesh.h>
-#include <tbb/atomic.h>
 
-#include <algorithm>
-#include <list>
-#include <string>
-#include <typeinfo>
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 

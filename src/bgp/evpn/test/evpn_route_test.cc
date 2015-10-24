@@ -3,15 +3,9 @@
  */
 #include <boost/foreach.hpp>
 
-#include "base/logging.h"
-#include "base/task.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_log.h"
-#include "bgp/evpn/evpn_route.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "testing/gunit.h"
 
 using namespace std;
 

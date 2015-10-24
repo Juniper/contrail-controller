@@ -5,13 +5,10 @@
 #include "bgp/bgp_show_handler.h"
 
 #include <boost/assign/list_of.hpp>
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/time_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 
 using boost::assign::list_of;

@@ -2,10 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/inet/inet_route.h"
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
 #include "control-node/control_node.h"

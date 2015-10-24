@@ -4,21 +4,12 @@
 
 #include "bgp/scheduling_group.h"
 
-#include <boost/bind.hpp>
-#include <boost/iterator/iterator_facade.hpp>
 
-#include <algorithm>
-#include <utility>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
-#include "bgp/bgp_update.h"
 
 using std::auto_ptr;
 using std::make_pair;

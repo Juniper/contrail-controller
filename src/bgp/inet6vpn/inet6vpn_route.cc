@@ -2,9 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/inet6vpn/inet6vpn_route.h"
 
-#include <algorithm>
 
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/inet6/inet6_route.h"

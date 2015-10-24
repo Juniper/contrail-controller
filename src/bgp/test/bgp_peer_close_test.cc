@@ -2,38 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/algorithm/string.hpp>
-#include <boost/assign/std/vector.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
-#include <list>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/test/addr_test_util.h"
-#include "base/test/task_test_util.h"
-#include "base/util.h"
-#include "io/event_manager.h"
 
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_debug.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
@@ -41,15 +21,7 @@
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
-#include "db/db.h"
-#include "net/bgp_af.h"
-#include "schema/xmpp_unicast_types.h"
-#include "testing/gunit.h"
 
-#include "xmpp/xmpp_client.h"
-#include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
-#include "xmpp/xmpp_state_machine.h"
 
 
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
@@ -459,7 +431,7 @@ void BgpPeerCloseTest::VerifyRibOutCreationCompletion() {
 string BgpPeerCloseTest::GetConfig() {
     ostringstream out;
 
-    out << 
+    out <<
     "<config>\
         <bgp-router name=\'A\'>\
             <identifier>192.168.0.1</identifier>\

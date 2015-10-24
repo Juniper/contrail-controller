@@ -6,8 +6,6 @@
 
 #include <stdio.h>
 
-#include <algorithm>
-#include <string>
 
 #include "base/parse_object.h"
 

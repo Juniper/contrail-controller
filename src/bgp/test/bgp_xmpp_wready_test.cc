@@ -2,58 +2,34 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <unistd.h>
 #include <fstream>
-#include <sstream>
-#include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 using namespace boost::assign;
 
-#include <pugixml/pugixml.hpp>
 
-#include "base/util.h"
-#include "base/test/task_test_util.h"
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/inet/inet_table.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
 
-#include "schema/xmpp_unicast_types.h"
 
-#include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
-#include "xmpp/xmpp_state_machine.h"
 
-#include "xml/xml_pugi.h"
 
-#include "testing/gunit.h"
 
 using namespace boost::asio;
 using namespace std;
 using namespace autogen;
 
-#define SUB_ADDR "agent@vnsw.contrailsystems.com" 
-#define XMPP_CONTROL_SERV   "bgp.contrail.com" 
+#define SUB_ADDR "agent@vnsw.contrailsystems.com"
+#define XMPP_CONTROL_SERV   "bgp.contrail.com"
 #define PUBSUB_NODE_ADDR "bgp-node.contrail.com"
 
 class XmppChannelMuxMock : public XmppChannelMux {
@@ -82,8 +58,8 @@ private:
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
+    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server,
+            BgpXmppChannelManager *manager) :
         BgpXmppChannel(channel, server, manager), count_(0) {
             bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
                                           RibExportPolicy::XMPP, -1, 0);
@@ -106,7 +82,7 @@ private:
 class XmppVnswBgpMockChannel : public BgpXmppChannel {
 public:
     XmppVnswBgpMockChannel(XmppChannel *channel, BgpServer *bgp_server,
-                           BgpXmppChannelManager *channel_manager) 
+                           BgpXmppChannelManager *channel_manager)
         : BgpXmppChannel(channel, bgp_server, channel_manager), count_(0) { }
 
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
@@ -122,7 +98,7 @@ private:
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), count_(0), channel_(NULL), 
+        BgpXmppChannelManager(x, b), count_(0), channel_(NULL),
         xmpp_mux_ch_(NULL) { }
 
     virtual ~BgpXmppChannelManagerMock() {
@@ -186,7 +162,7 @@ protected:
         xs_a_ = new XmppServer(&evm_, XMPP_CONTROL_SERV);
 
         a_->session_manager()->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " << 
+        BGP_DEBUG_UT("Created server at port: " <<
                 a_->session_manager()->GetPort());
         xs_a_->Initialize(0, false);
 
@@ -220,7 +196,7 @@ protected:
     }
 
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const string &from, 
+                                            const string &from,
                                             const string &to,
                                             bool isClient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isClient);

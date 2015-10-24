@@ -2,11 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_aspath.h"
 
-#include <sstream>
 
-#include "base/util.h"
 #include "bgp/bgp_proto.h"
 
 using std::copy;

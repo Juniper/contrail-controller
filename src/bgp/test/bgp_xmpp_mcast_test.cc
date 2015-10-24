@@ -4,26 +4,20 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
-#include <boost/shared_ptr.hpp>
 
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "io/test/event_manager_test.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
-#include "sandesh/sandesh.h"
 #include "schema/xmpp_multicast_types.h"
-#include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
-#include "xmpp/xmpp_server.h"
 
 using namespace autogen;
 using namespace boost::asio;

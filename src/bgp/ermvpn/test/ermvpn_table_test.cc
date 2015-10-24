@@ -4,21 +4,13 @@
 
 #include "bgp/ermvpn/ermvpn_table.h"
 
-#include <boost/bind.hpp>
-#include <tbb/atomic.h>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_log.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 using namespace std;
 using namespace boost;

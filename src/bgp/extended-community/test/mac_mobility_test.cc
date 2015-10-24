@@ -4,7 +4,6 @@
 
 #include "bgp/extended-community/mac_mobility.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 using namespace std;

@@ -2,10 +2,8 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/inet6/inet6_route.h"
 
 #include "bgp/inet6/inet6_table.h"
-#include "base/util.h"
 
 using boost::system::error_code;
 using std::copy;

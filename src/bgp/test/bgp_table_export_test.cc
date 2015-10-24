@@ -2,27 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_table.h"
 
-#include "base/task.h"
-#include "base/util.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_update.h"
 #include "bgp/scheduling_group.h"
-#include "bgp/inet/inet_table.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -110,8 +96,8 @@ class RTargetGroupMgrTest : public RTargetGroupMgr {
 public:
     RTargetGroupMgrTest(BgpServer *server) : RTargetGroupMgr(server) {
     }
-    virtual void GetRibOutInterestedPeers(RibOut *ribout, 
-             const ExtCommunity *ext_community, 
+    virtual void GetRibOutInterestedPeers(RibOut *ribout,
+             const ExtCommunity *ext_community,
              const RibPeerSet &peerset, RibPeerSet *new_peerset) {
         *new_peerset = peerset;
     }
@@ -265,14 +251,14 @@ protected:
     }
 
     void AddPath() {
-        BgpPath *path = 
+        BgpPath *path =
             new BgpPath(peer_.get(), BgpPath::BGP_XMPP, attr_ptr_, 0, 0);
         rt_.InsertPath(path);
     }
 
     void AddInfeasiblePath() {
         BgpPath *path =
-            new BgpPath(peer_.get(), BgpPath::BGP_XMPP, attr_ptr_, 
+            new BgpPath(peer_.get(), BgpPath::BGP_XMPP, attr_ptr_,
                         BgpPath::AsPathLooped, 0);
         rt_.InsertPath(path);
     }

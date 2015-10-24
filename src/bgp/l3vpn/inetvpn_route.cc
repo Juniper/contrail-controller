@@ -2,12 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/l3vpn/inetvpn_route.h"
 
-#include <algorithm>
 
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/inet/inet_route.h"
 
 using std::copy;
 using std::string;

@@ -4,16 +4,8 @@
 
 #include "bgp/l3vpn/inetvpn_table.h"
 
-#include "base/util.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_route.h"
-#include "bgp/bgp_server.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 using std::auto_ptr;
 using std::string;

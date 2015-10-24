@@ -3,7 +3,6 @@
  */
 
 #include "bgp/bgp_path.h"
-#include "bgp/bgp_server.h"
 
 std::string BgpPath::PathIdString(uint32_t path_id) {
     Ip4Address addr(path_id);

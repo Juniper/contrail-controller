@@ -4,15 +4,6 @@
 
 #include "bgp/rtarget/rtarget_table.h"
 
-#include "base/util.h"
-#include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_route.h"
-#include "bgp/bgp_server.h"
-#include "bgp/rtarget/rtarget_route.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "db/db_table_partition.h"
 
 using std::auto_ptr;
 using std::string;
