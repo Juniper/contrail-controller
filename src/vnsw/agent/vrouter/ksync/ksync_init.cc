@@ -296,8 +296,8 @@ void KSyncTcp::TcpInit() {
     boost::asio::ip::address ip;
     ip = agent_->vrouter_server_ip();
     uint32_t port = agent_->vrouter_server_port();
-    KSyncSock::SetNetlinkFamilyId(24);
     KSyncSockTcp::Init(event_mgr, DB::PartitionCount(), ip, port);
+    KSyncSock::SetNetlinkFamilyId(24);
 
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
                                           flowtable_ksync_obj_.get()));
