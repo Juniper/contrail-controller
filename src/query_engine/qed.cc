@@ -280,7 +280,6 @@ main(int argc, char *argv[]) {
             options.redis_password(),
             max_tasks,
             options.max_slice(),
-            options.analytics_data_ttl(),
             options.cassandra_user(),
             options.cassandra_password()));
     } else {
@@ -292,10 +291,8 @@ main(int argc, char *argv[]) {
             options.redis_password(),
             max_tasks,
             options.max_slice(),
-            options.analytics_data_ttl(),
             options.cassandra_user(),
-            options.cassandra_password(),
-            options.start_time()));
+            options.cassandra_password()));
     }
 
     CpuLoadData::Init();

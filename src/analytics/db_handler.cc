@@ -57,13 +57,8 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_password) :
     name_(name),
     drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
-        int analytics_ttl = DbHandler::GetTtlFromMap(ttl_map, DbHandler::GLOBAL_TTL);
-        if (analytics_ttl == -1) {
-            DB_LOG(ERROR, "Unexpected analytics_ttl value: " << analytics_ttl);
-            analytics_ttl = 0;
-        }
         dbif_.reset(GenDb::GenDbIf::GenDbIfImpl(err_handler,
-          cassandra_ips, cassandra_ports, analytics_ttl, name, false,
+          cassandra_ips, cassandra_ports, name, false,
           cassandra_user, cassandra_password));
 
         error_code error;
@@ -78,13 +73,23 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
 DbHandler::~DbHandler() {
 }
 
-int DbHandler::GetTtlFromMap(const DbHandler::TtlMap& ttl_map,
-        DbHandler::TtlType type) {
-    DbHandler::TtlMap::const_iterator it = ttl_map.find(type);
+uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
+        TtlType::type type) {
+    TtlMap::const_iterator it = ttl_map.find(type);
+    if (it != ttl_map.end()) {
+        return it->second;
+    } else {
+        return 0;
+    }
+}
+
+uint64_t DbHandler::GetTtlFromMap(const TtlMap& ttl_map,
+        TtlType::type type) {
+    TtlMap::const_iterator it = ttl_map.find(type);
     if (it != ttl_map.end()) {
         return it->second*3600;
     } else {
-        return -1;
+        return 0;
     }
 }
 
@@ -197,6 +202,41 @@ bool DbHandler::CreateTables() {
 
         GenDb::NewCol *stat_col(new GenDb::NewCol(
             g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME, current_tm, 0));
+        columns.push_back(stat_col);
+
+        if (!dbif_->Db_AddColumnSync(col_list)) {
+            VIZD_ASSERT(0);
+        }
+    }
+
+    /*
+     * add ttls to cassandra to be retrieved by other daemons
+     */
+    {
+        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+        col_list->cfname_ = g_viz_constants.SYSTEM_OBJECT_TABLE;
+        // Rowkey
+        GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+        rowkey.reserve(1);
+        rowkey.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
+        // Columns
+        GenDb::NewColVec& columns = col_list->columns_;
+        columns.reserve(4);
+
+        GenDb::NewCol *col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_FLOW_DATA_TTL, (uint64_t)DbHandler::GetTtlInHourFromMap(ttl_map_, TtlType::FLOWDATA_TTL), 0));
+        columns.push_back(col);
+
+        GenDb::NewCol *flow_col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_STATS_DATA_TTL, (uint64_t)DbHandler::GetTtlInHourFromMap(ttl_map_, TtlType::STATSDATA_TTL), 0));
+        columns.push_back(flow_col);
+
+        GenDb::NewCol *msg_col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_CONFIG_AUDIT_TTL, (uint64_t)DbHandler::GetTtlInHourFromMap(ttl_map_, TtlType::CONFIGAUDIT_TTL), 0));
+        columns.push_back(msg_col);
+
+        GenDb::NewCol *stat_col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_GLOBAL_DATA_TTL, (uint64_t)DbHandler::GetTtlInHourFromMap(ttl_map_, TtlType::GLOBAL_TTL), 0));
         columns.push_back(stat_col);
 
         if (!dbif_->Db_AddColumnSync(col_list)) {
@@ -372,9 +412,9 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
     int ttl;
     if (message_type == "VncApiConfigLog") {
-        ttl = GetTtl(CONFIGAUDIT_TTL);
+        ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
     } else {
-        ttl = GetTtl(GLOBAL_TTL);
+        ttl = GetTtl(TtlType::GLOBAL_TTL);
     }
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
@@ -394,7 +434,7 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     uint32_t temp_u32;
     std::string temp_str;
 
-    int ttl = GetTtl(GLOBAL_TTL);
+    int ttl = GetTtl(TtlType::GLOBAL_TTL);
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
     // Rowkey
@@ -519,7 +559,7 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
     if ((stype == SandeshType::SYSLOG) || (stype == SandeshType::SYSTEM)) {
         //Insert only if sandesh type is a SYSTEM LOG or SYSLOG
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
-        int ttl = GetTtl(GLOBAL_TTL);
+        int ttl = GetTtl(TtlType::GLOBAL_TTL);
         FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":Messagetype", message_type, header.get_Timestamp(), ttl);
         FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
@@ -579,6 +619,13 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp) {
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
+    const std::string &message_type(vmsgp->msg->GetMessageType());
+    int ttl;
+    if (message_type == "VncApiConfigLog") {
+        ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
+    } else {
+        ttl = GetTtl(TtlType::GLOBAL_TTL);
+    }
 
       {
         uint8_t partition_no = 0;
@@ -596,13 +643,6 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         col_name->push_back(T1);
 
         GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
-        const std::string &message_type(vmsgp->msg->GetMessageType());
-        int ttl;
-        if (message_type == "VncApiConfigLog") {
-            ttl = GetTtl(CONFIGAUDIT_TTL);
-        } else {
-            ttl = GetTtl(GLOBAL_TTL);
-        }
         GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
@@ -624,7 +664,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         rowkey.push_back(table);
         GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
         GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, objectkey_str));
-        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
+        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
@@ -641,12 +681,6 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         const SandeshHeader &header(vmsgp->msg->GetHeader());
         const std::string &message_type(vmsgp->msg->GetMessageType());
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
-        int ttl;
-        if (message_type == "VncApiConfigLog") {
-            ttl = GetTtl(CONFIGAUDIT_TTL);
-        } else {
-            ttl = GetTtl(GLOBAL_TTL);
-        }
         FieldNamesTableInsert(table, ":Objecttype", objectkey_str, timestamp, ttl);
         FieldNamesTableInsert(table, ":Messagetype", message_type, timestamp, ttl);
         FieldNamesTableInsert(table, ":ModuleId", header.get_Module(),
@@ -820,7 +854,7 @@ DbHandler::StatTableInsert(uint64_t ts,
         const std::string& statAttr,
         const TagMap & attribs_tag,
         const AttribMap & attribs) {
-    int ttl = GetTtl(STATSDATA_TTL);
+    int ttl = GetTtl(TtlType::STATSDATA_TTL);
     StatTableInsertTtl(ts, statName, statAttr, attribs_tag, attribs, ttl);
 }
 
@@ -969,8 +1003,8 @@ boost::uuids::uuid DbHandler::seed_uuid = StringToUuid(std::string("ffffffff-fff
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,
-    FlowValueArray &fvalues, GenDb::NewColVec& columns, const DbHandler::TtlMap& ttl_map) {
-    int ttl = DbHandler::GetTtlFromMap(ttl_map, DbHandler::FLOWDATA_TTL);
+    FlowValueArray &fvalues, GenDb::NewColVec& columns, const TtlMap& ttl_map) {
+    int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
     columns.reserve(frvt.size());
     for (std::vector<FlowRecordFields::type>::const_iterator it = frvt.begin();
          it != frvt.end(); it++) {
@@ -993,7 +1027,7 @@ static void PopulateFlowRecordTableRowKey(
 }
 
 static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
-    GenDb::GenDbIf *dbif, const DbHandler::TtlMap& ttl_map) {
+    GenDb::GenDbIf *dbif, const TtlMap& ttl_map) {
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
     colList->cfname_ = g_viz_constants.FLOW_TABLE;
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
@@ -1104,8 +1138,8 @@ static void PopulateFlowIndexTableColumnNames(FlowIndexTableType ftype,
 static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
     FlowValueArray &fvalues, uint32_t &T1,
     GenDb::NewColVec &columns, const GenDb::DbDataValueVec &cvalues,
-    const DbHandler::TtlMap& ttl_map) {
-    int ttl = DbHandler::GetTtlFromMap(ttl_map, DbHandler::FLOWDATA_TTL);
+    const TtlMap& ttl_map) {
+    int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
 
     GenDb::DbDataValueVec *names(new GenDb::DbDataValueVec);
     PopulateFlowIndexTableColumnNames(ftype, fvalues, T1, names);
@@ -1117,7 +1151,7 @@ static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
 
 static bool PopulateFlowIndexTables(FlowValueArray &fvalues, 
     uint32_t &T2, uint32_t &T1, uint8_t partition_no,
-    GenDb::GenDbIf *dbif, const DbHandler::TtlMap& ttl_map) {
+    GenDb::GenDbIf *dbif, const TtlMap& ttl_map) {
     // Populate row key and column values (same for all flow index
     // tables)
     GenDb::DbDataValueVec rkey;
@@ -1346,7 +1380,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &timer_task_name,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
-    const std::vector<int> &cassandra_ports, const DbHandler::TtlMap& ttl_map,
+    const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
     const std::string& cassandra_user, const std::string& cassandra_password) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),

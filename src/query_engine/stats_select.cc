@@ -166,7 +166,7 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 			ts_period_(0), isT_(false),
                         isTC_(false), isTBC_(false), count_field_() {
 
-    QE_ASSERT(main_query->is_stat_table_query());
+    QE_ASSERT(main_query->is_stat_table_query(main_query->table()));
     status_ = false;
 
     for (size_t j=0; j<select_fields_.size(); j++) {

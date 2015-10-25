@@ -97,10 +97,10 @@ struct NewCf {
 };
 
 struct NewCol {
-    NewCol(DbDataValueVec* n, DbDataValueVec* v, int ttl=-1) :
+    NewCol(DbDataValueVec* n, DbDataValueVec* v, int ttl) :
         cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl) {}
 
-    NewCol(const std::string& n, const DbDataValue& v, int ttl=-1) :
+    NewCol(const std::string& n, const DbDataValue& v, int ttl) :
         cftype_(NewCf::COLUMN_FAMILY_SQL), name(new DbDataValueVec(1, n)),
         value(new DbDataValueVec(1, v)), ttl(ttl) {}
 
@@ -201,7 +201,7 @@ public:
     static GenDbIf *GenDbIfImpl(DbErrorHandler hdlr, 
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        int analytics_ttl, std::string name, bool only_sync,
+        std::string name, bool only_sync,
         const std::string& cassandra_user,
         const std::string& cassandra_password);
 };

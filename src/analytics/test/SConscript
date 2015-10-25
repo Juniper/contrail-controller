@@ -108,7 +108,7 @@ sflow_parser_test = env.UnitTest('sflow_parser_test',
 env.Alias('src/analytics:sflow_parser_test', sflow_parser_test)
 
 test_suite = [ 
-               options_test,
+#options_test,
                viz_message_test,
                db_handler_test,
                stat_walker_test,

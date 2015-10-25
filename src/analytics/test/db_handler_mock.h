@@ -11,7 +11,7 @@
 
 class DbHandlerMock : public DbHandler {
   public:
-    DbHandlerMock(EventManager *evm, const DbHandler::TtlMap& ttl_map) :
+    DbHandlerMock(EventManager *evm, const TtlMap& ttl_map) :
         DbHandler(evm,  boost::bind(&DbHandlerMock::StartDbifReinit, this),
             std::vector<std::string>(1, "127.0.0.1"),
             std::vector<int>(1, 9160), "localhost", ttl_map,"","")
