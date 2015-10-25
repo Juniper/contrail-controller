@@ -21,6 +21,27 @@ static const VmEntry *InterfaceToVm(const Interface *intf) {
     return vm_port->vm();
 }
 
+// Compute L2/L3 forwarding mode for pacekt.
+// Forwarding mode is L3 if,
+// - Packet uses L3 label
+// - Packet uses L2 Label and DMAC hits a route with L2-Receive NH
+// Else forwarding mode is L2
+bool FlowHandler::IsL3ModeFlow() const {
+    if (pkt_info_->l3_label) {
+        return true;
+    }
+
+    if (pkt_info_->dmac == agent_->vrrp_mac()) {
+        return true;
+    }
+
+    if (pkt_info_->dmac == agent_->vhost_interface()->mac()) {
+        return true;
+    }
+
+    return false;
+}
+
 bool FlowHandler::Run() {
     PktControlInfo in;
     PktControlInfo out;
@@ -56,6 +77,7 @@ bool FlowHandler::Run() {
         pkt_info_->l3_forwarding = fe->l3_flow();
         info.l3_flow = fe->l3_flow();
     } else {
+        info.l3_flow = pkt_info_->l3_forwarding = IsL3ModeFlow();
         if (pkt_info_->ip == NULL && pkt_info_->ip6 == NULL) {
             if (pkt_info_->family == Address::INET) {
                 FLOW_TRACE(DetailErr, pkt_info_->agent_hdr.cmd_param,
