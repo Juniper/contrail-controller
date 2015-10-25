@@ -100,31 +100,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         }
     }
 
-    // Compute L2/L3 forwarding mode for packet
-    ComputeForwardingMode(pkt_info);
-
-    if (intf->type() == Interface::VM_INTERFACE) {
-        VmInterface *vm_itf = static_cast<VmInterface *>(intf);
-        if (pkt_info->l3_forwarding && vm_itf->layer3_forwarding() == false) {
-            PKT_TRACE(Err, "layer3 not enabled for interface index <" <<
-                      pkt_info->agent_hdr.ifindex << ">");
-            return INVALID;
-        }
-
-        if (pkt_info->l3_forwarding == false &&
-            vm_itf->bridging() == false) {
-            PKT_TRACE(Err, "bridging not enabled for interface "
-                      "index <" << pkt_info->agent_hdr.ifindex << ">");
-            return INVALID;
-        }
-    }
-
     pkt_info->vrf = pkt_info->agent_hdr.vrf;
-
-    // Handle ARP packet
-    if (pkt_type == PktType::ARP) {
-        return ARP;
-    }
 
     // Packets needing flow
     if (IsFlowPacket(pkt_info)) {
@@ -136,6 +112,11 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
                       "index <" << hdr.ifindex << ">");
             return INVALID;
         }
+    }
+
+    // Handle ARP packet
+    if (pkt_type == PktType::ARP) {
+        return ARP;
     }
 
     // Look for DHCP and DNS packets if corresponding service is enabled
@@ -200,42 +181,6 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
     }
 
     Enqueue(mod, pkt_info);
-    return;
-}
-
-// Compute L2/L3 forwarding mode for pacekt.
-// Forwarding mode is L3 if,
-// - Packet uses L3 label
-// - Packet uses L2 Label and DMAC hits a route with L2-Receive NH
-// Else forwarding mode is L2
-void PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
-    if (pkt_info->l3_label) {
-        pkt_info->l3_forwarding = true;
-        return;
-    }
-
-    pkt_info->l3_forwarding = false;
-    VrfTable *table = static_cast<VrfTable *>(agent_->vrf_table());
-    VrfEntry *vrf = table->FindVrfFromId(pkt_info->agent_hdr.vrf);
-    if (vrf == NULL) {
-        return;
-    }
-    BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>
-        (vrf->GetBridgeRouteTable());
-    AgentRoute *rt = static_cast<AgentRoute *>
-        (l2_table->FindRoute(pkt_info->dmac));
-    if (rt == NULL) {
-        return;
-    }
-
-    const NextHop *nh = rt->GetActiveNextHop();
-    if (nh == NULL) {
-        return;
-    }
-
-    if (nh->GetType() == NextHop::L2_RECEIVE) {
-        pkt_info->l3_forwarding = true;
-    }
     return;
 }
 
