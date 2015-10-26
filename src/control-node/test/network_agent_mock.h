@@ -60,37 +60,50 @@ public:
         : local_pref(kDefaultLocalPref),
           med(kDefaultMed),
           sequence(kDefaultSequence),
-          sgids(std::vector<int>()) {
+          sgids(std::vector<int>()),
+          communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t seq, const std::vector<int> &sg)
         : local_pref(lpref),
           med(0),
           sequence(seq),
-          sgids(sg) {
+          sgids(sg),
+          communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t seq)
         : local_pref(lpref),
           med(0),
           sequence(seq),
-          sgids(std::vector<int>()) {
+          sgids(std::vector<int>()),
+          communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t med, uint32_t seq)
         : local_pref(lpref),
           med(med),
           sequence(seq),
-          sgids(std::vector<int>()) {
+          sgids(std::vector<int>()),
+          communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref)
         : local_pref(lpref),
           med(0),
           sequence(kDefaultSequence),
-          sgids(std::vector<int>()) {
+          sgids(std::vector<int>()),
+          communities(std::vector<std::string>()) {
     }
     RouteAttributes(const std::vector<int> &sg)
         : local_pref(kDefaultLocalPref),
           med(0),
           sequence(kDefaultSequence),
-          sgids(sg) {
+          sgids(sg),
+          communities(std::vector<std::string>()) {
+    }
+    RouteAttributes(const std::vector<std::string> &community)
+        : local_pref(kDefaultLocalPref),
+          med(0),
+          sequence(kDefaultSequence),
+          sgids(std::vector<int>()),
+          communities(community) {
     }
     RouteAttributes(const LoadBalance::LoadBalanceAttribute &lba)
         : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
@@ -105,6 +118,9 @@ public:
     void SetSg(const std::vector<int> &sg) {
         sgids = sg;
     }
+    void SetCommunities(const std::vector<std::string> &community) {
+        communities = community;
+    }
     static int GetDefaultLocalPref() { return kDefaultLocalPref; }
     static int GetDefaultMed() { return kDefaultMed; }
     static int GetDefaultSequence() { return kDefaultSequence; }
@@ -113,6 +129,7 @@ public:
     uint32_t med;
     uint32_t sequence;
     std::vector<int> sgids;
+    std::vector<std::string> communities;
     LoadBalance::LoadBalanceAttribute loadBalanceAttribute;
     RouteParams params;
 };

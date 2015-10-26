@@ -23,7 +23,11 @@ env.Alias('src/net:rd_test', rd_test)
 address_test = env.UnitTest('address_test', ['address_test.cc'])
 env.Alias('src/net:address_test', rd_test)
 
+community_type_test = env.UnitTest('community_type_test', ['community_type_test.cc'])
+env.Alias('src/net:community_type_test', community_type_test)
+
 test_suite = [
+    community_type_test,
     esi_test,
     mac_address_test,
     rd_test,
