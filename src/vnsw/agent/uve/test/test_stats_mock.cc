@@ -1049,6 +1049,201 @@ TEST_F(StatsTestMock, Underlay_3) {
     client->WaitForIdle();
 }
 
+#if 0
+TEST_F(StatsTestMock, FlowTcpClosedFlow) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+
+
+    //Mark the flow as TCP closed and verify flow gets aged
+    KSyncSockTypeMap::SetFlowTcpFlags(hash_id, VR_FLOW_TCP_HALF_CLOSE);
+    KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_HALF_CLOSE);
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    EXPECT_FALSE(FlowGet(flow0->flow_key_nh()->id(),
+                "1.1.1.1", "1.1.1.2", 6, 1000, 200));
+
+    EXPECT_FALSE(FlowGet(flow1->flow_key_nh()->id(),
+                "1.1.1.2", "1.1.1.1", 6, 200, 1000));
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+}
+
+TEST_F(StatsTestMock, FlowTcpHalfClosedFlow) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    KSyncSockTypeMap::IncrFlowStats(hash_id, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 1, 30);
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                         "vn5", "vn5", hash_id, flow0->flow_key_nh()->id()));
+
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                         "vn5", "vn5", f2_rev->flow_handle(),
+                         flow1->flow_key_nh()->id(),
+                         flow0->flow_key_nh()->id()));
+
+    //Mark the flow as TCP closed and verify flow gets aged
+    KSyncSockTypeMap::SetFlowTcpFlags(hash_id, VR_FLOW_TCP_HALF_CLOSE);
+    KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 5, 30);
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                         "vn5", "vn5", hash_id, flow0->flow_key_nh()->id()));
+
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                         "vn5", "vn5", f2_rev->flow_handle(),
+                         flow1->flow_key_nh()->id(),
+                         flow0->flow_key_nh()->id()));
+
+    KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_HALF_CLOSE);
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    EXPECT_FALSE(FlowGet(flow0->flow_key_nh()->id(),
+                "1.1.1.1", "1.1.1.2", 6, 1000, 200));
+
+    EXPECT_FALSE(FlowGet(flow1->flow_key_nh()->id(),
+                "1.1.1.2", "1.1.1.1", 6, 200, 1000));
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+}
+
+TEST_F(StatsTestMock, FlowSyncFlow) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    KSyncSockTypeMap::IncrFlowStats(hash_id, 1, 30);
+    KSyncSockTypeMap::SetFlowTcpFlags(hash_id, VR_FLOW_TCP_SYN);
+    KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_SYN_R);
+    Agent::GetInstance()->flow_stats_collector()->
+         set_flow_tcp_syn_age_time(1000000 * 1);
+    sleep(1);
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    EXPECT_FALSE(FlowGet(flow0->flow_key_nh()->id(),
+                "1.1.1.1", "1.1.1.2", 6, 1000, 200));
+
+    EXPECT_FALSE(FlowGet(flow1->flow_key_nh()->id(),
+                "1.1.1.2", "1.1.1.1", 6, 200, 1000));
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+}
+
+TEST_F(StatsTestMock, FlowTcpResetFlow) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+
+
+    //Mark the flow as TCP closed and verify flow gets aged
+    KSyncSockTypeMap::SetFlowTcpFlags(hash_id, VR_FLOW_TCP_RST);
+    KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_RST);
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    EXPECT_FALSE(FlowGet(flow0->flow_key_nh()->id(),
+                "1.1.1.1", "1.1.1.2", 6, 1000, 200));
+
+    EXPECT_FALSE(FlowGet(flow1->flow_key_nh()->id(),
+                "1.1.1.2", "1.1.1.1", 6, 200, 1000));
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+}
+#endif
+
 int main(int argc, char *argv[]) {
     int ret = 0;
 
@@ -1067,4 +1262,3 @@ int main(int argc, char *argv[]) {
     delete client;
     return ret;
 }
-

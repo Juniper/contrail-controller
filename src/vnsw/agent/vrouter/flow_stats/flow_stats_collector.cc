@@ -37,7 +37,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         agent_uve_(uve), delete_short_flow_(true),
         flow_export_count_(0), prev_flow_export_rate_compute_time_(0),
         flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
-        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0) {
+        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0),
+        flow_tcp_syn_age_time_(FlowTcpSynAgeTime) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
@@ -68,9 +69,45 @@ void FlowStatsCollector::UpdateFlowMultiplier() {
     flow_multiplier_ = (max_flows * FlowStatsMinInterval)/age_time_millisec;
 }
 
+bool FlowStatsCollector::TcpFlowShouldBeAged(FlowStats *stats,
+                                             const vr_flow_entry *k_flow,
+                                             uint64_t curr_time,
+                                             const FlowEntry *flow) {
+    if (k_flow == NULL) {
+        return false;
+    }
+
+    if (flow->key().protocol != IPPROTO_TCP) {
+        return false;
+    }
+
+    uint32_t closed_flags = VR_FLOW_TCP_HALF_CLOSE | VR_FLOW_TCP_RST;
+    if (k_flow->fe_tcp_flags & closed_flags) {
+        return true;
+    }
+
+    uint32_t syn_flag = VR_FLOW_TCP_SYN | VR_FLOW_TCP_SYN_R;
+    if (k_flow->fe_tcp_flags & syn_flag) {
+        uint32_t established =
+            VR_FLOW_TCP_ESTABLISHED | VR_FLOW_TCP_ESTABLISHED_R;
+        if (k_flow->fe_tcp_flags & established) {
+            return false;
+        }
+
+        uint64_t diff_time = curr_time - stats->setup_time;
+        if (diff_time >= flow_tcp_syn_age_time()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
                                       const vr_flow_entry *k_flow,
-                                      uint64_t curr_time) {
+                                      uint64_t curr_time,
+                                      const FlowEntry *flow) {
+
     if (k_flow != NULL) {
         uint64_t k_flow_bytes, bytes;
 
@@ -558,14 +595,14 @@ bool FlowStatsCollector::Run() {
             (entry->flow_handle(), false);
         reverse_flow = entry->reverse_flow_entry();
         // Can the flow be aged?
-        if (ShouldBeAged(stats, k_flow, curr_time)) {
+        if (ShouldBeAged(stats, k_flow, curr_time, entry)) {
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetKernelFlowEntry
                     (reverse_flow->flow_handle(), false);
                 if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev,
-                                 curr_time)) {
+                                 curr_time, entry)) {
                     deleted = true;
                 }
             } else {

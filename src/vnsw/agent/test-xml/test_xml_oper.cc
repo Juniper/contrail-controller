@@ -1289,6 +1289,10 @@ bool AgentUtXmlFlowValidate::ReadXml() {
     if (GetUintAttribute(node(), "rpf_nh", &rpf_nh_) == false) {
         rpf_nh_ = 0;
     }
+
+    if (GetStringAttribute(node(), "deleted", &deleted_) == false) {
+        deleted_ = "false";
+    }
     return true;
 }
 
@@ -1308,6 +1312,10 @@ static bool MatchFlowAction(FlowEntry *flow, const string &str) {
 bool AgentUtXmlFlowValidate::Validate() {
     FlowEntry *flow = FlowGet(0, sip_, dip_, proto_id_, sport_, dport_,
                                nh_id_);
+    if (deleted_ == "true" && flow == NULL) {
+        return true;
+    }
+
     if (present() == false)
         return (flow == NULL);
 
