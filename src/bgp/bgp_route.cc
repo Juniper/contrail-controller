@@ -4,14 +4,8 @@
 
 #include "bgp/bgp_route.h"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_table.h"
 #include "bgp/extended-community/default_gateway.h"
 #include "bgp/extended-community/es_import.h"

@@ -2,28 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/state_machine.h"
 
 #include <boost/assign/list_of.hpp>
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_session.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
-#include "db/db_table_partition.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 using namespace std;
 namespace ip = boost::asio::ip;

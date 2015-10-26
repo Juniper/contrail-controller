@@ -4,11 +4,8 @@
 
 #include <fstream>
 
-#include "base/logging.h"
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/control_node_test.h"
@@ -16,11 +13,8 @@
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
-#include "schema/xmpp_unicast_types.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -247,7 +241,7 @@ TEST_F(MiniSystemTest, DifferentNodes) {
     SCOPED_TRACE(__FUNCTION__);
     const char *net_1 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1";
     const char *net_2 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2";
-    
+
     string content = FileRead("controller/src/bgp/testdata/network_test_1.xml");
     ASSERT_NE(0, content.size());
 
@@ -304,7 +298,7 @@ TEST_F(MiniSystemTest, SameNode) {
     SCOPED_TRACE(__FUNCTION__);
     const char *net_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
     const char *net_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
-    
+
     string content = FileRead("controller/src/bgp/testdata/network_test_2.xml");
     ASSERT_NE(0, content.size());
 
@@ -312,7 +306,7 @@ TEST_F(MiniSystemTest, SameNode) {
     task_util::WaitForIdle();
     node_b_->IFMapMessage(content);
     task_util::WaitForIdle();
-    
+
     const char *ri_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
     const char *ri_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
     node_a_->VerifyRoutingInstance(ri_1);
@@ -327,18 +321,18 @@ TEST_F(MiniSystemTest, SameNode) {
         new test::NetworkAgentMock(&evm_, "user-X9SCL-X9SCM",
                                    node_a_->xmpp_port(), "127.0.0.2"));
     WaitForEstablished();
-    
+
     agent_a_->Subscribe(net_1, 1);
     agent_a_->AddRoute(net_1, "10.0.1.1/32");
     agent_b_->Subscribe(net_2, 1);
     agent_b_->AddRoute(net_2, "20.0.1.1/32");
-    
+
     WaitForRouteCount(agent_a_.get(), 2);
     const test::NetworkAgentMock::RouteEntry *rt1 =
     agent_a_->RouteLookup(net_1, "10.0.1.1/32");
     ASSERT_TRUE(rt1 != NULL);
     EXPECT_EQ(network_name(net_1), rt1->entry.virtual_network);
-    
+
     const test::NetworkAgentMock::RouteEntry *rt2 =
     agent_a_->RouteLookup(net_1, "20.0.1.1/32");
     ASSERT_TRUE(rt2 != NULL);

@@ -4,7 +4,6 @@
 
 #include "bgp/test/bgp_export_test.h"
 
-#include "base/logging.h"
 
 using namespace std;
 

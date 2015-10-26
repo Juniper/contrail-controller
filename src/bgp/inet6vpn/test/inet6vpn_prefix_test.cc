@@ -4,10 +4,7 @@
 
 #include "bgp/inet6vpn/inet6vpn_route.h"
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "bgp/bgp_log.h"
-#include "bgp/inet6/inet6_route.h"
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 

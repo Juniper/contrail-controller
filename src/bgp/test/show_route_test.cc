@@ -5,16 +5,9 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/logging.h"
-#include "base/task.h"
-#include "base/test/task_test_util.h"
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/inet/inet_table.h"
@@ -22,7 +15,6 @@
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace boost::assign;
 using namespace boost::asio;
@@ -1374,7 +1366,7 @@ TEST_F(ShowRouteTest3, PageLimit3) {
         AddInetRoute(repr.str(), peers_[0], "red");
     }
 
-    // Should get back all routes for both instances since: 
+    // Should get back all routes for both instances since:
     // total_routes == kMaxCount.
     ShowRouteReq *show_req = new ShowRouteReq;
     vector<int> result = list_of(50)(50);
@@ -1659,7 +1651,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
     // Ask for routes with 'longer match'. Each instance has 40 routes with
-    // this filter. Although we are asking for 81 routes, we should get back 
+    // this filter. Although we are asking for 81 routes, we should get back
     // 80 routes, 40 blue and 40 red routes.
     show_req = new ShowRouteReq;
     result = list_of(40)(40);
@@ -1953,7 +1945,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
         AddInetRoute(ip, peers_[0], "red");
     }
 
-    // (kMaxCount+1) routes. We should get [1.2.0.0 to 1.2.0.99] 
+    // (kMaxCount+1) routes. We should get [1.2.0.0 to 1.2.0.99]
     // i.e. 100 entries
     ShowRouteReq *show_req = new ShowRouteReq;
     vector<int> result = list_of(100);
@@ -1966,7 +1958,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req->Release();
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
-    // Fill values from next_batch above. We should get 
+    // Fill values from next_batch above. We should get
     // [1.2.0.100 to 1.2.0.199] i.e. 100 entries.
     show_req = new ShowRouteReq;
     show_req->set_start_routing_instance("red");
@@ -1982,7 +1974,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req->Release();
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
-    // Fill values from next_batch above. We should get 
+    // Fill values from next_batch above. We should get
     // [1.2.0.200 to 1.2.0.255] AND [1.2.1.0 to 1.2.1.43] i.e. (56+44)
     show_req = new ShowRouteReq;
     show_req->set_start_routing_instance("red");

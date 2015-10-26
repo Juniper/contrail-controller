@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/inet/inet_route.h"
 
 using std::copy;
 using std::string;

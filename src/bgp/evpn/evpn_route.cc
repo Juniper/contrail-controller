@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "bgp/evpn/evpn_table.h"
-#include "bgp/bgp_server.h"
 
 using std::copy;
 using std::string;

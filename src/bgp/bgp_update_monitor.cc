@@ -4,13 +4,10 @@
 
 #include "bgp/bgp_update_monitor.h"
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_ribout_updates.h"
-#include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_update_queue.h"
-#include "db/db.h"
 
 RouteUpdatePtr::RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
     tbb::mutex *monitor_mutexp, tbb::interface5::condition_variable *cond_var)

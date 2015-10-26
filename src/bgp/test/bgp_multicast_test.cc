@@ -4,21 +4,10 @@
 
 #include "bgp/bgp_multicast.h"
 
-#include "base/label_block.h"
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/ipeer.h"
-#include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "db/db_table.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 using namespace std;
 using namespace boost;

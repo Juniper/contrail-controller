@@ -4,7 +4,6 @@
 
 #include "bgp/extended-community/load_balance.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 using namespace std;

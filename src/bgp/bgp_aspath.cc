@@ -6,7 +6,6 @@
 
 #include <sstream>
 
-#include "base/util.h"
 #include "bgp/bgp_proto.h"
 
 using std::copy;

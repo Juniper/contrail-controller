@@ -4,13 +4,8 @@
 
 #include "bgp/bgp_multicast.h"
 
-#include <boost/bind.hpp>
 
 #include "base/task_annotations.h"
-#include "base/util.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_route.h"
-#include "bgp/ipeer.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"

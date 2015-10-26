@@ -3,26 +3,15 @@
  */
 #include <boost/uuid/random_generator.hpp>
 
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "db/db.h"
 #include "db/db_partition.h"
-#include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace std;
 

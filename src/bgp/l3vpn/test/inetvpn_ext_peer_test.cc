@@ -2,29 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 
-#include <boost/foreach.hpp>
 #include <fstream>
 
-#include "base/util.h"
-#include "base/task.h"
-#include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/community.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "db/db_table_partition.h"
 #include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace boost::asio;
 using namespace std;
@@ -32,11 +18,11 @@ using namespace std;
 class L3VPNExtPeerTest : public ::testing::Test {
   public:
     void TableListener(DBTablePartBase *root, DBEntryBase *entry) {
-        if (root->parent() == vpn_) 
+        if (root->parent() == vpn_)
             BGP_DEBUG_UT("VPN table notification");
-        if (root->parent() == red_) 
+        if (root->parent() == red_)
             BGP_DEBUG_UT("RED Inet table notification");
-        if (root->parent() == blue_) 
+        if (root->parent() == blue_)
             BGP_DEBUG_UT("BLUE Inet table notification");
 
         Route *rt = static_cast<Route *>(entry);
@@ -46,20 +32,20 @@ class L3VPNExtPeerTest : public ::testing::Test {
             return;
         }
 
-        Route::PathList::const_iterator it = rt->GetPathList().begin(); 
+        Route::PathList::const_iterator it = rt->GetPathList().begin();
 
         // Verify the attribute
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
         const BgpAttr* attr = path->GetAttr();
         const IPeer* peer = path->GetPeer();
 
-        BGP_DEBUG_UT("Route " << rt->ToString() << " from path " 
-            << ((peer) ? peer->ToString():"Nil") 
-            << (path->IsFeasible() ? " is Feasible " : " is not feasible") 
-            << " Origin : " << attr->origin() 
-            << " Local Pref : " << attr->local_pref() 
-            << " Nexthop : " << attr->nexthop().to_v4().to_string() 
-            << " Med : " << attr->med() 
+        BGP_DEBUG_UT("Route " << rt->ToString() << " from path "
+            << ((peer) ? peer->ToString():"Nil")
+            << (path->IsFeasible() ? " is Feasible " : " is not feasible")
+            << " Origin : " << attr->origin()
+            << " Local Pref : " << attr->local_pref()
+            << " Nexthop : " << attr->nexthop().to_v4().to_string()
+            << " Med : " << attr->med()
             << " Atomic Agg : " << attr->atomic_aggregate());
 
     }
@@ -71,7 +57,7 @@ protected:
 
     virtual void SetUp() {
         server_.session_manager()->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " << 
+        BGP_DEBUG_UT("Created server at port: " <<
             server_.session_manager()->GetPort());
 
         thread_.Start();
@@ -126,7 +112,7 @@ TEST_F(L3VPNExtPeerTest, Connection) {
     // Create RouteTarget Attr
     RouteTarget rt(RouteTarget::FromString("target:1:2"));
     ExtCommunitySpec extcommspec;
-    extcommspec.communities.push_back(get_value(rt.GetExtCommunity().begin(), 
+    extcommspec.communities.push_back(get_value(rt.GetExtCommunity().begin(),
                                                 8));
     BgpAttrNextHop nexthop(0xc0a801fd);
     BgpAttrOrigin origin(BgpAttrOrigin::IGP);

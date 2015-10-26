@@ -5,28 +5,16 @@
 #include "bgp/bgp_peer.h"
 
 #include <boost/assign/list_of.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/foreach.hpp>
-#include <boost/throw_exception.hpp>
-#include <boost/asio/ip/address.hpp>
-#include <boost/asio/ip/address_v6.hpp>
 
-#include "base/logging.h"
 #include "base/task_annotations.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_proto.h"
 #include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
-#include "bgp/state_machine.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
@@ -34,15 +22,9 @@
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/inet6/inet6_table.h"
-#include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
-#include "io/event_manager.h"
-#include "net/address.h"
-#include "net/bgp_af.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -401,7 +383,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
-    peer_info.set_peer_type(PeerType() == BgpProto::IBGP ? 
+    peer_info.set_peer_type(PeerType() == BgpProto::IBGP ?
                             "internal" : "external");
     peer_info.set_local_asn(local_as_);
     peer_info.set_peer_asn(peer_as_);
@@ -513,7 +495,7 @@ std::string BgpPeer::GetInuseAuthKeyValue() const {
 
 void BgpPeer::LogInstallAuthKeys(const std::string &oper,
                                  const AuthenticationKey &auth_key, KeyType key_type) {
-    std::string logstr = "Kernel " + oper + " of key id " 
+    std::string logstr = "Kernel " + oper + " of key id "
                           + integerToString(auth_key.id) + ", type "
                           + AuthenticationData::KeyTypeToString(key_type)
                           + " for peer " + peer_name_;
@@ -590,7 +572,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     peer_type_ = (peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP;
 
     if (old_type != PeerType()) {
-        peer_info.set_peer_type(PeerType() == BgpProto::IBGP ? 
+        peer_info.set_peer_type(PeerType() == BgpProto::IBGP ?
                                 "internal" : "external");
         policy_.type = peer_type_;
         policy_.as_number = peer_as_;
@@ -902,7 +884,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     const uint8_t restart_cap[2] = { 0x0, 0x0 };
     BgpProto::OpenMessage::Capability *cap =
         new BgpProto::OpenMessage::Capability(
-                          BgpProto::OpenMessage::Capability::GracefulRestart, 
+                          BgpProto::OpenMessage::Capability::GracefulRestart,
                           restart_cap, 2);
     opt_param->capabilities.push_back(cap);
 
@@ -1069,13 +1051,13 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
 
 void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
     BgpAttrPtr attr = server_->attr_db()->Locate(msg->path_attributes);
-    // Check as path loop and neighbor-as 
-    const BgpAttr *path_attr = attr.get(); 
+    // Check as path loop and neighbor-as
+    const BgpAttr *path_attr = attr.get();
     uint32_t flags = 0;
 
     if (path_attr->as_path() != NULL) {
         // Check whether neighbor has appended its AS to the AS_PATH
-        if ((PeerType() == BgpProto::EBGP) && 
+        if ((PeerType() == BgpProto::EBGP) &&
             (!path_attr->as_path()->path().AsLeftMostMatch(peer_as()))) {
             flags |= BgpPath::NoNeighborAs;
         }
@@ -1209,7 +1191,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
         }
 
         case Address::INETVPN: {
-            InetVpnTable *table = 
+            InetVpnTable *table =
               static_cast<InetVpnTable *>(instance->GetTable(family));
             assert(table);
 
@@ -1239,7 +1221,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
         }
 
         case Address::INET6VPN: {
-            Inet6VpnTable *table = 
+            Inet6VpnTable *table =
                 static_cast<Inet6VpnTable *>(instance->GetTable(family));
             assert(table);
 
@@ -1436,7 +1418,7 @@ void BgpPeer::StartEndOfRibTimer() {
     if (time_str) {
         timeout = strtoul(time_str, NULL, 0);
     }
-    end_of_rib_timer_->Start(timeout, 
+    end_of_rib_timer_->Start(timeout,
         boost::bind(&BgpPeer::EndOfRibTimerExpired, this),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -1617,7 +1599,7 @@ void BgpPeer::ManagedDelete() {
                  BGP_PEER_DIR_NA, "Received request for deletion");
     deleter_->Delete();
 }
- 
+
 void BgpPeer::RetryDelete() {
     if (!deleter_->IsDeleted())
         return;
@@ -1641,7 +1623,7 @@ static void FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
     proto_stats.close = stats.close;
     proto_stats.update = stats.update;
     proto_stats.notification = stats.notification;
-    proto_stats.total = stats.open + stats.keepalive + stats.close + 
+    proto_stats.total = stats.open + stats.keepalive + stats.close +
         stats.update + stats.notification;
 }
 
@@ -1672,7 +1654,7 @@ static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
     }
 }
 
-void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp, 
+void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
                                         const IPeerDebugStats *peer_state) {
     resp.set_last_state(peer_state->last_state());
     resp.set_last_event(peer_state->last_event());
@@ -1894,7 +1876,7 @@ uint64_t BgpPeer::get_update_error() const {
     return peer_stats_->error_stats_.update_error;
 }
 
-std::string BgpPeer::last_flap_at() const { 
+std::string BgpPeer::last_flap_at() const {
     if (last_flap_) {
         return integerToString(UTCUsecToPTime(last_flap_));
     } else {

@@ -7,31 +7,22 @@
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
-#include "db/db_graph.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
-#include "net/bgp_af.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using namespace std;
 using boost::assign::list_of;
@@ -742,7 +733,7 @@ TEST_F(ReplicationTest, IdentifySecondary)  {
 
 #if 0
     //
-    // Red path is better and is imported in blue. Now, Blue's best is the one 
+    // Red path is better and is imported in blue. Now, Blue's best is the one
     // imported from red. Hence its exported path into green should be gone by
     // now
     VERIFY_EQ(0, InetRouteLookup("green", "10.0.1.1/32"));

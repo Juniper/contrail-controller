@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "base/parse_object.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 
 using std::copy;

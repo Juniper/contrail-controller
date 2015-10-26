@@ -5,11 +5,8 @@
 #include "bgp/routing-instance/peer_manager.h"
 
 #include "base/task_annotations.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 
 struct BgpSandeshContext;

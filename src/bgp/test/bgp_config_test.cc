@@ -2,35 +2,23 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_config.h"
 
 #include <fstream>
-#include <boost/algorithm/string/replace.hpp>
 
-#include "base/logging.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_server.h"
-#include "bgp/state_machine.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -919,7 +907,7 @@ TEST_F(BgpConfigTest, InstancesDelayDelete) {
     dbReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     string tbl_name("red.inet.0");
-    BgpTable *table = 
+    BgpTable *table =
         static_cast<BgpTable *>(server_.database()->FindTable(tbl_name));
     table->Enqueue(&dbReq);
 
@@ -988,7 +976,7 @@ TEST_F(BgpConfigTest, UpdatePendingDelete) {
     dbReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     string tbl_name("red.inet.0");
-    BgpTable *table = 
+    BgpTable *table =
         static_cast<BgpTable *>(server_.database()->FindTable(tbl_name));
     table->Enqueue(&dbReq);
 
@@ -1075,7 +1063,7 @@ TEST_F(BgpConfigTest, DeletePendingDelete) {
     dbReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     string tbl_name("red.inet.0");
-    BgpTable *table = 
+    BgpTable *table =
         static_cast<BgpTable *>(server_.database()->FindTable(tbl_name));
     table->Enqueue(&dbReq);
 

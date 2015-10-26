@@ -4,7 +4,6 @@
 
 #include "bgp/bgp_update_queue.h"
 
-#include "base/logging.h"
 
 //
 // Initialize the UpdateQueue and add the tail marker to the FIFO.

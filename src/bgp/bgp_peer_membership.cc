@@ -4,27 +4,17 @@
 
 #include "bgp/bgp_peer_membership.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 
 #include <boost/assign/list_of.hpp>
-#include <boost/bind.hpp>
-#include <tbb/mutex.h>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_table.h"
-#include "bgp/bgp_update_queue.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/scheduling_group.h"
-#include "db/db.h"
 
 using std::vector;
 

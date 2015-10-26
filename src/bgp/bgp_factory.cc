@@ -29,7 +29,6 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, RibOutUpdates, RibOutUpdates);
 #include "bgp/routing-instance/peer_manager.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerManager, PeerManager);
 
-#include "bgp/routing-instance/routing_instance.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstance, RoutingInstance);
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstanceMgr,
     RoutingInstanceMgr);
@@ -37,13 +36,11 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstanceMgr,
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RTargetGroupMgr, RTargetGroupMgr);
 
-#include "bgp/bgp_peer_close.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerCloseManager, PeerCloseManager);
 
 #include "bgp/scheduling_group.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, SchedulingGroup, SchedulingGroup);
 
-#include "bgp/state_machine.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, StateMachine, StateMachine);
 
 #include "bgp/bgp_multicast.h"

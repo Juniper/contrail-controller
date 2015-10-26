@@ -4,7 +4,6 @@
 
 #include "bgp/origin-vn/origin_vn.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 using namespace std;

@@ -3,23 +3,14 @@
  */
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
 #include <utility>
 
 #include "base/map_util.h"
 #include "base/set_util.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
-#include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/rtarget_group.h"
-#include "bgp/rtarget/rtarget_address.h"
 #include "bgp/rtarget/rtarget_route.h"
 
 using std::pair;

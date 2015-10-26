@@ -4,7 +4,6 @@
 
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 using namespace std;

@@ -4,31 +4,17 @@
 
 #include "bgp/routing-instance/routepath_replicator.h"
 
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_trace.h>
 
 #include <utility>
 
 #include "base/set_util.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/task_trigger.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/routing_instance_analytics_types.h"
-#include "db/db_table_partition.h"
-#include "db/db_table_walker.h"
 
 using std::ostringstream;
 using std::make_pair;

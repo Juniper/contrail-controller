@@ -4,17 +4,11 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/bind.hpp>
-#include <boost/foreach.hpp>
 
-#include "base/time_util.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"
-#include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/service_chaining_types.h"
-#include "bgp/routing-instance/service_chaining_internal_types.h"
 #include "net/address_util.h"
 
 using std::string;

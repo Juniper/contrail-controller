@@ -5,7 +5,6 @@
 #include "bgp/bgp_attr_base.h"
 
 #include <cstdio>
-#include "base/util.h"
 
 const size_t BgpProtoPrefix::kLabelSize = 3;
 

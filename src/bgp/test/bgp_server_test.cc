@@ -2,24 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_server.h"
 
-#include "base/logging.h"
-#include "base/task.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/state_machine.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace boost::asio;
 using namespace std;
@@ -283,7 +275,7 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
     config << (!delete_config ? "<config>" : "<delete>");
     config << "<bgp-router name=\'A\'>"
         "<autonomous-system>" << as_num1 << "</autonomous-system>"
-        "<local-autonomous-system>" << local_as_num1 
+        "<local-autonomous-system>" << local_as_num1
                                     << "</local-autonomous-system>"
         "<identifier>" << bgp_identifier1 << "</identifier>"
         "<address>" << peer_address1 << "</address>"
@@ -395,7 +387,7 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
 
 void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
         unsigned short port_a, unsigned short port_b,
-        bool verify_keepalives, vector<ConfigUTAuthKeyItem> auth_keys, 
+        bool verify_keepalives, vector<ConfigUTAuthKeyItem> auth_keys,
         as_t as_num1, as_t as_num2, string peer_address1, string peer_address2,
         string bgp_identifier1, string bgp_identifier2,
         vector<string> families1, vector<string> families2,
@@ -413,7 +405,7 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
 
 void BgpServerUnitTest::SetupPeers(int peer_count,
         unsigned short port_a, unsigned short port_b,
-        bool verify_keepalives, vector<ConfigUTAuthKeyItem> auth_keys, 
+        bool verify_keepalives, vector<ConfigUTAuthKeyItem> auth_keys,
         as_t as_num1, as_t as_num2,
         string peer_address1, string peer_address2,
         string bgp_identifier1, string bgp_identifier2,
@@ -573,8 +565,8 @@ TEST_F(BgpServerUnitTest, BasicMd5Check) {
     TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey1"));
     TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ESTABLISHED);
     TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::ESTABLISHED);
-    uint32_t check_count = 
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    uint32_t check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
     StateMachineTest::set_keepalive_time_msecs(0);
@@ -603,8 +595,8 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::ESTABLISHED);
     uint32_t rx_ka_a = peer_a->get_rx_keepalive();
     uint32_t rx_ka_b = peer_b->get_rx_keepalive();
-    uint32_t check_count = 
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    uint32_t check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
     EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
@@ -622,8 +614,8 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey1"));
     rx_ka_a = peer_a->get_rx_keepalive();
     rx_ka_b = peer_b->get_rx_keepalive();
-    check_count = 
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
     EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
@@ -633,8 +625,8 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     usleep(100000); // 100ms
     EXPECT_EQ(peer_a->GetState(), StateMachine::ESTABLISHED);
     EXPECT_EQ(peer_b->GetState(), StateMachine::ESTABLISHED);
-    check_count = 
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
     EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
@@ -651,8 +643,8 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare(""));
     rx_ka_a = peer_a->get_rx_keepalive();
     rx_ka_b = peer_b->get_rx_keepalive();
-    check_count = 
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
     EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
@@ -695,8 +687,8 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     usleep(100000); // 100ms
     rx_ka_a = peer_a->get_rx_keepalive();
     rx_ka_b = peer_b->get_rx_keepalive();
-    uint32_t check_count = 
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    uint32_t check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
 
@@ -731,7 +723,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey3"));
     rx_ka_a = peer_a->get_rx_keepalive();
     rx_ka_b = peer_b->get_rx_keepalive();
-    check_count = peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+    check_count = peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
     EXPECT_GT(peer_a->get_rx_keepalive(), rx_ka_a);
@@ -748,7 +740,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     rx_ka_a = peer_a->get_rx_keepalive();
     rx_ka_b = peer_b->get_rx_keepalive();
     check_count =
-        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ?
         peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
     VerifyPeers(peer_count, check_count + 10);
 
