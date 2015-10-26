@@ -72,6 +72,7 @@ public:
                        DnsConfigManager::EventType event);
     void ProcessAgentUpdate(BindUtil::Operation event, const std::string &name,
                             const std::string &vdns_name, const DnsItem &item);
+    bool IsBindStatusUp() { return bind_status_.IsUp(); }
 
 private:
     friend class DnsBindTest;
