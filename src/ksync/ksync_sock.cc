@@ -262,7 +262,7 @@ void KSyncSock::SetNetlinkFamilyId(int id) {
     vnsw_netlink_family_id_ = id;
     for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
          it != sock_table_.end(); it++) {
-        KSyncSockNetlink *sock = dynamic_cast<KSyncSockNetlink *>(*it);
+        KSyncSock *sock = dynamic_cast<KSyncSock *>(*it);
         if (sock) {
             InitNetlink(sock->nl_client_);
         }
